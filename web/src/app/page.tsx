@@ -117,8 +117,8 @@ export default function HomePage() {
               </div>
 
               {/* Right Column: Hero Visual Block matching exact script.google.com layout */}
-              <div className="lg:col-span-5 relative min-h-[420px] sm:min-h-[460px] h-[420px] sm:h-[460px] z-2">
-                {/* 1. Main Card (.hv-main): top:0, right:0, width:78%, height:66% */}
+              <div className="lg:col-span-5 relative min-h-[460px] h-[460px] z-2">
+                {/* 1. Main Card (.hv-main): top:0, right:0, width:78%, height:66%, border-radius:26px */}
                 <div className="absolute top-0 right-0 w-[78%] h-[66%] rounded-[26px] overflow-hidden border border-[#2fd39a]/35 shadow-2xl z-10 group">
                   <img
                     src="/images/tbs-hands.png"
@@ -127,7 +127,7 @@ export default function HomePage() {
                   />
                 </div>
 
-                {/* 2. Sub Card (.hv-sub): bottom:0, left:0, width:52%, height:44%, border 3px white */}
+                {/* 2. Sub Card (.hv-sub): bottom:0, left:0, width:52%, height:44%, border-radius:22px, border:3px solid white */}
                 <div className="absolute bottom-0 left-0 w-[52%] h-[44%] rounded-[22px] overflow-hidden border-[3px] border-white/95 shadow-2xl z-20 hover:scale-[1.03] transition-transform duration-300 group/card">
                   <img
                     src="/images/tbs-team-banner.png"
@@ -136,10 +136,10 @@ export default function HomePage() {
                   />
                 </div>
 
-                {/* 3. Dark Quote Badge (.hv-badge): bottom:14%, right:-2% */}
+                {/* 3. Dark Quote Badge (.hv-badge): bottom:14%, right:-2%, border-radius:20px, max-width:220px */}
                 <div className="absolute bottom-[14%] -right-2 z-30 bg-[#08221a]/85 backdrop-blur-[14px] border border-[#2fd39a]/42 rounded-[20px] p-[15px_19px] max-w-[220px] shadow-2xl">
                   <div className="w-[40px] h-[2.5px] bg-gradient-to-r from-[#2fd39a] to-[#1fae7d] rounded-full mb-[10px]" />
-                  <p className="font-serif italic text-white text-[16px] leading-[1.4]">
+                  <p className="font-serif italic text-white text-[17px] leading-[1.4]">
                     &ldquo;Chung sức kiến tạo tương lai&rdquo;
                   </p>
                 </div>
@@ -160,24 +160,24 @@ export default function HomePage() {
 
         {/* ════════════════════════════════════════════════════════════════
             MODULE 2 — BRAND-STRIP (#brand-strip)
-            Full-width dark background strip with infinite marquee sliding left
+            Full-width dark background strip matching exact 150px x 74px strip-item cards
            ════════════════════════════════════════════════════════════════ */}
         <section
           id="brand-strip"
-          className="py-6 sm:py-7 bg-[#061a14] border-y border-[#2fd39a]/20 overflow-hidden relative"
+          className="py-7 bg-[#0b3226] border-y border-[#2fd39a]/16 overflow-hidden relative"
         >
-          {/* Subtle gradient side fades */}
-          <div className="absolute left-0 top-0 bottom-0 w-16 sm:w-28 bg-gradient-to-r from-[#061a14] to-transparent z-10 pointer-events-none" />
-          <div className="absolute right-0 top-0 bottom-0 w-16 sm:w-28 bg-gradient-to-l from-[#061a14] to-transparent z-10 pointer-events-none" />
+          {/* Subtle gradient side fades (120px) */}
+          <div className="absolute left-0 top-0 bottom-0 w-[120px] bg-gradient-to-r from-[#0b3226] to-transparent z-10 pointer-events-none" />
+          <div className="absolute right-0 top-0 bottom-0 w-[120px] bg-gradient-to-l from-[#0b3226] to-transparent z-10 pointer-events-none" />
 
           <div className="w-full text-center space-y-4">
-            <h3 className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-[#f2dc9a]">
+            <h3 className="text-[10px] font-semibold uppercase tracking-[3.5px] text-[#f2dc9a]/70">
               ĐỐI TÁC THƯƠNG HIỆU TIN CẬY &amp; HỆ THỐNG CUNG ỨNG
             </h3>
 
-            {/* Continuous Infinite Marquee Row Sliding Left */}
-            <div className="overflow-hidden w-full flex items-center py-0.5">
-              <div className="animate-marquee-left flex items-center gap-3">
+            {/* Continuous Infinite Marquee Row Sliding Left (150px x 74px rounded-14px cards) */}
+            <div className="overflow-hidden w-full flex items-center py-1">
+              <div className="animate-marquee-left flex items-center gap-[26px]">
                 {[
                   "SKECHERS GLOBAL",
                   "TBS GROUP LOGISTICS",
@@ -196,9 +196,9 @@ export default function HomePage() {
                 ].map((brand, idx) => (
                   <div
                     key={idx}
-                    className="flex-none px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/10 hover:border-[#2fd39a]/50 transition-all duration-200 flex items-center justify-center min-w-[160px] sm:min-w-[180px] shadow-md backdrop-blur-sm group cursor-pointer"
+                    className="flex-shrink-0 flex items-center justify-center w-[150px] h-[74px] rounded-[14px] px-[18px] py-[14px] bg-white border border-white/20 shadow-[0_8px_22px_rgba(0,0,0,0.12)] hover:-translate-y-1 hover:shadow-[0_14px_30px_rgba(0,0,0,0.2)] transition-all duration-300 group cursor-pointer"
                   >
-                    <span className="text-[11px] font-bold font-mono text-gray-200 group-hover:text-[#2fd39a] tracking-wider transition-colors">
+                    <span className="font-serif text-[15px] font-bold text-[#132019] group-hover:text-[#1fae7d] tracking-wide text-center leading-tight transition-colors">
                       {brand}
                     </span>
                   </div>

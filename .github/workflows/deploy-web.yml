@@ -32,16 +32,20 @@ jobs:
           cd web
           npm run build
 
-      - name: Check Cloudflare Credentials
-        run: |
-          if [ -z "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]; then
-            echo "⚠️ CLOUDFLARE_API_TOKEN is not set in GitHub Secrets yet."
-            echo "Please add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID to https://github.com/tbsgroup2026/vpchuoiskechers/settings/secrets/actions"
-          fi
-
       - name: Deploy to Cloudflare Workers
-        if: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
         run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "================================================================================="
+            echo "⚠️ CLOUDFLARE_API_TOKEN CHƯA ĐƯỢC CẤP TRONG GITHUB SECRETS"
+            echo "---------------------------------------------------------------------------------"
+            echo "Để tự động deploy lên Cloudflare mới, vui lòng truy cập:"
+            echo "👉 https://github.com/tbsgroup2026/vpchuoiskechers/settings/secrets/actions"
+            echo "Tạo 2 Secrets:"
+            echo "  1. CLOUDFLARE_API_TOKEN"
+            echo "  2. CLOUDFLARE_ACCOUNT_ID"
+            echo "================================================================================="
+            exit 0
+          fi
           cd web
           npx wrangler deploy
         env:

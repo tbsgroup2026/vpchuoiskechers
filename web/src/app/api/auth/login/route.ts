@@ -10,17 +10,68 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Vui lòng nhập mã nhân viên và mật khẩu' }, { status: 400 });
     }
 
-    // Default Super Admin bypass for setup & demonstration
+    // User 0.1: Phạm Nguyễn Anh Huy - IT Team Số Hóa (Super Admin)
+    if (empCode === '202608001' && password === '21032004') {
+      const payload = {
+        userId: 100,
+        empCode: '202608001',
+        name: 'Phạm Nguyễn Anh Huy',
+        title: 'IT - Team Số Hóa',
+        roleId: 1,
+        roleCode: 'SUPER_ADMIN',
+        roleLevel: 1,
+        departmentId: 11,
+        departmentCode: 'IT_SO_HOA',
+        departmentName: 'IT - Team Số Hóa',
+      };
+
+      const token = await signToken(payload);
+
+      return NextResponse.json({
+        success: true,
+        token,
+        user: payload,
+        redirectUrl: '/dashboard',
+      });
+    }
+
+    // User 0.2: Trần Ngọc Huy - IT Team Số Hóa (Super Admin)
+    if (empCode === '202608002' && password === '123456') {
+      const payload = {
+        userId: 101,
+        empCode: '202608002',
+        name: 'Trần Ngọc Huy',
+        title: 'IT - Team Số Hóa',
+        roleId: 1,
+        roleCode: 'SUPER_ADMIN',
+        roleLevel: 1,
+        departmentId: 11,
+        departmentCode: 'IT_SO_HOA',
+        departmentName: 'IT - Team Số Hóa',
+      };
+
+      const token = await signToken(payload);
+
+      return NextResponse.json({
+        success: true,
+        token,
+        user: payload,
+        redirectUrl: '/dashboard',
+      });
+    }
+
+    // Demo user 1: Super Admin / Trưởng phòng SKECHERS
     if ((empCode === 'admin@tbsgroup.vn' || empCode === 'EMP-001') && password === 'Admin@123456') {
       const payload = {
         userId: 1,
         empCode: 'EMP-001',
-        name: 'Super Administrator',
+        name: 'Trưởng Phòng Chuỗi SKECHERS',
         roleId: 1,
         roleCode: 'SUPER_ADMIN',
         roleLevel: 1,
         departmentId: 1,
-        departmentCode: 'IT',
+        departmentCode: 'KE_HOACH_CBVT',
+        departmentName: 'Kế Hoạch & Cung Ứng Vật Tư SKECHERS',
       };
 
       const token = await signToken(payload);
@@ -30,7 +81,31 @@ export async function POST(request: Request) {
         success: true,
         token,
         user: payload,
-        redirectUrl,
+        redirectUrl: '/dashboard',
+      });
+    }
+
+    // Demo user 2: Staff / CBCNV Thường
+    if (empCode === 'EMP-002' && password === 'User@123456') {
+      const payload = {
+        userId: 2,
+        empCode: 'EMP-002',
+        name: 'Nguyễn Văn Nhân Viên SKECHERS',
+        roleId: 4,
+        roleCode: 'STAFF',
+        roleLevel: 4,
+        departmentId: 2,
+        departmentCode: 'SAN_XUAT',
+        departmentName: 'Phòng Sản Xuất Giày SKECHERS',
+      };
+
+      const token = await signToken(payload);
+
+      return NextResponse.json({
+        success: true,
+        token,
+        user: payload,
+        redirectUrl: '/dashboard',
       });
     }
 

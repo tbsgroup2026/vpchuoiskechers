@@ -23,18 +23,18 @@ export interface TimelineEvent {
 }
 
 export const COMPANY_INFO = {
-  name: "TBS Group — Tập Đoàn Sản Xuất & Đầu Tư Đa Ngành",
-  shortName: "TBS Group",
-  subTitle: "Tổ Hợp Giày Thoại Sơn & Hệ Thống Nhà Máy Thông Minh",
-  slogan: "Thế giới làm được, ắt ta sẽ làm được",
+  name: "Văn Phòng Chuỗi SKECHERS - TBS Group",
+  shortName: "Văn Phòng Chuỗi SKECHERS - TBS Group",
+  subTitle: "Hệ Thống Quản Trị Vận Hành Chuỗi Cung Ứng & Sản Xuất SKECHERS",
+  slogan: "Nâng Tầm Chuỗi Cung Ứng — Vận Hành Chuẩn Quốc Tế",
   intro:
-    "Sau hơn ba thập kỷ đổi mới sáng tạo, TBS Group dẫn đầu 6 lĩnh vực kinh doanh trụ cột, tiên phong chuyển đổi số toàn bộ quy trình vận hành và quản lý sản xuất nhà máy công nghệ cao.",
+    "Văn Phòng Chuỗi SKECHERS - TBS Group là trung tâm điều hành vận hành chuỗi cung ứng sản xuất các dòng sản phẩm SKECHERS tại khu vực ZONE II của TBS Group, chuyển đổi số toàn diện quy trình Gemba Walk, Cải tiến CI, Kaizen và quản trị hằng ngày.",
   contact: {
     address:
-      "Ấp Thanh niên, TT. Phú Hòa, Huyện Thoại Sơn, Tỉnh An Giang, Việt Nam",
+      "Khu Công Nghiệp TBS Group — Khu Vực ZONE II, An Giang / Bình Dương, Việt Nam",
     headquarter: "Số 5, Đường ĐT 743, Phường An Bình, TP. Dĩ An, Bình Dương",
     phone: "0296 3878 099",
-    email: "info@tbsgroup.vn",
+    email: "skechers-office@tbsgroup.vn",
     website: "https://www.tbsgroup.vn",
   },
 };

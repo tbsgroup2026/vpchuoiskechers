@@ -11,15 +11,17 @@ const vietnamPro = Be_Vietnam_Pro({
 });
 
 export const metadata: Metadata = {
-  title: "TBS Group — Thoại Sơn Digital Factory",
+  title: "Văn Phòng Chuỗi SKECHERS - TBS Group",
   description:
-    "Hệ thống số hóa sản xuất toàn diện và quản trị quy trình doanh nghiệp TBS II. Thay thế hoàn toàn giấy tờ truyền thống.",
+    "Hệ thống quản trị vận hành chuỗi cung ứng và sản xuất SKECHERS - TBS Group (Gemba Walk, Cải tiến CI, Kaizen, Biểu mẫu, BI Dashboard 24/7).",
   keywords:
-    "TBS Group, Thoại Sơn Shoes, Da giày Thoại Sơn, Chuyển đổi số, TBS II, Quản lý sản xuất, Bảo trì máy móc",
+    "Văn Phòng Chuỗi SKECHERS - TBS Group, SKECHERS, TBS Group, Gemba Walk, CI, Kaizen, Quản trị hằng ngày, Quản lý nhà máy",
+  manifest: "/manifest.json",
+  themeColor: "#08221a",
   openGraph: {
-    title: "TBS Group — Thoại Sơn Digital Factory",
+    title: "Văn Phòng Chuỗi SKECHERS - TBS Group",
     description:
-      "Hệ thống quản trị quy trình số hóa toàn diện nhà máy TBS Thoại Sơn.",
+      "Trung tâm điều hành và quản trị số hoá vận hành chuỗi cung ứng SKECHERS - TBS Group.",
     type: "website",
   },
 };

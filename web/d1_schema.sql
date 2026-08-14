@@ -251,3 +251,10 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     ip_address TEXT,
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 11. SEED SUPER ADMIN USERS
+INSERT OR IGNORE INTO users (id, emp_code, email, name, phone, password_hash, role_id, department_id, status)
+VALUES (100, '202608001', 'anhhuy@tbsgroup.vn', 'Phạm Nguyễn Anh Huy', '0900000000', '21032004', 1, 11, 'ACTIVE');
+
+INSERT OR IGNORE INTO users (id, emp_code, email, name, phone, password_hash, role_id, department_id, status)
+VALUES (101, '202608002', 'ngochuy@tbsgroup.vn', 'Trần Ngọc Huy', '0900000001', '123456', 1, 11, 'ACTIVE');

@@ -3,20 +3,28 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-
-function getBaseUrl(): string {
-  if (typeof window === "undefined") return "";
-  const host = window.location.hostname;
-  if (host === "localhost" || host === "127.0.0.1") {
-    return "http://localhost:8000";
-  }
-  return `https://${host}`;
-}
+import {
+  IconUser,
+  IconLock,
+  IconEye,
+  IconEyeOff,
+  IconSparkles,
+  IconShieldCheck,
+  IconChartBar,
+  IconCamera,
+  IconBuildingFactory,
+  IconArrowRight,
+  IconChevronDown,
+  IconBuildingStore,
+} from "@tabler/icons-react";
 
 export default function LoginPage() {
   const router = useRouter();
+  const [activeTab, setActiveTab] = useState<"login" | "register">("login");
   const [empCode, setEmpCode] = useState("");
   const [password, setPassword] = useState("");
+  const [group, setGroup] = useState("ZONE_II");
+  const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -27,545 +35,304 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const baseUrl = getBaseUrl();
-      const isLocalDev =
-        window.location.hostname === "localhost" ||
-        window.location.hostname === "127.0.0.1";
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ empCode, password }),
+      });
 
-      let res: Response;
-
-      if (isLocalDev) {
-        res = await fetch("/api/auth/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ empCode, password }),
-        });
-
-        const contentType = res.headers.get("content-type") || "";
-        if (!contentType.includes("application/json")) {
-          res = await fetch(`${baseUrl}/api/auth/login`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email: empCode, password }),
-          });
-        }
-      } else {
-        res = await fetch(`${baseUrl}/api/auth/login`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: empCode, password }),
-        });
-      }
-
-      const text = await res.text();
-      let data: Record<string, unknown> = {};
-      try {
-        data = JSON.parse(text);
-      } catch {
-        throw new Error(
-          text
-            ? `Phản hồi không hợp lệ từ máy chủ: ${text.slice(0, 100)}`
-            : "Máy chủ không phản hồi — kiểm tra backend đang chạy trên cổng 8000"
-        );
-      }
+      const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(
-          (data.message as string) ||
-          (data.error as string) ||
-          "Sai mã nhân viên hoặc mật khẩu"
-        );
+        throw new Error(data.error || "Sai mã nhân viên hoặc mật khẩu");
       }
 
       document.cookie = `tbs_token=${data.token}; path=/; max-age=86400`;
-
-      const redirectUrl =
-        (data.redirectUrl as string) ||
-        ((data.user as Record<string, unknown>)?.role === "SUPER_ADMIN"
-          ? "/admin/users"
-          : "/dashboard");
-
-      router.push(redirectUrl);
+      router.push(data.redirectUrl || "/dashboard");
     } catch (err: unknown) {
-      if (err instanceof TypeError && err.message === "Failed to fetch") {
-        setError("Không thể kết nối đến máy chủ.");
-      } else {
-        const message =
-          err instanceof Error ? err.message : "Có lỗi xảy ra khi đăng nhập";
-        setError(message);
-      }
+      const message =
+        err instanceof Error ? err.message : "Có lỗi xảy ra khi đăng nhập";
+      setError(message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
-
-        .login-root {
-          min-height: 100dvh;
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          font-family: 'Inter', system-ui, sans-serif;
-          background: #0b1e16;
-        }
-
-        /* ── Left panel ── */
-        .login-left {
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-          padding: 48px 56px;
-          border-right: 1px solid rgba(255,255,255,0.06);
-          position: relative;
-          overflow: hidden;
-        }
-
-        .login-left::before {
-          content: '';
-          position: absolute;
-          inset: 0;
-          background:
-            radial-gradient(ellipse 60% 50% at 30% 20%, rgba(47,211,154,0.07) 0%, transparent 70%),
-            radial-gradient(ellipse 40% 60% at 80% 80%, rgba(47,211,154,0.04) 0%, transparent 70%);
-          pointer-events: none;
-        }
-
-        .left-brand {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-
-        .left-brand img {
-          height: 32px;
-          width: auto;
-          filter: brightness(0) invert(1);
-          opacity: 0.9;
-        }
-
-        .left-brand-divider {
-          width: 1px;
-          height: 18px;
-          background: rgba(255,255,255,0.2);
-        }
-
-        .left-brand-label {
-          font-size: 11px;
-          font-weight: 600;
-          color: rgba(255,255,255,0.4);
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-        }
-
-        .left-content {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          padding: 40px 0;
-        }
-
-        .left-tag {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          font-size: 11px;
-          font-weight: 500;
-          color: #2fd39a;
-          letter-spacing: 0.04em;
-          margin-bottom: 24px;
-        }
-
-        .left-tag-dot {
-          width: 6px;
-          height: 6px;
-          border-radius: 50%;
-          background: #2fd39a;
-          animation: pulse-dot 2s ease-in-out infinite;
-        }
-
-        @keyframes pulse-dot {
-          0%, 100% { opacity: 1; transform: scale(1); }
-          50% { opacity: 0.4; transform: scale(0.8); }
-        }
-
-        .left-heading {
-          font-size: 38px;
-          font-weight: 600;
-          color: #fff;
-          line-height: 1.15;
-          letter-spacing: -0.025em;
-          margin: 0 0 16px 0;
-          text-wrap: balance;
-        }
-
-        .left-heading span {
-          color: #2fd39a;
-        }
-
-        .left-desc {
-          font-size: 14px;
-          color: rgba(255,255,255,0.45);
-          line-height: 1.65;
-          max-width: 340px;
-          margin: 0;
-        }
-
-        .left-stats {
-          display: flex;
-          gap: 32px;
-          margin-top: 48px;
-        }
-
-        .stat-item {
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-        }
-
-        .stat-value {
-          font-size: 22px;
-          font-weight: 600;
-          color: #fff;
-          letter-spacing: -0.02em;
-        }
-
-        .stat-label {
-          font-size: 11px;
-          color: rgba(255,255,255,0.35);
-          font-weight: 500;
-        }
-
-        .left-footer {
-          font-size: 12px;
-          color: rgba(255,255,255,0.25);
-        }
-
-        /* ── Right panel ── */
-        .login-right {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 48px 56px;
-          background: #0d2419;
-        }
-
-        .login-form-wrap {
-          width: 100%;
-          max-width: 360px;
-        }
-
-        .form-header {
-          margin-bottom: 36px;
-        }
-
-        .form-title {
-          font-size: 20px;
-          font-weight: 600;
-          color: #fff;
-          letter-spacing: -0.015em;
-          margin: 0 0 6px 0;
-        }
-
-        .form-subtitle {
-          font-size: 13px;
-          color: rgba(255,255,255,0.4);
-          margin: 0;
-        }
-
-        .form-group {
-          margin-bottom: 16px;
-        }
-
-        .form-label {
-          display: block;
-          font-size: 12px;
-          font-weight: 500;
-          color: rgba(255,255,255,0.55);
-          margin-bottom: 7px;
-          letter-spacing: 0.01em;
-        }
-
-        .form-input {
-          width: 100%;
-          padding: 10px 14px;
-          background: rgba(255,255,255,0.04);
-          border: 1px solid rgba(255,255,255,0.1);
-          border-radius: 8px;
-          color: #fff;
-          font-size: 14px;
-          font-family: inherit;
-          transition: border-color 0.15s, background 0.15s;
-          box-sizing: border-box;
-          outline: none;
-        }
-
-        .form-input::placeholder {
-          color: rgba(255,255,255,0.2);
-        }
-
-        .form-input:focus {
-          border-color: rgba(47,211,154,0.5);
-          background: rgba(47,211,154,0.04);
-        }
-
-        .password-wrap {
-          position: relative;
-        }
-
-        .password-wrap .form-input {
-          padding-right: 42px;
-        }
-
-        .toggle-pw {
-          position: absolute;
-          right: 12px;
-          top: 50%;
-          transform: translateY(-50%);
-          background: none;
-          border: none;
-          cursor: pointer;
-          color: rgba(255,255,255,0.3);
-          padding: 0;
-          display: flex;
-          align-items: center;
-          transition: color 0.15s;
-        }
-
-        .toggle-pw:hover {
-          color: rgba(255,255,255,0.6);
-        }
-
-        .error-bar {
-          display: flex;
-          align-items: flex-start;
-          gap: 8px;
-          padding: 10px 12px;
-          background: rgba(239,68,68,0.08);
-          border: 1px solid rgba(239,68,68,0.2);
-          border-radius: 8px;
-          margin-bottom: 16px;
-          font-size: 13px;
-          color: #fca5a5;
-          line-height: 1.5;
-        }
-
-        .error-bar svg {
-          flex-shrink: 0;
-          margin-top: 1px;
-        }
-
-        .submit-btn {
-          width: 100%;
-          padding: 11px 20px;
-          background: #2fd39a;
-          border: none;
-          border-radius: 8px;
-          color: #0b1e16;
-          font-size: 14px;
-          font-weight: 600;
-          font-family: inherit;
-          cursor: pointer;
-          margin-top: 8px;
-          transition: background 0.15s, transform 0.1s, opacity 0.15s;
-          letter-spacing: -0.01em;
-        }
-
-        .submit-btn:hover:not(:disabled) {
-          background: #26bc88;
-        }
-
-        .submit-btn:active:not(:disabled) {
-          transform: scale(0.99);
-        }
-
-        .submit-btn:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-
-        .form-footer {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-top: 28px;
-          padding-top: 20px;
-          border-top: 1px solid rgba(255,255,255,0.06);
-        }
-
-        .form-footer-note {
-          font-size: 12px;
-          color: rgba(255,255,255,0.25);
-        }
-
-        .form-footer-link {
-          font-size: 12px;
-          color: rgba(255,255,255,0.4);
-          text-decoration: none;
-          transition: color 0.15s;
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-        }
-
-        .form-footer-link:hover {
-          color: rgba(255,255,255,0.7);
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-          .login-root {
-            grid-template-columns: 1fr;
-          }
-          .login-left {
-            display: none;
-          }
-          .login-right {
-            padding: 40px 24px;
-          }
-        }
-      `}</style>
-
-      <div className="login-root">
-        {/* Left panel */}
-        <aside className="login-left">
-          <div className="left-brand">
-            <img src="/images/tbs-logo.png" alt="TBS Group" />
-            <div className="left-brand-divider" />
-            <span className="left-brand-label">Hệ thống nội bộ</span>
+    <div className="min-h-screen flex flex-col md:flex-row bg-[#08221a] font-sans antialiased text-white selection:bg-[#2fd39a] selection:text-[#08221a]">
+      {/* ════════════════════════════════════════════════════════════════
+          CỘT TRÁI — FORM ĐĂNG NHẬP (Nền trắng / Sáng, ~45% Desktop, 100% Mobile)
+         ════════════════════════════════════════════════════════════════ */}
+      <div className="w-full md:w-[45%] lg:w-[42%] bg-white text-gray-900 flex flex-col justify-between p-6 sm:p-10 lg:p-14 shadow-2xl relative z-10">
+        <div>
+          {/* Header nhỏ trên cùng */}
+          <div className="flex items-center justify-between pb-6 border-b border-gray-100 mb-8">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#08221a] to-[#0f4133] text-[#2fd39a] font-extrabold text-sm flex items-center justify-center font-mono">
+                SKS
+              </div>
+              <div className="flex flex-col">
+                <span className="text-xs font-black tracking-wider uppercase text-[#08221a]">
+                  SKECHERS - TBS GROUP
+                </span>
+                <span className="text-[10px] text-gray-500 uppercase tracking-widest font-semibold">
+                  KHU VỰC ZONE II — THOẠI SƠN
+                </span>
+              </div>
+            </div>
+            <Link
+              href="/"
+              className="text-xs font-bold text-gray-500 hover:text-[#08221a] transition-colors"
+            >
+              Về trang chủ
+            </Link>
           </div>
 
-          <div className="left-content">
-            <div className="left-tag">
-              <span className="left-tag-dot" />
-              Hệ thống đang hoạt động
-            </div>
-
-            <h1 className="left-heading">
-              Vận hành nhà máy<br />
-              <span>không giấy tờ</span>
+          {/* Tiêu đề chào mừng */}
+          <div className="space-y-2 mb-8">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-[#08221a] tracking-tight">
+              Chào mừng đến <br />
+              <span className="text-[#0f4133]">Văn Phòng Chuỗi SKECHERS</span>
             </h1>
-
-            <p className="left-desc">
-              Số hóa biểu mẫu, quản lý bảo trì máy móc và theo dõi vận hành sản xuất theo thời gian thực cho toàn bộ hệ thống nhà máy TBS Group.
+            <p className="text-xs sm:text-sm text-gray-500 leading-relaxed">
+              Hệ thống quản trị vận hành chuỗi cung ứng SKECHERS - TBS Group
             </p>
-
-            <div className="left-stats">
-              <div className="stat-item">
-                <span className="stat-value">14+</span>
-                <span className="stat-label">Nhà máy</span>
-              </div>
-              <div className="stat-item">
-                <span className="stat-value">24/7</span>
-                <span className="stat-label">Giám sát</span>
-              </div>
-              <div className="stat-item">
-                <span className="stat-value">3</span>
-                <span className="stat-label">Ngành trụ cột</span>
-              </div>
-            </div>
           </div>
 
-          <div className="left-footer">
-            © 2026 TBS Group. Dành riêng cho nội bộ.
+          {/* 2 Tab chuyển đổi Đăng nhập / Đăng ký */}
+          <div className="flex items-center bg-gray-100 p-1 rounded-2xl mb-6">
+            <button
+              type="button"
+              onClick={() => setActiveTab("login")}
+              className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${
+                activeTab === "login"
+                  ? "bg-white text-[#08221a] shadow-sm"
+                  : "text-gray-500 hover:text-gray-900"
+              }`}
+            >
+              Đăng nhập
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("register")}
+              className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${
+                activeTab === "register"
+                  ? "bg-white text-[#08221a] shadow-sm"
+                  : "text-gray-500 hover:text-gray-900"
+              }`}
+            >
+              Đăng ký
+            </button>
           </div>
-        </aside>
 
-        {/* Right panel */}
-        <main className="login-right">
-          <div className="login-form-wrap">
-            <div className="form-header">
-              <h2 className="form-title">Đăng nhập</h2>
-              <p className="form-subtitle">Nhập thông tin tài khoản được cấp bởi HR</p>
+          {activeTab === "register" ? (
+            <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-xs leading-relaxed space-y-2">
+              <p className="font-bold">⚠️ Thông báo phân quyền:</p>
+              <p>
+                Tài khoản nội bộ Văn Phòng Chuỗi SKECHERS được quản trị viên HR cấp sẵn. Nếu bạn chưa có tài khoản, vui lòng liên hệ phòng CNTT / Nhân sự.
+              </p>
             </div>
+          ) : (
+            /* Form Đăng nhập */
+            <form onSubmit={handleLogin} className="space-y-4">
+              {error && (
+                <div className="p-3.5 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center gap-2">
+                  <span>⚠️ {error}</span>
+                </div>
+              )}
 
-            {error && (
-              <div className="error-bar">
-                <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
-                  <path d="M7.5 1.5L13.5 13.5H1.5L7.5 1.5Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
-                  <path d="M7.5 6V9" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-                  <circle cx="7.5" cy="11" r="0.6" fill="currentColor"/>
-                </svg>
-                <span>{error}</span>
+              {/* Field 1: Nhóm đăng nhập (Dropdown) */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                  <IconBuildingStore size={15} className="text-gray-500" />
+                  <span>Nhóm / Chi nhánh đăng nhập</span>
+                </label>
+                <div className="relative">
+                  <select
+                    value={group}
+                    onChange={(e) => setGroup(e.target.value)}
+                    className="w-full pl-3.5 pr-10 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:outline-none focus:border-[#08221a] focus:ring-2 focus:ring-[#08221a]/10 appearance-none transition-all"
+                  >
+                    <option value="ZONE_II">TBS ZONE II — Thoại Sơn Shoes</option>
+                    <option value="DI_AN">TBS Headquarter — Dĩ An</option>
+                    <option value="LOGISTICS">ICD TBS Tân Vạn Logistics</option>
+                  </select>
+                  <IconChevronDown
+                    size={16}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+                  />
+                </div>
               </div>
-            )}
 
-            <form onSubmit={handleLogin}>
-              <div className="form-group">
-                <label htmlFor="empCode" className="form-label">
-                  Mã nhân viên
+              {/* Field 2: Người dùng (Mã nhân viên) */}
+              <div className="space-y-1.5">
+                <label htmlFor="empCode" className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                  <IconUser size={15} className="text-gray-500" />
+                  <span>Mã nhân viên / Người dùng</span>
                 </label>
                 <input
                   id="empCode"
                   type="text"
                   required
-                  autoComplete="username"
                   value={empCode}
                   onChange={(e) => setEmpCode(e.target.value)}
-                  placeholder="EMP-001"
-                  className="form-input"
+                  placeholder="EMP-001 hoặc EMP-002"
+                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:outline-none focus:border-[#08221a] focus:ring-2 focus:ring-[#08221a]/10 transition-all placeholder:text-gray-400"
                 />
               </div>
 
-              <div className="form-group">
-                <label htmlFor="password" className="form-label">
-                  Mật khẩu
+              {/* Field 3: Mật khẩu */}
+              <div className="space-y-1.5">
+                <label htmlFor="password" className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                  <IconLock size={15} className="text-gray-500" />
+                  <span>Mật khẩu</span>
                 </label>
-                <div className="password-wrap">
+                <div className="relative">
                   <input
                     id="password"
                     type={showPassword ? "text" : "password"}
                     required
-                    autoComplete="current-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="form-input"
+                    className="w-full pl-3.5 pr-10 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:outline-none focus:border-[#08221a] focus:ring-2 focus:ring-[#08221a]/10 transition-all placeholder:text-gray-400"
                   />
                   <button
                     type="button"
-                    className="toggle-pw"
                     onClick={() => setShowPassword(!showPassword)}
-                    aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"
                   >
-                    {showPassword ? (
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                        <path d="M2 2L14 14M6.5 6.56A2 2 0 0 0 9.44 9.5M8 3C4.5 3 1.5 6 1.5 8c.5 1 1.5 2.5 3 3.5M14.5 8C14 6.5 11.5 3 8 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-                      </svg>
-                    ) : (
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                        <path d="M8 3C4.5 3 1.5 6 1.5 8S4.5 13 8 13s6.5-3 6.5-5-3-5-6.5-5z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
-                        <circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.2"/>
-                      </svg>
-                    )}
+                    {showPassword ? <IconEyeOff size={16} /> : <IconEye size={16} />}
                   </button>
                 </div>
               </div>
 
+              {/* Hàng dưới cùng form: Remember me & Forgot PW */}
+              <div className="flex items-center justify-between pt-1 text-xs">
+                <label className="flex items-center gap-2 cursor-pointer text-gray-600 font-medium select-none">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="rounded text-[#08221a] focus:ring-[#08221a]"
+                  />
+                  <span>Ghi nhớ 30 ngày</span>
+                </label>
+                <a href="#forgot" className="font-bold text-[#0f4133] hover:underline">
+                  Quên mật khẩu?
+                </a>
+              </div>
+
+              {/* Submit Button: Gradient xanh lá đậm -> đen */}
               <button
                 type="submit"
                 disabled={loading}
-                className="submit-btn"
+                className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-[#08221a] via-[#0f4133] to-[#08221a] text-white font-extrabold text-xs uppercase tracking-wider shadow-xl shadow-emerald-950/20 hover:brightness-110 active:scale-[0.99] disabled:opacity-50 transition-all duration-200 flex items-center justify-center gap-2 mt-4"
               >
-                {loading ? "Đang xác thực..." : "Đăng nhập"}
+                <span>{loading ? "Đang xác thực..." : "Đăng Nhập Hệ Thống"}</span>
+                <IconArrowRight size={16} />
               </button>
             </form>
+          )}
 
-            <div className="form-footer">
-              <span className="form-footer-note">CBCNV TBS Group</span>
-              <Link href="/" className="form-footer-link">
-                <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-                  <path d="M8 2L4 6.5L8 11" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                Về trang chủ
-              </Link>
-            </div>
+          {/* Quick Demo Credentials hint */}
+          <div className="mt-6 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-900 space-y-1">
+            <span className="font-bold block">💡 Tài khoản hệ thống:</span>
+            <div>👑 Super Admin 1: <code className="font-mono font-bold">202608001</code> / <code className="font-mono">21032004</code> (Phạm Nguyễn Anh Huy)</div>
+            <div>👑 Super Admin 2: <code className="font-mono font-bold">202608002</code> / <code className="font-mono">123456</code> (Trần Ngọc Huy)</div>
+            <div>🔑 Admin Demo: <code className="font-mono font-bold">EMP-001</code> / <code className="font-mono">Admin@123456</code></div>
+            <div>👤 Staff Demo: <code className="font-mono font-bold">EMP-002</code> / <code className="font-mono">User@123456</code></div>
           </div>
-        </main>
+        </div>
+
+        {/* Footer nhỏ cuối form */}
+        <div className="pt-8 border-t border-gray-100 text-center text-[11px] text-gray-400">
+          © 2026 TBS Group · Văn Phòng Chuỗi SKECHERS · v1.0
+        </div>
       </div>
-    </>
+
+
+      {/* ════════════════════════════════════════════════════════════════
+          CỘT PHẢI — PANEL GIỚI THIỆU (Nền tối Emerald-Black, 55% Desktop, Ẩn Mobile)
+         ════════════════════════════════════════════════════════════════ */}
+      <div className="hidden md:flex flex-1 bg-gradient-to-br from-[#08221a] via-[#0d2419] to-[#061a14] p-10 lg:p-16 flex-col justify-between relative overflow-hidden">
+        {/* Subtle background glow */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(47,211,154,0.12)_0%,_transparent_60%)] pointer-events-none" />
+
+        {/* Top Header Badge */}
+        <div className="relative z-10 flex items-center justify-between">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#2fd39a]/15 border border-[#2fd39a]/30 backdrop-blur-md">
+            <IconSparkles size={14} className="text-[#2fd39a]" />
+            <span className="text-[11px] font-bold uppercase tracking-widest text-[#2fd39a]">
+              Hệ Thống Quản Trị Vận Hành 4.0
+            </span>
+          </div>
+          <span className="text-xs font-mono text-[#f2dc9a] font-bold">ZONE II — SKECHERS</span>
+        </div>
+
+        {/* Center Main Content */}
+        <div className="relative z-10 space-y-6 my-auto max-w-xl">
+          <h2 className="text-3xl lg:text-4xl font-extrabold text-white leading-tight tracking-tight">
+            Quản trị chuỗi cung ứng <br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#2fd39a] to-[#f2dc9a]">
+              chuẩn xác &amp; thời gian thực
+            </span>
+          </h2>
+
+          <p className="text-gray-300 text-sm leading-relaxed">
+            Hệ thống kết nối toàn bộ quy trình Gemba Walk tại hiện trường nhà máy, theo dõi tiến độ Cải tiến CI, đăng ký Kaizen tích hợp AI Groq và đo lường BI Dashboard 24/7.
+          </p>
+
+          {/* Danh sách 4 tính năng nổi bật */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4">
+            {[
+              {
+                icon: IconBuildingFactory,
+                title: "Gemba Walk Nhanh Gọn",
+                desc: "Lập biên bản sự cố và chụp ảnh trực tiếp tại hiện trường",
+              },
+              {
+                icon: IconShieldCheck,
+                title: "Phân Quyền Phòng Ban",
+                desc: "Đúng người đúng việc theo bảng Department Permissions",
+              },
+              {
+                icon: IconCamera,
+                title: "Đính Kèm Minh Chứng R2",
+                desc: "Lưu trữ hình ảnh minh chứng an toàn trên Cloudflare R2",
+              },
+              {
+                icon: IconChartBar,
+                title: "BI Dashboard 24/7",
+                desc: "Donut chart phân bố cải tiến thời gian thực theo khu vực",
+              },
+            ].map((feature, idx) => (
+              <div
+                key={idx}
+                className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 flex items-start gap-3 backdrop-blur-sm"
+              >
+                <div className="w-9 h-9 rounded-xl bg-[#2fd39a]/20 text-[#2fd39a] flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <feature.icon size={18} />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-white mb-0.5">
+                    {feature.title}
+                  </h4>
+                  <p className="text-[11px] text-gray-400 leading-snug">
+                    {feature.desc}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Footer info */}
+        <div className="relative z-10 text-xs text-gray-400 pt-6 border-t border-white/10 flex items-center justify-between">
+          <span>Văn Phòng Chuỗi SKECHERS - TBS Group</span>
+          <span className="font-mono text-[#2fd39a]">Security Level 4</span>
+        </div>
+      </div>
+    </div>
   );
 }

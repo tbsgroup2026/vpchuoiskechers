@@ -2,357 +2,395 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import Link from "next/link";
 import {
-  COMPANY_INFO,
-  COMPANY_STATS,
-  COMPANY_SECTORS,
-} from "@/lib/companyData";
-import {
-  IconBuildingFactory,
-  IconBackpack,
-  IconShip,
-  IconBuildingSkyscraper,
-  IconBuildingStore,
-  IconShoppingBag,
-  IconFileText,
-  IconDeviceMobile,
-  IconChartBar,
+  IconArrowDown,
   IconArrowRight,
-  IconActivity,
-  IconTool,
-  IconUsers,
+  IconBuildingFactory,
+  IconSparkles,
+  IconQuote,
+  IconShieldCheck,
+  IconAward,
+  IconBuildingWarehouse,
 } from "@tabler/icons-react";
-
-/* Map icon names from companyData to actual Tabler components */
-const SECTOR_ICONS: Record<string, React.ElementType> = {
-  IconShoe: IconBuildingFactory,
-  IconBackpack: IconBackpack,
-  IconShip: IconShip,
-  IconBuildingSkyscraper: IconBuildingSkyscraper,
-  IconBuildingStore: IconBuildingStore,
-  IconShoppingBag: IconShoppingBag,
-};
-
-const FEATURES = [
-  {
-    icon: IconFileText,
-    title: "Số hóa giấy tờ biểu mẫu",
-    description:
-      "Tự động nhận diện placeholder từ file Word/PDF mẫu, sinh form nhập liệu thông minh và xuất tài liệu phê duyệt chuẩn xác tuyệt đối.",
-  },
-  {
-    icon: IconDeviceMobile,
-    title: "App mobile native sửa máy",
-    description:
-      "Công nhân quét QR báo hỏng sự cố máy móc, nhân viên kỹ thuật nhận ticket tức thì trên App Native Android (Kotlin) & iOS (Swift) dùng chung C++ Shared Core.",
-  },
-  {
-    icon: IconChartBar,
-    title: "BI Dashboard vận hành 24/7",
-    description:
-      "Báo cáo doanh số, tiến độ sản xuất, xếp hạng thiết bị hư hỏng và đo lường thời gian xử lý sự cố của nhân viên bảo trì theo thời gian thực.",
-  },
-];
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen flex flex-col bg-canvas font-sans antialiased text-ink">
+    <div className="min-h-screen flex flex-col bg-[#08221a] font-sans antialiased text-white selection:bg-[#2fd39a] selection:text-[#08221a]">
       <Header />
 
       <main className="flex-1">
-        {/* HERO — Split with real factory photo */}
-        <section className="relative min-h-[100dvh] flex items-center bg-accent-deep text-white overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-accent-soft/10 via-transparent to-transparent pointer-events-none" />
+        {/* ════════════════════════════════════════════════════════════════
+            MODULE 1 — HERO GIỚI THIỆU (#hero)
+            Layout: Asymmetric 2 columns (Desktop: Left ~55%, Right ~45%)
+            Hero must fit initial viewport (min-h-[100dvh])
+           ════════════════════════════════════════════════════════════════ */}
+        <section
+          id="hero"
+          className="relative min-h-[100dvh] flex items-center bg-[#08221a] overflow-hidden pt-28 pb-16 lg:pt-32 lg:pb-20"
+        >
+          {/* Subtle gradient background mesh */}
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_20%_20%,_rgba(47,211,154,0.08)_0%,_transparent_70%)] pointer-events-none" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_50%_50%_at_80%_80%,_rgba(242,220,154,0.04)_0%,_transparent_70%)] pointer-events-none" />
 
-          <div className="relative z-10 w-full max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-12 pt-28 pb-16 lg:pt-32 lg:pb-24">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
-              {/* Left: Content */}
-              <div className="lg:col-span-6 space-y-6">
-                <h1 className="text-display text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.08]">
-                  {COMPANY_INFO.shortName}
-                  <span className="block mt-3 text-2xl sm:text-3xl lg:text-4xl text-white/60 font-light italic leading-tight">
-                    &ldquo;{COMPANY_INFO.slogan}&rdquo;
+          <div className="relative z-10 w-full max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-12">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center">
+              {/* Left Column: Hero Copy & Stats */}
+              <div className="lg:col-span-7 space-y-6">
+                {/* Small Pill Badge */}
+                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#2fd39a]/10 border border-[#2fd39a]/30 backdrop-blur-md">
+                  <IconSparkles size={14} className="text-[#2fd39a] animate-pulse" />
+                  <span className="text-[11px] font-bold uppercase tracking-widest text-[#2fd39a]">
+                    Hệ Thống Quản Trị Chuỗi Cung Ứng SKECHERS
                   </span>
-                </h1>
+                </div>
 
-                <p className="text-white/50 text-base sm:text-lg leading-relaxed max-w-[60ch]">
-                  {COMPANY_INFO.intro}
+                {/* Main Headline & Subtitle */}
+                <div className="space-y-3">
+                  <h1 className="text-display text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.1] text-white">
+                    Văn Phòng Chuỗi <br className="hidden sm:inline" />
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#2fd39a] via-[#f2dc9a] to-[#2fd39a]">
+                      SKECHERS - TBS Group
+                    </span>
+                  </h1>
+                  <p className="text-xl sm:text-2xl font-serif italic text-[#f2dc9a]/90 font-light leading-snug">
+                    &ldquo;Nâng tầm tiêu chuẩn sản xuất &amp; vận hành chuỗi cung ứng quốc tế&rdquo;
+                  </p>
+                </div>
+
+                {/* Description Paragraph */}
+                <p className="text-gray-300 text-sm sm:text-base leading-relaxed max-w-[62ch]">
+                  Trung tâm điều hành và quản trị số hoá toàn diện cho tổ hợp nhà máy SKECHERS tại ZONE II. Tích hợp Gemba Walk thời gian thực, quản lý Cải tiến CI, Kaizen và báo cáo số liệu vận hành 24/7.
                 </p>
 
-                <div className="flex flex-wrap gap-4 pt-2">
+                {/* CTAs */}
+                <div className="flex flex-wrap items-center gap-4 pt-2">
                   <Link
-                    href="/about"
-                    className="inline-flex items-center gap-2.5 bg-white text-accent-deep font-bold px-7 py-3.5 rounded-xl text-sm tracking-wide hover:bg-accent-soft hover:text-white active:scale-[0.98] transition-all duration-200"
+                    href="/login"
+                    className="inline-flex items-center gap-2.5 bg-gradient-to-r from-[#2fd39a] to-[#f2dc9a] text-[#08221a] font-extrabold px-7 py-3.5 rounded-2xl text-xs uppercase tracking-wider shadow-lg shadow-emerald-500/20 hover:brightness-110 active:scale-[0.98] transition-all duration-200"
                   >
-                    Tìm hiểu về TBS Group
-                    <IconArrowRight size={18} />
+                    <span>Truy Cập Hệ Thống</span>
+                    <IconArrowRight size={16} />
                   </Link>
                   <a
-                    href="#sectors"
-                    className="inline-flex items-center gap-2.5 text-white/60 font-semibold px-7 py-3.5 rounded-xl text-sm hover:text-white hover:bg-white/5 transition-all duration-200"
+                    href="#workspace"
+                    className="inline-flex items-center gap-2 text-gray-300 font-semibold px-6 py-3.5 rounded-2xl text-xs uppercase tracking-wider hover:text-white hover:bg-white/5 border border-white/10 transition-all duration-200"
                   >
-                    6 Ngành kinh doanh cốt lõi
+                    Khám Phá Không Gian
                   </a>
+                </div>
+
+                {/* Stats Row — 3 Clusters */}
+                <div className="pt-8 border-t border-white/10 grid grid-cols-3 gap-4 sm:gap-8">
+                  <div className="space-y-1">
+                    <div className="text-2xl sm:text-3xl font-black font-mono text-white tracking-tight">
+                      30+
+                    </div>
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-gray-400">
+                      Năm Kinh Nghiệm
+                    </div>
+                  </div>
+                  <div className="space-y-1 border-l border-white/15 pl-4 sm:pl-8">
+                    <div className="text-2xl sm:text-3xl font-black font-mono text-[#2fd39a] tracking-tight">
+                      10M+
+                    </div>
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-gray-400">
+                      Sản Phẩm / Năm
+                    </div>
+                  </div>
+                  <div className="space-y-1 border-l border-white/15 pl-4 sm:pl-8">
+                    <div className="text-2xl sm:text-3xl font-black font-mono text-[#f2dc9a] tracking-tight">
+                      5,000+
+                    </div>
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-gray-400">
+                      Nhân Sự Vận Hành
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Right: Real factory photo */}
-              <div className="lg:col-span-6">
-                <div className="relative rounded-3xl overflow-hidden aspect-[4/3] bg-accent-mid border border-white/10 shadow-2xl">
+              {/* Right Column: Hero Visual Block with Overlapping Cards */}
+              <div className="lg:col-span-5 relative">
+                <div className="relative rounded-3xl overflow-hidden aspect-[4/3] bg-[#0d2419] border border-[#2fd39a]/30 shadow-2xl group">
                   <img
                     src="https://www.tbsgroup.vn/wp-content/uploads/2014/12/TBS-GROUP_team_1836-x-765-2.jpg"
-                    alt="TBS Group — Tổ hợp nhà máy Thoại Sơn"
-                    className="w-full h-full object-cover"
+                    alt="Văn Phòng Chuỗi SKECHERS - TBS Group"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 brightness-90"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-accent-deep/50 via-transparent to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#08221a] via-transparent to-transparent opacity-80" />
+                </div>
+
+                {/* Small Overlapping Card (Bottom Left) */}
+                <div className="absolute -bottom-6 -left-4 sm:-left-6 w-56 sm:w-64 bg-[#0d2419]/95 border border-[#2fd39a]/40 p-4 rounded-2xl shadow-2xl backdrop-blur-xl space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-[#2fd39a]/20 text-[#2fd39a] flex items-center justify-center font-bold">
+                      <IconShieldCheck size={18} />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-extrabold text-white">Chuẩn Quốc Tế</h4>
+                      <p className="text-[10px] text-[#2fd39a] font-semibold">Quy Trình SKECHERS Audit</p>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-gray-300 leading-tight">
+                    Đảm bảo chất lượng nghiêm ngặt và tiến độ giao hàng toàn cầu.
+                  </p>
+                </div>
+
+                {/* Dark Quote Badge (Bottom Right) */}
+                <div className="absolute -top-4 -right-4 bg-[#08221a]/95 border border-[#f2dc9a]/40 p-3.5 rounded-2xl shadow-2xl backdrop-blur-xl flex items-center gap-3">
+                  <IconQuote size={20} className="text-[#f2dc9a]" />
+                  <span className="text-[11px] font-semibold text-gray-200">
+                    Chất lượng tạo dựng niềm tin
+                  </span>
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* Stats bar — clean typography */}
-            <div className="mt-16 lg:mt-20 border-t border-white/10 pt-10">
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
-                {COMPANY_STATS.map((stat, idx) => (
-                  <div key={idx} className="space-y-1">
-                    <div className="text-2xl lg:text-3xl font-black text-white font-mono tabular-nums">
-                      {stat.value}
-                    </div>
-                    <div className="text-xs font-semibold text-white/70">
-                      {stat.label}
-                    </div>
-                  </div>
-                ))}
-              </div>
+          {/* Smooth Scroll Arrow Button (Bottom Right) */}
+          <a
+            href="#brand-strip"
+            className="absolute bottom-6 right-8 w-11 h-11 rounded-full bg-[#0d2419] border border-[#2fd39a]/40 text-[#2fd39a] flex items-center justify-center shadow-xl hover:bg-[#2fd39a] hover:text-[#08221a] transition-all duration-300 animate-bounce"
+            aria-label="Cuộn xuống"
+          >
+            <IconArrowDown size={18} />
+          </a>
+        </section>
+
+
+        {/* ════════════════════════════════════════════════════════════════
+            MODULE 2 — BRAND-STRIP (ĐỐI TÁC THƯƠNG HIỆU TIN CẬY) (#brand-strip)
+            Full-width dark background strip directly below Hero
+           ════════════════════════════════════════════════════════════════ */}
+        <section
+          id="brand-strip"
+          className="py-10 bg-[#061a14] border-y border-[#2fd39a]/15 overflow-hidden"
+        >
+          <div className="max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-12 text-center space-y-6">
+            <h3 className="text-[11px] font-extrabold uppercase tracking-[0.25em] text-[#f2dc9a]">
+              ĐỐI TÁC THƯƠNG HIỆU TIN CẬY &amp; HỆ THỐNG CUNG ỨNG
+            </h3>
+
+            {/* Horizontal Partner Logos Row */}
+            <div className="flex items-center justify-start lg:justify-center gap-4 sm:gap-6 overflow-x-auto pb-2 scroll-snap-x snap-mandatory no-scrollbar">
+              {[
+                "SKECHERS GLOBAL",
+                "TBS GROUP LOGISTICS",
+                "DECATHLON PARTNER",
+                "ZONE II INDUSTRIAL",
+                "THOAI SON SHOES",
+                "QUALITY CONTROL HUB",
+              ].map((brand, idx) => (
+                <div
+                  key={idx}
+                  className="flex-none snap-center px-6 py-3.5 rounded-2xl bg-white/[0.04] border border-white/10 hover:border-[#2fd39a]/40 transition-colors duration-200 flex items-center justify-center min-w-[180px]"
+                >
+                  <span className="text-xs font-bold font-mono text-gray-300 tracking-wider">
+                    {brand}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
         </section>
 
-        {/* ═══════ SECTORS — Clean Editorial Layout ═══════ */}
-        <section id="sectors" className="py-24 lg:py-32 max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-12">
-          <div className="max-w-2xl mb-16 space-y-3">
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-ink tracking-tight text-display">
-              6 ngành kinh doanh cốt lõi của TBS Group
+
+        {/* ════════════════════════════════════════════════════════════════
+            MODULE 3 — KHÔNG GIAN LÀM VIỆC (#workspace)
+            Grid placeholders 4:3 cards with labels
+           ════════════════════════════════════════════════════════════════ */}
+        <section
+          id="workspace"
+          className="py-24 lg:py-32 bg-[#08221a] max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-12 space-y-12"
+        >
+          <div className="max-w-2xl space-y-3">
+            <div className="inline-flex items-center gap-2 text-xs font-bold text-[#2fd39a] uppercase tracking-widest">
+              <IconBuildingWarehouse size={16} />
+              <span>Cơ Sở Hạ Tầng</span>
+            </div>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight text-display">
+              Không Gian Làm Việc &amp; Sản Xuất
             </h2>
-            <p className="text-steel text-base leading-relaxed max-w-[55ch]">
-              Tập trung đầu tư và phát triển chuyên sâu vào các ngành sản xuất
-              công nghiệp giá trị cao và dịch vụ chuỗi cung ứng quốc tế.
+            <p className="text-gray-400 text-sm sm:text-base leading-relaxed">
+              Môi trường làm việc hiện đại tại Văn Phòng Chuỗi SKECHERS - TBS Group, ứng dụng công nghệ 4.0 và tiêu chuẩn vận hành xanh.
             </p>
           </div>
 
-          {/* Zig-zag cards — 2 columns alternating */}
-          <div className="space-y-12">
-            {COMPANY_SECTORS.map((sector, idx) => {
-              const Icon = SECTOR_ICONS[sector.icon] || IconBuildingFactory;
-              const isEven = idx % 2 === 0;
-
-              return (
-                <div
-                  key={sector.id}
-                  className={`group grid grid-cols-1 lg:grid-cols-12 gap-8 items-center ${
-                    !isEven ? "lg:direction-rtl" : ""
-                  }`}
-                >
-                  {/* Image side */}
-                  <div
-                    className={`lg:col-span-5 relative h-72 lg:h-80 rounded-3xl overflow-hidden bg-accent-deep ${
-                      !isEven ? "lg:order-2" : ""
-                    }`}
-                  >
-                    <img
-                      src={sector.image}
-                      alt={sector.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 opacity-85 group-hover:opacity-100"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-accent-deep/60 via-transparent to-transparent" />
-                    <div className="absolute top-4 left-4 w-12 h-12 rounded-2xl bg-surface/90 backdrop-blur flex items-center justify-center shadow-lg">
-                      <Icon size={24} className="text-accent" />
-                    </div>
-                    <div className="absolute bottom-4 left-4 right-4">
-                      <span className="text-xs font-bold text-gold-light bg-accent-deep/90 backdrop-blur px-3.5 py-1.5 rounded-xl border border-accent-soft/20">
-                        {sector.highlight}
+          {/* Grid of 6 Workspaces */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+            {[
+              { title: "Khu Vực Văn Phòng Điều Hành Chuỗi", code: "ZONE-A1" },
+              { title: "Trung Tâm Giám Sát Gemba Walk & BI", code: "ZONE-A2" },
+              { title: "Xưởng Sản Xuất Giày SKECHERS 1", code: "PLANT-S1" },
+              { title: "Xưởng Sản Xuất Giày SKECHERS 2", code: "PLANT-S2" },
+              { title: "Phòng Thí Nghiệm QC & Kỹ Thuật", code: "LAB-QC" },
+              { title: "Kho Vật Tư & Dịch Vụ Logistics", code: "WH-LOGISTICS" },
+            ].map((space, idx) => (
+              <div
+                key={idx}
+                className="group relative bg-[#0d2419] rounded-3xl overflow-hidden border border-white/10 hover:border-[#2fd39a]/50 transition-all duration-300 shadow-xl"
+              >
+                {/* 4:3 Image Container */}
+                <div className="relative aspect-[4/3] bg-gradient-to-br from-[#0f4133] to-[#08221a] overflow-hidden">
+                  <div className="absolute inset-0 flex items-center justify-center text-gray-500 font-mono text-xs">
+                    {/* Placeholder image representation */}
+                    <div className="text-center space-y-2">
+                      <IconBuildingFactory size={36} className="mx-auto text-[#2fd39a]/40 group-hover:text-[#2fd39a] group-hover:scale-110 transition-all duration-300" />
+                      <span className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                        {space.code}
                       </span>
                     </div>
                   </div>
+                </div>
 
-                  {/* Text side */}
-                  <div
-                    className={`lg:col-span-7 space-y-4 ${
-                      !isEven ? "lg:order-1 lg:text-right" : ""
-                    }`}
-                  >
-                    <h3 className="text-2xl lg:text-3xl font-black text-ink text-display group-hover:text-accent transition-colors duration-200">
-                      {sector.title}
-                    </h3>
-                    <p className="text-steel text-base leading-relaxed max-w-[55ch]">
-                      {sector.description}
-                    </p>
-                    <div
-                      className={`inline-flex items-center gap-1.5 text-sm font-bold text-accent cursor-pointer ${
-                        !isEven ? "lg:flex-row-reverse" : ""
-                      }`}
-                    >
-                      <span>Xem chi tiết</span>
-                      <IconArrowRight size={16} />
-                    </div>
+                {/* Space Label Underneath */}
+                <div className="p-5 bg-[#0a281f] flex items-center justify-between border-t border-white/5">
+                  <div>
+                    <h4 className="text-sm font-bold text-white group-hover:text-[#2fd39a] transition-colors">
+                      {space.title}
+                    </h4>
+                    <span className="text-[11px] font-mono text-[#f2dc9a]">
+                      SKECHERS - TBS Group
+                    </span>
                   </div>
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         </section>
 
-        {/* ═══════ CORE FEATURES — Bento Grid ═══════ */}
-        <section className="py-24 lg:py-32 bg-accent-wash border-y border-accent/8">
+
+        {/* ════════════════════════════════════════════════════════════════
+            MODULE 4 — DẤU ẤN THƯƠNG HIỆU CAO CẤP (#premium-brand)
+            Asymmetric 2 columns: Text + Highlights / Large Image
+           ════════════════════════════════════════════════════════════════ */}
+        <section
+          id="premium-brand"
+          className="py-24 lg:py-32 bg-[#061a14] border-y border-[#2fd39a]/15"
+        >
           <div className="max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-12">
-            <div className="max-w-2xl mb-16 space-y-3">
-              <h2 className="text-3xl sm:text-4xl font-black text-ink tracking-tight text-display">
-                Hệ thống vận hành số hóa toàn diện
-              </h2>
-              <p className="text-steel text-base leading-relaxed max-w-[50ch]">
-                Tích hợp từ văn phòng điều hành đến nhà xưởng sản xuất, thay thế
-                hoàn toàn quy trình giấy tờ truyền thống.
-              </p>
-            </div>
-
-            {/* Bento Grid */}
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {FEATURES.map((feature, idx) => {
-                  const Icon = feature.icon;
-                  return (
-                    <div
-                      key={idx}
-                      className="group bg-surface rounded-3xl p-8 border border-border shadow-sm hover:shadow-lg transition-shadow duration-300"
-                    >
-                      <div className="w-14 h-14 rounded-2xl bg-accent-wash text-accent flex items-center justify-center mb-6">
-                        <Icon size={28} />
-                      </div>
-                      <h3 className="text-xl font-bold text-ink mb-3 text-display">
-                        {feature.title}
-                      </h3>
-                      <p className="text-steel text-sm leading-relaxed">
-                        {feature.description}
-                      </p>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Stats row — asymmetric 2-col */}
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-                <div className="md:col-span-3 bg-accent-deep rounded-3xl p-8 text-white flex flex-col justify-between">
-                  <div>
-                    <h4 className="text-lg font-bold text-white mb-2">
-                      Vận hành thời gian thực
-                    </h4>
-                    <p className="text-white/55 text-sm leading-relaxed">
-                      Hệ thống giám sát OEE, downtime máy móc và tốc độ xử lý sự
-                      cố theo thời gian thực. Mọi số liệu được cập nhật tức thì
-                      lên BI Dashboard cho ban điều hành.
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-8 mt-6 pt-6 border-t border-white/10">
-                    <div>
-                      <div className="text-3xl font-black text-accent-soft font-mono tabular-nums">
-                        97.8%
-                      </div>
-                      <div className="text-xs text-white/50 font-medium">
-                        OEE trung bình
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-3xl font-black text-gold-light font-mono tabular-nums">
-                        26.4
-                      </div>
-                      <div className="text-xs text-white/50 font-medium">
-                        Phút xử lý TB
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="md:col-span-2 bg-surface rounded-3xl p-8 border border-border flex flex-col justify-between">
-                  <div>
-                    <h4 className="text-lg font-bold text-ink mb-2">
-                      Bảo trì & Mã QR
-                    </h4>
-                    <p className="text-steel text-sm leading-relaxed">
-                      Mỗi máy móc được gắn QR code định danh. Công nhân quét mã,
-                      chụp ảnh sự cố — ticket tự động tạo và phân công kỹ thuật
-                      viên trong vòng vài giây.
-                    </p>
-                  </div>
-                  <div className="mt-6 pt-6 border-t border-border">
-                    <div className="text-3xl font-black text-ink font-mono tabular-nums">
-                      842
-                    </div>
-                    <div className="text-xs text-muted font-medium">
-                      Máy đã gắn QR code
-                    </div>
-                  </div>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
+              {/* Left Column: Image block */}
+              <div className="lg:col-span-6 relative">
+                <div className="relative rounded-3xl overflow-hidden aspect-[4/3] bg-[#0d2419] border border-[#2fd39a]/30 shadow-2xl">
+                  <img
+                    src="https://www.tbsgroup.vn/wp-content/uploads/2014/12/Da-giay1.jpg"
+                    alt="Tiêu chuẩn sản xuất SKECHERS"
+                    className="w-full h-full object-cover brightness-90"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#08221a] via-transparent to-transparent" />
                 </div>
               </div>
-            </div>
-          </div>
-        </section>
 
-        {/* CAREERS CTA */}
-        <section className="relative py-24 lg:py-32 bg-accent-deep text-white overflow-hidden">
-          <div className="relative z-10 max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-12">
-            <div className="grid lg:grid-cols-12 gap-12 lg:gap-16 items-center">
-              <div className="lg:col-span-7 space-y-6">
+              {/* Right Column: Text & Features */}
+              <div className="lg:col-span-6 space-y-6">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#f2dc9a]/10 border border-[#f2dc9a]/30 text-[#f2dc9a] text-[11px] font-bold uppercase tracking-widest">
+                  <IconAward size={14} />
+                  <span>Tiêu Chuẩn Vận Hành Đỉnh Cao</span>
+                </div>
+
                 <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight text-display">
-                  Gia nhập TBS Group
+                  Dấu Ấn Thương Hiệu &amp; Đẳng Cấp Chuỗi Cung Ứng
                 </h2>
-                <p className="text-white/60 text-base lg:text-lg leading-relaxed max-w-[55ch]">
-                  Trở thành một phần của tập đoàn đa ngành hàng đầu Việt Nam. Làm
-                  việc tại nhà máy thông minh Thoại Sơn với công nghệ 4.0, môi
-                  trường chuyên nghiệp và lộ trình phát triển bền vững.
+
+                <p className="text-gray-300 text-sm sm:text-base leading-relaxed">
+                  Văn Phòng Chuỗi SKECHERS - TBS Group tuân thủ nghiêm ngặt các tiêu chuẩn chất lượng cao nhất của đối tác SKECHERS toàn cầu. Hệ thống áp dụng quy trình số hóa 100%, nâng cao năng suất và đảm bảo an toàn lao động.
                 </p>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+                {/* 3 Pillars */}
+                <div className="space-y-4 pt-2">
                   {[
-                    { icon: IconUsers, title: "51,200 nhân sự", desc: "Môi trường chuyên nghiệp, đa dạng" },
-                    { icon: IconChartBar, title: "Đào tạo & Phát triển", desc: "Lộ trình thăng tiến rõ ràng" },
-                    { icon: IconBuildingStore, title: "Phúc lợi toàn diện", desc: "Living Wage, bảo hiểm, học bổng" },
-                  ].map((b, i) => (
-                    <div key={i} className="bg-white/[0.04] rounded-2xl p-5 border border-white/5 hover:bg-white/[0.08] transition-colors duration-200">
-                      <b.icon size={24} strokeWidth={1.5} className="text-accent-soft mb-3" />
-                      <h4 className="font-bold text-white text-sm mb-1">{b.title}</h4>
-                      <p className="text-xs text-white/40 leading-relaxed">{b.desc}</p>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="pt-4">
-                  <Link
-                    href="/careers"
-                    className="inline-flex items-center gap-2.5 bg-white text-accent-deep font-bold px-7 py-3.5 rounded-xl text-sm hover:bg-accent-soft hover:text-white active:scale-[0.98] transition-all duration-200"
-                  >
-                    Xem vị trí tuyển dụng
-                    <IconArrowRight size={18} />
-                  </Link>
-                </div>
-              </div>
-
-              {/* Stats */}
-              <div className="lg:col-span-5">
-                <div className="grid grid-cols-2 gap-4">
-                  {[
-                    { value: "5,000+", label: "Nhân sự Thoại Sơn" },
-                    { value: "9,749", label: "Suất học bổng 2025" },
-                    { value: "24.7M", label: "Đôi giày mỗi năm" },
-                    { value: "70M€", label: "Đầu tư năng lượng sạch" },
-                  ].map((s, i) => (
-                    <div key={i} className="bg-white/[0.04] rounded-2xl p-6 text-center border border-white/5">
-                      <span className="block text-2xl sm:text-3xl font-black text-white font-mono tabular-nums mb-1">
-                        {s.value}
-                      </span>
-                      <span className="text-xs text-white/50 font-medium">{s.label}</span>
+                    {
+                      title: "Vận Hành Chuẩn Hóa 4.0",
+                      desc: "Tự động hóa báo cáo sự cố Gemba Walk và đánh giá Cải tiến CI.",
+                    },
+                    {
+                      title: "Kiểm Soát Chất Lượng Thời Gian Thực",
+                      desc: "BI Dashboard đo lường chỉ số OEE và tỷ lệ lỗi trên từng chuyền sản xuất.",
+                    },
+                    {
+                      title: "Tối Ưu Kaizen Bằng Trí Tuệ Nhân Tạo",
+                      desc: "Tích hợp AI Groq so sánh trùng lặp ý tưởng Kaizen thông minh.",
+                    },
+                  ].map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 flex items-start gap-3.5"
+                    >
+                      <div className="w-8 h-8 rounded-xl bg-[#2fd39a]/20 text-[#2fd39a] flex items-center justify-center font-bold flex-shrink-0 mt-0.5">
+                        ✓
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-white mb-0.5">
+                          {item.title}
+                        </h4>
+                        <p className="text-xs text-gray-400 leading-normal">
+                          {item.desc}
+                        </p>
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
             </div>
+          </div>
+        </section>
+
+
+        {/* ════════════════════════════════════════════════════════════════
+            MODULE 5 — ẢNH SẢN PHẨM MẪU (#products)
+            Grid placeholders 6-8 items with product captions
+           ════════════════════════════════════════════════════════════════ */}
+        <section
+          id="products"
+          className="py-24 lg:py-32 bg-[#08221a] max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-12 space-y-12"
+        >
+          <div className="max-w-2xl space-y-3">
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight text-display">
+              Dòng Sản Phẩm Tiêu Biểu SKECHERS
+            </h2>
+            <p className="text-gray-400 text-sm sm:text-base leading-relaxed">
+              Các mẫu sản phẩm thuộc chuỗi cung ứng SKECHERS được sản xuất và kiểm soát chất lượng tại hệ thống nhà máy TBS Group.
+            </p>
+          </div>
+
+          {/* Grid of 6-8 Product Placeholders */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+            {[
+              { name: "SKECHERS Performance Footwear", code: "SK-PERF-01" },
+              { name: "SKECHERS Lifestyle Casual Shoes", code: "SK-LIFE-02" },
+              { name: "SKECHERS Athletic Sport Line", code: "SK-SPORT-03" },
+              { name: "SKECHERS Work & Safety Shoes", code: "SK-[#2fd39a]-04" },
+              { name: "SKECHERS Outdoor Trekking Series", code: "SK-OUT-05" },
+              { name: "SKECHERS Kids Comfort Collection", code: "SK-KIDS-06" },
+              { name: "SKECHERS Handbag & Apparel Accessories", code: "SK-ACC-07" },
+              { name: "SKECHERS Special Edition Series", code: "SK-SPEC-08" },
+            ].map((prod, idx) => (
+              <div
+                key={idx}
+                className="group bg-[#0d2419] rounded-2xl overflow-hidden border border-white/10 hover:border-[#2fd39a]/50 transition-all duration-300 shadow-lg"
+              >
+                {/* 1:1 Square Ratio Photo Placeholder */}
+                <div className="relative aspect-square bg-[#0a281f] flex items-center justify-center p-4 group-hover:scale-105 transition-transform duration-300">
+                  <div className="text-center space-y-1.5">
+                    <div className="w-12 h-12 rounded-2xl bg-[#2fd39a]/15 text-[#2fd39a] flex items-center justify-center mx-auto font-mono font-bold text-xs">
+                      SKS
+                    </div>
+                    <span className="block text-[10px] font-mono text-[#f2dc9a]">
+                      {prod.code}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Caption Underneath */}
+                <div className="p-3.5 bg-[#08221a] border-t border-white/5">
+                  <h4 className="text-xs font-bold text-white group-hover:text-[#2fd39a] transition-colors truncate">
+                    {prod.name}
+                  </h4>
+                  <span className="text-[10px] text-gray-400 block mt-0.5">
+                    Tiêu chuẩn SKECHERS Global
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
         </section>
       </main>

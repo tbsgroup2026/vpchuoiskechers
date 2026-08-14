@@ -10,7 +10,7 @@ import {
 const NAV_ITEMS = [
   { label: "Về TBS", href: "/about", icon: IconInfoCircle },
   { label: "Lĩnh Vực", href: "/#business", icon: IconBuildingFactory },
-  { label: "Tin Tức", href: "/news", icon: IconNews },
+  { label: "Tin Tức", href: "/news", icon: IconNews },  
   { label: "Hành Trình", href: "/#timeline", icon: IconTimeline },
   { label: "Tuyển Dụng", href: "/careers", icon: IconBriefcase },
   { label: "Liên Hệ", href: "/#contact", icon: IconPhone },

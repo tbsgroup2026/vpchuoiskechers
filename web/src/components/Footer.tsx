@@ -50,9 +50,9 @@ const FOOTER_LINKS = {
 
 export default function Footer() {
   return (
-    <footer className="relative bg-accent-deep text-white overflow-hidden">
+    <footer className="relative bg-[#004d28] text-white overflow-hidden">
       {/* Top accent line */}
-      <div className="h-1 bg-gradient-to-r from-accent-soft via-accent-light to-gold" />
+      <div className="h-1 bg-gradient-to-r from-emerald-400 via-[#006838] to-amber-400" />
 
       <div className="max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-12 py-16 lg:py-20">
         <div className="grid lg:grid-cols-12 gap-10 mb-14">

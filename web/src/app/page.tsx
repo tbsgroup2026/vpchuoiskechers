@@ -26,7 +26,7 @@ export default function HomePage() {
            ════════════════════════════════════════════════════════════════ */}
         <section
           id="hero"
-          className="relative flex items-center bg-[#08221a] overflow-hidden pt-12 pb-24 lg:pt-16 lg:pb-28 min-h-[68vh] lg:min-h-[calc(68vh-2rem)]"
+          className="relative flex items-center bg-[#08221a] overflow-hidden pt-12 pb-10 lg:pt-16 lg:pb-12 min-h-[68vh] lg:min-h-[calc(68vh-2rem)]"
         >
           {/* Background Image: Gate photo spanning across whole section */}
           <div
@@ -151,7 +151,7 @@ export default function HomePage() {
           {/* Smooth Scroll Arrow Button (Bottom Right) */}
           <a
             href="#brand-strip"
-            className="absolute bottom-32 right-6 w-9 h-9 rounded-full bg-[#0d2419] border border-[#2fd39a]/40 text-[#2fd39a] flex items-center justify-center shadow-xl hover:bg-[#2fd39a] hover:text-[#08221a] transition-all duration-300 animate-bounce z-30"
+            className="absolute bottom-6 right-6 w-9 h-9 rounded-full bg-[#0d2419] border border-[#2fd39a]/40 text-[#2fd39a] flex items-center justify-center shadow-xl hover:bg-[#2fd39a] hover:text-[#08221a] transition-all duration-300 animate-bounce z-30"
             aria-label="Cuộn xuống"
           >
             <IconArrowDown size={16} />
@@ -165,7 +165,7 @@ export default function HomePage() {
            ════════════════════════════════════════════════════════════════ */}
         <section
           id="brand-strip"
-          className="relative z-20 -mt-[112px] lg:-mt-28 py-7 bg-[#0b3226]/95 backdrop-blur-md border-y border-[#2fd39a]/30 shadow-2xl overflow-hidden"
+          className="relative z-20 -mt-4 py-7 bg-[#0b3226]/95 backdrop-blur-md border-y border-[#2fd39a]/30 shadow-2xl overflow-hidden"
         >
           {/* Subtle gradient side fades (120px) */}
           <div className="absolute left-0 top-0 bottom-0 w-[120px] bg-gradient-to-r from-[#0b3226] to-transparent z-10 pointer-events-none" />

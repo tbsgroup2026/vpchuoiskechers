@@ -116,32 +116,32 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* Right Column: Hero Visual Block matching Image 1 layout */}
-              <div className="lg:col-span-5 relative h-[340px] sm:h-[370px] lg:h-[390px] flex items-center justify-center">
-                {/* 1. Top Right Card: Hands forming circle with TBS logo */}
-                <div className="absolute top-0 right-0 w-[78%] sm:w-[310px] lg:w-[340px] rounded-[24px] overflow-hidden shadow-2xl border border-[#2fd39a]/40 bg-[#0d2419] z-10 group">
+              {/* Right Column: Hero Visual Block matching exact script.google.com layout */}
+              <div className="lg:col-span-5 relative min-h-[420px] sm:min-h-[460px] h-[420px] sm:h-[460px] z-2">
+                {/* 1. Main Card (.hv-main): top:0, right:0, width:78%, height:66% */}
+                <div className="absolute top-0 right-0 w-[78%] h-[66%] rounded-[26px] overflow-hidden border border-[#2fd39a]/35 shadow-2xl z-10 group">
                   <img
                     src="/images/tbs-hands.png"
                     alt="TBS Group - Chung Sức Kiến Tạo Tương Lai"
-                    className="w-full h-auto object-cover group-hover:scale-105 transition-transform duration-700"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                   />
                 </div>
 
-                {/* 2. Overlapping Card (Mid-Left): High-res Team Banner (Tràn viền, không viền, dịch xuống) */}
-                <div className="absolute top-[38%] left-0 sm:-left-4 lg:-left-8 w-[72%] sm:w-[250px] lg:w-[280px] rounded-xl overflow-hidden shadow-2xl z-20 hover:scale-[1.03] transition-transform duration-300 group/card">
+                {/* 2. Sub Card (.hv-sub): bottom:0, left:0, width:52%, height:44%, border 3px white */}
+                <div className="absolute bottom-0 left-0 w-[52%] h-[44%] rounded-[22px] overflow-hidden border-[3px] border-white/95 shadow-2xl z-20 hover:scale-[1.03] transition-transform duration-300 group/card">
                   <img
                     src="/images/tbs-team-banner.png"
                     alt="Phát Huy Sức Mạnh Kiến Tạo Tương Lai"
-                    className="w-full h-auto object-cover group-hover/card:scale-105 transition-transform duration-500"
+                    className="w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-500"
                   />
                 </div>
 
-                {/* 3. Dark Quote Badge (Bottom Right) */}
-                <div className="absolute bottom-2 right-0 bg-[#08221a]/95 border border-[#2fd39a]/40 px-4 py-2.5 rounded-xl shadow-2xl backdrop-blur-xl z-20 flex items-center gap-2.5">
-                  <div className="w-1.5 h-6 bg-[#2fd39a] rounded-full" />
-                  <span className="text-[11px] font-semibold text-gray-200 italic">
+                {/* 3. Dark Quote Badge (.hv-badge): bottom:14%, right:-2% */}
+                <div className="absolute bottom-[14%] -right-2 z-30 bg-[#08221a]/85 backdrop-blur-[14px] border border-[#2fd39a]/42 rounded-[20px] p-[15px_19px] max-w-[220px] shadow-2xl">
+                  <div className="w-[40px] h-[2.5px] bg-gradient-to-r from-[#2fd39a] to-[#1fae7d] rounded-full mb-[10px]" />
+                  <p className="font-serif italic text-white text-[16px] leading-[1.4]">
                     &ldquo;Chung sức kiến tạo tương lai&rdquo;
-                  </span>
+                  </p>
                 </div>
               </div>
             </div>

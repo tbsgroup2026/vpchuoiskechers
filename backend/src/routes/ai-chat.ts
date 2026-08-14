@@ -75,7 +75,7 @@ async function buildSystemPrompt(): Promise<string> {
 - Tên đầy đủ: TBS Group — Tập Đoàn Sản Xuất & Đầu Tư Đa Ngành
 - Slogan: "Thế giới làm được, ắt ta sẽ làm được"
 - Trụ sở: Số 5, Đường ĐT 743, Phường An Bình, TP. Dĩ An, Bình Dương
-- Tổ hợp giày: Thoại Sơn, An Giang — 33 chuyền sản xuất, 5.000+ nhân sự
+- Chuỗi SKECHERS: 33 chuyền sản xuất, 5.000+ nhân sự
 - Năng lực: 25 triệu đôi giày/năm, 10 triệu túi xách/năm
 - 50.000+ nhân sự toàn hệ thống
 

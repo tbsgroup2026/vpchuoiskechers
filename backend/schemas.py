@@ -224,7 +224,7 @@ class JobCreate(BaseModel):
     title: str
     description: str
     requirements: str
-    location: Optional[str] = "Thoại Sơn, An Giang"
+    location: Optional[str] = "Văn Phòng Chuỗi SKECHERS"
 
 class JobOut(BaseModel):
     id: int

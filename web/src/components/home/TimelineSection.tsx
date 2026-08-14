@@ -25,9 +25,9 @@ const MILESTONES = [
     highlight: "Huân chương Hạng Nhất"
   },
   {
-    year: "2017", title: "TBS Thoại Sơn", icon: IconBuildingFactory,
-    desc: "Khởi công tổ hợp giày Thoại Sơn tại An Giang. Năm 2018, đôi giày Decathlon đầu tiên xuất xưởng tại nhà máy mới.",
-    highlight: "An Giang"
+    year: "2017", title: "Văn Phòng SKECHERS", icon: IconBuildingFactory,
+    desc: "Khởi công tổ hợp sản xuất chuỗi SKECHERS - TBS Group. Năm 2018, sản phẩm đầu tiên xuất xưởng đạt chuẩn quốc tế.",
+    highlight: "SKECHERS"
   },
   {
     year: "2020", title: "Số Hóa Vượt Khó", icon: IconDeviceLaptop,

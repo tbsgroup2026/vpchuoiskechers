@@ -35,7 +35,7 @@ const FOOTER_LINKS = {
 };
 
 const CONTACTS = [
-  { icon: IconMapPin, text: "Ấp Thanh Niên, TT. Phú Hòa, Thoại Sơn, An Giang" },
+  { icon: IconMapPin, text: "Văn Phòng Chuỗi SKECHERS - TBS Group, Việt Nam" },
   { icon: IconPhone, text: "0296 3878 099" },
   { icon: IconMail, text: "contact@tbsgroup.vn" },
 ];
@@ -60,7 +60,7 @@ export default function Footer() {
               </div>
             </div>
             <p className="text-sm text-white/40 leading-relaxed max-w-md">
-              Tổ hợp giày Thoại Sơn thuộc hệ thống TBS Group - tập đoàn đa ngành hàng đầu Việt Nam.
+              Văn Phòng Chuỗi SKECHERS thuộc hệ thống TBS Group - tập đoàn đa ngành hàng đầu Việt Nam.
               Không ngừng đổi mới sáng tạo, số hóa sản xuất toàn diện để phát triển bền vững và
               hội nhập toàn cầu.
             </p>

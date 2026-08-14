@@ -37,7 +37,7 @@ export default function CareersCTA() {
 
             <p className="text-lg text-white/60 leading-relaxed max-w-[55ch]">
               Trở thành một phần của tập đoàn đa ngành hàng đầu Việt Nam. Làm việc tại
-              nhà máy thông minh Thoại Sơn với công nghệ 4.0, môi trường chuyên nghiệp
+              Văn phòng chuỗi SKECHERS với công nghệ 4.0, môi trường chuyên nghiệp
               và lộ trình phát triển bền vững.
             </p>
 
@@ -77,7 +77,7 @@ export default function CareersCTA() {
           <div className="lg:col-span-5">
             <div className="grid grid-cols-2 gap-4">
               {[
-                { value: "5.000+", label: "Nhân sự Thoại Sơn", color: "emerald" },
+                { value: "5.000+", label: "Nhân sự SKECHERS", color: "emerald" },
                 { value: "10M", label: "Đôi giày / năm", color: "amber" },
                 { value: "9.749", label: "Suất học bổng 2025", color: "violet" },
                 { value: "70M€", label: "Đầu tư năng lượng sạch", color: "blue" },

@@ -271,7 +271,7 @@ class Job(Base):
     title = Column(String(100), nullable=False)
     description = Column(Text, nullable=False)
     requirements = Column(Text, nullable=False)
-    location = Column(String(100), default="Thoại Sơn, An Giang")
+    location = Column(String(100), default="Văn Phòng Chuỗi SKECHERS")
     branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True)
     sector_id = Column(Integer, ForeignKey("sectors.id"), nullable=True)
     status = Column(String(20), default="ACTIVE") # ACTIVE, CLOSED

@@ -74,7 +74,7 @@ export default function LoginPage() {
                   SKECHERS - TBS GROUP
                 </span>
                 <span className="text-[10px] text-gray-500 uppercase tracking-widest font-semibold">
-                  KHU VỰC ZONE II — THOẠI SƠN
+                  HỆ THỐNG VĂN PHÒNG CHUỖI SKECHERS
                 </span>
               </div>
             </div>

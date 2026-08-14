@@ -15,7 +15,7 @@ import { COMPANY_INFO } from "@/lib/companyData";
 const CONTACTS = [
   {
     icon: IconMapPin,
-    text: "Ấp Thanh Niên, TT. Phú Hòa, Thoại Sơn, An Giang",
+    text: "Văn Phòng Chuỗi SKECHERS - TBS Group, Việt Nam",
   },
   { icon: IconPhone, text: "0296 3878 099" },
   { icon: IconMail, text: "info@tbsgroup.vn" },

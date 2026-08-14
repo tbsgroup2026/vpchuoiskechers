@@ -74,12 +74,12 @@ class GuestIntroTab extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('>>> TỔ HỢP GIÀY THOẠI SƠN', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+          const Text('>>> VĂN PHÒNG CHUỖI SKECHERS', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),
-          const Text('TBS DIGITAL FACTORY // AN GIANG', style: TextStyle(color: Color(0xFF06B6D4), fontSize: 11)),
+          const Text('TBS DIGITAL FACTORY // SKECHERS', style: TextStyle(color: Color(0xFF06B6D4), fontSize: 11)),
           const SizedBox(height: 16),
           const Text(
-            'Tổ hợp giày Thoại Sơn thuộc tập đoàn TBS Group là một trong những cơ sở sản xuất giày da thể thao hiện đại hàng đầu khu vực An Giang và Đồng bằng sông Cửu Long. Định hướng chuyển đổi số toàn diện và vận hành nhà máy thông minh phục vụ các đối tác quốc tế như Decathlon.',
+            'Văn Phòng Chuỗi SKECHERS thuộc tập đoàn TBS Group là một trong những cơ sở quản trị vận hành hiện đại hàng đầu. Định hướng chuyển đổi số toàn diện và vận hành hệ thống thông minh phục vụ các đối tác quốc tế như Skechers, Decathlon.',
             style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13, height: 1.4),
           ),
           const SizedBox(height: 20),
@@ -323,7 +323,7 @@ class GuestProcessTab extends StatelessWidget {
         children: [
           const Text('>>> QUY TRÌNH TUYỂN DỤNG 5 BƯỚC', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
-          _buildProcessStep('BƯỚC 1', 'NỘP HỒ SƠ', 'Ứng viên gửi thông tin qua hệ thống di động hoặc nộp trực tiếp tại phòng Bảo vệ nhà máy Thoại Sơn.'),
+          _buildProcessStep('BƯỚC 1', 'NỘP HỒ SƠ', 'Ứng viên gửi thông tin qua hệ thống di động hoặc nộp trực tiếp tại Văn Phòng Chuỗi SKECHERS.'),
           _buildProcessStep('BƯỚC 2', 'SÀNG LỌC', 'Bộ phận Nhân sự (HR) kiểm tra tính phù hợp của hồ sơ với các tiêu chuẩn vị trí.'),
           _buildProcessStep('BƯỚC 3', 'KIỂM TRA & PHỎNG VẤN', 'Đánh giá tay nghề thực tế tại xưởng (đối với công nhân may) hoặc phỏng vấn nghiệp vụ chuyên môn.'),
           _buildProcessStep('BƯỚC 4', 'THỎA THUẬN TUYỂN DỤNG', 'Thống nhất các điều khoản công việc, mức lương, phụ cấp và ký hợp đồng thử việc.'),
@@ -335,7 +335,7 @@ class GuestProcessTab extends StatelessWidget {
           const SizedBox(height: 12),
           _buildFAQItem(
             'Q: Công nhân chưa có tay nghề may có được nhận không?',
-            'A: Có. Tổ hợp Thoại Sơn có trung tâm đào tạo nghề riêng. Ứng viên chưa có kinh nghiệm sẽ được đào tạo nghề may miễn phí và hỗ trợ lương trong thời gian học nghề.',
+            'A: Có. Hệ thống có trung tâm đào tạo nghề riêng. Ứng viên chưa có kinh nghiệm sẽ được đào tạo nghề may miễn phí và hỗ trợ lương trong thời gian học nghề.',
           ),
           _buildFAQItem(
             'Q: Chế độ phúc lợi của nhà máy gồm những gì?',
@@ -396,9 +396,9 @@ class GuestContactTab extends StatelessWidget {
         children: [
           const Text('>>> THÔNG TIN LIÊN HỆ', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
-          _buildContactRow(Icons.location_on_outlined, 'ĐỊA CHỈ', 'Ấp Thanh niên, TT. Phú Hòa, Huyện Thoại Sơn, Tỉnh An Giang, Việt Nam'),
+          _buildContactRow(Icons.location_on_outlined, 'ĐỊA CHỈ', 'Văn Phòng Chuỗi SKECHERS - TBS Group, Việt Nam'),
           _buildContactRow(Icons.phone_outlined, 'SỐ ĐIỆN THOẠI', '0296 3878 099'),
-          _buildContactRow(Icons.email_outlined, 'EMAIL HỖ TRỢ', 'hr-thoaison@tbsgroup.vn'),
+          _buildContactRow(Icons.email_outlined, 'EMAIL HỖ TRỢ', 'hr-skechers@tbsgroup.vn'),
           _buildContactRow(Icons.web_outlined, 'WEBSITE CHÍNH THỨC', 'https://www.tbsgroup.vn'),
           const SizedBox(height: 24),
           Container(
@@ -413,7 +413,7 @@ class GuestContactTab extends StatelessWidget {
                 Text('// THỜI GIAN NHẬN HỒ SƠ TRỰC TIẾP:', style: TextStyle(color: Color(0xFF06B6D4), fontWeight: FontWeight.bold, fontSize: 11)),
                 SizedBox(height: 8),
                 Text('• Thứ Hai - Thứ Bảy: 08:00 - 17:00', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                Text('• Địa điểm: Cổng bảo vệ số 1 - Nhà máy TBS Thoại Sơn.', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                Text('• Địa điểm: Cổng bảo vệ số 1 - Văn Phòng Chuỗi SKECHERS.', style: TextStyle(color: Colors.white70, fontSize: 12)),
               ],
             ),
           )

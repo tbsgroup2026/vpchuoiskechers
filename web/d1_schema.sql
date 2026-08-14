@@ -210,7 +210,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     title TEXT NOT NULL,
     description TEXT NOT NULL,
     requirements TEXT NOT NULL,
-    location TEXT DEFAULT 'Thoại Sơn, An Giang',
+    location TEXT DEFAULT 'Văn Phòng Chuỗi SKECHERS',
     department_id INTEGER,
     status TEXT DEFAULT 'ACTIVE', -- ACTIVE, CLOSED
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,

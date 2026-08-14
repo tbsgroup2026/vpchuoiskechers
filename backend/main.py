@@ -263,7 +263,7 @@ def seed_initial_data():
         print("[TBS II SEED] Initializing secure demo data...")
 
         # 0. Seed Branches
-        b1 = Branch(name="TBS Thoại Sơn (An Giang)", region="Miền Tây", address="TT. Phú Hòa, Thoại Sơn, An Giang")
+        b1 = Branch(name="Văn Phòng Chuỗi SKECHERS", region="Miền Nam", address="SKECHERS - TBS Group")
         b2 = Branch(name="TBS Kiên Giang (Rạch Giá)", region="Miền Tây", address="Rạch Giá, Kiên Giang")
         b3 = Branch(name="TBS Sóng Thần (Bình Dương)", region="Bình Dương", address="KCN Sóng Thần, Dĩ An, Bình Dương")
         b4 = Branch(name="TBS ICD Logistics (Bình Dương)", region="Bình Dương", address="Dĩ An, Bình Dương")

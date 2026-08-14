@@ -25,7 +25,7 @@ export async function runContentSync(): Promise<SyncResult[]> {
     // In our seed/live fetch, we can parse data or record the syncing event.
     // For safety, we will mock extracting 3 job positions from the dynamic script config.
     const mockJobs = [
-      { title: "Chuyên viên Quản lý Chất lượng (QC Lead)", type: "HR", data: { salary: "Negotiable", desc: "Giám sát quy trình QA/QC tại phân xưởng Thoại Sơn." } },
+      { title: "Chuyên viên Quản lý Chất lượng (QC Lead)", type: "HR", data: { salary: "Negotiable", desc: "Giám sát quy trình QA/QC tại Văn Phòng Chuỗi SKECHERS." } },
       { title: "Nhân viên Vận hành Hệ thống Điện xưởng", type: "HR", data: { salary: "10.000.000 VND", desc: "Đảm bảo hạ tầng điện xưởng hoạt động 24/7." } }
     ];
 
@@ -77,7 +77,7 @@ export async function runContentSync(): Promise<SyncResult[]> {
       const hrDept = await prisma.department.findFirst({ where: { code: "HRD" } });
       
       if (adminUser && hrDept) {
-        const title = "Đồng bộ dòng sự kiện hành trình Thoại Sơn Shoes";
+        const title = "Đồng bộ dòng sự kiện hành trình SKECHERS - TBS Group";
         const exists = await prisma.document.findFirst({
           where: { title, documentType: "HR" }
         });

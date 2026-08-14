@@ -76,21 +76,21 @@ const DEFAULT_JOBS = [
   {
     title: "Kỹ Sư Bảo Trì Máy Cơ Điện (Maintenance Engineer)",
     salary: "15.000.000 - 20.000.000 VND",
-    location: "Tổ Hợp Giày Thoại Sơn, Thoại Sơn, An Giang",
+    location: "Văn Phòng Chuỗi SKECHERS - TBS Group",
     description: "Chịu trách nhiệm bảo trì, sửa chữa và tối ưu hiệu suất hệ thống máy móc cơ điện tại nhà máy sản xuất giày. Tham gia vào chương trình chuyển đổi số TBS II với hệ thống quét QR code báo lỗi và giám sát thiết bị thời gian thực.",
     requirements: "- Tốt nghiệp Đại học/Cao đẳng chuyên ngành Cơ khí, Cơ điện tử, Điện công nghiệp\n- Có ít nhất 2 năm kinh nghiệm bảo trì máy móc trong nhà máy sản xuất\n- Đọc hiểu bản vẽ kỹ thuật cơ khí và điện\n- Ưu tiên ứng viên có chứng chỉ PLC, khí nén, thủy lực\n- Sẵn sàng làm việc theo ca khi cần thiết",
-    benefits: "- Lương cứng: 15-20 triệu VND/tháng + phụ cấp ca đêm\n- Phụ cấp nhà ở cho ứng viên từ xa\n- Đào tạo kỹ thuật nâng cao (PLC, tự động hóa)\n- Bảo hiểm tai nạn 24/24\n- Cơ hội làm việc với công nghệ Industry 4.0\n- Xe đưa đón từ trung tâm Thoại Sơn",
+    benefits: "- Lương cứng: 15-20 triệu VND/tháng + phụ cấp ca đêm\n- Phụ cấp nhà ở cho ứng viên từ xa\n- Đào tạo kỹ thuật nâng cao (PLC, tự động hóa)\n- Bảo hiểm tai nạn 24/24\n- Cơ hội làm việc với công nghệ Industry 4.0",
     category: "ky-thuat",
     educationLevel: "cao-dang",
     slots: 3,
     contactEmail: "tuyendungdaotaovp2@tbsgroup.vn",
     contactPhone: "0905 359 017 (Miss Lịch)",
-    province: "An Giang"
+    province: "TP. Hồ Chí Minh"
   },
   {
     title: "Chuyên Viên Kiểm Soát Chất Lượng (QC Inspector)",
     salary: "10.000.000 - 14.000.000 VND",
-    location: "Tổ Hợp Giày Thoại Sơn, Thoại Sơn, An Giang",
+    location: "Văn Phòng Chuỗi SKECHERS - TBS Group",
     description: "Kiểm tra chất lượng sản phẩm giày xuất khẩu theo tiêu chuẩn quốc tế của đối tác Decathlon. Giám sát quy trình sản xuất tuân thủ hệ thống quản lý chất lượng ISO 9001:2015. Lập báo cáo và đề xuất cải tiến chất lượng.",
     requirements: "- Tốt nghiệp Trung cấp/Cao đẳng trở lên\n- Có kinh nghiệm QC trong ngành da giày, may mặc là lợi thế\n- Tỉ mỉ, cẩn thận, có mắt thẩm mỹ tốt\n- Biết sử dụng máy tính cơ bản (Excel, Word)\n- Có khả năng đọc hiểu tiếng Anh cơ bản (tài liệu kỹ thuật)",
     benefits: "- Lương: 10-14 triệu VND/tháng + thưởng chất lượng\n- Đào tạo chuyên sâu về tiêu chuẩn QC quốc tế\n- Cơ hội thăng tiến lên QC Supervisor\n- Hỗ trợ ăn trưa và xe đưa đón\n- BHXH, BHYT, BHTN\n- Môi trường làm việc an toàn, sạch sẽ",
@@ -99,7 +99,7 @@ const DEFAULT_JOBS = [
     slots: 5,
     contactEmail: "tuyendungdaotaovp2@tbsgroup.vn",
     contactPhone: "0905 359 017 (Miss Lịch)",
-    province: "An Giang"
+    province: "TP. Hồ Chí Minh"
   },
   {
     title: "Lập Trình Viên Mobile Native (Kotlin/Swift)",
@@ -118,9 +118,9 @@ const DEFAULT_JOBS = [
   {
     title: "Công Nhân Sản Xuất Giày (Sewing/Assembly Worker)",
     salary: "8.000.000 - 12.000.000 VND",
-    location: "Tổ Hợp Giày Thoại Sơn, Thoại Sơn, An Giang",
-    description: "Tham gia trực tiếp vào quy trình sản xuất giày xuất khẩu tại Tổ Hợp Giày Thoại Sơn — nhà máy hiện đại với 33 chuyền sản xuất công nghệ cao. Được đào tạo tay nghề bài bản, làm việc trong môi trường an toàn và chuyên nghiệp.",
-    requirements: "- Tuổi từ 18-40, sức khỏe tốt\n- Không yêu cầu kinh nghiệm (sẽ được đào tạo)\n- Có tinh thần trách nhiệm, chăm chỉ\n- Ưu tiên ứng viên tại khu vực Thoại Sơn và lân cận\n- Có thể làm việc theo ca (ca ngày hoặc ca đêm)",
+    location: "Văn Phòng Chuỗi SKECHERS - TBS Group",
+    description: "Tham gia trực tiếp vào quy trình sản xuất giày xuất khẩu tại Văn Phòng Chuỗi SKECHERS — nhà máy hiện đại với 33 chuyền sản xuất công nghệ cao. Được đào tạo tay nghề bài bản, làm việc trong môi trường an toàn và chuyên nghiệp.",
+    requirements: "- Tuổi từ 18-40, sức khỏe tốt\n- Không yêu cầu kinh nghiệm (sẽ được đào tạo)\n- Có tinh thần trách nhiệm, chăm chỉ\n- Có thể làm việc theo ca (ca ngày hoặc ca đêm)",
     benefits: "- Lương cơ bản + tăng ca: 8-12 triệu VND/tháng\n- Living Wage — đảm bảo mức sống tối thiểu\n- Học bổng cho con em CBCNV (9.749 suất năm 2025)\n- Nhà ở công nhân cho ứng viên ở xa\n- Bảo hiểm y tế, tai nạn đầy đủ\n- Xe đưa đón miễn phí\n- Đào tạo tay nghề miễn phí, có lộ trình thăng tiến",
     category: "san-xuat",
     educationLevel: "khong-yeu-cau",

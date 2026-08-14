@@ -62,13 +62,13 @@ export const COMPANY_STATS: CompanyStat[] = [
     value: "10.3M",
     label: "Sản phẩm mỗi năm",
     description:
-      "Sản lượng Tổ hợp Giày Thoại Sơn cung ứng cho các đối tác chiến lược quốc tế.",
+      "Sản lượng Chuỗi SKECHERS cung ứng cho các đối tác chiến lược quốc tế.",
   },
   {
     value: "51,200",
     label: "Nhân sự toàn cầu",
     description:
-      "Đội ngũ chuyên nghiệp toàn hệ thống, trong đó 5,000 nhân sự tại Tổ hợp Thoại Sơn.",
+      "Đội ngũ chuyên nghiệp toàn hệ thống, trong đó 5,000 nhân sự tại Văn Phòng Chuỗi SKECHERS.",
   },
   {
     value: "218,500 m²",
@@ -144,10 +144,10 @@ export const COMPANY_SECTORS: CompanySector[] = [
 export const COMPANY_TIMELINE: TimelineEvent[] = [
   {
     year: "2017",
-    title: "Khởi nguồn hành trình Thoại Sơn",
+    title: "Khởi nguồn hành trình SKECHERS",
     subtitle: "Đặt nền móng cơ sở hạ tầng & đào tạo nhân lực",
     description:
-      "TBS Group chính thức triển khai dự án tại Thoại Sơn (An Giang). Đón đoàn đánh giá của đối tác chiến lược quốc tế Decathlon và khởi công Block 1 nhà máy.",
+      "TBS Group chính thức triển khai dự án Văn Phòng Chuỗi SKECHERS. Đón đoàn đánh giá của đối tác chiến lược quốc tế Decathlon và khởi công Block 1 nhà máy.",
     image: "https://tbs-thoaisonshoes.com/images/slides/05.webp",
   },
   {
@@ -187,7 +187,7 @@ export const COMPANY_TIMELINE: TimelineEvent[] = [
     title: "Mở rộng quy mô & nâng cao chất lượng",
     subtitle: "Chạm mốc 10 triệu sản phẩm mỗi năm",
     description:
-      "Nâng cấp trang thiết bị hiện đại, mở rộng công suất sản xuất chạm mốc 10 triệu đôi giày mỗi năm cho Tổ hợp Giày Thoại Sơn.",
+      "Nâng cấp trang thiết bị hiện đại, mở rộng công suất sản xuất chạm mốc 10 triệu đôi giày mỗi năm cho Văn Phòng Chuỗi SKECHERS.",
     image: "https://tbs-thoaisonshoes.com/images/slides/005.webp",
   },
   {

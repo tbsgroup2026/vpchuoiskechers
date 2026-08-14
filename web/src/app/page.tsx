@@ -329,8 +329,8 @@ export default function HomePage() {
                 {/* 1:1 Square Ratio Photo Placeholder */}
                 <div className="relative aspect-square bg-emerald-50/50 flex items-center justify-center p-4 group-hover:scale-105 transition-transform duration-300">
                   <div className="text-center space-y-1.5">
-                    <div className="w-12 h-12 rounded-2xl bg-[#006838]/10 text-[#006838] flex items-center justify-center mx-auto font-mono font-bold text-xs">
-                      SKS
+                    <div className="w-12 h-12 rounded-2xl bg-[#006838] text-white flex items-center justify-center mx-auto p-2 shadow-sm overflow-hidden">
+                      <img src="/images/tbs-logo.png" alt="TBS Group Logo" className="w-full h-full object-contain brightness-0 invert" />
                     </div>
                     <span className="block text-[10px] font-mono text-[#006838] font-bold">
                       {prod.code}

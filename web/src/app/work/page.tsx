@@ -182,8 +182,8 @@ export default function DashboardPage() {
         {/* Function-first Control Toolbar (TBS Green on White) */}
         <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
           <div className="flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-[#006838] flex items-center justify-center font-mono font-bold text-xs border border-emerald-200">
-              SKS
+            <div className="w-10 h-10 rounded-xl bg-[#006838] flex items-center justify-center p-1.5 shadow-sm border border-emerald-800 overflow-hidden">
+              <img src="/images/tbs-logo.png" alt="TBS Group Logo" className="w-full h-full object-contain brightness-0 invert" />
             </div>
             <div>
               <div className="flex items-center gap-2">

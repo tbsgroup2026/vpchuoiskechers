@@ -144,9 +144,9 @@ export default function Header() {
       >
         {/* Brand Logo & Name */}
         <Link href="/" className="flex items-center gap-2.5 group">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#2fd39a] to-[#0f4133] p-0.5 flex items-center justify-center shadow-md">
-            <div className="w-full h-full bg-[#08221a] rounded-[7px] flex items-center justify-center">
-              <span className="text-[#2fd39a] font-extrabold text-xs font-mono tracking-tighter">SKS</span>
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#2fd39a] to-[#0f4133] p-0.5 flex items-center justify-center shadow-md overflow-hidden">
+            <div className="w-full h-full bg-[#08221a] rounded-[7px] flex items-center justify-center p-1">
+              <img src="/images/tbs-logo.png" alt="TBS Group Logo" className="w-full h-full object-contain brightness-0 invert" />
             </div>
           </div>
           <div className="flex flex-col">

@@ -25,7 +25,7 @@ export default function HomePage() {
            ════════════════════════════════════════════════════════════════ */}
         <section
           id="hero"
-          className="relative min-h-[100dvh] flex items-center bg-[#08221a] overflow-hidden pt-28 pb-16 lg:pt-32 lg:pb-20"
+          className="relative flex items-center bg-[#08221a] overflow-hidden pt-20 pb-12 lg:pt-24 lg:pb-14 min-h-[calc(100vh-2rem)]"
         >
           {/* Background Image: Gate photo spanning across whole section */}
           <div
@@ -40,76 +40,76 @@ export default function HomePage() {
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_20%_20%,_rgba(47,211,154,0.12)_0%,_transparent_70%)] pointer-events-none" />
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_50%_50%_at_80%_80%,_rgba(242,220,154,0.06)_0%,_transparent_70%)] pointer-events-none" />
 
-          <div className="relative z-10 w-full max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-12">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center">
+          <div className="relative z-10 w-full max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center">
               {/* Left Column: Hero Copy & Stats */}
-              <div className="lg:col-span-7 space-y-6">
+              <div className="lg:col-span-7 space-y-4 sm:space-y-5">
                 {/* Small Pill Badge */}
-                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#2fd39a]/15 border border-[#2fd39a]/40 backdrop-blur-md">
-                  <IconSparkles size={14} className="text-[#2fd39a] animate-pulse" />
-                  <span className="text-[11px] font-bold uppercase tracking-widest text-[#2fd39a]">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#2fd39a]/15 border border-[#2fd39a]/40 backdrop-blur-md">
+                  <IconSparkles size={13} className="text-[#2fd39a] animate-pulse" />
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-[#2fd39a]">
                     Văn Phòng Chuỗi SKECHERS - TBS Group
                   </span>
                 </div>
 
                 {/* Main Headline & Subtitle */}
-                <div className="space-y-3">
-                  <h1 className="text-display text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.1] text-white">
+                <div className="space-y-2">
+                  <h1 className="text-display text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight leading-[1.12] text-white">
                     Văn Phòng Chuỗi <br className="hidden sm:inline" />
                     <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#2fd39a] via-[#f2dc9a] to-[#2fd39a]">
                       SKECHERS - TBS Group
                     </span>
                   </h1>
-                  <p className="text-xl sm:text-2xl font-serif italic text-[#c8e6ca] font-light leading-snug">
+                  <p className="text-lg sm:text-xl font-serif italic text-[#c8e6ca] font-light leading-snug">
                     &ldquo;Excellence in Manufacturing. Excellence in Leadership.&rdquo;
                   </p>
                 </div>
 
                 {/* Description Paragraph */}
-                <p className="text-gray-200 text-sm sm:text-base leading-relaxed max-w-[62ch]">
+                <p className="text-gray-200 text-xs sm:text-sm leading-relaxed max-w-[58ch]">
                   Không gian điều hành đại diện cho năng lực quản trị, văn hóa doanh nghiệp và tiêu chuẩn vận hành của ngành SKECHERS - TBS Group. Thiết kế hướng đến sự tinh gọn, hiện đại và chuyên nghiệp, phản ánh vị thế của một doanh nghiệp sản xuất trong chuỗi cung ứng toàn cầu.
                 </p>
 
                 {/* CTAs */}
-                <div className="flex flex-wrap items-center gap-4 pt-2">
+                <div className="flex flex-wrap items-center gap-3 pt-1">
                   <Link
                     href="/login"
-                    className="inline-flex items-center gap-2.5 bg-gradient-to-r from-[#2fd39a] to-[#f2dc9a] text-[#08221a] font-extrabold px-7 py-3.5 rounded-2xl text-xs uppercase tracking-wider shadow-lg shadow-emerald-500/20 hover:brightness-110 active:scale-[0.98] transition-all duration-200"
+                    className="inline-flex items-center gap-2 bg-gradient-to-r from-[#2fd39a] to-[#f2dc9a] text-[#08221a] font-extrabold px-5.5 py-2.5 rounded-xl text-xs uppercase tracking-wider shadow-lg shadow-emerald-500/20 hover:brightness-110 active:scale-[0.98] transition-all duration-200"
                   >
                     <span>Truy Cập Hệ Thống</span>
-                    <IconArrowRight size={16} />
+                    <IconArrowRight size={15} />
                   </Link>
                   <a
                     href="#workspace"
-                    className="inline-flex items-center gap-2 text-gray-200 font-semibold px-6 py-3.5 rounded-2xl text-xs uppercase tracking-wider hover:text-white hover:bg-white/10 border border-white/20 transition-all duration-200"
+                    className="inline-flex items-center gap-2 text-gray-200 font-semibold px-5 py-2.5 rounded-xl text-xs uppercase tracking-wider hover:text-white hover:bg-white/10 border border-white/20 transition-all duration-200"
                   >
                     Khám Phá Không Gian
                   </a>
                 </div>
 
                 {/* Stats Row — 3 Clusters */}
-                <div className="pt-8 border-t border-white/15 grid grid-cols-3 gap-4 sm:gap-8">
-                  <div className="space-y-1">
-                    <div className="text-2xl sm:text-3xl font-black font-mono text-white tracking-tight">
+                <div className="pt-5 border-t border-white/15 grid grid-cols-3 gap-3 sm:gap-6">
+                  <div className="space-y-0.5">
+                    <div className="text-xl sm:text-2xl font-black font-mono text-white tracking-tight">
                       30+
                     </div>
-                    <div className="text-[11px] font-bold uppercase tracking-wider text-gray-300">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-gray-300">
                       Năm Kinh Nghiệm
                     </div>
                   </div>
-                  <div className="space-y-1 border-l border-white/20 pl-4 sm:pl-8">
-                    <div className="text-2xl sm:text-3xl font-black font-mono text-[#2fd39a] tracking-tight">
+                  <div className="space-y-0.5 border-l border-white/20 pl-3 sm:pl-6">
+                    <div className="text-xl sm:text-2xl font-black font-mono text-[#2fd39a] tracking-tight">
                       10M+
                     </div>
-                    <div className="text-[11px] font-bold uppercase tracking-wider text-gray-300">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-gray-300">
                       Sản Phẩm / Năm
                     </div>
                   </div>
-                  <div className="space-y-1 border-l border-white/20 pl-4 sm:pl-8">
-                    <div className="text-2xl sm:text-3xl font-black font-mono text-[#f2dc9a] tracking-tight">
+                  <div className="space-y-0.5 border-l border-white/20 pl-3 sm:pl-6">
+                    <div className="text-xl sm:text-2xl font-black font-mono text-[#f2dc9a] tracking-tight">
                       5,000+
                     </div>
-                    <div className="text-[11px] font-bold uppercase tracking-wider text-gray-300">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-gray-300">
                       Nhân Sự Vận Hành
                     </div>
                   </div>
@@ -117,9 +117,9 @@ export default function HomePage() {
               </div>
 
               {/* Right Column: Hero Visual Block matching Image 1 layout */}
-              <div className="lg:col-span-5 relative h-[420px] sm:h-[460px] flex items-center justify-center">
+              <div className="lg:col-span-5 relative h-[340px] sm:h-[370px] lg:h-[390px] flex items-center justify-center">
                 {/* 1. Top Right Card: Hands forming circle with TBS logo */}
-                <div className="absolute top-0 right-0 w-[85%] sm:w-[380px] lg:w-[410px] rounded-[28px] overflow-hidden shadow-2xl border border-[#2fd39a]/40 bg-[#0d2419] z-10 group">
+                <div className="absolute top-0 right-0 w-[78%] sm:w-[310px] lg:w-[340px] rounded-[24px] overflow-hidden shadow-2xl border border-[#2fd39a]/40 bg-[#0d2419] z-10 group">
                   <img
                     src="/images/tbs-hands.png"
                     alt="TBS Group - Chung Sức Kiến Tạo Tương Lai"
@@ -128,7 +128,7 @@ export default function HomePage() {
                 </div>
 
                 {/* 2. Overlapping Card (Mid-Left): High-res Team Banner (Tràn viền, không viền, dịch xuống) */}
-                <div className="absolute top-[40%] sm:top-[38%] left-0 sm:-left-6 lg:-left-12 w-[80%] sm:w-[320px] lg:w-[350px] rounded-2xl overflow-hidden shadow-2xl z-20 hover:scale-[1.03] transition-transform duration-300 group/card">
+                <div className="absolute top-[38%] left-0 sm:-left-4 lg:-left-8 w-[72%] sm:w-[250px] lg:w-[280px] rounded-xl overflow-hidden shadow-2xl z-20 hover:scale-[1.03] transition-transform duration-300 group/card">
                   <img
                     src="/images/tbs-team-banner.png"
                     alt="Phát Huy Sức Mạnh Kiến Tạo Tương Lai"
@@ -137,9 +137,9 @@ export default function HomePage() {
                 </div>
 
                 {/* 3. Dark Quote Badge (Bottom Right) */}
-                <div className="absolute bottom-2 right-0 bg-[#08221a]/95 border border-[#2fd39a]/40 px-5 py-3.5 rounded-2xl shadow-2xl backdrop-blur-xl z-20 flex items-center gap-3">
-                  <div className="w-1.5 h-7 bg-[#2fd39a] rounded-full" />
-                  <span className="text-xs font-semibold text-gray-200 italic">
+                <div className="absolute bottom-2 right-0 bg-[#08221a]/95 border border-[#2fd39a]/40 px-4 py-2.5 rounded-xl shadow-2xl backdrop-blur-xl z-20 flex items-center gap-2.5">
+                  <div className="w-1.5 h-6 bg-[#2fd39a] rounded-full" />
+                  <span className="text-[11px] font-semibold text-gray-200 italic">
                     &ldquo;Chung sức kiến tạo tương lai&rdquo;
                   </span>
                 </div>
@@ -150,10 +150,10 @@ export default function HomePage() {
           {/* Smooth Scroll Arrow Button (Bottom Right) */}
           <a
             href="#brand-strip"
-            className="absolute bottom-6 right-8 w-11 h-11 rounded-full bg-[#0d2419] border border-[#2fd39a]/40 text-[#2fd39a] flex items-center justify-center shadow-xl hover:bg-[#2fd39a] hover:text-[#08221a] transition-all duration-300 animate-bounce"
+            className="absolute bottom-4 right-6 w-9 h-9 rounded-full bg-[#0d2419] border border-[#2fd39a]/40 text-[#2fd39a] flex items-center justify-center shadow-xl hover:bg-[#2fd39a] hover:text-[#08221a] transition-all duration-300 animate-bounce"
             aria-label="Cuộn xuống"
           >
-            <IconArrowDown size={18} />
+            <IconArrowDown size={16} />
           </a>
         </section>
 
@@ -164,20 +164,20 @@ export default function HomePage() {
            ════════════════════════════════════════════════════════════════ */}
         <section
           id="brand-strip"
-          className="py-10 bg-[#061a14] border-y border-[#2fd39a]/20 overflow-hidden relative"
+          className="py-6 sm:py-7 bg-[#061a14] border-y border-[#2fd39a]/20 overflow-hidden relative"
         >
           {/* Subtle gradient side fades */}
-          <div className="absolute left-0 top-0 bottom-0 w-20 sm:w-32 bg-gradient-to-r from-[#061a14] to-transparent z-10 pointer-events-none" />
-          <div className="absolute right-0 top-0 bottom-0 w-20 sm:w-32 bg-gradient-to-l from-[#061a14] to-transparent z-10 pointer-events-none" />
+          <div className="absolute left-0 top-0 bottom-0 w-16 sm:w-28 bg-gradient-to-r from-[#061a14] to-transparent z-10 pointer-events-none" />
+          <div className="absolute right-0 top-0 bottom-0 w-16 sm:w-28 bg-gradient-to-l from-[#061a14] to-transparent z-10 pointer-events-none" />
 
-          <div className="w-full text-center space-y-6">
-            <h3 className="text-[11px] font-extrabold uppercase tracking-[0.25em] text-[#f2dc9a]">
+          <div className="w-full text-center space-y-4">
+            <h3 className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-[#f2dc9a]">
               ĐỐI TÁC THƯƠNG HIỆU TIN CẬY &amp; HỆ THỐNG CUNG ỨNG
             </h3>
 
             {/* Continuous Infinite Marquee Row Sliding Left */}
-            <div className="overflow-hidden w-full flex items-center py-1">
-              <div className="animate-marquee-left flex items-center gap-4">
+            <div className="overflow-hidden w-full flex items-center py-0.5">
+              <div className="animate-marquee-left flex items-center gap-3">
                 {[
                   "SKECHERS GLOBAL",
                   "TBS GROUP LOGISTICS",
@@ -196,9 +196,9 @@ export default function HomePage() {
                 ].map((brand, idx) => (
                   <div
                     key={idx}
-                    className="flex-none px-6 py-3.5 rounded-2xl bg-white/[0.04] border border-white/10 hover:border-[#2fd39a]/50 transition-all duration-200 flex items-center justify-center min-w-[200px] shadow-lg backdrop-blur-sm group cursor-pointer"
+                    className="flex-none px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/10 hover:border-[#2fd39a]/50 transition-all duration-200 flex items-center justify-center min-w-[160px] sm:min-w-[180px] shadow-md backdrop-blur-sm group cursor-pointer"
                   >
-                    <span className="text-xs font-bold font-mono text-gray-200 group-hover:text-[#2fd39a] tracking-wider transition-colors">
+                    <span className="text-[11px] font-bold font-mono text-gray-200 group-hover:text-[#2fd39a] tracking-wider transition-colors">
                       {brand}
                     </span>
                   </div>

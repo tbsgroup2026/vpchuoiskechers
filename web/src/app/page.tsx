@@ -1,5 +1,6 @@
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import WorkspaceGallery from "@/components/home/WorkspaceGallery";
 import Link from "next/link";
 import {
   IconArrowDown,
@@ -25,7 +26,7 @@ export default function HomePage() {
            ════════════════════════════════════════════════════════════════ */}
         <section
           id="hero"
-          className="relative flex items-center bg-[#08221a] overflow-hidden pt-20 pb-12 lg:pt-24 lg:pb-14 min-h-[calc(100vh-2rem)]"
+          className="relative flex items-center bg-[#08221a] overflow-hidden pt-12 pb-24 lg:pt-16 lg:pb-28 min-h-[68vh] lg:min-h-[calc(68vh-2rem)]"
         >
           {/* Background Image: Gate photo spanning across whole section */}
           <div
@@ -117,7 +118,7 @@ export default function HomePage() {
               </div>
 
               {/* Right Column: Hero Visual Block matching exact script.google.com layout */}
-              <div className="lg:col-span-5 relative min-h-[460px] h-[460px] z-2">
+              <div className="lg:col-span-5 relative min-h-[380px] h-[380px] z-2">
                 {/* 1. Main Card (.hv-main): top:0, right:0, width:78%, height:66%, border-radius:26px */}
                 <div className="absolute top-0 right-0 w-[78%] h-[66%] rounded-[26px] overflow-hidden border border-[#2fd39a]/35 shadow-2xl z-10 group">
                   <img
@@ -150,7 +151,7 @@ export default function HomePage() {
           {/* Smooth Scroll Arrow Button (Bottom Right) */}
           <a
             href="#brand-strip"
-            className="absolute bottom-4 right-6 w-9 h-9 rounded-full bg-[#0d2419] border border-[#2fd39a]/40 text-[#2fd39a] flex items-center justify-center shadow-xl hover:bg-[#2fd39a] hover:text-[#08221a] transition-all duration-300 animate-bounce"
+            className="absolute bottom-32 right-6 w-9 h-9 rounded-full bg-[#0d2419] border border-[#2fd39a]/40 text-[#2fd39a] flex items-center justify-center shadow-xl hover:bg-[#2fd39a] hover:text-[#08221a] transition-all duration-300 animate-bounce z-30"
             aria-label="Cuộn xuống"
           >
             <IconArrowDown size={16} />
@@ -164,7 +165,7 @@ export default function HomePage() {
            ════════════════════════════════════════════════════════════════ */}
         <section
           id="brand-strip"
-          className="py-7 bg-[#0b3226] border-y border-[#2fd39a]/16 overflow-hidden relative"
+          className="relative z-20 -mt-[112px] lg:-mt-28 py-7 bg-[#0b3226]/95 backdrop-blur-md border-y border-[#2fd39a]/30 shadow-2xl overflow-hidden"
         >
           {/* Subtle gradient side fades (120px) */}
           <div className="absolute left-0 top-0 bottom-0 w-[120px] bg-gradient-to-r from-[#0b3226] to-transparent z-10 pointer-events-none" />
@@ -211,67 +212,9 @@ export default function HomePage() {
 
         {/* ════════════════════════════════════════════════════════════════
             MODULE 3 — KHÔNG GIAN LÀM VIỆC (#workspace)
-            Grid placeholders 4:3 cards with labels
+            Interactive Gallery with 14 real images from /images/KGLV/
            ════════════════════════════════════════════════════════════════ */}
-        <section
-          id="workspace"
-          className="py-24 lg:py-32 bg-white max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-12 space-y-12"
-        >
-          <div className="max-w-2xl space-y-3">
-            <div className="inline-flex items-center gap-2 text-xs font-bold text-[#006838] uppercase tracking-widest">
-              <IconBuildingWarehouse size={16} />
-              <span>Cơ Sở Hạ Tầng</span>
-            </div>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight text-display">
-              Không Gian Làm Việc &amp; Sản Xuất
-            </h2>
-            <p className="text-slate-600 text-sm sm:text-base leading-relaxed">
-              Môi trường làm việc hiện đại tại Văn Phòng Chuỗi SKECHERS - TBS Group, ứng dụng công nghệ 4.0 và tiêu chuẩn vận hành xanh.
-            </p>
-          </div>
-
-          {/* Grid of 6 Workspaces */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-            {[
-              { title: "Khu Vực Văn Phòng Điều Hành Chuỗi", code: "ZONE-A1" },
-              { title: "Trung Tâm Giám Sát Gemba Walk & BI", code: "ZONE-A2" },
-              { title: "Xưởng Sản Xuất Giày SKECHERS 1", code: "PLANT-S1" },
-              { title: "Xưởng Sản Xuất Giày SKECHERS 2", code: "PLANT-S2" },
-              { title: "Phòng Thí Nghiệm QC & Kỹ Thuật", code: "LAB-QC" },
-              { title: "Kho Vật Tư & Dịch Vụ Logistics", code: "WH-LOGISTICS" },
-            ].map((space, idx) => (
-              <div
-                key={idx}
-                className="group relative bg-slate-50 rounded-3xl overflow-hidden border border-slate-200 hover:border-[#006838]/40 hover:shadow-xl transition-all duration-300 shadow-sm"
-              >
-                {/* 4:3 Image Container */}
-                <div className="relative aspect-[4/3] bg-gradient-to-br from-emerald-50 to-slate-100 overflow-hidden">
-                  <div className="absolute inset-0 flex items-center justify-center text-slate-500 font-mono text-xs">
-                    {/* Placeholder image representation */}
-                    <div className="text-center space-y-2">
-                      <IconBuildingFactory size={36} className="mx-auto text-[#006838]/60 group-hover:text-[#006838] group-hover:scale-110 transition-all duration-300" />
-                      <span className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                        {space.code}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Space Label Underneath */}
-                <div className="p-5 bg-white flex items-center justify-between border-t border-slate-100">
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-900 group-hover:text-[#006838] transition-colors">
-                      {space.title}
-                    </h4>
-                    <span className="text-[11px] font-mono text-[#006838] font-semibold">
-                      SKECHERS - TBS Group
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
+        <WorkspaceGallery />
 
 
         {/* ════════════════════════════════════════════════════════════════

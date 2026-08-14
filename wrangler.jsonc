@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "tbshethong",
+  "name": "vpchuoiskechers",
   "compatibility_date": "2024-09-23",
   "compatibility_flags": [
     "nodejs_compat"
@@ -8,21 +8,8 @@
   "assets": {
     "directory": "web/out"
   },
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "tbs_db",
-      "database_id": "tbs_db_id"
-    }
-  ],
-  "r2_buckets": [
-    {
-      "binding": "FILES_BUCKET",
-      "bucket_name": "tbs-files"
-    }
-  ],
   "vars": {
-    "NEXT_PUBLIC_APP_URL": "https://tbshethong.anhy-work-2004.workers.dev",
+    "NEXT_PUBLIC_APP_URL": "https://vpchuoiskechers.tbsgroup2026.workers.dev",
     "JWT_SECRET": "tbs_group_secure_jwt_secret_key_2026"
   }
 }

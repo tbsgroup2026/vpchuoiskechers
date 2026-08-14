@@ -49,7 +49,7 @@ function AnimatedCounter({ target, suffix = "", duration = 2000 }: { target: num
 
 export default function HeroSection() {
   return (
-    <section className="relative min-h-screen flex items-center overflow-hidden bg-tbs-dark">
+    <section className="relative min-h-[calc(100vh-3.25rem)] flex items-center overflow-hidden bg-tbs-dark">
       {/* Parallax background layers */}
       <div className="absolute inset-0">
         <div

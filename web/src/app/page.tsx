@@ -118,32 +118,42 @@ export default function HomePage() {
 
               {/* Right Column: Hero Visual Block with Overlapping Cards */}
               <div className="lg:col-span-5 relative">
+                {/* Main Visual Image (Position cũ dùng Ảnh 2: TBS Group - Chung sức kiến tạo tương lai) */}
                 <div className="relative rounded-3xl overflow-hidden aspect-[4/3] bg-[#0d2419] border border-[#2fd39a]/30 shadow-2xl group">
                   <img
-                    src="https://www.tbsgroup.vn/wp-content/uploads/2014/12/TBS-GROUP_team_1836-x-765-2.jpg"
-                    alt="Văn Phòng Chuỗi SKECHERS - TBS Group"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 brightness-90"
+                    src="/images/tbs-hands.png"
+                    alt="TBS Group - Chung Sức Kiến Tạo Tương Lai"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#08221a] via-transparent to-transparent opacity-80" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#08221a]/60 via-transparent to-transparent opacity-80" />
                 </div>
 
-                {/* Small Overlapping Card (Bottom Left) */}
-                <div className="absolute -bottom-6 -left-4 sm:-left-6 w-56 sm:w-64 bg-[#0d2419]/95 border border-[#2fd39a]/40 p-4 rounded-2xl shadow-2xl backdrop-blur-xl space-y-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-xl bg-[#2fd39a]/20 text-[#2fd39a] flex items-center justify-center font-bold">
-                      <IconShieldCheck size={18} />
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-extrabold text-white">Chuẩn Quốc Tế</h4>
-                      <p className="text-[10px] text-[#2fd39a] font-semibold">Quy Trình SKECHERS Audit</p>
+                {/* Overlapping Card (Vị trí thẻ text 'Chuẩn Quốc Tế' đổi sang hiển thị ảnh Đội ngũ nhân sự) */}
+                <div className="absolute -bottom-8 -left-4 sm:-left-8 w-60 sm:w-72 bg-[#0d2419]/95 border border-[#2fd39a]/40 p-1.5 rounded-2xl shadow-2xl backdrop-blur-xl group/card">
+                  <div className="relative aspect-[16/10] rounded-xl overflow-hidden">
+                    <img
+                      src="/images/tbs-team.png"
+                      alt="Phát Huy Sức Mạnh Cùng Kiến Tạo Tương Lai"
+                      className="w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-500"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#08221a]/90 via-[#08221a]/30 to-transparent" />
+                    <div className="absolute bottom-2 left-3 right-3 flex items-center justify-between">
+                      <div>
+                        <div className="text-[10px] font-extrabold text-[#2fd39a] uppercase tracking-wider">
+                          Phát Huy Sức Mạnh
+                        </div>
+                        <div className="text-[11px] font-bold text-white leading-tight">
+                          Cùng Kiến Tạo Tương Lai
+                        </div>
+                      </div>
+                      <div className="w-6 h-6 rounded-full bg-[#2fd39a]/20 border border-[#2fd39a]/40 text-[#2fd39a] flex items-center justify-center">
+                        <IconShieldCheck size={14} />
+                      </div>
                     </div>
                   </div>
-                  <p className="text-[11px] text-gray-300 leading-tight">
-                    Đảm bảo chất lượng nghiêm ngặt và tiến độ giao hàng toàn cầu.
-                  </p>
                 </div>
 
-                {/* Dark Quote Badge (Bottom Right) */}
+                {/* Dark Quote Badge (Top Right) */}
                 <div className="absolute -top-4 -right-4 bg-[#08221a]/95 border border-[#f2dc9a]/40 p-3.5 rounded-2xl shadow-2xl backdrop-blur-xl flex items-center gap-3">
                   <IconQuote size={20} className="text-[#f2dc9a]" />
                   <span className="text-[11px] font-semibold text-gray-200 italic">

@@ -25,48 +25,48 @@ export default function HomePage() {
            ════════════════════════════════════════════════════════════════ */}
         <section
           id="hero"
-          className="relative min-h-[100dvh] flex items-center bg-gradient-to-br from-emerald-50/60 via-white to-slate-50 overflow-hidden pt-28 pb-16 lg:pt-32 lg:pb-20"
+          className="relative min-h-[100dvh] flex items-center bg-[#08221a] overflow-hidden pt-28 pb-16 lg:pt-32 lg:pb-20"
         >
           {/* Background Image: Gate photo spanning across whole section */}
           <div
-            className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-35 pointer-events-none"
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat pointer-events-none"
             style={{ backgroundImage: "url('/images/tbs-gate.jpg')" }}
           />
 
-          {/* Bright White/Emerald Light Gradient Overlay Layer */}
-          <div className="absolute inset-0 bg-gradient-to-r from-white/95 via-white/85 to-white/45 pointer-events-none" />
+          {/* Soft Gradient Dark Overlay Layer matching Image 2 (Lớp đen mờ) */}
+          <div className="absolute inset-0 bg-gradient-to-r from-[#041a13]/90 via-[#041a13]/70 to-[#041a13]/40 backdrop-blur-[2px] pointer-events-none" />
 
           {/* Subtle gradient background mesh */}
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_20%_20%,_rgba(0,104,56,0.08)_0%,_transparent_70%)] pointer-events-none" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_50%_50%_at_80%_80%,_rgba(217,119,6,0.05)_0%,_transparent_70%)] pointer-events-none" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_20%_20%,_rgba(47,211,154,0.12)_0%,_transparent_70%)] pointer-events-none" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_50%_50%_at_80%_80%,_rgba(242,220,154,0.06)_0%,_transparent_70%)] pointer-events-none" />
 
           <div className="relative z-10 w-full max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-12">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center">
               {/* Left Column: Hero Copy & Stats */}
               <div className="lg:col-span-7 space-y-6">
                 {/* Small Pill Badge */}
-                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-50 border border-emerald-200/80 shadow-sm">
-                  <IconSparkles size={14} className="text-[#006838] animate-pulse" />
-                  <span className="text-[11px] font-bold uppercase tracking-widest text-[#006838]">
+                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#2fd39a]/15 border border-[#2fd39a]/40 backdrop-blur-md">
+                  <IconSparkles size={14} className="text-[#2fd39a] animate-pulse" />
+                  <span className="text-[11px] font-bold uppercase tracking-widest text-[#2fd39a]">
                     Văn Phòng Chuỗi SKECHERS - TBS Group
                   </span>
                 </div>
 
                 {/* Main Headline & Subtitle */}
                 <div className="space-y-3">
-                  <h1 className="text-display text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.1] text-slate-900">
+                  <h1 className="text-display text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.1] text-white">
                     Văn Phòng Chuỗi <br className="hidden sm:inline" />
-                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#006838] via-[#008847] to-[#059669]">
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#2fd39a] via-[#f2dc9a] to-[#2fd39a]">
                       SKECHERS - TBS Group
                     </span>
                   </h1>
-                  <p className="text-xl sm:text-2xl font-serif italic text-[#006838] font-semibold leading-snug">
+                  <p className="text-xl sm:text-2xl font-serif italic text-[#c8e6ca] font-light leading-snug">
                     &ldquo;Excellence in Manufacturing. Excellence in Leadership.&rdquo;
                   </p>
                 </div>
 
                 {/* Description Paragraph */}
-                <p className="text-slate-600 text-sm sm:text-base leading-relaxed max-w-[62ch]">
+                <p className="text-gray-200 text-sm sm:text-base leading-relaxed max-w-[62ch]">
                   Không gian điều hành đại diện cho năng lực quản trị, văn hóa doanh nghiệp và tiêu chuẩn vận hành của ngành SKECHERS - TBS Group. Thiết kế hướng đến sự tinh gọn, hiện đại và chuyên nghiệp, phản ánh vị thế của một doanh nghiệp sản xuất trong chuỗi cung ứng toàn cầu.
                 </p>
 
@@ -74,42 +74,42 @@ export default function HomePage() {
                 <div className="flex flex-wrap items-center gap-4 pt-2">
                   <Link
                     href="/login"
-                    className="inline-flex items-center gap-2.5 bg-[#006838] hover:bg-[#00542d] text-white font-extrabold px-7 py-3.5 rounded-2xl text-xs uppercase tracking-wider shadow-lg shadow-emerald-700/25 active:scale-[0.98] transition-all duration-200"
+                    className="inline-flex items-center gap-2.5 bg-gradient-to-r from-[#2fd39a] to-[#f2dc9a] text-[#08221a] font-extrabold px-7 py-3.5 rounded-2xl text-xs uppercase tracking-wider shadow-lg shadow-emerald-500/20 hover:brightness-110 active:scale-[0.98] transition-all duration-200"
                   >
                     <span>Truy Cập Hệ Thống</span>
                     <IconArrowRight size={16} />
                   </Link>
                   <a
                     href="#workspace"
-                    className="inline-flex items-center gap-2 text-slate-800 font-semibold px-6 py-3.5 rounded-2xl text-xs uppercase tracking-wider hover:bg-slate-100 border border-slate-300 bg-white shadow-sm transition-all duration-200"
+                    className="inline-flex items-center gap-2 text-gray-200 font-semibold px-6 py-3.5 rounded-2xl text-xs uppercase tracking-wider hover:text-white hover:bg-white/10 border border-white/20 transition-all duration-200"
                   >
                     Khám Phá Không Gian
                   </a>
                 </div>
 
                 {/* Stats Row — 3 Clusters */}
-                <div className="pt-8 border-t border-slate-200 grid grid-cols-3 gap-4 sm:gap-8">
+                <div className="pt-8 border-t border-white/15 grid grid-cols-3 gap-4 sm:gap-8">
                   <div className="space-y-1">
-                    <div className="text-2xl sm:text-3xl font-black font-mono text-slate-900 tracking-tight">
+                    <div className="text-2xl sm:text-3xl font-black font-mono text-white tracking-tight">
                       30+
                     </div>
-                    <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-gray-300">
                       Năm Kinh Nghiệm
                     </div>
                   </div>
-                  <div className="space-y-1 border-l border-slate-200 pl-4 sm:pl-8">
-                    <div className="text-2xl sm:text-3xl font-black font-mono text-[#006838] tracking-tight">
+                  <div className="space-y-1 border-l border-white/20 pl-4 sm:pl-8">
+                    <div className="text-2xl sm:text-3xl font-black font-mono text-[#2fd39a] tracking-tight">
                       10M+
                     </div>
-                    <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-gray-300">
                       Sản Phẩm / Năm
                     </div>
                   </div>
-                  <div className="space-y-1 border-l border-slate-200 pl-4 sm:pl-8">
-                    <div className="text-2xl sm:text-3xl font-black font-mono text-[#d97706] tracking-tight">
+                  <div className="space-y-1 border-l border-white/20 pl-4 sm:pl-8">
+                    <div className="text-2xl sm:text-3xl font-black font-mono text-[#f2dc9a] tracking-tight">
                       5,000+
                     </div>
-                    <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-gray-300">
                       Nhân Sự Vận Hành
                     </div>
                   </div>
@@ -119,7 +119,7 @@ export default function HomePage() {
               {/* Right Column: Hero Visual Block matching Image 1 layout */}
               <div className="lg:col-span-5 relative h-[420px] sm:h-[460px] flex items-center justify-center">
                 {/* 1. Top Right Card: Hands forming circle with TBS logo */}
-                <div className="absolute top-0 right-0 w-[85%] sm:w-[380px] lg:w-[410px] rounded-[28px] overflow-hidden shadow-xl shadow-slate-200/60 border border-slate-200 bg-white z-10 group">
+                <div className="absolute top-0 right-0 w-[85%] sm:w-[380px] lg:w-[410px] rounded-[28px] overflow-hidden shadow-2xl border border-[#2fd39a]/40 bg-[#0d2419] z-10 group">
                   <img
                     src="/images/tbs-hands.png"
                     alt="TBS Group - Chung Sức Kiến Tạo Tương Lai"
@@ -137,9 +137,9 @@ export default function HomePage() {
                 </div>
 
                 {/* 3. Dark Quote Badge (Bottom Right) */}
-                <div className="absolute bottom-2 right-0 bg-[#006838] border border-emerald-600 px-5 py-3.5 rounded-2xl shadow-xl backdrop-blur-xl z-20 flex items-center gap-3">
-                  <div className="w-1.5 h-7 bg-white rounded-full" />
-                  <span className="text-xs font-semibold text-white italic">
+                <div className="absolute bottom-2 right-0 bg-[#08221a]/95 border border-[#2fd39a]/40 px-5 py-3.5 rounded-2xl shadow-2xl backdrop-blur-xl z-20 flex items-center gap-3">
+                  <div className="w-1.5 h-7 bg-[#2fd39a] rounded-full" />
+                  <span className="text-xs font-semibold text-gray-200 italic">
                     &ldquo;Chung sức kiến tạo tương lai&rdquo;
                   </span>
                 </div>
@@ -150,7 +150,7 @@ export default function HomePage() {
           {/* Smooth Scroll Arrow Button (Bottom Right) */}
           <a
             href="#brand-strip"
-            className="absolute bottom-6 right-8 w-11 h-11 rounded-full bg-white border border-slate-200 text-[#006838] flex items-center justify-center shadow-lg hover:bg-[#006838] hover:text-white transition-all duration-300 animate-bounce"
+            className="absolute bottom-6 right-8 w-11 h-11 rounded-full bg-[#0d2419] border border-[#2fd39a]/40 text-[#2fd39a] flex items-center justify-center shadow-xl hover:bg-[#2fd39a] hover:text-[#08221a] transition-all duration-300 animate-bounce"
             aria-label="Cuộn xuống"
           >
             <IconArrowDown size={18} />

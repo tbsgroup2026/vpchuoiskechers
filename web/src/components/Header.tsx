@@ -138,31 +138,31 @@ export default function Header() {
       <div
         className={`max-w-[1400px] mx-auto pointer-events-auto transition-all duration-500 rounded-full px-6 py-3 flex items-center justify-between border ${
           scrolled
-            ? 'bg-white/95 border-slate-200 shadow-xl shadow-slate-900/5 backdrop-blur-2xl py-2.5'
-            : 'bg-white/90 border-slate-200/80 backdrop-blur-xl shadow-md'
+            ? 'bg-[#08221a]/95 border-[#2fd39a]/40 shadow-[0_20px_50px_rgba(0,0,0,0.6)] backdrop-blur-2xl py-2.5'
+            : 'bg-[#08221a]/90 border-[#2fd39a]/30 backdrop-blur-xl shadow-[0_15px_40px_rgba(0,0,0,0.5)]'
         }`}
       >
         {/* Brand Logo & Name */}
         <Link href="/" className="flex items-center gap-3 group">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#006838] to-[#004d28] p-0.5 flex items-center justify-center shadow-md">
-            <div className="w-full h-full bg-white rounded-[10px] flex items-center justify-center">
-              <span className="text-[#006838] font-extrabold text-sm font-mono tracking-tighter">SKS</span>
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#2fd39a] to-[#0f4133] p-0.5 flex items-center justify-center shadow-md">
+            <div className="w-full h-full bg-[#08221a] rounded-[10px] flex items-center justify-center">
+              <span className="text-[#2fd39a] font-extrabold text-sm font-mono tracking-tighter">SKS</span>
             </div>
           </div>
           <div className="flex flex-col">
-            <span className="text-xs sm:text-sm font-black text-slate-900 tracking-wide uppercase group-hover:text-[#006838] transition-colors">
+            <span className="text-xs sm:text-sm font-black text-white tracking-wide uppercase group-hover:text-[#2fd39a] transition-colors">
               SKECHERS
             </span>
-            <span className="text-[10px] text-[#006838] font-extrabold tracking-wider uppercase">
+            <span className="text-[10px] text-[#f2dc9a] font-semibold tracking-wider uppercase">
               Văn Phòng Chuỗi - TBS Group
             </span>
           </div>
         </Link>
 
         {/* Desktop Navigation Links — Exact 7 Items */}
-        <nav className="hidden xl:flex items-center gap-6 text-xs font-bold text-slate-700 uppercase tracking-widest">
+        <nav className="hidden xl:flex items-center gap-6 text-xs font-bold text-white uppercase tracking-widest">
           {/* 1. Trang chủ */}
-          <Link href="/" className="hover:text-[#006838] transition-colors py-1">
+          <Link href="/" className="hover:text-[#2fd39a] transition-colors py-1 text-[#2fd39a]">
             Trang Chủ
           </Link>
 
@@ -172,27 +172,27 @@ export default function Header() {
             onMouseEnter={() => setAboutDropdownOpen(true)}
             onMouseLeave={() => setAboutDropdownOpen(false)}
           >
-            <button className="flex items-center gap-1 hover:text-[#006838] transition-colors py-1 uppercase font-bold">
+            <button className="flex items-center gap-1 hover:text-[#2fd39a] transition-colors py-1 uppercase font-bold">
               <span>Về TBS</span>
               <IconChevronDown size={14} className={`transition-transform ${aboutDropdownOpen ? 'rotate-180' : ''}`} />
             </button>
             {aboutDropdownOpen && (
-              <div className="absolute top-full left-0 mt-2 w-56 rounded-2xl bg-white border border-slate-200 p-2 shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-top-2 duration-200 text-left">
+              <div className="absolute top-full left-0 mt-2 w-56 rounded-2xl bg-[#08221a]/95 border border-[#2fd39a]/30 p-2 shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-top-2 duration-200 text-left">
                 <Link
                   href="/ve-tbs"
-                  className="block px-3 py-2 text-xs font-semibold text-slate-700 hover:text-[#006838] hover:bg-emerald-50 rounded-xl transition"
+                  className="block px-3 py-2 text-xs font-semibold text-gray-200 hover:text-[#2fd39a] hover:bg-white/5 rounded-xl transition"
                 >
                   Giới thiệu chung SKECHERS
                 </Link>
                 <Link
                   href="/ve-tbs#mission"
-                  className="block px-3 py-2 text-xs font-semibold text-slate-700 hover:text-[#006838] hover:bg-emerald-50 rounded-xl transition"
+                  className="block px-3 py-2 text-xs font-semibold text-gray-200 hover:text-[#2fd39a] hover:bg-white/5 rounded-xl transition"
                 >
                   Sứ mệnh & Tầm nhìn
                 </Link>
                 <Link
                   href="/ve-tbs#history"
-                  className="block px-3 py-2 text-xs font-semibold text-slate-700 hover:text-[#006838] hover:bg-emerald-50 rounded-xl transition"
+                  className="block px-3 py-2 text-xs font-semibold text-gray-200 hover:text-[#2fd39a] hover:bg-white/5 rounded-xl transition"
                 >
                   Lịch sử phát triển TBS Group
                 </Link>
@@ -201,7 +201,7 @@ export default function Header() {
           </div>
 
           {/* 3. Tuyển dụng */}
-          <Link href="/careers" className="hover:text-[#006838] transition-colors py-1">
+          <Link href="/careers" className="hover:text-[#2fd39a] transition-colors py-1">
             Tuyển Dụng
           </Link>
 
@@ -209,15 +209,15 @@ export default function Header() {
           {isLoggedIn && (
             <Link
               href="/dashboard"
-              className="text-[#006838] hover:text-[#004d28] font-extrabold transition-colors py-1 flex items-center gap-1.5 bg-emerald-50 px-3.5 py-1 rounded-full border border-emerald-200"
+              className="text-[#2fd39a] hover:text-[#f2dc9a] font-extrabold transition-colors py-1 flex items-center gap-1.5 bg-[#2fd39a]/10 px-3 py-1 rounded-full border border-[#2fd39a]/30"
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-[#006838] animate-ping" />
+              <span className="w-1.5 h-1.5 rounded-full bg-[#2fd39a] animate-ping" />
               Hệ Thống Quản Trị
             </Link>
           )}
 
           {/* 5. Tin tức */}
-          <Link href="/news" className="hover:text-[#006838] transition-colors py-1">
+          <Link href="/news" className="hover:text-[#2fd39a] transition-colors py-1">
             Tin Tức
           </Link>
 
@@ -227,31 +227,31 @@ export default function Header() {
             onMouseEnter={() => setOtherDropdownOpen(true)}
             onMouseLeave={() => setOtherDropdownOpen(false)}
           >
-            <button className="flex items-center gap-1 hover:text-[#006838] transition-colors py-1 uppercase font-bold">
+            <button className="flex items-center gap-1 hover:text-[#2fd39a] transition-colors py-1 uppercase font-bold">
               <span>Khác</span>
               <IconChevronDown size={14} className={`transition-transform ${otherDropdownOpen ? 'rotate-180' : ''}`} />
             </button>
             {otherDropdownOpen && (
-              <div className="absolute top-full left-0 mt-2 w-60 rounded-2xl bg-white border border-slate-200 p-2 shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-top-2 duration-200 text-left">
+              <div className="absolute top-full left-0 mt-2 w-60 rounded-2xl bg-[#08221a]/95 border border-[#2fd39a]/30 p-2 shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-top-2 duration-200 text-left">
                 <Link
                   href="/contact"
-                  className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:text-[#006838] hover:bg-emerald-50 rounded-xl transition"
+                  className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-gray-200 hover:text-[#2fd39a] hover:bg-white/5 rounded-xl transition"
                 >
-                  <IconPhoneCall size={16} className="text-[#006838]" />
+                  <IconPhoneCall size={16} className="text-[#2fd39a]" />
                   <span>1. Liên hệ</span>
                 </Link>
                 <Link
                   href="/faq"
-                  className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:text-[#006838] hover:bg-emerald-50 rounded-xl transition"
+                  className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-gray-200 hover:text-[#2fd39a] hover:bg-white/5 rounded-xl transition"
                 >
-                  <IconHelpCircle size={16} className="text-[#006838]" />
+                  <IconHelpCircle size={16} className="text-[#2fd39a]" />
                   <span>2. Câu hỏi thường gặp (FAQ)</span>
                 </Link>
                 <Link
                   href="/structure"
-                  className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:text-[#006838] hover:bg-emerald-50 rounded-xl transition"
+                  className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-gray-200 hover:text-[#2fd39a] hover:bg-white/5 rounded-xl transition"
                 >
-                  <IconHierarchy size={16} className="text-[#006838]" />
+                  <IconHierarchy size={16} className="text-[#2fd39a]" />
                   <span>3. Sơ đồ tổ chức / Chi nhánh</span>
                 </Link>
               </div>
@@ -266,7 +266,7 @@ export default function Header() {
             <div className="relative">
               <button
                 onClick={() => setNotifOpen(!notifOpen)}
-                className="relative p-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all duration-200"
+                className="relative p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all duration-200"
                 aria-label="Thông báo"
               >
                 <IconBell size={18} />
@@ -279,16 +279,16 @@ export default function Header() {
 
               {/* Notification Dropdown */}
               {notifOpen && (
-                <div className="absolute top-full right-0 mt-3 w-80 rounded-3xl bg-white border border-slate-200 p-4 shadow-2xl backdrop-blur-2xl animate-in fade-in slide-in-from-top-3 duration-200">
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-2">
+                <div className="absolute top-full right-0 mt-3 w-80 rounded-3xl bg-[#08221a]/98 border border-[#2fd39a]/30 p-4 shadow-2xl backdrop-blur-2xl animate-in fade-in slide-in-from-top-3 duration-200">
+                  <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-2">
                     <div className="flex items-center gap-2">
-                      <IconBell size={16} className="text-[#006838]" />
-                      <span className="text-xs font-bold text-slate-900 uppercase tracking-wider">Thông Báo Vận Hành</span>
+                      <IconBell size={16} className="text-[#2fd39a]" />
+                      <span className="text-xs font-bold text-white uppercase tracking-wider">Thông Báo Vận Hành</span>
                     </div>
                     {unreadCount > 0 && (
                       <button
                         onClick={markAllAsRead}
-                        className="text-[11px] font-semibold text-[#006838] hover:underline"
+                        className="text-[11px] font-semibold text-[#2fd39a] hover:underline"
                       >
                         Đọc tất cả
                       </button>
@@ -301,15 +301,15 @@ export default function Header() {
                         key={n.id}
                         className={`p-3 rounded-2xl border text-left transition-all ${
                           n.isRead
-                            ? 'bg-slate-50 border-slate-100 opacity-70'
-                            : 'bg-emerald-50/70 border-emerald-200'
+                            ? 'bg-white/[0.02] border-white/5 opacity-70'
+                            : 'bg-[#0f4133]/50 border-[#2fd39a]/30'
                         }`}
                       >
-                        <div className="flex items-center justify-between text-xs font-bold text-slate-900">
+                        <div className="flex items-center justify-between text-xs font-bold text-white">
                           <span>{n.title}</span>
-                          <span className="text-[10px] text-emerald-800 font-medium">{n.time}</span>
+                          <span className="text-[10px] text-[#f2dc9a] font-normal">{n.time}</span>
                         </div>
-                        <p className="text-[11px] text-slate-600 mt-1 leading-snug">{n.message}</p>
+                        <p className="text-[11px] text-gray-300 mt-1 leading-snug">{n.message}</p>
                       </div>
                     ))}
                   </div>
@@ -321,13 +321,13 @@ export default function Header() {
           {/* 7. Đăng Nhập CTA / Profile Logout */}
           {isLoggedIn ? (
             <div className="flex items-center gap-3">
-              <span className="text-xs font-bold text-[#006838] flex items-center gap-1.5 bg-emerald-50 px-3.5 py-1.5 rounded-full border border-emerald-200 shadow-sm">
-                <IconUserCheck size={15} className="text-[#006838]" />
+              <span className="text-xs font-bold text-[#f2dc9a] flex items-center gap-1.5 bg-[#0f4133]/80 px-3.5 py-1.5 rounded-full border border-[#2fd39a]/40 shadow-sm">
+                <IconUserCheck size={15} className="text-[#2fd39a]" />
                 {userInfo?.empCode || userInfo?.name || 'CBCNV SKECHERS'}
               </span>
               <button
                 onClick={handleLogout}
-                className="group relative inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-red-50 text-red-600 border border-red-200 font-bold text-xs hover:bg-red-100 active:scale-95 transition-all duration-200"
+                className="group relative inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-red-500/20 text-red-300 border border-red-500/30 font-bold text-xs hover:bg-red-500/30 active:scale-95 transition-all duration-200"
               >
                 <IconLogout size={14} />
                 <span>Đăng Xuất</span>
@@ -336,11 +336,11 @@ export default function Header() {
           ) : (
             <Link
               href="/login"
-              className="group relative inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-[#006838] hover:bg-[#00542d] text-white font-extrabold text-xs tracking-wider uppercase shadow-md shadow-emerald-700/20 active:scale-[0.98] transition-all duration-200"
+              className="group relative inline-flex items-center gap-2 px-5.5 py-2.5 rounded-full bg-gradient-to-r from-[#f2dc9a] via-[#e2c77d] to-[#f2dc9a] text-[#08221a] font-extrabold text-xs tracking-wider uppercase shadow-lg shadow-amber-500/20 hover:brightness-110 active:scale-[0.98] transition-all duration-200 border border-[#f2dc9a]/40"
             >
               <span>Đăng Nhập</span>
-              <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center group-hover:translate-x-0.5 transition-transform duration-200">
-                <IconArrowRight size={12} className="text-white" />
+              <div className="w-5 h-5 rounded-full bg-[#08221a]/15 flex items-center justify-center group-hover:translate-x-0.5 transition-transform duration-200">
+                <IconArrowRight size={12} className="text-[#08221a]" />
               </div>
             </Link>
           )}

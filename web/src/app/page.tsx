@@ -127,13 +127,15 @@ export default function HomePage() {
                   />
                 </div>
 
-                {/* 2. Overlapping White Card (Mid-Left): Ho Chi Minh City 50-year anniversary card */}
-                <div className="absolute top-[32%] left-0 sm:-left-6 lg:-left-10 w-[68%] sm:w-[280px] lg:w-[310px] bg-white rounded-2xl p-2.5 shadow-2xl border border-white/90 z-20 hover:scale-[1.03] transition-transform duration-300">
-                  <img
-                    src="/images/hcmc-50years.png"
-                    alt="Mừng kỷ niệm 50 năm Thành phố mang tên Bác"
-                    className="w-full h-auto rounded-xl object-cover"
-                  />
+                {/* 2. Overlapping Card (Mid-Left): High-res Team Banner (Image 2: PHÁT HUY SỨC MẠNH KIẾN TẠO TƯƠNG LAI) */}
+                <div className="absolute top-[30%] left-0 sm:-left-6 lg:-left-12 w-[75%] sm:w-[310px] lg:w-[340px] bg-[#0d2419]/95 rounded-2xl p-1.5 shadow-2xl border border-[#2fd39a]/40 backdrop-blur-xl z-20 hover:scale-[1.03] transition-transform duration-300 group/card">
+                  <div className="relative rounded-xl overflow-hidden aspect-[16/9]">
+                    <img
+                      src="/images/tbs-team-banner.png"
+                      alt="Phát Huy Sức Mạnh Kiến Tạo Tương Lai"
+                      className="w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-500"
+                    />
+                  </div>
                 </div>
 
                 {/* 3. Dark Quote Badge (Bottom Right) */}

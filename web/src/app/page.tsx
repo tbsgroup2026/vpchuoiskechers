@@ -116,10 +116,10 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* Right Column: Hero Visual Block matching Image 2 */}
-              <div className="lg:col-span-5 relative flex items-center justify-center lg:justify-end">
-                {/* Top Right Card: Hands forming circle with TBS logo */}
-                <div className="relative w-full max-w-[440px] rounded-[28px] overflow-hidden shadow-2xl border border-[#2fd39a]/40 bg-[#0d2419] group">
+              {/* Right Column: Hero Visual Block matching Image 1 layout */}
+              <div className="lg:col-span-5 relative h-[420px] sm:h-[460px] flex items-center justify-center">
+                {/* 1. Top Right Card: Hands forming circle with TBS logo */}
+                <div className="absolute top-0 right-0 w-[85%] sm:w-[380px] lg:w-[410px] rounded-[28px] overflow-hidden shadow-2xl border border-[#2fd39a]/40 bg-[#0d2419] z-10 group">
                   <img
                     src="/images/tbs-hands.png"
                     alt="TBS Group - Chung Sức Kiến Tạo Tương Lai"
@@ -127,8 +127,8 @@ export default function HomePage() {
                   />
                 </div>
 
-                {/* Bottom Overlapping Card (Left): Ho Chi Minh City 50-year anniversary white card */}
-                <div className="absolute -bottom-6 -left-4 sm:-left-10 w-64 sm:w-72 bg-white rounded-2xl p-2.5 shadow-2xl border border-white/80 backdrop-blur-xl z-20 hover:scale-[1.02] transition-transform duration-300">
+                {/* 2. Overlapping White Card (Mid-Left): Ho Chi Minh City 50-year anniversary card */}
+                <div className="absolute top-[32%] left-0 sm:-left-6 lg:-left-10 w-[68%] sm:w-[280px] lg:w-[310px] bg-white rounded-2xl p-2.5 shadow-2xl border border-white/90 z-20 hover:scale-[1.03] transition-transform duration-300">
                   <img
                     src="/images/hcmc-50years.png"
                     alt="Mừng kỷ niệm 50 năm Thành phố mang tên Bác"
@@ -136,9 +136,9 @@ export default function HomePage() {
                   />
                 </div>
 
-                {/* Dark Quote Badge (Right) */}
-                <div className="absolute -bottom-4 right-0 bg-[#08221a]/95 border border-[#2fd39a]/40 px-5 py-3.5 rounded-2xl shadow-2xl backdrop-blur-xl z-20 flex items-center gap-3">
-                  <div className="w-1 h-8 bg-[#2fd39a] rounded-full" />
+                {/* 3. Dark Quote Badge (Bottom Right) */}
+                <div className="absolute bottom-2 right-0 bg-[#07241b] border border-[#2fd39a]/40 px-5 py-3.5 rounded-2xl shadow-2xl backdrop-blur-xl z-20 flex items-center gap-3">
+                  <div className="w-1.5 h-7 bg-[#2fd39a] rounded-full" />
                   <span className="text-xs font-semibold text-gray-200 italic">
                     &ldquo;Chung sức kiến tạo tương lai&rdquo;
                   </span>

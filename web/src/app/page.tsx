@@ -127,12 +127,12 @@ export default function HomePage() {
                   />
                 </div>
 
-                {/* 2. Sub Card (.hv-sub): bottom:1, left:0, width:54%, height:36%, border 3px white */}
-                <div className="absolute bottom-1 left-0 w-[54%] h-[36%] rounded-[20px] overflow-hidden border-[3px] border-white/95 shadow-2xl z-20 hover:scale-[1.03] transition-transform duration-300 group/card">
+                {/* 2. Sub Card (.hv-sub): bottom:0, left:0, width:52%, height:44%, border 3px white */}
+                <div className="absolute bottom-0 left-0 w-[52%] h-[44%] rounded-[22px] overflow-hidden border-[3px] border-white/95 shadow-2xl z-20 hover:scale-[1.03] transition-transform duration-300 group/card">
                   <img
                     src="/images/tbs-team-banner.png"
                     alt="Phát Huy Sức Mạnh Kiến Tạo Tương Lai"
-                    className="w-full h-full object-cover object-[center_45%] scale-[1.12] group-hover/card:scale-[1.18] transition-transform duration-500"
+                    className="w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-500"
                   />
                 </div>
 

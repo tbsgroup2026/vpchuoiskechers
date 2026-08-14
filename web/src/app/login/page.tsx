@@ -23,7 +23,6 @@ export default function LoginPage() {
   const [activeTab, setActiveTab] = useState<"login" | "register">("login");
   const [empCode, setEmpCode] = useState("");
   const [password, setPassword] = useState("");
-  const [group, setGroup] = useState("ZONE_II");
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -141,28 +140,7 @@ export default function LoginPage() {
                 </div>
               )}
 
-              {/* Field 1: Nhóm đăng nhập (Dropdown) */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
-                  <IconBuildingStore size={15} className="text-gray-500" />
-                  <span>Nhóm / Chi nhánh đăng nhập</span>
-                </label>
-                <div className="relative">
-                  <select
-                    value={group}
-                    onChange={(e) => setGroup(e.target.value)}
-                    className="w-full pl-3.5 pr-10 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:outline-none focus:border-[#08221a] focus:ring-2 focus:ring-[#08221a]/10 appearance-none transition-all"
-                  >
-                    <option value="ZONE_II">TBS ZONE II — Thoại Sơn Shoes</option>
-                    <option value="DI_AN">TBS Headquarter — Dĩ An</option>
-                    <option value="LOGISTICS">ICD TBS Tân Vạn Logistics</option>
-                  </select>
-                  <IconChevronDown
-                    size={16}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
-                  />
-                </div>
-              </div>
+
 
               {/* Field 2: Người dùng (Mã nhân viên) */}
               <div className="space-y-1.5">

@@ -54,9 +54,9 @@ export default function HeroSection() {
       <div className="absolute inset-0">
         <div
           className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-          style={{ backgroundImage: "url('/images/crawled/05.webp')" }}
+          style={{ backgroundImage: "url('/images/tbs-gate.jpg')" }}
         />
-        <div className="absolute inset-0 bg-gradient-to-br from-tbs-dark/95 via-[#0a3025]/88 to-tbs-dark/92" />
+        <div className="absolute inset-0 bg-[#08221a]/90 backdrop-blur-[2px]" />
         <div className="absolute inset-0 bg-gradient-to-t from-tbs-dark via-transparent to-transparent" />
       </div>
 

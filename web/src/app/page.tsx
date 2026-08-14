@@ -27,9 +27,18 @@ export default function HomePage() {
           id="hero"
           className="relative min-h-[100dvh] flex items-center bg-[#08221a] overflow-hidden pt-28 pb-16 lg:pt-32 lg:pb-20"
         >
+          {/* Background Image: Gate photo */}
+          <div
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat pointer-events-none"
+            style={{ backgroundImage: "url('/images/tbs-gate.jpg')" }}
+          />
+
+          {/* 90% Dark Overlay (Lớp đen mờ 90% giống ảnh 2) */}
+          <div className="absolute inset-0 bg-[#08221a]/90 backdrop-blur-[2px] pointer-events-none" />
+
           {/* Subtle gradient background mesh */}
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_20%_20%,_rgba(47,211,154,0.08)_0%,_transparent_70%)] pointer-events-none" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_50%_50%_at_80%_80%,_rgba(242,220,154,0.04)_0%,_transparent_70%)] pointer-events-none" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_20%_20%,_rgba(47,211,154,0.12)_0%,_transparent_70%)] pointer-events-none" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_50%_50%_at_80%_80%,_rgba(242,220,154,0.06)_0%,_transparent_70%)] pointer-events-none" />
 
           <div className="relative z-10 w-full max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-12">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center">
@@ -137,8 +146,8 @@ export default function HomePage() {
                 {/* Dark Quote Badge (Bottom Right) */}
                 <div className="absolute -top-4 -right-4 bg-[#08221a]/95 border border-[#f2dc9a]/40 p-3.5 rounded-2xl shadow-2xl backdrop-blur-xl flex items-center gap-3">
                   <IconQuote size={20} className="text-[#f2dc9a]" />
-                  <span className="text-[11px] font-semibold text-gray-200">
-                    Chất lượng tạo dựng niềm tin
+                  <span className="text-[11px] font-semibold text-gray-200 italic">
+                    &ldquo;Chung sức kiến tạo tương lai&rdquo;
                   </span>
                 </div>
               </div>

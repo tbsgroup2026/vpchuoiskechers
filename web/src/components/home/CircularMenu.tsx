@@ -47,27 +47,26 @@ export default function CircularMenu({
           DESKTOP RADIAL LAYOUT (Visible on lg screens ≥1024px)
          ════════════════════════════════════════════════════════════════ */}
       <div className="hidden lg:block relative w-[680px] h-[680px] my-4">
-        {/* Dashed background circle */}
-        <div className="absolute inset-16 rounded-full border-2 border-dashed border-[#2fd39a]/20 animate-spin-slow pointer-events-none" />
-        <div className="absolute inset-28 rounded-full border border-white/5 pointer-events-none" />
+        {/* Simple dashed guide circle */}
+        <div className="absolute inset-16 rounded-full border border-dashed border-slate-800 pointer-events-none" />
+        <div className="absolute inset-28 rounded-full border border-slate-800/60 pointer-events-none" />
 
         {/* Center Node (Dashboard Popup Trigger) */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20">
           <button
             onClick={onCenterClick}
-            className="group relative w-44 h-44 rounded-full bg-gradient-to-br from-[#0f4133] via-[#08221a] to-[#0d2419] border-2 border-[#2fd39a] p-1 shadow-2xl shadow-emerald-950/80 hover:scale-105 transition-all duration-300 flex flex-col items-center justify-center text-center cursor-pointer"
+            className="group relative w-44 h-44 rounded-full bg-slate-950 border-2 border-slate-700 p-2 shadow-xl hover:border-slate-500 transition-all duration-200 flex flex-col items-center justify-center text-center cursor-pointer"
           >
-            <div className="absolute inset-0 rounded-full bg-[#2fd39a]/10 animate-ping opacity-30 pointer-events-none" />
-            <div className="w-10 h-10 rounded-full bg-[#2fd39a]/20 text-[#2fd39a] flex items-center justify-center mb-1 group-hover:scale-110 transition-transform">
-              <IconChartBar size={22} />
+            <div className="w-10 h-10 rounded-lg bg-slate-800 text-slate-200 flex items-center justify-center mb-1 border border-slate-700">
+              <IconChartBar size={20} />
             </div>
-            <span className="text-[10px] font-extrabold text-[#f2dc9a] uppercase tracking-wider">
-              DASHBOARD tổng
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+              Dashboard Tổng
             </span>
-            <span className="text-3xl font-black font-mono text-white tracking-tight my-0.5">
+            <span className="text-3xl font-black font-mono text-slate-100 tracking-tight my-0.5">
               {centerTotalCount}
             </span>
-            <span className="text-[9px] text-gray-300 font-bold bg-[#2fd39a]/20 px-2 py-0.5 rounded-full border border-[#2fd39a]/30">
+            <span className="text-[10px] text-emerald-400 font-medium bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-800">
               Cải tiến khu vực
             </span>
           </button>
@@ -95,17 +94,17 @@ export default function CircularMenu({
               {node.isActive ? (
                 <button
                   onClick={node.onClick}
-                  className="group w-32 h-16 rounded-2xl bg-gradient-to-br from-[#0f4133] to-[#08221a] border border-[#2fd39a]/60 shadow-lg hover:border-[#2fd39a] hover:shadow-emerald-500/20 hover:scale-105 active:scale-95 transition-all duration-200 p-2 flex items-center gap-2 text-left cursor-pointer"
+                  className="group w-32 h-16 rounded-xl bg-slate-900 border border-slate-800 shadow-md hover:border-slate-600 hover:bg-slate-850 active:scale-95 transition-colors p-2.5 flex items-center gap-2.5 text-left cursor-pointer"
                 >
-                  <div className="w-8 h-8 rounded-xl bg-[#2fd39a]/20 text-[#2fd39a] flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
-                    <IconComponent size={18} />
+                  <div className="w-8 h-8 rounded-lg bg-slate-800 text-slate-200 flex items-center justify-center flex-shrink-0 border border-slate-700">
+                    <IconComponent size={17} />
                   </div>
                   <div className="overflow-hidden">
-                    <span className="text-[11px] font-bold text-white group-hover:text-[#2fd39a] transition-colors block truncate leading-tight">
+                    <span className="text-[11px] font-semibold text-slate-200 group-hover:text-emerald-400 transition-colors block truncate leading-tight">
                       {node.label}
                     </span>
                     {node.subLabel && (
-                      <span className="text-[9px] text-[#f2dc9a] font-mono block truncate">
+                      <span className="text-[9px] text-slate-400 font-mono block truncate">
                         {node.subLabel}
                       </span>
                     )}
@@ -113,15 +112,15 @@ export default function CircularMenu({
                 </button>
               ) : (
                 /* Disabled / Sắp ra mắt Node */
-                <div className="w-32 h-16 rounded-2xl bg-white/[0.03] border border-white/10 opacity-40 p-2 flex items-center gap-2 text-left cursor-not-allowed select-none">
-                  <div className="w-8 h-8 rounded-xl bg-white/5 text-gray-400 flex items-center justify-center flex-shrink-0">
-                    <IconComponent size={18} />
+                <div className="w-32 h-16 rounded-xl bg-slate-950/60 border border-slate-850 opacity-50 p-2.5 flex items-center gap-2.5 text-left cursor-not-allowed select-none">
+                  <div className="w-8 h-8 rounded-lg bg-slate-900 text-slate-500 flex items-center justify-center flex-shrink-0 border border-slate-800">
+                    <IconComponent size={17} />
                   </div>
                   <div className="overflow-hidden">
-                    <span className="text-[10px] font-semibold text-gray-300 block truncate leading-tight">
+                    <span className="text-[10px] font-medium text-slate-400 block truncate leading-tight">
                       {node.label}
                     </span>
-                    <span className="text-[8px] font-bold text-amber-400 uppercase tracking-widest block truncate">
+                    <span className="text-[8px] font-mono text-slate-500 uppercase tracking-wider block">
                       Sắp ra mắt
                     </span>
                   </div>
@@ -137,49 +136,49 @@ export default function CircularMenu({
           MOBILE / TABLET GRID LAYOUT (<1024px)
           Touch targets ≥44px, comfortable spacing
          ════════════════════════════════════════════════════════════════ */}
-      <div className="lg:hidden w-full space-y-6">
+      <div className="lg:hidden w-full space-y-4">
         {/* Mobile Center Summary Card */}
         <button
           onClick={onCenterClick}
-          className="w-full p-5 rounded-3xl bg-gradient-to-r from-[#0f4133] via-[#08221a] to-[#0d2419] border-2 border-[#2fd39a] shadow-xl text-left flex items-center justify-between"
+          className="w-full p-4 rounded-xl bg-slate-900 border border-slate-800 text-left flex items-center justify-between"
         >
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-[#2fd39a]/20 text-[#2fd39a] flex items-center justify-center">
-              <IconChartBar size={26} />
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-lg bg-slate-800 text-slate-200 flex items-center justify-center border border-slate-700">
+              <IconChartBar size={22} />
             </div>
             <div>
-              <span className="text-xs font-extrabold text-[#f2dc9a] uppercase tracking-wider block">
-                DASHBOARD Tổng Khu Vực
+              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">
+                Dashboard Tổng Khu Vực
               </span>
-              <span className="text-2xl font-black font-mono text-white">
+              <span className="text-xl font-bold font-mono text-slate-100">
                 {centerTotalCount} Cải Tiến
               </span>
             </div>
           </div>
-          <span className="text-xs font-bold text-[#2fd39a] bg-[#2fd39a]/10 px-3 py-1.5 rounded-full border border-[#2fd39a]/30">
-            Xem Donut Chart →
+          <span className="text-xs font-medium text-emerald-400 bg-emerald-950 px-2.5 py-1 rounded border border-emerald-800">
+            Xem Chi Tiết →
           </span>
         </button>
 
         {/* 14 Nodes Grid (2 cols mobile, 3 cols tablet) */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {items.map((node) => {
             const IconComponent = node.icon || IconSparkles;
             return node.isActive ? (
               <button
                 key={node.id}
                 onClick={node.onClick}
-                className="p-3.5 rounded-2xl bg-gradient-to-br from-[#0f4133] to-[#08221a] border border-[#2fd39a]/40 shadow-md text-left flex items-center gap-3 min-h-[52px] active:scale-95 transition-all"
+                className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-left flex items-center gap-2.5 min-h-[48px] hover:border-slate-700 active:scale-95 transition-colors"
               >
-                <div className="w-8 h-8 rounded-xl bg-[#2fd39a]/20 text-[#2fd39a] flex items-center justify-center flex-shrink-0">
-                  <IconComponent size={18} />
+                <div className="w-7 h-7 rounded-lg bg-slate-800 text-slate-200 flex items-center justify-center flex-shrink-0 border border-slate-700">
+                  <IconComponent size={16} />
                 </div>
                 <div className="overflow-hidden">
-                  <span className="text-xs font-bold text-white block truncate leading-tight">
+                  <span className="text-xs font-medium text-slate-200 block truncate leading-tight">
                     {node.label}
                   </span>
                   {node.subLabel && (
-                    <span className="text-[10px] text-[#f2dc9a] font-mono block truncate">
+                    <span className="text-[10px] text-slate-400 font-mono block truncate">
                       {node.subLabel}
                     </span>
                   )}
@@ -188,16 +187,16 @@ export default function CircularMenu({
             ) : (
               <div
                 key={node.id}
-                className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 opacity-45 text-left flex items-center gap-3 min-h-[52px] cursor-not-allowed select-none"
+                className="p-3 rounded-xl bg-slate-950/60 border border-slate-850 opacity-50 text-left flex items-center gap-2.5 min-h-[48px] cursor-not-allowed select-none"
               >
-                <div className="w-8 h-8 rounded-xl bg-white/5 text-gray-400 flex items-center justify-center flex-shrink-0">
-                  <IconComponent size={18} />
+                <div className="w-7 h-7 rounded-lg bg-slate-900 text-slate-500 flex items-center justify-center flex-shrink-0 border border-slate-800">
+                  <IconComponent size={16} />
                 </div>
                 <div className="overflow-hidden">
-                  <span className="text-xs font-semibold text-gray-300 block truncate leading-tight">
+                  <span className="text-xs font-medium text-slate-400 block truncate leading-tight">
                     {node.label}
                   </span>
-                  <span className="text-[9px] font-bold text-amber-400 uppercase tracking-wider block">
+                  <span className="text-[9px] font-mono text-slate-500 block">
                     Sắp ra mắt
                   </span>
                 </div>

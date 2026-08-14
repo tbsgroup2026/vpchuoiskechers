@@ -13,7 +13,6 @@ import {
   IconBulb,
   IconBrain,
   IconShieldCheck,
-  IconHierarchy,
   IconTool,
   IconFileText,
   IconUsers,
@@ -22,6 +21,7 @@ import {
   IconRefresh,
   IconChevronDown,
   IconSparkles,
+  IconAdjustmentsHorizontal,
 } from "@tabler/icons-react";
 
 export default function DashboardPage() {
@@ -173,67 +173,70 @@ export default function DashboardPage() {
 
   return (
     <div
-      className="min-h-screen bg-[#08221a] font-sans antialiased text-white selection:bg-[#2fd39a] selection:text-[#08221a] transition-all duration-300"
+      className="min-h-screen bg-slate-950 font-sans text-slate-100 antialiased selection:bg-slate-700 selection:text-white"
       style={{ zoom: `${zoomLevel}%` }}
     >
       <Header />
 
-      <main className="pt-28 pb-20 px-4 sm:px-6 lg:px-12 max-w-[1400px] mx-auto space-y-8">
-        {/* Top Control Bar: Zoom controls, Functions Dropdown, User Scope */}
-        <div className="bg-[#0d2419] p-4 sm:p-5 rounded-3xl border border-[#2fd39a]/30 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-[#2fd39a]/20 text-[#2fd39a] flex items-center justify-center font-bold font-mono">
+      <main className="pt-24 pb-16 px-4 sm:px-6 lg:px-8 max-w-[1320px] mx-auto space-y-6">
+        {/* Function-first Control Toolbar */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-lg bg-slate-800 text-slate-200 flex items-center justify-center font-mono font-bold text-xs border border-slate-700">
               SKS
             </div>
             <div>
-              <h1 className="text-lg sm:text-xl font-black text-white tracking-tight flex items-center gap-2">
-                <span>Văn Phòng Chuỗi SKECHERS - TBS Group</span>
-                <span className="text-[10px] font-mono font-bold bg-[#2fd39a] text-[#08221a] px-2 py-0.5 rounded-full uppercase">
-                  LIVE 24/7
+              <div className="flex items-center gap-2">
+                <h1 className="text-base sm:text-lg font-bold text-slate-100 tracking-tight">
+                  Văn Phòng Chuỗi SKECHERS - TBS Group
+                </h1>
+                <span className="text-[10px] font-mono font-semibold bg-emerald-950 text-emerald-300 border border-emerald-800 px-2 py-0.5 rounded">
+                  Hệ thống vận hành
                 </span>
-              </h1>
-              <p className="text-xs text-gray-400">
-                Xin chào, <strong className="text-[#f2dc9a]">{userName}</strong> ({userRoleCode})
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Tài khoản: <span className="text-slate-200 font-medium">{userName}</span> ({userRoleCode})
               </p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
             {/* Zoom Controls */}
-            <div className="flex items-center bg-[#08221a] p-1 rounded-2xl border border-white/10 text-xs">
+            <div className="flex items-center bg-slate-950 px-2 py-1 rounded-lg border border-slate-800 text-xs">
               <button
                 onClick={() => setZoomLevel((z) => Math.max(75, z - 10))}
-                className="p-1.5 hover:bg-white/10 rounded-xl text-gray-300 hover:text-white"
+                className="p-1 text-slate-400 hover:text-slate-200 transition-colors"
                 title="Thu nhỏ"
               >
-                <IconZoomOut size={16} />
+                <IconZoomOut size={15} />
               </button>
-              <span className="px-2 font-mono font-bold text-[#2fd39a]">
+              <span className="px-2.5 font-mono text-xs text-slate-300">
                 {zoomLevel}%
               </span>
               <button
                 onClick={() => setZoomLevel((z) => Math.min(125, z + 10))}
-                className="p-1.5 hover:bg-white/10 rounded-xl text-gray-300 hover:text-white"
+                className="p-1 text-slate-400 hover:text-slate-200 transition-colors"
                 title="Phóng to"
               >
-                <IconZoomIn size={16} />
+                <IconZoomIn size={15} />
               </button>
               <button
                 onClick={() => setZoomLevel(100)}
-                className="p-1.5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white border-l border-white/10 ml-1"
-                title="Đặt lại"
+                className="p-1 text-slate-500 hover:text-slate-300 border-l border-slate-800 ml-1.5 pl-1.5 transition-colors"
+                title="Đặt lại 100%"
               >
-                <IconRefresh size={14} />
+                <IconRefresh size={13} />
               </button>
             </div>
 
-            {/* Dropdown "Chức Năng" reading 14-button array data */}
+            {/* Quick Dropdown Selector */}
             <div className="relative group">
-              <button className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-[#0f4133] border border-[#2fd39a]/40 text-xs font-extrabold text-[#2fd39a] hover:bg-[#2fd39a] hover:text-[#08221a] transition-all">
-                <span>Dropdown Chức Năng (14 Nút)</span>
-                <IconChevronDown size={14} />
+              <button className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-xs font-medium text-slate-200 hover:bg-slate-700 transition-colors">
+                <IconAdjustmentsHorizontal size={15} className="text-slate-400" />
+                <span>Danh sách Chức Năng (14)</span>
+                <IconChevronDown size={14} className="text-slate-400" />
               </button>
-              <div className="absolute right-0 top-full mt-2 w-64 rounded-2xl bg-[#08221a]/98 border border-[#2fd39a]/40 p-2 shadow-2xl backdrop-blur-2xl hidden group-hover:block z-30 max-h-72 overflow-y-auto">
+              <div className="absolute right-0 top-full mt-1.5 w-64 rounded-xl bg-slate-900 border border-slate-800 p-1.5 shadow-xl hidden group-hover:block z-30 max-h-72 overflow-y-auto">
                 {functionItems.map((item) => (
                   <button
                     key={item.id}
@@ -241,15 +244,15 @@ export default function DashboardPage() {
                       if (item.isActive && item.onClick) item.onClick();
                     }}
                     disabled={!item.isActive}
-                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition ${
+                    className={`w-full text-left px-3 py-2 rounded-lg text-xs flex items-center justify-between transition-colors ${
                       item.isActive
-                        ? "text-gray-200 hover:text-[#2fd39a] hover:bg-white/5 cursor-pointer"
-                        : "text-gray-500 opacity-50 cursor-not-allowed"
+                        ? "text-slate-200 hover:bg-slate-800 cursor-pointer"
+                        : "text-slate-500 opacity-60 cursor-not-allowed"
                     }`}
                   >
                     <span>{item.label}</span>
                     {!item.isActive && (
-                      <span className="text-[9px] font-bold text-amber-400">Sắp ra mắt</span>
+                      <span className="text-[10px] text-slate-500 font-mono">Sắp ra mắt</span>
                     )}
                   </button>
                 ))}
@@ -258,34 +261,32 @@ export default function DashboardPage() {
           </div>
         </div>
 
-
-        {/* Mode Selector Tabs: Vành Tròn 14 Chức Năng vs Vành Tròn 14 Phòng Ban */}
-        <div className="flex items-center justify-center gap-3 bg-[#0d2419] p-1.5 rounded-2xl border border-white/10 max-w-md mx-auto">
+        {/* Clean Mode Selector Tabs */}
+        <div className="flex items-center justify-center p-1 bg-slate-900 rounded-xl border border-slate-800 max-w-md mx-auto">
           <button
             onClick={() => setActiveTab("functions")}
-            className={`flex-1 py-2.5 px-4 text-xs font-extrabold rounded-xl transition-all ${
+            className={`flex-1 py-2 px-3 text-xs font-medium rounded-lg transition-colors ${
               activeTab === "functions"
-                ? "bg-gradient-to-r from-[#2fd39a] to-[#f2dc9a] text-[#08221a] shadow-lg"
-                : "text-gray-400 hover:text-white"
+                ? "bg-slate-800 text-slate-100 shadow-sm border border-slate-700"
+                : "text-slate-400 hover:text-slate-200"
             }`}
           >
-            Vành Tròn 14 Chức Năng
+            14 Chức Năng Vận Hành
           </button>
           <button
             onClick={() => setActiveTab("departments")}
-            className={`flex-1 py-2.5 px-4 text-xs font-extrabold rounded-xl transition-all ${
+            className={`flex-1 py-2 px-3 text-xs font-medium rounded-lg transition-colors ${
               activeTab === "departments"
-                ? "bg-gradient-to-r from-[#2fd39a] to-[#f2dc9a] text-[#08221a] shadow-lg"
-                : "text-gray-400 hover:text-white"
+                ? "bg-slate-800 text-slate-100 shadow-sm border border-slate-700"
+                : "text-slate-400 hover:text-slate-200"
             }`}
           >
-            Vành Tròn 14 Phòng Ban
+            14 Phòng Ban Sản Xuất
           </button>
         </div>
 
-
-        {/* Main Circular Radial View */}
-        <div className="bg-[#061a14] p-6 sm:p-10 rounded-3xl border border-[#2fd39a]/20 shadow-2xl">
+        {/* Main Operational Radial Canvas */}
+        <div className="bg-slate-900 p-6 sm:p-8 rounded-2xl border border-slate-800">
           {activeTab === "functions" ? (
             <CircularMenu
               items={functionItems}
@@ -303,59 +304,66 @@ export default function DashboardPage() {
           )}
         </div>
 
-
-        {/* Daily Management 4 Quick Cards Access */}
+        {/* 4 Primary Daily Management Operational Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <button
             onClick={() => setActiveModal("daily-review")}
-            className="p-5 rounded-3xl bg-[#0d2419] border border-[#2fd39a]/30 hover:border-[#2fd39a] transition-all text-left group"
+            className="p-4 sm:p-5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition-colors text-left group"
           >
-            <div className="w-10 h-10 rounded-2xl bg-[#2fd39a]/20 text-[#2fd39a] flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-              <IconChartBar size={22} />
+            <div className="w-9 h-9 rounded-lg bg-slate-800 text-slate-200 flex items-center justify-center mb-3 border border-slate-700">
+              <IconChartBar size={18} />
             </div>
-            <h3 className="text-sm font-extrabold text-white mb-1 group-hover:text-[#2fd39a] transition-colors">
+            <h3 className="text-sm font-semibold text-slate-100 mb-1 group-hover:text-emerald-400 transition-colors">
               1. Dashboard Daily Review
             </h3>
-            <p className="text-xs text-gray-400">KPI sản lượng, OEE &amp; thời gian xử lý sự cố</p>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Theo dõi KPI sản lượng, chỉ số OEE &amp; thời gian xử lý sự cố hàng ngày.
+            </p>
           </button>
 
           <button
             onClick={() => setActiveModal("gemba")}
-            className="p-5 rounded-3xl bg-[#0d2419] border border-red-500/30 hover:border-red-400 transition-all text-left group"
+            className="p-4 sm:p-5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition-colors text-left group"
           >
-            <div className="w-10 h-10 rounded-2xl bg-red-500/20 text-red-400 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-              <IconBuildingFactory size={22} />
+            <div className="w-9 h-9 rounded-lg bg-slate-800 text-slate-200 flex items-center justify-center mb-3 border border-slate-700">
+              <IconBuildingFactory size={18} />
             </div>
-            <h3 className="text-sm font-extrabold text-white mb-1 group-hover:text-red-400 transition-colors">
+            <h3 className="text-sm font-semibold text-slate-100 mb-1 group-hover:text-emerald-400 transition-colors">
               2. Gemba Walk Hiện Trường
             </h3>
-            <p className="text-xs text-gray-400">Tạo biên bản sự cố, đính kèm ảnh R2 &amp; đếm SLA</p>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Ghi nhận biên bản sự cố thiết bị, hình ảnh thực tế và theo dõi thời gian SLA.
+            </p>
           </button>
 
           <button
             onClick={() => setActiveModal("ci")}
-            className="p-5 rounded-3xl bg-[#0d2419] border border-amber-500/30 hover:border-amber-400 transition-all text-left group"
+            className="p-4 sm:p-5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition-colors text-left group"
           >
-            <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-              <IconBulb size={22} />
+            <div className="w-9 h-9 rounded-lg bg-slate-800 text-slate-200 flex items-center justify-center mb-3 border border-slate-700">
+              <IconBulb size={18} />
             </div>
-            <h3 className="text-sm font-extrabold text-white mb-1 group-hover:text-amber-400 transition-colors">
+            <h3 className="text-sm font-semibold text-slate-100 mb-1 group-hover:text-emerald-400 transition-colors">
               3. Đề Xuất Cải Tiến CI
             </h3>
-            <p className="text-xs text-gray-400">Ghi nhận giải pháp nâng cao chất lượng &amp; 5S</p>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Tổng hợp giải pháp nâng cao năng suất, 5S và tối ưu hóa dây chuyền.
+            </p>
           </button>
 
           <button
             onClick={() => setActiveModal("kaizen")}
-            className="p-5 rounded-3xl bg-[#0d2419] border border-[#2fd39a]/30 hover:border-[#2fd39a] transition-all text-left group"
+            className="p-4 sm:p-5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition-colors text-left group"
           >
-            <div className="w-10 h-10 rounded-2xl bg-[#2fd39a]/20 text-[#2fd39a] flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-              <IconBrain size={22} />
+            <div className="w-9 h-9 rounded-lg bg-slate-800 text-slate-200 flex items-center justify-center mb-3 border border-slate-700">
+              <IconBrain size={18} />
             </div>
-            <h3 className="text-sm font-extrabold text-white mb-1 group-hover:text-[#2fd39a] transition-colors">
+            <h3 className="text-sm font-semibold text-slate-100 mb-1 group-hover:text-emerald-400 transition-colors">
               4. Kaizen + AI Groq
             </h3>
-            <p className="text-xs text-gray-400">Tích hợp AI so sánh trùng lặp thông minh</p>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Công cụ trí tuệ nhân tạo tự động quét và so sánh mức độ trùng lặp sáng kiến.
+            </p>
           </button>
         </div>
       </main>
@@ -366,3 +374,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+

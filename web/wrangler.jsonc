@@ -11,5 +11,12 @@
   "vars": {
     "NEXT_PUBLIC_APP_URL": "https://vpchuoiskechers.tbsgroup2026.workers.dev",
     "JWT_SECRET": "tbs_group_secure_jwt_secret_key_2026"
-  }
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "tbs-ops-hub",
+      "database_id": "f282adb1-6c30-4f40-b410-75ff3ddb2b3e"
+    }
+  ]
 }

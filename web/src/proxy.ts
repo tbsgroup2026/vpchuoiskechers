@@ -15,6 +15,9 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api/public') ||
     pathname.startsWith('/api/auth/login') ||
+    pathname.startsWith('/api/ops-departments') ||
+    pathname.startsWith('/api/directories') ||
+    pathname.startsWith('/api/meeting-bookings/availability') ||
     pathname.includes('.')
   ) {
     return NextResponse.next();

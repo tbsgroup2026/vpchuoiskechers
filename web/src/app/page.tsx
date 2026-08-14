@@ -1,6 +1,7 @@
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import WorkspaceGallery from "@/components/home/WorkspaceGallery";
+import OpsDirectory from "@/components/home/OpsDirectory";
 import Link from "next/link";
 import {
   IconArrowDown,
@@ -215,6 +216,12 @@ export default function HomePage() {
             Interactive Gallery with 14 real images from /images/KGLV/
            ════════════════════════════════════════════════════════════════ */}
         <WorkspaceGallery />
+
+
+        {/* ════════════════════════════════════════════════════════════════
+            MODULE 3.5 — PHÒNG BAN & CÔNG CỤ ĐIỀU HÀNH (#ops-directory)
+           ════════════════════════════════════════════════════════════════ */}
+        <OpsDirectory />
 
 
         {/* ════════════════════════════════════════════════════════════════

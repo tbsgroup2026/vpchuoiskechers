@@ -7,6 +7,15 @@ import {
   IconBuilding,
   IconFileText,
   IconChartBar,
+  IconClipboardCheck,
+  IconLayoutGrid,
+  IconMapPin,
+  IconBuildingFactory,
+  IconUsersGroup,
+  IconMapPinPin,
+  IconCar,
+  IconAddressBook,
+  IconDoor,
 } from "@tabler/icons-react";
 
 export default function AdminLayout({
@@ -54,6 +63,49 @@ export default function AdminLayout({
             >
               <IconBuilding size={18} />
               Phòng ban
+            </Link>
+
+            <div className="pt-4 mt-4 border-t border-white/8 text-xs text-white/25 font-semibold uppercase tracking-wider px-4">
+              Ops Hub — Trang chủ
+            </div>
+            <Link
+              href="/admin/ops-hub"
+              className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-accent-mid transition text-white/65 hover:text-white"
+            >
+              <IconLayoutGrid size={18} />
+              Phòng ban &amp; Ứng dụng
+            </Link>
+            <Link
+              href="/admin/approvals"
+              className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-accent-mid transition text-white/65 hover:text-white"
+            >
+              <IconClipboardCheck size={18} />
+              Duyệt đơn
+            </Link>
+
+            <div className="pt-4 mt-4 border-t border-white/8 text-xs text-white/25 font-semibold uppercase tracking-wider px-4">
+              Danh mục biểu mẫu
+            </div>
+            <Link href="/admin/directories/zones" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-accent-mid transition text-white/65 hover:text-white">
+              <IconMapPin size={18} /> Khu vực
+            </Link>
+            <Link href="/admin/directories/factories" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-accent-mid transition text-white/65 hover:text-white">
+              <IconBuildingFactory size={18} /> Nhà máy
+            </Link>
+            <Link href="/admin/directories/bo_phan" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-accent-mid transition text-white/65 hover:text-white">
+              <IconUsersGroup size={18} /> Bộ phận
+            </Link>
+            <Link href="/admin/directories/work_locations" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-accent-mid transition text-white/65 hover:text-white">
+              <IconMapPinPin size={18} /> Công tác tại
+            </Link>
+            <Link href="/admin/directories/travel_methods" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-accent-mid transition text-white/65 hover:text-white">
+              <IconCar size={18} /> Hình thức đi công tác
+            </Link>
+            <Link href="/admin/directories/work_addresses" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-accent-mid transition text-white/65 hover:text-white">
+              <IconAddressBook size={18} /> Địa chỉ công tác
+            </Link>
+            <Link href="/admin/directories/meeting_rooms" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-accent-mid transition text-white/65 hover:text-white">
+              <IconDoor size={18} /> Phòng họp
             </Link>
 
             <div className="pt-4 mt-4 border-t border-white/8 text-xs text-white/25 font-semibold uppercase tracking-wider px-4">

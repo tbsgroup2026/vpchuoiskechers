@@ -44,7 +44,7 @@ export function getRedirectRouteForUser(user: JWTPayload): string {
     return '/admin/users';
   }
   if (user.roleLevel === ROLE_LEVELS.EXECUTIVE) {
-    return '/dashboard';
+    return '/work';
   }
   if (user.roleLevel === ROLE_LEVELS.DEPARTMENT_HEAD) {
     return '/documents/approvals';

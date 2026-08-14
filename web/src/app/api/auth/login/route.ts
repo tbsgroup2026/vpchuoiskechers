@@ -31,7 +31,7 @@ export async function POST(request: Request) {
         success: true,
         token,
         user: payload,
-        redirectUrl: '/dashboard',
+        redirectUrl: '/work',
       });
     }
 
@@ -56,7 +56,7 @@ export async function POST(request: Request) {
         success: true,
         token,
         user: payload,
-        redirectUrl: '/dashboard',
+        redirectUrl: '/work',
       });
     }
 
@@ -81,7 +81,7 @@ export async function POST(request: Request) {
         success: true,
         token,
         user: payload,
-        redirectUrl: '/dashboard',
+        redirectUrl: '/work',
       });
     }
 
@@ -105,7 +105,7 @@ export async function POST(request: Request) {
         success: true,
         token,
         user: payload,
-        redirectUrl: '/dashboard',
+        redirectUrl: '/work',
       });
     }
 

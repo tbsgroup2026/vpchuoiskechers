@@ -35,7 +35,7 @@ export default function LoginPage() {
     try {
       let isSuccess = false;
       let token = "";
-      let redirectUrl = "/dashboard";
+      let redirectUrl = "/work";
 
       try {
         const res = await fetch("/api/auth/login", {
@@ -55,7 +55,7 @@ export default function LoginPage() {
         if (res.ok && data?.success) {
           isSuccess = true;
           token = data.token;
-          redirectUrl = data.redirectUrl || "/dashboard";
+          redirectUrl = data.redirectUrl || "/work";
         } else if (data?.error) {
           throw new Error(data.error);
         }

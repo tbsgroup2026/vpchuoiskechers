@@ -46,7 +46,7 @@ export async function proxy(request: NextRequest) {
 
   // 4. Role Protection for Admin Routes
   if (pathname.startsWith('/admin') && user.roleLevel > 1) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+    return NextResponse.redirect(new URL('/work', request.url));
   }
 
   return NextResponse.next();

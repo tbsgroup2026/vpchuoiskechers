@@ -208,7 +208,7 @@ export default function Header() {
           {/* 4. Hệ thống quản trị — ONLY VISIBLE WHEN LOGGED IN */}
           {isLoggedIn && (
             <Link
-              href="/dashboard"
+              href="/work"
               className="text-[#2fd39a] hover:text-[#f2dc9a] font-extrabold transition-colors py-0.5 flex items-center gap-1.5 bg-[#2fd39a]/10 px-2.5 rounded-full border border-[#2fd39a]/30"
             >
               <span className="w-1.5 h-1.5 rounded-full bg-[#2fd39a] animate-ping" />
@@ -383,7 +383,7 @@ export default function Header() {
 
           {isLoggedIn && (
             <Link
-              href="/dashboard"
+              href="/work"
               onClick={() => setMobileOpen(false)}
               className="block py-2.5 text-sm font-extrabold text-[#2fd39a] border-b border-white/10 bg-[#2fd39a]/10 rounded-xl"
             >

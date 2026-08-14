@@ -230,7 +230,7 @@ export default function HRPage() {
           </p>
         </div>
         <a 
-          href="/dashboard" 
+          href="/work" 
           className="inline-flex items-center gap-2 text-gr3 hover:text-white transition-colors text-xs font-semibold uppercase tracking-wider font-serif"
         >
           <IconArrowLeft size={16} /> Quay Lại Bàn Làm Việc
@@ -265,7 +265,7 @@ export default function HRPage() {
           </div>
 
           <a 
-            href="/dashboard"
+            href="/work"
             className="flex items-center gap-2 bg-[#0b0d0c] border border-[#2fd39a22] hover:border-accent-soft text-gray-300 hover:text-white font-bold px-5 py-3 rounded-2xl text-xs uppercase tracking-wider transition-all active:scale-95 shrink-0"
           >
             <IconArrowLeft size={16} /> Quay Lại Dashboard

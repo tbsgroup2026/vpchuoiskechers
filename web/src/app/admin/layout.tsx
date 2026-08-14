@@ -67,7 +67,7 @@ export default function AdminLayout({
               Số hóa giấy tờ
             </Link>
             <Link
-              href="/dashboard"
+              href="/work"
               className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-accent-mid transition text-white/65 hover:text-white"
             >
               <IconChartBar size={18} />

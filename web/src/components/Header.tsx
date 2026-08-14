@@ -261,60 +261,62 @@ export default function Header() {
 
         {/* Right Action Section (Notification Bell + Login/Profile CTA) */}
         <div className="hidden xl:flex items-center gap-3">
-          {/* Notification Bell */}
-          <div className="relative">
-            <button
-              onClick={() => setNotifOpen(!notifOpen)}
-              className="relative p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all duration-200"
-              aria-label="Thông báo"
-            >
-              <IconBell size={18} />
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white font-mono text-[10px] font-bold flex items-center justify-center animate-bounce">
-                  {unreadCount}
-                </span>
-              )}
-            </button>
+          {/* Notification Bell — ONLY VISIBLE WHEN LOGGED IN */}
+          {isLoggedIn && (
+            <div className="relative">
+              <button
+                onClick={() => setNotifOpen(!notifOpen)}
+                className="relative p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all duration-200"
+                aria-label="Thông báo"
+              >
+                <IconBell size={18} />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white font-mono text-[10px] font-bold flex items-center justify-center animate-bounce">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
 
-            {/* Notification Dropdown */}
-            {notifOpen && (
-              <div className="absolute top-full right-0 mt-3 w-80 rounded-3xl bg-[#08221a]/98 border border-[#2fd39a]/30 p-4 shadow-2xl backdrop-blur-2xl animate-in fade-in slide-in-from-top-3 duration-200">
-                <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-2">
-                  <div className="flex items-center gap-2">
-                    <IconBell size={16} className="text-[#2fd39a]" />
-                    <span className="text-xs font-bold text-white uppercase tracking-wider">Thông Báo Vận Hành</span>
-                  </div>
-                  {unreadCount > 0 && (
-                    <button
-                      onClick={markAllAsRead}
-                      className="text-[11px] font-semibold text-[#2fd39a] hover:underline"
-                    >
-                      Đọc tất cả
-                    </button>
-                  )}
-                </div>
-
-                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                  {notifications.map((n) => (
-                    <div
-                      key={n.id}
-                      className={`p-3 rounded-2xl border text-left transition-all ${
-                        n.isRead
-                          ? 'bg-white/[0.02] border-white/5 opacity-70'
-                          : 'bg-[#0f4133]/50 border-[#2fd39a]/30'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between text-xs font-bold text-white">
-                        <span>{n.title}</span>
-                        <span className="text-[10px] text-[#f2dc9a] font-normal">{n.time}</span>
-                      </div>
-                      <p className="text-[11px] text-gray-300 mt-1 leading-snug">{n.message}</p>
+              {/* Notification Dropdown */}
+              {notifOpen && (
+                <div className="absolute top-full right-0 mt-3 w-80 rounded-3xl bg-[#08221a]/98 border border-[#2fd39a]/30 p-4 shadow-2xl backdrop-blur-2xl animate-in fade-in slide-in-from-top-3 duration-200">
+                  <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-2">
+                    <div className="flex items-center gap-2">
+                      <IconBell size={16} className="text-[#2fd39a]" />
+                      <span className="text-xs font-bold text-white uppercase tracking-wider">Thông Báo Vận Hành</span>
                     </div>
-                  ))}
+                    {unreadCount > 0 && (
+                      <button
+                        onClick={markAllAsRead}
+                        className="text-[11px] font-semibold text-[#2fd39a] hover:underline"
+                      >
+                        Đọc tất cả
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                    {notifications.map((n) => (
+                      <div
+                        key={n.id}
+                        className={`p-3 rounded-2xl border text-left transition-all ${
+                          n.isRead
+                            ? 'bg-white/[0.02] border-white/5 opacity-70'
+                            : 'bg-[#0f4133]/50 border-[#2fd39a]/30'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between text-xs font-bold text-white">
+                          <span>{n.title}</span>
+                          <span className="text-[10px] text-[#f2dc9a] font-normal">{n.time}</span>
+                        </div>
+                        <p className="text-[11px] text-gray-300 mt-1 leading-snug">{n.message}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
 
           {/* 7. Đăng Nhập CTA / Profile Logout */}
           {isLoggedIn ? (

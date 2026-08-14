@@ -26,7 +26,7 @@ export default function HomePage() {
            ════════════════════════════════════════════════════════════════ */}
         <section
           id="hero"
-          className="relative flex items-center bg-[#08221a] overflow-hidden pt-12 pb-10 lg:pt-16 lg:pb-12 min-h-[68vh] lg:min-h-[calc(68vh-2rem)]"
+          className="relative flex items-center bg-[#08221a] overflow-hidden pt-20 pb-14 lg:pt-24 lg:pb-16 min-h-[calc(100vh-148px)]"
         >
           {/* Background Image: Gate photo spanning across whole section */}
           <div
@@ -118,7 +118,7 @@ export default function HomePage() {
               </div>
 
               {/* Right Column: Hero Visual Block matching exact script.google.com layout */}
-              <div className="lg:col-span-5 relative min-h-[380px] h-[380px] z-2">
+              <div className="lg:col-span-5 relative min-h-[430px] h-[430px] z-2">
                 {/* 1. Main Card (.hv-main): top:0, right:0, width:78%, height:66%, border-radius:26px */}
                 <div className="absolute top-0 right-0 w-[78%] h-[66%] rounded-[26px] overflow-hidden border border-[#2fd39a]/35 shadow-2xl z-10 group">
                   <img
@@ -151,7 +151,7 @@ export default function HomePage() {
           {/* Smooth Scroll Arrow Button (Bottom Right) */}
           <a
             href="#brand-strip"
-            className="absolute bottom-6 right-6 w-9 h-9 rounded-full bg-[#0d2419] border border-[#2fd39a]/40 text-[#2fd39a] flex items-center justify-center shadow-xl hover:bg-[#2fd39a] hover:text-[#08221a] transition-all duration-300 animate-bounce z-30"
+            className="absolute bottom-4 right-6 w-9 h-9 rounded-full bg-[#0d2419] border border-[#2fd39a]/40 text-[#2fd39a] flex items-center justify-center shadow-xl hover:bg-[#2fd39a] hover:text-[#08221a] transition-all duration-300 animate-bounce z-30"
             aria-label="Cuộn xuống"
           >
             <IconArrowDown size={16} />
@@ -165,7 +165,7 @@ export default function HomePage() {
            ════════════════════════════════════════════════════════════════ */}
         <section
           id="brand-strip"
-          className="relative z-20 -mt-4 py-7 bg-[#0b3226]/95 backdrop-blur-md border-y border-[#2fd39a]/30 shadow-2xl overflow-hidden"
+          className="relative z-20 py-6 bg-[#0b3226] border-y border-[#2fd39a]/20 shadow-xl overflow-hidden"
         >
           {/* Subtle gradient side fades (120px) */}
           <div className="absolute left-0 top-0 bottom-0 w-[120px] bg-gradient-to-r from-[#0b3226] to-transparent z-10 pointer-events-none" />

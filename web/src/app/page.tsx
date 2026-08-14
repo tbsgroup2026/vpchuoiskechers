@@ -160,36 +160,50 @@ export default function HomePage() {
 
         {/* ════════════════════════════════════════════════════════════════
             MODULE 2 — BRAND-STRIP (#brand-strip)
-            Full-width light background strip directly below Hero
+            Full-width dark background strip with infinite marquee sliding left
            ════════════════════════════════════════════════════════════════ */}
         <section
           id="brand-strip"
-          className="py-10 bg-slate-50 border-y border-slate-200 overflow-hidden"
+          className="py-10 bg-[#061a14] border-y border-[#2fd39a]/20 overflow-hidden relative"
         >
-          <div className="max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-12 text-center space-y-6">
-            <h3 className="text-[11px] font-extrabold uppercase tracking-[0.25em] text-[#006838]">
+          {/* Subtle gradient side fades */}
+          <div className="absolute left-0 top-0 bottom-0 w-20 sm:w-32 bg-gradient-to-r from-[#061a14] to-transparent z-10 pointer-events-none" />
+          <div className="absolute right-0 top-0 bottom-0 w-20 sm:w-32 bg-gradient-to-l from-[#061a14] to-transparent z-10 pointer-events-none" />
+
+          <div className="w-full text-center space-y-6">
+            <h3 className="text-[11px] font-extrabold uppercase tracking-[0.25em] text-[#f2dc9a]">
               ĐỐI TÁC THƯƠNG HIỆU TIN CẬY &amp; HỆ THỐNG CUNG ỨNG
             </h3>
 
-            {/* Horizontal Partner Logos Row */}
-            <div className="flex items-center justify-start lg:justify-center gap-4 sm:gap-6 overflow-x-auto pb-2 scroll-snap-x snap-mandatory no-scrollbar">
-              {[
-                "SKECHERS GLOBAL",
-                "TBS GROUP LOGISTICS",
-                "DECATHLON PARTNER",
-                "ZONE II INDUSTRIAL",
-                "THOAI SON SHOES",
-                "QUALITY CONTROL HUB",
-              ].map((brand, idx) => (
-                <div
-                  key={idx}
-                  className="flex-none snap-center px-6 py-3.5 rounded-2xl bg-white border border-slate-200 hover:border-[#006838]/40 shadow-sm transition-colors duration-200 flex items-center justify-center min-w-[180px]"
-                >
-                  <span className="text-xs font-bold font-mono text-slate-700 tracking-wider">
-                    {brand}
-                  </span>
-                </div>
-              ))}
+            {/* Continuous Infinite Marquee Row Sliding Left */}
+            <div className="overflow-hidden w-full flex items-center py-1">
+              <div className="animate-marquee-left flex items-center gap-4">
+                {[
+                  "SKECHERS GLOBAL",
+                  "TBS GROUP LOGISTICS",
+                  "DECATHLON PARTNER",
+                  "ZONE II INDUSTRIAL",
+                  "SKECHERS ZONE II",
+                  "QUALITY CONTROL HUB",
+                  "TBS FOOTWEAR DIGITAL",
+                  "SKECHERS GLOBAL",
+                  "TBS GROUP LOGISTICS",
+                  "DECATHLON PARTNER",
+                  "ZONE II INDUSTRIAL",
+                  "SKECHERS ZONE II",
+                  "QUALITY CONTROL HUB",
+                  "TBS FOOTWEAR DIGITAL",
+                ].map((brand, idx) => (
+                  <div
+                    key={idx}
+                    className="flex-none px-6 py-3.5 rounded-2xl bg-white/[0.04] border border-white/10 hover:border-[#2fd39a]/50 transition-all duration-200 flex items-center justify-center min-w-[200px] shadow-lg backdrop-blur-sm group cursor-pointer"
+                  >
+                    <span className="text-xs font-bold font-mono text-gray-200 group-hover:text-[#2fd39a] tracking-wider transition-colors">
+                      {brand}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </section>

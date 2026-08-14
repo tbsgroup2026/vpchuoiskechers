@@ -36,7 +36,7 @@ jobs:
         run: |
           if [ -z "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]; then
             echo "⚠️ CLOUDFLARE_API_TOKEN is not set in GitHub Secrets yet."
-            echo "Please add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID to https://github.com/anhywork2004/tbshethong/settings/secrets/actions"
+            echo "Please add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID to https://github.com/tbsgroup2026/vpchuoiskechers/settings/secrets/actions"
           fi
 
       - name: Deploy to Cloudflare Workers

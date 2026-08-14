@@ -127,15 +127,13 @@ export default function HomePage() {
                   />
                 </div>
 
-                {/* 2. Overlapping Card (Mid-Left): High-res Team Banner (Image 2: PHÁT HUY SỨC MẠNH KIẾN TẠO TƯƠNG LAI) */}
-                <div className="absolute top-[30%] left-0 sm:-left-6 lg:-left-12 w-[75%] sm:w-[310px] lg:w-[340px] bg-white rounded-2xl p-1.5 shadow-2xl border border-emerald-200 backdrop-blur-xl z-20 hover:scale-[1.03] transition-transform duration-300 group/card">
-                  <div className="relative rounded-xl overflow-hidden aspect-[16/9] shadow-inner">
-                    <img
-                      src="/images/tbs-team-banner.png"
-                      alt="Phát Huy Sức Mạnh Kiến Tạo Tương Lai"
-                      className="w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-500"
-                    />
-                  </div>
+                {/* 2. Overlapping Card (Mid-Left): High-res Team Banner (Tràn viền, không viền, dịch xuống) */}
+                <div className="absolute top-[40%] sm:top-[38%] left-0 sm:-left-6 lg:-left-12 w-[80%] sm:w-[320px] lg:w-[350px] rounded-2xl overflow-hidden shadow-2xl z-20 hover:scale-[1.03] transition-transform duration-300 group/card">
+                  <img
+                    src="/images/tbs-team-banner.png"
+                    alt="Phát Huy Sức Mạnh Kiến Tạo Tương Lai"
+                    className="w-full h-auto object-cover group-hover/card:scale-105 transition-transform duration-500"
+                  />
                 </div>
 
                 {/* 3. Dark Quote Badge (Bottom Right) */}

@@ -20,7 +20,6 @@ import {
 
 export default function LoginPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"login" | "register">("login");
   const [empCode, setEmpCode] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
@@ -98,47 +97,13 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {/* 2 Tab chuyển đổi Đăng nhập / Đăng ký */}
-          <div className="flex items-center bg-gray-100 p-1 rounded-2xl mb-6">
-            <button
-              type="button"
-              onClick={() => setActiveTab("login")}
-              className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${
-                activeTab === "login"
-                  ? "bg-white text-[#08221a] shadow-sm"
-                  : "text-gray-500 hover:text-gray-900"
-              }`}
-            >
-              Đăng nhập
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("register")}
-              className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${
-                activeTab === "register"
-                  ? "bg-white text-[#08221a] shadow-sm"
-                  : "text-gray-500 hover:text-gray-900"
-              }`}
-            >
-              Đăng ký
-            </button>
-          </div>
-
-          {activeTab === "register" ? (
-            <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-xs leading-relaxed space-y-2">
-              <p className="font-bold">⚠️ Thông báo phân quyền:</p>
-              <p>
-                Tài khoản nội bộ Văn Phòng Chuỗi SKECHERS được quản trị viên HR cấp sẵn. Nếu bạn chưa có tài khoản, vui lòng liên hệ phòng CNTT / Nhân sự.
-              </p>
-            </div>
-          ) : (
-            /* Form Đăng nhập */
-            <form onSubmit={handleLogin} className="space-y-4">
-              {error && (
-                <div className="p-3.5 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center gap-2">
-                  <span>⚠️ {error}</span>
-                </div>
-              )}
+          {/* Form Đăng nhập trực tiếp */}
+          <form onSubmit={handleLogin} className="space-y-4">
+            {error && (
+              <div className="p-3.5 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center gap-2">
+                <span>⚠️ {error}</span>
+              </div>
+            )}
 
 
 
@@ -211,7 +176,6 @@ export default function LoginPage() {
                 <IconArrowRight size={16} />
               </button>
             </form>
-          )}
 
           {/* Quick Demo Credentials hint */}
           <div className="mt-6 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-900 space-y-1">

@@ -214,14 +214,7 @@ export default function WorkDashboardPage() {
                   {/* Department Title & Subtitle (Shown when Expanded) */}
                   {!isSidebarCollapsed && (
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span
-                          className={`text-xs font-mono font-bold ${
-                            isSelected ? "text-emerald-100" : "text-[#006838]/80"
-                          }`}
-                        >
-                          {dept.num}.
-                        </span>
+                      <div>
                         <h4 className="text-sm font-extrabold truncate tracking-tight">
                           {dept.name}
                         </h4>
@@ -252,7 +245,7 @@ export default function WorkDashboardPage() {
                   {/* Collapsed Hover Tooltip Popup */}
                   {isSidebarCollapsed && (
                     <div className="absolute left-full ml-3 px-3.5 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl shadow-2xl whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none flex items-center gap-2">
-                      <span>{dept.num}. {dept.name}</span>
+                      <span>{dept.name}</span>
                       {!dept.hasData && (
                         <span className="text-[10px] font-mono text-amber-300 font-normal">
                           (Soon)

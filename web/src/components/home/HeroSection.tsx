@@ -14,12 +14,14 @@ export default function HeroSection() {
         id="hero"
         className="relative flex items-center bg-[#08221a] overflow-hidden pt-28 pb-20 lg:pt-36 lg:pb-28 min-h-[calc(100vh-3.25rem)]"
       >
-        {/* Background Image: Gate photo */}
+        {/* Background Image: Gate photo full visibility */}
         <div
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat pointer-events-none opacity-25"
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat pointer-events-none"
           style={{ backgroundImage: "url('/images/tbs-gate.jpg')" }}
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-[#08221a]/90 via-[#08221a]/95 to-[#08221a] pointer-events-none" />
+        {/* Semi-transparent black gradient overlay for crisp text readability */}
+        <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/55 to-black/35 pointer-events-none" />
+        <div className="absolute inset-0 bg-black/20 pointer-events-none" />
 
         <div className="relative z-10 w-full max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-12">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">

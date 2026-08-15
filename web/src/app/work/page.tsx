@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import NotificationCenter from "@/components/NotificationCenter";
+import DonutChartModal from "@/components/DonutChartModal";
 import {
   IconUsers,
   IconCalculator,
@@ -98,6 +100,9 @@ export default function WorkDashboardPage() {
     newPassword: "",
     confirmPassword: "",
   });
+
+  // Donut Chart Modal State
+  const [isDonutModalOpen, setIsDonutModalOpen] = useState(false);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -557,14 +562,8 @@ export default function WorkDashboardPage() {
 
           <div className="flex items-center gap-2 sm:gap-3">
 
-            {/* Notifications Button */}
-            <button
-              className="relative p-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 hover:bg-slate-100 transition-colors shadow-sm"
-              title="Thông báo hệ thống"
-            >
-              <IconBell size={18} />
-              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[#006838] border-2 border-white animate-pulse" />
-            </button>
+            {/* Notification Center */}
+            <NotificationCenter />
 
             {/* Fullscreen Toggle */}
             <button
@@ -1755,6 +1754,12 @@ export default function WorkDashboardPage() {
           </div>
         </div>
       )}
+
+      {/* DONUT CHART DASHBOARD MODAL */}
+      <DonutChartModal
+        isOpen={isDonutModalOpen}
+        onClose={() => setIsDonutModalOpen(false)}
+      />
 
       {/* TOAST NOTIFICATION MESSAGE */}
       {toastMessage && (

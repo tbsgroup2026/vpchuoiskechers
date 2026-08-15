@@ -1,30 +1,7 @@
 import type { Metadata, Viewport } from "next";
-import { Be_Vietnam_Pro, Plus_Jakarta_Sans, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import DevToolsShield from "@/components/DevToolsShield";
 import MobileBottomNav from "@/components/MobileBottomNav";
-
-const vietnamPro = Be_Vietnam_Pro({
-  variable: "--font-sans",
-  subsets: ["latin", "vietnamese"],
-  weight: ["300", "400", "500", "600", "700", "800"],
-  display: "swap",
-});
-
-const jakartaSans = Plus_Jakarta_Sans({
-  variable: "--font-jakarta",
-  subsets: ["latin", "vietnamese"],
-  weight: ["400", "500", "600", "700", "800"],
-  display: "swap",
-});
-
-const playfairDisplay = Playfair_Display({
-  variable: "--font-serif",
-  subsets: ["latin", "vietnamese"],
-  weight: ["400", "600", "700", "900"],
-  style: ["normal", "italic"],
-  display: "swap",
-});
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -66,7 +43,7 @@ export default function RootLayout({
   return (
     <html
       lang="vi"
-      className={`${vietnamPro.variable} ${jakartaSans.variable} ${playfairDisplay.variable} h-full antialiased`}
+      className="h-full antialiased font-sans"
     >
       <head>
         <link rel="icon" href="/favicon.ico" type="image/x-icon" />

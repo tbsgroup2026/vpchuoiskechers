@@ -167,7 +167,7 @@ export default function MeetingRoomsPage() {
     },
     {
       id: "room_6",
-      name: "Phòng Phụ Phỏng Vấn Linh Tinh",
+      name: "Phòng Họp Phụ",
       capacity: 8,
       location: "Tầng 1 - Khu Hành Chánh & Nhân Sự",
       equipment: ["Smart TV 55 inch", "Bảng trắng", "Bàn phỏng vấn"],
@@ -696,7 +696,7 @@ export default function MeetingRoomsPage() {
               <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-purple-600" /> MEN USA</span>
               <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-amber-600" /> SOURCING</span>
               <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-indigo-600" /> Phòng Chính</span>
-              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-rose-600" /> Phụ Phỏng Vấn</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-rose-600" /> Phòng Họp Phụ</span>
             </div>
 
             {/* Compact Month Calendar Table Grid (7 Columns) */}

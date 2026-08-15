@@ -45,6 +45,12 @@ import {
   IconArrowUp,
   IconArrowDown,
   IconRotate,
+  IconArrowsMaximize,
+  IconPlus,
+  IconMinus,
+  IconMail,
+  IconPhoneCall,
+  IconScissors,
 } from "@tabler/icons-react";
 
 interface DepartmentItem {
@@ -97,23 +103,61 @@ export default function WorkDashboardPage() {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
+  // Cropper Popup Modal State (Dark Studio Crop Overlay)
+  const [isCropModalOpen, setIsCropModalOpen] = useState(false);
+  const [tempAvatarSrc, setTempAvatarSrc] = useState<string | null>(null);
+  const [cropZoom, setCropZoom] = useState(1.0);
+  const [cropOffsetX, setCropOffsetX] = useState(0);
+  const [cropOffsetY, setCropOffsetY] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        alert("Dung lượng ảnh quá lớn! Vui lòng chọn ảnh dưới 5MB.");
+      if (file.size > 10 * 1024 * 1024) {
+        alert("Dung lượng ảnh quá lớn! Vui lòng chọn ảnh dưới 10MB.");
         return;
       }
       const reader = new FileReader();
       reader.onloadend = () => {
         if (typeof reader.result === "string") {
-          setEditProfileForm((prev) => ({ ...prev, avatar: reader.result as string }));
+          setTempAvatarSrc(reader.result as string);
+          setCropZoom(1.0);
+          setCropOffsetX(0);
+          setCropOffsetY(0);
+          setIsCropModalOpen(true);
         }
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setIsDragging(true);
+    setDragStart({ x: e.clientX - cropOffsetX, y: e.clientY - cropOffsetY });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging) return;
+    setCropOffsetX(e.clientX - dragStart.x);
+    setCropOffsetY(e.clientY - dragStart.y);
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleApplyCrop = () => {
+    if (tempAvatarSrc) {
+      setEditProfileForm((prev) => ({ ...prev, avatar: tempAvatarSrc }));
+      setAvatarZoom(cropZoom);
+      setAvatarOffsetX(cropOffsetX);
+      setAvatarOffsetY(cropOffsetY);
+    }
+    setIsCropModalOpen(false);
   };
 
   // Fetch initial profile data from D1 Database vpchuoiskechers
@@ -1390,15 +1434,18 @@ export default function WorkDashboardPage() {
       </main>
 
       {/* ════════════════════════════════════════════════════════════════
-          MODAL 1: THÔNG TIN CÁ NHÂN (PROFILE EDIT MODAL)
+          MODAL 1: THÔNG TIN CÁ NHÂN (PROFILE EDIT MODAL - SCREENSHOT 2)
          ════════════════════════════════════════════════════════════════ */}
       {isProfileModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
-            {/* Modal Header */}
-            <div className="p-5 bg-gradient-to-r from-[#006838] to-[#004d29] text-white flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200/90 w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Modal Header Banner */}
+            <div className="p-5 bg-gradient-to-r from-[#006838] to-[#004d29] text-white flex items-center justify-between relative overflow-hidden">
+              {/* Background Decorative Rings */}
+              <div className="absolute right-0 top-0 translate-x-4 -translate-y-4 w-32 h-32 rounded-full border border-white/10 pointer-events-none" />
+              
+              <div className="flex items-center gap-3.5 z-10">
+                <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center border border-white/20 shadow-xs">
                   <IconUser size={22} />
                 </div>
                 <div>
@@ -1408,14 +1455,14 @@ export default function WorkDashboardPage() {
               </div>
               <button
                 onClick={() => setIsProfileModalOpen(false)}
-                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors cursor-pointer"
+                className="w-8 h-8 rounded-full bg-white/15 hover:bg-white/30 flex items-center justify-center text-white transition-colors cursor-pointer z-10"
               >
                 <IconX size={18} />
               </button>
             </div>
 
             {/* Modal Body / Form */}
-            <form onSubmit={handleSaveProfile} className="p-6 space-y-4 text-left">
+            <form onSubmit={handleSaveProfile} className="p-6 space-y-5 text-left">
               {/* Hidden File Input */}
               <input
                 type="file"
@@ -1425,119 +1472,55 @@ export default function WorkDashboardPage() {
                 className="hidden"
               />
 
-              {/* Avatar Preview & Position / Zoom Controls */}
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                    <IconAdjustmentsHorizontal size={16} className="text-[#006838]" />
-                    <span>Ảnh đại diện &amp; Căn chỉnh vị trí</span>
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="px-3 py-1 rounded-xl bg-[#006838] text-white text-xs font-extrabold hover:bg-[#00522c] transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                  >
-                    <IconUpload size={14} />
-                    <span>Tải ảnh từ máy...</span>
-                  </button>
-                </div>
-
-                <div className="flex flex-col sm:flex-row items-center gap-4 pt-1">
-                  {/* Circular Avatar Live Preview Container */}
-                  <div
-                    onClick={() => fileInputRef.current?.click()}
-                    className="w-20 h-20 rounded-full border-2 border-[#006838] overflow-hidden relative shadow-md bg-slate-200 flex-shrink-0 cursor-pointer group"
-                    title="Nhấn để chọn ảnh tệp mới"
-                  >
-                    <img
-                      src={editProfileForm.avatar}
-                      alt={editProfileForm.name}
-                      style={{
-                        transform: `scale(${avatarZoom}) translate(${avatarOffsetX}px, ${avatarOffsetY}px)`,
-                        transformOrigin: "center center",
-                      }}
-                      className="w-full h-full object-cover transition-transform duration-75"
-                    />
-                    <div className="absolute inset-0 rounded-full bg-slate-900/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity">
-                      <IconCamera size={22} />
-                    </div>
-                  </div>
-
-                  {/* Alignment Sliders & Controls */}
-                  <div className="flex-1 w-full space-y-2.5 bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs">
-                    {/* Zoom Slider */}
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
-                        <span className="flex items-center gap-1">
-                          <IconZoomIn size={14} className="text-slate-500" />
-                          Thu phóng (Zoom)
-                        </span>
-                        <span className="font-mono text-[#006838]">{avatarZoom.toFixed(2)}x</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="0.8"
-                        max="2.5"
-                        step="0.05"
-                        value={avatarZoom}
-                        onChange={(e) => setAvatarZoom(parseFloat(e.target.value))}
-                        className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#006838]"
-                      />
-                    </div>
-
-                    {/* Vertical Position Y Slider */}
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
-                        <span className="flex items-center gap-1">
-                          <IconArrowUp size={14} className="text-slate-500" />
-                          Vị trí dọc (Lên / Xuống)
-                        </span>
-                        <span className="font-mono text-[#006838]">{avatarOffsetY}px</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="-40"
-                        max="40"
-                        step="1"
-                        value={avatarOffsetY}
-                        onChange={(e) => setAvatarOffsetY(parseInt(e.target.value))}
-                        className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#006838]"
-                      />
-                    </div>
-
-                    {/* Reset Button */}
-                    <div className="flex justify-end pt-0.5">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAvatarZoom(1.0);
-                          setAvatarOffsetY(0);
-                          setAvatarOffsetX(0);
-                        }}
-                        className="text-[10px] font-bold text-slate-500 hover:text-[#006838] flex items-center gap-1 cursor-pointer transition-colors"
-                      >
-                        <IconRotate size={12} />
-                        <span>Căn lại mặc định</span>
-                      </button>
-                    </div>
+              {/* Center Circular Avatar Display with Camera Badge Button (Screenshot 2) */}
+              <div className="relative w-36 h-36 mx-auto my-2">
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full h-full rounded-full border-4 border-[#006838] shadow-lg overflow-hidden relative bg-slate-100 cursor-pointer group"
+                  title="Nhấn để tải và chỉnh sửa ảnh mới"
+                >
+                  <img
+                    src={editProfileForm.avatar}
+                    alt={editProfileForm.name}
+                    style={{
+                      transform: `scale(${avatarZoom}) translate(${avatarOffsetX}px, ${avatarOffsetY}px)`,
+                      transformOrigin: "center center",
+                    }}
+                    className="w-full h-full object-cover group-hover:opacity-90 transition-opacity"
+                  />
+                  <div className="absolute inset-0 rounded-full bg-slate-900/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity">
+                    <IconCamera size={26} />
                   </div>
                 </div>
+
+                {/* Camera Badge Button on Bottom Right Edge */}
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-9 h-9 rounded-full bg-white text-[#006838] border border-emerald-200 shadow-md hover:scale-110 flex items-center justify-center absolute bottom-1 right-1 cursor-pointer z-10 transition-transform"
+                  title="Tải ảnh mới"
+                >
+                  <IconCamera size={18} />
+                </button>
               </div>
 
               {/* Input: Họ và tên */}
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-700 block">Họ và tên</label>
-                <input
-                  type="text"
-                  required
-                  value={editProfileForm.name}
-                  onChange={(e) => setEditProfileForm({ ...editProfileForm, name: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838] focus:ring-1 focus:ring-[#006838]"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    required
+                    value={editProfileForm.name}
+                    onChange={(e) => setEditProfileForm({ ...editProfileForm, name: e.target.value })}
+                    className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838] focus:ring-1 focus:ring-[#006838] bg-slate-50/50"
+                  />
+                  <IconUser size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                </div>
               </div>
 
-              {/* Input: Số điện thoại */}
-              <div className="space-y-1">
+              {/* Input: Số điện thoại liên hệ */}
+              <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-700 block">Số điện thoại liên hệ</label>
                 <input
                   type="text"

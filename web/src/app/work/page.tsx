@@ -177,11 +177,7 @@ export default function WorkDashboardPage() {
 
           {/* Department List (Clean Human Layout with Tooltips on Collapsed Mode) */}
           <div className="space-y-2">
-            {!isSidebarCollapsed && (
-              <div className="px-2 text-[11px] font-extrabold uppercase tracking-widest text-[#006838]">
-                Phòng Ban Điều Hành (01 - 07)
-              </div>
-            )}
+
 
             <div className="space-y-1.5 pt-1">
               {departments.map((dept) => {

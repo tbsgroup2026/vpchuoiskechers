@@ -6,6 +6,13 @@
   "compatibility_flags": [
     "nodejs_compat"
   ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "vpchuoiskechers",
+      "database_id": "ae3a7efd-ff5d-45c2-8c49-78d1518e3aa1"
+    }
+  ],
   "assets": {
     "directory": "out",
     "html_handling": "drop-trailing-slash",

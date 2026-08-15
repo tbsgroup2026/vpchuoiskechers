@@ -51,6 +51,7 @@ import {
   IconMail,
   IconPhoneCall,
   IconScissors,
+  IconLayoutGrid,
 } from "@tabler/icons-react";
 
 interface DepartmentItem {
@@ -218,6 +219,52 @@ export default function WorkDashboardPage() {
     setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
     setIsPasswordModalOpen(false);
     showToast("Đổi mật khẩu tài khoản thành công!");
+  };
+
+  // Department Hero Banner Configurations (Screenshot 1 matching)
+  const deptBanners: Record<string, { bg: string; title: string; sub: string; appCount: number }> = {
+    hr: {
+      bg: "/images/crawled/Da-giay1.jpg",
+      title: "Nhân Sự Hành Chánh",
+      sub: "Quản lý văn thư, tài sản, phòng họp, tuyển dụng và lịch công tác toàn chuỗi.",
+      appCount: 10,
+    },
+    finance: {
+      bg: "/images/crawled/Vat-tu.jpg",
+      title: "Kế Toán & Quản Trị",
+      sub: "Quản lý tài chính, ngân sách, chi phí sản xuất và báo cáo tài chính hợp nhất.",
+      appCount: 5,
+    },
+    rd: {
+      bg: "/images/crawled/De-giay.jpg",
+      title: "R&D (Phát Triển Sản Phẩm)",
+      sub: "Nghiên cứu công nghệ đế giày SKECHERS, thiết kế mẫu & chuyển giao kỹ thuật.",
+      appCount: 6,
+    },
+    ci: {
+      bg: "/images/crawled/Da-giay2.jpg",
+      title: "CN-CI (Cải Tiến Liên Tục)",
+      sub: "Thúc đẩy phong trào Kaizen, cải tiến Gemba Walk và năng suất tự động hóa 4.0.",
+      appCount: 4,
+    },
+    qc: {
+      bg: "/images/crawled/Muitat.jpg",
+      title: "Quản Lý Chất Lượng (QC)",
+      sub: "Kiểm soát tiêu chuẩn chất lượng SKECHERS, chỉ số OEE và tỷ lệ lỗi trên chuyền.",
+      appCount: 8,
+    },
+    supply: {
+      bg: "/images/tbs-logistics-hub.png",
+      title: "Kế Hoạch Chuẩn Bị - TTPP",
+      sub: "Điều phối logistics, cung ứng vật tư & chuỗi cung ứng chuỗi nhà máy SKECHERS.",
+      appCount: 7,
+    },
+    factory: {
+      bg: "/images/tbs-factory-plant.png",
+      title: "Tổ Hợp Nhà Máy",
+      sub: "Quản lý chuỗi xưởng sản xuất, máy móc thiết bị và điều hành ca sản xuất.",
+      appCount: 9,
+    },
   };
 
   // 7 Numbered Departments List
@@ -646,7 +693,56 @@ export default function WorkDashboardPage() {
         </header>
 
         {/* Dashboard Body */}
-        <div className="p-4 lg:p-6 flex-1 flex flex-col justify-between overflow-hidden gap-4">
+        <div className="p-4 lg:p-6 flex-1 flex flex-col justify-between overflow-y-auto gap-4">
+          {/* ════════════════════════════════════════════════════════════════
+              DEPARTMENT HERO BANNER CARD (Screenshot 1 Layout)
+             ════════════════════════════════════════════════════════════════ */}
+          {activeDeptObj && (
+            <div className="relative w-full rounded-3xl overflow-hidden border border-slate-200/90 shadow-md flex-shrink-0 bg-slate-900 group">
+              {/* Background Image with Dark Emerald Overlay */}
+              <img
+                src={deptBanners[activeDeptObj.id]?.bg || "/images/tbs-factory-plant.png"}
+                alt={activeDeptObj.name}
+                className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:scale-105 transition-transform duration-700 pointer-events-none"
+              />
+              <div className="absolute inset-0 bg-gradient-to-r from-[#006838]/90 via-[#004d29]/80 to-slate-950/85 pointer-events-none" />
+
+              {/* Banner Content Layer */}
+              <div className="relative z-10 p-5 sm:p-6 lg:p-7 flex flex-col justify-between min-h-[160px] sm:min-h-[180px] text-white">
+                {/* Top Row: Subtitle Badge & App Count Badge */}
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-widest text-emerald-200/90 bg-white/10 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10 shadow-2xs">
+                    PHÒNG BAN
+                  </span>
+                  <div className="px-3.5 py-1 rounded-full bg-emerald-400/20 border border-emerald-300/30 text-emerald-100 text-xs font-extrabold backdrop-blur-md flex items-center gap-1.5 shadow-2xs">
+                    <IconLayoutGrid size={14} className="text-emerald-300" />
+                    <span>{deptBanners[activeDeptObj.id]?.appCount || 2} ứng dụng</span>
+                  </div>
+                </div>
+
+                {/* Middle Section: Main Department Title & Subtitle */}
+                <div className="space-y-1.5 my-2">
+                  <h2 className="text-2xl sm:text-3xl lg:text-4xl font-serif font-black tracking-tight text-white drop-shadow-sm">
+                    {deptBanners[activeDeptObj.id]?.title || activeDeptObj.name}
+                  </h2>
+                  <p className="text-xs sm:text-sm text-emerald-100/90 max-w-2xl font-medium leading-relaxed drop-shadow-xs">
+                    {deptBanners[activeDeptObj.id]?.sub || activeDeptObj.sub}
+                  </p>
+                </div>
+
+                {/* Bottom Row: Feature Badges */}
+                <div className="flex items-center gap-2.5 pt-1">
+                  <span className="px-3 py-1 rounded-full bg-white/15 border border-white/20 text-[10px] sm:text-[11px] font-bold text-emerald-100 flex items-center gap-1.5 backdrop-blur-xs">
+                    ⚡ Truy cập nhanh
+                  </span>
+                  <span className="px-3 py-1 rounded-full bg-white/15 border border-white/20 text-[10px] sm:text-[11px] font-bold text-emerald-100 flex items-center gap-1.5 backdrop-blur-xs">
+                    📱 Gọn trên mobile
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* IF A "COMING SOON" DEPARTMENT IS SELECTED */}
           {activeDeptObj && !activeDeptObj.hasData && (
             <div className="p-8 rounded-2xl bg-white border border-slate-200 shadow-sm text-center space-y-3 max-w-xl mx-auto my-auto">

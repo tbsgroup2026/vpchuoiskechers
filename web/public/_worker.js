@@ -249,6 +249,203 @@ export default {
       }
     }
 
+    // 4. API Route: Meeting Rooms & Visitor Management (/api/rooms)
+    if (url.pathname.startsWith("/api/rooms")) {
+      if (env.DB) {
+        try {
+          await env.DB.prepare(`
+            CREATE TABLE IF NOT EXISTS meeting_rooms (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                capacity INTEGER DEFAULT 10,
+                location TEXT NOT NULL,
+                equipment TEXT,
+                status TEXT DEFAULT 'AVAILABLE',
+                is_locked INTEGER DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+          `).run();
+          await env.DB.prepare(`
+            CREATE TABLE IF NOT EXISTS room_bookings (
+                id TEXT PRIMARY KEY,
+                room_id TEXT NOT NULL,
+                room_name TEXT NOT NULL,
+                title TEXT NOT NULL,
+                booker_name TEXT NOT NULL,
+                department TEXT NOT NULL,
+                booking_date TEXT NOT NULL,
+                time_slot TEXT NOT NULL,
+                attendees_count INTEGER DEFAULT 5,
+                notes TEXT,
+                status TEXT DEFAULT 'CONFIRMED',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+          `).run();
+          await env.DB.prepare(`
+            CREATE TABLE IF NOT EXISTS visitors (
+                id TEXT PRIMARY KEY,
+                badge_code TEXT NOT NULL UNIQUE,
+                visitor_name TEXT NOT NULL,
+                company TEXT NOT NULL,
+                id_card TEXT,
+                host_name TEXT NOT NULL,
+                department TEXT NOT NULL,
+                room_location TEXT NOT NULL,
+                visit_date TEXT NOT NULL,
+                expected_time TEXT NOT NULL,
+                status TEXT DEFAULT 'EXPECTED',
+                notes TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+          `).run();
+        } catch (e) {
+          // ignore table creation check error
+        }
+      }
+
+      // GET: Get all rooms, bookings, and visitors
+      if (request.method === "GET") {
+        try {
+          if (!env.DB) {
+            return new Response(
+              JSON.stringify({ success: false, error: "D1 Database binding env.DB missing" }),
+              { status: 500, headers: { "Content-Type": "application/json" } }
+            );
+          }
+
+          const { results: rooms } = await env.DB.prepare("SELECT * FROM meeting_rooms").all();
+          const { results: bookings } = await env.DB.prepare("SELECT * FROM room_bookings ORDER BY created_at DESC").all();
+          const { results: visitors } = await env.DB.prepare("SELECT * FROM visitors ORDER BY created_at DESC").all();
+
+          return new Response(
+            JSON.stringify({
+              success: true,
+              data: { rooms, bookings, visitors },
+              source: "Cloudflare D1 Database vpchuoiskechers"
+            }),
+            { headers: { "Content-Type": "application/json" } }
+          );
+        } catch (err) {
+          return new Response(
+            JSON.stringify({ success: false, error: err.message }),
+            { status: 500, headers: { "Content-Type": "application/json" } }
+          );
+        }
+      }
+
+      // POST /api/rooms/booking: Save a new booking
+      if (url.pathname === "/api/rooms/booking" && request.method === "POST") {
+        try {
+          if (!env.DB) {
+            return new Response(
+              JSON.stringify({ success: false, error: "D1 Database binding env.DB missing" }),
+              { status: 500, headers: { "Content-Type": "application/json" } }
+            );
+          }
+
+          const body = await request.json();
+          const { id, roomId, roomName, title, bookerName, department, bookingDate, timeSlot, attendeesCount, notes } = body;
+
+          await env.DB.prepare(`
+            INSERT INTO room_bookings (id, room_id, room_name, title, booker_name, department, booking_date, time_slot, attendees_count, notes, status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'CONFIRMED', CURRENT_TIMESTAMP)
+          `).bind(
+            id || `b_${Date.now()}`,
+            roomId || "room_1",
+            roomName || "Phòng Họp Executive VIP 1",
+            title || "Cuộc họp",
+            bookerName || "Anh Huy",
+            department || "Hành chính",
+            bookingDate || "15/08/2026",
+            timeSlot || "09:00 - 10:00",
+            attendeesCount || 5,
+            notes || ""
+          ).run();
+
+          return new Response(
+            JSON.stringify({ success: true, message: "Đã lưu lịch đặt phòng họp vào Cloudflare D1 thành công!", data: body }),
+            { headers: { "Content-Type": "application/json" } }
+          );
+        } catch (err) {
+          return new Response(
+            JSON.stringify({ success: false, error: err.message }),
+            { status: 500, headers: { "Content-Type": "application/json" } }
+          );
+        }
+      }
+
+      // POST /api/rooms/visitor: Save a new visitor
+      if (url.pathname === "/api/rooms/visitor" && request.method === "POST") {
+        try {
+          if (!env.DB) {
+            return new Response(
+              JSON.stringify({ success: false, error: "D1 Database binding env.DB missing" }),
+              { status: 500, headers: { "Content-Type": "application/json" } }
+            );
+          }
+
+          const body = await request.json();
+          const { id, badgeCode, visitorName, company, idCard, hostName, department, roomLocation, visitDate, expectedTime, notes } = body;
+
+          await env.DB.prepare(`
+            INSERT INTO visitors (id, badge_code, visitor_name, company, id_card, host_name, department, room_location, visit_date, expected_time, status, notes, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'EXPECTED', ?, CURRENT_TIMESTAMP)
+          `).bind(
+            id || `v_${Date.now()}`,
+            badgeCode || `VIS-2026-${Math.floor(100 + Math.random() * 900)}`,
+            visitorName || "Khách mời",
+            company || "Đối tác",
+            idCard || "",
+            hostName || "Anh Huy",
+            department || "Hành chính",
+            roomLocation || "Phòng Họp VIP 1",
+            visitDate || "15/08/2026",
+            expectedTime || "14:00",
+            notes || ""
+          ).run();
+
+          return new Response(
+            JSON.stringify({ success: true, message: "Đã đăng ký thông tin đón khách vào D1 Database!", data: body }),
+            { headers: { "Content-Type": "application/json" } }
+          );
+        } catch (err) {
+          return new Response(
+            JSON.stringify({ success: false, error: err.message }),
+            { status: 500, headers: { "Content-Type": "application/json" } }
+          );
+        }
+      }
+
+      // PUT /api/rooms/lock: Toggle room lock/unlock
+      if (url.pathname === "/api/rooms/lock" && request.method === "PUT") {
+        try {
+          if (!env.DB) {
+            return new Response(
+              JSON.stringify({ success: false, error: "D1 Database binding env.DB missing" }),
+              { status: 500, headers: { "Content-Type": "application/json" } }
+            );
+          }
+
+          const body = await request.json();
+          const { id, isLocked, status } = body;
+
+          await env.DB.prepare(
+            "UPDATE meeting_rooms SET is_locked = ?, status = ? WHERE id = ?"
+          ).bind(isLocked ? 1 : 0, status || (isLocked ? 'MAINTENANCE' : 'AVAILABLE'), id).run();
+
+          return new Response(
+            JSON.stringify({ success: true, message: "Đã cập nhật trạng thái phòng họp vào D1!", id, isLocked }),
+            { headers: { "Content-Type": "application/json" } }
+          );
+        } catch (err) {
+          return new Response(
+            JSON.stringify({ success: false, error: err.message }),
+            { status: 500, headers: { "Content-Type": "application/json" } }
+          );
+        }
+      }
+    }
+
     // Default Fallback: Serve Next.js Static Export Assets
     return env.ASSETS.fetch(request);
   },

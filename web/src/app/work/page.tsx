@@ -785,17 +785,20 @@ export default function WorkDashboardPage() {
                 {/* 2 Main Cards Grid */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                   {/* Main Card 1: Quản lý phòng họp */}
-                  <div className="p-3.5 sm:p-4 rounded-xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-2.5 group relative overflow-hidden">
+                  <Link
+                    href="/rooms"
+                    className="p-3.5 sm:p-4 rounded-xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:border-[#006838]/60 transition-all flex flex-col justify-between gap-2.5 group relative overflow-hidden cursor-pointer"
+                  >
                     <div className="flex items-start gap-3.5">
-                      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-[#e6f4ed] text-[#006838] flex items-center justify-center flex-shrink-0 border border-emerald-100">
+                      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-[#e6f4ed] text-[#006838] flex items-center justify-center flex-shrink-0 border border-emerald-100 group-hover:scale-105 transition-transform">
                         <IconDevices size={36} className="stroke-[1.5]" />
                       </div>
                       <div className="flex-1 min-w-0 space-y-1">
-                        <h3 className="text-base font-black text-slate-900 tracking-tight">
+                        <h3 className="text-base font-black text-slate-900 tracking-tight group-hover:text-[#006838] transition-colors">
                           Quản lý phòng họp
                         </h3>
                         <p className="text-[11px] text-slate-500 font-medium leading-tight">
-                          Đặt lịch, quản lý phòng họp và trang thiết bị phục vụ cuộc họp.
+                          Đặt lịch, quản lý phòng họp, đón khách ngoài và trang thiết bị.
                         </p>
                         
                         {/* Checklist */}
@@ -804,19 +807,19 @@ export default function WorkDashboardPage() {
                             <span className="w-3.5 h-3.5 rounded-full bg-[#e6f4ed] text-[#006838] flex items-center justify-center flex-shrink-0 text-[9px] font-bold">
                               ✓
                             </span>
-                            <span>Đặt lịch phòng họp</span>
+                            <span>Đặt lịch phòng họp &amp; thiết bị</span>
                           </li>
                           <li className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700">
                             <span className="w-3.5 h-3.5 rounded-full bg-[#e6f4ed] text-[#006838] flex items-center justify-center flex-shrink-0 text-[9px] font-bold">
                               ✓
                             </span>
-                            <span>Lịch sử sử dụng</span>
+                            <span>Quản lý đón khách &amp; Cấp thẻ</span>
                           </li>
                           <li className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700">
                             <span className="w-3.5 h-3.5 rounded-full bg-[#e6f4ed] text-[#006838] flex items-center justify-center flex-shrink-0 text-[9px] font-bold">
                               ✓
                             </span>
-                            <span>Quản lý thiết bị</span>
+                            <span>Khóa bảo trì &amp; Dữ liệu D1</span>
                           </li>
                         </ul>
                       </div>
@@ -824,11 +827,11 @@ export default function WorkDashboardPage() {
 
                     {/* Bottom Arrow Action Button */}
                     <div className="flex justify-end pt-0.5">
-                      <button className="w-7.5 h-7.5 rounded-full bg-[#e6f4ed] text-[#006838] group-hover:bg-[#006838] group-hover:text-white transition-colors flex items-center justify-center cursor-pointer shadow-xs">
+                      <div className="w-7.5 h-7.5 rounded-full bg-[#e6f4ed] text-[#006838] group-hover:bg-[#006838] group-hover:text-white transition-colors flex items-center justify-center cursor-pointer shadow-xs">
                         <IconArrowRight size={15} />
-                      </button>
+                      </div>
                     </div>
-                  </div>
+                  </Link>
 
                   {/* Main Card 2: Đăng ký công tác */}
                   <Link

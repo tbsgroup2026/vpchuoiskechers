@@ -286,3 +286,62 @@ INSERT OR IGNORE INTO business_trips (id, code, title, region, factory, creator,
 VALUES 
 ('rec_1', 'CT-2026-018', 'Đánh giá Gemba Walk & Kiểm định dây chuyền A1', 'VP Chuỗi', 'Nhà máy SKECHERS A1', 'Anh Huy', 'Hành chính', 'Bình Dương - Cụm Nhà Máy A1', '15/08/2026', '16/08/2026', 2, 'Xe công ty', 3, 'Kiểm định dây chuyền may tự động A1', 'APPROVED', '2026-08-14 09:30:00'),
 ('rec_2', 'CT-2026-019', 'Khảo sát mở rộng Trung tâm Phân phối TTPP Đồng Nai', 'VP Chuỗi', 'Tổ hợp Đế Giày TTPP', 'Trần Thị Mai', 'Logistics', 'Đồng Nai - Kho Logistics TTPP', '18/08/2026', '18/08/2026', 1, 'Xe công ty', 2, 'Khảo sát hiện trường kho bãi', 'PENDING', '2026-08-15 08:15:00');
+
+-- 13. MEETING ROOMS & VISITOR MANAGEMENT (Phòng họp & Đón khách)
+CREATE TABLE IF NOT EXISTS meeting_rooms (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    capacity INTEGER DEFAULT 10,
+    location TEXT NOT NULL,
+    equipment TEXT,
+    status TEXT DEFAULT 'AVAILABLE', -- AVAILABLE, BUSY, MAINTENANCE
+    is_locked INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS room_bookings (
+    id TEXT PRIMARY KEY,
+    room_id TEXT NOT NULL,
+    room_name TEXT NOT NULL,
+    title TEXT NOT NULL,
+    booker_name TEXT NOT NULL,
+    department TEXT NOT NULL,
+    booking_date TEXT NOT NULL,
+    time_slot TEXT NOT NULL,
+    attendees_count INTEGER DEFAULT 5,
+    notes TEXT,
+    status TEXT DEFAULT 'CONFIRMED', -- CONFIRMED, CANCELLED, COMPLETED
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS visitors (
+    id TEXT PRIMARY KEY,
+    badge_code TEXT NOT NULL UNIQUE,
+    visitor_name TEXT NOT NULL,
+    company TEXT NOT NULL,
+    id_card TEXT,
+    host_name TEXT NOT NULL,
+    department TEXT NOT NULL,
+    room_location TEXT NOT NULL,
+    visit_date TEXT NOT NULL,
+    expected_time TEXT NOT NULL,
+    status TEXT DEFAULT 'EXPECTED', -- EXPECTED, CHECKED_IN, CHECKED_OUT, CANCELLED
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Seed initial meeting rooms
+INSERT OR IGNORE INTO meeting_rooms (id, name, capacity, location, equipment, status) VALUES
+('room_1', 'Phòng Họp Executive VIP 1', 16, 'Tầng 3 - VP Chuỗi SKECHERS', 'Máy chiếu 4K, Hệ thống Loa Micro không dây, Bảng kính, Trà nước', 'AVAILABLE'),
+('room_2', 'Phòng Họp Hội Thảo SKECHERS', 30, 'Tầng 2 - VP Chuỗi SKECHERS', 'Màn hình LED 120 inch, 4 Micro, Camera Zoom họp trực tuyến', 'BUSY'),
+('room_3', 'Phòng Họp Gemba Walk A1', 12, 'Cụm Nhà Máy TBS A1', 'Tivi 65 inch, Bảng di động', 'AVAILABLE'),
+('room_4', 'Phòng Họp R&D Kỹ Thuật', 10, 'Tầng 1 - Trung Tâm R&D', 'Máy chiếu 3D, Bảng tương tác, Mẫu sản phẩm', 'AVAILABLE'),
+('room_5', 'Phòng Họp Logistics TTPP', 8, 'Kho Phân Phối TTPP Đồng Nai', 'Smart TV 55 inch, Bảng trắng', 'AVAILABLE'),
+('room_6', 'Phòng Họp Ban Giám Đốc', 20, 'Tầng 4 - Tòa nhà Điều Hành', 'Hệ thống Họp Trực Tuyến Đa Điểm, Micro Âm Trần, Trà nước', 'AVAILABLE');
+
+INSERT OR IGNORE INTO room_bookings (id, room_id, room_name, title, booker_name, department, booking_date, time_slot, attendees_count, status) VALUES
+('b_1', 'room_2', 'Phòng Họp Hội Thảo SKECHERS', 'Họp Đánh Giá Tiến Độ Kế Hoạch CI Q2/2026', 'Anh Huy', 'Hành chính', '15/08/2026', '09:00 - 11:30', 18, 'CONFIRMED'),
+('b_2', 'room_1', 'Phòng Họp Executive VIP 1', 'Tiếp Đoàn Chuyên Gia SKECHERS Global', 'Trần Thị Mai', 'R&D Kỹ thuật', '15/08/2026', '14:00 - 16:30', 12, 'CONFIRMED');
+
+INSERT OR IGNORE INTO visitors (id, badge_code, visitor_name, company, id_card, host_name, department, room_location, visit_date, expected_time, status) VALUES
+('v_1', 'VIS-2026-081', 'Mr. Robert Chen', 'SKECHERS International Ltd.', 'C10928374', 'Anh Huy', 'Văn phòng Chuỗi', 'Phòng Họp Executive VIP 1', '15/08/2026', '14:00', 'EXPECTED');

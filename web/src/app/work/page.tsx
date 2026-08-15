@@ -182,7 +182,7 @@ export default function WorkDashboardPage() {
               return (
                 <button
                   key={dept.id}
-                  onClick={() => setSelectedDept(dept.id)}
+                  onClick={() => setSelectedDept(selectedDept === dept.id ? null : dept.id)}
                   className={`w-full text-left rounded-2xl flex items-center transition-all duration-200 group relative ${
                     isSidebarCollapsed
                       ? "p-2.5 justify-center"
@@ -312,14 +312,6 @@ export default function WorkDashboardPage() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            {selectedDept && (
-              <button
-                onClick={() => setSelectedDept(null)}
-                className="px-3.5 py-1.5 rounded-xl bg-white border border-slate-300 text-xs font-extrabold text-slate-700 hover:bg-slate-50 transition-colors shadow-sm cursor-pointer"
-              >
-                ← Trở về Tổng Quan
-              </button>
-            )}
 
             {/* Notifications Button */}
             <button
@@ -806,7 +798,7 @@ export default function WorkDashboardPage() {
                 <div className="lg:col-span-3.5 xl:col-span-3 flex flex-col justify-between gap-2.5">
                   {/* Card 1: R&D (Phòng phát triển) */}
                   <div
-                    onClick={() => setSelectedDept("rd")}
+                    onClick={() => setSelectedDept(selectedDept === "rd" ? null : "rd")}
                     className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:border-[#006838]/60 transition-all cursor-pointer flex items-center gap-3 group flex-1"
                   >
                     <div className="w-10 h-10 rounded-xl bg-emerald-50 text-[#006838] flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform border border-emerald-100">
@@ -847,7 +839,7 @@ export default function WorkDashboardPage() {
 
                   {/* Card 3: Chỉ Số Phòng Sản Xuất (TH-NM) */}
                   <div
-                    onClick={() => setSelectedDept("production")}
+                    onClick={() => setSelectedDept(selectedDept === "production" ? null : "production")}
                     className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:border-purple-300 transition-all cursor-pointer flex items-center gap-3 group flex-1"
                   >
                     <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform border border-purple-100">
@@ -869,7 +861,7 @@ export default function WorkDashboardPage() {
 
                   {/* Card 4: Hiệu Suất & Chỉ Số Chất Lượng (QC) */}
                   <div
-                    onClick={() => setSelectedDept("qc")}
+                    onClick={() => setSelectedDept(selectedDept === "qc" ? null : "qc")}
                     className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:border-amber-300 transition-all cursor-pointer flex items-center gap-3 group flex-1"
                   >
                     <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform border border-amber-100">

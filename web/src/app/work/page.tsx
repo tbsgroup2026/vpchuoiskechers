@@ -230,7 +230,7 @@ export default function WorkDashboardPage() {
   const deptBanners: Record<string, { bg: string; title: string; sub: string; appCount: number }> = {
     hr: {
       bg: "/images/crawled/Da-giay1.jpg",
-      title: "Nhân Sự Hành Chánh",
+      title: "Nhân Sự - Hành Chánh",
       sub: "Quản lý văn thư, tài sản, phòng họp, tuyển dụng và lịch công tác toàn chuỗi.",
       appCount: 10,
     },
@@ -277,7 +277,7 @@ export default function WorkDashboardPage() {
     {
       id: "hr",
       num: "01",
-      name: "Nhân sự hành chánh",
+      name: "Nhân sự - Hành chánh",
       sub: "Quản lý văn thư, tài sản & tuyển dụng",
       icon: IconUsers,
       hasData: true,

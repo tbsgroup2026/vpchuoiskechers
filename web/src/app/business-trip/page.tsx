@@ -117,45 +117,8 @@ export default function BusinessTripRegistrationPage() {
     },
   ]);
 
-  // Submitted Records List (initial default fallback + synced with D1)
-  const [records, setRecords] = useState<BusinessTripRecord[]>([
-    {
-      id: "rec_1",
-      code: "CT-2026-018",
-      title: "Đánh giá Gemba Walk & Kiểm định dây chuyền A1",
-      region: "VP Chuỗi",
-      factory: "Nhà máy SKECHERS A1",
-      creator: "Anh Huy",
-      department: "Hành chính",
-      location: "Bình Dương - Cụm Nhà Máy A1",
-      startDate: "15/08/2026",
-      endDate: "16/08/2026",
-      daysCount: 2,
-      transport: "Xe công ty",
-      participantsCount: 3,
-      purpose: "Kiểm định dây chuyền may tự động A1",
-      status: "APPROVED",
-      createdAt: "14/08/2026 09:30",
-    },
-    {
-      id: "rec_2",
-      code: "CT-2026-019",
-      title: "Khảo sát mở rộng Trung tâm Phân phối TTPP Đồng Nai",
-      region: "VP Chuỗi",
-      factory: "Tổ hợp Đế Giày TTPP",
-      creator: "Trần Thị Mai",
-      department: "Logistics",
-      location: "Đồng Nai - Kho Logistics TTPP",
-      startDate: "18/08/2026",
-      endDate: "18/08/2026",
-      daysCount: 1,
-      transport: "Xe công ty",
-      participantsCount: 2,
-      purpose: "Khảo sát hiện trường kho bãi",
-      status: "PENDING",
-      createdAt: "15/08/2026 08:15",
-    },
-  ]);
+  // Submitted Records List (synced with D1)
+  const [records, setRecords] = useState<BusinessTripRecord[]>([]);
 
   // List Search & 5 Filter Inputs (Matching Screenshot)
   const [searchQuery, setSearchQuery] = useState("");
@@ -175,7 +138,7 @@ export default function BusinessTripRegistrationPage() {
       setIsLoading(true);
       const res = await fetch("/api/business-trips");
       const result = await res.json();
-      if (result.success && Array.isArray(result.data) && result.data.length > 0) {
+      if (result.success && Array.isArray(result.data)) {
         const d1Records: BusinessTripRecord[] = result.data.map((item: any) => ({
           id: item.id || `rec_${Date.now()}`,
           code: item.code || `CT-2026-${Math.floor(100 + Math.random() * 900)}`,
@@ -423,12 +386,6 @@ export default function BusinessTripRegistrationPage() {
             <IconArrowLeft size={16} />
             <span>Trở về Tổng quan</span>
           </Link>
-
-          <div className="inline-flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-[#006838] text-white flex items-center justify-center font-bold text-sm">
-              TBS
-            </div>
-          </div>
 
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
             ĐĂNG KÝ ĐI CÔNG TÁC

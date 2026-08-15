@@ -27,14 +27,6 @@ export default function HeroSection() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
             {/* Left Column: Copy & CTAs & Stats */}
             <div className="lg:col-span-7 space-y-6">
-              {/* Eyebrow Badge */}
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#2fd39a]/15 border border-[#2fd39a]/30 backdrop-blur-sm">
-                <IconSparkles size={14} className="text-[#2fd39a]" />
-                <span className="text-[11px] font-bold uppercase tracking-widest text-[#2fd39a]">
-                  Văn Phòng Chuỗi SKECHERS - TBS Group
-                </span>
-              </div>
-
               {/* Main Headline */}
               <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-white leading-[1.08] tracking-tight">
                 Văn Phòng Chuỗi <br />

@@ -40,11 +40,6 @@ export default function HomePage() {
               </div>
 
               <div className="space-y-6">
-                <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-100/80 border border-emerald-200 text-[#08221a] text-xs font-bold uppercase tracking-widest">
-                  <IconAward size={15} className="text-[#08221a]" />
-                  <span>Tiêu Chuẩn Vận Hành Đỉnh Cao</span>
-                </div>
-
                 <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight leading-tight">
                   Dấu Ấn Thương Hiệu &amp; Đẳng Cấp Chuỗi Cung Ứng
                 </h2>

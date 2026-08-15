@@ -242,10 +242,6 @@ export default function WorkspaceGallery() {
         <div className="lg:col-span-6 space-y-8">
           {/* Main Headline & Intro Paragraph */}
           <div className="space-y-4">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-100/80 border border-emerald-300/80 text-[#006838] text-xs font-extrabold uppercase tracking-widest">
-              <IconBuildingWarehouse size={16} />
-              <span>Không Gian Làm Việc &amp; Sản Xuất</span>
-            </div>
             <h2 className="text-3xl sm:text-4xl lg:text-[44px] font-black text-[#152e25] tracking-tight leading-[1.18] font-serif">
               Môi trường làm việc chuẩn Corporate
             </h2>

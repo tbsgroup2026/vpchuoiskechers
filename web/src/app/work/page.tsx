@@ -374,59 +374,59 @@ export default function WorkDashboardPage() {
           )}
 
           {/* ════════════════════════════════════════════════════════════════
-              IF HR (NHÂN SỰ HÀNH CHÁNH) IS SELECTED (Exact Screenshot Match)
+              IF HR (NHÂN SỰ HÀNH CHÁNH) IS SELECTED (Zero-Scroll Viewport Fit)
              ════════════════════════════════════════════════════════════════ */}
           {selectedDept === "hr" && (
-            <div className="space-y-6 overflow-y-auto pr-1">
+            <div className="flex-1 flex flex-col justify-between overflow-hidden gap-2.5 my-auto">
               {/* ════════ SECTION 1: HÀNH CHÍNH ════════ */}
-              <div className="space-y-3.5">
+              <div className="space-y-2 flex-shrink-0">
                 {/* Section Title Header */}
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#e6f4ed] text-[#006838] flex items-center justify-center border border-emerald-100 shadow-xs">
-                    <IconBuilding size={22} />
+                <div className="flex items-center gap-2.5 pb-0.5">
+                  <div className="w-8 h-8 rounded-lg bg-[#e6f4ed] text-[#006838] flex items-center justify-center border border-emerald-100 shadow-xs">
+                    <IconBuilding size={18} />
                   </div>
                   <div>
-                    <h2 className="text-base font-black text-slate-900 tracking-tight">
+                    <h2 className="text-sm font-black text-slate-900 tracking-tight">
                       HÀNH CHÍNH
                     </h2>
-                    <p className="text-xs text-slate-500 font-medium">
+                    <p className="text-[11px] text-slate-500 font-medium">
                       Quản lý hành chính, văn phòng và công tác
                     </p>
                   </div>
                 </div>
 
                 {/* 2 Main Cards Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4.5">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                   {/* Main Card 1: Quản lý phòng họp */}
-                  <div className="p-5 sm:p-6 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-4 group relative overflow-hidden">
-                    <div className="flex items-start gap-4 sm:gap-5">
-                      <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-[#e6f4ed] text-[#006838] flex items-center justify-center flex-shrink-0 border border-emerald-100">
-                        <IconDevices size={48} className="stroke-[1.5]" />
+                  <div className="p-3.5 sm:p-4 rounded-xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-2.5 group relative overflow-hidden">
+                    <div className="flex items-start gap-3.5">
+                      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-[#e6f4ed] text-[#006838] flex items-center justify-center flex-shrink-0 border border-emerald-100">
+                        <IconDevices size={36} className="stroke-[1.5]" />
                       </div>
-                      <div className="flex-1 min-w-0 space-y-2">
-                        <h3 className="text-lg font-black text-slate-900 tracking-tight">
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <h3 className="text-base font-black text-slate-900 tracking-tight">
                           Quản lý phòng họp
                         </h3>
-                        <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                        <p className="text-[11px] text-slate-500 font-medium leading-tight">
                           Đặt lịch, quản lý phòng họp và trang thiết bị phục vụ cuộc họp.
                         </p>
                         
                         {/* Checklist */}
-                        <ul className="space-y-1.5 pt-1">
-                          <li className="flex items-center gap-2 text-xs font-semibold text-slate-700">
-                            <span className="w-4.5 h-4.5 rounded-full bg-[#e6f4ed] text-[#006838] flex items-center justify-center flex-shrink-0 text-[11px] font-bold">
+                        <ul className="space-y-1 pt-0.5">
+                          <li className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700">
+                            <span className="w-3.5 h-3.5 rounded-full bg-[#e6f4ed] text-[#006838] flex items-center justify-center flex-shrink-0 text-[9px] font-bold">
                               ✓
                             </span>
                             <span>Đặt lịch phòng họp</span>
                           </li>
-                          <li className="flex items-center gap-2 text-xs font-semibold text-slate-700">
-                            <span className="w-4.5 h-4.5 rounded-full bg-[#e6f4ed] text-[#006838] flex items-center justify-center flex-shrink-0 text-[11px] font-bold">
+                          <li className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700">
+                            <span className="w-3.5 h-3.5 rounded-full bg-[#e6f4ed] text-[#006838] flex items-center justify-center flex-shrink-0 text-[9px] font-bold">
                               ✓
                             </span>
                             <span>Lịch sử sử dụng</span>
                           </li>
-                          <li className="flex items-center gap-2 text-xs font-semibold text-slate-700">
-                            <span className="w-4.5 h-4.5 rounded-full bg-[#e6f4ed] text-[#006838] flex items-center justify-center flex-shrink-0 text-[11px] font-bold">
+                          <li className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700">
+                            <span className="w-3.5 h-3.5 rounded-full bg-[#e6f4ed] text-[#006838] flex items-center justify-center flex-shrink-0 text-[9px] font-bold">
                               ✓
                             </span>
                             <span>Quản lý thiết bị</span>
@@ -436,48 +436,48 @@ export default function WorkDashboardPage() {
                     </div>
 
                     {/* Bottom Arrow Action Button */}
-                    <div className="flex justify-end pt-1">
-                      <button className="w-10 h-10 rounded-full bg-[#e6f4ed] text-[#006838] group-hover:bg-[#006838] group-hover:text-white transition-colors flex items-center justify-center cursor-pointer shadow-xs">
-                        <IconArrowRight size={20} />
+                    <div className="flex justify-end pt-0.5">
+                      <button className="w-7.5 h-7.5 rounded-full bg-[#e6f4ed] text-[#006838] group-hover:bg-[#006838] group-hover:text-white transition-colors flex items-center justify-center cursor-pointer shadow-xs">
+                        <IconArrowRight size={15} />
                       </button>
                     </div>
                   </div>
 
                   {/* Main Card 2: Đăng ký công tác */}
-                  <div className="p-5 sm:p-6 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-4 group relative overflow-hidden">
+                  <div className="p-3.5 sm:p-4 rounded-xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-2.5 group relative overflow-hidden">
                     {/* Background Subtle Plane Graphic */}
-                    <div className="absolute right-4 top-4 text-amber-100/50 pointer-events-none">
-                      <IconPlane size={90} className="stroke-[1]" />
+                    <div className="absolute right-3 top-3 text-amber-100/50 pointer-events-none">
+                      <IconPlane size={72} className="stroke-[1]" />
                     </div>
 
-                    <div className="flex items-start gap-4 sm:gap-5 z-10">
-                      <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center flex-shrink-0 border border-amber-100">
-                        <IconBriefcase size={48} className="stroke-[1.5]" />
+                    <div className="flex items-start gap-3.5 z-10">
+                      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center flex-shrink-0 border border-amber-100">
+                        <IconBriefcase size={36} className="stroke-[1.5]" />
                       </div>
-                      <div className="flex-1 min-w-0 space-y-2">
-                        <h3 className="text-lg font-black text-slate-900 tracking-tight">
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <h3 className="text-base font-black text-slate-900 tracking-tight">
                           Đăng ký công tác
                         </h3>
-                        <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                        <p className="text-[11px] text-slate-500 font-medium leading-tight">
                           Đăng ký, theo dõi và quản lý các chuyến công tác.
                         </p>
                         
                         {/* Checklist */}
-                        <ul className="space-y-1.5 pt-1">
-                          <li className="flex items-center gap-2 text-xs font-semibold text-slate-700">
-                            <span className="w-4.5 h-4.5 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center flex-shrink-0 text-[11px] font-bold">
+                        <ul className="space-y-1 pt-0.5">
+                          <li className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700">
+                            <span className="w-3.5 h-3.5 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center flex-shrink-0 text-[9px] font-bold">
                               ✓
                             </span>
                             <span>Tạo đăng ký công tác</span>
                           </li>
-                          <li className="flex items-center gap-2 text-xs font-semibold text-slate-700">
-                            <span className="w-4.5 h-4.5 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center flex-shrink-0 text-[11px] font-bold">
+                          <li className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700">
+                            <span className="w-3.5 h-3.5 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center flex-shrink-0 text-[9px] font-bold">
                               ✓
                             </span>
                             <span>Theo dõi phê duyệt</span>
                           </li>
-                          <li className="flex items-center gap-2 text-xs font-semibold text-slate-700">
-                            <span className="w-4.5 h-4.5 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center flex-shrink-0 text-[11px] font-bold">
+                          <li className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700">
+                            <span className="w-3.5 h-3.5 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center flex-shrink-0 text-[9px] font-bold">
                               ✓
                             </span>
                             <span>Lịch sử công tác</span>
@@ -487,9 +487,9 @@ export default function WorkDashboardPage() {
                     </div>
 
                     {/* Bottom Arrow Action Button */}
-                    <div className="flex justify-end pt-1 z-10">
-                      <button className="w-10 h-10 rounded-full bg-amber-50 text-amber-700 group-hover:bg-amber-600 group-hover:text-white transition-colors flex items-center justify-center cursor-pointer shadow-xs">
-                        <IconArrowRight size={20} />
+                    <div className="flex justify-end pt-0.5 z-10">
+                      <button className="w-7.5 h-7.5 rounded-full bg-amber-50 text-amber-700 group-hover:bg-amber-600 group-hover:text-white transition-colors flex items-center justify-center cursor-pointer shadow-xs">
+                        <IconArrowRight size={15} />
                       </button>
                     </div>
                   </div>
@@ -497,196 +497,196 @@ export default function WorkDashboardPage() {
               </div>
 
               {/* ════════ SECTION 2: NHÂN SỰ ════════ */}
-              <div className="space-y-3.5 pt-2">
+              <div className="space-y-2 flex-shrink-0">
                 {/* Section Title Header */}
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center border border-slate-200 shadow-xs">
-                    <IconUsers size={22} />
+                <div className="flex items-center gap-2.5 pb-0.5">
+                  <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center border border-slate-200 shadow-xs">
+                    <IconUsers size={18} />
                   </div>
                   <div>
-                    <h2 className="text-base font-black text-slate-900 tracking-tight">
+                    <h2 className="text-sm font-black text-slate-900 tracking-tight">
                       NHÂN SỰ
                     </h2>
-                    <p className="text-xs text-slate-500 font-medium">
+                    <p className="text-[11px] text-slate-500 font-medium">
                       Quản lý thông tin và phát triển nguồn nhân lực
                     </p>
                   </div>
                 </div>
 
-                {/* 8 Sub-Cards Grid (4 cols x 2 rows) */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* 8 Sub-Cards Grid (4 cols x 2 rows - Zero-Scroll Fit) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
                   {/* Sub-Card 1: Hồ sơ nhân sự */}
-                  <div className="p-4 sm:p-4.5 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-3 group cursor-pointer">
-                    <div className="space-y-3">
-                      <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100 group-hover:scale-105 transition-transform">
-                        <IconId size={24} />
+                  <div className="p-2.5 sm:p-3 rounded-xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-2 group cursor-pointer">
+                    <div className="space-y-1.5">
+                      <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100 group-hover:scale-105 transition-transform">
+                        <IconId size={18} />
                       </div>
                       <div>
-                        <h4 className="text-sm font-extrabold text-[#006838] tracking-tight">
+                        <h4 className="text-xs font-extrabold text-[#006838] tracking-tight">
                           Hồ sơ nhân sự
                         </h4>
-                        <p className="text-xs text-slate-500 mt-1 font-normal leading-snug">
+                        <p className="text-[10px] text-slate-500 mt-0.5 font-normal leading-tight line-clamp-2">
                           Quản lý thông tin hồ sơ và quá trình công tác của nhân viên.
                         </p>
                       </div>
                     </div>
-                    <div className="flex justify-end pt-1">
-                      <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors flex items-center justify-center">
-                        <IconArrowRight size={16} />
+                    <div className="flex justify-end pt-0.5">
+                      <div className="w-6.5 h-6.5 rounded-full bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors flex items-center justify-center">
+                        <IconArrowRight size={13} />
                       </div>
                     </div>
                   </div>
 
                   {/* Sub-Card 2: Quản lý nghỉ phép */}
-                  <div className="p-4 sm:p-4.5 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-3 group cursor-pointer">
-                    <div className="space-y-3">
-                      <div className="w-12 h-12 rounded-xl bg-[#e6f4ed] text-[#006838] flex items-center justify-center border border-emerald-100 group-hover:scale-105 transition-transform">
-                        <IconCalendarEvent size={24} />
+                  <div className="p-2.5 sm:p-3 rounded-xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-2 group cursor-pointer">
+                    <div className="space-y-1.5">
+                      <div className="w-8 h-8 rounded-lg bg-[#e6f4ed] text-[#006838] flex items-center justify-center border border-emerald-100 group-hover:scale-105 transition-transform">
+                        <IconCalendarEvent size={18} />
                       </div>
                       <div>
-                        <h4 className="text-sm font-extrabold text-[#006838] tracking-tight">
+                        <h4 className="text-xs font-extrabold text-[#006838] tracking-tight">
                           Quản lý nghỉ phép
                         </h4>
-                        <p className="text-xs text-slate-500 mt-1 font-normal leading-snug">
+                        <p className="text-[10px] text-slate-500 mt-0.5 font-normal leading-tight line-clamp-2">
                           Đăng ký, theo dõi và phê duyệt các đơn nghỉ phép.
                         </p>
                       </div>
                     </div>
-                    <div className="flex justify-end pt-1">
-                      <div className="w-8 h-8 rounded-full bg-[#e6f4ed] text-[#006838] group-hover:bg-[#006838] group-hover:text-white transition-colors flex items-center justify-center">
-                        <IconArrowRight size={16} />
+                    <div className="flex justify-end pt-0.5">
+                      <div className="w-6.5 h-6.5 rounded-full bg-[#e6f4ed] text-[#006838] group-hover:bg-[#006838] group-hover:text-white transition-colors flex items-center justify-center">
+                        <IconArrowRight size={13} />
                       </div>
                     </div>
                   </div>
 
                   {/* Sub-Card 3: Chấm công */}
-                  <div className="p-4 sm:p-4.5 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-3 group cursor-pointer">
-                    <div className="space-y-3">
-                      <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center border border-purple-100 group-hover:scale-105 transition-transform">
-                        <IconClockCheck size={24} />
+                  <div className="p-2.5 sm:p-3 rounded-xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-2 group cursor-pointer">
+                    <div className="space-y-1.5">
+                      <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center border border-purple-100 group-hover:scale-105 transition-transform">
+                        <IconClockCheck size={18} />
                       </div>
                       <div>
-                        <h4 className="text-sm font-extrabold text-purple-700 tracking-tight">
+                        <h4 className="text-xs font-extrabold text-purple-700 tracking-tight">
                           Chấm công
                         </h4>
-                        <p className="text-xs text-slate-500 mt-1 font-normal leading-snug">
+                        <p className="text-[10px] text-slate-500 mt-0.5 font-normal leading-tight line-clamp-2">
                           Theo dõi, quản lý và tổng hợp dữ liệu chấm công.
                         </p>
                       </div>
                     </div>
-                    <div className="flex justify-end pt-1">
-                      <div className="w-8 h-8 rounded-full bg-purple-50 text-purple-600 group-hover:bg-purple-600 group-hover:text-white transition-colors flex items-center justify-center">
-                        <IconArrowRight size={16} />
+                    <div className="flex justify-end pt-0.5">
+                      <div className="w-6.5 h-6.5 rounded-full bg-purple-50 text-purple-600 group-hover:bg-purple-600 group-hover:text-white transition-colors flex items-center justify-center">
+                        <IconArrowRight size={13} />
                       </div>
                     </div>
                   </div>
 
                   {/* Sub-Card 4: Đánh giá nhân viên */}
-                  <div className="p-4 sm:p-4.5 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-3 group cursor-pointer">
-                    <div className="space-y-3">
-                      <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-100 group-hover:scale-105 transition-transform">
-                        <IconTrendingUp size={24} />
+                  <div className="p-2.5 sm:p-3 rounded-xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-2 group cursor-pointer">
+                    <div className="space-y-1.5">
+                      <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-100 group-hover:scale-105 transition-transform">
+                        <IconTrendingUp size={18} />
                       </div>
                       <div>
-                        <h4 className="text-sm font-extrabold text-emerald-800 tracking-tight">
+                        <h4 className="text-xs font-extrabold text-emerald-800 tracking-tight">
                           Đánh giá nhân viên
                         </h4>
-                        <p className="text-xs text-slate-500 mt-1 font-normal leading-snug">
+                        <p className="text-[10px] text-slate-500 mt-0.5 font-normal leading-tight line-clamp-2">
                           Đánh giá hiệu suất làm việc và năng lực nhân viên.
                         </p>
                       </div>
                     </div>
-                    <div className="flex justify-end pt-1">
-                      <div className="w-8 h-8 rounded-full bg-emerald-50 text-emerald-700 group-hover:bg-emerald-700 group-hover:text-white transition-colors flex items-center justify-center">
-                        <IconArrowRight size={16} />
+                    <div className="flex justify-end pt-0.5">
+                      <div className="w-6.5 h-6.5 rounded-full bg-emerald-50 text-emerald-700 group-hover:bg-emerald-700 group-hover:text-white transition-colors flex items-center justify-center">
+                        <IconArrowRight size={13} />
                       </div>
                     </div>
                   </div>
 
                   {/* Sub-Card 5: Đào tạo & phát triển */}
-                  <div className="p-4 sm:p-4.5 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-3 group cursor-pointer">
-                    <div className="space-y-3">
-                      <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-100 group-hover:scale-105 transition-transform">
-                        <IconSchool size={24} />
+                  <div className="p-2.5 sm:p-3 rounded-xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-2 group cursor-pointer">
+                    <div className="space-y-1.5">
+                      <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-100 group-hover:scale-105 transition-transform">
+                        <IconSchool size={18} />
                       </div>
                       <div>
-                        <h4 className="text-sm font-extrabold text-amber-800 tracking-tight">
+                        <h4 className="text-xs font-extrabold text-amber-800 tracking-tight">
                           Đào tạo &amp; phát triển
                         </h4>
-                        <p className="text-xs text-slate-500 mt-1 font-normal leading-snug">
+                        <p className="text-[10px] text-slate-500 mt-0.5 font-normal leading-tight line-clamp-2">
                           Quản lý kế hoạch đào tạo và phát triển kỹ năng nhân viên.
                         </p>
                       </div>
                     </div>
-                    <div className="flex justify-end pt-1">
-                      <div className="w-8 h-8 rounded-full bg-amber-50 text-amber-700 group-hover:bg-amber-600 group-hover:text-white transition-colors flex items-center justify-center">
-                        <IconArrowRight size={16} />
+                    <div className="flex justify-end pt-0.5">
+                      <div className="w-6.5 h-6.5 rounded-full bg-amber-50 text-amber-700 group-hover:bg-amber-600 group-hover:text-white transition-colors flex items-center justify-center">
+                        <IconArrowRight size={13} />
                       </div>
                     </div>
                   </div>
 
                   {/* Sub-Card 6: Lương & phúc lợi */}
-                  <div className="p-4 sm:p-4.5 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-3 group cursor-pointer">
-                    <div className="space-y-3">
-                      <div className="w-12 h-12 rounded-xl bg-cyan-50 text-cyan-700 flex items-center justify-center border border-cyan-100 group-hover:scale-105 transition-transform">
-                        <IconCash size={24} />
+                  <div className="p-2.5 sm:p-3 rounded-xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-2 group cursor-pointer">
+                    <div className="space-y-1.5">
+                      <div className="w-8 h-8 rounded-lg bg-cyan-50 text-cyan-700 flex items-center justify-center border border-cyan-100 group-hover:scale-105 transition-transform">
+                        <IconCash size={18} />
                       </div>
                       <div>
-                        <h4 className="text-sm font-extrabold text-cyan-800 tracking-tight">
+                        <h4 className="text-xs font-extrabold text-cyan-800 tracking-tight">
                           Lương &amp; phúc lợi
                         </h4>
-                        <p className="text-xs text-slate-500 mt-1 font-normal leading-snug">
+                        <p className="text-[10px] text-slate-500 mt-0.5 font-normal leading-tight line-clamp-2">
                           Quản lý thông tin lương, thưởng và phúc lợi nhân viên.
                         </p>
                       </div>
                     </div>
-                    <div className="flex justify-end pt-1">
-                      <div className="w-8 h-8 rounded-full bg-cyan-50 text-cyan-700 group-hover:bg-cyan-700 group-hover:text-white transition-colors flex items-center justify-center">
-                        <IconArrowRight size={16} />
+                    <div className="flex justify-end pt-0.5">
+                      <div className="w-6.5 h-6.5 rounded-full bg-cyan-50 text-cyan-700 group-hover:bg-cyan-700 group-hover:text-white transition-colors flex items-center justify-center">
+                        <IconArrowRight size={13} />
                       </div>
                     </div>
                   </div>
 
                   {/* Sub-Card 7: Tuyển dụng */}
-                  <div className="p-4 sm:p-4.5 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-3 group cursor-pointer">
-                    <div className="space-y-3">
-                      <div className="w-12 h-12 rounded-xl bg-pink-50 text-pink-700 flex items-center justify-center border border-pink-100 group-hover:scale-105 transition-transform">
-                        <IconUserPlus size={24} />
+                  <div className="p-2.5 sm:p-3 rounded-xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-2 group cursor-pointer">
+                    <div className="space-y-1.5">
+                      <div className="w-8 h-8 rounded-lg bg-pink-50 text-pink-700 flex items-center justify-center border border-pink-100 group-hover:scale-105 transition-transform">
+                        <IconUserPlus size={18} />
                       </div>
                       <div>
-                        <h4 className="text-sm font-extrabold text-pink-700 tracking-tight">
+                        <h4 className="text-xs font-extrabold text-pink-700 tracking-tight">
                           Tuyển dụng
                         </h4>
-                        <p className="text-xs text-slate-500 mt-1 font-normal leading-snug">
+                        <p className="text-[10px] text-slate-500 mt-0.5 font-normal leading-tight line-clamp-2">
                           Quản lý quy trình tuyển dụng và theo dõi ứng viên.
                         </p>
                       </div>
                     </div>
-                    <div className="flex justify-end pt-1">
-                      <div className="w-8 h-8 rounded-full bg-pink-50 text-pink-700 group-hover:bg-pink-600 group-hover:text-white transition-colors flex items-center justify-center">
-                        <IconArrowRight size={16} />
+                    <div className="flex justify-end pt-0.5">
+                      <div className="w-6.5 h-6.5 rounded-full bg-pink-50 text-pink-700 group-hover:bg-pink-600 group-hover:text-white transition-colors flex items-center justify-center">
+                        <IconArrowRight size={13} />
                       </div>
                     </div>
                   </div>
 
                   {/* Sub-Card 8: Báo cáo nhân sự */}
-                  <div className="p-4 sm:p-4.5 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-3 group cursor-pointer">
-                    <div className="space-y-3">
-                      <div className="w-12 h-12 rounded-xl bg-sky-50 text-sky-700 flex items-center justify-center border border-sky-100 group-hover:scale-105 transition-transform">
-                        <IconFileText size={24} />
+                  <div className="p-2.5 sm:p-3 rounded-xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-2 group cursor-pointer">
+                    <div className="space-y-1.5">
+                      <div className="w-8 h-8 rounded-lg bg-sky-50 text-sky-700 flex items-center justify-center border border-sky-100 group-hover:scale-105 transition-transform">
+                        <IconFileText size={18} />
                       </div>
                       <div>
-                        <h4 className="text-sm font-extrabold text-sky-800 tracking-tight">
+                        <h4 className="text-xs font-extrabold text-sky-800 tracking-tight">
                           Báo cáo nhân sự
                         </h4>
-                        <p className="text-xs text-slate-500 mt-1 font-normal leading-snug">
+                        <p className="text-[10px] text-slate-500 mt-0.5 font-normal leading-tight line-clamp-2">
                           Hệ thống báo cáo tổng hợp về nhân sự và thống kê.
                         </p>
                       </div>
                     </div>
-                    <div className="flex justify-end pt-1">
-                      <div className="w-8 h-8 rounded-full bg-sky-50 text-sky-700 group-hover:bg-sky-600 group-hover:text-white transition-colors flex items-center justify-center">
-                        <IconArrowRight size={16} />
+                    <div className="flex justify-end pt-0.5">
+                      <div className="w-6.5 h-6.5 rounded-full bg-sky-50 text-sky-700 group-hover:bg-sky-600 group-hover:text-white transition-colors flex items-center justify-center">
+                        <IconArrowRight size={13} />
                       </div>
                     </div>
                   </div>

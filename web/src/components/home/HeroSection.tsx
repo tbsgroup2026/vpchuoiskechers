@@ -12,7 +12,7 @@ export default function HeroSection() {
          ════════════════════════════════════════════════════════════════ */}
       <section
         id="hero"
-        className="relative flex items-center bg-[#08221a] overflow-hidden pt-28 pb-20 lg:pt-36 lg:pb-28 min-h-[calc(100vh-3.25rem)]"
+        className="relative flex items-center bg-[#08221a] overflow-hidden pt-16 pb-20 lg:pt-20 lg:pb-24 min-h-[70vh] lg:min-h-[68vh]"
       >
         {/* Background Image: Gate photo full visibility */}
         <div
@@ -146,7 +146,7 @@ export default function HeroSection() {
          ════════════════════════════════════════════════════════════════ */}
       <section
         id="brand-strip"
-        className="relative z-20 py-7 bg-[#0b3226] border-y border-[#2fd39a]/20 shadow-2xl overflow-hidden"
+        className="relative z-30 -mt-[74px] py-7 bg-[#0b3226]/95 backdrop-blur-md border-y border-[#2fd39a]/25 shadow-2xl overflow-hidden"
       >
         {/* Gradient side fades */}
         <div className="absolute left-0 top-0 bottom-0 w-[120px] bg-gradient-to-r from-[#0b3226] to-transparent z-10 pointer-events-none" />

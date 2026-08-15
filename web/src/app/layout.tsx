@@ -41,11 +41,21 @@ export const metadata: Metadata = {
   keywords:
     "Văn Phòng Chuỗi SKECHERS - TBS Group, SKECHERS, TBS Group, Gemba Walk, CI, Kaizen, Quản trị hằng ngày, Quản lý nhà máy",
   manifest: "/manifest.json",
+  icons: {
+    icon: [
+      { url: "/images/tbs-logo.png", type: "image/png" },
+      { url: "/images/tbs-logo.png", sizes: "32x32", type: "image/png" },
+      { url: "/images/tbs-logo.png", sizes: "16x16", type: "image/png" },
+    ],
+    shortcut: "/images/tbs-logo.png",
+    apple: "/images/tbs-logo.png",
+  },
   openGraph: {
     title: "Văn Phòng Chuỗi SKECHERS - TBS Group",
     description:
       "Trung tâm điều hành và quản trị số hoá vận hành chuỗi cung ứng SKECHERS - TBS Group.",
     type: "website",
+    images: ["/images/tbs-logo.png"],
   },
 };
 
@@ -59,6 +69,11 @@ export default function RootLayout({
       lang="vi"
       className={`${vietnamPro.variable} ${jakartaSans.variable} ${playfairDisplay.variable} h-full antialiased`}
     >
+      <head>
+        <link rel="icon" href="/images/tbs-logo.png" type="image/png" sizes="any" />
+        <link rel="shortcut icon" href="/images/tbs-logo.png" type="image/png" />
+        <link rel="apple-touch-icon" href="/images/tbs-logo.png" />
+      </head>
       <body className="min-h-full flex flex-col font-sans bg-canvas text-ink pb-16 sm:pb-0">
         <DevToolsShield />
         {children}

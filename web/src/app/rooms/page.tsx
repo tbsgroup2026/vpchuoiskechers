@@ -682,7 +682,7 @@ export default function MeetingRoomsPage() {
                   className="px-3 py-1.5 rounded-xl bg-[#006838] text-white font-extrabold text-xs hover:bg-[#00522c] transition-colors shadow-sm flex items-center gap-1 cursor-pointer"
                 >
                   <IconPlus size={14} />
-                  <span>+ Note cuộc họp mới</span>
+                  <span>Note cuộc họp mới</span>
                 </button>
               </div>
             </div>

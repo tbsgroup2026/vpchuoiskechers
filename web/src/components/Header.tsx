@@ -50,6 +50,34 @@ export default function Header() {
   const [notifOpen, setNotifOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
 
+  // Dropdown timeout refs for smooth hover grace period (350ms delay)
+  const otherTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const userTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleOtherMouseEnter = () => {
+    if (otherTimeoutRef.current) clearTimeout(otherTimeoutRef.current);
+    setOtherDropdownOpen(true);
+  };
+
+  const handleOtherMouseLeave = () => {
+    if (otherTimeoutRef.current) clearTimeout(otherTimeoutRef.current);
+    otherTimeoutRef.current = setTimeout(() => {
+      setOtherDropdownOpen(false);
+    }, 350);
+  };
+
+  const handleUserMouseEnter = () => {
+    if (userTimeoutRef.current) clearTimeout(userTimeoutRef.current);
+    setUserDropdownOpen(true);
+  };
+
+  const handleUserMouseLeave = () => {
+    if (userTimeoutRef.current) clearTimeout(userTimeoutRef.current);
+    userTimeoutRef.current = setTimeout(() => {
+      setUserDropdownOpen(false);
+    }, 350);
+  };
+
   // Modals
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [changePasswordModalOpen, setChangePasswordModalOpen] = useState(false);
@@ -262,42 +290,52 @@ export default function Header() {
 
             {/* 7. Khác Dropdown */}
             <div
-              className="relative"
-              onMouseEnter={() => setOtherDropdownOpen(true)}
-              onMouseLeave={() => setOtherDropdownOpen(false)}
+              className="relative py-1"
+              onMouseEnter={handleOtherMouseEnter}
+              onMouseLeave={handleOtherMouseLeave}
             >
-              <button className="flex items-center gap-1 hover:text-[#2fd39a] transition-colors py-1 uppercase font-extrabold">
+              <button className="flex items-center gap-1 hover:text-[#2fd39a] transition-colors py-1 uppercase font-extrabold cursor-pointer">
                 <span>Khác</span>
                 <IconChevronDown
                   size={13}
-                  className={`transition-transform ${otherDropdownOpen ? 'rotate-180' : ''}`}
+                  className={`transition-transform duration-300 ${otherDropdownOpen ? 'rotate-180 text-[#2fd39a]' : ''}`}
                 />
               </button>
-              {otherDropdownOpen && (
-                <div className="absolute top-full right-0 mt-2 w-56 rounded-2xl bg-[#041a13]/95 border border-[#2fd39a]/30 p-2 shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-top-2 duration-200 text-left">
+
+              {/* Dropdown popup with hover bridge & smooth transition */}
+              <div
+                className={`absolute top-full right-0 pt-2 w-60 z-50 transition-all duration-300 transform origin-top-right ${
+                  otherDropdownOpen
+                    ? 'opacity-100 scale-100 pointer-events-auto translate-y-0'
+                    : 'opacity-0 scale-95 pointer-events-none -translate-y-2'
+                }`}
+                onMouseEnter={handleOtherMouseEnter}
+                onMouseLeave={handleOtherMouseLeave}
+              >
+                <div className="rounded-2xl bg-[#041a13]/98 border border-[#2fd39a]/40 p-2 shadow-2xl backdrop-blur-2xl text-left">
                   <Link
                     href="/contact"
-                    className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-gray-200 hover:text-[#2fd39a] hover:bg-white/5 rounded-xl transition"
+                    className="flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-extrabold text-gray-100 hover:text-[#2fd39a] hover:bg-white/10 rounded-xl transition"
                   >
-                    <IconPhoneCall size={15} className="text-[#2fd39a]" />
-                    <span>1. Liên hệ</span>
+                    <IconPhoneCall size={16} className="text-[#2fd39a]" />
+                    <span>1. LIÊN HỆ</span>
                   </Link>
                   <Link
                     href="/faq"
-                    className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-gray-200 hover:text-[#2fd39a] hover:bg-white/5 rounded-xl transition"
+                    className="flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-extrabold text-gray-100 hover:text-[#2fd39a] hover:bg-white/10 rounded-xl transition"
                   >
-                    <IconHelpCircle size={15} className="text-[#2fd39a]" />
-                    <span>2. Câu hỏi thường gặp (FAQ)</span>
+                    <IconHelpCircle size={16} className="text-[#2fd39a]" />
+                    <span>2. CÂU HỎI THƯỜNG GẶP (FAQ)</span>
                   </Link>
                   <Link
                     href="/structure"
-                    className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-gray-200 hover:text-[#2fd39a] hover:bg-white/5 rounded-xl transition"
+                    className="flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-extrabold text-gray-100 hover:text-[#2fd39a] hover:bg-white/10 rounded-xl transition"
                   >
-                    <IconHierarchy size={15} className="text-[#2fd39a]" />
-                    <span>3. Sơ đồ tổ chức / Chi nhánh</span>
+                    <IconHierarchy size={16} className="text-[#2fd39a]" />
+                    <span>3. SƠ ĐỒ TỔ CHỨC / CHI NHÁNH</span>
                   </Link>
                 </div>
-              )}
+              </div>
             </div>
           </nav>
 
@@ -360,18 +398,17 @@ export default function Header() {
               </div>
             )}
 
-            {/* Executive User Profile Dropdown (Replaces static pill button) */}
+            {/* Executive User Profile Dropdown */}
             {isLoggedIn ? (
               <div
-                className="relative"
-                onMouseEnter={() => setUserDropdownOpen(true)}
-                onMouseLeave={() => setUserDropdownOpen(false)}
+                className="relative py-1"
+                onMouseEnter={handleUserMouseEnter}
+                onMouseLeave={handleUserMouseLeave}
               >
                 <button
                   onClick={() => setUserDropdownOpen(!userDropdownOpen)}
                   className="flex items-center gap-2 bg-[#0f4133]/90 hover:bg-[#0f4133] px-3.5 py-1.5 rounded-full border border-[#2fd39a]/40 shadow-md text-white transition-all cursor-pointer group"
                 >
-                  {/* Clean User Avatar Silhouette Icon */}
                   <div className="w-6 h-6 rounded-full bg-[#2fd39a]/20 text-[#2fd39a] flex items-center justify-center font-bold">
                     <IconUserCircle size={18} />
                   </div>
@@ -380,17 +417,25 @@ export default function Header() {
                   </span>
                   <IconChevronDown
                     size={13}
-                    className={`text-[#2fd39a] transition-transform duration-200 ${
+                    className={`text-[#2fd39a] transition-transform duration-300 ${
                       userDropdownOpen ? 'rotate-180' : ''
                     }`}
                   />
                 </button>
 
-                {/* User Executive Dropdown Menu */}
-                {userDropdownOpen && (
-                  <div className="absolute top-full right-0 mt-2 w-56 rounded-2xl bg-[#041a13]/98 border border-[#2fd39a]/40 p-2 shadow-2xl backdrop-blur-2xl animate-in fade-in slide-in-from-top-2 duration-200 text-left z-50">
+                {/* User Executive Dropdown Menu with Hover Bridge & Grace Delay */}
+                <div
+                  className={`absolute top-full right-0 pt-2 w-64 z-50 transition-all duration-300 transform origin-top-right ${
+                    userDropdownOpen
+                      ? 'opacity-100 scale-100 pointer-events-auto translate-y-0'
+                      : 'opacity-0 scale-95 pointer-events-none -translate-y-2'
+                  }`}
+                  onMouseEnter={handleUserMouseEnter}
+                  onMouseLeave={handleUserMouseLeave}
+                >
+                  <div className="rounded-2xl bg-[#041a13]/98 border border-[#2fd39a]/40 p-2.5 shadow-2xl backdrop-blur-2xl text-left">
                     {/* Header info inside dropdown */}
-                    <div className="px-3 py-2.5 border-b border-white/10 mb-1">
+                    <div className="px-3 py-2.5 border-b border-white/10 mb-1.5">
                       <div className="text-xs font-extrabold text-white truncate">
                         {userInfo?.name || 'Phạm Nguyễn Anh Huy'}
                       </div>
@@ -405,7 +450,7 @@ export default function Header() {
                         setUserDropdownOpen(false);
                         setProfileModalOpen(true);
                       }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-gray-200 hover:text-[#2fd39a] hover:bg-white/5 rounded-xl transition text-left cursor-pointer"
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-gray-200 hover:text-[#2fd39a] hover:bg-white/10 rounded-xl transition text-left cursor-pointer"
                     >
                       <IconUser size={15} className="text-[#2fd39a]" />
                       <span>Thông tin cá nhân</span>
@@ -417,13 +462,13 @@ export default function Header() {
                         setUserDropdownOpen(false);
                         setChangePasswordModalOpen(true);
                       }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-gray-200 hover:text-[#2fd39a] hover:bg-white/5 rounded-xl transition text-left cursor-pointer"
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-gray-200 hover:text-[#2fd39a] hover:bg-white/10 rounded-xl transition text-left cursor-pointer"
                     >
                       <IconKey size={15} className="text-[#2fd39a]" />
                       <span>Đổi mật khẩu</span>
                     </button>
 
-                    <div className="my-1 border-t border-white/10" />
+                    <div className="my-1.5 border-t border-white/10" />
 
                     {/* Item 3: Đăng xuất */}
                     <button
@@ -437,7 +482,7 @@ export default function Header() {
                       <span>Đăng xuất</span>
                     </button>
                   </div>
-                )}
+                </div>
               </div>
             ) : (
               <Link

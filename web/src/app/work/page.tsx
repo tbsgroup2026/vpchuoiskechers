@@ -616,18 +616,21 @@ export default function WorkDashboardPage() {
                   </div>
 
                   {/* Main Card 2: Đăng ký công tác */}
-                  <div className="p-3.5 sm:p-4 rounded-xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-2.5 group relative overflow-hidden">
+                  <Link
+                    href="/business-trip"
+                    className="p-3.5 sm:p-4 rounded-xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-2.5 group relative overflow-hidden cursor-pointer"
+                  >
                     {/* Background Subtle Plane Graphic */}
                     <div className="absolute right-3 top-3 text-amber-100/50 pointer-events-none">
                       <IconPlane size={72} className="stroke-[1]" />
                     </div>
 
                     <div className="flex items-start gap-3.5 z-10">
-                      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center flex-shrink-0 border border-amber-100">
+                      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center flex-shrink-0 border border-amber-100 group-hover:scale-105 transition-transform">
                         <IconBriefcase size={36} className="stroke-[1.5]" />
                       </div>
                       <div className="flex-1 min-w-0 space-y-1">
-                        <h3 className="text-base font-black text-slate-900 tracking-tight">
+                        <h3 className="text-base font-black text-slate-900 tracking-tight group-hover:text-amber-800 transition-colors">
                           Đăng ký công tác
                         </h3>
                         <p className="text-[11px] text-slate-500 font-medium leading-tight">
@@ -660,11 +663,11 @@ export default function WorkDashboardPage() {
 
                     {/* Bottom Arrow Action Button */}
                     <div className="flex justify-end pt-0.5 z-10">
-                      <button className="w-7.5 h-7.5 rounded-full bg-amber-50 text-amber-700 group-hover:bg-amber-600 group-hover:text-white transition-colors flex items-center justify-center cursor-pointer shadow-xs">
+                      <div className="w-7.5 h-7.5 rounded-full bg-amber-50 text-amber-700 group-hover:bg-amber-600 group-hover:text-white transition-colors flex items-center justify-center shadow-xs">
                         <IconArrowRight size={15} />
-                      </button>
+                      </div>
                     </div>
-                  </div>
+                  </Link>
                 </div>
               </div>
 

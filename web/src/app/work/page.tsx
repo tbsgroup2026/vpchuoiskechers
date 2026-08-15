@@ -160,16 +160,6 @@ export default function WorkDashboardPage() {
                 />
               </Link>
             )}
-
-            {!isSidebarCollapsed && (
-              <Link
-                href="/"
-                className="p-2 rounded-xl bg-slate-50 text-slate-500 hover:text-[#006838] hover:bg-emerald-50 transition-colors border border-slate-200/80 shadow-sm"
-                title="Về Trang Chủ"
-              >
-                <IconHome size={18} />
-              </Link>
-            )}
           </div>
 
           {/* Department List (Enlarged Cards & Typography per User Request) */}

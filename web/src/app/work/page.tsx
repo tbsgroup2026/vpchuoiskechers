@@ -118,22 +118,18 @@ export default function WorkDashboardPage() {
         <div className="space-y-6">
           {/* Executive Brand Lockup with Skechers Corporate Logo */}
           <div className="flex items-center justify-between pb-4 border-b border-slate-200/80">
-            <Link href="/" className="flex items-center gap-3.5 group">
+            <Link href="/" className="flex items-center gap-3 group">
               <img
                 src="/images/tbs-logo.png"
                 alt="TBS Group Logo"
                 className="h-9 w-auto object-contain group-hover:scale-105 transition-transform"
               />
               <div className="h-7 w-[1px] bg-slate-200" />
-              {/* Skechers Corporate Brand Logo */}
-              <div className="flex items-center gap-1.5">
-                <div className="w-6 h-6 rounded-md bg-[#002B49] text-white flex items-center justify-center font-black italic text-xs tracking-tighter shadow-sm">
-                  S
-                </div>
-                <span className="font-black italic text-base tracking-widest text-[#002B49] font-sans">
-                  SKECHERS
-                </span>
-              </div>
+              <img
+                src="/images/skechers-logo.png"
+                alt="Skechers Logo"
+                className="h-9 sm:h-10 w-auto object-contain group-hover:scale-105 transition-transform"
+              />
             </Link>
 
             <Link

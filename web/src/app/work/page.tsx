@@ -19,6 +19,8 @@ import {
   IconClock,
   IconArrowUpRight,
   IconHome,
+  IconLayoutSidebarLeftCollapse,
+  IconLayoutSidebarLeftExpand,
 } from "@tabler/icons-react";
 
 interface DepartmentItem {
@@ -34,6 +36,7 @@ export default function WorkDashboardPage() {
   const [selectedDept, setSelectedDept] = useState<string | null>(null);
   const [timeFilter, setTimeFilter] = useState("Tháng này");
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   // 7 Numbered Departments List
   const departments: DepartmentItem[] = [
@@ -112,40 +115,73 @@ export default function WorkDashboardPage() {
   return (
     <div className="min-h-screen flex bg-[#f4f7f5] text-slate-900 font-sans antialiased selection:bg-[#006838] selection:text-white">
       {/* ════════════════════════════════════════════════════════════════
-          LEFT SIDEBAR (Human-Designed Crisp White Panel with TBS Green)
+          LEFT SIDEBAR (Human-Designed Crisp White Panel with Collapse/Expand)
          ════════════════════════════════════════════════════════════════ */}
-      <aside className="w-80 lg:w-96 bg-white flex flex-col justify-between p-6 border-r border-slate-200/80 flex-shrink-0 shadow-sm">
+      <aside
+        className={`bg-white flex flex-col justify-between p-4 lg:p-5 border-r border-slate-200/80 flex-shrink-0 shadow-sm transition-all duration-300 ease-in-out ${
+          isSidebarCollapsed ? "w-20" : "w-80 lg:w-96"
+        }`}
+      >
         <div className="space-y-6">
-          {/* Executive Brand Lockup with Skechers Corporate Logo */}
+          {/* Executive Brand Lockup & Collapse / Expand Controls */}
           <div className="flex items-center justify-between pb-4 border-b border-slate-200/80">
-            <Link href="/" className="flex items-center gap-3 group">
-              <img
-                src="/images/tbs-logo.png"
-                alt="TBS Group Logo"
-                className="h-9 w-auto object-contain group-hover:scale-105 transition-transform"
-              />
-              <div className="h-7 w-[1px] bg-slate-200" />
-              <img
-                src="/images/skechers-logo.png"
-                alt="Skechers Logo"
-                className="h-14 sm:h-16 w-auto object-contain -my-2 group-hover:scale-105 transition-transform"
-              />
-            </Link>
+            {!isSidebarCollapsed ? (
+              <Link href="/" className="flex items-center gap-3 group overflow-hidden">
+                <img
+                  src="/images/tbs-logo.png"
+                  alt="TBS Group Logo"
+                  className="h-8 sm:h-9 w-auto object-contain group-hover:scale-105 transition-transform"
+                />
+                <div className="h-6 w-[1px] bg-slate-200 flex-shrink-0" />
+                <img
+                  src="/images/skechers-logo.png"
+                  alt="Skechers Logo"
+                  className="h-12 sm:h-14 w-auto object-contain -my-2 group-hover:scale-105 transition-transform flex-shrink-0"
+                />
+              </Link>
+            ) : (
+              <Link href="/" title="TBS Group" className="mx-auto group">
+                <img
+                  src="/images/tbs-logo.png"
+                  alt="TBS Group"
+                  className="h-7 w-auto object-contain group-hover:scale-105 transition-transform"
+                />
+              </Link>
+            )}
 
-            <Link
-              href="/"
-              className="p-2 rounded-xl bg-slate-50 text-slate-500 hover:text-[#006838] hover:bg-emerald-50 transition-colors border border-slate-200/80"
-              title="Về Trang Chủ"
-            >
-              <IconHome size={18} />
-            </Link>
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              {/* Collapse / Expand Sidebar Button */}
+              <button
+                onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                className="p-2 rounded-xl bg-slate-50 text-slate-600 hover:text-[#006838] hover:bg-emerald-50 transition-colors border border-slate-200/80 shadow-sm cursor-pointer"
+                title={isSidebarCollapsed ? "Mở rộng menu" : "Thu nhỏ menu"}
+              >
+                {isSidebarCollapsed ? (
+                  <IconLayoutSidebarLeftExpand size={18} />
+                ) : (
+                  <IconLayoutSidebarLeftCollapse size={18} />
+                )}
+              </button>
+
+              {!isSidebarCollapsed && (
+                <Link
+                  href="/"
+                  className="p-2 rounded-xl bg-slate-50 text-slate-500 hover:text-[#006838] hover:bg-emerald-50 transition-colors border border-slate-200/80 shadow-sm"
+                  title="Về Trang Chủ"
+                >
+                  <IconHome size={18} />
+                </Link>
+              )}
+            </div>
           </div>
 
-          {/* Department List (Clean Human Layout on Crisp White Surface) */}
+          {/* Department List (Clean Human Layout with Tooltips on Collapsed Mode) */}
           <div className="space-y-2">
-            <div className="px-2 text-[11px] font-extrabold uppercase tracking-widest text-[#006838]">
-              Phòng Ban Điều Hành (01 - 07)
-            </div>
+            {!isSidebarCollapsed && (
+              <div className="px-2 text-[11px] font-extrabold uppercase tracking-widest text-[#006838]">
+                Phòng Ban Điều Hành (01 - 07)
+              </div>
+            )}
 
             <div className="space-y-1.5 pt-1">
               {departments.map((dept) => {
@@ -156,7 +192,11 @@ export default function WorkDashboardPage() {
                   <button
                     key={dept.id}
                     onClick={() => setSelectedDept(dept.id)}
-                    className={`w-full text-left p-3.5 rounded-2xl flex items-center gap-3.5 transition-all duration-200 group relative ${
+                    className={`w-full text-left rounded-2xl flex items-center transition-all duration-200 group relative ${
+                      isSidebarCollapsed
+                        ? "p-2.5 justify-center"
+                        : "p-3.5 gap-3.5"
+                    } ${
                       isSelected
                         ? "bg-[#006838] text-white shadow-md shadow-emerald-900/20 border border-[#006838]"
                         : "bg-white hover:bg-[#e6f4ed]/50 text-slate-700 hover:text-slate-900 border border-slate-100"
@@ -169,40 +209,44 @@ export default function WorkDashboardPage() {
 
                     {/* Icon Box */}
                     <div
-                      className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${
+                      className={`rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${
+                        isSidebarCollapsed ? "w-10 h-10" : "w-9 h-9"
+                      } ${
                         isSelected
                           ? "bg-white/20 text-white"
                           : "bg-[#e6f4ed] text-[#006838] group-hover:bg-[#006838] group-hover:text-white"
                       }`}
                     >
-                      <IconComp size={18} />
+                      <IconComp size={20} />
                     </div>
 
-                    {/* Department Title & Subtitle */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`text-[10px] font-mono font-bold ${
-                            isSelected ? "text-emerald-100" : "text-[#006838]/70"
+                    {/* Department Title & Subtitle (Shown when Expanded) */}
+                    {!isSidebarCollapsed && (
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`text-[10px] font-mono font-bold ${
+                              isSelected ? "text-emerald-100" : "text-[#006838]/70"
+                            }`}
+                          >
+                            {dept.num}.
+                          </span>
+                          <h4 className="text-xs font-extrabold truncate tracking-tight">
+                            {dept.name}
+                          </h4>
+                        </div>
+                        <p
+                          className={`text-[11px] truncate mt-0.5 font-normal ${
+                            isSelected ? "text-emerald-100" : "text-slate-500"
                           }`}
                         >
-                          {dept.num}.
-                        </span>
-                        <h4 className="text-xs font-extrabold truncate tracking-tight">
-                          {dept.name}
-                        </h4>
+                          {dept.sub}
+                        </p>
                       </div>
-                      <p
-                        className={`text-[11px] truncate mt-0.5 font-normal ${
-                          isSelected ? "text-emerald-100" : "text-slate-500"
-                        }`}
-                      >
-                        {dept.sub}
-                      </p>
-                    </div>
+                    )}
 
-                    {/* Subtle Status Tag */}
-                    {!dept.hasData && (
+                    {/* Subtle Status Tag (Shown when Expanded) */}
+                    {!isSidebarCollapsed && !dept.hasData && (
                       <span
                         className={`text-[10px] font-mono font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${
                           isSelected
@@ -213,6 +257,18 @@ export default function WorkDashboardPage() {
                         Soon
                       </span>
                     )}
+
+                    {/* Collapsed Hover Tooltip Popup */}
+                    {isSidebarCollapsed && (
+                      <div className="absolute left-full ml-3 px-3 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl shadow-2xl whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none flex items-center gap-2">
+                        <span>{dept.num}. {dept.name}</span>
+                        {!dept.hasData && (
+                          <span className="text-[10px] font-mono text-amber-300 font-normal">
+                            (Soon)
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </button>
                 );
               })}
@@ -222,26 +278,38 @@ export default function WorkDashboardPage() {
 
         {/* Executive Footer Credit */}
         <div className="pt-4 border-t border-slate-200/80 flex items-center justify-between text-xs text-slate-500">
-          <div className="flex items-center gap-2">
-            <img
-              src="/images/tbs-logo.png"
-              alt="TBS Logo"
-              className="h-4 w-auto object-contain"
-            />
-            <span className="font-semibold text-slate-700 text-[11px]">
-              TBS Group Operating System
-            </span>
-          </div>
-          <span className="text-[10px] font-mono text-slate-400">
-            © 2026
-          </span>
+          {!isSidebarCollapsed ? (
+            <>
+              <div className="flex items-center gap-2">
+                <img
+                  src="/images/tbs-logo.png"
+                  alt="TBS Logo"
+                  className="h-4 w-auto object-contain"
+                />
+                <span className="font-semibold text-slate-700 text-[11px]">
+                  TBS Group Operating System
+                </span>
+              </div>
+              <span className="text-[10px] font-mono text-slate-400">
+                © 2026
+              </span>
+            </>
+          ) : (
+            <div className="mx-auto" title="© 2026 TBS Group">
+              <img
+                src="/images/tbs-logo.png"
+                alt="TBS Logo"
+                className="h-4 w-auto object-contain"
+              />
+            </div>
+          )}
         </div>
       </aside>
 
       {/* ════════════════════════════════════════════════════════════════
           MAIN DASHBOARD AREA (Crisp White & Mint Corporate Surface)
          ════════════════════════════════════════════════════════════════ */}
-      <main className="flex-1 bg-[#f4f7f5] text-slate-900 rounded-tl-[32px] overflow-y-auto flex flex-col justify-between">
+      <main className="flex-1 bg-[#f4f7f5] text-slate-900 rounded-tl-[32px] overflow-y-auto flex flex-col justify-between transition-all duration-300">
         {/* Top Header Bar */}
         <header className="p-6 lg:p-8 pb-4 flex items-center justify-between border-b border-slate-200/80 bg-white/80 backdrop-blur-md sticky top-0 z-30">
           <div>

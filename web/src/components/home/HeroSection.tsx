@@ -12,7 +12,7 @@ export default function HeroSection() {
          ════════════════════════════════════════════════════════════════ */}
       <section
         id="hero"
-        className="relative flex items-center bg-[#08221a] overflow-hidden pt-16 pb-20 lg:pt-20 lg:pb-24 min-h-[70vh] lg:min-h-[68vh]"
+        className="relative flex items-center bg-[#08221a] overflow-hidden pt-20 pb-24 lg:pt-28 lg:pb-32 min-h-[80vh] lg:min-h-[78vh]"
       >
         {/* Background Image: Gate photo full visibility */}
         <div

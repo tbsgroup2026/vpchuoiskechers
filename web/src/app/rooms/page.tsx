@@ -22,6 +22,8 @@ import {
   IconFilter,
   IconBell,
   IconChevronDown,
+  IconChevronLeft,
+  IconChevronRight,
   IconVideo,
   IconDeviceTv,
   IconCoffee,
@@ -29,6 +31,8 @@ import {
   IconChecklist,
   IconEdit,
   IconSparkles,
+  IconFileText,
+  IconNotes,
 } from "@tabler/icons-react";
 
 interface MeetingRoom {
@@ -39,6 +43,8 @@ interface MeetingRoom {
   equipment: string[];
   status: "AVAILABLE" | "BUSY" | "MAINTENANCE";
   isLocked: boolean;
+  colorClass: string;
+  badgeBg: string;
 }
 
 interface RoomBooking {
@@ -48,7 +54,7 @@ interface RoomBooking {
   title: string;
   bookerName: string;
   department: string;
-  bookingDate: string;
+  bookingDate: string; // DD/MM/YYYY
   timeSlot: string;
   attendeesCount: number;
   notes?: string;
@@ -73,9 +79,34 @@ interface VisitorRecord {
 }
 
 export default function MeetingRoomsPage() {
-  const [activeTab, setActiveTab] = useState<"BOOKING" | "ROOMS" | "VISITORS" | "HISTORY">("BOOKING");
+  const [activeTab, setActiveTab] = useState<"CALENDAR" | "BOOKING" | "ROOMS" | "VISITORS" | "HISTORY">("CALENDAR");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [selectedVisitorBadge, setSelectedVisitorBadge] = useState<VisitorRecord | null>(null);
+  const [selectedEventModal, setSelectedEventModal] = useState<RoomBooking | null>(null);
+  const [quickNoteModalOpen, setQuickNoteModalOpen] = useState(false);
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState<string>("15/08/2026");
+
+  // User Profile
+  const [currentUser, setCurrentUser] = useState<{ name: string; title: string; department: string; avatar: string }>({
+    name: "Phạm Nguyễn Anh Huy",
+    title: "Tổng Giám Đốc Tập Đoàn TBS Group",
+    department: "Ban Giám Đốc Tập Đoàn",
+    avatar: "/images/crawled/Da-giay1.jpg",
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("tbs_current_user");
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          if (parsed?.name) {
+            setCurrentUser(parsed);
+          }
+        } catch (e) {}
+      }
+    }
+  }, []);
 
   // Default Fallback Rooms List
   const [rooms, setRooms] = useState<MeetingRoom[]>([
@@ -87,6 +118,8 @@ export default function MeetingRoomsPage() {
       equipment: ["Máy chiếu 4K", "Micro không dây", "Bảng kính", "Trà nước"],
       status: "AVAILABLE",
       isLocked: false,
+      colorClass: "bg-emerald-600 border-emerald-700 text-white",
+      badgeBg: "bg-emerald-100 text-[#006838]",
     },
     {
       id: "room_2",
@@ -96,6 +129,8 @@ export default function MeetingRoomsPage() {
       equipment: ["Màn hình LED 120 inch", "4 Micro", "Camera Zoom 360", "Trà nước"],
       status: "BUSY",
       isLocked: false,
+      colorClass: "bg-blue-600 border-blue-700 text-white",
+      badgeBg: "bg-blue-100 text-blue-800",
     },
     {
       id: "room_3",
@@ -105,6 +140,8 @@ export default function MeetingRoomsPage() {
       equipment: ["Smart TV 65 inch", "Bảng di động"],
       status: "AVAILABLE",
       isLocked: false,
+      colorClass: "bg-purple-600 border-purple-700 text-white",
+      badgeBg: "bg-purple-100 text-purple-800",
     },
     {
       id: "room_4",
@@ -114,6 +151,8 @@ export default function MeetingRoomsPage() {
       equipment: ["Máy chiếu 3D", "Bảng tương tác", "Tủ mẫu sản phẩm"],
       status: "AVAILABLE",
       isLocked: false,
+      colorClass: "bg-amber-600 border-amber-700 text-white",
+      badgeBg: "bg-amber-100 text-amber-900",
     },
     {
       id: "room_5",
@@ -123,6 +162,8 @@ export default function MeetingRoomsPage() {
       equipment: ["Smart TV 55 inch", "Bảng trắng"],
       status: "AVAILABLE",
       isLocked: false,
+      colorClass: "bg-rose-600 border-rose-700 text-white",
+      badgeBg: "bg-rose-100 text-rose-800",
     },
     {
       id: "room_6",
@@ -132,13 +173,211 @@ export default function MeetingRoomsPage() {
       equipment: ["Hệ thống Họp Trực Tuyến Đa Điểm", "Micro Âm Trần", "Trà nước cao cấp"],
       status: "AVAILABLE",
       isLocked: false,
+      colorClass: "bg-indigo-600 border-indigo-700 text-white",
+      badgeBg: "bg-indigo-100 text-indigo-800",
     },
   ]);
 
-  // Default Fallback Bookings List
+  // Default Fallback Rich Bookings List (August 2026 Reference Data matching screenshot 2)
   const [bookings, setBookings] = useState<RoomBooking[]>([
     {
-      id: "b_1",
+      id: "b_01",
+      roomId: "room_3",
+      roomName: "Phòng Họp số 1 - Trệt",
+      title: "Họp Comment mẫu R&D",
+      bookerName: "Bùi Văn Tuấn",
+      department: "R&D Kỹ thuật",
+      bookingDate: "01/08/2026",
+      timeSlot: "08:30 - 11:30",
+      attendeesCount: 14,
+      notes: "Duyệt mẫu giày thể thao SKECHERS Q3",
+      status: "CONFIRMED",
+      createdAt: "28/07/2026",
+    },
+    {
+      id: "b_04",
+      roomId: "room_3",
+      roomName: "Phòng Họp số 3",
+      title: "Bộ phận kỹ thuật Cường lực",
+      bookerName: "Cường Kỹ thuật",
+      department: "R&D Kỹ thuật",
+      bookingDate: "04/08/2026",
+      timeSlot: "14:00 - 16:00",
+      attendeesCount: 20,
+      notes: "Kiểm tra cường lực đế cao su",
+      status: "CONFIRMED",
+      createdAt: "01/08/2026",
+    },
+    {
+      id: "b_05",
+      roomId: "room_3",
+      roomName: "Phòng Họp số 3",
+      title: "Họp Tổ CN",
+      bookerName: "Đặng Thị Ngọc Hân",
+      department: "Khối Sản Xuất",
+      bookingDate: "05/08/2026",
+      timeSlot: "09:00 - 17:00",
+      attendeesCount: 25,
+      notes: "Đào tạo Gemba Walk công nhân",
+      status: "CONFIRMED",
+      createdAt: "02/08/2026",
+    },
+    {
+      id: "b_06_1",
+      roomId: "room_3",
+      roomName: "Phòng Họp số 3",
+      title: "Họp Tổ CN",
+      bookerName: "Đặng Thị Ngọc Hân",
+      department: "Khối Sản Xuất",
+      bookingDate: "06/08/2026",
+      timeSlot: "08:30 - 17:00",
+      attendeesCount: 30,
+      notes: "Họp tổng kết tuần 1 tháng 8",
+      status: "CONFIRMED",
+      createdAt: "03/08/2026",
+    },
+    {
+      id: "b_06_2",
+      roomId: "room_2",
+      roomName: "Phòng Ngành - Trệt",
+      title: "Họp chất lượng Indo...",
+      bookerName: "Nguyễn Thị Nghĩa",
+      department: "Quản trị Chất lượng",
+      bookingDate: "06/08/2026",
+      timeSlot: "14:00 - 15:30",
+      attendeesCount: 30,
+      notes: "Đánh giá chất lượng keo nhập khẩu",
+      status: "CONFIRMED",
+      createdAt: "04/08/2026",
+    },
+    {
+      id: "b_07",
+      roomId: "room_2",
+      roomName: "Phòng Họp số 2 - Trệt",
+      title: "Họp với đơn vị gia công...",
+      bookerName: "HOA",
+      department: "Kế hoạch",
+      bookingDate: "07/08/2026",
+      timeSlot: "10:00 - 11:30",
+      attendeesCount: 10,
+      notes: "Thỏa thuận đơn giá gia công đế",
+      status: "CONFIRMED",
+      createdAt: "04/08/2026",
+    },
+    {
+      id: "b_10_1",
+      roomId: "room_2",
+      roomName: "Phòng Họp số 2 - Trệt",
+      title: "Họp với Giá công ty...",
+      bookerName: "Hoa",
+      department: "Kế toán",
+      bookingDate: "10/08/2026",
+      timeSlot: "10:00 - 11:30",
+      attendeesCount: 10,
+      notes: "Rà soát chi phí vật tư SKECHERS",
+      status: "CONFIRMED",
+      createdAt: "05/08/2026",
+    },
+    {
+      id: "b_10_2",
+      roomId: "room_2",
+      roomName: "Phòng Họp số 2 - Trệt",
+      title: "Họp mặt NCU Top Meta...",
+      bookerName: "Trần Hà Hải",
+      department: "Logistics TTPP",
+      bookingDate: "10/08/2026",
+      timeSlot: "13:30 - 16:00",
+      attendeesCount: 10,
+      notes: "Gặp gỡ nhà cung ứng khuôn mẫu",
+      status: "CONFIRMED",
+      createdAt: "06/08/2026",
+    },
+    {
+      id: "b_11",
+      roomId: "room_2",
+      roomName: "Phòng Họp số 2 - Trệt",
+      title: "Họp mặt NCU Top Meta...",
+      bookerName: "Trần Hà Hải",
+      department: "Logistics TTPP",
+      bookingDate: "11/08/2026",
+      timeSlot: "08:30 - 12:30",
+      attendeesCount: 10,
+      notes: "Ký kết thỏa thuận tiến độ giao hàng",
+      status: "CONFIRMED",
+      createdAt: "06/08/2026",
+    },
+    {
+      id: "b_12",
+      roomId: "room_3",
+      roomName: "Phòng Họp số 3 - Trệt",
+      title: "Họp kế hoạch mẫu W34...",
+      bookerName: "Lê Thị Toán",
+      department: "R&D Kỹ thuật",
+      bookingDate: "12/08/2026",
+      timeSlot: "08:00 - 11:30",
+      attendeesCount: 20,
+      notes: "Lập tiến độ cắt may mẫu W34",
+      status: "CONFIRMED",
+      createdAt: "08/08/2026",
+    },
+    {
+      id: "b_13",
+      roomId: "room_3",
+      roomName: "Phòng Họp số 3",
+      title: "chị Hà họp với team...",
+      bookerName: "Đặng Thị Ngọc Hân",
+      department: "Khối Sản Xuất",
+      bookingDate: "13/08/2026",
+      timeSlot: "15:30 - 17:00",
+      attendeesCount: 20,
+      notes: "Triển khai Kaizen dây chuyền A1",
+      status: "CONFIRMED",
+      createdAt: "09/08/2026",
+    },
+    {
+      id: "b_14_1",
+      roomId: "room_2",
+      roomName: "Phòng Họp số 2 - Trệt",
+      title: "Audit hệ thống quản...",
+      bookerName: "Thanh Lab",
+      department: "Quản trị Chất lượng",
+      bookingDate: "14/08/2026",
+      timeSlot: "08:00 - 17:00",
+      attendeesCount: 10,
+      notes: "Đánh giá chứng nhận ISO 9001:2026",
+      status: "CONFIRMED",
+      createdAt: "10/08/2026",
+    },
+    {
+      id: "b_14_2",
+      roomId: "room_3",
+      roomName: "Phòng Họp số 3 - Trệt",
+      title: "Họp với NM MK...",
+      bookerName: "Đặng Thị Ngọc Hân",
+      department: "Khối Sản Xuất",
+      bookingDate: "14/08/2026",
+      timeSlot: "10:00 - 12:00",
+      attendeesCount: 20,
+      notes: "Trao đổi sản lượng nhà máy MK",
+      status: "CONFIRMED",
+      createdAt: "10/08/2026",
+    },
+    {
+      id: "b_14_3",
+      roomId: "room_3",
+      roomName: "Phòng Họp số 3 - Trệt",
+      title: "Họp với PTSP...",
+      bookerName: "Đặng Thị Ngọc Hân",
+      department: "R&D Kỹ thuật",
+      bookingDate: "14/08/2026",
+      timeSlot: "14:00 - 16:00",
+      attendeesCount: 30,
+      notes: "Phát triển sản phẩm đế cao su chống trượt",
+      status: "CONFIRMED",
+      createdAt: "11/08/2026",
+    },
+    {
+      id: "b_15_1",
       roomId: "room_2",
       roomName: "Phòng Họp Hội Thảo SKECHERS",
       title: "Họp Đánh Giá Tiến Độ Kế Hoạch CI Q2/2026",
@@ -147,11 +386,12 @@ export default function MeetingRoomsPage() {
       bookingDate: "15/08/2026",
       timeSlot: "09:00 - 11:30",
       attendeesCount: 18,
+      notes: "Review kết quả 45 ý tưởng Kaizen tháng 7",
       status: "CONFIRMED",
       createdAt: "14/08/2026 09:30",
     },
     {
-      id: "b_2",
+      id: "b_15_2",
       roomId: "room_1",
       roomName: "Phòng Họp Executive VIP 1",
       title: "Tiếp Đoàn Chuyên Gia SKECHERS Global",
@@ -160,8 +400,51 @@ export default function MeetingRoomsPage() {
       bookingDate: "15/08/2026",
       timeSlot: "14:00 - 16:30",
       attendeesCount: 12,
+      notes: "Khảo sát dây chuyền sản xuất tự động A1",
       status: "CONFIRMED",
       createdAt: "15/08/2026 08:00",
+    },
+    {
+      id: "b_18",
+      roomId: "room_3",
+      roomName: "Phòng Họp Gemba Walk A1",
+      title: "Duyệt Biên Bản Gemba Walk Line 3",
+      bookerName: "Lê Văn Nam",
+      department: "Khối Sản Xuất",
+      bookingDate: "18/08/2026",
+      timeSlot: "09:00 - 11:30",
+      attendeesCount: 12,
+      notes: "Xử lý sự cố dừng máy Line 3",
+      status: "CONFIRMED",
+      createdAt: "15/08/2026",
+    },
+    {
+      id: "b_20",
+      roomId: "room_4",
+      roomName: "Phòng Họp R&D Kỹ Thuật",
+      title: "Đánh giá mẫu ép đinh keo Q3/2026",
+      bookerName: "Nguyễn Hoàng Quân",
+      department: "R&D Kỹ thuật",
+      bookingDate: "20/08/2026",
+      timeSlot: "14:00 - 16:00",
+      attendeesCount: 10,
+      notes: "Thử nghiệm keo dán công nghệ mới",
+      status: "CONFIRMED",
+      createdAt: "15/08/2026",
+    },
+    {
+      id: "b_25",
+      roomId: "room_6",
+      roomName: "Phòng Họp Ban Giám Đốc",
+      title: "Báo cáo Giao ban tháng 8 Tập Đoàn",
+      bookerName: "Phạm Nguyễn Anh Huy",
+      department: "Ban Giám Đốc Tập Đoàn",
+      bookingDate: "25/08/2026",
+      timeSlot: "08:30 - 11:30",
+      attendeesCount: 20,
+      notes: "Đánh giá tổng quan doanh thu & chuỗi SKECHERS",
+      status: "CONFIRMED",
+      createdAt: "15/08/2026",
     },
   ]);
 
@@ -223,15 +506,22 @@ export default function MeetingRoomsPage() {
       const result = await res.json();
       if (result.success && result.data) {
         if (Array.isArray(result.data.rooms) && result.data.rooms.length > 0) {
-          setRooms(result.data.rooms.map((r: any) => ({
-            id: r.id,
-            name: r.name,
-            capacity: r.capacity || 10,
-            location: r.location,
-            equipment: typeof r.equipment === "string" ? r.equipment.split(", ") : r.equipment || [],
-            status: r.status || "AVAILABLE",
-            isLocked: Boolean(r.is_locked),
-          })));
+          setRooms((prev) =>
+            result.data.rooms.map((r: any) => {
+              const matched = prev.find((p) => p.id === r.id);
+              return {
+                id: r.id,
+                name: r.name,
+                capacity: r.capacity || 10,
+                location: r.location,
+                equipment: typeof r.equipment === "string" ? r.equipment.split(", ") : r.equipment || [],
+                status: r.status || "AVAILABLE",
+                isLocked: Boolean(r.is_locked),
+                colorClass: matched?.colorClass || "bg-blue-600 border-blue-700 text-white",
+                badgeBg: matched?.badgeBg || "bg-blue-100 text-blue-800",
+              };
+            })
+          );
         }
         if (Array.isArray(result.data.bookings) && result.data.bookings.length > 0) {
           setBookings(result.data.bookings.map((b: any) => ({
@@ -276,11 +566,11 @@ export default function MeetingRoomsPage() {
     fetchD1RoomsData();
   }, []);
 
-  // Submit Room Booking
+  // Submit Room Booking / Quick Note
   const handleBookRoomSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!bookingForm.title.trim()) {
-      alert("Vui lòng nhập tiêu đề cuộc họp!");
+      alert("Vui lòng nhập tiêu đề cuộc họp/ghi chú!");
       return;
     }
 
@@ -292,7 +582,7 @@ export default function MeetingRoomsPage() {
       roomId: selectedRoom.id,
       roomName: selectedRoom.name,
       title: bookingForm.title,
-      bookerName: bookingForm.bookerName,
+      bookerName: bookingForm.bookerName || currentUser.name,
       department: bookingForm.department,
       bookingDate: dateFmt,
       timeSlot: bookingForm.timeSlot,
@@ -313,12 +603,13 @@ export default function MeetingRoomsPage() {
           bookingDate: dateFmt,
         }),
       });
-      showToast("Đã đăng ký phòng họp thành công & lưu vào Cloudflare D1!");
+      showToast("Đã lưu ghi chú / lịch họp thành công vào D1 Database!");
     } catch (err) {
-      showToast("Đã lưu lịch đặt phòng họp thành công!");
+      showToast("Đã lưu lịch đặt phòng họp!");
     }
 
-    setActiveTab("HISTORY");
+    setQuickNoteModalOpen(false);
+    setActiveTab("CALENDAR");
   };
 
   // Register External Visitor
@@ -405,26 +696,49 @@ export default function MeetingRoomsPage() {
     }
   };
 
-  const [currentUser, setCurrentUser] = useState<{ name: string; title: string; department: string; avatar: string }>({
-    name: "Phạm Nguyễn Anh Huy",
-    title: "Tổng Giám Đốc Tập Đoàn TBS Group",
-    department: "Ban Giám Đốc Tập Đoàn",
-    avatar: "/images/crawled/Da-giay1.jpg",
-  });
+  // Helper: Helper color getter for room cards
+  const getRoomColorStyle = (roomName: string) => {
+    if (roomName.includes("VIP 1")) return "bg-emerald-700 hover:bg-emerald-800 text-white";
+    if (roomName.includes("Hội Thảo") || roomName.includes("số 2")) return "bg-[#e02424] hover:bg-red-700 text-white"; // Red like reference
+    if (roomName.includes("Gemba") || roomName.includes("số 3")) return "bg-[#7e22ce] hover:bg-purple-800 text-white"; // Purple like reference
+    if (roomName.includes("R&D") || roomName.includes("số 1")) return "bg-[#059669] hover:bg-emerald-700 text-white"; // Green
+    if (roomName.includes("Logistics")) return "bg-[#2563eb] hover:bg-blue-700 text-white"; // Blue like reference
+    return "bg-slate-700 hover:bg-slate-800 text-white";
+  };
 
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("tbs_current_user");
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored);
-          if (parsed?.name) {
-            setCurrentUser(parsed);
-          }
-        } catch (e) {}
-      }
+  // Generate August 2026 Calendar Grid Days (35 cells: Sunday 26/07 to Saturday 29/08)
+  const augustCalendarDays = Array.from({ length: 35 }, (_, idx) => {
+    const dayNum = idx - 5; // 26/07 is idx 0
+    let dateStr = "";
+    let isCurrentMonth = true;
+    let displayDay = 1;
+
+    if (dayNum <= 0) {
+      isCurrentMonth = false;
+      displayDay = 26 + (dayNum + 5);
+      dateStr = `${displayDay < 10 ? "0" + displayDay : displayDay}/07/2026`;
+    } else if (dayNum <= 31) {
+      isCurrentMonth = true;
+      displayDay = dayNum;
+      dateStr = `${displayDay < 10 ? "0" + displayDay : displayDay}/08/2026`;
+    } else {
+      isCurrentMonth = false;
+      displayDay = dayNum - 31;
+      dateStr = `0${displayDay}/09/2026`;
     }
-  }, []);
+
+    const dayBookings = bookings.filter((b) => b.bookingDate === dateStr);
+    const isToday = dateStr === "15/08/2026";
+
+    return {
+      idx,
+      displayDay,
+      dateStr,
+      isCurrentMonth,
+      isToday,
+      dayBookings,
+    };
+  });
 
   return (
     <div className="min-h-screen bg-[#f4f7f5] text-slate-900 flex flex-col justify-between font-sans">
@@ -498,7 +812,7 @@ export default function MeetingRoomsPage() {
             QUẢN LÝ PHÒNG HỌP &amp; ĐÓN KHÁCH
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 font-medium max-w-lg mx-auto">
-            Hệ thống đặt lịch cuộc họp, quản lý tài nguyên phòng họp và cấp thẻ đón khách đối tác
+            Hệ thống lịch tổng hợp cuộc họp, đăng ký tài nguyên phòng họp và đón khách đối tác
           </p>
         </div>
 
@@ -532,7 +846,9 @@ export default function MeetingRoomsPage() {
             </div>
             <div>
               <span className="text-[11px] font-bold text-slate-500 block">Lịch họp hôm nay</span>
-              <div className="text-xl font-black text-slate-900">{bookings.length} Cuộc họp</div>
+              <div className="text-xl font-black text-slate-900">
+                {bookings.filter((b) => b.bookingDate === "15/08/2026").length} Cuộc họp
+              </div>
             </div>
           </div>
 
@@ -548,9 +864,24 @@ export default function MeetingRoomsPage() {
         </div>
 
         {/* ════════════════════════════════════════════════════════════════
-            TOP NAVIGATION TABS (4 TABS)
+            TOP NAVIGATION TABS (5 TABS INCLUDING LỊCH TỔNG HỢP)
            ════════════════════════════════════════════════════════════════ */}
         <div className="flex items-center justify-start border-b border-slate-200 gap-1 sm:gap-2 overflow-x-auto">
+          <button
+            onClick={() => setActiveTab("CALENDAR")}
+            className={`px-4 py-2.5 rounded-t-xl font-extrabold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer border-b-2 whitespace-nowrap ${
+              activeTab === "CALENDAR"
+                ? "bg-white text-[#006838] border-[#006838] shadow-2xs"
+                : "text-slate-500 hover:text-slate-800 border-transparent"
+            }`}
+          >
+            <IconCalendar size={17} />
+            <span>📅 Lịch tổng hợp cuộc họp</span>
+            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-[#006838] text-[11px] font-extrabold">
+              {bookings.length}
+            </span>
+          </button>
+
           <button
             onClick={() => setActiveTab("BOOKING")}
             className={`px-4 py-2.5 rounded-t-xl font-extrabold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer border-b-2 whitespace-nowrap ${
@@ -597,11 +928,172 @@ export default function MeetingRoomsPage() {
           >
             <IconChecklist size={17} />
             <span>📋 Lịch họp &amp; Dữ liệu D1</span>
-            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-[#006838] text-[11px] font-extrabold">
-              {bookings.length}
-            </span>
           </button>
         </div>
+
+        {/* ════════════════════════════════════════════════════════════════
+            TAB 0: 📅 LỊCH TỔNG HỢP CUỘC HỌP (FULL MONTHLY CALENDAR GRID)
+           ════════════════════════════════════════════════════════════════ */}
+        {activeTab === "CALENDAR" && (
+          <div className="space-y-4 animate-in fade-in duration-200">
+            {/* Top Month Header & Controls Bar (Matching Reference Image 2) */}
+            <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <button className="px-3 py-1.5 rounded-lg bg-blue-800 text-white font-bold text-xs hover:bg-blue-900 transition-colors flex items-center gap-1 shadow-2xs">
+                  <IconChevronLeft size={16} />
+                  <IconChevronRight size={16} />
+                </button>
+                <button
+                  onClick={() => showToast("Đã chuyển về ngày hôm nay 15/08/2026")}
+                  className="px-3 py-1.5 rounded-lg bg-blue-700 text-white font-bold text-xs hover:bg-blue-800 transition-colors flex items-center gap-1 shadow-2xs"
+                >
+                  <IconCalendar size={15} />
+                  <span>Hôm nay</span>
+                </button>
+              </div>
+
+              {/* Month Title */}
+              <h2 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight text-center">
+                tháng 8 năm 2026
+              </h2>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setBookingForm({
+                      roomId: "room_1",
+                      title: "",
+                      bookerName: currentUser.name,
+                      department: "Hành chính",
+                      bookingDate: "2026-08-15",
+                      timeSlot: "09:00 - 10:30",
+                      attendeesCount: 5,
+                      notes: "",
+                      needsTeaCoffee: true,
+                      needsProjector: true,
+                    });
+                    setQuickNoteModalOpen(true);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-[#006838] text-white font-extrabold text-xs hover:bg-[#00522c] transition-colors shadow-md shadow-emerald-950/20 flex items-center gap-1.5 cursor-pointer"
+                >
+                  <IconPlus size={16} />
+                  <span>+ Note cuộc họp mới</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Room Legends Bar */}
+            <div className="px-4 py-3 rounded-xl bg-slate-100 border border-slate-200 flex flex-wrap items-center gap-3 text-xs font-bold text-slate-700">
+              <span className="text-slate-500 uppercase text-[11px] font-extrabold">Chú thích phòng:</span>
+              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-emerald-600" /> Phòng VIP 1</span>
+              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-[#e02424]" /> Phòng Hội Thảo / Số 2</span>
+              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-[#7e22ce]" /> Phòng Gemba / Số 3</span>
+              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-amber-600" /> Phòng R&amp;D Kỹ Thuật</span>
+              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-blue-600" /> Phòng Logistics TTPP</span>
+            </div>
+
+            {/* Full Month Calendar Table Grid (7 Columns) */}
+            <div className="bg-white rounded-2xl border border-slate-300 shadow-sm overflow-hidden">
+              {/* Day Name Headers */}
+              <div className="grid grid-cols-7 bg-slate-50 border-b border-slate-300 text-center text-xs font-black text-blue-900 uppercase">
+                <div className="py-2.5 border-r border-slate-200">CN</div>
+                <div className="py-2.5 border-r border-slate-200">THỨ 2</div>
+                <div className="py-2.5 border-r border-slate-200">THỨ 3</div>
+                <div className="py-2.5 border-r border-slate-200">THỨ 4</div>
+                <div className="py-2.5 border-r border-slate-200">THỨ 5</div>
+                <div className="py-2.5 border-r border-slate-200">THỨ 6</div>
+                <div className="py-2.5">THỨ 7</div>
+              </div>
+
+              {/* 35 Calendar Day Cells (5 Rows x 7 Columns) */}
+              <div className="grid grid-cols-7 auto-rows-fr divide-x divide-y divide-slate-200 bg-slate-100">
+                {augustCalendarDays.map((dayObj) => (
+                  <div
+                    key={dayObj.idx}
+                    onClick={() => {
+                      setSelectedCalendarDate(dayObj.dateStr);
+                      setBookingForm({
+                        ...bookingForm,
+                        bookingDate: dayObj.dateStr.split("/").reverse().join("-"),
+                      });
+                    }}
+                    className={`min-h-[120px] sm:min-h-[140px] p-1.5 sm:p-2 transition-all flex flex-col justify-between cursor-pointer ${
+                      dayObj.isCurrentMonth ? "bg-white" : "bg-slate-50/60 text-slate-300"
+                    } ${dayObj.isToday ? "bg-blue-50/40 ring-2 ring-blue-600 ring-inset" : "hover:bg-slate-50"}`}
+                  >
+                    {/* Day Number Header */}
+                    <div className="flex items-center justify-between mb-1">
+                      <span
+                        className={`text-xs font-black inline-flex items-center justify-center rounded-full w-6 h-6 ${
+                          dayObj.isToday
+                            ? "bg-blue-700 text-white shadow-xs"
+                            : dayObj.isCurrentMonth
+                            ? "text-slate-700"
+                            : "text-slate-400"
+                        }`}
+                      >
+                        {dayObj.displayDay}
+                      </span>
+                      {dayObj.isToday && (
+                        <span className="text-[9px] font-extrabold uppercase text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded-full">
+                          Hôm nay
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Day Event Cards Stack */}
+                    <div className="space-y-1 overflow-y-auto max-h-[100px] flex-1">
+                      {dayObj.dayBookings.map((b) => (
+                        <div
+                          key={b.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedEventModal(b);
+                          }}
+                          className={`p-1.5 rounded-lg text-[10px] sm:text-[11px] leading-tight font-bold shadow-2xs transition-all hover:scale-[1.02] cursor-pointer ${getRoomColorStyle(
+                            b.roomName
+                          )}`}
+                        >
+                          <div className="flex items-center justify-between text-[9px] opacity-90 font-mono">
+                            <span>🕒 {b.timeSlot}</span>
+                          </div>
+                          <div className="font-extrabold truncate mt-0.5">{b.roomName}</div>
+                          <div className="text-[10px] font-medium opacity-95 truncate">{b.bookerName}: {b.title}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Day Quick Add Hint */}
+                    <div className="pt-1 text-right">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedCalendarDate(dayObj.dateStr);
+                          setBookingForm({
+                            roomId: "room_1",
+                            title: "",
+                            bookerName: currentUser.name,
+                            department: "Hành chính",
+                            bookingDate: dayObj.dateStr.split("/").reverse().join("-"),
+                            timeSlot: "09:00 - 10:30",
+                            attendeesCount: 5,
+                            notes: "",
+                            needsTeaCoffee: true,
+                            needsProjector: true,
+                          });
+                          setQuickNoteModalOpen(true);
+                        }}
+                        className="text-[9px] font-bold text-slate-400 hover:text-[#006838] transition-colors"
+                      >
+                        + Note
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ════════════════════════════════════════════════════════════════
             TAB 1: FORM ĐẶT PHÒNG HỌP & TIME SLOTS
@@ -641,7 +1133,7 @@ export default function MeetingRoomsPage() {
                 {/* Tiêu đề cuộc họp */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-700 block">
-                    Tiêu đề cuộc họp <span className="text-rose-500">*</span>
+                    Tiêu đề cuộc họp / Ghi chú <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -681,7 +1173,7 @@ export default function MeetingRoomsPage() {
                     <option value="Nhân sự">Nhân sự</option>
                     <option value="Kế toán">Kế toán</option>
                     <option value="R&D Kỹ thuật">R&D Kỹ thuật</option>
-                    <option value="Tổ hợp Nhà máy">Tổ hợp Nhà máy</option>
+                    <option value="Khối Sản Xuất">Khối Sản Xuất</option>
                     <option value="Logistics TTPP">Logistics TTPP</option>
                   </select>
                 </div>
@@ -714,7 +1206,7 @@ export default function MeetingRoomsPage() {
                     <option value="09:30 - 11:30">09:30 - 11:30 (Sáng)</option>
                     <option value="13:30 - 15:00">13:30 - 15:00 (Chiều)</option>
                     <option value="15:00 - 17:00">15:00 - 17:00 (Chiều)</option>
-                    <option value="Cả ngày">Cả ngày (08:00 - 17:00)</option>
+                    <option value="08:00 - 17:00">Cả ngày (08:00 - 17:00)</option>
                   </select>
                 </div>
 
@@ -727,32 +1219,6 @@ export default function MeetingRoomsPage() {
                     onChange={(e) => setBookingForm({ ...bookingForm, attendeesCount: parseInt(e.target.value) || 1 })}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838] bg-white"
                   />
-                </div>
-              </div>
-
-              {/* Extra Services Checklist */}
-              <div className="pt-2 space-y-2">
-                <span className="text-xs font-bold text-slate-700 block">Yêu cầu hỗ trợ bổ sung:</span>
-                <div className="flex flex-wrap items-center gap-4 text-xs font-medium">
-                  <label className="flex items-center gap-2 cursor-pointer bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
-                    <input
-                      type="checkbox"
-                      checked={bookingForm.needsTeaCoffee}
-                      onChange={(e) => setBookingForm({ ...bookingForm, needsTeaCoffee: e.target.checked })}
-                      className="accent-[#006838]"
-                    />
-                    <span>☕ Chuẩn bị Trà &amp; Cà phê</span>
-                  </label>
-
-                  <label className="flex items-center gap-2 cursor-pointer bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
-                    <input
-                      type="checkbox"
-                      checked={bookingForm.needsProjector}
-                      onChange={(e) => setBookingForm({ ...bookingForm, needsProjector: e.target.checked })}
-                      className="accent-[#006838]"
-                    />
-                    <span>📹 Chuẩn bị Máy chiếu &amp; Micro</span>
-                  </label>
                 </div>
               </div>
 
@@ -1071,6 +1537,183 @@ export default function MeetingRoomsPage() {
           </div>
         )}
       </main>
+
+      {/* ════════════════════════════════════════════════════════════════
+          MODAL POPUP: QUICK NOTE / BOOKING MODAL FOR CALENDAR CELL
+         ════════════════════════════════════════════════════════════════ */}
+      {quickNoteModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full border border-slate-200 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-5 bg-gradient-to-r from-[#006838] to-slate-900 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <IconNotes size={20} />
+                <h3 className="text-base font-black uppercase tracking-tight">Thêm ghi chú cuộc họp ngày {selectedCalendarDate}</h3>
+              </div>
+              <button onClick={() => setQuickNoteModalOpen(false)} className="text-white/80 hover:text-white cursor-pointer">
+                <IconX size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleBookRoomSubmit} className="p-6 space-y-4 text-xs font-sans">
+              <div className="space-y-1.5">
+                <label className="font-bold text-slate-700 block">Tiêu đề cuộc họp / Nội dung ghi chú *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ví dụ: Họp triển khai Kaizen A1..."
+                  value={bookingForm.title}
+                  onChange={(e) => setBookingForm({ ...bookingForm, title: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 font-semibold outline-none focus:border-[#006838] bg-slate-50/50"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="font-bold text-slate-700 block">Phòng họp</label>
+                  <select
+                    value={bookingForm.roomId}
+                    onChange={(e) => setBookingForm({ ...bookingForm, roomId: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 font-bold outline-none focus:border-[#006838] bg-white cursor-pointer"
+                  >
+                    {rooms.map((r) => (
+                      <option key={r.id} value={r.id}>{r.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="font-bold text-slate-700 block">Khung giờ họp</label>
+                  <select
+                    value={bookingForm.timeSlot}
+                    onChange={(e) => setBookingForm({ ...bookingForm, timeSlot: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 font-bold outline-none focus:border-[#006838] bg-white cursor-pointer"
+                  >
+                    <option value="08:00 - 09:30">08:00 - 09:30 (Sáng)</option>
+                    <option value="09:30 - 11:30">09:30 - 11:30 (Sáng)</option>
+                    <option value="13:30 - 15:00">13:30 - 15:00 (Chiều)</option>
+                    <option value="15:00 - 17:00">15:00 - 17:00 (Chiều)</option>
+                    <option value="08:00 - 17:00">Cả ngày (08:00 - 17:00)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="font-bold text-slate-700 block">Người chủ trì</label>
+                  <input
+                    type="text"
+                    required
+                    value={bookingForm.bookerName}
+                    onChange={(e) => setBookingForm({ ...bookingForm, bookerName: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 font-semibold outline-none focus:border-[#006838]"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="font-bold text-slate-700 block">Bộ phận</label>
+                  <input
+                    type="text"
+                    value={bookingForm.department}
+                    onChange={(e) => setBookingForm({ ...bookingForm, department: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 font-semibold outline-none focus:border-[#006838]"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="font-bold text-slate-700 block">Ghi chú bổ sung</label>
+                <textarea
+                  rows={2}
+                  placeholder="Ghi chú chi tiết nội dung cuộc họp..."
+                  value={bookingForm.notes}
+                  onChange={(e) => setBookingForm({ ...bookingForm, notes: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 font-medium outline-none focus:border-[#006838]"
+                />
+              </div>
+
+              <div className="pt-3 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setQuickNoteModalOpen(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-bold hover:bg-slate-200 cursor-pointer"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2 rounded-xl bg-[#006838] text-white font-extrabold hover:bg-[#00522c] cursor-pointer shadow-md flex items-center gap-1.5"
+                >
+                  <IconCheck size={16} />
+                  <span>Lưu cuộc họp vào D1</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════════
+          MODAL POPUP: EVENT DETAIL MODAL (KHI CLICK VÀO CUỘC HỌP TRÊN LỊCH)
+         ════════════════════════════════════════════════════════════════ */}
+      {selectedEventModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-5 bg-gradient-to-r from-blue-900 to-slate-900 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <IconCalendar size={20} />
+                <h3 className="text-base font-black tracking-tight">Chi Tiết Cuộc Họp</h3>
+              </div>
+              <button onClick={() => setSelectedEventModal(null)} className="text-white/80 hover:text-white cursor-pointer">
+                <IconX size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 text-xs">
+              <div className="p-3 rounded-2xl bg-blue-50 border border-blue-100 space-y-1">
+                <span className="text-[10px] font-bold text-blue-700 uppercase">Tiêu đề cuộc họp</span>
+                <h4 className="text-base font-black text-slate-900">{selectedEventModal.title}</h4>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 text-slate-700 font-medium">
+                <div>
+                  <span className="text-slate-400 block text-[10px] font-bold">Phòng họp:</span>
+                  <span className="font-extrabold text-[#006838]">{selectedEventModal.roomName}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[10px] font-bold">Thời gian:</span>
+                  <span className="font-extrabold text-blue-900">{selectedEventModal.bookingDate} ({selectedEventModal.timeSlot})</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[10px] font-bold">Người chủ trì:</span>
+                  <span className="font-bold text-slate-900">{selectedEventModal.bookerName} ({selectedEventModal.department})</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[10px] font-bold">Số người tham dự:</span>
+                  <span className="font-bold text-slate-900">{selectedEventModal.attendeesCount} người</span>
+                </div>
+              </div>
+
+              {selectedEventModal.notes && (
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                  <span className="text-slate-500 font-bold block text-[10px] uppercase">Ghi chú nội dung:</span>
+                  <p className="text-slate-800 font-medium mt-0.5">{selectedEventModal.notes}</p>
+                </div>
+              )}
+
+              <div className="pt-2 flex items-center justify-between border-t border-slate-100">
+                <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-[#006838] text-[10px] font-extrabold">
+                  ✓ Đã đồng bộ D1 Database
+                </span>
+                <button
+                  onClick={() => setSelectedEventModal(null)}
+                  className="px-4 py-1.5 rounded-xl bg-slate-800 text-white font-bold text-xs cursor-pointer"
+                >
+                  Đóng
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ════════════════════════════════════════════════════════════════
           MODAL POPUP: DIGITAL VISITOR BADGE (THẺ KHÁCH BẢO VỆ CẤP)

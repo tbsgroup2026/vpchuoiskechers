@@ -332,12 +332,12 @@ CREATE TABLE IF NOT EXISTS visitors (
 
 -- Seed initial meeting rooms
 INSERT OR IGNORE INTO meeting_rooms (id, name, capacity, location, equipment, status) VALUES
-('room_1', 'Phòng Họp Executive VIP 1', 16, 'Tầng 3 - VP Chuỗi SKECHERS', 'Máy chiếu 4K, Hệ thống Loa Micro không dây, Bảng kính, Trà nước', 'AVAILABLE'),
-('room_2', 'Phòng Họp Hội Thảo SKECHERS', 30, 'Tầng 2 - VP Chuỗi SKECHERS', 'Màn hình LED 120 inch, 4 Micro, Camera Zoom họp trực tuyến', 'BUSY'),
-('room_3', 'Phòng Họp Gemba Walk A1', 12, 'Cụm Nhà Máy TBS A1', 'Tivi 65 inch, Bảng di động', 'AVAILABLE'),
-('room_4', 'Phòng Họp R&D Kỹ Thuật', 10, 'Tầng 1 - Trung Tâm R&D', 'Máy chiếu 3D, Bảng tương tác, Mẫu sản phẩm', 'AVAILABLE'),
-('room_5', 'Phòng Họp Logistics TTPP', 8, 'Kho Phân Phối TTPP Đồng Nai', 'Smart TV 55 inch, Bảng trắng', 'AVAILABLE'),
-('room_6', 'Phòng Họp Ban Giám Đốc', 20, 'Tầng 4 - Tòa nhà Điều Hành', 'Hệ thống Họp Trực Tuyến Đa Điểm, Micro Âm Trần, Trà nước', 'AVAILABLE');
+('room_1', 'Phòng Họp OTI / OTG', 16, 'Tầng 3 - VP Chuỗi SKECHERS', 'Máy chiếu 4K, Micro không dây, Bảng kính, Trà nước', 'AVAILABLE'),
+('room_2', 'Phòng Họp WORK', 30, 'Tầng 2 - VP Chuỗi SKECHERS', 'Màn hình LED 120 inch, 4 Micro, Camera Zoom 360, Trà nước', 'AVAILABLE'),
+('room_3', 'Phòng Họp MEN USA', 12, 'Tầng 2 - Khối Thị Trường Mỹ', 'Smart TV 65 inch, Hệ thống họp từ xa, Bảng di động', 'AVAILABLE'),
+('room_4', 'Phòng Họp SOURCING', 15, 'Tầng 1 - Trung Tâm Sourcing & Vật Tư', 'Máy chiếu 3D, Bảng tương tác, Tủ mẫu vật tư SKECHERS', 'AVAILABLE'),
+('room_5', 'Phòng Họp Chính', 25, 'Tầng 3 - Hội Trường Trung Tâm', 'Hệ thống Âm thanh Hội thảo, Màn hình LED, Trà nước', 'AVAILABLE'),
+('room_6', 'Phòng Phụ Phỏng Vấn Linh Tinh', 8, 'Tầng 1 - Khu Hành Chánh & Nhân Sự', 'Smart TV 55 inch, Bảng trắng, Bàn phỏng vấn', 'AVAILABLE');
 
 INSERT OR IGNORE INTO room_bookings (id, room_id, room_name, title, booker_name, department, booking_date, time_slot, attendees_count, status) VALUES
 ('b_1', 'room_2', 'Phòng Họp Hội Thảo SKECHERS', 'Họp Đánh Giá Tiến Độ Kế Hoạch CI Q2/2026', 'Anh Huy', 'Hành chính', '15/08/2026', '09:00 - 11:30', 18, 'CONFIRMED'),

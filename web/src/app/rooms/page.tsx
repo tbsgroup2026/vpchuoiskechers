@@ -108,11 +108,11 @@ export default function MeetingRoomsPage() {
     }
   }, []);
 
-  // Default Fallback Rooms List
+  // Default Rooms List matching TBS Group SKX Facilities
   const [rooms, setRooms] = useState<MeetingRoom[]>([
     {
       id: "room_1",
-      name: "Phòng Họp Executive VIP 1",
+      name: "Phòng Họp OTI / OTG",
       capacity: 16,
       location: "Tầng 3 - VP Chuỗi SKECHERS",
       equipment: ["Máy chiếu 4K", "Micro không dây", "Bảng kính", "Trà nước"],
@@ -123,21 +123,21 @@ export default function MeetingRoomsPage() {
     },
     {
       id: "room_2",
-      name: "Phòng Họp Hội Thảo SKECHERS",
+      name: "Phòng Họp WORK",
       capacity: 30,
       location: "Tầng 2 - VP Chuỗi SKECHERS",
       equipment: ["Màn hình LED 120 inch", "4 Micro", "Camera Zoom 360", "Trà nước"],
-      status: "BUSY",
+      status: "AVAILABLE",
       isLocked: false,
       colorClass: "bg-blue-600 border-blue-700 text-white",
       badgeBg: "bg-blue-100 text-blue-800",
     },
     {
       id: "room_3",
-      name: "Phòng Họp Gemba Walk A1",
+      name: "Phòng Họp MEN USA",
       capacity: 12,
-      location: "Cụm Nhà Máy TBS A1",
-      equipment: ["Smart TV 65 inch", "Bảng di động"],
+      location: "Tầng 2 - Khối Thị Trường Mỹ",
+      equipment: ["Smart TV 65 inch", "Hệ thống họp từ xa", "Bảng di động"],
       status: "AVAILABLE",
       isLocked: false,
       colorClass: "bg-purple-600 border-purple-700 text-white",
@@ -145,10 +145,10 @@ export default function MeetingRoomsPage() {
     },
     {
       id: "room_4",
-      name: "Phòng Họp R&D Kỹ Thuật",
-      capacity: 10,
-      location: "Tầng 1 - Trung Tâm R&D",
-      equipment: ["Máy chiếu 3D", "Bảng tương tác", "Tủ mẫu sản phẩm"],
+      name: "Phòng Họp SOURCING",
+      capacity: 15,
+      location: "Tầng 1 - Trung Tâm Sourcing & Vật Tư",
+      equipment: ["Máy chiếu 3D", "Bảng tương tác", "Tủ mẫu vật tư SKECHERS"],
       status: "AVAILABLE",
       isLocked: false,
       colorClass: "bg-amber-600 border-amber-700 text-white",
@@ -156,25 +156,25 @@ export default function MeetingRoomsPage() {
     },
     {
       id: "room_5",
-      name: "Phòng Họp Logistics TTPP",
-      capacity: 8,
-      location: "Kho Phân Phối TTPP Đồng Nai",
-      equipment: ["Smart TV 55 inch", "Bảng trắng"],
-      status: "AVAILABLE",
-      isLocked: false,
-      colorClass: "bg-rose-600 border-rose-700 text-white",
-      badgeBg: "bg-rose-100 text-rose-800",
-    },
-    {
-      id: "room_6",
-      name: "Phòng Họp Ban Giám Đốc",
-      capacity: 20,
-      location: "Tầng 4 - Tòa nhà Điều Hành",
-      equipment: ["Hệ thống Họp Trực Tuyến Đa Điểm", "Micro Âm Trần", "Trà nước cao cấp"],
+      name: "Phòng Họp Chính",
+      capacity: 25,
+      location: "Tầng 3 - Hội Trường Trung Tâm",
+      equipment: ["Hệ thống Âm thanh Hội thảo", "Màn hình LED", "Trà nước"],
       status: "AVAILABLE",
       isLocked: false,
       colorClass: "bg-indigo-600 border-indigo-700 text-white",
       badgeBg: "bg-indigo-100 text-indigo-800",
+    },
+    {
+      id: "room_6",
+      name: "Phòng Phụ Phỏng Vấn Linh Tinh",
+      capacity: 8,
+      location: "Tầng 1 - Khu Hành Chánh & Nhân Sự",
+      equipment: ["Smart TV 55 inch", "Bảng trắng", "Bàn phỏng vấn"],
+      status: "AVAILABLE",
+      isLocked: false,
+      colorClass: "bg-rose-600 border-rose-700 text-white",
+      badgeBg: "bg-rose-100 text-rose-800",
     },
   ]);
 
@@ -415,11 +415,12 @@ export default function MeetingRoomsPage() {
 
   // Helper: Helper color getter for room cards
   const getRoomColorStyle = (roomName: string) => {
-    if (roomName.includes("VIP 1")) return "bg-emerald-700 hover:bg-emerald-800 text-white";
-    if (roomName.includes("Hội Thảo") || roomName.includes("số 2")) return "bg-[#e02424] hover:bg-red-700 text-white"; // Red like reference
-    if (roomName.includes("Gemba") || roomName.includes("số 3")) return "bg-[#7e22ce] hover:bg-purple-800 text-white"; // Purple like reference
-    if (roomName.includes("R&D") || roomName.includes("số 1")) return "bg-[#059669] hover:bg-emerald-700 text-white"; // Green
-    if (roomName.includes("Logistics")) return "bg-[#2563eb] hover:bg-blue-700 text-white"; // Blue like reference
+    if (roomName.includes("OTI") || roomName.includes("OTG")) return "bg-emerald-700 hover:bg-emerald-800 text-white";
+    if (roomName.includes("WORK")) return "bg-blue-700 hover:bg-blue-800 text-white";
+    if (roomName.includes("MEN USA")) return "bg-purple-700 hover:bg-purple-800 text-white";
+    if (roomName.includes("SOURCING")) return "bg-amber-700 hover:bg-amber-800 text-white";
+    if (roomName.includes("Chính")) return "bg-indigo-700 hover:bg-indigo-800 text-white";
+    if (roomName.includes("Phụ") || roomName.includes("Phỏng Vấn")) return "bg-rose-700 hover:bg-rose-800 text-white";
     return "bg-slate-700 hover:bg-slate-800 text-white";
   };
 
@@ -689,12 +690,13 @@ export default function MeetingRoomsPage() {
 
             {/* Room Legends Bar */}
             <div className="px-3 py-1.5 rounded-xl bg-slate-100 border border-slate-200 flex flex-wrap items-center gap-2.5 text-[11px] font-bold text-slate-700">
-              <span className="text-slate-500 uppercase text-[10px] font-extrabold">Chú thích:</span>
-              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-emerald-600" /> VIP 1</span>
-              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-[#e02424]" /> Hội Thảo / Số 2</span>
-              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-[#7e22ce]" /> Gemba / Số 3</span>
-              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-amber-600" /> R&amp;D Kỹ Thuật</span>
-              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-blue-600" /> Logistics TTPP</span>
+              <span className="text-slate-500 uppercase text-[10px] font-extrabold">Chú thích phòng:</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-emerald-600" /> OTI / OTG</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-blue-600" /> WORK</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-purple-600" /> MEN USA</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-amber-600" /> SOURCING</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-indigo-600" /> Phòng Chính</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-rose-600" /> Phụ Phỏng Vấn</span>
             </div>
 
             {/* Compact Month Calendar Table Grid (7 Columns) */}

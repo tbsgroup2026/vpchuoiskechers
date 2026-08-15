@@ -128,7 +128,7 @@ export default function WorkDashboardPage() {
               <img
                 src="/images/skechers-logo.png"
                 alt="Skechers Logo"
-                className="h-9 sm:h-10 w-auto object-contain group-hover:scale-105 transition-transform"
+                className="h-14 sm:h-16 w-auto object-contain -my-2 group-hover:scale-105 transition-transform"
               />
             </Link>
 

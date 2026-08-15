@@ -300,42 +300,40 @@ export default function WorkDashboardPage() {
           LEFT SIDEBAR (With Circular Floating Toggle Button)
          ════════════════════════════════════════════════════════════════ */}
       <aside
-        className={`relative bg-white min-h-screen flex flex-col justify-between border-r border-slate-200/80 flex-shrink-0 shadow-sm transition-all duration-300 ease-in-out z-30 ${
+        className={`bg-white min-h-screen flex flex-col justify-between border-r border-slate-200/80 flex-shrink-0 shadow-sm transition-all duration-300 ease-in-out z-30 ${
           isSidebarCollapsed ? "w-20 px-2.5 py-4" : "w-80 lg:w-96 p-4 lg:p-5"
         }`}
       >
-        {/* Floating Circular Green "Thu nhỏ" / "Phóng to" Toggle Button (Positioned at Top-5 to avoid overlap) */}
-        <button
-          onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-          className="absolute -right-4.5 top-5 w-9 h-9 rounded-full bg-[#006838] text-white shadow-lg border-2 border-white flex items-center justify-center hover:bg-[#00522c] hover:scale-110 active:scale-95 transition-all duration-200 z-50 cursor-pointer group"
-          title={isSidebarCollapsed ? "Phóng to / Mở rộng menu" : "Thu nhỏ menu"}
-        >
-          {isSidebarCollapsed ? (
-            <IconChevronRight size={20} className="group-hover:translate-x-0.5 transition-transform" />
-          ) : (
-            <IconChevronLeft size={20} className="group-hover:-translate-x-0.5 transition-transform" />
-          )}
-        </button>
-
         <div className="space-y-4 flex-1 flex flex-col">
-          {/* Executive Brand Lockup */}
-          <div className="flex items-center justify-between pb-3.5 border-b border-slate-200/80 flex-shrink-0 min-h-[56px]">
-            {!isSidebarCollapsed ? (
+          {/* Executive Brand Lockup & Header Toggle Button */}
+          {!isSidebarCollapsed ? (
+            <div className="flex items-center justify-between pb-3.5 border-b border-slate-200/80 flex-shrink-0 min-h-[56px]">
               <Link href="/" title="Về Trang Chủ TBS Group (https://vpchuoiskechers.tbsgroup2026.workers.dev)" className="flex items-center gap-2.5 group overflow-hidden cursor-pointer">
                 <img
                   src="/images/tbs-logo.png"
                   alt="TBS Group Logo"
-                  className="h-8 w-auto object-contain group-hover:scale-105 transition-transform"
+                  className="h-7 sm:h-8 w-auto object-contain group-hover:scale-105 transition-transform"
                 />
                 <div className="h-5.5 w-[1px] bg-slate-200 flex-shrink-0" />
                 <img
                   src="/images/skechers-logo.png"
                   alt="Skechers Logo"
-                  className="h-7 w-auto object-contain group-hover:scale-105 transition-transform flex-shrink-0"
+                  className="h-6 sm:h-7 w-auto object-contain group-hover:scale-105 transition-transform flex-shrink-0"
                 />
               </Link>
-            ) : (
-              <Link href="/" title="Về Trang Chủ TBS Group & SKECHERS" className="mx-auto flex flex-col items-center gap-1.5 py-1 group cursor-pointer">
+
+              {/* Clean Inline Toggle Button (Expanded State) */}
+              <button
+                onClick={() => setIsSidebarCollapsed(true)}
+                className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-[#006838] text-slate-600 hover:text-white border border-slate-200/80 flex items-center justify-center transition-all duration-200 cursor-pointer flex-shrink-0 ml-2 shadow-2xs group"
+                title="Thu nhỏ menu"
+              >
+                <IconChevronLeft size={18} className="group-hover:-translate-x-0.5 transition-transform" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-2.5 pb-3 border-b border-slate-200/80 flex-shrink-0 w-full">
+              <Link href="/" title="Về Trang Chủ TBS Group & SKECHERS" className="flex flex-col items-center gap-1.5 py-0.5 group cursor-pointer">
                 <img
                   src="/images/tbs-logo.png"
                   alt="TBS Group"
@@ -348,8 +346,17 @@ export default function WorkDashboardPage() {
                   className="h-4.5 w-auto object-contain group-hover:scale-105 transition-transform"
                 />
               </Link>
-            )}
-          </div>
+
+              {/* Clean Inline Toggle Button (Collapsed State) */}
+              <button
+                onClick={() => setIsSidebarCollapsed(false)}
+                className="w-8 h-8 rounded-xl bg-[#006838] text-white shadow-md flex items-center justify-center hover:bg-[#00522c] hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer group"
+                title="Mở rộng menu"
+              >
+                <IconChevronRight size={18} className="group-hover:translate-x-0.5 transition-transform" />
+              </button>
+            </div>
+          )}
 
           {/* Department List (Executive Responsive Sidebar Cards) */}
           <div className={`flex-1 pr-0.5 w-full flex flex-col items-center ${isSidebarCollapsed ? "space-y-3.5 pt-1" : "space-y-2.5"}`}>

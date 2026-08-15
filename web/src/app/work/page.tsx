@@ -115,28 +115,28 @@ export default function WorkDashboardPage() {
   return (
     <div className="min-h-screen w-full flex bg-[#f4f7f5] text-slate-900 font-sans antialiased selection:bg-[#006838] selection:text-white">
       {/* ════════════════════════════════════════════════════════════════
-          LEFT SIDEBAR (Compact Viewport Fit White Panel)
+          LEFT SIDEBAR (20% Enlarged Taste Skill White Panel)
          ════════════════════════════════════════════════════════════════ */}
       <aside
-        className={`bg-white min-h-screen flex flex-col justify-between p-3.5 lg:p-4 border-r border-slate-200/80 flex-shrink-0 shadow-sm transition-all duration-300 ease-in-out ${
-          isSidebarCollapsed ? "w-20" : "w-72 lg:w-80"
+        className={`bg-white min-h-screen flex flex-col justify-between p-4 lg:p-5 border-r border-slate-200/80 flex-shrink-0 shadow-sm transition-all duration-300 ease-in-out ${
+          isSidebarCollapsed ? "w-20" : "w-80 lg:w-96"
         }`}
       >
-        <div className="space-y-4 flex-1 flex flex-col">
+        <div className="space-y-5 flex-1 flex flex-col">
           {/* Executive Brand Lockup & Collapse / Expand Controls */}
-          <div className="flex items-center justify-between pb-3 border-b border-slate-200/80 flex-shrink-0">
+          <div className="flex items-center justify-between pb-4 border-b border-slate-200/80 flex-shrink-0">
             {!isSidebarCollapsed ? (
-              <Link href="/" className="flex items-center gap-2.5 group overflow-hidden">
+              <Link href="/" className="flex items-center gap-3 group overflow-hidden">
                 <img
                   src="/images/tbs-logo.png"
                   alt="TBS Group Logo"
-                  className="h-7 w-auto object-contain group-hover:scale-105 transition-transform"
+                  className="h-8 sm:h-9 w-auto object-contain group-hover:scale-105 transition-transform"
                 />
-                <div className="h-5 w-[1px] bg-slate-200 flex-shrink-0" />
+                <div className="h-6 w-[1px] bg-slate-200 flex-shrink-0" />
                 <img
                   src="/images/skechers-logo.png"
                   alt="Skechers Logo"
-                  className="h-6.5 w-auto object-contain group-hover:scale-105 transition-transform flex-shrink-0"
+                  className="h-8 sm:h-9 w-auto object-contain group-hover:scale-105 transition-transform flex-shrink-0"
                 />
               </Link>
             ) : (
@@ -144,39 +144,39 @@ export default function WorkDashboardPage() {
                 <img
                   src="/images/tbs-logo.png"
                   alt="TBS Group"
-                  className="h-6.5 w-auto object-contain group-hover:scale-105 transition-transform"
+                  className="h-8 w-auto object-contain group-hover:scale-105 transition-transform"
                 />
               </Link>
             )}
 
-            <div className="flex items-center gap-1 flex-shrink-0">
+            <div className="flex items-center gap-1.5 flex-shrink-0">
               {/* Collapse / Expand Sidebar Button */}
               <button
                 onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                className="p-1.5 rounded-lg bg-slate-50 text-slate-600 hover:text-[#006838] hover:bg-emerald-50 transition-colors border border-slate-200/80 shadow-sm cursor-pointer"
+                className="p-2 rounded-xl bg-slate-50 text-slate-600 hover:text-[#006838] hover:bg-emerald-50 transition-colors border border-slate-200/80 shadow-sm cursor-pointer"
                 title={isSidebarCollapsed ? "Mở rộng menu" : "Thu nhỏ menu"}
               >
                 {isSidebarCollapsed ? (
-                  <IconLayoutSidebarLeftExpand size={16} />
+                  <IconLayoutSidebarLeftExpand size={18} />
                 ) : (
-                  <IconLayoutSidebarLeftCollapse size={16} />
+                  <IconLayoutSidebarLeftCollapse size={18} />
                 )}
               </button>
 
               {!isSidebarCollapsed && (
                 <Link
                   href="/"
-                  className="p-1.5 rounded-lg bg-slate-50 text-slate-500 hover:text-[#006838] hover:bg-emerald-50 transition-colors border border-slate-200/80 shadow-sm"
+                  className="p-2 rounded-xl bg-slate-50 text-slate-500 hover:text-[#006838] hover:bg-emerald-50 transition-colors border border-slate-200/80 shadow-sm"
                   title="Về Trang Chủ"
                 >
-                  <IconHome size={16} />
+                  <IconHome size={18} />
                 </Link>
               )}
             </div>
           </div>
 
-          {/* Department List (Compact Spacing to Fit Viewport Height) */}
-          <div className="space-y-1 flex-1 pr-0.5">
+          {/* Department List (Enlarged Elements) */}
+          <div className="space-y-1.5 flex-1 pr-0.5">
             {departments.map((dept) => {
               const IconComp = dept.icon;
               const isSelected = selectedDept === dept.id;
@@ -185,51 +185,51 @@ export default function WorkDashboardPage() {
                 <button
                   key={dept.id}
                   onClick={() => setSelectedDept(dept.id)}
-                  className={`w-full text-left rounded-xl flex items-center transition-all duration-200 group relative ${
+                  className={`w-full text-left rounded-2xl flex items-center transition-all duration-200 group relative ${
                     isSidebarCollapsed
-                      ? "p-2 justify-center"
-                      : "p-2.5 gap-2.5"
+                      ? "p-2.5 justify-center"
+                      : "p-3 sm:p-3.5 gap-3"
                   } ${
                     isSelected
-                      ? "bg-[#006838] text-white shadow-sm shadow-emerald-900/20 border border-[#006838]"
+                      ? "bg-[#006838] text-white shadow-md shadow-emerald-900/20 border border-[#006838]"
                       : "bg-white hover:bg-[#e6f4ed]/50 text-slate-700 hover:text-slate-900 border border-slate-100"
                   }`}
                 >
                   {/* Active Left Indicator Bar */}
                   {isSelected && (
-                    <span className="absolute left-0 top-2 bottom-2 w-1 bg-white rounded-r-full" />
+                    <span className="absolute left-0 top-2.5 bottom-2.5 w-1 bg-white rounded-r-full" />
                   )}
 
                   {/* Icon Box */}
                   <div
-                    className={`rounded-lg flex items-center justify-center flex-shrink-0 transition-colors ${
-                      isSidebarCollapsed ? "w-9 h-9" : "w-8 h-8"
+                    className={`rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${
+                      isSidebarCollapsed ? "w-10 h-10" : "w-9 h-9"
                     } ${
                       isSelected
                         ? "bg-white/20 text-white"
                         : "bg-[#e6f4ed] text-[#006838] group-hover:bg-[#006838] group-hover:text-white"
                     }`}
                   >
-                    <IconComp size={18} />
+                    <IconComp size={20} />
                   </div>
 
                   {/* Department Title & Subtitle (Shown when Expanded) */}
                   {!isSidebarCollapsed && (
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-2">
                         <span
-                          className={`text-[10px] font-mono font-bold ${
+                          className={`text-xs font-mono font-bold ${
                             isSelected ? "text-emerald-100" : "text-[#006838]/70"
                           }`}
                         >
                           {dept.num}.
                         </span>
-                        <h4 className="text-xs font-extrabold truncate tracking-tight">
+                        <h4 className="text-xs sm:text-sm font-extrabold truncate tracking-tight">
                           {dept.name}
                         </h4>
                       </div>
                       <p
-                        className={`text-[10px] truncate mt-0.5 font-normal ${
+                        className={`text-xs truncate mt-0.5 font-normal ${
                           isSelected ? "text-emerald-100" : "text-slate-500"
                         }`}
                       >
@@ -241,7 +241,7 @@ export default function WorkDashboardPage() {
                   {/* Subtle Status Tag (Shown when Expanded) */}
                   {!isSidebarCollapsed && !dept.hasData && (
                     <span
-                      className={`text-[9px] font-mono font-medium px-1.5 py-0.2 rounded-full flex-shrink-0 ${
+                      className={`text-[10px] font-mono font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${
                         isSelected
                           ? "bg-white/20 text-white"
                           : "bg-amber-100/90 text-amber-800 border border-amber-200"
@@ -253,7 +253,7 @@ export default function WorkDashboardPage() {
 
                   {/* Collapsed Hover Tooltip Popup */}
                   {isSidebarCollapsed && (
-                    <div className="absolute left-full ml-3 px-3 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-xl shadow-2xl whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none flex items-center gap-2">
+                    <div className="absolute left-full ml-3 px-3 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl shadow-2xl whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none flex items-center gap-2">
                       <span>{dept.num}. {dept.name}</span>
                       {!dept.hasData && (
                         <span className="text-[10px] font-mono text-amber-300 font-normal">
@@ -269,20 +269,20 @@ export default function WorkDashboardPage() {
         </div>
 
         {/* Executive Footer Credit */}
-        <div className="pt-3 border-t border-slate-200/80 flex items-center justify-between text-xs text-slate-500 flex-shrink-0">
+        <div className="pt-4 border-t border-slate-200/80 flex items-center justify-between text-xs text-slate-500 flex-shrink-0">
           {!isSidebarCollapsed ? (
             <>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2">
                 <img
                   src="/images/tbs-logo.png"
                   alt="TBS Logo"
-                  className="h-3.5 w-auto object-contain"
+                  className="h-4 w-auto object-contain"
                 />
-                <span className="font-semibold text-slate-700 text-[10px]">
-                  TBS Group System
+                <span className="font-semibold text-slate-700 text-xs">
+                  TBS Group Operating System
                 </span>
               </div>
-              <span className="text-[9px] font-mono text-slate-400">
+              <span className="text-[10px] font-mono text-slate-400">
                 © 2026
               </span>
             </>
@@ -291,7 +291,7 @@ export default function WorkDashboardPage() {
               <img
                 src="/images/tbs-logo.png"
                 alt="TBS Logo"
-                className="h-3.5 w-auto object-contain"
+                className="h-4 w-auto object-contain"
               />
             </div>
           )}
@@ -299,25 +299,25 @@ export default function WorkDashboardPage() {
       </aside>
 
       {/* ════════════════════════════════════════════════════════════════
-          MAIN DASHBOARD AREA (Proportionally Balanced Card Elements)
+          MAIN DASHBOARD AREA (20% Enlarged Card Elements & Proportions)
          ════════════════════════════════════════════════════════════════ */}
       <main className="flex-1 min-h-screen bg-[#f4f7f5] text-slate-900 rounded-tl-[24px] flex flex-col justify-between transition-all duration-300">
         {/* Top Header Bar */}
-        <header className="px-5 lg:px-6 py-3 flex items-center justify-between border-b border-slate-200/80 bg-white/80 backdrop-blur-md flex-shrink-0">
+        <header className="px-6 lg:px-8 py-4 flex items-center justify-between border-b border-slate-200/80 bg-white/80 backdrop-blur-md flex-shrink-0">
           <div>
-            <h1 className="text-xl lg:text-2xl font-black text-slate-900 tracking-tight">
+            <h1 className="text-2xl lg:text-3xl font-black text-slate-900 tracking-tight">
               Xin chào, <span className="text-[#006838]">Anh Huy!</span>
             </h1>
-            <p className="text-xs text-slate-500 mt-0.5 font-medium">
+            <p className="text-sm text-slate-500 mt-1 font-medium">
               Chúc bạn một ngày làm việc hiệu quả tại Văn Phòng Chuỗi SKECHERS - TBS Group.
             </p>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-3 sm:gap-4">
             {selectedDept && (
               <button
                 onClick={() => setSelectedDept(null)}
-                className="px-3 py-1.5 rounded-xl bg-white border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
+                className="px-4 py-2 rounded-xl bg-white border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
               >
                 ← Trở về Tổng Quan
               </button>
@@ -325,51 +325,51 @@ export default function WorkDashboardPage() {
 
             {/* Notifications Button */}
             <button
-              className="relative p-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 hover:bg-slate-100 transition-colors shadow-sm"
+              className="relative p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 hover:bg-slate-100 transition-colors shadow-sm"
               title="Thông báo hệ thống"
             >
-              <IconBell size={18} />
-              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[#006838] border-2 border-white animate-pulse" />
+              <IconBell size={20} />
+              <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-[#006838] border-2 border-white animate-pulse" />
             </button>
 
             {/* Fullscreen Toggle */}
             <button
               onClick={toggleFullscreen}
-              className="p-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 hover:bg-slate-100 transition-colors shadow-sm"
+              className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 hover:bg-slate-100 transition-colors shadow-sm"
               title="Toàn màn hình"
             >
-              <IconMaximize size={18} />
+              <IconMaximize size={20} />
             </button>
 
             {/* User Avatar */}
-            <div className="relative flex items-center gap-2 pl-1">
-              <div className="w-8 h-8 rounded-full bg-slate-900 border-2 border-[#006838] overflow-hidden shadow-sm">
+            <div className="relative flex items-center gap-3 pl-1">
+              <div className="w-10 h-10 rounded-full bg-slate-900 border-2 border-[#006838] overflow-hidden shadow-md">
                 <img
                   src="/images/crawled/Da-giay1.jpg"
                   alt="User Avatar"
                   className="w-full h-full object-cover"
                 />
               </div>
-              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white" />
+              <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white" />
             </div>
           </div>
         </header>
 
-        {/* Dashboard Body */}
-        <div className="p-4 lg:p-5 flex-1 flex flex-col justify-between overflow-hidden gap-3.5">
+        {/* Dashboard Body (20% Enlarged Elements) */}
+        <div className="p-5 lg:p-7 space-y-6 flex-1">
           {/* IF A "COMING SOON" DEPARTMENT IS SELECTED */}
           {activeDeptObj && !activeDeptObj.hasData && (
-            <div className="p-8 rounded-2xl bg-white border border-slate-200 shadow-sm text-center space-y-3 max-w-xl mx-auto my-auto">
-              <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto border border-amber-200">
-                <IconClock size={30} />
+            <div className="p-10 rounded-3xl bg-white border border-slate-200 shadow-sm text-center space-y-4 max-w-2xl mx-auto my-8">
+              <div className="w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto border border-amber-200">
+                <IconClock size={34} />
               </div>
-              <h3 className="text-xl font-black text-slate-900">
+              <h3 className="text-2xl font-black text-slate-900">
                 Phòng {activeDeptObj.name}
               </h3>
-              <p className="text-slate-500 text-xs leading-relaxed max-w-sm mx-auto">
+              <p className="text-slate-500 text-sm leading-relaxed max-w-md mx-auto">
                 Dữ liệu bảng điều khiển dành riêng cho {activeDeptObj.name} đang trong quá trình số hóa và đấu nối hệ thống.
               </p>
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-100/90 text-amber-800 text-[11px] font-bold uppercase tracking-wider">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-100/90 text-amber-800 text-xs font-bold uppercase tracking-wider">
                 <span>Tính năng đang phát triển — Coming Soon</span>
               </div>
             </div>
@@ -377,31 +377,31 @@ export default function WorkDashboardPage() {
 
           {/* IF R&D (PHÁT TRIỂN SẢN PHẨM) IS SELECTED */}
           {selectedDept === "rd" && (
-            <div className="space-y-4 my-auto">
+            <div className="space-y-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-black text-slate-900">
+                  <h2 className="text-xl font-black text-slate-900">
                     🧪 Chỉ Số Phòng Phát Triển Sản Phẩm (R&D)
                   </h2>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <p className="text-xs text-slate-500 mt-1">
                     Cập nhật thời gian thực về tiến độ phát triển mẫu giày SKECHERS.
                   </p>
                 </div>
-                <span className="px-3 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-bold">
+                <span className="px-3.5 py-1.5 rounded-full bg-purple-100 text-purple-700 text-xs font-bold">
                   Dữ liệu R&D Live
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                 {[
                   { title: "Mẫu Đã Duyệt", val: "142 Mẫu", trend: "+18%", color: "emerald" },
                   { title: "Mẫu Đang Thử Nghiệm", val: "28 Mẫu", trend: "+5%", color: "blue" },
                   { title: "Thời Gian Lead Time", val: "4.2 Ngày", trend: "-15%", color: "purple" },
                   { title: "Duyệt Mẫu Lần 1", val: "94.8%", trend: "+2.1%", color: "amber" },
                 ].map((item, idx) => (
-                  <div key={idx} className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-1.5">
+                  <div key={idx} className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-2">
                     <span className="text-xs font-bold text-slate-500">{item.title}</span>
-                    <div className="text-xl font-black text-slate-900">{item.val}</div>
+                    <div className="text-2xl font-black text-slate-900">{item.val}</div>
                     <span className="text-xs text-[#006838] font-bold block">{item.trend} so với tháng trước</span>
                   </div>
                 ))}
@@ -411,31 +411,31 @@ export default function WorkDashboardPage() {
 
           {/* IF QC (QUẢN LÝ CHẤT LƯỢNG) IS SELECTED */}
           {selectedDept === "qc" && (
-            <div className="space-y-4 my-auto">
+            <div className="space-y-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-black text-slate-900">
+                  <h2 className="text-xl font-black text-slate-900">
                     🛡️ Chỉ Số Phòng Quản Lý Chất Lượng (QC)
                   </h2>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <p className="text-xs text-slate-500 mt-1">
                     Hệ thống kiểm soát tỷ lệ lỗi Gemba Walk và chỉ số OEE nhà máy.
                   </p>
                 </div>
-                <span className="px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-bold">
+                <span className="px-3.5 py-1.5 rounded-full bg-blue-100 text-blue-700 text-xs font-bold">
                   Dữ liệu QC Live
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                 {[
                   { title: "Tỷ Lệ Đạt QC", val: "98.6%", trend: "+1.2%", color: "emerald" },
                   { title: "Tổng Lỗi Kiểm Hàng", val: "14 Lỗi", trend: "-28%", color: "blue" },
                   { title: "Lỗi Gemba Cần Sửa", val: "3 Lỗi", trend: "Xử lý 92%", color: "purple" },
                   { title: "Chỉ Số OEE Nhà Máy", val: "91.5%", trend: "+3.5%", color: "amber" },
                 ].map((item, idx) => (
-                  <div key={idx} className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-1.5">
+                  <div key={idx} className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-2">
                     <span className="text-xs font-bold text-slate-500">{item.title}</span>
-                    <div className="text-xl font-black text-slate-900">{item.val}</div>
+                    <div className="text-2xl font-black text-slate-900">{item.val}</div>
                     <span className="text-xs text-[#006838] font-bold block">{item.trend} so với tháng trước</span>
                   </div>
                 ))}
@@ -445,31 +445,31 @@ export default function WorkDashboardPage() {
 
           {/* IF TH-NM (PHÒNG SẢN XUẤT) IS SELECTED */}
           {selectedDept === "production" && (
-            <div className="space-y-4 my-auto">
+            <div className="space-y-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-black text-slate-900">
+                  <h2 className="text-xl font-black text-slate-900">
                     🏭 Chỉ Số Phòng Sản Xuất (TH-NM)
                   </h2>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <p className="text-xs text-slate-500 mt-1">
                     Thống kê 33 dây chuyền sản xuất giày SKECHERS thuộc hệ thống nhà máy TBS Group.
                   </p>
                 </div>
-                <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold">
+                <span className="px-3.5 py-1.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold">
                   Dữ liệu Sản Xuất Live
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                 {[
                   { title: "Sản Lượng Tháng", val: "586,000 Đôi", trend: "+15%", color: "emerald" },
                   { title: "Số Dây Chuyền", val: "33 Chuyền", trend: "100% Hoạt động", color: "blue" },
                   { title: "Hiệu Suất Chuyền", val: "92.4%", trend: "+5%", color: "purple" },
                   { title: "Tiến Độ Đơn Hàng", val: "89.2%", trend: "Đạt kế hoạch", color: "amber" },
                 ].map((item, idx) => (
-                  <div key={idx} className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-1.5">
+                  <div key={idx} className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-2">
                     <span className="text-xs font-bold text-slate-500">{item.title}</span>
-                    <div className="text-xl font-black text-slate-900">{item.val}</div>
+                    <div className="text-2xl font-black text-slate-900">{item.val}</div>
                     <span className="text-xs text-[#006838] font-bold block">{item.trend} so với tháng trước</span>
                   </div>
                 ))}
@@ -477,29 +477,29 @@ export default function WorkDashboardPage() {
             </div>
           )}
 
-          {/* DEFAULT MAIN DASHBOARD (Balanced Proportions Inside Cards) */}
+          {/* DEFAULT MAIN DASHBOARD (20% Enlarged Cards & Donut Chart Layout) */}
           {!selectedDept && (
-            <div className="flex-1 flex flex-col justify-between gap-3.5 overflow-hidden">
+            <div className="space-y-6">
               {/* TOP ROW: 4 Metric Cards (Left Column) + Donut Ring Chart (Right Column) */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-stretch flex-1 min-h-0">
-                {/* Left Column (4 Cards Vertical Stack with Balanced Element Sizing) */}
-                <div className="lg:col-span-4 flex flex-col justify-between gap-2.5">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-6 items-stretch">
+                {/* Left Column (4 Cards Vertical Stack with 20% Enlarged Elements) */}
+                <div className="lg:col-span-4 flex flex-col justify-between gap-3 sm:gap-3.5">
                   {/* Card 1: R&D (Phòng phát triển) */}
                   <div
                     onClick={() => setSelectedDept("rd")}
-                    className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:border-[#006838]/60 transition-all cursor-pointer flex items-center gap-3.5 group flex-1"
+                    className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:border-[#006838]/60 transition-all cursor-pointer flex items-center gap-4 group flex-1"
                   >
-                    <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-[#006838] flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform border border-emerald-100">
-                      <IconUsers size={24} />
+                    <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-[#006838] flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform border border-emerald-100">
+                      <IconUsers size={28} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <span className="text-xs font-extrabold text-slate-600 block truncate">
+                      <span className="text-xs sm:text-sm font-extrabold text-slate-600 block truncate">
                         Chỉ Số Phòng Phát Triển (R&D)
                       </span>
-                      <div className="text-2xl font-black text-slate-900 tracking-tight mt-0.5">
+                      <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-0.5">
                         1,248
                       </div>
-                      <div className="flex items-center gap-1 text-xs font-bold text-[#006838] mt-0.5">
+                      <div className="flex items-center gap-1 text-xs font-bold text-[#006838] mt-1">
                         <IconArrowUpRight size={14} />
                         <span>+12% so với tháng trước</span>
                       </div>
@@ -507,18 +507,18 @@ export default function WorkDashboardPage() {
                   </div>
 
                   {/* Card 2: Đơn Hàng */}
-                  <div className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:border-blue-300 transition-all flex items-center gap-3.5 group flex-1">
-                    <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform border border-blue-100">
-                      <IconClipboardList size={24} />
+                  <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:border-blue-300 transition-all flex items-center gap-4 group flex-1">
+                    <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform border border-blue-100">
+                      <IconClipboardList size={28} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <span className="text-xs font-extrabold text-slate-600 block truncate">
+                      <span className="text-xs sm:text-sm font-extrabold text-slate-600 block truncate">
                         Đơn Hàng Chuỗi SKECHERS
                       </span>
-                      <div className="text-2xl font-black text-slate-900 tracking-tight mt-0.5">
+                      <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-0.5">
                         342
                       </div>
-                      <div className="flex items-center gap-1 text-xs font-bold text-[#006838] mt-0.5">
+                      <div className="flex items-center gap-1 text-xs font-bold text-[#006838] mt-1">
                         <IconArrowUpRight size={14} />
                         <span>+8% so với tháng trước</span>
                       </div>
@@ -528,19 +528,19 @@ export default function WorkDashboardPage() {
                   {/* Card 3: Chỉ Số Phòng Sản Xuất (TH-NM) */}
                   <div
                     onClick={() => setSelectedDept("production")}
-                    className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:border-purple-300 transition-all cursor-pointer flex items-center gap-3.5 group flex-1"
+                    className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:border-purple-300 transition-all cursor-pointer flex items-center gap-4 group flex-1"
                   >
-                    <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform border border-purple-100">
-                      <IconPackage size={24} />
+                    <div className="w-14 h-14 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform border border-purple-100">
+                      <IconPackage size={28} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <span className="text-xs font-extrabold text-slate-600 block truncate">
+                      <span className="text-xs sm:text-sm font-extrabold text-slate-600 block truncate">
                         Chỉ Số Phòng Sản Xuất (TH-NM)
                       </span>
-                      <div className="text-2xl font-black text-slate-900 tracking-tight mt-0.5">
+                      <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-0.5">
                         586
                       </div>
-                      <div className="flex items-center gap-1 text-xs font-bold text-[#006838] mt-0.5">
+                      <div className="flex items-center gap-1 text-xs font-bold text-[#006838] mt-1">
                         <IconArrowUpRight size={14} />
                         <span>+15% so với tháng trước</span>
                       </div>
@@ -550,19 +550,19 @@ export default function WorkDashboardPage() {
                   {/* Card 4: Hiệu Suất & Chỉ Số Chất Lượng (QC) */}
                   <div
                     onClick={() => setSelectedDept("qc")}
-                    className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:border-amber-300 transition-all cursor-pointer flex items-center gap-3.5 group flex-1"
+                    className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:border-amber-300 transition-all cursor-pointer flex items-center gap-4 group flex-1"
                   >
-                    <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform border border-amber-100">
-                      <IconTrendingUp size={24} />
+                    <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform border border-amber-100">
+                      <IconTrendingUp size={28} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <span className="text-xs font-extrabold text-slate-600 block truncate">
+                      <span className="text-xs sm:text-sm font-extrabold text-slate-600 block truncate">
                         Chỉ Số Chất Lượng &amp; Hiệu Suất (QC)
                       </span>
-                      <div className="text-2xl font-black text-slate-900 tracking-tight mt-0.5">
+                      <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-0.5">
                         92%
                       </div>
-                      <div className="flex items-center gap-1 text-xs font-bold text-[#006838] mt-0.5">
+                      <div className="flex items-center gap-1 text-xs font-bold text-[#006838] mt-1">
                         <IconArrowUpRight size={14} />
                         <span>+5% so với tháng trước</span>
                       </div>
@@ -570,15 +570,15 @@ export default function WorkDashboardPage() {
                   </div>
                 </div>
 
-                {/* Right Column (TỔNG CẢI TIẾN - Donut Chart Block with Balanced Ring & Legend Size) */}
-                <div className="lg:col-span-8 p-4 lg:p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm flex flex-col justify-between min-h-0">
+                {/* Right Column (TỔNG CẢI TIẾN - Donut Chart Block with 20% Enlarged Ring & Legend) */}
+                <div className="lg:col-span-8 p-5 lg:p-7 rounded-2xl bg-white border border-slate-200/80 shadow-sm flex flex-col justify-between">
                   {/* Card Header */}
-                  <div className="flex items-center justify-between flex-shrink-0 pb-1">
+                  <div className="flex items-center justify-between pb-2">
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-emerald-50 text-[#006838] flex items-center justify-center border border-emerald-100">
-                        <IconSettings size={20} />
+                      <div className="w-11 h-11 rounded-xl bg-emerald-50 text-[#006838] flex items-center justify-center border border-emerald-100">
+                        <IconSettings size={24} />
                       </div>
-                      <h3 className="text-lg font-black text-slate-900 tracking-tight">
+                      <h3 className="text-xl lg:text-2xl font-black text-slate-900 tracking-tight">
                         TỔNG CẢI TIẾN
                       </h3>
                     </div>
@@ -586,7 +586,7 @@ export default function WorkDashboardPage() {
                     <select
                       value={timeFilter}
                       onChange={(e) => setTimeFilter(e.target.value)}
-                      className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 outline-none cursor-pointer hover:bg-slate-100 transition-colors"
+                      className="px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 outline-none cursor-pointer hover:bg-slate-100 transition-colors"
                     >
                       <option value="Tháng này">Tháng này</option>
                       <option value="Tháng trước">Tháng trước</option>
@@ -595,10 +595,10 @@ export default function WorkDashboardPage() {
                     </select>
                   </div>
 
-                  {/* Donut Ring Visual (Enlarged & Balanced for Card Dimensions) */}
-                  <div className="relative flex flex-col lg:flex-row items-center justify-center gap-6 my-auto">
-                    {/* Donut SVG Ring Graphic */}
-                    <div className="relative w-56 h-56 lg:w-60 lg:h-60 flex-shrink-0 flex items-center justify-center">
+                  {/* Donut Ring Visual (20% Enlarged SVG Ring & Labels) */}
+                  <div className="relative py-4 flex flex-col lg:flex-row items-center justify-center gap-8 my-auto">
+                    {/* Donut SVG Ring Graphic (20% Larger: 288px / 320px) */}
+                    <div className="relative w-64 h-64 lg:w-72 lg:h-72 flex-shrink-0 flex items-center justify-center">
                       <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
                         {/* Blue: Nhân sự hành chánh (22.7%) */}
                         <circle
@@ -681,10 +681,10 @@ export default function WorkDashboardPage() {
 
                       {/* Donut Center Label */}
                       <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                        <span className="text-[10px] font-black text-[#006838] uppercase tracking-wider block">
+                        <span className="text-xs font-black text-[#006838] uppercase tracking-wider block">
                           TBS GROUP
                         </span>
-                        <span className="text-3xl font-black text-slate-900 tracking-tight block my-0.5">
+                        <span className="text-4xl font-black text-slate-900 tracking-tight block my-0.5">
                           582
                         </span>
                         <span className="text-xs font-semibold text-slate-500 block">
@@ -693,61 +693,61 @@ export default function WorkDashboardPage() {
                       </div>
                     </div>
 
-                    {/* Donut Chart Legend Labels Grid */}
-                    <div className="grid grid-cols-2 gap-x-5 gap-y-2.5 text-xs font-bold w-full max-w-sm">
-                      <div className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-slate-50">
+                    {/* Donut Chart Legend Labels Grid (20% Enlarged Typography) */}
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-3.5 text-xs font-bold w-full max-w-md">
+                      <div className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-slate-50">
                         <span className="w-3 h-3 rounded-full bg-blue-600 flex-shrink-0" />
                         <div className="truncate">
                           <span className="text-slate-600 block text-xs truncate">Nhân sự hành chánh</span>
-                          <span className="text-slate-900 font-black">132 <span className="text-[#006838] font-semibold">(22.7%)</span></span>
+                          <span className="text-slate-900 font-black text-sm">132 <span className="text-[#006838] font-semibold">(22.7%)</span></span>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-slate-50">
+                      <div className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-slate-50">
                         <span className="w-3 h-3 rounded-full bg-orange-600 flex-shrink-0" />
                         <div className="truncate">
                           <span className="text-slate-600 block text-xs truncate">CN-CI</span>
-                          <span className="text-slate-900 font-black">112 <span className="text-amber-600 font-semibold">(19.2%)</span></span>
+                          <span className="text-slate-900 font-black text-sm">112 <span className="text-amber-600 font-semibold">(19.2%)</span></span>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-slate-50">
+                      <div className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-slate-50">
                         <span className="w-3 h-3 rounded-full bg-cyan-500 flex-shrink-0" />
                         <div className="truncate">
                           <span className="text-slate-600 block text-xs truncate">Kế toán &amp; quản trị</span>
-                          <span className="text-slate-900 font-black">98 <span className="text-[#006838] font-semibold">(16.8%)</span></span>
+                          <span className="text-slate-900 font-black text-sm">98 <span className="text-[#006838] font-semibold">(16.8%)</span></span>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-slate-50">
+                      <div className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-slate-50">
                         <span className="w-3 h-3 rounded-full bg-[#006838] flex-shrink-0" />
                         <div className="truncate">
                           <span className="text-slate-600 block text-xs truncate">Quản lý chất lượng (QC)</span>
-                          <span className="text-slate-900 font-black">86 <span className="text-[#006838] font-semibold">(14.8%)</span></span>
+                          <span className="text-slate-900 font-black text-sm">86 <span className="text-[#006838] font-semibold">(14.8%)</span></span>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-slate-50">
+                      <div className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-slate-50">
                         <span className="w-3 h-3 rounded-full bg-pink-600 flex-shrink-0" />
                         <div className="truncate">
                           <span className="text-slate-600 block text-xs truncate">R&amp;D (Phát triển mẫu)</span>
-                          <span className="text-slate-900 font-black">76 <span className="text-[#006838] font-semibold">(13.1%)</span></span>
+                          <span className="text-slate-900 font-black text-sm">76 <span className="text-[#006838] font-semibold">(13.1%)</span></span>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-slate-50">
+                      <div className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-slate-50">
                         <span className="w-3 h-3 rounded-full bg-sky-600 flex-shrink-0" />
                         <div className="truncate">
                           <span className="text-slate-600 block text-xs truncate">KH chuẩn bị - TTPP</span>
-                          <span className="text-slate-900 font-black">54 <span className="text-[#006838] font-semibold">(9.3%)</span></span>
+                          <span className="text-slate-900 font-black text-sm">54 <span className="text-[#006838] font-semibold">(9.3%)</span></span>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-slate-50 col-span-2">
+                      <div className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-slate-50 col-span-2">
                         <span className="w-3 h-3 rounded-full bg-purple-600 flex-shrink-0" />
                         <div className="truncate">
                           <span className="text-slate-600 block text-xs truncate">TH-NM (Sản xuất nhà máy)</span>
-                          <span className="text-slate-900 font-black">24 <span className="text-pink-600 font-semibold">(4.1%)</span></span>
+                          <span className="text-slate-900 font-black text-sm">24 <span className="text-pink-600 font-semibold">(4.1%)</span></span>
                         </div>
                       </div>
                     </div>
@@ -755,10 +755,10 @@ export default function WorkDashboardPage() {
                 </div>
               </div>
 
-              {/* BOTTOM ROW: System Notifications Bar ("THÔNG BÁO HỆ THỐNG") */}
-              <div className="p-3.5 lg:p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm space-y-3 flex-shrink-0">
+              {/* BOTTOM ROW: System Notifications Bar ("THÔNG BÁO HỆ THỐNG" - 20% Enlarged) */}
+              <div className="p-5 lg:p-6 rounded-2xl bg-white border border-slate-200/80 shadow-sm space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-base font-black text-slate-900 tracking-tight">
+                  <h3 className="text-lg font-black text-slate-900 tracking-tight">
                     THÔNG BÁO HỆ THỐNG
                   </h3>
                   <button className="text-xs font-bold text-[#006838] hover:underline flex items-center gap-1">
@@ -767,47 +767,47 @@ export default function WorkDashboardPage() {
                   </button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {/* Notification 1 */}
-                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center gap-3.5 hover:bg-slate-100 transition-colors">
-                    <div className="w-9 h-9 rounded-xl bg-emerald-100 text-[#006838] flex items-center justify-center flex-shrink-0">
-                      <IconClipboardList size={18} />
+                  <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-50 border border-slate-200/70 flex items-center gap-4 hover:bg-slate-100 transition-colors">
+                    <div className="w-11 h-11 rounded-xl bg-emerald-100 text-[#006838] flex items-center justify-center flex-shrink-0">
+                      <IconClipboardList size={22} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <h4 className="text-xs font-extrabold text-slate-900 truncate">
+                      <h4 className="text-xs sm:text-sm font-extrabold text-slate-900 truncate">
                         Có 12 đơn hàng đang chờ xử lý
                       </h4>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
+                      <p className="text-xs text-slate-500 mt-0.5">
                         Cập nhật 10 phút trước
                       </p>
                     </div>
                   </div>
 
                   {/* Notification 2 */}
-                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center gap-3.5 hover:bg-slate-100 transition-colors">
-                    <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center flex-shrink-0">
-                      <IconUsers size={18} />
+                  <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-50 border border-slate-200/70 flex items-center gap-4 hover:bg-slate-100 transition-colors">
+                    <div className="w-11 h-11 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center flex-shrink-0">
+                      <IconUsers size={22} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <h4 className="text-xs font-extrabold text-slate-900 truncate">
+                      <h4 className="text-xs sm:text-sm font-extrabold text-slate-900 truncate">
                         5 nhân sự sắp hết hạn hợp đồng
                       </h4>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
+                      <p className="text-xs text-slate-500 mt-0.5">
                         Cập nhật 1 giờ trước
                       </p>
                     </div>
                   </div>
 
                   {/* Notification 3 */}
-                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center gap-3.5 hover:bg-slate-100 transition-colors">
-                    <div className="w-9 h-9 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center flex-shrink-0">
-                      <IconPackage size={18} />
+                  <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-50 border border-slate-200/70 flex items-center gap-4 hover:bg-slate-100 transition-colors">
+                    <div className="w-11 h-11 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center flex-shrink-0">
+                      <IconPackage size={22} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <h4 className="text-xs font-extrabold text-slate-900 truncate">
+                      <h4 className="text-xs sm:text-sm font-extrabold text-slate-900 truncate">
                         Báo cáo cải tiến tuần 24
                       </h4>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
+                      <p className="text-xs text-slate-500 mt-0.5">
                         Cập nhật 2 giờ trước
                       </p>
                     </div>
@@ -819,7 +819,7 @@ export default function WorkDashboardPage() {
         </div>
 
         {/* Footer info bar inside dashboard */}
-        <footer className="py-2.5 px-6 border-t border-slate-200/70 text-xs text-slate-500 flex items-center justify-between bg-[#f4f7f5] flex-shrink-0">
+        <footer className="py-3 px-8 border-t border-slate-200/70 text-xs text-slate-500 flex items-center justify-between bg-[#f4f7f5] flex-shrink-0">
           <span>Văn Phòng Chuỗi SKECHERS - TBS Group Dashboard v2.4</span>
           <span className="font-mono text-[#006838] font-bold">● System Online 24/7</span>
         </footer>

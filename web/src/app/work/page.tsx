@@ -113,16 +113,16 @@ export default function WorkDashboardPage() {
   const activeDeptObj = departments.find((d) => d.id === selectedDept);
 
   return (
-    <div className="h-screen w-screen overflow-hidden flex bg-[#f4f7f5] text-slate-900 font-sans antialiased selection:bg-[#006838] selection:text-white">
+    <div className="min-h-screen w-full flex bg-[#f4f7f5] text-slate-900 font-sans antialiased selection:bg-[#006838] selection:text-white">
       {/* ════════════════════════════════════════════════════════════════
           LEFT SIDEBAR (Compact Viewport Fit White Panel)
          ════════════════════════════════════════════════════════════════ */}
       <aside
-        className={`bg-white h-screen flex flex-col justify-between p-3.5 lg:p-4 border-r border-slate-200/80 flex-shrink-0 shadow-sm transition-all duration-300 ease-in-out ${
+        className={`bg-white min-h-screen flex flex-col justify-between p-3.5 lg:p-4 border-r border-slate-200/80 flex-shrink-0 shadow-sm transition-all duration-300 ease-in-out ${
           isSidebarCollapsed ? "w-20" : "w-72 lg:w-80"
         }`}
       >
-        <div className="space-y-4 overflow-hidden flex-1 flex flex-col">
+        <div className="space-y-4 flex-1 flex flex-col">
           {/* Executive Brand Lockup & Collapse / Expand Controls */}
           <div className="flex items-center justify-between pb-3 border-b border-slate-200/80 flex-shrink-0">
             {!isSidebarCollapsed ? (
@@ -176,7 +176,7 @@ export default function WorkDashboardPage() {
           </div>
 
           {/* Department List (Compact Spacing to Fit Viewport Height) */}
-          <div className="space-y-1 overflow-y-auto flex-1 pr-0.5 scrollbar-none">
+          <div className="space-y-1 flex-1 pr-0.5">
             {departments.map((dept) => {
               const IconComp = dept.icon;
               const isSelected = selectedDept === dept.id;
@@ -301,7 +301,7 @@ export default function WorkDashboardPage() {
       {/* ════════════════════════════════════════════════════════════════
           MAIN DASHBOARD AREA (Proportionally Balanced Card Elements)
          ════════════════════════════════════════════════════════════════ */}
-      <main className="flex-1 h-screen bg-[#f4f7f5] text-slate-900 rounded-tl-[24px] overflow-hidden flex flex-col justify-between transition-all duration-300">
+      <main className="flex-1 min-h-screen bg-[#f4f7f5] text-slate-900 rounded-tl-[24px] flex flex-col justify-between transition-all duration-300">
         {/* Top Header Bar */}
         <header className="px-5 lg:px-6 py-3 flex items-center justify-between border-b border-slate-200/80 bg-white/80 backdrop-blur-md flex-shrink-0">
           <div>

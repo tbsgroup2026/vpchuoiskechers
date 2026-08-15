@@ -19,9 +19,9 @@ export default function HeroSection() {
           className="absolute inset-0 bg-cover bg-center bg-no-repeat pointer-events-none"
           style={{ backgroundImage: "url('/images/tbs-gate.jpg')" }}
         />
-        {/* Semi-transparent black gradient overlay for crisp text readability */}
-        <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/55 to-black/35 pointer-events-none" />
-        <div className="absolute inset-0 bg-black/20 pointer-events-none" />
+        {/* Lớp phủ đen có độ trong suốt 40%, gradient black từ trái sang phải */}
+        <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-black/10 pointer-events-none" />
+        <div className="absolute inset-0 bg-black/40 pointer-events-none" />
 
         <div className="relative z-10 w-full max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-12">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">

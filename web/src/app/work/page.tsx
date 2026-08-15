@@ -1,375 +1,753 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import Header from "@/components/Header";
-import CircularMenu, { MenuItem } from "@/components/home/CircularMenu";
-import DepartmentRadialMenu from "@/components/departments/DepartmentRadialMenu";
-import DonutChartModal from "@/components/home/DonutChartModal";
-import DailyManagementModals, { DailyModalType } from "@/components/daily-management/DailyManagementModals";
 import {
-  IconChartBar,
-  IconBuildingFactory,
-  IconBulb,
-  IconBrain,
-  IconShieldCheck,
-  IconTool,
-  IconFileText,
   IconUsers,
-  IconZoomIn,
-  IconZoomOut,
-  IconRefresh,
-  IconChevronDown,
-  IconSparkles,
-  IconAdjustmentsHorizontal,
+  IconCalculator,
+  IconFlask,
+  IconSettings,
+  IconShieldCheck,
+  IconTruck,
+  IconBuildingFactory,
+  IconBell,
+  IconMaximize,
+  IconChevronRight,
+  IconTrendingUp,
+  IconClipboardList,
+  IconPackage,
+  IconCheck,
+  IconClock,
+  IconAlertCircle,
+  IconArrowUpRight,
+  IconHome,
 } from "@tabler/icons-react";
 
-export default function DashboardPage() {
-  const [activeTab, setActiveTab] = useState<"functions" | "departments">("functions");
-  const [activeModal, setActiveModal] = useState<DailyModalType>(null);
-  const [isDonutOpen, setIsDonutOpen] = useState(false);
-  const [zoomLevel, setZoomLevel] = useState(100);
+interface DepartmentItem {
+  id: string;
+  num: number;
+  name: string;
+  sub: string;
+  icon: React.ElementType;
+  hasData: boolean; // true for Quality, R&D, Production; false for Coming Soon
+}
 
-  // User state from JWT token
-  const [userRoleCode, setUserRoleCode] = useState("SUPER_ADMIN");
-  const [userDeptCode, setUserDeptCode] = useState("KE_HOACH_CBVT");
-  const [userName, setUserName] = useState("Trưởng Phòng Chuỗi SKECHERS");
+export default function WorkDashboardPage() {
+  const [selectedDept, setSelectedDept] = useState<string | null>(null);
+  const [timeFilter, setTimeFilter] = useState("Tháng này");
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
-  useEffect(() => {
-    const cookies = document.cookie.split("; ");
-    const tokenCookie = cookies.find((row) => row.startsWith("tbs_token="));
-    const token = tokenCookie ? tokenCookie.split("=")[1] : null;
-
-    if (token) {
-      try {
-        const payloadBase64 = token.split(".")[1];
-        if (payloadBase64) {
-          const decoded = JSON.parse(atob(payloadBase64));
-          setUserRoleCode(decoded.roleCode || "SUPER_ADMIN");
-          setUserDeptCode(decoded.departmentCode || "KE_HOACH_CBVT");
-          setUserName(decoded.name || "Trưởng Phòng Chuỗi SKECHERS");
-        }
-      } catch {
-        // Fallback
-      }
-    }
-  }, []);
-
-  // 14 Operational Function Items for Main Circular Menu
-  const functionItems: MenuItem[] = [
+  // Departments List matching exact screenshot
+  const departments: DepartmentItem[] = [
     {
-      id: "daily-review",
-      label: "1. Daily Review",
-      subLabel: "Dashboard Ngày",
-      icon: IconChartBar,
-      isActive: true,
-      onClick: () => setActiveModal("daily-review"),
+      id: "hr",
+      num: 1,
+      name: "Nhân sự hành chánh",
+      sub: "Quản lý văn thư, tài sản, Tuyển dụng, chấm công",
+      icon: IconUsers,
+      hasData: false,
     },
     {
-      id: "gemba",
-      label: "2. Gemba Walk",
-      subLabel: "Sự Cố Máy Móc",
-      icon: IconBuildingFactory,
-      isActive: true,
-      onClick: () => setActiveModal("gemba"),
+      id: "finance",
+      num: 2,
+      name: "Kế toán và quản trị",
+      sub: "Quản lý tài chính, ngân sách và báo cáo",
+      icon: IconCalculator,
+      hasData: false,
+    },
+    {
+      id: "rd",
+      num: 3,
+      name: "R&D (phát triển sản phẩm)",
+      sub: "Nghiên cứu, thiết kế mẫu & kỹ thuật",
+      icon: IconFlask,
+      hasData: true,
     },
     {
       id: "ci",
-      label: "3. Cải Tiến CI",
-      subLabel: "Năng Suất 4.0",
-      icon: IconBulb,
-      isActive: true,
-      onClick: () => setActiveModal("ci"),
-    },
-    {
-      id: "kaizen",
-      label: "4. Kaizen AI Groq",
-      subLabel: "Quét Trùng Lặp",
-      icon: IconBrain,
-      isActive: true,
-      onClick: () => setActiveModal("kaizen"),
-    },
-    {
-      id: "docs",
-      label: "5. Số Hóa Biểu Mẫu",
-      subLabel: "Xuất Word/PDF",
-      icon: IconFileText,
-      isActive: true,
-      onClick: () => alert("Mở module Số Hóa Biểu Mẫu"),
-    },
-    {
-      id: "maint",
-      label: "6. Bảo Trì Kỹ Thuật",
-      subLabel: "App Mobile Native",
-      icon: IconTool,
-      isActive: true,
-      onClick: () => alert("Mở module Bảo Trì Kỹ Thuật"),
+      num: 4,
+      name: "CN-CI",
+      sub: "Cải tiến liên tục & năng suất 4.0",
+      icon: IconSettings,
+      hasData: false,
     },
     {
       id: "qc",
-      label: "7. Kiểm Soát QC",
-      subLabel: "Tiêu Chuẩn SKECHERS",
+      num: 5,
+      name: "Quản lý chất lượng",
+      sub: "Kiểm soát QC, OEE & chỉ số lỗi",
       icon: IconShieldCheck,
-      isActive: true,
-      onClick: () => alert("Mở module QC"),
+      hasData: true,
     },
     {
-      id: "hr-kpi",
-      label: "8. KPI Nhân Sự",
-      subLabel: "Đánh Giá 360",
-      icon: IconUsers,
-      isActive: false,
-      disabledReason: "Sắp ra mắt",
+      id: "logistics",
+      num: 6,
+      name: "Kế hoạch chuẩn bị – Trung tâm phân phối",
+      sub: "Logistics, vật tư & chuỗi cung ứng",
+      icon: IconTruck,
+      hasData: false,
     },
     {
-      id: "planning",
-      label: "9. Kế Hoạch Sản Xuất",
-      subLabel: "Tiến Độ Ca May",
-      icon: IconSparkles,
-      isActive: false,
-      disabledReason: "Sắp ra mắt",
-    },
-    {
-      id: "logistics-hub",
-      label: "10. Kho Vận & ICD",
-      subLabel: "Quản Lý Vỏ Cont",
+      id: "production",
+      num: 7,
+      name: "TH-NM",
+      sub: "Thực hành nhà máy & Sản xuất chuỗi",
       icon: IconBuildingFactory,
-      isActive: false,
-      disabledReason: "Sắp ra mắt",
-    },
-    {
-      id: "energy",
-      label: "11. Năng Lượng Xanh",
-      subLabel: "Giám Sát Điện/Nước",
-      icon: IconSparkles,
-      isActive: false,
-      disabledReason: "Sắp ra mắt",
-    },
-    {
-      id: "audit-history",
-      label: "12. Nhật Ký Audit",
-      subLabel: "Lịch Sử Vận Hành",
-      icon: IconFileText,
-      isActive: false,
-      disabledReason: "Sắp ra mắt",
-    },
-    {
-      id: "compliance",
-      label: "13. Tuân Thủ An Toàn",
-      subLabel: "EHS Standard",
-      icon: IconShieldCheck,
-      isActive: false,
-      disabledReason: "Sắp ra mắt",
-    },
-    {
-      id: "global-sync",
-      label: "14. Đồng Bộ Quốc Tế",
-      subLabel: "SKECHERS Global API",
-      icon: IconBrain,
-      isActive: false,
-      disabledReason: "Sắp ra mắt",
+      hasData: true,
     },
   ];
 
-  return (
-    <div
-      className="min-h-screen bg-slate-50/70 font-sans text-slate-900 antialiased selection:bg-[#006838] selection:text-white"
-      style={{ zoom: `${zoomLevel}%` }}
-    >
-      <Header />
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+      setIsFullscreen(true);
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+        setIsFullscreen(false);
+      }
+    }
+  };
 
-      <main className="pt-24 pb-16 px-4 sm:px-6 lg:px-8 max-w-[1360px] mx-auto space-y-6">
-        {/* Function-first Control Toolbar (TBS Green on White) */}
-        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
-          <div className="flex items-center gap-3.5">
-            <img src="/images/tbs-logo.png" alt="TBS Group Logo" className="h-8 sm:h-9 w-auto object-contain" />
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
-                  Văn Phòng Chuỗi SKECHERS - TBS Group
-                </h1>
-                <span className="text-[10px] font-mono font-bold bg-emerald-50 text-[#006838] border border-emerald-200 px-2 py-0.5 rounded uppercase">
-                  Hệ thống vận hành
+  const activeDeptObj = departments.find((d) => d.id === selectedDept);
+
+  return (
+    <div className="min-h-screen flex bg-[#071912] text-slate-100 font-sans antialiased selection:bg-[#2fd39a] selection:text-[#08221a]">
+      {/* ════════════════════════════════════════════════════════════════
+          LEFT SIDEBAR (Dark Theme Panel matching screenshot)
+         ════════════════════════════════════════════════════════════════ */}
+      <aside className="w-80 lg:w-96 bg-[#071912] flex flex-col justify-between p-5 border-r border-[#193a2e]/50 flex-shrink-0">
+        <div className="space-y-6">
+          {/* Top Brand Logo */}
+          <div className="flex items-center justify-between pb-2 border-b border-[#193a2e]/50">
+            <Link href="/" className="flex items-center gap-3 group">
+              <div className="w-10 h-10 rounded-xl bg-[#006838] p-2 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform">
+                <img
+                  src="/images/tbs-logo.png"
+                  alt="TBS Group Logo"
+                  className="w-full h-full object-contain brightness-0 invert"
+                />
+              </div>
+              <div>
+                <span className="font-black text-xl tracking-tight text-white block leading-none">
+                  TBS GROUP
+                </span>
+                <span className="text-[10px] font-mono text-[#2fd39a] font-bold uppercase tracking-wider block mt-1">
+                  Văn Phòng Chuỗi SKECHERS
                 </span>
               </div>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Tài khoản: <span className="text-[#006838] font-bold">{userName}</span> ({userRoleCode})
-              </p>
-            </div>
+            </Link>
+            <Link
+              href="/"
+              className="p-2 rounded-lg bg-[#112d23] text-gray-400 hover:text-white hover:bg-[#1b4334] transition-colors"
+              title="Về Trang Chủ"
+            >
+              <IconHome size={18} />
+            </Link>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            {/* Zoom Controls */}
-            <div className="flex items-center bg-slate-100 px-2 py-1 rounded-xl border border-slate-200 text-xs">
-              <button
-                onClick={() => setZoomLevel((z) => Math.max(75, z - 10))}
-                className="p-1 text-slate-600 hover:text-slate-900 transition-colors"
-                title="Thu nhỏ"
-              >
-                <IconZoomOut size={15} />
-              </button>
-              <span className="px-2.5 font-mono text-xs font-bold text-[#006838]">
-                {zoomLevel}%
-              </span>
-              <button
-                onClick={() => setZoomLevel((z) => Math.min(125, z + 10))}
-                className="p-1 text-slate-600 hover:text-slate-900 transition-colors"
-                title="Phóng to"
-              >
-                <IconZoomIn size={15} />
-              </button>
-              <button
-                onClick={() => setZoomLevel(100)}
-                className="p-1 text-slate-400 hover:text-slate-700 border-l border-slate-300 ml-1.5 pl-1.5 transition-colors"
-                title="Đặt lại 100%"
-              >
-                <IconRefresh size={13} />
-              </button>
-            </div>
+          {/* Department List (1-7 Numbered Items) */}
+          <nav className="space-y-2">
+            {departments.map((dept) => {
+              const IconComp = dept.icon;
+              const isSelected = selectedDept === dept.id;
 
-            {/* Quick Dropdown Selector in TBS Green */}
-            <div className="relative group">
-              <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#006838] text-white border border-[#006838] text-xs font-bold hover:bg-[#08522d] shadow-sm transition-colors">
-                <IconAdjustmentsHorizontal size={15} />
-                <span>Danh sách Chức Năng (14)</span>
-                <IconChevronDown size={14} />
-              </button>
-              <div className="absolute right-0 top-full mt-1.5 w-64 rounded-2xl bg-white border border-slate-200 p-1.5 shadow-xl hidden group-hover:block z-30 max-h-72 overflow-y-auto">
-                {functionItems.map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => {
-                      if (item.isActive && item.onClick) item.onClick();
-                    }}
-                    disabled={!item.isActive}
-                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition-colors ${
-                      item.isActive
-                        ? "text-slate-800 hover:text-[#006838] hover:bg-emerald-50 cursor-pointer"
-                        : "text-slate-400 opacity-60 cursor-not-allowed"
+              return (
+                <button
+                  key={dept.id}
+                  onClick={() => setSelectedDept(dept.id)}
+                  className={`w-full text-left p-3.5 rounded-2xl flex items-center gap-3.5 transition-all duration-200 group relative ${
+                    isSelected
+                      ? "bg-gradient-to-r from-[#0d3b2b] to-[#124d38] border border-[#2fd39a]/40 text-white shadow-xl shadow-emerald-950/40"
+                      : "bg-[#0c241b]/60 border border-[#193a2e]/40 hover:bg-[#123326] text-gray-300 hover:text-white"
+                  }`}
+                >
+                  {/* Number Badge (1-7) */}
+                  <div
+                    className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs flex-shrink-0 transition-colors ${
+                      isSelected
+                        ? "bg-[#2fd39a] text-[#08221a]"
+                        : "bg-[#14362a] text-[#2fd39a] group-hover:bg-[#1e4b3b]"
                     }`}
                   >
-                    <span>{item.label}</span>
-                    {!item.isActive && (
-                      <span className="text-[10px] text-amber-600 font-bold font-mono">Sắp ra mắt</span>
-                    )}
-                  </button>
+                    {dept.num}
+                  </div>
+
+                  {/* Icon + Title + Subtitle */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <IconComp
+                        size={16}
+                        className={isSelected ? "text-[#2fd39a]" : "text-gray-400"}
+                      />
+                      <h4 className="text-sm font-extrabold truncate">
+                        {dept.name}
+                      </h4>
+                    </div>
+                    <p className="text-[11px] text-gray-400 truncate mt-0.5 font-normal">
+                      {dept.sub}
+                    </p>
+                  </div>
+
+                  {/* Badge Status */}
+                  {!dept.hasData && (
+                    <span className="text-[9px] font-mono font-semibold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 flex-shrink-0">
+                      Soon
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+
+        {/* Footer Credit */}
+        <div className="pt-4 border-t border-[#193a2e]/50 flex items-center justify-between text-xs text-gray-400">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-full bg-[#006838] p-1 flex items-center justify-center">
+              <img
+                src="/images/tbs-logo.png"
+                alt="TBS Logo"
+                className="w-full h-full object-contain brightness-0 invert"
+              />
+            </div>
+            <span className="font-semibold text-gray-300 text-[11px]">
+              TBS Group System
+            </span>
+          </div>
+          <span className="text-[10px] font-mono text-gray-500">
+            © 2026 TBS Group
+          </span>
+        </div>
+      </aside>
+
+      {/* ════════════════════════════════════════════════════════════════
+          MAIN CONTENT AREA (Light/Clean Panel matching screenshot)
+         ════════════════════════════════════════════════════════════════ */}
+      <main className="flex-1 bg-[#f4f7f5] text-slate-900 rounded-tl-[32px] overflow-y-auto flex flex-col justify-between">
+        {/* Top Header Bar */}
+        <header className="p-6 lg:p-8 pb-4 flex items-center justify-between border-b border-slate-200/70 bg-[#f4f7f5]/80 backdrop-blur-md sticky top-0 z-30">
+          <div>
+            <h1 className="text-2xl lg:text-3xl font-black text-slate-900 tracking-tight">
+              Xin chào, <span className="text-[#006838]">Anh Huy!</span>
+            </h1>
+            <p className="text-sm text-slate-500 mt-1 font-medium">
+              Chúc bạn một ngày làm việc hiệu quả tại Văn Phòng Chuỗi SKECHERS.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3 sm:gap-4">
+            {selectedDept && (
+              <button
+                onClick={() => setSelectedDept(null)}
+                className="px-4 py-2 rounded-xl bg-white border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-sm transition-colors"
+              >
+                ← Trở về Tổng Quan
+              </button>
+            )}
+
+            {/* Notifications Button */}
+            <button
+              className="relative p-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
+              title="Thông báo hệ thống"
+            >
+              <IconBell size={20} />
+              <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-[#006838] border-2 border-white" />
+            </button>
+
+            {/* Fullscreen Toggle */}
+            <button
+              onClick={toggleFullscreen}
+              className="p-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
+              title="Toàn màn hình"
+            >
+              <IconMaximize size={20} />
+            </button>
+
+            {/* User Avatar */}
+            <div className="relative flex items-center gap-3 pl-2">
+              <div className="w-10 h-10 rounded-full bg-slate-900 border-2 border-[#006838] overflow-hidden shadow-md">
+                <img
+                  src="/images/crawled/Da-giay1.jpg"
+                  alt="User Avatar"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white" />
+            </div>
+          </div>
+        </header>
+
+        {/* Dashboard Body */}
+        <div className="p-6 lg:p-8 space-y-8 flex-1">
+          {/* IF A "COMING SOON" DEPARTMENT IS SELECTED */}
+          {activeDeptObj && !activeDeptObj.hasData && (
+            <div className="p-12 rounded-3xl bg-white border border-slate-200 shadow-sm text-center space-y-4 max-w-2xl mx-auto my-12">
+              <div className="w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto border border-amber-200">
+                <IconClock size={36} />
+              </div>
+              <h3 className="text-2xl font-black text-slate-900">
+                Phòng {activeDeptObj.name}
+              </h3>
+              <p className="text-slate-500 text-sm leading-relaxed max-w-md mx-auto">
+                Dữ liệu bảng điều khiển dành riêng cho {activeDeptObj.name} đang trong quá trình số hóa và đấu nối hệ thống.
+              </p>
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-100/80 text-amber-800 text-xs font-bold uppercase tracking-wider">
+                <span>Tính năng đang phát triển — Coming Soon</span>
+              </div>
+            </div>
+          )}
+
+          {/* IF R&D (PHÁT TRIỂN SẢN PHẨM) IS SELECTED */}
+          {selectedDept === "rd" && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-black text-slate-900">
+                    🧪 Chỉ Số Phòng Phát Triển Sản Phẩm (R&D)
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Cập nhật thời gian thực về tiến độ phát triển mẫu giày SKECHERS.
+                  </p>
+                </div>
+                <span className="px-3 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-bold">
+                  Dữ liệu R&D Live
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                {[
+                  { title: "Mẫu Đã Duyệt", val: "142 Mẫu", trend: "+18%", color: "emerald" },
+                  { title: "Mẫu Đang Thử Nghiệm", val: "28 Mẫu", trend: "+5%", color: "blue" },
+                  { title: "Thời Gian Lead Time", val: "4.2 Ngày", trend: "-15%", color: "purple" },
+                  { title: "Duyệt Mẫu Lần 1", val: "94.8%", trend: "+2.1%", color: "amber" },
+                ].map((item, idx) => (
+                  <div key={idx} className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-2">
+                    <span className="text-xs font-bold text-slate-500">{item.title}</span>
+                    <div className="text-2xl font-black text-slate-900">{item.val}</div>
+                    <span className="text-xs text-emerald-600 font-bold block">{item.trend} so với tháng trước</span>
+                  </div>
                 ))}
               </div>
             </div>
-          </div>
-        </div>
+          )}
 
-        {/* Clean Mode Selector Tabs */}
-        <div className="flex items-center justify-center p-1.5 bg-slate-200/80 rounded-2xl border border-slate-300/80 max-w-md mx-auto">
-          <button
-            onClick={() => setActiveTab("functions")}
-            className={`flex-1 py-2 px-3 text-xs font-extrabold rounded-xl transition-all ${
-              activeTab === "functions"
-                ? "bg-[#006838] text-white shadow-md"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            14 Chức Năng Vận Hành
-          </button>
-          <button
-            onClick={() => setActiveTab("departments")}
-            className={`flex-1 py-2 px-3 text-xs font-extrabold rounded-xl transition-all ${
-              activeTab === "departments"
-                ? "bg-[#006838] text-white shadow-md"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            14 Phòng Ban Sản Xuất
-          </button>
-        </div>
+          {/* IF QC (QUẢN LÝ CHẤT LƯỢNG) IS SELECTED */}
+          {selectedDept === "qc" && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-black text-slate-900">
+                    🛡️ Chỉ Số Phòng Quản Lý Chất Lượng (QC)
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Hệ thống kiểm soát tỷ lệ lỗi Gemba Walk và chỉ số OEE nhà máy.
+                  </p>
+                </div>
+                <span className="px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-bold">
+                  Dữ liệu QC Live
+                </span>
+              </div>
 
-        {/* Main Operational Radial Canvas on White Container */}
-        <div className="bg-white p-6 sm:p-10 rounded-3xl border border-slate-200/90 shadow-sm">
-          {activeTab === "functions" ? (
-            <CircularMenu
-              items={functionItems}
-              centerTotalCount={398}
-              onCenterClick={() => setIsDonutOpen(true)}
-            />
-          ) : (
-            <DepartmentRadialMenu
-              userRoleCode={userRoleCode}
-              userDepartmentCode={userDeptCode}
-              onSelectDepartment={(deptId, deptName) => {
-                alert(`Bạn đã chọn Phòng Ban: ${deptName} (${deptId})`);
-              }}
-            />
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                {[
+                  { title: "Tỷ Lệ Đạt QC", val: "98.6%", trend: "+1.2%", color: "emerald" },
+                  { title: "Tổng Lỗi Kiểm Hàng", val: "14 Lỗi", trend: "-28%", color: "blue" },
+                  { title: "Lỗi Gemba Cần Sửa", val: "3 Lỗi", trend: "Xử lý 92%", color: "purple" },
+                  { title: "Chỉ Số OEE Nhà Máy", val: "91.5%", trend: "+3.5%", color: "amber" },
+                ].map((item, idx) => (
+                  <div key={idx} className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-2">
+                    <span className="text-xs font-bold text-slate-500">{item.title}</span>
+                    <div className="text-2xl font-black text-slate-900">{item.val}</div>
+                    <span className="text-xs text-emerald-600 font-bold block">{item.trend} so với tháng trước</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* IF TH-NM (PHÒNG SẢN XUẤT) IS SELECTED */}
+          {selectedDept === "production" && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-black text-slate-900">
+                    🏭 Chỉ Số Phòng Sản Xuất (TH-NM)
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Thống kê 33 dây chuyền sản xuất giày SKECHERS thuộc hệ thống nhà máy TBS Group.
+                  </p>
+                </div>
+                <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold">
+                  Dữ liệu Sản Xuất Live
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                {[
+                  { title: "Sản Lượng Tháng", val: "586,000 Đôi", trend: "+15%", color: "emerald" },
+                  { title: "Số Dây Chuyền", val: "33 Chuyền", trend: "100% Hoạt động", color: "blue" },
+                  { title: "Hiệu Suất Chuyền", val: "92.4%", trend: "+5%", color: "purple" },
+                  { title: "Tiến Độ Đơn Hàng", val: "89.2%", trend: "Đạt kế hoạch", color: "amber" },
+                ].map((item, idx) => (
+                  <div key={idx} className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-2">
+                    <span className="text-xs font-bold text-slate-500">{item.title}</span>
+                    <div className="text-2xl font-black text-slate-900">{item.val}</div>
+                    <span className="text-xs text-emerald-600 font-bold block">{item.trend} so với tháng trước</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* DEFAULT MAIN DASHBOARD (EXACT SCREENSHOT LAYOUT) */}
+          {!selectedDept && (
+            <div className="space-y-8">
+              {/* TOP ROW: 4 Metric Cards (Left Column) + Donut Ring Chart (Right Column) */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+                {/* Left Column (4 Cards Vertical Stack) */}
+                <div className="lg:col-span-4 space-y-4">
+                  {/* Card 1: R&D (Phòng phát triển) */}
+                  <div
+                    onClick={() => setSelectedDept("rd")}
+                    className="p-5 rounded-3xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:border-emerald-400 transition-all cursor-pointer flex items-center gap-4 group"
+                  >
+                    <div className="w-14 h-14 rounded-2xl bg-emerald-100/70 text-[#006838] flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+                      <IconUsers size={28} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-xs font-bold text-slate-500 block">
+                        Chỉ Số Phòng Phát Triển (R&D)
+                      </span>
+                      <div className="text-2xl font-black text-slate-900 tracking-tight mt-0.5">
+                        1,248
+                      </div>
+                      <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 mt-0.5">
+                        <IconArrowUpRight size={14} />
+                        <span>+12% so với tháng trước</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card 2: Đơn Hàng */}
+                  <div className="p-5 rounded-3xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex items-center gap-4 group">
+                    <div className="w-14 h-14 rounded-2xl bg-blue-100/70 text-blue-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+                      <IconClipboardList size={28} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-xs font-bold text-slate-500 block">
+                        Đơn Hàng Chuỗi SKECHERS
+                      </span>
+                      <div className="text-2xl font-black text-slate-900 tracking-tight mt-0.5">
+                        342
+                      </div>
+                      <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 mt-0.5">
+                        <IconArrowUpRight size={14} />
+                        <span>+8% so với tháng trước</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card 3: Chỉ Số Phòng Sản Xuất (TH-NM) */}
+                  <div
+                    onClick={() => setSelectedDept("production")}
+                    className="p-5 rounded-3xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:border-purple-400 transition-all cursor-pointer flex items-center gap-4 group"
+                  >
+                    <div className="w-14 h-14 rounded-2xl bg-purple-100/70 text-purple-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+                      <IconPackage size={28} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-xs font-bold text-slate-500 block">
+                        Chỉ Số Phòng Sản Xuất (TH-NM)
+                      </span>
+                      <div className="text-2xl font-black text-slate-900 tracking-tight mt-0.5">
+                        586
+                      </div>
+                      <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 mt-0.5">
+                        <IconArrowUpRight size={14} />
+                        <span>+15% so với tháng trước</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card 4: Hiệu Suất & Chỉ Số Chất Lượng (QC) */}
+                  <div
+                    onClick={() => setSelectedDept("qc")}
+                    className="p-5 rounded-3xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:border-amber-400 transition-all cursor-pointer flex items-center gap-4 group"
+                  >
+                    <div className="w-14 h-14 rounded-2xl bg-amber-100/70 text-amber-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+                      <IconTrendingUp size={28} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-xs font-bold text-slate-500 block">
+                        Chỉ Số Chất Lượng &amp; Hiệu Suất (QC)
+                      </span>
+                      <div className="text-2xl font-black text-slate-900 tracking-tight mt-0.5">
+                        92%
+                      </div>
+                      <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 mt-0.5">
+                        <IconArrowUpRight size={14} />
+                        <span>+5% so với tháng trước</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Column (TỔNG CẢI TIẾN - Donut Chart Block matching exact screenshot) */}
+                <div className="lg:col-span-8 p-6 lg:p-8 rounded-3xl bg-white border border-slate-200/80 shadow-sm space-y-6">
+                  {/* Card Header */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-50 text-[#006838] flex items-center justify-center">
+                        <IconSettings size={22} />
+                      </div>
+                      <h3 className="text-lg font-black text-slate-900 tracking-tight">
+                        TỔNG CẢI TIẾN
+                      </h3>
+                    </div>
+
+                    <select
+                      value={timeFilter}
+                      onChange={(e) => setTimeFilter(e.target.value)}
+                      className="px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 outline-none cursor-pointer hover:bg-slate-100 transition-colors"
+                    >
+                      <option value="Tháng này">Tháng này</option>
+                      <option value="Tháng trước">Tháng trước</option>
+                      <option value="Quý 2/2026">Quý 2/2026</option>
+                      <option value="Cả năm 2026">Cả năm 2026</option>
+                    </select>
+                  </div>
+
+                  {/* Donut Ring Visual matching exact colors and structure */}
+                  <div className="relative py-4 flex flex-col lg:flex-row items-center justify-center gap-8">
+                    {/* Donut SVG Ring Graphic */}
+                    <div className="relative w-72 h-72 flex-shrink-0 flex items-center justify-center">
+                      <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                        {/* Segments matching screenshot colors */}
+                        {/* Blue: Nhân sự hành chánh (22.7%) */}
+                        <circle
+                          cx="50"
+                          cy="50"
+                          r="38"
+                          fill="transparent"
+                          stroke="#2563eb"
+                          strokeWidth="15"
+                          strokeDasharray="54.2 184.8"
+                          strokeDashoffset="0"
+                        />
+                        {/* Orange: CN-CI (19.2%) */}
+                        <circle
+                          cx="50"
+                          cy="50"
+                          r="38"
+                          fill="transparent"
+                          stroke="#ea580c"
+                          strokeWidth="15"
+                          strokeDasharray="45.8 193.2"
+                          strokeDashoffset="-54.2"
+                        />
+                        {/* Emerald: Quản lý chất lượng (14.8%) */}
+                        <circle
+                          cx="50"
+                          cy="50"
+                          r="38"
+                          fill="transparent"
+                          stroke="#059669"
+                          strokeWidth="15"
+                          strokeDasharray="35.3 203.7"
+                          strokeDashoffset="-100"
+                        />
+                        {/* Sky Blue: KH chuẩn bị (9.3%) */}
+                        <circle
+                          cx="50"
+                          cy="50"
+                          r="38"
+                          fill="transparent"
+                          stroke="#0284c7"
+                          strokeWidth="15"
+                          strokeDasharray="22.2 216.8"
+                          strokeDashoffset="-135.3"
+                        />
+                        {/* Purple: TH-NM (4.1%) */}
+                        <circle
+                          cx="50"
+                          cy="50"
+                          r="38"
+                          fill="transparent"
+                          stroke="#7c3aed"
+                          strokeWidth="15"
+                          strokeDasharray="9.8 229.2"
+                          strokeDashoffset="-157.5"
+                        />
+                        {/* Magenta Pink: R&D (13.1%) */}
+                        <circle
+                          cx="50"
+                          cy="50"
+                          r="38"
+                          fill="transparent"
+                          stroke="#db2777"
+                          strokeWidth="15"
+                          strokeDasharray="31.3 207.7"
+                          strokeDashoffset="-167.3"
+                        />
+                        {/* Cyan: Kế toán (16.8%) */}
+                        <circle
+                          cx="50"
+                          cy="50"
+                          r="38"
+                          fill="transparent"
+                          stroke="#06b6d4"
+                          strokeWidth="15"
+                          strokeDasharray="40.1 198.9"
+                          strokeDashoffset="-198.6"
+                        />
+                      </svg>
+
+                      {/* Donut Center Label */}
+                      <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                        <span className="text-[11px] font-black text-[#006838] uppercase tracking-wider block">
+                          TBS GROUP
+                        </span>
+                        <span className="text-4xl font-black text-slate-900 tracking-tight block my-0.5">
+                          582
+                        </span>
+                        <span className="text-xs font-semibold text-slate-500 block">
+                          Tổng Cải Tiến
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Donut Chart Legend Labels Grid */}
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-4 text-xs font-bold w-full max-w-md">
+                      <div className="flex items-center gap-2 p-2 rounded-xl hover:bg-slate-50">
+                        <span className="w-3 h-3 rounded-full bg-blue-600 flex-shrink-0" />
+                        <div>
+                          <span className="text-slate-600 block">Nhân sự hành chánh</span>
+                          <span className="text-slate-900 font-black">132 <span className="text-emerald-600 font-semibold">(22.7%)</span></span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 p-2 rounded-xl hover:bg-slate-50">
+                        <span className="w-3 h-3 rounded-full bg-orange-600 flex-shrink-0" />
+                        <div>
+                          <span className="text-slate-600 block">CN-CI</span>
+                          <span className="text-slate-900 font-black">112 <span className="text-amber-600 font-semibold">(19.2%)</span></span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 p-2 rounded-xl hover:bg-slate-50">
+                        <span className="w-3 h-3 rounded-full bg-cyan-500 flex-shrink-0" />
+                        <div>
+                          <span className="text-slate-600 block">Kế toán &amp; quản trị</span>
+                          <span className="text-slate-900 font-black">98 <span className="text-emerald-600 font-semibold">(16.8%)</span></span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 p-2 rounded-xl hover:bg-slate-50">
+                        <span className="w-3 h-3 rounded-full bg-emerald-600 flex-shrink-0" />
+                        <div>
+                          <span className="text-slate-600 block">Quản lý chất lượng (QC)</span>
+                          <span className="text-slate-900 font-black">86 <span className="text-emerald-600 font-semibold">(14.8%)</span></span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 p-2 rounded-xl hover:bg-slate-50">
+                        <span className="w-3 h-3 rounded-full bg-pink-600 flex-shrink-0" />
+                        <div>
+                          <span className="text-slate-600 block">R&amp;D (Phát triển mẫu)</span>
+                          <span className="text-slate-900 font-black">76 <span className="text-emerald-600 font-semibold">(13.1%)</span></span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 p-2 rounded-xl hover:bg-slate-50">
+                        <span className="w-3 h-3 rounded-full bg-sky-600 flex-shrink-0" />
+                        <div>
+                          <span className="text-slate-600 block">KH chuẩn bị - TTPP</span>
+                          <span className="text-slate-900 font-black">54 <span className="text-emerald-600 font-semibold">(9.3%)</span></span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 p-2 rounded-xl hover:bg-slate-50 col-span-2">
+                        <span className="w-3 h-3 rounded-full bg-purple-600 flex-shrink-0" />
+                        <div>
+                          <span className="text-slate-600 block">TH-NM (Sản xuất nhà máy)</span>
+                          <span className="text-slate-900 font-black">24 <span className="text-pink-600 font-semibold">(4.1%)</span></span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* BOTTOM ROW: System Notifications Bar ("THÔNG BÁO HỆ THỐNG") */}
+              <div className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-sm space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-black text-slate-900 tracking-tight">
+                    THÔNG BÁO HỆ THỐNG
+                  </h3>
+                  <button className="text-xs font-bold text-[#006838] hover:underline flex items-center gap-1">
+                    <span>Xem tất cả</span>
+                    <IconChevronRight size={14} />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Notification 1 */}
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/60 flex items-center gap-3.5 hover:bg-slate-100/80 transition-colors">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-100 text-[#006838] flex items-center justify-center flex-shrink-0">
+                      <IconClipboardList size={20} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h4 className="text-xs font-extrabold text-slate-900 truncate">
+                        Có 12 đơn hàng đang chờ xử lý
+                      </h4>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Cập nhật 10 phút trước
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Notification 2 */}
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/60 flex items-center gap-3.5 hover:bg-slate-100/80 transition-colors">
+                    <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center flex-shrink-0">
+                      <IconUsers size={20} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h4 className="text-xs font-extrabold text-slate-900 truncate">
+                        5 nhân sự sắp hết hạn hợp đồng
+                      </h4>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Cập nhật 1 giờ trước
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Notification 3 */}
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/60 flex items-center gap-3.5 hover:bg-slate-100/80 transition-colors">
+                    <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center flex-shrink-0">
+                      <IconPackage size={20} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h4 className="text-xs font-extrabold text-slate-900 truncate">
+                        Báo cáo cải tiến tuần 24
+                      </h4>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Cập nhật 2 giờ trước
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
         </div>
 
-        {/* 4 Primary Daily Management Operational Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <button
-            onClick={() => setActiveModal("daily-review")}
-            className="p-5 rounded-2xl bg-white border border-slate-200/90 hover:border-[#006838] hover:shadow-md transition-all text-left group shadow-sm"
-          >
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-[#006838] flex items-center justify-center mb-3 border border-emerald-200 group-hover:scale-105 transition-transform">
-              <IconChartBar size={20} />
-            </div>
-            <h3 className="text-sm font-extrabold text-slate-900 mb-1 group-hover:text-[#006838] transition-colors">
-              1. Dashboard Daily Review
-            </h3>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Theo dõi KPI sản lượng, chỉ số OEE &amp; thời gian xử lý sự cố hàng ngày.
-            </p>
-          </button>
-
-          <button
-            onClick={() => setActiveModal("gemba")}
-            className="p-5 rounded-2xl bg-white border border-slate-200/90 hover:border-[#006838] hover:shadow-md transition-all text-left group shadow-sm"
-          >
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-[#006838] flex items-center justify-center mb-3 border border-emerald-200 group-hover:scale-105 transition-transform">
-              <IconBuildingFactory size={20} />
-            </div>
-            <h3 className="text-sm font-extrabold text-slate-900 mb-1 group-hover:text-[#006838] transition-colors">
-              2. Gemba Walk Hiện Trường
-            </h3>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Ghi nhận biên bản sự cố thiết bị, hình ảnh thực tế và theo dõi thời gian SLA.
-            </p>
-          </button>
-
-          <button
-            onClick={() => setActiveModal("ci")}
-            className="p-5 rounded-2xl bg-white border border-slate-200/90 hover:border-[#006838] hover:shadow-md transition-all text-left group shadow-sm"
-          >
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-[#006838] flex items-center justify-center mb-3 border border-emerald-200 group-hover:scale-105 transition-transform">
-              <IconBulb size={20} />
-            </div>
-            <h3 className="text-sm font-extrabold text-slate-900 mb-1 group-hover:text-[#006838] transition-colors">
-              3. Đề Xuất Cải Tiến CI
-            </h3>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Tổng hợp giải pháp nâng cao năng suất, 5S và tối ưu hóa dây chuyền.
-            </p>
-          </button>
-
-          <button
-            onClick={() => setActiveModal("kaizen")}
-            className="p-5 rounded-2xl bg-white border border-slate-200/90 hover:border-[#006838] hover:shadow-md transition-all text-left group shadow-sm"
-          >
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-[#006838] flex items-center justify-center mb-3 border border-emerald-200 group-hover:scale-105 transition-transform">
-              <IconBrain size={20} />
-            </div>
-            <h3 className="text-sm font-extrabold text-slate-900 mb-1 group-hover:text-[#006838] transition-colors">
-              4. Kaizen + AI Groq
-            </h3>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Công cụ trí tuệ nhân tạo tự động quét và so sánh mức độ trùng lặp sáng kiến.
-            </p>
-          </button>
-        </div>
+        {/* Footer info bar inside dashboard */}
+        <footer className="p-4 px-8 border-t border-slate-200/70 text-xs text-slate-500 flex items-center justify-between bg-[#f4f7f5]">
+          <span>Văn Phòng Chuỗi SKECHERS - TBS Group Dashboard v2.4</span>
+          <span className="font-mono text-emerald-700 font-bold">● System Online 24/7</span>
+        </footer>
       </main>
-
-      {/* Popups & Modals */}
-      <DonutChartModal isOpen={isDonutOpen} onClose={() => setIsDonutOpen(false)} />
-      <DailyManagementModals activeModal={activeModal} onClose={() => setActiveModal(null)} />
     </div>
   );
 }
-

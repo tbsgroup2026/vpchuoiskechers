@@ -120,14 +120,12 @@ export default function WorkDashboardPage() {
         <div className="space-y-6">
           {/* Top Brand Logo */}
           <div className="flex items-center justify-between pb-2 border-b border-[#193a2e]/50">
-            <Link href="/" className="flex items-center gap-3 group">
-              <div className="w-10 h-10 rounded-xl bg-[#006838] p-2 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform">
-                <img
-                  src="/images/tbs-logo.png"
-                  alt="TBS Group Logo"
-                  className="w-full h-full object-contain brightness-0 invert"
-                />
-              </div>
+            <Link href="/" className="flex items-center gap-3.5 group">
+              <img
+                src="/images/tbs-logo.png"
+                alt="TBS Group Logo"
+                className="h-10 sm:h-11 w-auto object-contain brightness-0 invert group-hover:scale-105 transition-transform"
+              />
               <div>
                 <span className="font-black text-xl tracking-tight text-white block leading-none">
                   TBS GROUP
@@ -204,13 +202,11 @@ export default function WorkDashboardPage() {
         {/* Footer Credit */}
         <div className="pt-4 border-t border-[#193a2e]/50 flex items-center justify-between text-xs text-gray-400">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-[#006838] p-1 flex items-center justify-center">
-              <img
-                src="/images/tbs-logo.png"
-                alt="TBS Logo"
-                className="w-full h-full object-contain brightness-0 invert"
-              />
-            </div>
+            <img
+              src="/images/tbs-logo.png"
+              alt="TBS Logo"
+              className="h-5 w-auto object-contain brightness-0 invert"
+            />
             <span className="font-semibold text-gray-300 text-[11px]">
               TBS Group System
             </span>

@@ -932,28 +932,28 @@ export default function MeetingRoomsPage() {
         </div>
 
         {/* ════════════════════════════════════════════════════════════════
-            TAB 0: 📅 LỊCH TỔNG HỢP CUỘC HỌP (FULL MONTHLY CALENDAR GRID)
+            TAB 0: 📅 LỊCH TỔNG HỢP CUỘC HỌP (COMPACT MONTHLY CALENDAR GRID)
            ════════════════════════════════════════════════════════════════ */}
         {activeTab === "CALENDAR" && (
-          <div className="space-y-4 animate-in fade-in duration-200">
-            {/* Top Month Header & Controls Bar (Matching Reference Image 2) */}
-            <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-4">
+          <div className="space-y-3 animate-in fade-in duration-200">
+            {/* Top Month Header & Controls Bar */}
+            <div className="px-3.5 py-2.5 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
-                <button className="px-3 py-1.5 rounded-lg bg-blue-800 text-white font-bold text-xs hover:bg-blue-900 transition-colors flex items-center gap-1 shadow-2xs">
-                  <IconChevronLeft size={16} />
-                  <IconChevronRight size={16} />
+                <button className="px-2.5 py-1 rounded-lg bg-blue-800 text-white font-bold text-xs hover:bg-blue-900 transition-colors flex items-center gap-0.5 shadow-2xs">
+                  <IconChevronLeft size={14} />
+                  <IconChevronRight size={14} />
                 </button>
                 <button
                   onClick={() => showToast("Đã chuyển về ngày hôm nay 15/08/2026")}
-                  className="px-3 py-1.5 rounded-lg bg-blue-700 text-white font-bold text-xs hover:bg-blue-800 transition-colors flex items-center gap-1 shadow-2xs"
+                  className="px-2.5 py-1 rounded-lg bg-blue-700 text-white font-bold text-xs hover:bg-blue-800 transition-colors flex items-center gap-1 shadow-2xs"
                 >
-                  <IconCalendar size={15} />
+                  <IconCalendar size={13} />
                   <span>Hôm nay</span>
                 </button>
               </div>
 
               {/* Month Title */}
-              <h2 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight text-center">
+              <h2 className="text-base sm:text-lg font-black text-slate-800 tracking-tight text-center">
                 tháng 8 năm 2026
               </h2>
 
@@ -974,35 +974,35 @@ export default function MeetingRoomsPage() {
                     });
                     setQuickNoteModalOpen(true);
                   }}
-                  className="px-4 py-2 rounded-xl bg-[#006838] text-white font-extrabold text-xs hover:bg-[#00522c] transition-colors shadow-md shadow-emerald-950/20 flex items-center gap-1.5 cursor-pointer"
+                  className="px-3 py-1.5 rounded-xl bg-[#006838] text-white font-extrabold text-xs hover:bg-[#00522c] transition-colors shadow-sm flex items-center gap-1 cursor-pointer"
                 >
-                  <IconPlus size={16} />
+                  <IconPlus size={14} />
                   <span>+ Note cuộc họp mới</span>
                 </button>
               </div>
             </div>
 
             {/* Room Legends Bar */}
-            <div className="px-4 py-3 rounded-xl bg-slate-100 border border-slate-200 flex flex-wrap items-center gap-3 text-xs font-bold text-slate-700">
-              <span className="text-slate-500 uppercase text-[11px] font-extrabold">Chú thích phòng:</span>
-              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-emerald-600" /> Phòng VIP 1</span>
-              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-[#e02424]" /> Phòng Hội Thảo / Số 2</span>
-              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-[#7e22ce]" /> Phòng Gemba / Số 3</span>
-              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-amber-600" /> Phòng R&amp;D Kỹ Thuật</span>
-              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-blue-600" /> Phòng Logistics TTPP</span>
+            <div className="px-3 py-1.5 rounded-xl bg-slate-100 border border-slate-200 flex flex-wrap items-center gap-2.5 text-[11px] font-bold text-slate-700">
+              <span className="text-slate-500 uppercase text-[10px] font-extrabold">Chú thích:</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-emerald-600" /> VIP 1</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-[#e02424]" /> Hội Thảo / Số 2</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-[#7e22ce]" /> Gemba / Số 3</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-amber-600" /> R&amp;D Kỹ Thuật</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-blue-600" /> Logistics TTPP</span>
             </div>
 
-            {/* Full Month Calendar Table Grid (7 Columns) */}
+            {/* Compact Month Calendar Table Grid (7 Columns) */}
             <div className="bg-white rounded-2xl border border-slate-300 shadow-sm overflow-hidden">
               {/* Day Name Headers */}
-              <div className="grid grid-cols-7 bg-slate-50 border-b border-slate-300 text-center text-xs font-black text-blue-900 uppercase">
-                <div className="py-2.5 border-r border-slate-200">CN</div>
-                <div className="py-2.5 border-r border-slate-200">THỨ 2</div>
-                <div className="py-2.5 border-r border-slate-200">THỨ 3</div>
-                <div className="py-2.5 border-r border-slate-200">THỨ 4</div>
-                <div className="py-2.5 border-r border-slate-200">THỨ 5</div>
-                <div className="py-2.5 border-r border-slate-200">THỨ 6</div>
-                <div className="py-2.5">THỨ 7</div>
+              <div className="grid grid-cols-7 bg-slate-50 border-b border-slate-300 text-center text-[11px] font-black text-blue-900 uppercase">
+                <div className="py-1.5 border-r border-slate-200">CN</div>
+                <div className="py-1.5 border-r border-slate-200">THỨ 2</div>
+                <div className="py-1.5 border-r border-slate-200">THỨ 3</div>
+                <div className="py-1.5 border-r border-slate-200">THỨ 4</div>
+                <div className="py-1.5 border-r border-slate-200">THỨ 5</div>
+                <div className="py-1.5 border-r border-slate-200">THỨ 6</div>
+                <div className="py-1.5">THỨ 7</div>
               </div>
 
               {/* 35 Calendar Day Cells (5 Rows x 7 Columns) */}
@@ -1017,16 +1017,16 @@ export default function MeetingRoomsPage() {
                         bookingDate: dayObj.dateStr.split("/").reverse().join("-"),
                       });
                     }}
-                    className={`min-h-[120px] sm:min-h-[140px] p-1.5 sm:p-2 transition-all flex flex-col justify-between cursor-pointer ${
+                    className={`min-h-[65px] sm:min-h-[78px] md:min-h-[85px] p-1 transition-all flex flex-col justify-between cursor-pointer ${
                       dayObj.isCurrentMonth ? "bg-white" : "bg-slate-50/60 text-slate-300"
                     } ${dayObj.isToday ? "bg-blue-50/40 ring-2 ring-blue-600 ring-inset" : "hover:bg-slate-50"}`}
                   >
                     {/* Day Number Header */}
-                    <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center justify-between mb-0.5">
                       <span
-                        className={`text-xs font-black inline-flex items-center justify-center rounded-full w-6 h-6 ${
+                        className={`text-[10px] font-black inline-flex items-center justify-center rounded-full w-5 h-5 ${
                           dayObj.isToday
-                            ? "bg-blue-700 text-white shadow-xs"
+                            ? "bg-blue-700 text-white shadow-2xs"
                             : dayObj.isCurrentMonth
                             ? "text-slate-700"
                             : "text-slate-400"
@@ -1035,14 +1035,14 @@ export default function MeetingRoomsPage() {
                         {dayObj.displayDay}
                       </span>
                       {dayObj.isToday && (
-                        <span className="text-[9px] font-extrabold uppercase text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded-full">
+                        <span className="text-[8px] font-extrabold uppercase text-blue-700 bg-blue-100 px-1 py-0.2 rounded-full">
                           Hôm nay
                         </span>
                       )}
                     </div>
 
                     {/* Day Event Cards Stack */}
-                    <div className="space-y-1 overflow-y-auto max-h-[100px] flex-1">
+                    <div className="space-y-0.5 overflow-y-auto max-h-[60px] flex-1">
                       {dayObj.dayBookings.map((b) => (
                         <div
                           key={b.id}
@@ -1050,21 +1050,19 @@ export default function MeetingRoomsPage() {
                             e.stopPropagation();
                             setSelectedEventModal(b);
                           }}
-                          className={`p-1.5 rounded-lg text-[10px] sm:text-[11px] leading-tight font-bold shadow-2xs transition-all hover:scale-[1.02] cursor-pointer ${getRoomColorStyle(
+                          className={`px-1.5 py-0.5 rounded-md text-[9px] font-bold leading-tight shadow-2xs transition-all hover:scale-[1.02] cursor-pointer truncate ${getRoomColorStyle(
                             b.roomName
                           )}`}
+                          title={`${b.timeSlot} | ${b.roomName} - ${b.title}`}
                         >
-                          <div className="flex items-center justify-between text-[9px] opacity-90 font-mono">
-                            <span>🕒 {b.timeSlot}</span>
-                          </div>
-                          <div className="font-extrabold truncate mt-0.5">{b.roomName}</div>
-                          <div className="text-[10px] font-medium opacity-95 truncate">{b.bookerName}: {b.title}</div>
+                          <span className="opacity-90 font-mono text-[8px] mr-1">{b.timeSlot.split(" - ")[0]}</span>
+                          <span className="truncate">{b.roomName.replace("Phòng Họp ", "")}: {b.title}</span>
                         </div>
                       ))}
                     </div>
 
                     {/* Day Quick Add Hint */}
-                    <div className="pt-1 text-right">
+                    <div className="text-right">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -1083,7 +1081,7 @@ export default function MeetingRoomsPage() {
                           });
                           setQuickNoteModalOpen(true);
                         }}
-                        className="text-[9px] font-bold text-slate-400 hover:text-[#006838] transition-colors"
+                        className="text-[8px] font-bold text-slate-400 hover:text-[#006838] transition-colors"
                       >
                         + Note
                       </button>

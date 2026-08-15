@@ -99,54 +99,6 @@ export async function POST(request: Request) {
       });
     }
 
-    // Demo user 1: Super Admin / Trưởng phòng SKECHERS
-    if ((empCode === 'admin@tbsgroup.vn' || empCode === 'EMP-001') && password === 'Admin@123456') {
-      const payload = {
-        userId: 1,
-        empCode: 'EMP-001',
-        name: 'Trưởng Phòng Chuỗi SKECHERS',
-        roleId: 1,
-        roleCode: 'SUPER_ADMIN',
-        roleLevel: 1,
-        departmentId: 1,
-        departmentCode: 'KE_HOACH_CBVT',
-        departmentName: 'Kế Hoạch & Cung Ứng Vật Tư SKECHERS',
-      };
-
-      const token = await signToken(payload);
-
-      return NextResponse.json({
-        success: true,
-        token,
-        user: payload,
-        redirectUrl: '/work',
-      });
-    }
-
-    // Demo user 2: Staff / CBCNV Thường
-    if (empCode === 'EMP-002' && password === 'User@123456') {
-      const payload = {
-        userId: 2,
-        empCode: 'EMP-002',
-        name: 'Nguyễn Văn Nhân Viên SKECHERS',
-        roleId: 4,
-        roleCode: 'STAFF',
-        roleLevel: 4,
-        departmentId: 2,
-        departmentCode: 'SAN_XUAT',
-        departmentName: 'Phòng Sản Xuất Giày SKECHERS',
-      };
-
-      const token = await signToken(payload);
-
-      return NextResponse.json({
-        success: true,
-        token,
-        user: payload,
-        redirectUrl: '/work',
-      });
-    }
-
     // If empCode provided with correct password, allow standard login
     if (password === '123456' || password === '21032004' || password === 'Admin@123456') {
       const payload = {

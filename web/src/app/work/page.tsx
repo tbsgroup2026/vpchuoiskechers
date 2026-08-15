@@ -23,7 +23,7 @@ import {
 
 interface DepartmentItem {
   id: string;
-  num: number;
+  num: string;
   name: string;
   sub: string;
   icon: React.ElementType;
@@ -39,7 +39,7 @@ export default function WorkDashboardPage() {
   const departments: DepartmentItem[] = [
     {
       id: "hr",
-      num: 1,
+      num: "01",
       name: "Nhân sự hành chánh",
       sub: "Quản lý văn thư, tài sản & tuyển dụng",
       icon: IconUsers,
@@ -47,7 +47,7 @@ export default function WorkDashboardPage() {
     },
     {
       id: "finance",
-      num: 2,
+      num: "02",
       name: "Kế toán và quản trị",
       sub: "Quản lý tài chính, ngân sách & báo cáo",
       icon: IconCalculator,
@@ -55,7 +55,7 @@ export default function WorkDashboardPage() {
     },
     {
       id: "rd",
-      num: 3,
+      num: "03",
       name: "R&D (phát triển sản phẩm)",
       sub: "Nghiên cứu, thiết kế mẫu & kỹ thuật",
       icon: IconFlask,
@@ -63,7 +63,7 @@ export default function WorkDashboardPage() {
     },
     {
       id: "ci",
-      num: 4,
+      num: "04",
       name: "CN-CI",
       sub: "Cải tiến liên tục & năng suất 4.0",
       icon: IconSettings,
@@ -71,7 +71,7 @@ export default function WorkDashboardPage() {
     },
     {
       id: "qc",
-      num: 5,
+      num: "05",
       name: "Quản lý chất lượng",
       sub: "Kiểm soát QC, OEE & chỉ số lỗi",
       icon: IconShieldCheck,
@@ -79,7 +79,7 @@ export default function WorkDashboardPage() {
     },
     {
       id: "logistics",
-      num: 6,
+      num: "06",
       name: "Kế hoạch chuẩn bị – TTPP",
       sub: "Logistics, vật tư & chuỗi cung ứng",
       icon: IconTruck,
@@ -87,7 +87,7 @@ export default function WorkDashboardPage() {
     },
     {
       id: "production",
-      num: 7,
+      num: "07",
       name: "TH-NM",
       sub: "Thực hành nhà máy & Sản xuất chuỗi",
       icon: IconBuildingFactory,
@@ -110,118 +110,120 @@ export default function WorkDashboardPage() {
   const activeDeptObj = departments.find((d) => d.id === selectedDept);
 
   return (
-    <div className="min-h-screen flex bg-[#071f16] text-slate-100 font-sans antialiased selection:bg-[#2fd39a] selection:text-[#071f16]">
+    <div className="min-h-screen flex bg-[#041a13] text-slate-100 font-sans antialiased selection:bg-[#2fd39a] selection:text-[#041a13]">
       {/* ════════════════════════════════════════════════════════════════
-          LEFT SIDEBAR (Executive Human Dark Forest Theme - Clean & Premium)
+          LEFT SIDEBAR (Human-Designed Executive Forest Green Sidebar)
          ════════════════════════════════════════════════════════════════ */}
-      <aside className="w-80 lg:w-96 bg-[#071f16] flex flex-col justify-between p-5 lg:p-6 border-r border-[#154231] flex-shrink-0">
+      <aside className="w-80 lg:w-96 bg-[#041a13] flex flex-col justify-between p-6 border-r border-[#133d2f] flex-shrink-0">
         <div className="space-y-6">
-          {/* Executive Brand Header (Clean Single Logo Lockup - No AI duplication) */}
-          <div className="flex items-center justify-between pb-4 border-b border-[#154231]">
-            <Link href="/" className="flex items-center gap-3 group">
+          {/* Executive Brand Lockup */}
+          <div className="flex items-center justify-between pb-4 border-b border-[#133d2f]">
+            <Link href="/" className="flex items-center gap-3.5 group">
               <img
                 src="/images/tbs-logo.png"
                 alt="TBS Group Logo"
-                className="h-9 sm:h-10 w-auto object-contain brightness-0 invert group-hover:scale-105 transition-transform"
+                className="h-10 w-auto object-contain brightness-0 invert group-hover:scale-105 transition-transform"
               />
-              <div className="h-6 w-[1px] bg-[#154231]" />
+              <div className="h-7 w-[1px] bg-[#133d2f]" />
               <div>
                 <span className="text-xs font-black uppercase tracking-wider text-white block">
-                  SKECHERS
+                  TBS GROUP
                 </span>
-                <span className="text-[10px] font-mono text-[#2fd39a] font-bold block">
-                  Văn Phòng Điều Hành
+                <span className="text-[10px] font-semibold text-[#2fd39a] block">
+                  Văn Phòng Chuỗi SKECHERS
                 </span>
               </div>
             </Link>
 
             <Link
               href="/"
-              className="p-2 rounded-xl bg-[#0f3426] text-gray-400 hover:text-white hover:bg-[#164634] transition-colors border border-[#1e523e]"
+              className="p-2 rounded-xl bg-[#0b2b20] text-gray-400 hover:text-white hover:bg-[#133d2f] transition-colors border border-[#184a39]"
               title="Về Trang Chủ"
             >
               <IconHome size={18} />
             </Link>
           </div>
 
-          {/* Department List (Flush Executive Human Navigation Items) */}
-          <nav className="space-y-1.5">
-            <div className="px-2 pb-1 text-[11px] font-mono font-bold uppercase tracking-widest text-[#2fd39a]/70">
-              Danh Mục Điều Hành (1 - 7)
+          {/* Navigation Section Header */}
+          <div className="space-y-2">
+            <div className="px-2 text-[11px] font-extrabold uppercase tracking-widest text-[#2fd39a]">
+              Phòng Ban Điều Hành (01 - 07)
             </div>
 
-            {departments.map((dept) => {
-              const IconComp = dept.icon;
-              const isSelected = selectedDept === dept.id;
+            {/* Department Navigation List (Clean Human Layout - No Double Badges) */}
+            <div className="space-y-1.5 pt-1">
+              {departments.map((dept) => {
+                const IconComp = dept.icon;
+                const isSelected = selectedDept === dept.id;
 
-              return (
-                <button
-                  key={dept.id}
-                  onClick={() => setSelectedDept(dept.id)}
-                  className={`w-full text-left p-3 rounded-xl flex items-center gap-3.5 transition-all duration-200 group relative ${
-                    isSelected
-                      ? "bg-[#103a2b] text-white border border-[#2fd39a]/40 shadow-lg shadow-emerald-950/40"
-                      : "hover:bg-[#0c2a1e] text-slate-300 hover:text-white border border-transparent"
-                  }`}
-                >
-                  {/* Active Left Indicator Bar */}
-                  {isSelected && (
-                    <span className="absolute left-0 top-2 bottom-2 w-1 bg-[#2fd39a] rounded-r" />
-                  )}
-
-                  {/* Number Badge (1-7) */}
-                  <div
-                    className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs flex-shrink-0 transition-colors ${
+                return (
+                  <button
+                    key={dept.id}
+                    onClick={() => setSelectedDept(dept.id)}
+                    className={`w-full text-left p-3 rounded-2xl flex items-center gap-3.5 transition-all duration-200 group relative ${
                       isSelected
-                        ? "bg-[#2fd39a] text-[#071f16]"
-                        : "bg-[#0e2f22] text-[#2fd39a] group-hover:bg-[#164232]"
+                        ? "bg-[#0e3b2c] text-white border border-[#2fd39a]/50 shadow-lg shadow-emerald-950/50"
+                        : "hover:bg-[#09291e] text-slate-300 hover:text-white border border-transparent"
                     }`}
                   >
-                    {dept.num}
-                  </div>
+                    {/* Active Left Indicator Bar */}
+                    {isSelected && (
+                      <span className="absolute left-0 top-2.5 bottom-2.5 w-1 bg-[#2fd39a] rounded-r-full" />
+                    )}
 
-                  {/* Icon + Title + Subtitle */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <IconComp
-                        size={16}
-                        className={isSelected ? "text-[#2fd39a]" : "text-slate-400 group-hover:text-[#2fd39a]"}
-                      />
-                      <h4 className="text-xs font-extrabold truncate tracking-tight">
-                        {dept.name}
-                      </h4>
+                    {/* Icon Box */}
+                    <div
+                      className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${
+                        isSelected
+                          ? "bg-[#2fd39a] text-[#041a13]"
+                          : "bg-[#0a2e22] text-[#2fd39a] group-hover:bg-[#124232]"
+                      }`}
+                    >
+                      <IconComp size={18} />
                     </div>
-                    <p className="text-[11px] text-slate-400 truncate mt-0.5 font-normal">
-                      {dept.sub}
-                    </p>
-                  </div>
 
-                  {/* Subtle Muted Status Badge (No glaring yellow pills) */}
-                  {!dept.hasData && (
-                    <span className="text-[10px] font-mono text-amber-400/80 font-semibold px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 flex-shrink-0">
-                      Soon
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </nav>
+                    {/* Department Title & Subtitle */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-mono font-bold text-[#2fd39a]/70">
+                          {dept.num}.
+                        </span>
+                        <h4 className="text-xs font-extrabold truncate tracking-tight">
+                          {dept.name}
+                        </h4>
+                      </div>
+                      <p className="text-[11px] text-slate-400 truncate mt-0.5 font-normal">
+                        {dept.sub}
+                      </p>
+                    </div>
+
+                    {/* Subtle Status Indicator */}
+                    {!dept.hasData && (
+                      <span className="text-[10px] font-mono text-amber-400/70 font-medium px-1.5 py-0.5 rounded bg-amber-500/10 flex-shrink-0">
+                        Soon
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
         {/* Executive Footer Credit */}
-        <div className="pt-4 border-t border-[#154231] flex items-center justify-between text-xs text-slate-400">
+        <div className="pt-4 border-t border-[#133d2f] flex items-center justify-between text-xs text-slate-400">
           <div className="flex items-center gap-2">
             <img
               src="/images/tbs-logo.png"
               alt="TBS Logo"
-              className="h-4 w-auto object-contain brightness-0 invert opacity-80"
+              className="h-4 w-auto object-contain brightness-0 invert opacity-70"
             />
             <span className="font-semibold text-slate-300 text-[11px]">
-              TBS Group System
+              TBS Group Operating System
             </span>
           </div>
           <span className="text-[10px] font-mono text-slate-500">
-            © 2026 TBS Group
+            © 2026
           </span>
         </div>
       </aside>
@@ -405,7 +407,7 @@ export default function WorkDashboardPage() {
             </div>
           )}
 
-          {/* DEFAULT MAIN DASHBOARD (EXACT SCREENSHOT LAYOUT - HUMAN EXECUTIVE HIGH END) */}
+          {/* DEFAULT MAIN DASHBOARD */}
           {!selectedDept && (
             <div className="space-y-8">
               {/* TOP ROW: 4 Metric Cards (Left Column) + Donut Ring Chart (Right Column) */}

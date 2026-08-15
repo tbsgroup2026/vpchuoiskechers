@@ -105,17 +105,7 @@ export default function LoginPage() {
           {/* Header nhỏ trên cùng */}
           <div className="flex items-center justify-between pb-6 border-b border-gray-100 mb-8">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-[#08221a] flex items-center justify-center p-1.5 shadow-sm border border-[#0f4133] overflow-hidden">
-                <img src="/images/tbs-logo.png" alt="TBS Group Logo" className="w-full h-full object-contain brightness-0 invert" />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-xs font-black tracking-wider uppercase text-[#08221a]">
-                  SKECHERS - TBS GROUP
-                </span>
-                <span className="text-[10px] text-gray-500 uppercase tracking-widest font-semibold">
-                  HỆ THỐNG VĂN PHÒNG CHUỖI SKECHERS
-                </span>
-              </div>
+              <img src="/images/tbs-logo.png" alt="TBS Group Logo" className="h-8 sm:h-9 w-auto object-contain" />
             </div>
             <Link
               href="/"

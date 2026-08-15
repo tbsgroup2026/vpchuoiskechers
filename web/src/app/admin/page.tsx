@@ -84,6 +84,45 @@ export default function AdminPage() {
     avatar: "/images/tbs-logo.png",
   };
 
+  // Cloudinary Configuration
+  const CLOUDINARY_CLOUD_NAME = "dwl2xtbqa";
+  const CLOUDINARY_PRESET = "vpchuoisk";
+  const [isUploadingCloudinary, setIsUploadingCloudinary] = useState(false);
+
+  const handleCloudinaryFileUpload = async (file: File, target: "media" | "news") => {
+    try {
+      setIsUploadingCloudinary(true);
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("upload_preset", CLOUDINARY_PRESET);
+
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (data.secure_url) {
+        if (target === "media") {
+          setMediaForm((prev) => ({
+            ...prev,
+            url: data.secure_url,
+            title: prev.title || file.name.replace(/\.[^/.]+$/, ""),
+          }));
+        } else {
+          setNewsForm((prev) => ({ ...prev, imageUrl: data.secure_url }));
+        }
+        showToast(`☁️ Tải ảnh lên Cloudinary (${CLOUDINARY_CLOUD_NAME}) thành công!`);
+      } else {
+        alert("Lỗi Cloudinary: " + (data.error?.message || "Không thể nạp tệp!"));
+      }
+    } catch (err: any) {
+      alert("Lỗi kết nối Cloudinary: " + err.message);
+    } finally {
+      setIsUploadingCloudinary(false);
+    }
+  };
+
   // Handle Login
   const handleAdminLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -836,10 +875,26 @@ export default function AdminPage() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-300 block">Đường Link Ảnh Đại Diện (Thumbnail URL)</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-300 block">Đường Link Ảnh Đại Diện (Thumbnail URL)</label>
+                    <label className="text-[11px] font-bold text-blue-400 hover:underline cursor-pointer flex items-center gap-1">
+                      <IconUpload size={12} />
+                      <span>{isUploadingCloudinary ? "☁️ Đang tải..." : "☁️ Chọn tệp ảnh tải lên Cloudinary"}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            handleCloudinaryFileUpload(e.target.files[0], "news");
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
                   <input
                     type="text"
-                    placeholder="/images/crawled/Tin-tuc1.jpg hoặc https://..."
+                    placeholder="Dán URL ảnh hoặc bấm nút chọn tệp bên trên..."
                     value={newsForm.imageUrl}
                     onChange={(e) => setNewsForm({ ...newsForm, imageUrl: e.target.value })}
                     className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs font-mono outline-none focus:border-blue-500"
@@ -899,10 +954,40 @@ export default function AdminPage() {
           <div className="space-y-6 animate-in fade-in duration-200">
             {/* Form Up Ảnh */}
             <form onSubmit={handleAddMedia} className="p-5 sm:p-6 rounded-3xl bg-slate-900 border border-slate-800 shadow-xs space-y-4">
-              <h2 className="text-sm sm:text-base font-black text-white uppercase tracking-tight flex items-center gap-2">
-                <IconPhoto size={18} className="text-amber-400" />
-                <span>🖼️ THÊM HÌNH ẢNH BANNER & MEDIA MỚI</span>
-              </h2>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
+                <h2 className="text-sm sm:text-base font-black text-white uppercase tracking-tight flex items-center gap-2">
+                  <IconPhoto size={18} className="text-amber-400" />
+                  <span>🖼️ THÊM HÌNH ẢNH BANNER & MEDIA MỚI</span>
+                </h2>
+                <div className="text-xs text-amber-400 font-mono flex items-center gap-1">
+                  <span>☁️ Cloudinary Preset: <strong className="text-white">vpchuoisk</strong></span>
+                </div>
+              </div>
+
+              {/* Upload Drop Zone Box */}
+              <div className="p-6 rounded-2xl bg-slate-950 border-2 border-dashed border-slate-800 hover:border-amber-500/60 transition-colors text-center space-y-3">
+                <div className="w-12 h-12 rounded-full bg-amber-950/80 text-amber-400 mx-auto flex items-center justify-center border border-amber-800/60">
+                  <IconUpload size={24} />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-xs font-black text-white uppercase">Tải Ảnh Trực Tiếp Lên Đám Mây Cloudinary (dwl2xtbqa)</h4>
+                  <p className="text-[11px] text-slate-400">Hỗ trợ các tệp ảnh .JPG, .PNG, .WEBP. Ảnh được tối ưu tốc độ CDN tự động.</p>
+                </div>
+                <label className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs transition-colors cursor-pointer shadow-md">
+                  <IconUpload size={16} />
+                  <span>{isUploadingCloudinary ? "☁️ Đang nạp ảnh..." : "Chọn Tệp Từ Máy Tải Lên Cloudinary"}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        handleCloudinaryFileUpload(e.target.files[0], "media");
+                      }
+                    }}
+                  />
+                </label>
+              </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-1">
@@ -932,11 +1017,11 @@ export default function AdminPage() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-300 block">Link Ảnh (URL) *</label>
+                  <label className="text-xs font-bold text-slate-300 block">Link Ảnh Cloudinary URL *</label>
                   <input
                     type="text"
                     required
-                    placeholder="/images/crawled/banner.jpg hoặc https://..."
+                    placeholder="Tự động điền sau khi tải ảnh hoặc dán URL tại đây..."
                     value={mediaForm.url}
                     onChange={(e) => setMediaForm({ ...mediaForm, url: e.target.value })}
                     className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs font-mono outline-none focus:border-amber-500"
@@ -948,8 +1033,8 @@ export default function AdminPage() {
                 type="submit"
                 className="px-6 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-extrabold transition-colors cursor-pointer shadow-md flex items-center gap-1.5"
               >
-                <IconUpload size={16} />
-                <span>Tải Lên Thư Viện</span>
+                <IconCheck size={16} />
+                <span>Lưu Vào Thư Viện Media</span>
               </button>
             </form>
 

@@ -118,25 +118,25 @@ export default function WorkDashboardPage() {
           LEFT SIDEBAR (Taste Skill Crisp White Panel)
          ════════════════════════════════════════════════════════════════ */}
       <aside
-        className={`bg-white min-h-screen flex flex-col justify-between p-3.5 lg:p-4 border-r border-slate-200/80 flex-shrink-0 shadow-sm transition-all duration-300 ease-in-out ${
-          isSidebarCollapsed ? "w-20" : "w-72 lg:w-80"
+        className={`bg-white min-h-screen flex flex-col justify-between p-4 lg:p-5 border-r border-slate-200/80 flex-shrink-0 shadow-sm transition-all duration-300 ease-in-out ${
+          isSidebarCollapsed ? "w-20" : "w-80 lg:w-96"
         }`}
       >
         <div className="space-y-4 flex-1 flex flex-col">
           {/* Executive Brand Lockup & Collapse / Expand Controls */}
-          <div className="flex items-center justify-between pb-3 border-b border-slate-200/80 flex-shrink-0">
+          <div className="flex items-center justify-between pb-3.5 border-b border-slate-200/80 flex-shrink-0">
             {!isSidebarCollapsed ? (
               <Link href="/" className="flex items-center gap-2.5 group overflow-hidden">
                 <img
                   src="/images/tbs-logo.png"
                   alt="TBS Group Logo"
-                  className="h-7 w-auto object-contain group-hover:scale-105 transition-transform"
+                  className="h-8 w-auto object-contain group-hover:scale-105 transition-transform"
                 />
-                <div className="h-5 w-[1px] bg-slate-200 flex-shrink-0" />
+                <div className="h-5.5 w-[1px] bg-slate-200 flex-shrink-0" />
                 <img
                   src="/images/skechers-logo.png"
                   alt="Skechers Logo"
-                  className="h-6.5 w-auto object-contain group-hover:scale-105 transition-transform flex-shrink-0"
+                  className="h-7 w-auto object-contain group-hover:scale-105 transition-transform flex-shrink-0"
                 />
               </Link>
             ) : (
@@ -144,39 +144,39 @@ export default function WorkDashboardPage() {
                 <img
                   src="/images/tbs-logo.png"
                   alt="TBS Group"
-                  className="h-6.5 w-auto object-contain group-hover:scale-105 transition-transform"
+                  className="h-7 w-auto object-contain group-hover:scale-105 transition-transform"
                 />
               </Link>
             )}
 
-            <div className="flex items-center gap-1 flex-shrink-0">
+            <div className="flex items-center gap-1.5 flex-shrink-0">
               {/* Collapse / Expand Sidebar Button */}
               <button
                 onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                className="p-1.5 rounded-lg bg-slate-50 text-slate-600 hover:text-[#006838] hover:bg-emerald-50 transition-colors border border-slate-200/80 shadow-sm cursor-pointer"
+                className="p-2 rounded-xl bg-slate-50 text-slate-600 hover:text-[#006838] hover:bg-emerald-50 transition-colors border border-slate-200/80 shadow-sm cursor-pointer"
                 title={isSidebarCollapsed ? "Mở rộng menu" : "Thu nhỏ menu"}
               >
                 {isSidebarCollapsed ? (
-                  <IconLayoutSidebarLeftExpand size={16} />
+                  <IconLayoutSidebarLeftExpand size={18} />
                 ) : (
-                  <IconLayoutSidebarLeftCollapse size={16} />
+                  <IconLayoutSidebarLeftCollapse size={18} />
                 )}
               </button>
 
               {!isSidebarCollapsed && (
                 <Link
                   href="/"
-                  className="p-1.5 rounded-lg bg-slate-50 text-slate-500 hover:text-[#006838] hover:bg-emerald-50 transition-colors border border-slate-200/80 shadow-sm"
+                  className="p-2 rounded-xl bg-slate-50 text-slate-500 hover:text-[#006838] hover:bg-emerald-50 transition-colors border border-slate-200/80 shadow-sm"
                   title="Về Trang Chủ"
                 >
-                  <IconHome size={16} />
+                  <IconHome size={18} />
                 </Link>
               )}
             </div>
           </div>
 
-          {/* Department List */}
-          <div className="space-y-1 flex-1 pr-0.5">
+          {/* Department List (Enlarged Cards & Typography per User Request) */}
+          <div className="space-y-2 flex-1 pr-0.5">
             {departments.map((dept) => {
               const IconComp = dept.icon;
               const isSelected = selectedDept === dept.id;
@@ -185,32 +185,32 @@ export default function WorkDashboardPage() {
                 <button
                   key={dept.id}
                   onClick={() => setSelectedDept(dept.id)}
-                  className={`w-full text-left rounded-xl flex items-center transition-all duration-200 group relative ${
+                  className={`w-full text-left rounded-2xl flex items-center transition-all duration-200 group relative ${
                     isSidebarCollapsed
-                      ? "p-2 justify-center"
-                      : "p-2.5 gap-2.5"
+                      ? "p-2.5 justify-center"
+                      : "p-3.5 sm:p-4 gap-3.5"
                   } ${
                     isSelected
-                      ? "bg-[#006838] text-white shadow-sm shadow-emerald-900/20 border border-[#006838]"
-                      : "bg-white hover:bg-[#e6f4ed]/50 text-slate-700 hover:text-slate-900 border border-slate-100"
+                      ? "bg-[#006838] text-white shadow-md shadow-emerald-900/20 border border-[#006838]"
+                      : "bg-white hover:bg-[#e6f4ed]/50 text-slate-700 hover:text-slate-900 border border-slate-200/90 shadow-xs"
                   }`}
                 >
                   {/* Active Left Indicator Bar */}
                   {isSelected && (
-                    <span className="absolute left-0 top-2 bottom-2 w-1 bg-white rounded-r-full" />
+                    <span className="absolute left-0 top-2.5 bottom-2.5 w-1 bg-white rounded-r-full" />
                   )}
 
-                  {/* Icon Box */}
+                  {/* Icon Box (Enlarged) */}
                   <div
-                    className={`rounded-lg flex items-center justify-center flex-shrink-0 transition-colors ${
-                      isSidebarCollapsed ? "w-9 h-9" : "w-8 h-8"
+                    className={`rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${
+                      isSidebarCollapsed ? "w-10 h-10" : "w-11 h-11"
                     } ${
                       isSelected
                         ? "bg-white/20 text-white"
                         : "bg-[#e6f4ed] text-[#006838] group-hover:bg-[#006838] group-hover:text-white"
                     }`}
                   >
-                    <IconComp size={18} />
+                    <IconComp size={22} />
                   </div>
 
                   {/* Department Title & Subtitle (Shown when Expanded) */}
@@ -218,18 +218,18 @@ export default function WorkDashboardPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
                         <span
-                          className={`text-[10px] font-mono font-bold ${
-                            isSelected ? "text-emerald-100" : "text-[#006838]/70"
+                          className={`text-xs font-mono font-bold ${
+                            isSelected ? "text-emerald-100" : "text-[#006838]/80"
                           }`}
                         >
                           {dept.num}.
                         </span>
-                        <h4 className="text-xs font-extrabold truncate tracking-tight">
+                        <h4 className="text-sm font-extrabold truncate tracking-tight">
                           {dept.name}
                         </h4>
                       </div>
                       <p
-                        className={`text-[10px] truncate mt-0.5 font-normal ${
+                        className={`text-xs truncate mt-0.5 font-medium ${
                           isSelected ? "text-emerald-100" : "text-slate-500"
                         }`}
                       >
@@ -241,10 +241,10 @@ export default function WorkDashboardPage() {
                   {/* Subtle Status Tag (Shown when Expanded) */}
                   {!isSidebarCollapsed && !dept.hasData && (
                     <span
-                      className={`text-[9px] font-mono font-medium px-1.5 py-0.2 rounded-full flex-shrink-0 ${
+                      className={`text-xs font-mono font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${
                         isSelected
                           ? "bg-white/20 text-white"
-                          : "bg-amber-100/90 text-amber-800 border border-amber-200"
+                          : "bg-amber-100/90 text-amber-800 border border-amber-200/90"
                       }`}
                     >
                       Soon
@@ -253,7 +253,7 @@ export default function WorkDashboardPage() {
 
                   {/* Collapsed Hover Tooltip Popup */}
                   {isSidebarCollapsed && (
-                    <div className="absolute left-full ml-3 px-3 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-xl shadow-2xl whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none flex items-center gap-2">
+                    <div className="absolute left-full ml-3 px-3.5 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl shadow-2xl whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none flex items-center gap-2">
                       <span>{dept.num}. {dept.name}</span>
                       {!dept.hasData && (
                         <span className="text-[10px] font-mono text-amber-300 font-normal">

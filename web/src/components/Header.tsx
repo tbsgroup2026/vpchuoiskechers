@@ -220,24 +220,14 @@ export default function Header() {
               Trang Chủ
             </Link>
 
-            {/* 2. Ngành trụ cột */}
-            <Link
-              href="/#pillars"
-              className={`transition-colors py-1 ${
-                pathname === '/nganh-tru-cot' ? 'text-[#2fd39a]' : 'hover:text-[#2fd39a]'
-              }`}
-            >
-              Ngành Trụ Cột
-            </Link>
-
-            {/* 3. Về TBS */}
+            {/* 2. TBS Group (Gôm Ngành Trụ Cột & Về TBS) */}
             <Link
               href="/ve-tbs"
               className={`transition-colors py-1 ${
-                pathname === '/ve-tbs' ? 'text-[#2fd39a]' : 'hover:text-[#2fd39a]'
+                pathname === '/ve-tbs' || pathname === '/about' ? 'text-[#2fd39a]' : 'hover:text-[#2fd39a]'
               }`}
             >
-              Về TBS
+              TBS Group
             </Link>
 
             {/* 4. Tuyển dụng */}
@@ -483,18 +473,11 @@ export default function Header() {
               Trang Chủ
             </Link>
             <Link
-              href="/#pillars"
-              onClick={() => setMobileOpen(false)}
-              className="block py-2.5 text-sm font-bold text-white hover:text-[#2fd39a] border-b border-white/10"
-            >
-              Ngành Trụ Cột
-            </Link>
-            <Link
               href="/ve-tbs"
               onClick={() => setMobileOpen(false)}
               className="block py-2.5 text-sm font-bold text-white hover:text-[#2fd39a] border-b border-white/10"
             >
-              Về TBS Group
+              TBS Group
             </Link>
             <Link
               href="/careers"

@@ -13,14 +13,13 @@ import {
   IconBell,
   IconMaximize,
   IconChevronRight,
+  IconChevronLeft,
   IconTrendingUp,
   IconClipboardList,
   IconPackage,
   IconClock,
   IconArrowUpRight,
   IconHome,
-  IconLayoutSidebarLeftCollapse,
-  IconLayoutSidebarLeftExpand,
 } from "@tabler/icons-react";
 
 interface DepartmentItem {
@@ -115,15 +114,28 @@ export default function WorkDashboardPage() {
   return (
     <div className="min-h-screen w-full flex bg-[#f4f7f5] text-slate-900 font-sans antialiased selection:bg-[#006838] selection:text-white">
       {/* ════════════════════════════════════════════════════════════════
-          LEFT SIDEBAR (Taste Skill Crisp White Panel)
+          LEFT SIDEBAR (With Circular Floating Toggle Button - Exact Screenshot Match)
          ════════════════════════════════════════════════════════════════ */}
       <aside
-        className={`bg-white min-h-screen flex flex-col justify-between p-4 lg:p-5 border-r border-slate-200/80 flex-shrink-0 shadow-sm transition-all duration-300 ease-in-out ${
+        className={`relative bg-white min-h-screen flex flex-col justify-between p-4 lg:p-5 border-r border-slate-200/80 flex-shrink-0 shadow-sm transition-all duration-300 ease-in-out z-30 ${
           isSidebarCollapsed ? "w-20" : "w-80 lg:w-96"
         }`}
       >
+        {/* Floating Circular Green "Thu nhỏ" / "Phóng to" Toggle Button (Anchored to Sidebar Edge per Screenshot) */}
+        <button
+          onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          className="absolute -right-5 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-[#006838] text-white shadow-xl border-2 border-white flex items-center justify-center hover:bg-[#00522c] hover:scale-110 active:scale-95 transition-all duration-200 z-50 cursor-pointer group"
+          title={isSidebarCollapsed ? "Phóng to / Mở rộng menu" : "Thu nhỏ menu"}
+        >
+          {isSidebarCollapsed ? (
+            <IconChevronRight size={22} className="group-hover:translate-x-0.5 transition-transform" />
+          ) : (
+            <IconChevronLeft size={22} className="group-hover:-translate-x-0.5 transition-transform" />
+          )}
+        </button>
+
         <div className="space-y-4 flex-1 flex flex-col">
-          {/* Executive Brand Lockup & Collapse / Expand Controls */}
+          {/* Executive Brand Lockup */}
           <div className="flex items-center justify-between pb-3.5 border-b border-slate-200/80 flex-shrink-0">
             {!isSidebarCollapsed ? (
               <Link href="/" className="flex items-center gap-2.5 group overflow-hidden">
@@ -149,30 +161,15 @@ export default function WorkDashboardPage() {
               </Link>
             )}
 
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-              {/* Collapse / Expand Sidebar Button */}
-              <button
-                onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                className="p-2 rounded-xl bg-slate-50 text-slate-600 hover:text-[#006838] hover:bg-emerald-50 transition-colors border border-slate-200/80 shadow-sm cursor-pointer"
-                title={isSidebarCollapsed ? "Mở rộng menu" : "Thu nhỏ menu"}
+            {!isSidebarCollapsed && (
+              <Link
+                href="/"
+                className="p-2 rounded-xl bg-slate-50 text-slate-500 hover:text-[#006838] hover:bg-emerald-50 transition-colors border border-slate-200/80 shadow-sm"
+                title="Về Trang Chủ"
               >
-                {isSidebarCollapsed ? (
-                  <IconLayoutSidebarLeftExpand size={18} />
-                ) : (
-                  <IconLayoutSidebarLeftCollapse size={18} />
-                )}
-              </button>
-
-              {!isSidebarCollapsed && (
-                <Link
-                  href="/"
-                  className="p-2 rounded-xl bg-slate-50 text-slate-500 hover:text-[#006838] hover:bg-emerald-50 transition-colors border border-slate-200/80 shadow-sm"
-                  title="Về Trang Chủ"
-                >
-                  <IconHome size={18} />
-                </Link>
-              )}
-            </div>
+                <IconHome size={18} />
+              </Link>
+            )}
           </div>
 
           {/* Department List (Enlarged Cards & Typography per User Request) */}

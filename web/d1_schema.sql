@@ -258,3 +258,31 @@ VALUES (100, '202608001', 'anhhuy@tbsgroup.vn', 'Phạm Nguyễn Anh Huy', '0900
 
 INSERT OR IGNORE INTO users (id, emp_code, email, name, phone, password_hash, role_id, department_id, status)
 VALUES (101, '202608002', 'ngochuy@tbsgroup.vn', 'Trần Ngọc Huy', '0900000001', '123456', 1, 11, 'ACTIVE');
+
+-- 12. BUSINESS TRIPS (Đăng ký & Quản lý lịch công tác)
+CREATE TABLE IF NOT EXISTS business_trips (
+    id TEXT PRIMARY KEY,
+    code TEXT NOT NULL,
+    title TEXT NOT NULL,
+    region TEXT DEFAULT 'VP Chuỗi',
+    factory TEXT,
+    creator TEXT NOT NULL,
+    department TEXT NOT NULL,
+    location TEXT NOT NULL,
+    start_date TEXT NOT NULL,
+    end_date TEXT NOT NULL,
+    days_count INTEGER DEFAULT 1,
+    transport TEXT DEFAULT 'Xe công ty',
+    participants_count INTEGER DEFAULT 1,
+    purpose TEXT,
+    address TEXT,
+    proposal_text TEXT,
+    participants_json TEXT,
+    status TEXT DEFAULT 'PENDING', -- PENDING, APPROVED, REJECTED
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT OR IGNORE INTO business_trips (id, code, title, region, factory, creator, department, location, start_date, end_date, days_count, transport, participants_count, purpose, status, created_at)
+VALUES 
+('rec_1', 'CT-2026-018', 'Đánh giá Gemba Walk & Kiểm định dây chuyền A1', 'VP Chuỗi', 'Nhà máy SKECHERS A1', 'Anh Huy', 'Hành chính', 'Bình Dương - Cụm Nhà Máy A1', '15/08/2026', '16/08/2026', 2, 'Xe công ty', 3, 'Kiểm định dây chuyền may tự động A1', 'APPROVED', '2026-08-14 09:30:00'),
+('rec_2', 'CT-2026-019', 'Khảo sát mở rộng Trung tâm Phân phối TTPP Đồng Nai', 'VP Chuỗi', 'Tổ hợp Đế Giày TTPP', 'Trần Thị Mai', 'Logistics', 'Đồng Nai - Kho Logistics TTPP', '18/08/2026', '18/08/2026', 1, 'Xe công ty', 2, 'Khảo sát hiện trường kho bãi', 'PENDING', '2026-08-15 08:15:00');

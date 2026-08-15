@@ -8,8 +8,8 @@ import { motion } from "motion/react";
 import {
   IconArrowRight,
   IconAward,
-  IconCheckCircle,
-  IconGaugeCircle,
+  IconCircleCheck,
+  IconGauge,
   IconSparkles,
 } from "@tabler/icons-react";
 
@@ -178,7 +178,7 @@ export default function HomePage() {
               >
                 <div>
                   <div className="w-12 h-12 bg-[#0a7c5a] rounded-2xl flex items-center justify-center text-white mb-4">
-                    <IconGaugeCircle size={24} />
+                    <IconGauge size={24} />
                   </div>
                   <h3 className="text-xl lg:text-2xl font-black text-slate-900 mb-3">
                     Vận Hành Chuẩn Hóa 4.0
@@ -201,7 +201,7 @@ export default function HomePage() {
                 transition={{ duration: 0.6, delay: 0.1 }}
               >
                 <div className="w-12 h-12 bg-amber-100 rounded-2xl flex items-center justify-center text-amber-700 mb-4">
-                  <IconCheckCircle size={24} />
+                  <IconCircleCheck size={24} />
                 </div>
                 <h3 className="text-xl font-bold text-slate-900 mb-2">
                   Kiểm Soát Chất Lượng

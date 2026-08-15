@@ -6,7 +6,9 @@
     "nodejs_compat"
   ],
   "assets": {
-    "directory": "out"
+    "directory": "out",
+    "html_handling": "drop-trailing-slash",
+    "not_found_handling": "single-page-application"
   },
   "vars": {
     "NEXT_PUBLIC_APP_URL": "https://vpchuoiskechers.tbsgroup2026.workers.dev",

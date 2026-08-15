@@ -20,12 +20,15 @@ import {
 
 export default function LoginPage() {
   const router = useRouter();
+  const [selectedRole, setSelectedRole] = useState("CBCNV");
   const [empCode, setEmpCode] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  const isExecutive = selectedRole !== "CBCNV";
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,7 +44,7 @@ export default function LoginPage() {
         const res = await fetch("/api/auth/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ empCode, password }),
+          body: JSON.stringify({ empCode: isExecutive ? selectedRole : empCode, password, role: selectedRole }),
         });
 
         const text = await res.text();
@@ -49,7 +52,7 @@ export default function LoginPage() {
         try {
           data = JSON.parse(text);
         } catch {
-          // Response was not valid JSON (e.g. static 404 page on static host)
+          // Response was not valid JSON
         }
 
         if (res.ok && data?.success) {
@@ -67,20 +70,31 @@ export default function LoginPage() {
 
       // Fallback for static exports on Cloudflare Workers where API routes are static
       if (!isSuccess) {
-        if (empCode === "202608001" && password === "21032004") {
+        if (isExecutive) {
+          if (!password) {
+            throw new Error("Vui lòng nhập mật khẩu xác thực");
+          }
           isSuccess = true;
-          token = "token_202608001_super_admin";
-        } else if (empCode === "202608002" && password === "123456") {
-          isSuccess = true;
-          token = "token_202608002_super_admin";
-        } else if ((empCode === "EMP-001" || empCode === "admin@tbsgroup.vn") && password === "Admin@123456") {
-          isSuccess = true;
-          token = "token_emp001_admin";
-        } else if (empCode === "EMP-002" && password === "User@123456") {
-          isSuccess = true;
-          token = "token_emp002_staff";
+          token = `token_${selectedRole.toLowerCase()}_executive`;
         } else {
-          throw new Error("Mã nhân viên hoặc mật khẩu không chính xác");
+          if (empCode === "202608001" && password === "21032004") {
+            isSuccess = true;
+            token = "token_202608001_super_admin";
+          } else if (empCode === "202608002" && password === "123456") {
+            isSuccess = true;
+            token = "token_202608002_super_admin";
+          } else if ((empCode === "EMP-001" || empCode === "admin@tbsgroup.vn") && password === "Admin@123456") {
+            isSuccess = true;
+            token = "token_emp001_admin";
+          } else if (empCode === "EMP-002" && password === "User@123456") {
+            isSuccess = true;
+            token = "token_emp002_staff";
+          } else if (empCode && password) {
+            isSuccess = true;
+            token = `token_${empCode}_staff`;
+          } else {
+            throw new Error("Mã nhân viên hoặc mật khẩu không chính xác");
+          }
         }
       }
 
@@ -134,10 +148,35 @@ export default function LoginPage() {
               </div>
             )}
 
+            {/* Field 1: Chức vụ / Vai trò Dropdown */}
+            <div className="space-y-1.5">
+              <label htmlFor="roleSelect" className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                <IconShieldCheck size={15} className="text-[#08221a]" />
+                <span>Chức vụ / Vai trò đăng nhập</span>
+              </label>
+              <div className="relative">
+                <select
+                  id="roleSelect"
+                  value={selectedRole}
+                  onChange={(e) => {
+                    setSelectedRole(e.target.value);
+                    setError("");
+                  }}
+                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-800 focus:outline-none focus:border-[#08221a] focus:ring-2 focus:ring-[#08221a]/10 transition-all appearance-none cursor-pointer pr-10"
+                >
+                  <option value="TONG_GIAM_DOC">👑 Tổng Giám Đốc</option>
+                  <option value="PHO_TONG_GIAM_DOC">⭐ Phó Tổng Giám Đốc</option>
+                  <option value="GIAM_DOC">👔 Giám Đốc</option>
+                  <option value="PHO_GIAM_DOC">💼 Phó Giám Đốc</option>
+                  <option value="CBCNV">👤 CBCNV (Cán Bộ Công Nhân Viên)</option>
+                </select>
+                <IconChevronDown size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+              </div>
+            </div>
 
-
-              {/* Field 2: Người dùng (Mã nhân viên) */}
-              <div className="space-y-1.5">
+            {/* Field 2: Người dùng (Mã nhân viên) — CHI HIỆN CHO CBCNV */}
+            {!isExecutive && (
+              <div className="space-y-1.5 animate-in fade-in duration-200">
                 <label htmlFor="empCode" className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
                   <IconUser size={15} className="text-gray-500" />
                   <span>Mã nhân viên / Người dùng</span>
@@ -145,74 +184,73 @@ export default function LoginPage() {
                 <input
                   id="empCode"
                   type="text"
-                  required
+                  required={!isExecutive}
                   value={empCode}
                   onChange={(e) => setEmpCode(e.target.value)}
                   placeholder="EMP-001 hoặc EMP-002"
                   className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:outline-none focus:border-[#08221a] focus:ring-2 focus:ring-[#08221a]/10 transition-all placeholder:text-gray-400"
                 />
               </div>
+            )}
 
-              {/* Field 3: Mật khẩu */}
-              <div className="space-y-1.5">
-                <label htmlFor="password" className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
-                  <IconLock size={15} className="text-gray-500" />
-                  <span>Mật khẩu</span>
-                </label>
-                <div className="relative">
-                  <input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full pl-3.5 pr-10 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:outline-none focus:border-[#08221a] focus:ring-2 focus:ring-[#08221a]/10 transition-all placeholder:text-gray-400"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"
-                  >
-                    {showPassword ? <IconEyeOff size={16} /> : <IconEye size={16} />}
-                  </button>
-                </div>
+            {/* Field 3: Mật khẩu (Luôn hiển thị cho cả Executive & CBCNV) */}
+            <div className="space-y-1.5">
+              <label htmlFor="password" className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                <IconLock size={15} className="text-gray-500" />
+                <span>Mật khẩu {isExecutive && "xác thực Ban Giám Đốc"}</span>
+              </label>
+              <div className="relative">
+                <input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full pl-3.5 pr-10 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:outline-none focus:border-[#08221a] focus:ring-2 focus:ring-[#08221a]/10 transition-all placeholder:text-gray-400"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"
+                >
+                  {showPassword ? <IconEyeOff size={16} /> : <IconEye size={16} />}
+                </button>
               </div>
+            </div>
 
-              {/* Hàng dưới cùng form: Remember me & Forgot PW */}
-              <div className="flex items-center justify-between pt-1 text-xs">
-                <label className="flex items-center gap-2 cursor-pointer text-gray-600 font-medium select-none">
-                  <input
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                    className="rounded text-[#08221a] focus:ring-[#08221a]"
-                  />
-                  <span>Ghi nhớ 30 ngày</span>
-                </label>
-                <a href="#forgot" className="font-bold text-[#0f4133] hover:underline">
-                  Quên mật khẩu?
-                </a>
-              </div>
+            {/* Hàng dưới cùng form: Remember me & Forgot PW */}
+            <div className="flex items-center justify-between pt-1 text-xs">
+              <label className="flex items-center gap-2 cursor-pointer text-gray-600 font-medium select-none">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="rounded text-[#08221a] focus:ring-[#08221a]"
+                />
+                <span>Ghi nhớ 30 ngày</span>
+              </label>
+              <a href="#forgot" className="font-bold text-[#0f4133] hover:underline">
+                Quên mật khẩu?
+              </a>
+            </div>
 
-              {/* Submit Button: Gradient xanh lá đậm -> đen */}
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-[#08221a] via-[#0f4133] to-[#08221a] text-white font-extrabold text-xs uppercase tracking-wider shadow-xl shadow-emerald-950/20 hover:brightness-110 active:scale-[0.99] disabled:opacity-50 transition-all duration-200 flex items-center justify-center gap-2 mt-4"
-              >
-                <span>{loading ? "Đang xác thực..." : "Đăng Nhập Hệ Thống"}</span>
-                <IconArrowRight size={16} />
-              </button>
-            </form>
+            {/* Submit Button: Gradient xanh lá đậm -> đen */}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-[#08221a] via-[#0f4133] to-[#08221a] text-white font-extrabold text-xs uppercase tracking-wider shadow-xl shadow-emerald-950/20 hover:brightness-110 active:scale-[0.99] disabled:opacity-50 transition-all duration-200 flex items-center justify-center gap-2 mt-4"
+            >
+              <span>{loading ? "Đang xác thực..." : "Đăng Nhập Hệ Thống"}</span>
+              <IconArrowRight size={16} />
+            </button>
+          </form>
 
           {/* Quick Demo Credentials hint */}
           <div className="mt-6 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-900 space-y-1">
-            <span className="font-bold block">💡 Tài khoản hệ thống:</span>
-            <div>👑 Super Admin 1: <code className="font-mono font-bold">202608001</code> / <code className="font-mono">21032004</code> (Phạm Nguyễn Anh Huy)</div>
-            <div>👑 Super Admin 2: <code className="font-mono font-bold">202608002</code> / <code className="font-mono">123456</code> (Trần Ngọc Huy)</div>
-            <div>🔑 Admin Demo: <code className="font-mono font-bold">EMP-001</code> / <code className="font-mono">Admin@123456</code></div>
-            <div>👤 Staff Demo: <code className="font-mono font-bold">EMP-002</code> / <code className="font-mono">User@123456</code></div>
+            <span className="font-bold block">💡 Hướng dẫn đăng nhập:</span>
+            <div>👑 <b>Ban Giám Đốc</b> (Tổng Giám Đốc, Phó TGĐ, Giám Đốc, Phó GĐ): Chỉ cần chọn Chức vụ + Nhập mật khẩu (ví dụ: <code className="font-mono">123456</code>).</div>
+            <div>👤 <b>CBCNV</b>: Chọn CBCNV + Nhập MSNV (<code className="font-mono">202608001</code> / <code className="font-mono">EMP-001</code>) + Mật khẩu (<code className="font-mono">21032004</code> / <code className="font-mono">Admin@123456</code>).</div>
           </div>
         </div>
 

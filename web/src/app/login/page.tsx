@@ -161,6 +161,22 @@ export default function LoginPage() {
           avatar: "/images/crawled/Da-giay3.jpg",
           redirectUrl: "/work?dept=rd",
         },
+        "tbsgroup2026@gmail.com": {
+          empCode: "ADMIN-2026",
+          name: "Super Administrator System",
+          title: "Quản Trị Viên Hệ Thống TBS Group",
+          department: "Khối Quản Trị Hệ Thống",
+          avatar: "/images/tbs-logo.png",
+          redirectUrl: "/admin",
+        },
+        SYSTEM_ADMIN: {
+          empCode: "ADMIN-2026",
+          name: "Super Administrator System",
+          title: "Quản Trị Viên Hệ Thống TBS Group",
+          department: "Khối Quản Trị Hệ Thống",
+          avatar: "/images/tbs-logo.png",
+          redirectUrl: "/admin",
+        },
         CBCNV: {
           empCode: "202608001",
           name: "Bùi Văn Tuấn",
@@ -391,6 +407,7 @@ export default function LoginPage() {
                   <option value="GIAM_DOC">👔 Giám Đốc</option>
                   <option value="PHO_GIAM_DOC">💼 Phó Giám Đốc</option>
                   <option value="CBCNV">👤 CBCNV (Cán Bộ Công Nhân Viên)</option>
+                  <option value="SYSTEM_ADMIN">🛠️ Quản Trị Viên Hệ Thống (Admin)</option>
                 </select>
                 <IconChevronDown size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
               </div>

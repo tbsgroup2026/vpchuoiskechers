@@ -39,6 +39,12 @@ import {
   IconCheck,
   IconChevronDown,
   IconUpload,
+  IconZoomIn,
+  IconZoomOut,
+  IconAdjustmentsHorizontal,
+  IconArrowUp,
+  IconArrowDown,
+  IconRotate,
 } from "@tabler/icons-react";
 
 interface DepartmentItem {
@@ -70,6 +76,11 @@ export default function WorkDashboardPage() {
     avatar: "/images/crawled/Da-giay1.jpg",
     title: "Quản trị viên cao cấp - SKECHERS",
   });
+
+  // Avatar Zoom & Position Controls State
+  const [avatarZoom, setAvatarZoom] = useState(1.0);
+  const [avatarOffsetY, setAvatarOffsetY] = useState(0);
+  const [avatarOffsetX, setAvatarOffsetX] = useState(0);
 
   // Edit Profile Form Temp State
   const [editProfileForm, setEditProfileForm] = useState({ ...userInfo });
@@ -436,6 +447,10 @@ export default function WorkDashboardPage() {
                     <img
                       src={userInfo.avatar}
                       alt={userInfo.name}
+                      style={{
+                        transform: `scale(${avatarZoom}) translate(${avatarOffsetX}px, ${avatarOffsetY}px)`,
+                        transformOrigin: "center center",
+                      }}
                       className="w-full h-full object-cover"
                     />
                   </div>
@@ -455,11 +470,17 @@ export default function WorkDashboardPage() {
                     {/* User Info Header */}
                     <div className="p-4 bg-gradient-to-br from-[#006838] to-[#004d29] text-white space-y-2">
                       <div className="flex items-center gap-3">
-                        <img
-                          src={userInfo.avatar}
-                          alt={userInfo.name}
-                          className="w-11 h-11 rounded-full border-2 border-white/80 object-cover shadow-sm flex-shrink-0"
-                        />
+                        <div className="w-11 h-11 rounded-full border-2 border-white/80 overflow-hidden flex-shrink-0 shadow-sm">
+                          <img
+                            src={userInfo.avatar}
+                            alt={userInfo.name}
+                            style={{
+                              transform: `scale(${avatarZoom}) translate(${avatarOffsetX}px, ${avatarOffsetY}px)`,
+                              transformOrigin: "center center",
+                            }}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
                         <div className="min-w-0 flex-1">
                           <h4 className="text-sm font-black truncate">{userInfo.name}</h4>
                           <p className="text-xs text-emerald-100 truncate font-medium">{userInfo.email}</p>
@@ -1362,42 +1383,102 @@ export default function WorkDashboardPage() {
                 className="hidden"
               />
 
-              {/* Avatar Preview & Upload */}
-              <div className="flex items-center gap-4 p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
-                <div
-                  onClick={() => fileInputRef.current?.click()}
-                  className="relative group cursor-pointer flex-shrink-0"
-                  title="Nhấn để tải ảnh mới từ máy"
-                >
-                  <img
-                    src={editProfileForm.avatar}
-                    alt={editProfileForm.name}
-                    className="w-16 h-16 rounded-full object-cover border-2 border-[#006838] shadow-sm group-hover:opacity-90 transition-opacity"
-                  />
-                  <div className="absolute inset-0 rounded-full bg-slate-900/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity">
-                    <IconCamera size={20} />
-                  </div>
+              {/* Avatar Preview & Position / Zoom Controls */}
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <IconAdjustmentsHorizontal size={16} className="text-[#006838]" />
+                    <span>Ảnh đại diện &amp; Căn chỉnh vị trí</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="px-3 py-1 rounded-xl bg-[#006838] text-white text-xs font-extrabold hover:bg-[#00522c] transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  >
+                    <IconUpload size={14} />
+                    <span>Tải ảnh từ máy...</span>
+                  </button>
                 </div>
 
-                <div className="flex-1 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-slate-700 block">Ảnh đại diện (Avatar)</label>
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="px-2.5 py-1 rounded-lg bg-[#006838] text-white text-[11px] font-bold hover:bg-[#00522c] transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
-                    >
-                      <IconUpload size={13} />
-                      <span>Tải ảnh lên...</span>
-                    </button>
+                <div className="flex flex-col sm:flex-row items-center gap-4 pt-1">
+                  {/* Circular Avatar Live Preview Container */}
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-20 h-20 rounded-full border-2 border-[#006838] overflow-hidden relative shadow-md bg-slate-200 flex-shrink-0 cursor-pointer group"
+                    title="Nhấn để chọn ảnh tệp mới"
+                  >
+                    <img
+                      src={editProfileForm.avatar}
+                      alt={editProfileForm.name}
+                      style={{
+                        transform: `scale(${avatarZoom}) translate(${avatarOffsetX}px, ${avatarOffsetY}px)`,
+                        transformOrigin: "center center",
+                      }}
+                      className="w-full h-full object-cover transition-transform duration-75"
+                    />
+                    <div className="absolute inset-0 rounded-full bg-slate-900/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity">
+                      <IconCamera size={22} />
+                    </div>
                   </div>
-                  <input
-                    type="text"
-                    value={editProfileForm.avatar}
-                    onChange={(e) => setEditProfileForm({ ...editProfileForm, avatar: e.target.value })}
-                    className="w-full px-3 py-1.5 rounded-xl border border-slate-300 text-xs font-medium outline-none focus:border-[#006838] focus:ring-1 focus:ring-[#006838]"
-                    placeholder="Hoặc dán URL hình ảnh..."
-                  />
+
+                  {/* Alignment Sliders & Controls */}
+                  <div className="flex-1 w-full space-y-2.5 bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs">
+                    {/* Zoom Slider */}
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
+                        <span className="flex items-center gap-1">
+                          <IconZoomIn size={14} className="text-slate-500" />
+                          Thu phóng (Zoom)
+                        </span>
+                        <span className="font-mono text-[#006838]">{avatarZoom.toFixed(2)}x</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0.8"
+                        max="2.5"
+                        step="0.05"
+                        value={avatarZoom}
+                        onChange={(e) => setAvatarZoom(parseFloat(e.target.value))}
+                        className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#006838]"
+                      />
+                    </div>
+
+                    {/* Vertical Position Y Slider */}
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
+                        <span className="flex items-center gap-1">
+                          <IconArrowUp size={14} className="text-slate-500" />
+                          Vị trí dọc (Lên / Xuống)
+                        </span>
+                        <span className="font-mono text-[#006838]">{avatarOffsetY}px</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="-40"
+                        max="40"
+                        step="1"
+                        value={avatarOffsetY}
+                        onChange={(e) => setAvatarOffsetY(parseInt(e.target.value))}
+                        className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#006838]"
+                      />
+                    </div>
+
+                    {/* Reset Button */}
+                    <div className="flex justify-end pt-0.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAvatarZoom(1.0);
+                          setAvatarOffsetY(0);
+                          setAvatarOffsetX(0);
+                        }}
+                        className="text-[10px] font-bold text-slate-500 hover:text-[#006838] flex items-center gap-1 cursor-pointer transition-colors"
+                      >
+                        <IconRotate size={12} />
+                        <span>Căn lại mặc định</span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
 

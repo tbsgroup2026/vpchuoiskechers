@@ -268,15 +268,17 @@ export default function Header() {
               Tuyển Dụng
             </Link>
 
-            {/* 5. Hệ thống quản trị */}
-            <Link
-              href="/work"
-              className={`transition-colors py-1 ${
-                pathname === '/work' ? 'text-[#2fd39a]' : 'hover:text-[#2fd39a]'
-              }`}
-            >
-              Hệ Thống Quản Trị
-            </Link>
+            {/* 4. Hệ thống quản trị (Chỉ hiển thị khi đã đăng nhập) */}
+            {isLoggedIn && (
+              <Link
+                href="/work"
+                className={`transition-colors py-1 ${
+                  pathname === '/work' ? 'text-[#2fd39a]' : 'hover:text-[#2fd39a]'
+                }`}
+              >
+                Hệ Thống Quản Trị
+              </Link>
+            )}
 
             {/* 6. Tin tức */}
             <Link

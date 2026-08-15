@@ -30,6 +30,26 @@ export default function LoginPage() {
 
   const isExecutive = selectedRole !== "CBCNV";
 
+  const [activeTab, setActiveTab] = useState<"login" | "signup">("login");
+  const [signupForm, setSignupForm] = useState({ name: "", empCode: "", email: "", password: "", confirmPassword: "" });
+  const [signupSuccess, setSignupSuccess] = useState(false);
+
+  const handleSignUpSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    if (signupForm.password !== signupForm.confirmPassword) {
+      setError("Mật khẩu xác nhận không khớp");
+      return;
+    }
+    setSignupSuccess(true);
+    setTimeout(() => {
+      setSignupSuccess(false);
+      setActiveTab("login");
+      setEmpCode(signupForm.empCode);
+      setPassword(signupForm.password);
+    }, 2000);
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -140,13 +160,127 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {/* Form Đăng nhập trực tiếp */}
-          <form onSubmit={handleLogin} className="space-y-4">
-            {error && (
-              <div className="p-3.5 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center gap-2">
-                <span>⚠️ {error}</span>
+          {/* 2 Tab Switcher: Đăng Nhập / Đăng Ký (Gemba.Pro style) */}
+          <div className="flex items-center p-1 bg-gray-100 rounded-2xl mb-6 border border-gray-200">
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("login");
+                setError("");
+              }}
+              className={`flex-1 py-2 text-xs font-black rounded-xl transition-all cursor-pointer ${
+                activeTab === "login"
+                  ? "bg-white text-[#006838] shadow-md border border-gray-200/80"
+                  : "text-gray-500 hover:text-gray-900"
+              }`}
+            >
+              Đăng Nhập
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("signup");
+                setError("");
+              }}
+              className={`flex-1 py-2 text-xs font-black rounded-xl transition-all cursor-pointer ${
+                activeTab === "signup"
+                  ? "bg-white text-[#006838] shadow-md border border-gray-200/80"
+                  : "text-gray-500 hover:text-gray-900"
+              }`}
+            >
+              Đăng Ký Tài Khoản
+            </button>
+          </div>
+
+          {signupSuccess && (
+            <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2 mb-4 animate-in fade-in">
+              <span>✅ Yêu cầu đăng ký đã được ghi nhận! Hệ thống tự động chuyển về trang Đăng nhập...</span>
+            </div>
+          )}
+
+          {activeTab === "signup" ? (
+            /* Form Đăng Ký Tài Khoản */
+            <form onSubmit={handleSignUpSubmit} className="space-y-3.5 text-left animate-in fade-in duration-200">
+              {error && (
+                <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold">
+                  ⚠️ {error}
+                </div>
+              )}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-700 block">Họ và tên nhân viên</label>
+                <input
+                  type="text"
+                  required
+                  value={signupForm.name}
+                  onChange={(e) => setSignupForm({ ...signupForm, name: e.target.value })}
+                  placeholder="Ví dụ: Nguyễn Văn A"
+                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:outline-none focus:border-[#006838]"
+                />
               </div>
-            )}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-700 block">Mã nhân viên (MSNV)</label>
+                <input
+                  type="text"
+                  required
+                  value={signupForm.empCode}
+                  onChange={(e) => setSignupForm({ ...signupForm, empCode: e.target.value })}
+                  placeholder="Ví dụ: EMP-003"
+                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:outline-none focus:border-[#006838]"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-700 block">Email công việc</label>
+                <input
+                  type="email"
+                  required
+                  value={signupForm.email}
+                  onChange={(e) => setSignupForm({ ...signupForm, email: e.target.value })}
+                  placeholder="email@tbsgroup.vn"
+                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:outline-none focus:border-[#006838]"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2.5">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-gray-700 block">Mật khẩu</label>
+                  <input
+                    type="password"
+                    required
+                    value={signupForm.password}
+                    onChange={(e) => setSignupForm({ ...signupForm, password: e.target.value })}
+                    placeholder="••••••••"
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:outline-none focus:border-[#006838]"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-gray-700 block">Xác nhận MK</label>
+                  <input
+                    type="password"
+                    required
+                    value={signupForm.confirmPassword}
+                    onChange={(e) => setSignupForm({ ...signupForm, confirmPassword: e.target.value })}
+                    placeholder="••••••••"
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:outline-none focus:border-[#006838]"
+                  />
+                </div>
+              </div>
+              <p className="text-[10px] text-slate-500 italic">
+                📌 Yêu cầu đăng ký sẽ được gửi tới Quản trị viên IT để xét duyệt và kích hoạt tài khoản.
+              </p>
+              <button
+                type="submit"
+                className="w-full py-3 px-6 rounded-xl bg-[#006838] text-white font-extrabold text-xs uppercase tracking-wider shadow-md hover:bg-[#00522c] transition-colors"
+              >
+                Gửi Yêu Cầu Đăng Ký
+              </button>
+            </form>
+          ) : (
+            /* Form Đăng nhập trực tiếp */
+            <form onSubmit={handleLogin} className="space-y-4">
+              {error && (
+                <div className="p-3.5 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center gap-2">
+                  <span>⚠️ {error}</span>
+                </div>
+              )}
 
             {/* Field 1: Chức vụ / Vai trò Dropdown */}
             <div className="space-y-1.5">
@@ -242,9 +376,9 @@ export default function LoginPage() {
               className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-[#08221a] via-[#0f4133] to-[#08221a] text-white font-extrabold text-xs uppercase tracking-wider shadow-xl shadow-emerald-950/20 hover:brightness-110 active:scale-[0.99] disabled:opacity-50 transition-all duration-200 flex items-center justify-center gap-2 mt-4"
             >
               <span>{loading ? "Đang xác thực..." : "Đăng Nhập Hệ Thống"}</span>
-              <IconArrowRight size={16} />
             </button>
           </form>
+          )}
 
           {/* Quick Demo Credentials hint */}
           <div className="mt-6 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-900 space-y-1">

@@ -173,21 +173,56 @@ export default function WorkDashboardPage() {
             )}
           </div>
 
-          {/* Department List (Enlarged Cards & Typography) */}
-          <div className="space-y-2 flex-1 pr-0.5">
+          {/* Department List (Executive Responsive Sidebar Cards) */}
+          <div className="space-y-2.5 flex-1 pr-0.5 w-full flex flex-col items-center">
             {departments.map((dept) => {
               const IconComp = dept.icon;
               const isSelected = selectedDept === dept.id;
 
+              // COLLAPSED MODE RENDERING (Ultra Sleek Single 48x48 Icon Tile)
+              if (isSidebarCollapsed) {
+                return (
+                  <button
+                    key={dept.id}
+                    onClick={() => setSelectedDept(isSelected ? null : dept.id)}
+                    className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-200 group relative cursor-pointer ${
+                      isSelected
+                        ? "bg-[#006838] text-white shadow-md shadow-emerald-900/30 ring-2 ring-emerald-600/30 scale-105"
+                        : "bg-white hover:bg-[#e6f4ed] text-[#006838] border border-slate-200/90 shadow-2xs"
+                    }`}
+                    title={dept.name}
+                  >
+                    {/* Active Left Indicator Bar */}
+                    {isSelected && (
+                      <span className="absolute -left-3.5 top-2 bottom-2 w-1 bg-[#006838] rounded-r-full shadow-xs" />
+                    )}
+
+                    <IconComp size={22} className="flex-shrink-0" />
+
+                    {/* Coming Soon Dot Indicator */}
+                    {!dept.hasData && (
+                      <span className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-amber-400 border-2 border-white" />
+                    )}
+
+                    {/* Collapsed Hover Tooltip Popup */}
+                    <div className="absolute left-full ml-3 px-3.5 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl shadow-2xl whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none flex items-center gap-2 border border-slate-700/60">
+                      <span>{dept.name}</span>
+                      {!dept.hasData && (
+                        <span className="text-[10px] font-mono text-amber-300 font-normal">
+                          (Soon)
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              }
+
+              // EXPANDED MODE RENDERING (Full Department Card)
               return (
                 <button
                   key={dept.id}
-                  onClick={() => setSelectedDept(selectedDept === dept.id ? null : dept.id)}
-                  className={`w-full text-left rounded-2xl flex items-center transition-all duration-200 group relative ${
-                    isSidebarCollapsed
-                      ? "p-2.5 justify-center"
-                      : "p-3.5 sm:p-4 gap-3.5"
-                  } ${
+                  onClick={() => setSelectedDept(isSelected ? null : dept.id)}
+                  className={`w-full text-left rounded-2xl flex items-center p-3.5 sm:p-4 gap-3.5 transition-all duration-200 group relative cursor-pointer ${
                     isSelected
                       ? "bg-[#006838] text-white shadow-md shadow-emerald-900/20 border border-[#006838]"
                       : "bg-white hover:bg-[#e6f4ed]/50 text-slate-700 hover:text-slate-900 border border-slate-200/90 shadow-xs"
@@ -200,9 +235,7 @@ export default function WorkDashboardPage() {
 
                   {/* Icon Box */}
                   <div
-                    className={`rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${
-                      isSidebarCollapsed ? "w-10 h-10" : "w-11 h-11"
-                    } ${
+                    className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${
                       isSelected
                         ? "bg-white/20 text-white"
                         : "bg-[#e6f4ed] text-[#006838] group-hover:bg-[#006838] group-hover:text-white"
@@ -211,26 +244,24 @@ export default function WorkDashboardPage() {
                     <IconComp size={22} />
                   </div>
 
-                  {/* Department Title & Subtitle (Shown when Expanded) */}
-                  {!isSidebarCollapsed && (
-                    <div className="flex-1 min-w-0">
-                      <div>
-                        <h4 className="text-sm font-extrabold truncate tracking-tight">
-                          {dept.name}
-                        </h4>
-                      </div>
-                      <p
-                        className={`text-xs truncate mt-0.5 font-medium ${
-                          isSelected ? "text-emerald-100" : "text-slate-500"
-                        }`}
-                      >
-                        {dept.sub}
-                      </p>
+                  {/* Department Title & Subtitle */}
+                  <div className="flex-1 min-w-0">
+                    <div>
+                      <h4 className="text-sm font-extrabold truncate tracking-tight">
+                        {dept.name}
+                      </h4>
                     </div>
-                  )}
+                    <p
+                      className={`text-xs truncate mt-0.5 font-medium ${
+                        isSelected ? "text-emerald-100" : "text-slate-500"
+                      }`}
+                    >
+                      {dept.sub}
+                    </p>
+                  </div>
 
-                  {/* Subtle Status Tag (Shown when Expanded) */}
-                  {!isSidebarCollapsed && !dept.hasData && (
+                  {/* Subtle Status Tag */}
+                  {!dept.hasData && (
                     <span
                       className={`text-xs font-mono font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${
                         isSelected
@@ -240,18 +271,6 @@ export default function WorkDashboardPage() {
                     >
                       Soon
                     </span>
-                  )}
-
-                  {/* Collapsed Hover Tooltip Popup */}
-                  {isSidebarCollapsed && (
-                    <div className="absolute left-full ml-3 px-3.5 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl shadow-2xl whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none flex items-center gap-2">
-                      <span>{dept.name}</span>
-                      {!dept.hasData && (
-                        <span className="text-[10px] font-mono text-amber-300 font-normal">
-                          (Soon)
-                        </span>
-                      )}
-                    </div>
                   )}
                 </button>
               );

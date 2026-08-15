@@ -238,11 +238,17 @@ export default function WorkDashboardPage() {
                 />
               </Link>
             ) : (
-              <Link href="/" title="Về Trang Chủ TBS Group" className="mx-auto group cursor-pointer">
+              <Link href="/" title="Về Trang Chủ TBS Group & SKECHERS" className="mx-auto flex flex-col items-center gap-1.5 py-0.5 group cursor-pointer">
                 <img
                   src="/images/tbs-logo.png"
                   alt="TBS Group"
-                  className="h-7 w-auto object-contain group-hover:scale-105 transition-transform"
+                  className="h-6 w-auto object-contain group-hover:scale-105 transition-transform"
+                />
+                <div className="w-5 h-[1px] bg-slate-200" />
+                <img
+                  src="/images/skechers-logo.png"
+                  alt="SKECHERS"
+                  className="h-5 w-auto object-contain group-hover:scale-105 transition-transform"
                 />
               </Link>
             )}

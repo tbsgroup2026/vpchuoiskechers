@@ -101,8 +101,8 @@ export default function WorkDashboardPage() {
     {
       id: "production",
       num: "07",
-      name: "TH-NM",
-      sub: "Thực hành nhà máy & Sản xuất chuỗi",
+      name: "Tổ hợp Nhà máy",
+      sub: "Quản lý tổ hợp nhà máy & sản xuất chuỗi",
       icon: IconBuildingFactory,
       hasData: true,
     },
@@ -149,7 +149,7 @@ export default function WorkDashboardPage() {
           {/* Executive Brand Lockup */}
           <div className="flex items-center justify-between pb-3.5 border-b border-slate-200/80 flex-shrink-0">
             {!isSidebarCollapsed ? (
-              <Link href="/" className="flex items-center gap-2.5 group overflow-hidden">
+              <Link href="/" title="Về Trang Chủ TBS Group (https://vpchuoiskechers.tbsgroup2026.workers.dev)" className="flex items-center gap-2.5 group overflow-hidden cursor-pointer">
                 <img
                   src="/images/tbs-logo.png"
                   alt="TBS Group Logo"
@@ -163,7 +163,7 @@ export default function WorkDashboardPage() {
                 />
               </Link>
             ) : (
-              <Link href="/" title="TBS Group" className="mx-auto group">
+              <Link href="/" title="Về Trang Chủ TBS Group" className="mx-auto group cursor-pointer">
                 <img
                   src="/images/tbs-logo.png"
                   alt="TBS Group"
@@ -263,7 +263,7 @@ export default function WorkDashboardPage() {
         <div className="pt-3 border-t border-slate-200/80 flex items-center justify-between text-xs text-slate-500 flex-shrink-0">
           {!isSidebarCollapsed ? (
             <>
-              <div className="flex items-center gap-1.5">
+              <Link href="/" title="Về Trang Chủ TBS Group" className="flex items-center gap-1.5 hover:opacity-80 transition-opacity">
                 <img
                   src="/images/tbs-logo.png"
                   alt="TBS Logo"
@@ -272,19 +272,19 @@ export default function WorkDashboardPage() {
                 <span className="font-semibold text-slate-700 text-[10px]">
                   TBS Group System
                 </span>
-              </div>
+              </Link>
               <span className="text-[9px] font-mono text-slate-400">
                 © 2026
               </span>
             </>
           ) : (
-            <div className="mx-auto" title="© 2026 TBS Group">
+            <Link href="/" className="mx-auto hover:opacity-80 transition-opacity" title="Về Trang Chủ TBS Group">
               <img
                 src="/images/tbs-logo.png"
                 alt="TBS Logo"
                 className="h-3.5 w-auto object-contain"
               />
-            </div>
+            </Link>
           )}
         </div>
       </aside>
@@ -754,7 +754,7 @@ export default function WorkDashboardPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-black text-slate-900">
-                    🏭 Chỉ Số Phòng Sản Xuất (TH-NM)
+                    🏭 Chỉ Số Tổ hợp Nhà máy (TH-NM)
                   </h2>
                   <p className="text-xs text-slate-500 mt-0.5">
                     Thống kê 33 dây chuyền sản xuất giày SKECHERS thuộc hệ thống nhà máy TBS Group.
@@ -840,7 +840,7 @@ export default function WorkDashboardPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <span className="text-xs font-bold text-slate-600 block truncate">
-                        Chỉ Số Phòng Sản Xuất (TH-NM)
+                        Chỉ Số Tổ hợp Nhà máy (TH-NM)
                       </span>
                       <div className="text-xl font-black text-slate-900 tracking-tight mt-0.5">
                         586
@@ -1051,7 +1051,7 @@ export default function WorkDashboardPage() {
                       <div className="flex items-start gap-2.5 p-1.5 rounded-xl hover:bg-slate-50 col-span-2">
                         <span className="w-3 h-3 rounded-full bg-purple-600 flex-shrink-0 mt-1" />
                         <div>
-                          <span className="text-slate-600 block text-xs font-semibold leading-snug">TH-NM (Sản xuất nhà máy)</span>
+                          <span className="text-slate-600 block text-xs font-semibold leading-snug">Tổ hợp Nhà máy (TH-NM)</span>
                           <div className="text-slate-900 font-black text-xs mt-0.5">24 <span className="text-pink-600 font-bold">(4.1%)</span></div>
                         </div>
                       </div>

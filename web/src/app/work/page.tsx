@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import {
   IconUsers,
@@ -16,11 +16,11 @@ import {
   IconTrendingUp,
   IconClipboardList,
   IconPackage,
-  IconCheck,
   IconClock,
-  IconAlertCircle,
   IconArrowUpRight,
   IconHome,
+  IconSparkles,
+  IconCheck,
 } from "@tabler/icons-react";
 
 interface DepartmentItem {
@@ -29,7 +29,7 @@ interface DepartmentItem {
   name: string;
   sub: string;
   icon: React.ElementType;
-  hasData: boolean; // true for Quality, R&D, Production; false for Coming Soon
+  hasData: boolean;
 }
 
 export default function WorkDashboardPage() {
@@ -37,7 +37,7 @@ export default function WorkDashboardPage() {
   const [timeFilter, setTimeFilter] = useState("Tháng này");
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Departments List matching exact screenshot
+  // Departments List
   const departments: DepartmentItem[] = [
     {
       id: "hr",
@@ -112,32 +112,32 @@ export default function WorkDashboardPage() {
   const activeDeptObj = departments.find((d) => d.id === selectedDept);
 
   return (
-    <div className="min-h-screen flex bg-[#071912] text-slate-100 font-sans antialiased selection:bg-[#2fd39a] selection:text-[#08221a]">
+    <div className="min-h-screen flex bg-[#f6f9f7] text-slate-900 font-sans antialiased selection:bg-[#006838] selection:text-white">
       {/* ════════════════════════════════════════════════════════════════
-          LEFT SIDEBAR (Dark Theme Panel matching screenshot)
+          LEFT SIDEBAR (Clean Human Corporate Light Panel)
          ════════════════════════════════════════════════════════════════ */}
-      <aside className="w-80 lg:w-96 bg-[#071912] flex flex-col justify-between p-5 border-r border-[#193a2e]/50 flex-shrink-0">
+      <aside className="w-80 lg:w-96 bg-[#f0f5f2] flex flex-col justify-between p-5 lg:p-6 border-r border-slate-200/80 flex-shrink-0">
         <div className="space-y-6">
-          {/* Top Brand Logo */}
-          <div className="flex items-center justify-between pb-2 border-b border-[#193a2e]/50">
+          {/* Top Brand Logo - Borderless Full TBS Logo */}
+          <div className="flex items-center justify-between pb-3 border-b border-slate-200/80">
             <Link href="/" className="flex items-center gap-3.5 group">
               <img
                 src="/images/tbs-logo.png"
                 alt="TBS Group Logo"
-                className="h-10 sm:h-11 w-auto object-contain brightness-0 invert group-hover:scale-105 transition-transform"
+                className="h-10 sm:h-11 w-auto object-contain group-hover:scale-105 transition-transform"
               />
               <div>
-                <span className="font-black text-xl tracking-tight text-white block leading-none">
+                <span className="font-black text-xl tracking-tight text-[#006838] block leading-none">
                   TBS GROUP
                 </span>
-                <span className="text-[10px] font-mono text-[#2fd39a] font-bold uppercase tracking-wider block mt-1">
+                <span className="text-[10px] font-mono text-slate-500 font-bold uppercase tracking-wider block mt-1">
                   Văn Phòng Chuỗi SKECHERS
                 </span>
               </div>
             </Link>
             <Link
               href="/"
-              className="p-2 rounded-lg bg-[#112d23] text-gray-400 hover:text-white hover:bg-[#1b4334] transition-colors"
+              className="p-2 rounded-xl bg-white border border-slate-200/80 text-slate-500 hover:text-[#006838] hover:border-[#006838]/40 shadow-sm transition-all"
               title="Về Trang Chủ"
             >
               <IconHome size={18} />
@@ -156,16 +156,16 @@ export default function WorkDashboardPage() {
                   onClick={() => setSelectedDept(dept.id)}
                   className={`w-full text-left p-3.5 rounded-2xl flex items-center gap-3.5 transition-all duration-200 group relative ${
                     isSelected
-                      ? "bg-gradient-to-r from-[#0d3b2b] to-[#124d38] border border-[#2fd39a]/40 text-white shadow-xl shadow-emerald-950/40"
-                      : "bg-[#0c241b]/60 border border-[#193a2e]/40 hover:bg-[#123326] text-gray-300 hover:text-white"
+                      ? "bg-gradient-to-r from-[#006838] to-[#0a7c5a] text-white shadow-lg shadow-emerald-900/20 border border-[#006838]"
+                      : "bg-white border border-slate-200/70 hover:border-[#006838]/40 hover:bg-emerald-50/40 text-slate-700 hover:text-slate-900 shadow-sm"
                   }`}
                 >
                   {/* Number Badge (1-7) */}
                   <div
                     className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs flex-shrink-0 transition-colors ${
                       isSelected
-                        ? "bg-[#2fd39a] text-[#08221a]"
-                        : "bg-[#14362a] text-[#2fd39a] group-hover:bg-[#1e4b3b]"
+                        ? "bg-white text-[#006838]"
+                        : "bg-[#e6f4ed] text-[#006838] group-hover:bg-[#006838] group-hover:text-white"
                     }`}
                   >
                     {dept.num}
@@ -176,20 +176,30 @@ export default function WorkDashboardPage() {
                     <div className="flex items-center gap-2">
                       <IconComp
                         size={16}
-                        className={isSelected ? "text-[#2fd39a]" : "text-gray-400"}
+                        className={isSelected ? "text-white" : "text-[#006838]"}
                       />
                       <h4 className="text-sm font-extrabold truncate">
                         {dept.name}
                       </h4>
                     </div>
-                    <p className="text-[11px] text-gray-400 truncate mt-0.5 font-normal">
+                    <p
+                      className={`text-[11px] truncate mt-0.5 font-normal ${
+                        isSelected ? "text-emerald-100" : "text-slate-500"
+                      }`}
+                    >
                       {dept.sub}
                     </p>
                   </div>
 
                   {/* Badge Status */}
                   {!dept.hasData && (
-                    <span className="text-[9px] font-mono font-semibold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 flex-shrink-0">
+                    <span
+                      className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${
+                        isSelected
+                          ? "bg-emerald-900/40 text-white border border-white/20"
+                          : "bg-amber-100/90 text-amber-800 border border-amber-300/60"
+                      }`}
+                    >
                       Soon
                     </span>
                   )}
@@ -200,35 +210,35 @@ export default function WorkDashboardPage() {
         </div>
 
         {/* Footer Credit */}
-        <div className="pt-4 border-t border-[#193a2e]/50 flex items-center justify-between text-xs text-gray-400">
+        <div className="pt-4 border-t border-slate-200/80 flex items-center justify-between text-xs text-slate-500">
           <div className="flex items-center gap-2">
             <img
               src="/images/tbs-logo.png"
               alt="TBS Logo"
-              className="h-5 w-auto object-contain brightness-0 invert"
+              className="h-5 w-auto object-contain"
             />
-            <span className="font-semibold text-gray-300 text-[11px]">
+            <span className="font-semibold text-slate-700 text-[11px]">
               TBS Group System
             </span>
           </div>
-          <span className="text-[10px] font-mono text-gray-500">
+          <span className="text-[10px] font-mono text-slate-400">
             © 2026 TBS Group
           </span>
         </div>
       </aside>
 
       {/* ════════════════════════════════════════════════════════════════
-          MAIN CONTENT AREA (Light/Clean Panel matching screenshot)
+          MAIN DASHBOARD AREA (Crisp White & Mint Corporate Surface)
          ════════════════════════════════════════════════════════════════ */}
-      <main className="flex-1 bg-[#f4f7f5] text-slate-900 rounded-tl-[32px] overflow-y-auto flex flex-col justify-between">
+      <main className="flex-1 bg-white text-slate-900 rounded-tl-[32px] overflow-y-auto flex flex-col justify-between shadow-sm">
         {/* Top Header Bar */}
-        <header className="p-6 lg:p-8 pb-4 flex items-center justify-between border-b border-slate-200/70 bg-[#f4f7f5]/80 backdrop-blur-md sticky top-0 z-30">
+        <header className="p-6 lg:p-8 pb-4 flex items-center justify-between border-b border-slate-100 bg-white/90 backdrop-blur-md sticky top-0 z-30">
           <div>
             <h1 className="text-2xl lg:text-3xl font-black text-slate-900 tracking-tight">
               Xin chào, <span className="text-[#006838]">Anh Huy!</span>
             </h1>
             <p className="text-sm text-slate-500 mt-1 font-medium">
-              Chúc bạn một ngày làm việc hiệu quả tại Văn Phòng Chuỗi SKECHERS.
+              Chúc bạn một ngày làm việc hiệu quả tại Văn Phòng Chuỗi SKECHERS - TBS Group.
             </p>
           </div>
 
@@ -236,7 +246,7 @@ export default function WorkDashboardPage() {
             {selectedDept && (
               <button
                 onClick={() => setSelectedDept(null)}
-                className="px-4 py-2 rounded-xl bg-white border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-sm transition-colors"
+                className="px-4 py-2 rounded-xl bg-slate-100 border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-200 transition-colors shadow-sm"
               >
                 ← Trở về Tổng Quan
               </button>
@@ -244,17 +254,17 @@ export default function WorkDashboardPage() {
 
             {/* Notifications Button */}
             <button
-              className="relative p-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
+              className="relative p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 hover:bg-slate-100 transition-colors shadow-sm"
               title="Thông báo hệ thống"
             >
               <IconBell size={20} />
-              <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-[#006838] border-2 border-white" />
+              <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-[#006838] border-2 border-white animate-pulse" />
             </button>
 
             {/* Fullscreen Toggle */}
             <button
               onClick={toggleFullscreen}
-              className="p-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
+              className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 hover:bg-slate-100 transition-colors shadow-sm"
               title="Toàn màn hình"
             >
               <IconMaximize size={20} />
@@ -275,7 +285,7 @@ export default function WorkDashboardPage() {
         </header>
 
         {/* Dashboard Body */}
-        <div className="p-6 lg:p-8 space-y-8 flex-1">
+        <div className="p-6 lg:p-8 space-y-8 flex-1 bg-[#f8faf9]">
           {/* IF A "COMING SOON" DEPARTMENT IS SELECTED */}
           {activeDeptObj && !activeDeptObj.hasData && (
             <div className="p-12 rounded-3xl bg-white border border-slate-200 shadow-sm text-center space-y-4 max-w-2xl mx-auto my-12">
@@ -288,7 +298,7 @@ export default function WorkDashboardPage() {
               <p className="text-slate-500 text-sm leading-relaxed max-w-md mx-auto">
                 Dữ liệu bảng điều khiển dành riêng cho {activeDeptObj.name} đang trong quá trình số hóa và đấu nối hệ thống.
               </p>
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-100/80 text-amber-800 text-xs font-bold uppercase tracking-wider">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-100/90 text-amber-800 text-xs font-bold uppercase tracking-wider">
                 <span>Tính năng đang phát triển — Coming Soon</span>
               </div>
             </div>
@@ -396,7 +406,7 @@ export default function WorkDashboardPage() {
             </div>
           )}
 
-          {/* DEFAULT MAIN DASHBOARD (EXACT SCREENSHOT LAYOUT) */}
+          {/* DEFAULT MAIN DASHBOARD (HUMAN-DESIGNED TBS GREEN ON WHITE SURFACE) */}
           {!selectedDept && (
             <div className="space-y-8">
               {/* TOP ROW: 4 Metric Cards (Left Column) + Donut Ring Chart (Right Column) */}
@@ -406,9 +416,9 @@ export default function WorkDashboardPage() {
                   {/* Card 1: R&D (Phòng phát triển) */}
                   <div
                     onClick={() => setSelectedDept("rd")}
-                    className="p-5 rounded-3xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:border-emerald-400 transition-all cursor-pointer flex items-center gap-4 group"
+                    className="p-5 rounded-3xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:border-[#006838]/60 transition-all cursor-pointer flex items-center gap-4 group"
                   >
-                    <div className="w-14 h-14 rounded-2xl bg-emerald-100/70 text-[#006838] flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+                    <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-[#006838] flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform border border-emerald-100">
                       <IconUsers size={28} />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -418,7 +428,7 @@ export default function WorkDashboardPage() {
                       <div className="text-2xl font-black text-slate-900 tracking-tight mt-0.5">
                         1,248
                       </div>
-                      <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 mt-0.5">
+                      <div className="flex items-center gap-1 text-[11px] font-bold text-[#006838] mt-0.5">
                         <IconArrowUpRight size={14} />
                         <span>+12% so với tháng trước</span>
                       </div>
@@ -426,8 +436,8 @@ export default function WorkDashboardPage() {
                   </div>
 
                   {/* Card 2: Đơn Hàng */}
-                  <div className="p-5 rounded-3xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex items-center gap-4 group">
-                    <div className="w-14 h-14 rounded-2xl bg-blue-100/70 text-blue-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+                  <div className="p-5 rounded-3xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:border-blue-300 transition-all flex items-center gap-4 group">
+                    <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform border border-blue-100">
                       <IconClipboardList size={28} />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -437,7 +447,7 @@ export default function WorkDashboardPage() {
                       <div className="text-2xl font-black text-slate-900 tracking-tight mt-0.5">
                         342
                       </div>
-                      <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 mt-0.5">
+                      <div className="flex items-center gap-1 text-[11px] font-bold text-[#006838] mt-0.5">
                         <IconArrowUpRight size={14} />
                         <span>+8% so với tháng trước</span>
                       </div>
@@ -447,9 +457,9 @@ export default function WorkDashboardPage() {
                   {/* Card 3: Chỉ Số Phòng Sản Xuất (TH-NM) */}
                   <div
                     onClick={() => setSelectedDept("production")}
-                    className="p-5 rounded-3xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:border-purple-400 transition-all cursor-pointer flex items-center gap-4 group"
+                    className="p-5 rounded-3xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:border-purple-300 transition-all cursor-pointer flex items-center gap-4 group"
                   >
-                    <div className="w-14 h-14 rounded-2xl bg-purple-100/70 text-purple-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+                    <div className="w-14 h-14 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform border border-purple-100">
                       <IconPackage size={28} />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -459,7 +469,7 @@ export default function WorkDashboardPage() {
                       <div className="text-2xl font-black text-slate-900 tracking-tight mt-0.5">
                         586
                       </div>
-                      <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 mt-0.5">
+                      <div className="flex items-center gap-1 text-[11px] font-bold text-[#006838] mt-0.5">
                         <IconArrowUpRight size={14} />
                         <span>+15% so với tháng trước</span>
                       </div>
@@ -469,9 +479,9 @@ export default function WorkDashboardPage() {
                   {/* Card 4: Hiệu Suất & Chỉ Số Chất Lượng (QC) */}
                   <div
                     onClick={() => setSelectedDept("qc")}
-                    className="p-5 rounded-3xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:border-amber-400 transition-all cursor-pointer flex items-center gap-4 group"
+                    className="p-5 rounded-3xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:border-amber-300 transition-all cursor-pointer flex items-center gap-4 group"
                   >
-                    <div className="w-14 h-14 rounded-2xl bg-amber-100/70 text-amber-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+                    <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform border border-amber-100">
                       <IconTrendingUp size={28} />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -481,7 +491,7 @@ export default function WorkDashboardPage() {
                       <div className="text-2xl font-black text-slate-900 tracking-tight mt-0.5">
                         92%
                       </div>
-                      <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 mt-0.5">
+                      <div className="flex items-center gap-1 text-[11px] font-bold text-[#006838] mt-0.5">
                         <IconArrowUpRight size={14} />
                         <span>+5% so với tháng trước</span>
                       </div>
@@ -489,12 +499,12 @@ export default function WorkDashboardPage() {
                   </div>
                 </div>
 
-                {/* Right Column (TỔNG CẢI TIẾN - Donut Chart Block matching exact screenshot) */}
+                {/* Right Column (TỔNG CẢI TIẾN - Donut Chart Block) */}
                 <div className="lg:col-span-8 p-6 lg:p-8 rounded-3xl bg-white border border-slate-200/80 shadow-sm space-y-6">
                   {/* Card Header */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-emerald-50 text-[#006838] flex items-center justify-center">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-50 text-[#006838] flex items-center justify-center border border-emerald-100">
                         <IconSettings size={22} />
                       </div>
                       <h3 className="text-lg font-black text-slate-900 tracking-tight">
@@ -542,13 +552,13 @@ export default function WorkDashboardPage() {
                           strokeDasharray="45.8 193.2"
                           strokeDashoffset="-54.2"
                         />
-                        {/* Emerald: Quản lý chất lượng (14.8%) */}
+                        {/* TBS Green: Quản lý chất lượng (14.8%) */}
                         <circle
                           cx="50"
                           cy="50"
                           r="38"
                           fill="transparent"
-                          stroke="#059669"
+                          stroke="#006838"
                           strokeWidth="15"
                           strokeDasharray="35.3 203.7"
                           strokeDashoffset="-100"
@@ -619,7 +629,7 @@ export default function WorkDashboardPage() {
                         <span className="w-3 h-3 rounded-full bg-blue-600 flex-shrink-0" />
                         <div>
                           <span className="text-slate-600 block">Nhân sự hành chánh</span>
-                          <span className="text-slate-900 font-black">132 <span className="text-emerald-600 font-semibold">(22.7%)</span></span>
+                          <span className="text-slate-900 font-black">132 <span className="text-[#006838] font-semibold">(22.7%)</span></span>
                         </div>
                       </div>
 
@@ -635,15 +645,15 @@ export default function WorkDashboardPage() {
                         <span className="w-3 h-3 rounded-full bg-cyan-500 flex-shrink-0" />
                         <div>
                           <span className="text-slate-600 block">Kế toán &amp; quản trị</span>
-                          <span className="text-slate-900 font-black">98 <span className="text-emerald-600 font-semibold">(16.8%)</span></span>
+                          <span className="text-slate-900 font-black">98 <span className="text-[#006838] font-semibold">(16.8%)</span></span>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-2 p-2 rounded-xl hover:bg-slate-50">
-                        <span className="w-3 h-3 rounded-full bg-emerald-600 flex-shrink-0" />
+                        <span className="w-3 h-3 rounded-full bg-[#006838] flex-shrink-0" />
                         <div>
                           <span className="text-slate-600 block">Quản lý chất lượng (QC)</span>
-                          <span className="text-slate-900 font-black">86 <span className="text-emerald-600 font-semibold">(14.8%)</span></span>
+                          <span className="text-slate-900 font-black">86 <span className="text-[#006838] font-semibold">(14.8%)</span></span>
                         </div>
                       </div>
 
@@ -651,7 +661,7 @@ export default function WorkDashboardPage() {
                         <span className="w-3 h-3 rounded-full bg-pink-600 flex-shrink-0" />
                         <div>
                           <span className="text-slate-600 block">R&amp;D (Phát triển mẫu)</span>
-                          <span className="text-slate-900 font-black">76 <span className="text-emerald-600 font-semibold">(13.1%)</span></span>
+                          <span className="text-slate-900 font-black">76 <span className="text-[#006838] font-semibold">(13.1%)</span></span>
                         </div>
                       </div>
 
@@ -659,7 +669,7 @@ export default function WorkDashboardPage() {
                         <span className="w-3 h-3 rounded-full bg-sky-600 flex-shrink-0" />
                         <div>
                           <span className="text-slate-600 block">KH chuẩn bị - TTPP</span>
-                          <span className="text-slate-900 font-black">54 <span className="text-emerald-600 font-semibold">(9.3%)</span></span>
+                          <span className="text-slate-900 font-black">54 <span className="text-[#006838] font-semibold">(9.3%)</span></span>
                         </div>
                       </div>
 
@@ -689,7 +699,7 @@ export default function WorkDashboardPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {/* Notification 1 */}
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/60 flex items-center gap-3.5 hover:bg-slate-100/80 transition-colors">
+                  <div className="p-4 rounded-2xl bg-[#f6f9f7] border border-slate-200/70 flex items-center gap-3.5 hover:bg-emerald-50/50 transition-colors">
                     <div className="w-10 h-10 rounded-xl bg-emerald-100 text-[#006838] flex items-center justify-center flex-shrink-0">
                       <IconClipboardList size={20} />
                     </div>
@@ -704,7 +714,7 @@ export default function WorkDashboardPage() {
                   </div>
 
                   {/* Notification 2 */}
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/60 flex items-center gap-3.5 hover:bg-slate-100/80 transition-colors">
+                  <div className="p-4 rounded-2xl bg-[#f6f9f7] border border-slate-200/70 flex items-center gap-3.5 hover:bg-amber-50/50 transition-colors">
                     <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center flex-shrink-0">
                       <IconUsers size={20} />
                     </div>
@@ -719,7 +729,7 @@ export default function WorkDashboardPage() {
                   </div>
 
                   {/* Notification 3 */}
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/60 flex items-center gap-3.5 hover:bg-slate-100/80 transition-colors">
+                  <div className="p-4 rounded-2xl bg-[#f6f9f7] border border-slate-200/70 flex items-center gap-3.5 hover:bg-purple-50/50 transition-colors">
                     <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center flex-shrink-0">
                       <IconPackage size={20} />
                     </div>
@@ -739,9 +749,9 @@ export default function WorkDashboardPage() {
         </div>
 
         {/* Footer info bar inside dashboard */}
-        <footer className="p-4 px-8 border-t border-slate-200/70 text-xs text-slate-500 flex items-center justify-between bg-[#f4f7f5]">
+        <footer className="p-4 px-8 border-t border-slate-100 text-xs text-slate-500 flex items-center justify-between bg-white">
           <span>Văn Phòng Chuỗi SKECHERS - TBS Group Dashboard v2.4</span>
-          <span className="font-mono text-emerald-700 font-bold">● System Online 24/7</span>
+          <span className="font-mono text-[#006838] font-bold">● System Online 24/7</span>
         </footer>
       </main>
     </div>

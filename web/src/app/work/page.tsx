@@ -166,8 +166,35 @@ export default function WorkDashboardPage() {
     setIsCropModalOpen(false);
   };
 
-  // Fetch initial profile data from D1 Database vpchuoiskechers
+  // Fetch initial profile data from D1 Database & Local Storage
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const searchParams = new URLSearchParams(window.location.search);
+      const deptParam = searchParams.get("dept");
+      if (deptParam) {
+        setSelectedDept(deptParam);
+      }
+
+      const storedUser = localStorage.getItem("tbs_current_user");
+      if (storedUser) {
+        try {
+          const parsed = JSON.parse(storedUser);
+          if (parsed?.name) {
+            const loaded = {
+              name: parsed.name,
+              phone: parsed.phone || "0988 123 456",
+              email: parsed.email || "user@tbsgroup.vn",
+              avatar: parsed.avatar || "/images/crawled/Da-giay1.jpg",
+              title: parsed.title || "Văn phòng Chuỗi SKECHERS",
+            };
+            setUserInfo(loaded);
+            setEditProfileForm(loaded);
+            return;
+          }
+        } catch (e) {}
+      }
+    }
+
     async function loadD1Profile() {
       try {
         const res = await fetch("/api/profile");
@@ -175,11 +202,11 @@ export default function WorkDashboardPage() {
           const json = await res.json();
           if (json.success && json.data) {
             const loaded = {
-              name: json.data.name || "Anh Huy",
+              name: json.data.name || "Phạm Nguyễn Anh Huy",
               phone: json.data.phone || "0988 123 456",
-              email: json.data.email || "huy.nguyen@tbsgroup.vn",
+              email: json.data.email || "anhhuy.pham@tbsgroup.vn",
               avatar: json.data.avatar || "/images/crawled/Da-giay1.jpg",
-              title: json.data.title || "Quản trị viên cao cấp - SKECHERS",
+              title: json.data.title || "Tổng Giám Đốc Tập Đoàn TBS Group",
             };
             setUserInfo(loaded);
             setEditProfileForm(loaded);

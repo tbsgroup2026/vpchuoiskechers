@@ -66,6 +66,27 @@ export default function BusinessTripRegistrationPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedModalRecord, setSelectedModalRecord] = useState<BusinessTripRecord | null>(null);
 
+  const [currentUser, setCurrentUser] = useState<{ name: string; title: string; department: string; avatar: string }>({
+    name: "Phạm Nguyễn Anh Huy",
+    title: "Tổng Giám Đốc Tập Đoàn TBS Group",
+    department: "Ban Giám Đốc Tập Đoàn",
+    avatar: "/images/crawled/Da-giay1.jpg",
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("tbs_current_user");
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          if (parsed?.name) {
+            setCurrentUser(parsed);
+          }
+        } catch (e) {}
+      }
+    }
+  }, []);
+
   // Form State: Proposal Info
   const [proposalForm, setProposalForm] = useState({
     title: "",
@@ -377,13 +398,13 @@ export default function BusinessTripRegistrationPage() {
           </button>
           <div className="flex items-center gap-2 border-l border-slate-200 pl-3">
             <img
-              src="/images/crawled/Da-giay1.jpg"
+              src={currentUser.avatar || "/images/crawled/Da-giay1.jpg"}
               alt="Avatar"
               className="w-8 h-8 rounded-full border-2 border-[#006838] object-cover"
             />
             <div className="hidden md:block text-left">
-              <div className="text-xs font-bold text-slate-900 leading-none">Anh Huy</div>
-              <div className="text-[10px] text-slate-500 font-medium mt-0.5">Văn phòng Chuỗi</div>
+              <div className="text-xs font-bold text-slate-900 leading-none">{currentUser.name}</div>
+              <div className="text-[10px] text-slate-500 font-medium mt-0.5">{currentUser.department || currentUser.title}</div>
             </div>
           </div>
         </div>

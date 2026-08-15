@@ -345,3 +345,30 @@ INSERT OR IGNORE INTO room_bookings (id, room_id, room_name, title, booker_name,
 
 INSERT OR IGNORE INTO visitors (id, badge_code, visitor_name, company, id_card, host_name, department, room_location, visit_date, expected_time, status) VALUES
 ('v_1', 'VIS-2026-081', 'Mr. Robert Chen', 'SKECHERS International Ltd.', 'C10928374', 'Anh Huy', 'Văn phòng Chuỗi', 'Phòng Họp Executive VIP 1', '15/08/2026', '14:00', 'EXPECTED');
+
+-- 14. MULTI-ROLE USER PROFILES SEED (5 Vai trò & Màn hình làm việc khác nhau)
+INSERT OR REPLACE INTO users (id, emp_code, email, name, phone, password_hash, role_id, department_id, status) VALUES
+(201, 'TGĐ-001', 'anhhuy.pham@tbsgroup.vn', 'Phạm Nguyễn Anh Huy', '0988111222', '123456', 1, 1, 'ACTIVE'),
+(202, 'PTGĐ-002', 'ngochuy.tran@tbsgroup.vn', 'Trần Ngọc Huy', '0988222333', '123456', 2, 2, 'ACTIVE'),
+(203, 'GĐ-003', 'vannam.le@tbsgroup.vn', 'Lê Văn Nam', '0988333444', '123456', 3, 3, 'ACTIVE'),
+(204, 'PGĐ-004', 'thihong.nguyen@tbsgroup.vn', 'Nguyễn Thị Hồng', '0988444555', '123456', 4, 4, 'ACTIVE'),
+(205, '202608001', 'vantuan.bui@tbsgroup.vn', 'Bùi Văn Tuấn', '0988555666', '21032004', 5, 5, 'ACTIVE'),
+(206, '202608002', 'thimai.tran@tbsgroup.vn', 'Trần Thị Mai', '0988666777', '123456', 5, 6, 'ACTIVE'),
+(207, 'EMP-003', 'hoangquan.nguyen@tbsgroup.vn', 'Nguyễn Hoàng Quân', '0988777888', '123456', 5, 7, 'ACTIVE');
+
+CREATE TABLE IF NOT EXISTS user_profile (
+    id TEXT PRIMARY KEY,
+    emp_code TEXT,
+    name TEXT NOT NULL,
+    email TEXT,
+    phone TEXT,
+    avatar TEXT,
+    title TEXT,
+    department TEXT,
+    role_code TEXT,
+    redirect_url TEXT,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT OR REPLACE INTO user_profile (id, emp_code, name, email, phone, avatar, title, department, role_code, redirect_url) VALUES
+('current_user', 'TGĐ-001', 'Phạm Nguyễn Anh Huy', 'anhhuy.pham@tbsgroup.vn', '0988111222', '/images/crawled/Da-giay1.jpg', 'Tổng Giám Đốc Tập Đoàn TBS Group', 'Ban Giám Đốc Tập Đoàn', 'TONG_GIAM_DOC', '/bi');

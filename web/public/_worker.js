@@ -4,6 +4,182 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
+    const ROLE_ACCOUNTS = {
+      TONG_GIAM_DOC: {
+        empCode: "TGĐ-001",
+        name: "Phạm Nguyễn Anh Huy",
+        title: "Tổng Giám Đốc Tập Đoàn TBS Group",
+        department: "Ban Giám Đốc Tập Đoàn",
+        avatar: "/images/crawled/Da-giay1.jpg",
+        email: "anhhuy.pham@tbsgroup.vn",
+        phone: "0988 111 222",
+        roleCode: "TONG_GIAM_DOC",
+        redirectUrl: "/bi",
+      },
+      PHO_TONG_GIAM_DOC: {
+        empCode: "PTGĐ-002",
+        name: "Trần Ngọc Huy",
+        title: "Phó Tổng Giám Đốc Vận Hành & Chuỗi Cung Ứng",
+        department: "Ban Giám Đốc Vận Hành",
+        avatar: "/images/crawled/Da-giay2.jpg",
+        email: "ngochuy.tran@tbsgroup.vn",
+        phone: "0988 222 333",
+        roleCode: "PHO_TONG_GIAM_DOC",
+        redirectUrl: "/work",
+      },
+      GIAM_DOC: {
+        empCode: "GĐ-003",
+        name: "Lê Văn Nam",
+        title: "Giám Đốc Khối Sản Xuất & Tổ Hợp Nhà Máy",
+        department: "Khối Sản Xuất & Nhà Máy",
+        avatar: "/images/crawled/Da-giay3.jpg",
+        email: "vannam.le@tbsgroup.vn",
+        phone: "0988 333 444",
+        roleCode: "GIAM_DOC",
+        redirectUrl: "/work?dept=production",
+      },
+      PHO_GIAM_DOC: {
+        empCode: "PGĐ-004",
+        name: "Nguyễn Thị Hồng",
+        title: "Phó Giám Đốc Quản Lý Chất Lượng (QC) & Gemba",
+        department: "Khối Quản Lý Chất Lượng (QC)",
+        avatar: "/images/crawled/Da-giay4.jpg",
+        email: "thihong.nguyen@tbsgroup.vn",
+        phone: "0988 444 555",
+        roleCode: "PHO_GIAM_DOC",
+        redirectUrl: "/work?dept=qc",
+      },
+      CBCNV: {
+        empCode: "202608001",
+        name: "Bùi Văn Tuấn",
+        title: "Chuyên Viên Quản Lý Hành Chính & Đón Khách",
+        department: "Nhân sự - Hành chánh",
+        avatar: "/images/crawled/Da-giay1.jpg",
+        email: "vantuan.bui@tbsgroup.vn",
+        phone: "0988 555 666",
+        roleCode: "CBCNV",
+        redirectUrl: "/rooms",
+      },
+      "202608001": {
+        empCode: "202608001",
+        name: "Bùi Văn Tuấn",
+        title: "Chuyên Viên Quản Lý Hành Chính & Đón Khách",
+        department: "Nhân sự - Hành chánh",
+        avatar: "/images/crawled/Da-giay1.jpg",
+        email: "vantuan.bui@tbsgroup.vn",
+        phone: "0988 555 666",
+        roleCode: "CBCNV",
+        redirectUrl: "/rooms",
+      },
+      "202608002": {
+        empCode: "202608002",
+        name: "Trần Thị Mai",
+        title: "Chuyên Viên Logistics & Đăng Ký Công Tác",
+        department: "Logistics TTPP",
+        avatar: "/images/crawled/Da-giay2.jpg",
+        email: "thimai.tran@tbsgroup.vn",
+        phone: "0988 666 777",
+        roleCode: "CBCNV",
+        redirectUrl: "/business-trip",
+      },
+      "EMP-001": {
+        empCode: "EMP-001",
+        name: "Bùi Văn Tuấn",
+        title: "Chuyên Viên Quản Lý Hành Chính & Đón Khách",
+        department: "Nhân sự - Hành chánh",
+        avatar: "/images/crawled/Da-giay1.jpg",
+        email: "vantuan.bui@tbsgroup.vn",
+        phone: "0988 555 666",
+        roleCode: "CBCNV",
+        redirectUrl: "/rooms",
+      },
+      "EMP-002": {
+        empCode: "EMP-002",
+        name: "Trần Thị Mai",
+        title: "Chuyên Viên Logistics & Đăng Ký Công Tác",
+        department: "Logistics TTPP",
+        avatar: "/images/crawled/Da-giay2.jpg",
+        email: "thimai.tran@tbsgroup.vn",
+        phone: "0988 666 777",
+        roleCode: "CBCNV",
+        redirectUrl: "/business-trip",
+      },
+      "EMP-003": {
+        empCode: "EMP-003",
+        name: "Nguyễn Hoàng Quân",
+        title: "Kỹ Sư R&D Phát Triển Mẫu SKECHERS",
+        department: "R&D Kỹ thuật",
+        avatar: "/images/crawled/Da-giay3.jpg",
+        email: "hoangquan.nguyen@tbsgroup.vn",
+        phone: "0988 777 888",
+        roleCode: "CBCNV",
+        redirectUrl: "/work?dept=rd",
+      },
+    };
+
+    // 0. API Route: User Login & Session Persistence (/api/auth/login)
+    if (url.pathname === "/api/auth/login" && request.method === "POST") {
+      try {
+        const body = await request.json();
+        const { empCode, role } = body;
+
+        let userAccount = ROLE_ACCOUNTS[role] || ROLE_ACCOUNTS[empCode] || ROLE_ACCOUNTS["TONG_GIAM_DOC"];
+
+        if (env.DB) {
+          try {
+            await env.DB.prepare(
+              `CREATE TABLE IF NOT EXISTS user_profile (
+                id TEXT PRIMARY KEY,
+                emp_code TEXT,
+                name TEXT NOT NULL,
+                email TEXT,
+                phone TEXT,
+                avatar TEXT,
+                title TEXT,
+                department TEXT,
+                role_code TEXT,
+                redirect_url TEXT,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+              );`
+            ).run();
+
+            await env.DB.prepare(
+              `INSERT OR REPLACE INTO user_profile (id, emp_code, name, email, phone, avatar, title, department, role_code, redirect_url, updated_at)
+               VALUES ('current_user', ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`
+            ).bind(
+              userAccount.empCode,
+              userAccount.name,
+              userAccount.email,
+              userAccount.phone,
+              userAccount.avatar,
+              userAccount.title,
+              userAccount.department,
+              userAccount.roleCode,
+              userAccount.redirectUrl
+            ).run();
+          } catch (e) {
+            // ignore D1 table sync error
+          }
+        }
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            token: `token_${userAccount.empCode.toLowerCase()}_${userAccount.roleCode.toLowerCase()}`,
+            user: userAccount,
+            redirectUrl: userAccount.redirectUrl,
+            message: `Đăng nhập thành công với chức vụ ${userAccount.title}`
+          }),
+          { headers: { "Content-Type": "application/json" } }
+        );
+      } catch (err) {
+        return new Response(
+          JSON.stringify({ success: false, error: err.message }),
+          { status: 500, headers: { "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     // 1. API Route: User Profile Persistence (/api/profile)
     if (url.pathname === "/api/profile") {
       // GET: Retrieve User Profile from D1 Database
@@ -20,13 +196,7 @@ export default {
             "SELECT * FROM user_profile WHERE id = 'current_user'"
           ).all();
 
-          const user = results && results.length > 0 ? results[0] : {
-            name: "Anh Huy",
-            email: "huy.nguyen@tbsgroup.vn",
-            phone: "0988 123 456",
-            avatar: "/images/crawled/Da-giay1.jpg",
-            title: "Quản trị viên cao cấp - SKECHERS",
-          };
+          const user = results && results.length > 0 ? results[0] : ROLE_ACCOUNTS["TONG_GIAM_DOC"];
 
           return new Response(
             JSON.stringify({ success: true, data: user, source: "Cloudflare D1 Database vpchuoiskechers" }),

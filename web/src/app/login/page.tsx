@@ -88,6 +88,89 @@ export default function LoginPage() {
         }
       }
 
+      const ROLE_MAP: Record<string, { empCode: string; name: string; title: string; department: string; avatar: string; redirectUrl: string }> = {
+        TONG_GIAM_DOC: {
+          empCode: "TGĐ-001",
+          name: "Phạm Nguyễn Anh Huy",
+          title: "Tổng Giám Đốc Tập Đoàn TBS Group",
+          department: "Ban Giám Đốc Tập Đoàn",
+          avatar: "/images/crawled/Da-giay1.jpg",
+          redirectUrl: "/bi",
+        },
+        PHO_TONG_GIAM_DOC: {
+          empCode: "PTGĐ-002",
+          name: "Trần Ngọc Huy",
+          title: "Phó Tổng Giám Đốc Vận Hành & Chuỗi Cung Ứng",
+          department: "Ban Giám Đốc Vận Hành",
+          avatar: "/images/crawled/Da-giay2.jpg",
+          redirectUrl: "/work",
+        },
+        GIAM_DOC: {
+          empCode: "GĐ-003",
+          name: "Lê Văn Nam",
+          title: "Giám Đốc Khối Sản Xuất & Tổ Hợp Nhà Máy",
+          department: "Khối Sản Xuất & Nhà Máy",
+          avatar: "/images/crawled/Da-giay3.jpg",
+          redirectUrl: "/work?dept=production",
+        },
+        PHO_GIAM_DOC: {
+          empCode: "PGĐ-004",
+          name: "Nguyễn Thị Hồng",
+          title: "Phó Giám Đốc Quản Lý Chất Lượng (QC) & Gemba",
+          department: "Khối Quản Lý Chất Lượng (QC)",
+          avatar: "/images/crawled/Da-giay4.jpg",
+          redirectUrl: "/work?dept=qc",
+        },
+        "202608001": {
+          empCode: "202608001",
+          name: "Bùi Văn Tuấn",
+          title: "Chuyên Viên Quản Lý Hành Chính & Đón Khách",
+          department: "Nhân sự - Hành chánh",
+          avatar: "/images/crawled/Da-giay1.jpg",
+          redirectUrl: "/rooms",
+        },
+        "EMP-001": {
+          empCode: "EMP-001",
+          name: "Bùi Văn Tuấn",
+          title: "Chuyên Viên Quản Lý Hành Chính & Đón Khách",
+          department: "Nhân sự - Hành chánh",
+          avatar: "/images/crawled/Da-giay1.jpg",
+          redirectUrl: "/rooms",
+        },
+        "202608002": {
+          empCode: "202608002",
+          name: "Trần Thị Mai",
+          title: "Chuyên Viên Logistics & Đăng Ký Công Tác",
+          department: "Logistics TTPP",
+          avatar: "/images/crawled/Da-giay2.jpg",
+          redirectUrl: "/business-trip",
+        },
+        "EMP-002": {
+          empCode: "EMP-002",
+          name: "Trần Thị Mai",
+          title: "Chuyên Viên Logistics & Đăng Ký Công Tác",
+          department: "Logistics TTPP",
+          avatar: "/images/crawled/Da-giay2.jpg",
+          redirectUrl: "/business-trip",
+        },
+        "EMP-003": {
+          empCode: "EMP-003",
+          name: "Nguyễn Hoàng Quân",
+          title: "Kỹ Sư R&D Phát Triển Mẫu SKECHERS",
+          department: "R&D Kỹ thuật",
+          avatar: "/images/crawled/Da-giay3.jpg",
+          redirectUrl: "/work?dept=rd",
+        },
+        CBCNV: {
+          empCode: "202608001",
+          name: "Bùi Văn Tuấn",
+          title: "Chuyên Viên Quản Lý Hành Chính & Đón Khách",
+          department: "Nhân sự - Hành chánh",
+          avatar: "/images/crawled/Da-giay1.jpg",
+          redirectUrl: "/rooms",
+        },
+      };
+
       // Fallback for static exports on Cloudflare Workers where API routes are static
       if (!isSuccess) {
         if (isExecutive) {
@@ -118,8 +201,13 @@ export default function LoginPage() {
         }
       }
 
+      const activeProfile = isExecutive ? ROLE_MAP[selectedRole] : (ROLE_MAP[empCode] || ROLE_MAP["CBCNV"]);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("tbs_current_user", JSON.stringify(activeProfile));
+      }
+
       document.cookie = `tbs_token=${token}; path=/; max-age=86400`;
-      router.push(redirectUrl);
+      router.push(activeProfile?.redirectUrl || redirectUrl);
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Có lỗi xảy ra khi đăng nhập";

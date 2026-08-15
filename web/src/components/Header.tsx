@@ -144,23 +144,28 @@ export default function Header() {
 
       if (token) {
         setIsLoggedIn(true);
-        try {
-          const payloadBase64 = token.split('.')[1];
-          if (payloadBase64) {
-            const decoded = JSON.parse(atob(payloadBase64));
-            setUserInfo({
-              empCode: decoded.empCode || '202608001',
-              name: decoded.name || 'Phạm Nguyễn Anh Huy',
-              roleCode: decoded.roleCode || 'SUPER_ADMIN',
-              departmentCode: decoded.departmentCode || 'KE_HOACH_CBVT',
-            });
+        let storedUser: any = null;
+        if (typeof window !== 'undefined') {
+          const stored = localStorage.getItem('tbs_current_user');
+          if (stored) {
+            try {
+              storedUser = JSON.parse(stored);
+            } catch (e) {}
           }
-        } catch {
+        }
+        if (storedUser) {
           setUserInfo({
-            empCode: '202608001',
+            empCode: storedUser.empCode || 'TGĐ-001',
+            name: storedUser.name || 'Phạm Nguyễn Anh Huy',
+            roleCode: storedUser.roleCode || 'TONG_GIAM_DOC',
+            departmentCode: storedUser.department || 'Ban Giám Đốc Tập Đoàn',
+          });
+        } else {
+          setUserInfo({
+            empCode: 'TGĐ-001',
             name: 'Phạm Nguyễn Anh Huy',
-            roleCode: 'SUPER_ADMIN',
-            departmentCode: 'KE_HOACH_CBVT',
+            roleCode: 'TONG_GIAM_DOC',
+            departmentCode: 'Ban Giám Đốc Tập Đoàn',
           });
         }
       } else {

@@ -38,6 +38,7 @@ import {
   IconX,
   IconCheck,
   IconChevronDown,
+  IconUpload,
 } from "@tabler/icons-react";
 
 interface DepartmentItem {
@@ -83,6 +84,25 @@ export default function WorkDashboardPage() {
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        alert("Dung lượng ảnh quá lớn! Vui lòng chọn ảnh dưới 5MB.");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (typeof reader.result === "string") {
+          setEditProfileForm((prev) => ({ ...prev, avatar: reader.result as string }));
+        }
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleSaveProfile = (e: React.FormEvent) => {
@@ -367,8 +387,8 @@ export default function WorkDashboardPage() {
           MAIN DASHBOARD AREA
          ════════════════════════════════════════════════════════════════ */}
       <main className="flex-1 min-h-screen bg-[#f4f7f5] text-slate-900 rounded-tl-[24px] flex flex-col justify-between transition-all duration-300">
-        {/* Top Header Bar */}
-        <header className="px-5 lg:px-6 py-3 flex items-center justify-between border-b border-slate-200/80 bg-white/80 backdrop-blur-md flex-shrink-0">
+        {/* Top Header Bar (High Z-Index Stacking Context) */}
+        <header className="relative z-50 px-5 lg:px-6 py-3 flex items-center justify-between border-b border-slate-200/80 bg-white/90 backdrop-blur-md flex-shrink-0">
           <div>
             <h1 className="text-xl lg:text-2xl font-black text-slate-900 tracking-tight">
               Xin chào, <span className="text-[#006838]">{userInfo.name}!</span>
@@ -418,14 +438,14 @@ export default function WorkDashboardPage() {
                 <IconChevronDown size={14} className={`text-slate-500 transition-transform duration-200 ${isUserDropdownOpen ? "rotate-180 text-[#006838]" : ""}`} />
               </button>
 
-              {/* Dropdown Menu Popup */}
+              {/* Dropdown Menu Popup (Highest Z-Index Overlay) */}
               {isUserDropdownOpen && (
                 <>
                   <div
-                    className="fixed inset-0 z-40"
+                    className="fixed inset-0 z-[90]"
                     onClick={() => setIsUserDropdownOpen(false)}
                   />
-                  <div className="absolute right-0 top-full mt-2.5 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200/90 z-50 overflow-hidden text-left animate-in fade-in slide-in-from-top-2 duration-150">
+                  <div className="absolute right-0 top-full mt-2.5 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200/90 z-[100] overflow-hidden text-left animate-in fade-in slide-in-from-top-2 duration-150">
                     {/* User Info Header */}
                     <div className="p-4 bg-gradient-to-br from-[#006838] to-[#004d29] text-white space-y-2">
                       <div className="flex items-center gap-3">
@@ -1324,26 +1344,50 @@ export default function WorkDashboardPage() {
 
             {/* Modal Body / Form */}
             <form onSubmit={handleSaveProfile} className="p-6 space-y-4 text-left">
+              {/* Hidden File Input */}
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleAvatarFileChange}
+                accept="image/*"
+                className="hidden"
+              />
+
               {/* Avatar Preview & Upload */}
               <div className="flex items-center gap-4 p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
-                <div className="relative group">
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="relative group cursor-pointer flex-shrink-0"
+                  title="Nhấn để tải ảnh mới từ máy"
+                >
                   <img
                     src={editProfileForm.avatar}
                     alt={editProfileForm.name}
-                    className="w-16 h-16 rounded-full object-cover border-2 border-[#006838] shadow-sm"
+                    className="w-16 h-16 rounded-full object-cover border-2 border-[#006838] shadow-sm group-hover:opacity-90 transition-opacity"
                   />
-                  <div className="absolute inset-0 rounded-full bg-slate-900/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity cursor-pointer">
-                    <IconCamera size={18} />
+                  <div className="absolute inset-0 rounded-full bg-slate-900/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity">
+                    <IconCamera size={20} />
                   </div>
                 </div>
-                <div className="flex-1 space-y-1">
-                  <label className="text-xs font-bold text-slate-700 block">Đường dẫn ảnh đại diện (Avatar URL)</label>
+
+                <div className="flex-1 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-700 block">Ảnh đại diện (Avatar)</label>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="px-2.5 py-1 rounded-lg bg-[#006838] text-white text-[11px] font-bold hover:bg-[#00522c] transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
+                    >
+                      <IconUpload size={13} />
+                      <span>Tải ảnh lên...</span>
+                    </button>
+                  </div>
                   <input
                     type="text"
                     value={editProfileForm.avatar}
                     onChange={(e) => setEditProfileForm({ ...editProfileForm, avatar: e.target.value })}
                     className="w-full px-3 py-1.5 rounded-xl border border-slate-300 text-xs font-medium outline-none focus:border-[#006838] focus:ring-1 focus:ring-[#006838]"
-                    placeholder="Dán đường dẫn hình ảnh..."
+                    placeholder="Hoặc dán URL hình ảnh..."
                   />
                 </div>
               </div>

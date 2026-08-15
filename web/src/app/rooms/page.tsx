@@ -79,7 +79,7 @@ interface VisitorRecord {
 }
 
 export default function MeetingRoomsPage() {
-  const [activeTab, setActiveTab] = useState<"CALENDAR" | "BOOKING" | "ROOMS" | "VISITORS" | "HISTORY">("CALENDAR");
+  const [activeTab, setActiveTab] = useState<"BOOKING" | "ROOMS" | "VISITORS" | "CALENDAR">("BOOKING");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [selectedVisitorBadge, setSelectedVisitorBadge] = useState<VisitorRecord | null>(null);
   const [selectedEventModal, setSelectedEventModal] = useState<RoomBooking | null>(null);
@@ -864,24 +864,9 @@ export default function MeetingRoomsPage() {
         </div>
 
         {/* ════════════════════════════════════════════════════════════════
-            TOP NAVIGATION TABS (5 TABS INCLUDING LỊCH TỔNG HỢP)
+            TOP NAVIGATION TABS (4 TABS)
            ════════════════════════════════════════════════════════════════ */}
         <div className="flex items-center justify-start border-b border-slate-200 gap-1 sm:gap-2 overflow-x-auto">
-          <button
-            onClick={() => setActiveTab("CALENDAR")}
-            className={`px-4 py-2.5 rounded-t-xl font-extrabold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer border-b-2 whitespace-nowrap ${
-              activeTab === "CALENDAR"
-                ? "bg-white text-[#006838] border-[#006838] shadow-2xs"
-                : "text-slate-500 hover:text-slate-800 border-transparent"
-            }`}
-          >
-            <IconCalendar size={17} />
-            <span>📅 Lịch tổng hợp cuộc họp</span>
-            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-[#006838] text-[11px] font-extrabold">
-              {bookings.length}
-            </span>
-          </button>
-
           <button
             onClick={() => setActiveTab("BOOKING")}
             className={`px-4 py-2.5 rounded-t-xl font-extrabold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer border-b-2 whitespace-nowrap ${
@@ -919,15 +904,18 @@ export default function MeetingRoomsPage() {
           </button>
 
           <button
-            onClick={() => setActiveTab("HISTORY")}
+            onClick={() => setActiveTab("CALENDAR")}
             className={`px-4 py-2.5 rounded-t-xl font-extrabold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer border-b-2 whitespace-nowrap ${
-              activeTab === "HISTORY"
+              activeTab === "CALENDAR"
                 ? "bg-white text-[#006838] border-[#006838] shadow-2xs"
                 : "text-slate-500 hover:text-slate-800 border-transparent"
             }`}
           >
-            <IconChecklist size={17} />
-            <span>📋 Lịch họp &amp; Dữ liệu D1</span>
+            <IconCalendar size={17} />
+            <span>📅 Lịch tổng hợp cuộc họp</span>
+            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-[#006838] text-[11px] font-extrabold">
+              {bookings.length}
+            </span>
           </button>
         </div>
 
@@ -1486,54 +1474,7 @@ export default function MeetingRoomsPage() {
           </div>
         )}
 
-        {/* ════════════════════════════════════════════════════════════════
-            TAB 4: DỮ LIỆU D1 TABLE LIST OF BOOKINGS
-           ════════════════════════════════════════════════════════════════ */}
-        {activeTab === "HISTORY" && (
-          <div className="space-y-4 animate-in fade-in duration-200">
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-              <div className="p-4 border-b border-slate-200 bg-[#242b35] text-white flex items-center justify-between">
-                <h3 className="text-sm font-black uppercase tracking-tight">Dữ liệu Lịch Đặt Phòng Họp D1 Realtime</h3>
-                <span className="text-xs font-bold text-emerald-300">Tổng cộng: {bookings.length} cuộc họp</span>
-              </div>
-              <div className="overflow-x-auto text-xs">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-slate-100 text-slate-700 font-extrabold uppercase">
-                      <th className="p-3">STT</th>
-                      <th className="p-3">Phòng Họp</th>
-                      <th className="p-3">Tiêu Đề Cuộc Họp</th>
-                      <th className="p-3">Người Chủ Trì</th>
-                      <th className="p-3">Thời Gian Họp</th>
-                      <th className="p-3 text-center">Số Người</th>
-                      <th className="p-3 text-center">Trạng Thái D1</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {bookings.map((b, idx) => (
-                      <tr key={b.id} className="hover:bg-slate-50">
-                        <td className="p-3 font-extrabold text-slate-500 text-center">{idx + 1}</td>
-                        <td className="p-3 font-extrabold text-[#006838]">{b.roomName}</td>
-                        <td className="p-3 font-bold text-slate-900">{b.title}</td>
-                        <td className="p-3">
-                          <div className="font-bold text-slate-800">{b.bookerName}</div>
-                          <div className="text-[10px] text-slate-500">{b.department}</div>
-                        </td>
-                        <td className="p-3 font-bold text-slate-800">{b.bookingDate} ({b.timeSlot})</td>
-                        <td className="p-3 text-center font-bold text-slate-900">{b.attendeesCount} người</td>
-                        <td className="p-3 text-center">
-                          <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-[#006838] text-[10px] font-extrabold uppercase">
-                            ✓ Đã xác nhận D1
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
+
       </main>
 
       {/* ════════════════════════════════════════════════════════════════

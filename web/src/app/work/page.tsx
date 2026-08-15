@@ -729,13 +729,13 @@ export default function WorkDashboardPage() {
                   </p>
                 </div>
 
-                {/* Bottom Row: Feature Badges */}
+                {/* Bottom Row: Real Operational Badges */}
                 <div className="flex items-center gap-2.5 pt-1">
                   <span className="px-3 py-1 rounded-full bg-white/15 border border-white/20 text-[10px] sm:text-[11px] font-bold text-emerald-100 flex items-center gap-1.5 backdrop-blur-xs">
-                    ⚡ Truy cập nhanh
+                    Vận hành chuỗi SKECHERS
                   </span>
                   <span className="px-3 py-1 rounded-full bg-white/15 border border-white/20 text-[10px] sm:text-[11px] font-bold text-emerald-100 flex items-center gap-1.5 backdrop-blur-xs">
-                    📱 Gọn trên mobile
+                    Dữ liệu D1 Realtime
                   </span>
                 </div>
               </div>
@@ -906,13 +906,16 @@ export default function WorkDashboardPage() {
                 {/* 8 Sub-Cards Grid (4 cols x 2 rows - Zero-Scroll Fit) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
                   {/* Sub-Card 1: Hồ sơ nhân sự */}
-                  <div className="p-2.5 sm:p-3 rounded-xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-2 group cursor-pointer">
+                  <Link
+                    href="/hr"
+                    className="p-2.5 sm:p-3 rounded-xl bg-white border border-slate-200/80 shadow-xs hover:shadow-md hover:border-[#006838]/60 transition-all flex flex-col justify-between gap-2 group cursor-pointer"
+                  >
                     <div className="space-y-1.5">
-                      <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100 group-hover:scale-105 transition-transform">
+                      <div className="w-8 h-8 rounded-lg bg-[#e6f4ed] text-[#006838] flex items-center justify-center border border-emerald-100 group-hover:scale-105 transition-transform">
                         <IconId size={18} />
                       </div>
                       <div>
-                        <h4 className="text-xs font-extrabold text-[#006838] tracking-tight">
+                        <h4 className="text-xs font-extrabold text-slate-900 group-hover:text-[#006838] transition-colors tracking-tight">
                           Hồ sơ nhân sự
                         </h4>
                         <p className="text-[10px] text-slate-500 mt-0.5 font-normal leading-tight line-clamp-2">
@@ -921,20 +924,20 @@ export default function WorkDashboardPage() {
                       </div>
                     </div>
                     <div className="flex justify-end pt-0.5">
-                      <div className="w-6.5 h-6.5 rounded-full bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors flex items-center justify-center">
+                      <div className="w-6.5 h-6.5 rounded-full bg-[#e6f4ed] text-[#006838] group-hover:bg-[#006838] group-hover:text-white transition-colors flex items-center justify-center">
                         <IconArrowRight size={13} />
                       </div>
                     </div>
-                  </div>
+                  </Link>
 
                   {/* Sub-Card 2: Quản lý nghỉ phép */}
-                  <div className="p-2.5 sm:p-3 rounded-xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-2 group cursor-pointer">
+                  <div className="p-2.5 sm:p-3 rounded-xl bg-white border border-slate-200/80 shadow-xs hover:shadow-md hover:border-[#006838]/60 transition-all flex flex-col justify-between gap-2 group cursor-pointer">
                     <div className="space-y-1.5">
                       <div className="w-8 h-8 rounded-lg bg-[#e6f4ed] text-[#006838] flex items-center justify-center border border-emerald-100 group-hover:scale-105 transition-transform">
                         <IconCalendarEvent size={18} />
                       </div>
                       <div>
-                        <h4 className="text-xs font-extrabold text-[#006838] tracking-tight">
+                        <h4 className="text-xs font-extrabold text-slate-900 group-hover:text-[#006838] transition-colors tracking-tight">
                           Quản lý nghỉ phép
                         </h4>
                         <p className="text-[10px] text-slate-500 mt-0.5 font-normal leading-tight line-clamp-2">
@@ -950,13 +953,13 @@ export default function WorkDashboardPage() {
                   </div>
 
                   {/* Sub-Card 3: Chấm công */}
-                  <div className="p-2.5 sm:p-3 rounded-xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-2 group cursor-pointer">
+                  <div className="p-2.5 sm:p-3 rounded-xl bg-white border border-slate-200/80 shadow-xs hover:shadow-md hover:border-[#006838]/60 transition-all flex flex-col justify-between gap-2 group cursor-pointer">
                     <div className="space-y-1.5">
-                      <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center border border-purple-100 group-hover:scale-105 transition-transform">
+                      <div className="w-8 h-8 rounded-lg bg-[#e6f4ed] text-[#006838] flex items-center justify-center border border-emerald-100 group-hover:scale-105 transition-transform">
                         <IconClockCheck size={18} />
                       </div>
                       <div>
-                        <h4 className="text-xs font-extrabold text-purple-700 tracking-tight">
+                        <h4 className="text-xs font-extrabold text-slate-900 group-hover:text-[#006838] transition-colors tracking-tight">
                           Chấm công
                         </h4>
                         <p className="text-[10px] text-slate-500 mt-0.5 font-normal leading-tight line-clamp-2">
@@ -965,20 +968,20 @@ export default function WorkDashboardPage() {
                       </div>
                     </div>
                     <div className="flex justify-end pt-0.5">
-                      <div className="w-6.5 h-6.5 rounded-full bg-purple-50 text-purple-600 group-hover:bg-purple-600 group-hover:text-white transition-colors flex items-center justify-center">
+                      <div className="w-6.5 h-6.5 rounded-full bg-[#e6f4ed] text-[#006838] group-hover:bg-[#006838] group-hover:text-white transition-colors flex items-center justify-center">
                         <IconArrowRight size={13} />
                       </div>
                     </div>
                   </div>
 
                   {/* Sub-Card 4: Đánh giá nhân viên */}
-                  <div className="p-2.5 sm:p-3 rounded-xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-2 group cursor-pointer">
+                  <div className="p-2.5 sm:p-3 rounded-xl bg-white border border-slate-200/80 shadow-xs hover:shadow-md hover:border-[#006838]/60 transition-all flex flex-col justify-between gap-2 group cursor-pointer">
                     <div className="space-y-1.5">
-                      <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-100 group-hover:scale-105 transition-transform">
+                      <div className="w-8 h-8 rounded-lg bg-[#e6f4ed] text-[#006838] flex items-center justify-center border border-emerald-100 group-hover:scale-105 transition-transform">
                         <IconTrendingUp size={18} />
                       </div>
                       <div>
-                        <h4 className="text-xs font-extrabold text-emerald-800 tracking-tight">
+                        <h4 className="text-xs font-extrabold text-slate-900 group-hover:text-[#006838] transition-colors tracking-tight">
                           Đánh giá nhân viên
                         </h4>
                         <p className="text-[10px] text-slate-500 mt-0.5 font-normal leading-tight line-clamp-2">
@@ -987,20 +990,20 @@ export default function WorkDashboardPage() {
                       </div>
                     </div>
                     <div className="flex justify-end pt-0.5">
-                      <div className="w-6.5 h-6.5 rounded-full bg-emerald-50 text-emerald-700 group-hover:bg-emerald-700 group-hover:text-white transition-colors flex items-center justify-center">
+                      <div className="w-6.5 h-6.5 rounded-full bg-[#e6f4ed] text-[#006838] group-hover:bg-[#006838] group-hover:text-white transition-colors flex items-center justify-center">
                         <IconArrowRight size={13} />
                       </div>
                     </div>
                   </div>
 
                   {/* Sub-Card 5: Đào tạo & phát triển */}
-                  <div className="p-2.5 sm:p-3 rounded-xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-2 group cursor-pointer">
+                  <div className="p-2.5 sm:p-3 rounded-xl bg-white border border-slate-200/80 shadow-xs hover:shadow-md hover:border-[#006838]/60 transition-all flex flex-col justify-between gap-2 group cursor-pointer">
                     <div className="space-y-1.5">
-                      <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-100 group-hover:scale-105 transition-transform">
+                      <div className="w-8 h-8 rounded-lg bg-[#e6f4ed] text-[#006838] flex items-center justify-center border border-emerald-100 group-hover:scale-105 transition-transform">
                         <IconSchool size={18} />
                       </div>
                       <div>
-                        <h4 className="text-xs font-extrabold text-amber-800 tracking-tight">
+                        <h4 className="text-xs font-extrabold text-slate-900 group-hover:text-[#006838] transition-colors tracking-tight">
                           Đào tạo &amp; phát triển
                         </h4>
                         <p className="text-[10px] text-slate-500 mt-0.5 font-normal leading-tight line-clamp-2">
@@ -1009,20 +1012,20 @@ export default function WorkDashboardPage() {
                       </div>
                     </div>
                     <div className="flex justify-end pt-0.5">
-                      <div className="w-6.5 h-6.5 rounded-full bg-amber-50 text-amber-700 group-hover:bg-amber-600 group-hover:text-white transition-colors flex items-center justify-center">
+                      <div className="w-6.5 h-6.5 rounded-full bg-[#e6f4ed] text-[#006838] group-hover:bg-[#006838] group-hover:text-white transition-colors flex items-center justify-center">
                         <IconArrowRight size={13} />
                       </div>
                     </div>
                   </div>
 
                   {/* Sub-Card 6: Lương & phúc lợi */}
-                  <div className="p-2.5 sm:p-3 rounded-xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-2 group cursor-pointer">
+                  <div className="p-2.5 sm:p-3 rounded-xl bg-white border border-slate-200/80 shadow-xs hover:shadow-md hover:border-[#006838]/60 transition-all flex flex-col justify-between gap-2 group cursor-pointer">
                     <div className="space-y-1.5">
-                      <div className="w-8 h-8 rounded-lg bg-cyan-50 text-cyan-700 flex items-center justify-center border border-cyan-100 group-hover:scale-105 transition-transform">
+                      <div className="w-8 h-8 rounded-lg bg-[#e6f4ed] text-[#006838] flex items-center justify-center border border-emerald-100 group-hover:scale-105 transition-transform">
                         <IconCash size={18} />
                       </div>
                       <div>
-                        <h4 className="text-xs font-extrabold text-cyan-800 tracking-tight">
+                        <h4 className="text-xs font-extrabold text-slate-900 group-hover:text-[#006838] transition-colors tracking-tight">
                           Lương &amp; phúc lợi
                         </h4>
                         <p className="text-[10px] text-slate-500 mt-0.5 font-normal leading-tight line-clamp-2">
@@ -1031,20 +1034,23 @@ export default function WorkDashboardPage() {
                       </div>
                     </div>
                     <div className="flex justify-end pt-0.5">
-                      <div className="w-6.5 h-6.5 rounded-full bg-cyan-50 text-cyan-700 group-hover:bg-cyan-700 group-hover:text-white transition-colors flex items-center justify-center">
+                      <div className="w-6.5 h-6.5 rounded-full bg-[#e6f4ed] text-[#006838] group-hover:bg-[#006838] group-hover:text-white transition-colors flex items-center justify-center">
                         <IconArrowRight size={13} />
                       </div>
                     </div>
                   </div>
 
                   {/* Sub-Card 7: Tuyển dụng */}
-                  <div className="p-2.5 sm:p-3 rounded-xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-2 group cursor-pointer">
+                  <Link
+                    href="/careers"
+                    className="p-2.5 sm:p-3 rounded-xl bg-white border border-slate-200/80 shadow-xs hover:shadow-md hover:border-[#006838]/60 transition-all flex flex-col justify-between gap-2 group cursor-pointer"
+                  >
                     <div className="space-y-1.5">
-                      <div className="w-8 h-8 rounded-lg bg-pink-50 text-pink-700 flex items-center justify-center border border-pink-100 group-hover:scale-105 transition-transform">
+                      <div className="w-8 h-8 rounded-lg bg-[#e6f4ed] text-[#006838] flex items-center justify-center border border-emerald-100 group-hover:scale-105 transition-transform">
                         <IconUserPlus size={18} />
                       </div>
                       <div>
-                        <h4 className="text-xs font-extrabold text-pink-700 tracking-tight">
+                        <h4 className="text-xs font-extrabold text-slate-900 group-hover:text-[#006838] transition-colors tracking-tight">
                           Tuyển dụng
                         </h4>
                         <p className="text-[10px] text-slate-500 mt-0.5 font-normal leading-tight line-clamp-2">
@@ -1053,20 +1059,20 @@ export default function WorkDashboardPage() {
                       </div>
                     </div>
                     <div className="flex justify-end pt-0.5">
-                      <div className="w-6.5 h-6.5 rounded-full bg-pink-50 text-pink-700 group-hover:bg-pink-600 group-hover:text-white transition-colors flex items-center justify-center">
+                      <div className="w-6.5 h-6.5 rounded-full bg-[#e6f4ed] text-[#006838] group-hover:bg-[#006838] group-hover:text-white transition-colors flex items-center justify-center">
                         <IconArrowRight size={13} />
                       </div>
                     </div>
-                  </div>
+                  </Link>
 
                   {/* Sub-Card 8: Báo cáo nhân sự */}
-                  <div className="p-2.5 sm:p-3 rounded-xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-2 group cursor-pointer">
+                  <div className="p-2.5 sm:p-3 rounded-xl bg-white border border-slate-200/80 shadow-xs hover:shadow-md hover:border-[#006838]/60 transition-all flex flex-col justify-between gap-2 group cursor-pointer">
                     <div className="space-y-1.5">
-                      <div className="w-8 h-8 rounded-lg bg-sky-50 text-sky-700 flex items-center justify-center border border-sky-100 group-hover:scale-105 transition-transform">
+                      <div className="w-8 h-8 rounded-lg bg-[#e6f4ed] text-[#006838] flex items-center justify-center border border-emerald-100 group-hover:scale-105 transition-transform">
                         <IconFileText size={18} />
                       </div>
                       <div>
-                        <h4 className="text-xs font-extrabold text-sky-800 tracking-tight">
+                        <h4 className="text-xs font-extrabold text-slate-900 group-hover:text-[#006838] transition-colors tracking-tight">
                           Báo cáo nhân sự
                         </h4>
                         <p className="text-[10px] text-slate-500 mt-0.5 font-normal leading-tight line-clamp-2">
@@ -1075,7 +1081,7 @@ export default function WorkDashboardPage() {
                       </div>
                     </div>
                     <div className="flex justify-end pt-0.5">
-                      <div className="w-6.5 h-6.5 rounded-full bg-sky-50 text-sky-700 group-hover:bg-sky-600 group-hover:text-white transition-colors flex items-center justify-center">
+                      <div className="w-6.5 h-6.5 rounded-full bg-[#e6f4ed] text-[#006838] group-hover:bg-[#006838] group-hover:text-white transition-colors flex items-center justify-center">
                         <IconArrowRight size={13} />
                       </div>
                     </div>
@@ -1217,8 +1223,8 @@ export default function WorkDashboardPage() {
                   </div>
 
                   {/* Card 2: Đơn Hàng */}
-                  <div className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:border-blue-300 transition-all flex items-center gap-3 group flex-1">
-                    <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform border border-blue-100">
+                  <div className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:shadow-md hover:border-[#006838]/60 transition-all flex items-center gap-3 group flex-1">
+                    <div className="w-10 h-10 rounded-xl bg-[#e6f4ed] text-[#006838] flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform border border-emerald-100">
                       <IconClipboardList size={20} />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -1238,9 +1244,9 @@ export default function WorkDashboardPage() {
                   {/* Card 3: Chỉ Số Phòng Sản Xuất (TH-NM) */}
                   <div
                     onClick={() => setSelectedDept(selectedDept === "production" ? null : "production")}
-                    className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:border-purple-300 transition-all cursor-pointer flex items-center gap-3 group flex-1"
+                    className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:shadow-md hover:border-[#006838]/60 transition-all cursor-pointer flex items-center gap-3 group flex-1"
                   >
-                    <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform border border-purple-100">
+                    <div className="w-10 h-10 rounded-xl bg-[#e6f4ed] text-[#006838] flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform border border-emerald-100">
                       <IconPackage size={20} />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -1260,9 +1266,9 @@ export default function WorkDashboardPage() {
                   {/* Card 4: Hiệu Suất & Chỉ Số Chất Lượng (QC) */}
                   <div
                     onClick={() => setSelectedDept(selectedDept === "qc" ? null : "qc")}
-                    className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:border-amber-300 transition-all cursor-pointer flex items-center gap-3 group flex-1"
+                    className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:shadow-md hover:border-[#006838]/60 transition-all cursor-pointer flex items-center gap-3 group flex-1"
                   >
-                    <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform border border-amber-100">
+                    <div className="w-10 h-10 rounded-xl bg-[#e6f4ed] text-[#006838] flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform border border-emerald-100">
                       <IconTrendingUp size={20} />
                     </div>
                     <div className="flex-1 min-w-0">

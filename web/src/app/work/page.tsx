@@ -299,7 +299,7 @@ export default function WorkDashboardPage() {
       </aside>
 
       {/* ════════════════════════════════════════════════════════════════
-          MAIN DASHBOARD AREA (Zero-Scroll Viewport Layout)
+          MAIN DASHBOARD AREA (Proportionally Balanced Card Elements)
          ════════════════════════════════════════════════════════════════ */}
       <main className="flex-1 h-screen bg-[#f4f7f5] text-slate-900 rounded-tl-[24px] overflow-hidden flex flex-col justify-between transition-all duration-300">
         {/* Top Header Bar */}
@@ -355,7 +355,7 @@ export default function WorkDashboardPage() {
           </div>
         </header>
 
-        {/* Dashboard Body (Fits 100% inside viewport without scrolling) */}
+        {/* Dashboard Body */}
         <div className="p-4 lg:p-5 flex-1 flex flex-col justify-between overflow-hidden gap-3.5">
           {/* IF A "COMING SOON" DEPARTMENT IS SELECTED */}
           {activeDeptObj && !activeDeptObj.hasData && (
@@ -477,49 +477,49 @@ export default function WorkDashboardPage() {
             </div>
           )}
 
-          {/* DEFAULT MAIN DASHBOARD (Zero-Scroll Optimized Grid Layout) */}
+          {/* DEFAULT MAIN DASHBOARD (Balanced Proportions Inside Cards) */}
           {!selectedDept && (
             <div className="flex-1 flex flex-col justify-between gap-3.5 overflow-hidden">
               {/* TOP ROW: 4 Metric Cards (Left Column) + Donut Ring Chart (Right Column) */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-stretch flex-1 min-h-0">
-                {/* Left Column (4 Cards Vertical Stack) */}
-                <div className="lg:col-span-4 flex flex-col justify-between gap-2">
+                {/* Left Column (4 Cards Vertical Stack with Balanced Element Sizing) */}
+                <div className="lg:col-span-4 flex flex-col justify-between gap-2.5">
                   {/* Card 1: R&D (Phòng phát triển) */}
                   <div
                     onClick={() => setSelectedDept("rd")}
-                    className="p-3 sm:p-3.5 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:border-[#006838]/60 transition-all cursor-pointer flex items-center gap-3 group flex-1"
+                    className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:border-[#006838]/60 transition-all cursor-pointer flex items-center gap-3.5 group flex-1"
                   >
-                    <div className="w-10 h-10 rounded-xl bg-emerald-50 text-[#006838] flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform border border-emerald-100">
-                      <IconUsers size={22} />
+                    <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-[#006838] flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform border border-emerald-100">
+                      <IconUsers size={24} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <span className="text-[11px] font-bold text-slate-500 block truncate">
+                      <span className="text-xs font-extrabold text-slate-600 block truncate">
                         Chỉ Số Phòng Phát Triển (R&D)
                       </span>
-                      <div className="text-xl font-black text-slate-900 tracking-tight">
+                      <div className="text-2xl font-black text-slate-900 tracking-tight mt-0.5">
                         1,248
                       </div>
-                      <div className="flex items-center gap-1 text-[10px] font-bold text-[#006838]">
-                        <IconArrowUpRight size={12} />
+                      <div className="flex items-center gap-1 text-xs font-bold text-[#006838] mt-0.5">
+                        <IconArrowUpRight size={14} />
                         <span>+12% so với tháng trước</span>
                       </div>
                     </div>
                   </div>
 
                   {/* Card 2: Đơn Hàng */}
-                  <div className="p-3 sm:p-3.5 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:border-blue-300 transition-all flex items-center gap-3 group flex-1">
-                    <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform border border-blue-100">
-                      <IconClipboardList size={22} />
+                  <div className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:border-blue-300 transition-all flex items-center gap-3.5 group flex-1">
+                    <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform border border-blue-100">
+                      <IconClipboardList size={24} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <span className="text-[11px] font-bold text-slate-500 block truncate">
+                      <span className="text-xs font-extrabold text-slate-600 block truncate">
                         Đơn Hàng Chuỗi SKECHERS
                       </span>
-                      <div className="text-xl font-black text-slate-900 tracking-tight">
+                      <div className="text-2xl font-black text-slate-900 tracking-tight mt-0.5">
                         342
                       </div>
-                      <div className="flex items-center gap-1 text-[10px] font-bold text-[#006838]">
-                        <IconArrowUpRight size={12} />
+                      <div className="flex items-center gap-1 text-xs font-bold text-[#006838] mt-0.5">
+                        <IconArrowUpRight size={14} />
                         <span>+8% so với tháng trước</span>
                       </div>
                     </div>
@@ -528,20 +528,20 @@ export default function WorkDashboardPage() {
                   {/* Card 3: Chỉ Số Phòng Sản Xuất (TH-NM) */}
                   <div
                     onClick={() => setSelectedDept("production")}
-                    className="p-3 sm:p-3.5 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:border-purple-300 transition-all cursor-pointer flex items-center gap-3 group flex-1"
+                    className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:border-purple-300 transition-all cursor-pointer flex items-center gap-3.5 group flex-1"
                   >
-                    <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform border border-purple-100">
-                      <IconPackage size={22} />
+                    <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform border border-purple-100">
+                      <IconPackage size={24} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <span className="text-[11px] font-bold text-slate-500 block truncate">
+                      <span className="text-xs font-extrabold text-slate-600 block truncate">
                         Chỉ Số Phòng Sản Xuất (TH-NM)
                       </span>
-                      <div className="text-xl font-black text-slate-900 tracking-tight">
+                      <div className="text-2xl font-black text-slate-900 tracking-tight mt-0.5">
                         586
                       </div>
-                      <div className="flex items-center gap-1 text-[10px] font-bold text-[#006838]">
-                        <IconArrowUpRight size={12} />
+                      <div className="flex items-center gap-1 text-xs font-bold text-[#006838] mt-0.5">
+                        <IconArrowUpRight size={14} />
                         <span>+15% so với tháng trước</span>
                       </div>
                     </div>
@@ -550,35 +550,35 @@ export default function WorkDashboardPage() {
                   {/* Card 4: Hiệu Suất & Chỉ Số Chất Lượng (QC) */}
                   <div
                     onClick={() => setSelectedDept("qc")}
-                    className="p-3 sm:p-3.5 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:border-amber-300 transition-all cursor-pointer flex items-center gap-3 group flex-1"
+                    className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:border-amber-300 transition-all cursor-pointer flex items-center gap-3.5 group flex-1"
                   >
-                    <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform border border-amber-100">
-                      <IconTrendingUp size={22} />
+                    <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform border border-amber-100">
+                      <IconTrendingUp size={24} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <span className="text-[11px] font-bold text-slate-500 block truncate">
+                      <span className="text-xs font-extrabold text-slate-600 block truncate">
                         Chỉ Số Chất Lượng &amp; Hiệu Suất (QC)
                       </span>
-                      <div className="text-xl font-black text-slate-900 tracking-tight">
+                      <div className="text-2xl font-black text-slate-900 tracking-tight mt-0.5">
                         92%
                       </div>
-                      <div className="flex items-center gap-1 text-[10px] font-bold text-[#006838]">
-                        <IconArrowUpRight size={12} />
+                      <div className="flex items-center gap-1 text-xs font-bold text-[#006838] mt-0.5">
+                        <IconArrowUpRight size={14} />
                         <span>+5% so với tháng trước</span>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Right Column (TỔNG CẢI TIẾN - Donut Chart Block) */}
+                {/* Right Column (TỔNG CẢI TIẾN - Donut Chart Block with Balanced Ring & Legend Size) */}
                 <div className="lg:col-span-8 p-4 lg:p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm flex flex-col justify-between min-h-0">
                   {/* Card Header */}
                   <div className="flex items-center justify-between flex-shrink-0 pb-1">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-lg bg-emerald-50 text-[#006838] flex items-center justify-center border border-emerald-100">
-                        <IconSettings size={18} />
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-emerald-50 text-[#006838] flex items-center justify-center border border-emerald-100">
+                        <IconSettings size={20} />
                       </div>
-                      <h3 className="text-base font-black text-slate-900 tracking-tight">
+                      <h3 className="text-lg font-black text-slate-900 tracking-tight">
                         TỔNG CẢI TIẾN
                       </h3>
                     </div>
@@ -586,7 +586,7 @@ export default function WorkDashboardPage() {
                     <select
                       value={timeFilter}
                       onChange={(e) => setTimeFilter(e.target.value)}
-                      className="px-3 py-1 rounded-lg bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 outline-none cursor-pointer hover:bg-slate-100 transition-colors"
+                      className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 outline-none cursor-pointer hover:bg-slate-100 transition-colors"
                     >
                       <option value="Tháng này">Tháng này</option>
                       <option value="Tháng trước">Tháng trước</option>
@@ -595,10 +595,10 @@ export default function WorkDashboardPage() {
                     </select>
                   </div>
 
-                  {/* Donut Ring Visual (Compacted for viewport height) */}
+                  {/* Donut Ring Visual (Enlarged & Balanced for Card Dimensions) */}
                   <div className="relative flex flex-col lg:flex-row items-center justify-center gap-6 my-auto">
                     {/* Donut SVG Ring Graphic */}
-                    <div className="relative w-44 h-44 sm:w-48 sm:h-48 flex-shrink-0 flex items-center justify-center">
+                    <div className="relative w-56 h-56 lg:w-60 lg:h-60 flex-shrink-0 flex items-center justify-center">
                       <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
                         {/* Blue: Nhân sự hành chánh (22.7%) */}
                         <circle
@@ -681,72 +681,72 @@ export default function WorkDashboardPage() {
 
                       {/* Donut Center Label */}
                       <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                        <span className="text-[9px] font-black text-[#006838] uppercase tracking-wider block">
+                        <span className="text-[10px] font-black text-[#006838] uppercase tracking-wider block">
                           TBS GROUP
                         </span>
-                        <span className="text-2xl font-black text-slate-900 tracking-tight block">
+                        <span className="text-3xl font-black text-slate-900 tracking-tight block my-0.5">
                           582
                         </span>
-                        <span className="text-[10px] font-semibold text-slate-500 block">
+                        <span className="text-xs font-semibold text-slate-500 block">
                           Tổng Cải Tiến
                         </span>
                       </div>
                     </div>
 
                     {/* Donut Chart Legend Labels Grid */}
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[11px] font-bold w-full max-w-sm">
-                      <div className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-50">
-                        <span className="w-2.5 h-2.5 rounded-full bg-blue-600 flex-shrink-0" />
+                    <div className="grid grid-cols-2 gap-x-5 gap-y-2.5 text-xs font-bold w-full max-w-sm">
+                      <div className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-slate-50">
+                        <span className="w-3 h-3 rounded-full bg-blue-600 flex-shrink-0" />
                         <div className="truncate">
-                          <span className="text-slate-600 block text-[10px] truncate">Nhân sự hành chánh</span>
+                          <span className="text-slate-600 block text-xs truncate">Nhân sự hành chánh</span>
                           <span className="text-slate-900 font-black">132 <span className="text-[#006838] font-semibold">(22.7%)</span></span>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-50">
-                        <span className="w-2.5 h-2.5 rounded-full bg-orange-600 flex-shrink-0" />
+                      <div className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-slate-50">
+                        <span className="w-3 h-3 rounded-full bg-orange-600 flex-shrink-0" />
                         <div className="truncate">
-                          <span className="text-slate-600 block text-[10px] truncate">CN-CI</span>
+                          <span className="text-slate-600 block text-xs truncate">CN-CI</span>
                           <span className="text-slate-900 font-black">112 <span className="text-amber-600 font-semibold">(19.2%)</span></span>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-50">
-                        <span className="w-2.5 h-2.5 rounded-full bg-cyan-500 flex-shrink-0" />
+                      <div className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-slate-50">
+                        <span className="w-3 h-3 rounded-full bg-cyan-500 flex-shrink-0" />
                         <div className="truncate">
-                          <span className="text-slate-600 block text-[10px] truncate">Kế toán &amp; quản trị</span>
+                          <span className="text-slate-600 block text-xs truncate">Kế toán &amp; quản trị</span>
                           <span className="text-slate-900 font-black">98 <span className="text-[#006838] font-semibold">(16.8%)</span></span>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-50">
-                        <span className="w-2.5 h-2.5 rounded-full bg-[#006838] flex-shrink-0" />
+                      <div className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-slate-50">
+                        <span className="w-3 h-3 rounded-full bg-[#006838] flex-shrink-0" />
                         <div className="truncate">
-                          <span className="text-slate-600 block text-[10px] truncate">Quản lý chất lượng (QC)</span>
+                          <span className="text-slate-600 block text-xs truncate">Quản lý chất lượng (QC)</span>
                           <span className="text-slate-900 font-black">86 <span className="text-[#006838] font-semibold">(14.8%)</span></span>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-50">
-                        <span className="w-2.5 h-2.5 rounded-full bg-pink-600 flex-shrink-0" />
+                      <div className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-slate-50">
+                        <span className="w-3 h-3 rounded-full bg-pink-600 flex-shrink-0" />
                         <div className="truncate">
-                          <span className="text-slate-600 block text-[10px] truncate">R&amp;D (Phát triển mẫu)</span>
+                          <span className="text-slate-600 block text-xs truncate">R&amp;D (Phát triển mẫu)</span>
                           <span className="text-slate-900 font-black">76 <span className="text-[#006838] font-semibold">(13.1%)</span></span>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-50">
-                        <span className="w-2.5 h-2.5 rounded-full bg-sky-600 flex-shrink-0" />
+                      <div className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-slate-50">
+                        <span className="w-3 h-3 rounded-full bg-sky-600 flex-shrink-0" />
                         <div className="truncate">
-                          <span className="text-slate-600 block text-[10px] truncate">KH chuẩn bị - TTPP</span>
+                          <span className="text-slate-600 block text-xs truncate">KH chuẩn bị - TTPP</span>
                           <span className="text-slate-900 font-black">54 <span className="text-[#006838] font-semibold">(9.3%)</span></span>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-50 col-span-2">
-                        <span className="w-2.5 h-2.5 rounded-full bg-purple-600 flex-shrink-0" />
+                      <div className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-slate-50 col-span-2">
+                        <span className="w-3 h-3 rounded-full bg-purple-600 flex-shrink-0" />
                         <div className="truncate">
-                          <span className="text-slate-600 block text-[10px] truncate">TH-NM (Sản xuất nhà máy)</span>
+                          <span className="text-slate-600 block text-xs truncate">TH-NM (Sản xuất nhà máy)</span>
                           <span className="text-slate-900 font-black">24 <span className="text-pink-600 font-semibold">(4.1%)</span></span>
                         </div>
                       </div>
@@ -756,58 +756,58 @@ export default function WorkDashboardPage() {
               </div>
 
               {/* BOTTOM ROW: System Notifications Bar ("THÔNG BÁO HỆ THỐNG") */}
-              <div className="p-3.5 rounded-2xl bg-white border border-slate-200/80 shadow-sm space-y-2.5 flex-shrink-0">
+              <div className="p-3.5 lg:p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm space-y-3 flex-shrink-0">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-black text-slate-900 tracking-tight">
+                  <h3 className="text-base font-black text-slate-900 tracking-tight">
                     THÔNG BÁO HỆ THỐNG
                   </h3>
-                  <button className="text-[11px] font-bold text-[#006838] hover:underline flex items-center gap-1">
+                  <button className="text-xs font-bold text-[#006838] hover:underline flex items-center gap-1">
                     <span>Xem tất cả</span>
-                    <IconChevronRight size={12} />
+                    <IconChevronRight size={14} />
                   </button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
                   {/* Notification 1 */}
-                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center gap-3 hover:bg-slate-100 transition-colors">
-                    <div className="w-8 h-8 rounded-lg bg-emerald-100 text-[#006838] flex items-center justify-center flex-shrink-0">
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center gap-3.5 hover:bg-slate-100 transition-colors">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-100 text-[#006838] flex items-center justify-center flex-shrink-0">
                       <IconClipboardList size={18} />
                     </div>
                     <div className="min-w-0 flex-1">
                       <h4 className="text-xs font-extrabold text-slate-900 truncate">
                         Có 12 đơn hàng đang chờ xử lý
                       </h4>
-                      <p className="text-[10px] text-slate-500 mt-0.5">
+                      <p className="text-[11px] text-slate-500 mt-0.5">
                         Cập nhật 10 phút trước
                       </p>
                     </div>
                   </div>
 
                   {/* Notification 2 */}
-                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center gap-3 hover:bg-slate-100 transition-colors">
-                    <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center flex-shrink-0">
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center gap-3.5 hover:bg-slate-100 transition-colors">
+                    <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center flex-shrink-0">
                       <IconUsers size={18} />
                     </div>
                     <div className="min-w-0 flex-1">
                       <h4 className="text-xs font-extrabold text-slate-900 truncate">
                         5 nhân sự sắp hết hạn hợp đồng
                       </h4>
-                      <p className="text-[10px] text-slate-500 mt-0.5">
+                      <p className="text-[11px] text-slate-500 mt-0.5">
                         Cập nhật 1 giờ trước
                       </p>
                     </div>
                   </div>
 
                   {/* Notification 3 */}
-                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center gap-3 hover:bg-slate-100 transition-colors">
-                    <div className="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center flex-shrink-0">
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center gap-3.5 hover:bg-slate-100 transition-colors">
+                    <div className="w-9 h-9 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center flex-shrink-0">
                       <IconPackage size={18} />
                     </div>
                     <div className="min-w-0 flex-1">
                       <h4 className="text-xs font-extrabold text-slate-900 truncate">
                         Báo cáo cải tiến tuần 24
                       </h4>
-                      <p className="text-[10px] text-slate-500 mt-0.5">
+                      <p className="text-[11px] text-slate-500 mt-0.5">
                         Cập nhật 2 giờ trước
                       </p>
                     </div>
@@ -819,7 +819,7 @@ export default function WorkDashboardPage() {
         </div>
 
         {/* Footer info bar inside dashboard */}
-        <footer className="py-2 px-6 border-t border-slate-200/70 text-[11px] text-slate-500 flex items-center justify-between bg-[#f4f7f5] flex-shrink-0">
+        <footer className="py-2.5 px-6 border-t border-slate-200/70 text-xs text-slate-500 flex items-center justify-between bg-[#f4f7f5] flex-shrink-0">
           <span>Văn Phòng Chuỗi SKECHERS - TBS Group Dashboard v2.4</span>
           <span className="font-mono text-[#006838] font-bold">● System Online 24/7</span>
         </footer>

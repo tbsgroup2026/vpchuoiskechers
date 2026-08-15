@@ -31,6 +31,13 @@ import {
   IconFileText,
   IconArrowRight,
   IconDevices,
+  IconUser,
+  IconLock,
+  IconLogout,
+  IconCamera,
+  IconX,
+  IconCheck,
+  IconChevronDown,
 } from "@tabler/icons-react";
 
 interface DepartmentItem {
@@ -47,6 +54,54 @@ export default function WorkDashboardPage() {
   const [timeFilter, setTimeFilter] = useState("Tháng này");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+  // User Profile & Account Dropdown State
+  const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // User Profile Form State
+  const [userInfo, setUserInfo] = useState({
+    name: "Anh Huy",
+    phone: "0988 123 456",
+    email: "huy.nguyen@tbsgroup.vn",
+    avatar: "/images/crawled/Da-giay1.jpg",
+    title: "Quản trị viên cao cấp - SKECHERS",
+  });
+
+  // Edit Profile Form Temp State
+  const [editProfileForm, setEditProfileForm] = useState({ ...userInfo });
+
+  // Password Change Form State
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const handleSaveProfile = (e: React.FormEvent) => {
+    e.preventDefault();
+    setUserInfo({ ...editProfileForm });
+    setIsProfileModalOpen(false);
+    showToast("Cập nhật thông tin cá nhân thành công!");
+  };
+
+  const handleSavePassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      alert("Mật khẩu mới xác nhận không khớp!");
+      return;
+    }
+    setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+    setIsPasswordModalOpen(false);
+    showToast("Đổi mật khẩu tài khoản thành công!");
+  };
 
   // 7 Numbered Departments List
   const departments: DepartmentItem[] = [
@@ -316,7 +371,7 @@ export default function WorkDashboardPage() {
         <header className="px-5 lg:px-6 py-3 flex items-center justify-between border-b border-slate-200/80 bg-white/80 backdrop-blur-md flex-shrink-0">
           <div>
             <h1 className="text-xl lg:text-2xl font-black text-slate-900 tracking-tight">
-              Xin chào, <span className="text-[#006838]">Anh Huy!</span>
+              Xin chào, <span className="text-[#006838]">{userInfo.name}!</span>
             </h1>
             <p className="text-xs text-slate-500 mt-0.5 font-medium">
               Chúc bạn một ngày làm việc hiệu quả tại Văn Phòng Chuỗi SKECHERS - TBS Group.
@@ -343,16 +398,109 @@ export default function WorkDashboardPage() {
               <IconMaximize size={18} />
             </button>
 
-            {/* User Avatar */}
-            <div className="relative flex items-center gap-2 pl-1">
-              <div className="w-8 h-8 rounded-full bg-slate-900 border-2 border-[#006838] overflow-hidden shadow-sm">
-                <img
-                  src="/images/crawled/Da-giay1.jpg"
-                  alt="User Avatar"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white" />
+            {/* User Avatar & Executive Dropdown Menu */}
+            <div className="relative">
+              <button
+                onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
+                className="flex items-center gap-1.5 p-1 rounded-full hover:bg-slate-100 transition-colors cursor-pointer group"
+                title="Tài khoản cá nhân"
+              >
+                <div className="relative">
+                  <div className="w-9 h-9 rounded-full bg-slate-900 border-2 border-[#006838] overflow-hidden shadow-sm group-hover:scale-105 transition-transform">
+                    <img
+                      src={userInfo.avatar}
+                      alt={userInfo.name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white" />
+                </div>
+                <IconChevronDown size={14} className={`text-slate-500 transition-transform duration-200 ${isUserDropdownOpen ? "rotate-180 text-[#006838]" : ""}`} />
+              </button>
+
+              {/* Dropdown Menu Popup */}
+              {isUserDropdownOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setIsUserDropdownOpen(false)}
+                  />
+                  <div className="absolute right-0 top-full mt-2.5 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200/90 z-50 overflow-hidden text-left animate-in fade-in slide-in-from-top-2 duration-150">
+                    {/* User Info Header */}
+                    <div className="p-4 bg-gradient-to-br from-[#006838] to-[#004d29] text-white space-y-2">
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={userInfo.avatar}
+                          alt={userInfo.name}
+                          className="w-11 h-11 rounded-full border-2 border-white/80 object-cover shadow-sm flex-shrink-0"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <h4 className="text-sm font-black truncate">{userInfo.name}</h4>
+                          <p className="text-xs text-emerald-100 truncate font-medium">{userInfo.email}</p>
+                        </div>
+                      </div>
+                      <span className="inline-block px-2.5 py-0.5 rounded-full bg-white/20 text-white text-[10px] font-extrabold uppercase tracking-wider">
+                        {userInfo.title}
+                      </span>
+                    </div>
+
+                    {/* Menu Options */}
+                    <div className="p-2 space-y-1">
+                      {/* Option 1: Thông tin cá nhân */}
+                      <button
+                        onClick={() => {
+                          setEditProfileForm({ ...userInfo });
+                          setIsUserDropdownOpen(false);
+                          setIsProfileModalOpen(true);
+                        }}
+                        className="w-full p-2.5 rounded-xl text-left flex items-center gap-3 text-xs font-bold text-slate-700 hover:bg-emerald-50 hover:text-[#006838] transition-colors cursor-pointer group"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-emerald-100/70 text-[#006838] flex items-center justify-center group-hover:bg-[#006838] group-hover:text-white transition-colors flex-shrink-0">
+                          <IconUser size={16} />
+                        </div>
+                        <div className="flex-1">
+                          <div className="font-extrabold">Thông tin cá nhân</div>
+                          <div className="text-[10px] text-slate-500 font-normal">Họ tên, SĐT, Email &amp; Avatar</div>
+                        </div>
+                      </button>
+
+                      {/* Option 2: Đổi mật khẩu */}
+                      <button
+                        onClick={() => {
+                          setIsUserDropdownOpen(false);
+                          setIsPasswordModalOpen(true);
+                        }}
+                        className="w-full p-2.5 rounded-xl text-left flex items-center gap-3 text-xs font-bold text-slate-700 hover:bg-amber-50 hover:text-amber-800 transition-colors cursor-pointer group"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-amber-100/70 text-amber-800 flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition-colors flex-shrink-0">
+                          <IconLock size={16} />
+                        </div>
+                        <div className="flex-1">
+                          <div className="font-extrabold">Đổi mật khẩu</div>
+                          <div className="text-[10px] text-slate-500 font-normal">Cập nhật mật khẩu tài khoản</div>
+                        </div>
+                      </button>
+
+                      <div className="h-[1px] bg-slate-100 my-1" />
+
+                      {/* Option 3: Đăng xuất */}
+                      <Link
+                        href="/login"
+                        onClick={() => setIsUserDropdownOpen(false)}
+                        className="w-full p-2.5 rounded-xl text-left flex items-center gap-3 text-xs font-bold text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer group"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center group-hover:bg-rose-600 group-hover:text-white transition-colors flex-shrink-0">
+                          <IconLogout size={16} />
+                        </div>
+                        <div className="flex-1">
+                          <div className="font-extrabold">Đăng xuất</div>
+                          <div className="text-[10px] text-rose-400 font-normal">Thoát tài khoản an toàn</div>
+                        </div>
+                      </Link>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </header>
@@ -1148,6 +1296,213 @@ export default function WorkDashboardPage() {
           <span className="font-mono text-[#006838] font-bold">● System Online 24/7</span>
         </footer>
       </main>
+
+      {/* ════════════════════════════════════════════════════════════════
+          MODAL 1: THÔNG TIN CÁ NHÂN (PROFILE EDIT MODAL)
+         ════════════════════════════════════════════════════════════════ */}
+      {isProfileModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="p-5 bg-gradient-to-r from-[#006838] to-[#004d29] text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                  <IconUser size={22} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black tracking-tight">Thông Tin Cá Nhân</h3>
+                  <p className="text-xs text-emerald-100 font-medium">Cập nhật họ tên, SĐT, email &amp; hình đại diện</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsProfileModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors cursor-pointer"
+              >
+                <IconX size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body / Form */}
+            <form onSubmit={handleSaveProfile} className="p-6 space-y-4 text-left">
+              {/* Avatar Preview & Upload */}
+              <div className="flex items-center gap-4 p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
+                <div className="relative group">
+                  <img
+                    src={editProfileForm.avatar}
+                    alt={editProfileForm.name}
+                    className="w-16 h-16 rounded-full object-cover border-2 border-[#006838] shadow-sm"
+                  />
+                  <div className="absolute inset-0 rounded-full bg-slate-900/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity cursor-pointer">
+                    <IconCamera size={18} />
+                  </div>
+                </div>
+                <div className="flex-1 space-y-1">
+                  <label className="text-xs font-bold text-slate-700 block">Đường dẫn ảnh đại diện (Avatar URL)</label>
+                  <input
+                    type="text"
+                    value={editProfileForm.avatar}
+                    onChange={(e) => setEditProfileForm({ ...editProfileForm, avatar: e.target.value })}
+                    className="w-full px-3 py-1.5 rounded-xl border border-slate-300 text-xs font-medium outline-none focus:border-[#006838] focus:ring-1 focus:ring-[#006838]"
+                    placeholder="Dán đường dẫn hình ảnh..."
+                  />
+                </div>
+              </div>
+
+              {/* Input: Họ và tên */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 block">Họ và tên</label>
+                <input
+                  type="text"
+                  required
+                  value={editProfileForm.name}
+                  onChange={(e) => setEditProfileForm({ ...editProfileForm, name: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838] focus:ring-1 focus:ring-[#006838]"
+                />
+              </div>
+
+              {/* Input: Số điện thoại */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 block">Số điện thoại liên hệ</label>
+                <input
+                  type="text"
+                  required
+                  value={editProfileForm.phone}
+                  onChange={(e) => setEditProfileForm({ ...editProfileForm, phone: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838] focus:ring-1 focus:ring-[#006838]"
+                />
+              </div>
+
+              {/* Input: Email */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 block">Địa chỉ Email công việc</label>
+                <input
+                  type="email"
+                  required
+                  value={editProfileForm.email}
+                  onChange={(e) => setEditProfileForm({ ...editProfileForm, email: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838] focus:ring-1 focus:ring-[#006838]"
+                />
+              </div>
+
+              {/* Modal Footer Buttons */}
+              <div className="pt-3 flex items-center justify-end gap-2.5 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setIsProfileModalOpen(false)}
+                  className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-[#006838] text-white text-xs font-bold hover:bg-[#00522c] transition-colors shadow-md shadow-emerald-900/20 cursor-pointer flex items-center gap-1.5"
+                >
+                  <IconCheck size={16} />
+                  <span>Lưu thay đổi</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════════
+          MODAL 2: ĐỔI MẬT KHẨU (PASSWORD CHANGE MODAL)
+         ════════════════════════════════════════════════════════════════ */}
+      {isPasswordModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="p-5 bg-gradient-to-r from-amber-600 to-amber-700 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                  <IconLock size={22} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black tracking-tight">Đổi Mật Khẩu</h3>
+                  <p className="text-xs text-amber-100 font-medium">Bảo mật tài khoản TBS Group System</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsPasswordModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors cursor-pointer"
+              >
+                <IconX size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body / Form */}
+            <form onSubmit={handleSavePassword} className="p-6 space-y-4 text-left">
+              {/* Input: Mật khẩu hiện tại */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 block">Mật khẩu hiện tại</label>
+                <input
+                  type="password"
+                  required
+                  value={passwordForm.currentPassword}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                  placeholder="••••••••"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-amber-600 focus:ring-1 focus:ring-amber-600"
+                />
+              </div>
+
+              {/* Input: Mật khẩu mới */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 block">Mật khẩu mới</label>
+                <input
+                  type="password"
+                  required
+                  value={passwordForm.newPassword}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                  placeholder="••••••••"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-amber-600 focus:ring-1 focus:ring-amber-600"
+                />
+              </div>
+
+              {/* Input: Xác nhận mật khẩu mới */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 block">Xác nhận mật khẩu mới</label>
+                <input
+                  type="password"
+                  required
+                  value={passwordForm.confirmPassword}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                  placeholder="••••••••"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-amber-600 focus:ring-1 focus:ring-amber-600"
+                />
+              </div>
+
+              {/* Modal Footer Buttons */}
+              <div className="pt-3 flex items-center justify-end gap-2.5 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setIsPasswordModalOpen(false)}
+                  className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-amber-600 text-white text-xs font-bold hover:bg-amber-700 transition-colors shadow-md shadow-amber-900/20 cursor-pointer flex items-center gap-1.5"
+                >
+                  <IconCheck size={16} />
+                  <span>Cập nhật mật khẩu</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* TOAST NOTIFICATION MESSAGE */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-2xl z-50 flex items-center gap-3 animate-in slide-in-from-bottom-3 duration-200 border border-slate-700">
+          <div className="w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center flex-shrink-0">
+            <IconCheck size={16} />
+          </div>
+          <span className="text-xs font-bold">{toastMessage}</span>
+        </div>
+      )}
     </div>
   );
 }

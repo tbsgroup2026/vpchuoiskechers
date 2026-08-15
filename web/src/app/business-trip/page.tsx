@@ -104,16 +104,16 @@ export default function BusinessTripRegistrationPage() {
     proposalText: "",
   });
 
-  // Form State: Participants List
+  // Form State: Participants List (Empty default matching Screenshot 2)
   const [participants, setParticipants] = useState<Participant[]>([
     {
       id: "p_1",
-      fullName: "Anh Huy",
-      position: "Quản lý chuỗi",
-      employeeId: "NV-2026-088",
-      department: "Hành chính",
-      phone: "0988 123 456",
-      pickupLocation: "VP Chuỗi SKECHERS",
+      fullName: "",
+      position: "",
+      employeeId: "",
+      department: "",
+      phone: "",
+      pickupLocation: "",
     },
   ]);
 
@@ -804,14 +804,13 @@ export default function BusinessTripRegistrationPage() {
                 ))}
               </div>
 
-              {/* Add Participant Button */}
               <button
                 type="button"
                 onClick={handleAddParticipant}
                 className="px-4 py-2 rounded-xl border border-emerald-300 text-[#006838] bg-emerald-50/50 hover:bg-emerald-100 text-xs font-extrabold transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
               >
                 <IconPlus size={16} />
-                <span>+ Thêm người tham gia</span>
+                <span>Thêm người tham gia</span>
               </button>
             </div>
 

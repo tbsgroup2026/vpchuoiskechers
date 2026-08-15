@@ -136,120 +136,115 @@ export default function Header() {
       }`}
     >
       <div
-        className={`max-w-[1280px] mx-auto pointer-events-auto transition-all duration-500 rounded-full px-5 py-2 flex items-center justify-between border ${
+        className={`max-w-[1280px] mx-auto pointer-events-auto transition-all duration-500 rounded-full px-6 py-2.5 flex items-center justify-between border ${
           scrolled
-            ? 'bg-[#08221a]/95 border-[#2fd39a]/40 shadow-[0_15px_40px_rgba(0,0,0,0.6)] backdrop-blur-2xl py-2'
-            : 'bg-[#08221a]/90 border-[#2fd39a]/30 backdrop-blur-xl shadow-[0_10px_30px_rgba(0,0,0,0.5)]'
+            ? 'bg-[#041a13]/98 border-[#2fd39a]/40 shadow-[0_15px_40px_rgba(0,0,0,0.7)] backdrop-blur-2xl'
+            : 'bg-[#041a13]/90 border-[#2fd39a]/30 backdrop-blur-xl shadow-[0_10px_30px_rgba(0,0,0,0.5)]'
         }`}
       >
-        {/* Brand Logo & Name */}
-        <Link href="/" className="flex items-center gap-2.5 group">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#2fd39a] to-[#0f4133] p-0.5 flex items-center justify-center shadow-md overflow-hidden">
-            <div className="w-full h-full bg-[#08221a] rounded-[7px] flex items-center justify-center p-1">
-              <img src="/images/tbs-logo.png" alt="TBS Group Logo" className="w-full h-full object-contain brightness-0 invert" />
-            </div>
-          </div>
-          <div className="flex flex-col">
-            <span className="text-xs font-black text-white tracking-wide uppercase group-hover:text-[#2fd39a] transition-colors leading-none">
-              SKECHERS
-            </span>
-            <span className="text-[9px] text-[#f2dc9a] font-semibold tracking-wider uppercase mt-0.5">
-              Văn Phòng Chuỗi - TBS Group
-            </span>
-          </div>
+        {/* Brand Logo - Standalone TBS Group Logo matching Image 1 */}
+        <Link href="/" className="flex items-center group py-0.5">
+          <img
+            src="/images/tbs-logo.png"
+            alt="TBS Group Logo"
+            className="h-7 sm:h-8 w-auto object-contain brightness-0 invert group-hover:opacity-90 transition-opacity"
+          />
         </Link>
 
-        {/* Desktop Navigation Links — Exact 7 Items */}
-        <nav className="hidden xl:flex items-center gap-5 text-[11px] font-bold text-white uppercase tracking-wider">
+        {/* Desktop Navigation Links — Exact Image 1 Layout & Navigation Items */}
+        <nav className="hidden xl:flex items-center gap-6 text-[11px] font-extrabold text-white uppercase tracking-wider">
           {/* 1. Trang chủ */}
-          <Link href="/" className="hover:text-[#2fd39a] transition-colors py-1 text-[#2fd39a]">
+          <Link
+            href="/"
+            className={`transition-colors py-1 ${
+              pathname === '/' ? 'text-[#2fd39a]' : 'hover:text-[#2fd39a]'
+            }`}
+          >
             Trang Chủ
           </Link>
 
-          {/* 2. Về TBS Dropdown */}
-          <div
-            className="relative"
-            onMouseEnter={() => setAboutDropdownOpen(true)}
-            onMouseLeave={() => setAboutDropdownOpen(false)}
+          {/* 2. Ngành trụ cột */}
+          <Link
+            href="/#pillars"
+            className={`transition-colors py-1 ${
+              pathname === '/nganh-tru-cot' ? 'text-[#2fd39a]' : 'hover:text-[#2fd39a]'
+            }`}
           >
-            <button className="flex items-center gap-1 hover:text-[#2fd39a] transition-colors py-1 uppercase font-bold">
-              <span>Về TBS</span>
-              <IconChevronDown size={13} className={`transition-transform ${aboutDropdownOpen ? 'rotate-180' : ''}`} />
-            </button>
-            {aboutDropdownOpen && (
-              <div className="absolute top-full left-0 mt-2 w-52 rounded-2xl bg-[#08221a]/95 border border-[#2fd39a]/30 p-2 shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-top-2 duration-200 text-left">
-                <Link
-                  href="/ve-tbs"
-                  className="block px-3 py-1.5 text-xs font-semibold text-gray-200 hover:text-[#2fd39a] hover:bg-white/5 rounded-xl transition"
-                >
-                  Giới thiệu chung SKECHERS
-                </Link>
-                <Link
-                  href="/ve-tbs#mission"
-                  className="block px-3 py-1.5 text-xs font-semibold text-gray-200 hover:text-[#2fd39a] hover:bg-white/5 rounded-xl transition"
-                >
-                  Sứ mệnh & Tầm nhìn
-                </Link>
-                <Link
-                  href="/ve-tbs#history"
-                  className="block px-3 py-1.5 text-xs font-semibold text-gray-200 hover:text-[#2fd39a] hover:bg-white/5 rounded-xl transition"
-                >
-                  Lịch sử phát triển TBS Group
-                </Link>
-              </div>
-            )}
-          </div>
+            Ngành Trụ Cột
+          </Link>
 
-          {/* 3. Tuyển dụng */}
-          <Link href="/careers" className="hover:text-[#2fd39a] transition-colors py-1">
+          {/* 3. Về TBS */}
+          <Link
+            href="/ve-tbs"
+            className={`transition-colors py-1 ${
+              pathname === '/ve-tbs' ? 'text-[#2fd39a]' : 'hover:text-[#2fd39a]'
+            }`}
+          >
+            Về TBS
+          </Link>
+
+          {/* 4. Tuyển dụng */}
+          <Link
+            href="/careers"
+            className={`transition-colors py-1 ${
+              pathname?.startsWith('/careers') ? 'text-[#2fd39a]' : 'hover:text-[#2fd39a]'
+            }`}
+          >
             Tuyển Dụng
           </Link>
 
-          {/* 4. Hệ thống quản trị — ONLY VISIBLE WHEN LOGGED IN */}
-          {isLoggedIn && (
-            <Link
-              href="/work"
-              className="text-[#2fd39a] hover:text-[#f2dc9a] font-extrabold transition-colors py-0.5 flex items-center gap-1.5 bg-[#2fd39a]/10 px-2.5 rounded-full border border-[#2fd39a]/30"
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-[#2fd39a] animate-ping" />
-              Hệ Thống Quản Trị
-            </Link>
-          )}
+          {/* 5. Hệ thống quản trị */}
+          <Link
+            href="/work"
+            className={`transition-colors py-1 ${
+              pathname === '/work' ? 'text-[#2fd39a]' : 'hover:text-[#2fd39a]'
+            }`}
+          >
+            Hệ Thống Quản Trị
+          </Link>
 
-          {/* 5. Tin tức */}
-          <Link href="/news" className="hover:text-[#2fd39a] transition-colors py-1">
+          {/* 6. Tin tức */}
+          <Link
+            href="/news"
+            className={`transition-colors py-1 ${
+              pathname?.startsWith('/news') ? 'text-[#2fd39a]' : 'hover:text-[#2fd39a]'
+            }`}
+          >
             Tin Tức
           </Link>
 
-          {/* 6. Khác Dropdown — Exactly 3 Sub-items */}
+          {/* 7. Khác Dropdown */}
           <div
             className="relative"
             onMouseEnter={() => setOtherDropdownOpen(true)}
             onMouseLeave={() => setOtherDropdownOpen(false)}
           >
-            <button className="flex items-center gap-1 hover:text-[#2fd39a] transition-colors py-1 uppercase font-bold">
+            <button className="flex items-center gap-1 hover:text-[#2fd39a] transition-colors py-1 uppercase font-extrabold">
               <span>Khác</span>
-              <IconChevronDown size={13} className={`transition-transform ${otherDropdownOpen ? 'rotate-180' : ''}`} />
+              <IconChevronDown
+                size={13}
+                className={`transition-transform ${otherDropdownOpen ? 'rotate-180' : ''}`}
+              />
             </button>
             {otherDropdownOpen && (
-              <div className="absolute top-full left-0 mt-2 w-56 rounded-2xl bg-[#08221a]/95 border border-[#2fd39a]/30 p-2 shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-top-2 duration-200 text-left">
+              <div className="absolute top-full right-0 mt-2 w-56 rounded-2xl bg-[#041a13]/95 border border-[#2fd39a]/30 p-2 shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-top-2 duration-200 text-left">
                 <Link
                   href="/contact"
-                  className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-gray-200 hover:text-[#2fd39a] hover:bg-white/5 rounded-xl transition"
+                  className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-gray-200 hover:text-[#2fd39a] hover:bg-white/5 rounded-xl transition"
                 >
                   <IconPhoneCall size={15} className="text-[#2fd39a]" />
                   <span>1. Liên hệ</span>
                 </Link>
                 <Link
                   href="/faq"
-                  className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-gray-200 hover:text-[#2fd39a] hover:bg-white/5 rounded-xl transition"
+                  className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-gray-200 hover:text-[#2fd39a] hover:bg-white/5 rounded-xl transition"
                 >
                   <IconHelpCircle size={15} className="text-[#2fd39a]" />
                   <span>2. Câu hỏi thường gặp (FAQ)</span>
                 </Link>
                 <Link
                   href="/structure"
-                  className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-gray-200 hover:text-[#2fd39a] hover:bg-white/5 rounded-xl transition"
+                  className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-gray-200 hover:text-[#2fd39a] hover:bg-white/5 rounded-xl transition"
                 >
                   <IconHierarchy size={15} className="text-[#2fd39a]" />
                   <span>3. Sơ đồ tổ chức / Chi nhánh</span>
@@ -259,17 +254,17 @@ export default function Header() {
           </div>
         </nav>
 
-        {/* Right Action Section (Notification Bell + Login/Profile CTA) */}
-        <div className="hidden xl:flex items-center gap-2.5">
+        {/* Right Action Section (Gold Island Pill CTA matching Image 1) */}
+        <div className="hidden xl:flex items-center gap-3">
           {/* Notification Bell — ONLY VISIBLE WHEN LOGGED IN */}
           {isLoggedIn && (
             <div className="relative">
               <button
                 onClick={() => setNotifOpen(!notifOpen)}
-                className="relative p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all duration-200"
+                className="relative p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all duration-200"
                 aria-label="Thông báo"
               >
-                <IconBell size={17} />
+                <IconBell size={16} />
                 {unreadCount > 0 && (
                   <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-red-500 text-white font-mono text-[9px] font-bold flex items-center justify-center animate-bounce">
                     {unreadCount}
@@ -279,7 +274,7 @@ export default function Header() {
 
               {/* Notification Dropdown */}
               {notifOpen && (
-                <div className="absolute top-full right-0 mt-3 w-80 rounded-3xl bg-[#08221a]/98 border border-[#2fd39a]/30 p-4 shadow-2xl backdrop-blur-2xl animate-in fade-in slide-in-from-top-3 duration-200">
+                <div className="absolute top-full right-0 mt-3 w-80 rounded-3xl bg-[#041a13]/98 border border-[#2fd39a]/30 p-4 shadow-2xl backdrop-blur-2xl animate-in fade-in slide-in-from-top-3 duration-200">
                   <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-2">
                     <div className="flex items-center gap-2">
                       <IconBell size={16} className="text-[#2fd39a]" />
@@ -318,16 +313,16 @@ export default function Header() {
             </div>
           )}
 
-          {/* 7. Đăng Nhập CTA / Profile Logout */}
+          {/* User Profile / Gold Island Pill CTA matching Image 1 */}
           {isLoggedIn ? (
             <div className="flex items-center gap-2">
-              <span className="text-[11px] font-bold text-[#f2dc9a] flex items-center gap-1.5 bg-[#0f4133]/80 px-3 py-1 rounded-full border border-[#2fd39a]/40 shadow-sm">
+              <span className="text-[11px] font-bold text-[#f2dc9a] flex items-center gap-1.5 bg-[#0f4133]/80 px-3.5 py-1.5 rounded-full border border-[#2fd39a]/40 shadow-sm">
                 <IconUserCheck size={14} className="text-[#2fd39a]" />
                 {userInfo?.empCode || userInfo?.name || 'CBCNV SKECHERS'}
               </span>
               <button
                 onClick={handleLogout}
-                className="group relative inline-flex items-center gap-1 px-3 py-1 rounded-full bg-red-500/20 text-red-300 border border-red-500/30 font-bold text-[11px] hover:bg-red-500/30 active:scale-95 transition-all duration-200"
+                className="group relative inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-red-500/20 text-red-300 border border-red-500/30 font-bold text-[11px] hover:bg-red-500/30 active:scale-95 transition-all duration-200"
               >
                 <IconLogout size={13} />
                 <span>Đăng Xuất</span>
@@ -336,11 +331,11 @@ export default function Header() {
           ) : (
             <Link
               href="/login"
-              className="group relative inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-gradient-to-r from-[#f2dc9a] via-[#e2c77d] to-[#f2dc9a] text-[#08221a] font-extrabold text-[11px] tracking-wider uppercase shadow-lg shadow-amber-500/20 hover:brightness-110 active:scale-[0.98] transition-all duration-200 border border-[#f2dc9a]/40"
+              className="group relative inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-[#f2dc9a] via-[#e2c77d] to-[#f2dc9a] text-[#08221a] font-extrabold text-xs tracking-wider uppercase shadow-lg shadow-amber-500/20 hover:brightness-110 active:scale-[0.98] transition-all duration-200 border border-[#f2dc9a]/50"
             >
               <span>Đăng Nhập</span>
-              <div className="w-4 h-4 rounded-full bg-[#08221a]/15 flex items-center justify-center group-hover:translate-x-0.5 transition-transform duration-200">
-                <IconArrowRight size={11} className="text-[#08221a]" />
+              <div className="w-5 h-5 rounded-full bg-[#08221a]/20 flex items-center justify-center group-hover:translate-x-0.5 transition-transform duration-200">
+                <IconArrowRight size={12} className="text-[#08221a]" />
               </div>
             </Link>
           )}

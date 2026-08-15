@@ -110,47 +110,47 @@ export default function WorkDashboardPage() {
   const activeDeptObj = departments.find((d) => d.id === selectedDept);
 
   return (
-    <div className="min-h-screen flex bg-[#041a13] text-slate-100 font-sans antialiased selection:bg-[#2fd39a] selection:text-[#041a13]">
+    <div className="min-h-screen flex bg-[#f4f7f5] text-slate-900 font-sans antialiased selection:bg-[#006838] selection:text-white">
       {/* ════════════════════════════════════════════════════════════════
-          LEFT SIDEBAR (Human-Designed Executive Forest Green Sidebar)
+          LEFT SIDEBAR (Human-Designed Crisp White Panel with TBS Green)
          ════════════════════════════════════════════════════════════════ */}
-      <aside className="w-80 lg:w-96 bg-[#041a13] flex flex-col justify-between p-6 border-r border-[#133d2f] flex-shrink-0">
+      <aside className="w-80 lg:w-96 bg-white flex flex-col justify-between p-6 border-r border-slate-200/80 flex-shrink-0 shadow-sm">
         <div className="space-y-6">
-          {/* Executive Brand Lockup */}
-          <div className="flex items-center justify-between pb-4 border-b border-[#133d2f]">
+          {/* Executive Brand Lockup with Skechers Corporate Logo */}
+          <div className="flex items-center justify-between pb-4 border-b border-slate-200/80">
             <Link href="/" className="flex items-center gap-3.5 group">
               <img
                 src="/images/tbs-logo.png"
                 alt="TBS Group Logo"
-                className="h-10 w-auto object-contain brightness-0 invert group-hover:scale-105 transition-transform"
+                className="h-9 w-auto object-contain group-hover:scale-105 transition-transform"
               />
-              <div className="h-7 w-[1px] bg-[#133d2f]" />
-              <div>
-                <span className="text-xs font-black uppercase tracking-wider text-white block">
-                  TBS GROUP
-                </span>
-                <span className="text-[10px] font-semibold text-[#2fd39a] block">
-                  Văn Phòng Chuỗi SKECHERS
+              <div className="h-7 w-[1px] bg-slate-200" />
+              {/* Skechers Corporate Brand Logo */}
+              <div className="flex items-center gap-1.5">
+                <div className="w-6 h-6 rounded-md bg-[#002B49] text-white flex items-center justify-center font-black italic text-xs tracking-tighter shadow-sm">
+                  S
+                </div>
+                <span className="font-black italic text-base tracking-widest text-[#002B49] font-sans">
+                  SKECHERS
                 </span>
               </div>
             </Link>
 
             <Link
               href="/"
-              className="p-2 rounded-xl bg-[#0b2b20] text-gray-400 hover:text-white hover:bg-[#133d2f] transition-colors border border-[#184a39]"
+              className="p-2 rounded-xl bg-slate-50 text-slate-500 hover:text-[#006838] hover:bg-emerald-50 transition-colors border border-slate-200/80"
               title="Về Trang Chủ"
             >
               <IconHome size={18} />
             </Link>
           </div>
 
-          {/* Navigation Section Header */}
+          {/* Department List (Clean Human Layout on Crisp White Surface) */}
           <div className="space-y-2">
-            <div className="px-2 text-[11px] font-extrabold uppercase tracking-widest text-[#2fd39a]">
+            <div className="px-2 text-[11px] font-extrabold uppercase tracking-widest text-[#006838]">
               Phòng Ban Điều Hành (01 - 07)
             </div>
 
-            {/* Department Navigation List (Clean Human Layout - No Double Badges) */}
             <div className="space-y-1.5 pt-1">
               {departments.map((dept) => {
                 const IconComp = dept.icon;
@@ -160,23 +160,23 @@ export default function WorkDashboardPage() {
                   <button
                     key={dept.id}
                     onClick={() => setSelectedDept(dept.id)}
-                    className={`w-full text-left p-3 rounded-2xl flex items-center gap-3.5 transition-all duration-200 group relative ${
+                    className={`w-full text-left p-3.5 rounded-2xl flex items-center gap-3.5 transition-all duration-200 group relative ${
                       isSelected
-                        ? "bg-[#0e3b2c] text-white border border-[#2fd39a]/50 shadow-lg shadow-emerald-950/50"
-                        : "hover:bg-[#09291e] text-slate-300 hover:text-white border border-transparent"
+                        ? "bg-[#006838] text-white shadow-md shadow-emerald-900/20 border border-[#006838]"
+                        : "bg-white hover:bg-[#e6f4ed]/50 text-slate-700 hover:text-slate-900 border border-slate-100"
                     }`}
                   >
                     {/* Active Left Indicator Bar */}
                     {isSelected && (
-                      <span className="absolute left-0 top-2.5 bottom-2.5 w-1 bg-[#2fd39a] rounded-r-full" />
+                      <span className="absolute left-0 top-3 bottom-3 w-1 bg-white rounded-r-full" />
                     )}
 
                     {/* Icon Box */}
                     <div
                       className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${
                         isSelected
-                          ? "bg-[#2fd39a] text-[#041a13]"
-                          : "bg-[#0a2e22] text-[#2fd39a] group-hover:bg-[#124232]"
+                          ? "bg-white/20 text-white"
+                          : "bg-[#e6f4ed] text-[#006838] group-hover:bg-[#006838] group-hover:text-white"
                       }`}
                     >
                       <IconComp size={18} />
@@ -185,21 +185,35 @@ export default function WorkDashboardPage() {
                     {/* Department Title & Subtitle */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-mono font-bold text-[#2fd39a]/70">
+                        <span
+                          className={`text-[10px] font-mono font-bold ${
+                            isSelected ? "text-emerald-100" : "text-[#006838]/70"
+                          }`}
+                        >
                           {dept.num}.
                         </span>
                         <h4 className="text-xs font-extrabold truncate tracking-tight">
                           {dept.name}
                         </h4>
                       </div>
-                      <p className="text-[11px] text-slate-400 truncate mt-0.5 font-normal">
+                      <p
+                        className={`text-[11px] truncate mt-0.5 font-normal ${
+                          isSelected ? "text-emerald-100" : "text-slate-500"
+                        }`}
+                      >
                         {dept.sub}
                       </p>
                     </div>
 
-                    {/* Subtle Status Indicator */}
+                    {/* Subtle Status Tag */}
                     {!dept.hasData && (
-                      <span className="text-[10px] font-mono text-amber-400/70 font-medium px-1.5 py-0.5 rounded bg-amber-500/10 flex-shrink-0">
+                      <span
+                        className={`text-[10px] font-mono font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${
+                          isSelected
+                            ? "bg-white/20 text-white"
+                            : "bg-amber-100/90 text-amber-800 border border-amber-200"
+                        }`}
+                      >
                         Soon
                       </span>
                     )}
@@ -211,29 +225,29 @@ export default function WorkDashboardPage() {
         </div>
 
         {/* Executive Footer Credit */}
-        <div className="pt-4 border-t border-[#133d2f] flex items-center justify-between text-xs text-slate-400">
+        <div className="pt-4 border-t border-slate-200/80 flex items-center justify-between text-xs text-slate-500">
           <div className="flex items-center gap-2">
             <img
               src="/images/tbs-logo.png"
               alt="TBS Logo"
-              className="h-4 w-auto object-contain brightness-0 invert opacity-70"
+              className="h-4 w-auto object-contain"
             />
-            <span className="font-semibold text-slate-300 text-[11px]">
+            <span className="font-semibold text-slate-700 text-[11px]">
               TBS Group Operating System
             </span>
           </div>
-          <span className="text-[10px] font-mono text-slate-500">
+          <span className="text-[10px] font-mono text-slate-400">
             © 2026
           </span>
         </div>
       </aside>
 
       {/* ════════════════════════════════════════════════════════════════
-          MAIN DASHBOARD AREA (Crisp Clean Executive White Surface)
+          MAIN DASHBOARD AREA (Crisp White & Mint Corporate Surface)
          ════════════════════════════════════════════════════════════════ */}
-      <main className="flex-1 bg-[#f4f7f5] text-slate-900 rounded-tl-[32px] overflow-y-auto flex flex-col justify-between shadow-2xl">
+      <main className="flex-1 bg-[#f4f7f5] text-slate-900 rounded-tl-[32px] overflow-y-auto flex flex-col justify-between">
         {/* Top Header Bar */}
-        <header className="p-6 lg:p-8 pb-4 flex items-center justify-between border-b border-slate-200/80 bg-[#f4f7f5]/90 backdrop-blur-md sticky top-0 z-30">
+        <header className="p-6 lg:p-8 pb-4 flex items-center justify-between border-b border-slate-200/80 bg-white/80 backdrop-blur-md sticky top-0 z-30">
           <div>
             <h1 className="text-2xl lg:text-3xl font-black text-slate-900 tracking-tight">
               Xin chào, <span className="text-[#006838]">Anh Huy!</span>
@@ -255,7 +269,7 @@ export default function WorkDashboardPage() {
 
             {/* Notifications Button */}
             <button
-              className="relative p-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
+              className="relative p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 hover:bg-slate-100 transition-colors shadow-sm"
               title="Thông báo hệ thống"
             >
               <IconBell size={20} />
@@ -265,7 +279,7 @@ export default function WorkDashboardPage() {
             {/* Fullscreen Toggle */}
             <button
               onClick={toggleFullscreen}
-              className="p-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
+              className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 hover:bg-slate-100 transition-colors shadow-sm"
               title="Toàn màn hình"
             >
               <IconMaximize size={20} />
@@ -332,7 +346,7 @@ export default function WorkDashboardPage() {
                   <div key={idx} className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-2">
                     <span className="text-xs font-bold text-slate-500">{item.title}</span>
                     <div className="text-2xl font-black text-slate-900">{item.val}</div>
-                    <span className="text-xs text-emerald-600 font-bold block">{item.trend} so với tháng trước</span>
+                    <span className="text-xs text-[#006838] font-bold block">{item.trend} so với tháng trước</span>
                   </div>
                 ))}
               </div>
@@ -366,7 +380,7 @@ export default function WorkDashboardPage() {
                   <div key={idx} className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-2">
                     <span className="text-xs font-bold text-slate-500">{item.title}</span>
                     <div className="text-2xl font-black text-slate-900">{item.val}</div>
-                    <span className="text-xs text-emerald-600 font-bold block">{item.trend} so với tháng trước</span>
+                    <span className="text-xs text-[#006838] font-bold block">{item.trend} so với tháng trước</span>
                   </div>
                 ))}
               </div>
@@ -400,7 +414,7 @@ export default function WorkDashboardPage() {
                   <div key={idx} className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-2">
                     <span className="text-xs font-bold text-slate-500">{item.title}</span>
                     <div className="text-2xl font-black text-slate-900">{item.val}</div>
-                    <span className="text-xs text-emerald-600 font-bold block">{item.trend} so với tháng trước</span>
+                    <span className="text-xs text-[#006838] font-bold block">{item.trend} so với tháng trước</span>
                   </div>
                 ))}
               </div>

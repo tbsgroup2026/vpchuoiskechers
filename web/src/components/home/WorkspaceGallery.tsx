@@ -242,7 +242,7 @@ export default function WorkspaceGallery() {
         <div className="lg:col-span-6 space-y-8">
           {/* Main Headline & Intro Paragraph */}
           <div className="space-y-4">
-            <h2 className="text-3xl sm:text-4xl lg:text-[44px] font-black text-[#152e25] tracking-tight leading-[1.18] font-serif">
+            <h2 className="text-3xl sm:text-4xl lg:text-[44px] font-black text-[#152e25] tracking-tight leading-[1.18]">
               Môi trường làm việc chuẩn Corporate
             </h2>
             <p className="text-slate-600 text-base sm:text-lg leading-relaxed font-normal max-w-xl">

@@ -721,7 +721,7 @@ export default function WorkDashboardPage() {
 
                 {/* Middle Section: Main Department Title & Subtitle */}
                 <div className="space-y-1.5 my-2">
-                  <h2 className="text-2xl sm:text-3xl lg:text-4xl font-serif font-black tracking-tight text-white drop-shadow-sm">
+                  <h2 className="text-2xl sm:text-3xl lg:text-4xl font-sans font-black tracking-tight text-white drop-shadow-sm">
                     {deptBanners[activeDeptObj.id]?.title || activeDeptObj.name}
                   </h2>
                   <p className="text-xs sm:text-sm text-emerald-100/90 max-w-2xl font-medium leading-relaxed drop-shadow-xs">

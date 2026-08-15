@@ -19,7 +19,18 @@ import {
   IconPackage,
   IconClock,
   IconArrowUpRight,
-  IconHome,
+  IconBuilding,
+  IconBriefcase,
+  IconPlane,
+  IconId,
+  IconCalendarEvent,
+  IconClockCheck,
+  IconSchool,
+  IconCash,
+  IconUserPlus,
+  IconFileText,
+  IconArrowRight,
+  IconDevices,
 } from "@tabler/icons-react";
 
 interface DepartmentItem {
@@ -45,7 +56,7 @@ export default function WorkDashboardPage() {
       name: "Nhân sự hành chánh",
       sub: "Quản lý văn thư, tài sản & tuyển dụng",
       icon: IconUsers,
-      hasData: false,
+      hasData: true,
     },
     {
       id: "finance",
@@ -114,14 +125,14 @@ export default function WorkDashboardPage() {
   return (
     <div className="min-h-screen w-full flex bg-[#f4f7f5] text-slate-900 font-sans antialiased selection:bg-[#006838] selection:text-white">
       {/* ════════════════════════════════════════════════════════════════
-          LEFT SIDEBAR (With Circular Floating Toggle Button - Exact Screenshot Match)
+          LEFT SIDEBAR (With Circular Floating Toggle Button)
          ════════════════════════════════════════════════════════════════ */}
       <aside
         className={`relative bg-white min-h-screen flex flex-col justify-between p-4 lg:p-5 border-r border-slate-200/80 flex-shrink-0 shadow-sm transition-all duration-300 ease-in-out z-30 ${
           isSidebarCollapsed ? "w-20" : "w-80 lg:w-96"
         }`}
       >
-        {/* Floating Circular Green "Thu nhỏ" / "Phóng to" Toggle Button (Anchored to Sidebar Edge per Screenshot) */}
+        {/* Floating Circular Green "Thu nhỏ" / "Phóng to" Toggle Button */}
         <button
           onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
           className="absolute -right-5 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-[#006838] text-white shadow-xl border-2 border-white flex items-center justify-center hover:bg-[#00522c] hover:scale-110 active:scale-95 transition-all duration-200 z-50 cursor-pointer group"
@@ -162,7 +173,7 @@ export default function WorkDashboardPage() {
             )}
           </div>
 
-          {/* Department List (Enlarged Cards & Typography per User Request) */}
+          {/* Department List (Enlarged Cards & Typography) */}
           <div className="space-y-2 flex-1 pr-0.5">
             {departments.map((dept) => {
               const IconComp = dept.icon;
@@ -187,7 +198,7 @@ export default function WorkDashboardPage() {
                     <span className="absolute left-0 top-2.5 bottom-2.5 w-1 bg-white rounded-r-full" />
                   )}
 
-                  {/* Icon Box (Enlarged) */}
+                  {/* Icon Box */}
                   <div
                     className={`rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${
                       isSidebarCollapsed ? "w-10 h-10" : "w-11 h-11"
@@ -286,7 +297,7 @@ export default function WorkDashboardPage() {
       </aside>
 
       {/* ════════════════════════════════════════════════════════════════
-          MAIN DASHBOARD AREA (Exact Screenshot Proportion Calibrated)
+          MAIN DASHBOARD AREA
          ════════════════════════════════════════════════════════════════ */}
       <main className="flex-1 min-h-screen bg-[#f4f7f5] text-slate-900 rounded-tl-[24px] flex flex-col justify-between transition-all duration-300">
         {/* Top Header Bar */}
@@ -304,7 +315,7 @@ export default function WorkDashboardPage() {
             {selectedDept && (
               <button
                 onClick={() => setSelectedDept(null)}
-                className="px-3 py-1.5 rounded-xl bg-white border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
+                className="px-3.5 py-1.5 rounded-xl bg-white border border-slate-300 text-xs font-extrabold text-slate-700 hover:bg-slate-50 transition-colors shadow-sm cursor-pointer"
               >
                 ← Trở về Tổng Quan
               </button>
@@ -343,7 +354,7 @@ export default function WorkDashboardPage() {
         </header>
 
         {/* Dashboard Body */}
-        <div className="p-4 lg:p-5 flex-1 flex flex-col justify-between overflow-hidden gap-3.5">
+        <div className="p-4 lg:p-6 flex-1 flex flex-col justify-between overflow-hidden gap-4">
           {/* IF A "COMING SOON" DEPARTMENT IS SELECTED */}
           {activeDeptObj && !activeDeptObj.hasData && (
             <div className="p-8 rounded-2xl bg-white border border-slate-200 shadow-sm text-center space-y-3 max-w-xl mx-auto my-auto">
@@ -358,6 +369,328 @@ export default function WorkDashboardPage() {
               </p>
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-100/90 text-amber-800 text-[11px] font-bold uppercase tracking-wider">
                 <span>Tính năng đang phát triển — Coming Soon</span>
+              </div>
+            </div>
+          )}
+
+          {/* ════════════════════════════════════════════════════════════════
+              IF HR (NHÂN SỰ HÀNH CHÁNH) IS SELECTED (Exact Screenshot Match)
+             ════════════════════════════════════════════════════════════════ */}
+          {selectedDept === "hr" && (
+            <div className="space-y-6 overflow-y-auto pr-1">
+              {/* ════════ SECTION 1: HÀNH CHÍNH ════════ */}
+              <div className="space-y-3.5">
+                {/* Section Title Header */}
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#e6f4ed] text-[#006838] flex items-center justify-center border border-emerald-100 shadow-xs">
+                    <IconBuilding size={22} />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-black text-slate-900 tracking-tight">
+                      HÀNH CHÍNH
+                    </h2>
+                    <p className="text-xs text-slate-500 font-medium">
+                      Quản lý hành chính, văn phòng và công tác
+                    </p>
+                  </div>
+                </div>
+
+                {/* 2 Main Cards Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4.5">
+                  {/* Main Card 1: Quản lý phòng họp */}
+                  <div className="p-5 sm:p-6 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-4 group relative overflow-hidden">
+                    <div className="flex items-start gap-4 sm:gap-5">
+                      <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-[#e6f4ed] text-[#006838] flex items-center justify-center flex-shrink-0 border border-emerald-100">
+                        <IconDevices size={48} className="stroke-[1.5]" />
+                      </div>
+                      <div className="flex-1 min-w-0 space-y-2">
+                        <h3 className="text-lg font-black text-slate-900 tracking-tight">
+                          Quản lý phòng họp
+                        </h3>
+                        <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                          Đặt lịch, quản lý phòng họp và trang thiết bị phục vụ cuộc họp.
+                        </p>
+                        
+                        {/* Checklist */}
+                        <ul className="space-y-1.5 pt-1">
+                          <li className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+                            <span className="w-4.5 h-4.5 rounded-full bg-[#e6f4ed] text-[#006838] flex items-center justify-center flex-shrink-0 text-[11px] font-bold">
+                              ✓
+                            </span>
+                            <span>Đặt lịch phòng họp</span>
+                          </li>
+                          <li className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+                            <span className="w-4.5 h-4.5 rounded-full bg-[#e6f4ed] text-[#006838] flex items-center justify-center flex-shrink-0 text-[11px] font-bold">
+                              ✓
+                            </span>
+                            <span>Lịch sử sử dụng</span>
+                          </li>
+                          <li className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+                            <span className="w-4.5 h-4.5 rounded-full bg-[#e6f4ed] text-[#006838] flex items-center justify-center flex-shrink-0 text-[11px] font-bold">
+                              ✓
+                            </span>
+                            <span>Quản lý thiết bị</span>
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+
+                    {/* Bottom Arrow Action Button */}
+                    <div className="flex justify-end pt-1">
+                      <button className="w-10 h-10 rounded-full bg-[#e6f4ed] text-[#006838] group-hover:bg-[#006838] group-hover:text-white transition-colors flex items-center justify-center cursor-pointer shadow-xs">
+                        <IconArrowRight size={20} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Main Card 2: Đăng ký công tác */}
+                  <div className="p-5 sm:p-6 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-4 group relative overflow-hidden">
+                    {/* Background Subtle Plane Graphic */}
+                    <div className="absolute right-4 top-4 text-amber-100/50 pointer-events-none">
+                      <IconPlane size={90} className="stroke-[1]" />
+                    </div>
+
+                    <div className="flex items-start gap-4 sm:gap-5 z-10">
+                      <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center flex-shrink-0 border border-amber-100">
+                        <IconBriefcase size={48} className="stroke-[1.5]" />
+                      </div>
+                      <div className="flex-1 min-w-0 space-y-2">
+                        <h3 className="text-lg font-black text-slate-900 tracking-tight">
+                          Đăng ký công tác
+                        </h3>
+                        <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                          Đăng ký, theo dõi và quản lý các chuyến công tác.
+                        </p>
+                        
+                        {/* Checklist */}
+                        <ul className="space-y-1.5 pt-1">
+                          <li className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+                            <span className="w-4.5 h-4.5 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center flex-shrink-0 text-[11px] font-bold">
+                              ✓
+                            </span>
+                            <span>Tạo đăng ký công tác</span>
+                          </li>
+                          <li className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+                            <span className="w-4.5 h-4.5 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center flex-shrink-0 text-[11px] font-bold">
+                              ✓
+                            </span>
+                            <span>Theo dõi phê duyệt</span>
+                          </li>
+                          <li className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+                            <span className="w-4.5 h-4.5 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center flex-shrink-0 text-[11px] font-bold">
+                              ✓
+                            </span>
+                            <span>Lịch sử công tác</span>
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+
+                    {/* Bottom Arrow Action Button */}
+                    <div className="flex justify-end pt-1 z-10">
+                      <button className="w-10 h-10 rounded-full bg-amber-50 text-amber-700 group-hover:bg-amber-600 group-hover:text-white transition-colors flex items-center justify-center cursor-pointer shadow-xs">
+                        <IconArrowRight size={20} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* ════════ SECTION 2: NHÂN SỰ ════════ */}
+              <div className="space-y-3.5 pt-2">
+                {/* Section Title Header */}
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center border border-slate-200 shadow-xs">
+                    <IconUsers size={22} />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-black text-slate-900 tracking-tight">
+                      NHÂN SỰ
+                    </h2>
+                    <p className="text-xs text-slate-500 font-medium">
+                      Quản lý thông tin và phát triển nguồn nhân lực
+                    </p>
+                  </div>
+                </div>
+
+                {/* 8 Sub-Cards Grid (4 cols x 2 rows) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* Sub-Card 1: Hồ sơ nhân sự */}
+                  <div className="p-4 sm:p-4.5 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-3 group cursor-pointer">
+                    <div className="space-y-3">
+                      <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100 group-hover:scale-105 transition-transform">
+                        <IconId size={24} />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-extrabold text-[#006838] tracking-tight">
+                          Hồ sơ nhân sự
+                        </h4>
+                        <p className="text-xs text-slate-500 mt-1 font-normal leading-snug">
+                          Quản lý thông tin hồ sơ và quá trình công tác của nhân viên.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex justify-end pt-1">
+                      <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors flex items-center justify-center">
+                        <IconArrowRight size={16} />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Sub-Card 2: Quản lý nghỉ phép */}
+                  <div className="p-4 sm:p-4.5 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-3 group cursor-pointer">
+                    <div className="space-y-3">
+                      <div className="w-12 h-12 rounded-xl bg-[#e6f4ed] text-[#006838] flex items-center justify-center border border-emerald-100 group-hover:scale-105 transition-transform">
+                        <IconCalendarEvent size={24} />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-extrabold text-[#006838] tracking-tight">
+                          Quản lý nghỉ phép
+                        </h4>
+                        <p className="text-xs text-slate-500 mt-1 font-normal leading-snug">
+                          Đăng ký, theo dõi và phê duyệt các đơn nghỉ phép.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex justify-end pt-1">
+                      <div className="w-8 h-8 rounded-full bg-[#e6f4ed] text-[#006838] group-hover:bg-[#006838] group-hover:text-white transition-colors flex items-center justify-center">
+                        <IconArrowRight size={16} />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Sub-Card 3: Chấm công */}
+                  <div className="p-4 sm:p-4.5 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-3 group cursor-pointer">
+                    <div className="space-y-3">
+                      <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center border border-purple-100 group-hover:scale-105 transition-transform">
+                        <IconClockCheck size={24} />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-extrabold text-purple-700 tracking-tight">
+                          Chấm công
+                        </h4>
+                        <p className="text-xs text-slate-500 mt-1 font-normal leading-snug">
+                          Theo dõi, quản lý và tổng hợp dữ liệu chấm công.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex justify-end pt-1">
+                      <div className="w-8 h-8 rounded-full bg-purple-50 text-purple-600 group-hover:bg-purple-600 group-hover:text-white transition-colors flex items-center justify-center">
+                        <IconArrowRight size={16} />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Sub-Card 4: Đánh giá nhân viên */}
+                  <div className="p-4 sm:p-4.5 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-3 group cursor-pointer">
+                    <div className="space-y-3">
+                      <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-100 group-hover:scale-105 transition-transform">
+                        <IconTrendingUp size={24} />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-extrabold text-emerald-800 tracking-tight">
+                          Đánh giá nhân viên
+                        </h4>
+                        <p className="text-xs text-slate-500 mt-1 font-normal leading-snug">
+                          Đánh giá hiệu suất làm việc và năng lực nhân viên.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex justify-end pt-1">
+                      <div className="w-8 h-8 rounded-full bg-emerald-50 text-emerald-700 group-hover:bg-emerald-700 group-hover:text-white transition-colors flex items-center justify-center">
+                        <IconArrowRight size={16} />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Sub-Card 5: Đào tạo & phát triển */}
+                  <div className="p-4 sm:p-4.5 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-3 group cursor-pointer">
+                    <div className="space-y-3">
+                      <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-100 group-hover:scale-105 transition-transform">
+                        <IconSchool size={24} />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-extrabold text-amber-800 tracking-tight">
+                          Đào tạo &amp; phát triển
+                        </h4>
+                        <p className="text-xs text-slate-500 mt-1 font-normal leading-snug">
+                          Quản lý kế hoạch đào tạo và phát triển kỹ năng nhân viên.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex justify-end pt-1">
+                      <div className="w-8 h-8 rounded-full bg-amber-50 text-amber-700 group-hover:bg-amber-600 group-hover:text-white transition-colors flex items-center justify-center">
+                        <IconArrowRight size={16} />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Sub-Card 6: Lương & phúc lợi */}
+                  <div className="p-4 sm:p-4.5 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-3 group cursor-pointer">
+                    <div className="space-y-3">
+                      <div className="w-12 h-12 rounded-xl bg-cyan-50 text-cyan-700 flex items-center justify-center border border-cyan-100 group-hover:scale-105 transition-transform">
+                        <IconCash size={24} />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-extrabold text-cyan-800 tracking-tight">
+                          Lương &amp; phúc lợi
+                        </h4>
+                        <p className="text-xs text-slate-500 mt-1 font-normal leading-snug">
+                          Quản lý thông tin lương, thưởng và phúc lợi nhân viên.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex justify-end pt-1">
+                      <div className="w-8 h-8 rounded-full bg-cyan-50 text-cyan-700 group-hover:bg-cyan-700 group-hover:text-white transition-colors flex items-center justify-center">
+                        <IconArrowRight size={16} />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Sub-Card 7: Tuyển dụng */}
+                  <div className="p-4 sm:p-4.5 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-3 group cursor-pointer">
+                    <div className="space-y-3">
+                      <div className="w-12 h-12 rounded-xl bg-pink-50 text-pink-700 flex items-center justify-center border border-pink-100 group-hover:scale-105 transition-transform">
+                        <IconUserPlus size={24} />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-extrabold text-pink-700 tracking-tight">
+                          Tuyển dụng
+                        </h4>
+                        <p className="text-xs text-slate-500 mt-1 font-normal leading-snug">
+                          Quản lý quy trình tuyển dụng và theo dõi ứng viên.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex justify-end pt-1">
+                      <div className="w-8 h-8 rounded-full bg-pink-50 text-pink-700 group-hover:bg-pink-600 group-hover:text-white transition-colors flex items-center justify-center">
+                        <IconArrowRight size={16} />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Sub-Card 8: Báo cáo nhân sự */}
+                  <div className="p-4 sm:p-4.5 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-3 group cursor-pointer">
+                    <div className="space-y-3">
+                      <div className="w-12 h-12 rounded-xl bg-sky-50 text-sky-700 flex items-center justify-center border border-sky-100 group-hover:scale-105 transition-transform">
+                        <IconFileText size={24} />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-extrabold text-sky-800 tracking-tight">
+                          Báo cáo nhân sự
+                        </h4>
+                        <p className="text-xs text-slate-500 mt-1 font-normal leading-snug">
+                          Hệ thống báo cáo tổng hợp về nhân sự và thống kê.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex justify-end pt-1">
+                      <div className="w-8 h-8 rounded-full bg-sky-50 text-sky-700 group-hover:bg-sky-600 group-hover:text-white transition-colors flex items-center justify-center">
+                        <IconArrowRight size={16} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -582,9 +915,9 @@ export default function WorkDashboardPage() {
                     </select>
                   </div>
 
-                  {/* Donut Ring Visual (Matching Screenshot 1 Layout: Big Ring on Left, Stacked Legend on Right) */}
+                  {/* Donut Ring Visual */}
                   <div className="relative py-3 flex flex-col lg:flex-row items-center justify-center gap-8 my-auto">
-                    {/* Donut SVG Ring Graphic (Large & Clear) */}
+                    {/* Donut SVG Ring Graphic */}
                     <div className="relative w-64 h-64 lg:w-72 lg:h-72 flex-shrink-0 flex items-center justify-center">
                       <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
                         {/* Blue: Nhân sự hành chánh (22.7%) */}
@@ -680,7 +1013,7 @@ export default function WorkDashboardPage() {
                       </div>
                     </div>
 
-                    {/* Donut Chart Legend Labels Grid (Exact Match to Screenshot 1: Title Top, Number/Percent Bottom) */}
+                    {/* Donut Chart Legend Labels Grid */}
                     <div className="grid grid-cols-2 gap-x-6 gap-y-3.5 w-full max-w-md">
                       <div className="flex items-start gap-2.5 p-1.5 rounded-xl hover:bg-slate-50">
                         <span className="w-3 h-3 rounded-full bg-blue-600 flex-shrink-0 mt-1" />
@@ -742,7 +1075,7 @@ export default function WorkDashboardPage() {
                 </div>
               </div>
 
-              {/* BOTTOM ROW: System Notifications Bar ("THÔNG BÁO HỆ THỐNG" - 20% Reduced) */}
+              {/* BOTTOM ROW: System Notifications Bar ("THÔNG BÁO HỆ THỐNG") */}
               <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="text-base font-black text-slate-900 tracking-tight">

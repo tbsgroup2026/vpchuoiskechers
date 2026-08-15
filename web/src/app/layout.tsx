@@ -1,7 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Be_Vietnam_Pro } from "next/font/google";
 import "./globals.css";
 import DevToolsShield from "@/components/DevToolsShield";
+import MobileBottomNav from "@/components/MobileBottomNav";
 
 const vietnamPro = Be_Vietnam_Pro({
   variable: "--font-sans",
@@ -10,6 +11,15 @@ const vietnamPro = Be_Vietnam_Pro({
   display: "swap",
 });
 
+// Viewport configuration explicitly allowing pinch-to-zoom on Mobile Safari & Chrome
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true, // Xóa rule cấm zoom in/out của trình duyệt
+  themeColor: "#08221a",
+};
+
 export const metadata: Metadata = {
   title: "Văn Phòng Chuỗi SKECHERS - TBS Group",
   description:
@@ -17,7 +27,6 @@ export const metadata: Metadata = {
   keywords:
     "Văn Phòng Chuỗi SKECHERS - TBS Group, SKECHERS, TBS Group, Gemba Walk, CI, Kaizen, Quản trị hằng ngày, Quản lý nhà máy",
   manifest: "/manifest.json",
-  themeColor: "#08221a",
   openGraph: {
     title: "Văn Phòng Chuỗi SKECHERS - TBS Group",
     description:
@@ -36,9 +45,11 @@ export default function RootLayout({
       lang="vi"
       className={`${vietnamPro.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col font-sans bg-canvas text-ink">
+      <body className="min-h-full flex flex-col font-sans bg-canvas text-ink pb-16 sm:pb-0">
         <DevToolsShield />
         {children}
+        {/* Floating Dock Navigation dedicated for Mobile Safari & Chrome */}
+        <MobileBottomNav />
       </body>
     </html>
   );

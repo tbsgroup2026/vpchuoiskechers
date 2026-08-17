@@ -58,7 +58,7 @@ interface RoomBooking {
   timeSlot: string;
   attendeesCount: number;
   notes?: string;
-  status: "CONFIRMED" | "CANCELLED" | "COMPLETED";
+  status: "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED";
   createdAt: string;
 }
 
@@ -79,7 +79,10 @@ interface VisitorRecord {
 }
 
 export default function MeetingRoomsPage() {
-  const [activeTab, setActiveTab] = useState<"BOOKING" | "ROOMS" | "VISITORS" | "CALENDAR">("BOOKING");
+  const [activeTab, setActiveTab] = useState<"APPROVALS" | "BOOKING" | "ROOMS" | "VISITORS" | "CALENDAR">("APPROVALS");
+  const [userRole, setUserRole] = useState<"LE_TAN" | "CBCNV">("LE_TAN");
+  const [reassignModalBooking, setReassignModalBooking] = useState<RoomBooking | null>(null);
+  const [newAssignedRoomId, setNewAssignedRoomId] = useState<string>("");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [selectedVisitorBadge, setSelectedVisitorBadge] = useState<VisitorRecord | null>(null);
   const [selectedEventModal, setSelectedEventModal] = useState<RoomBooking | null>(null);
@@ -88,9 +91,9 @@ export default function MeetingRoomsPage() {
 
   // User Profile
   const [currentUser, setCurrentUser] = useState<{ name: string; title: string; department: string; avatar: string }>({
-    name: "Cán Bộ Công Nhân Viên",
-    title: "Cán Bộ Công Nhân Viên",
-    department: "Văn Phòng Chuỗi SKECHERS",
+    name: "Phạm Nguyễn Anh Huy (Lễ Tân)",
+    title: "Chuyên Viên Lễ Tân & Tiếp Đón",
+    department: "Bộ Phận Lễ Tân & Hành Chánh",
     avatar: "/images/tbs-logo.png",
   });
 
@@ -178,11 +181,99 @@ export default function MeetingRoomsPage() {
     },
   ]);
 
-  // Clean Bookings List stored in Cloudflare D1 Database
-  const [bookings, setBookings] = useState<RoomBooking[]>([]);
+  // Initial Bookings List with Pending Approvals for Lễ Tân
+  const [bookings, setBookings] = useState<RoomBooking[]>([
+    {
+      id: "b_101",
+      roomId: "room_1",
+      roomName: "Phòng Họp OTI / OTG",
+      title: "Họp Giao Ban Khối Sản Xuất & Kế Hoạch Tuần 34",
+      bookerName: "Nguyễn Văn Hùng",
+      department: "Khối Sản Xuất",
+      bookingDate: "15/08/2026",
+      timeSlot: "08:00 - 09:30",
+      attendeesCount: 14,
+      notes: "Cần chuẩn bị máy chiếu 4K và 2 micro không dây.",
+      status: "CONFIRMED",
+      createdAt: "15/08/2026 07:30",
+    },
+    {
+      id: "b_102",
+      roomId: "room_2",
+      roomName: "Phòng Họp WORK",
+      title: "Họp Đánh Giá Tiến Độ Kaizen & Cải Tiến CN-CI",
+      bookerName: "Lê Thị Mai",
+      department: "CN-CI",
+      bookingDate: "15/08/2026",
+      timeSlot: "09:30 - 11:30",
+      attendeesCount: 20,
+      notes: "Yêu cầu Lễ Tân hỗ trợ trà nước & xếp màn hình LED 120 inch.",
+      status: "PENDING",
+      createdAt: "15/08/2026 08:15",
+    },
+    {
+      id: "b_103",
+      roomId: "room_3",
+      roomName: "Phòng Họp MEN USA",
+      title: "Phỏng Vấn Nhân Sự Cao Cấp SKECHERS Line B",
+      bookerName: "Trần Hoàng Nam",
+      department: "Nhân sự",
+      bookingDate: "15/08/2026",
+      timeSlot: "13:30 - 15:00",
+      attendeesCount: 6,
+      notes: "Cần Lễ Tân chuẩn bị phòng yên tĩnh đón đối tác nước ngoài.",
+      status: "PENDING",
+      createdAt: "15/08/2026 08:45",
+    },
+    {
+      id: "b_104",
+      roomId: "room_4",
+      roomName: "Phòng Họp SOURCING",
+      title: "Duyệt Mẫu Vật Tư Giày SKECHERS Q3/2026",
+      bookerName: "Phạm Minh Anh",
+      department: "R&D Kỹ thuật",
+      bookingDate: "15/08/2026",
+      timeSlot: "15:00 - 17:00",
+      attendeesCount: 12,
+      notes: "Trưng bày tủ mẫu và bảng tương tác.",
+      status: "CONFIRMED",
+      createdAt: "15/08/2026 09:00",
+    },
+  ]);
 
-  // Clean Visitors List stored in Cloudflare D1 Database
-  const [visitors, setVisitors] = useState<VisitorRecord[]>([]);
+  // Initial Visitors List for Lễ Tân Reception Desk Check-in
+  const [visitors, setVisitors] = useState<VisitorRecord[]>([
+    {
+      id: "v_201",
+      badgeCode: "VIS-2026-881",
+      visitorName: "Mr. David Miller",
+      company: "SKECHERS USA Corp",
+      idCard: "B92847109",
+      hostName: "Ban Giám Đốc",
+      department: "Văn Phòng Chuỗi SKECHERS",
+      roomLocation: "Phòng Họp MEN USA",
+      visitDate: "15/08/2026",
+      expectedTime: "09:30",
+      status: "CHECKED_IN",
+      notes: "Đoàn chuyên gia kiểm tra tiêu chuẩn nhà máy.",
+      createdAt: "15/08/2026 09:15",
+    },
+    {
+      id: "v_202",
+      badgeCode: "VIS-2026-882",
+      visitorName: "Nguyễn Kim Ngân",
+      company: "Công ty Vật Tư Da Giày Á Châu",
+      idCard: "079201004821",
+      hostName: "Trần Anh Tuấn",
+      department: "Sourcing & Vật Tư",
+      roomLocation: "Phòng Họp SOURCING",
+      visitDate: "15/08/2026",
+      expectedTime: "14:00",
+      status: "EXPECTED",
+      notes: "Giao mẫu nguyên phụ liệu mới.",
+      createdAt: "15/08/2026 10:00",
+    },
+  ]);
 
   // Booking Form State
   const [bookingForm, setBookingForm] = useState({
@@ -214,6 +305,51 @@ export default function MeetingRoomsPage() {
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  // Lễ Tân Actions
+  const handleApproveBooking = (bookingId: string) => {
+    setBookings((prev) =>
+      prev.map((b) => (b.id === bookingId ? { ...b, status: "CONFIRMED" } : b))
+    );
+    showToast("👩‍💼 Lễ Tân đã phê duyệt & xếp phòng họp thành công!");
+  };
+
+  const handleRejectBooking = (bookingId: string) => {
+    setBookings((prev) =>
+      prev.map((b) => (b.id === bookingId ? { ...b, status: "CANCELLED" } : b))
+    );
+    showToast("❌ Lễ Tân đã từ chối yêu cầu đặt phòng.");
+  };
+
+  const handleConfirmReassignRoom = () => {
+    if (!reassignModalBooking || !newAssignedRoomId) return;
+    const targetRoom = rooms.find((r) => r.id === newAssignedRoomId);
+    if (!targetRoom) return;
+
+    setBookings((prev) =>
+      prev.map((b) =>
+        b.id === reassignModalBooking.id
+          ? { ...b, roomId: targetRoom.id, roomName: targetRoom.name, status: "CONFIRMED" }
+          : b
+      )
+    );
+    showToast(`👩‍💼 Lễ Tân đã điều chuyển cuộc họp sang "${targetRoom.name}"!`);
+    setReassignModalBooking(null);
+  };
+
+  const handleVisitorCheckIn = (visitorId: string) => {
+    setVisitors((prev) =>
+      prev.map((v) => (v.id === visitorId ? { ...v, status: "CHECKED_IN" } : v))
+    );
+    showToast("🪪 Lễ Tân đã xác nhận khách đến (Check-in) & phát thẻ ra vào!");
+  };
+
+  const handleVisitorCheckOut = (visitorId: string) => {
+    setVisitors((prev) =>
+      prev.map((v) => (v.id === visitorId ? { ...v, status: "CHECKED_OUT" } : v))
+    );
+    showToast("📤 Lễ Tân đã thu hồi thẻ & hoàn tất thủ tục Check-out!");
   };
 
   // Sync Data with Cloudflare D1 Database
@@ -484,6 +620,35 @@ export default function MeetingRoomsPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Executive Role Switcher: Lễ Tân vs CBCNV */}
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#006838]/10 border border-[#006838]/30">
+            <span className="text-[11px] font-extrabold text-[#006838] hidden lg:inline">Vai trò:</span>
+            <button
+              onClick={() => {
+                const nextRole = userRole === "LE_TAN" ? "CBCNV" : "LE_TAN";
+                setUserRole(nextRole);
+                showToast(`Đã chuyển vai trò: ${nextRole === "LE_TAN" ? "👩‍💼 Lễ Tân (Xác nhận phòng & Xếp lịch)" : "👤 Cán Bộ Công Nhân Viên"}`);
+              }}
+              className={`px-3 py-1 rounded-full text-xs font-black transition-all cursor-pointer shadow-2xs flex items-center gap-1.5 ${
+                userRole === "LE_TAN"
+                  ? "bg-[#006838] text-white hover:bg-[#00522c]"
+                  : "bg-blue-600 text-white hover:bg-blue-700"
+              }`}
+            >
+              {userRole === "LE_TAN" ? (
+                <>
+                  <span>👩‍💼 Vai Trò: Lễ Tân</span>
+                  <span className="px-1.5 py-0.2 rounded-full bg-white/20 text-[10px]">Duyệt &amp; Xếp lịch</span>
+                </>
+              ) : (
+                <>
+                  <span>👤 Vai Trò: CBCNV</span>
+                  <span className="px-1.5 py-0.2 rounded-full bg-white/20 text-[10px]">Đăng ký phòng</span>
+                </>
+              )}
+            </button>
+          </div>
+
           <button className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold flex items-center gap-1 hover:bg-slate-200 transition-colors">
             <span>VN</span>
             <IconChevronDown size={12} />
@@ -499,8 +664,12 @@ export default function MeetingRoomsPage() {
               className="w-8 h-8 rounded-full border-2 border-[#006838] object-cover"
             />
             <div className="hidden md:block text-left">
-              <div className="text-xs font-bold text-slate-900 leading-none">{currentUser.name}</div>
-              <div className="text-[10px] text-slate-500 font-medium mt-0.5">{currentUser.department || currentUser.title}</div>
+              <div className="text-xs font-bold text-slate-900 leading-none">
+                {userRole === "LE_TAN" ? "Phạm Nguyễn Anh Huy (Lễ Tân)" : currentUser.name}
+              </div>
+              <div className="text-[10px] text-slate-500 font-medium mt-0.5">
+                {userRole === "LE_TAN" ? "Bộ Phận Lễ Tân & Hành Chánh" : currentUser.department}
+              </div>
             </div>
           </div>
         </div>
@@ -582,9 +751,26 @@ export default function MeetingRoomsPage() {
         </div>
 
         {/* ════════════════════════════════════════════════════════════════
-            TOP NAVIGATION TABS (4 TABS)
+            TOP NAVIGATION TABS (5 TABS INCLUDING LỄ TÂN DESK)
            ════════════════════════════════════════════════════════════════ */}
         <div className="flex items-center justify-start border-b border-slate-200 gap-1 sm:gap-2 overflow-x-auto">
+          <button
+            onClick={() => setActiveTab("APPROVALS")}
+            className={`px-4 py-2.5 rounded-t-xl font-extrabold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer border-b-2 whitespace-nowrap ${
+              activeTab === "APPROVALS"
+                ? "bg-[#006838] text-white border-[#006838] shadow-md"
+                : "bg-white text-slate-700 hover:text-[#006838] border-slate-200"
+            }`}
+          >
+            <IconChecklist size={17} />
+            <span>🛎️ Bàn Lễ Tân (Xác nhận &amp; Xếp lịch)</span>
+            {bookings.filter((b) => b.status === "PENDING").length > 0 && (
+              <span className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-900 text-[11px] font-black animate-pulse">
+                {bookings.filter((b) => b.status === "PENDING").length} chờ duyệt
+              </span>
+            )}
+          </button>
+
           <button
             onClick={() => setActiveTab("BOOKING")}
             className={`px-4 py-2.5 rounded-t-xl font-extrabold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer border-b-2 whitespace-nowrap ${
@@ -638,7 +824,321 @@ export default function MeetingRoomsPage() {
         </div>
 
         {/* ════════════════════════════════════════════════════════════════
-            TAB 0: 📅 LỊCH TỔNG HỢP CUỘC HỌP (COMPACT MONTHLY CALENDAR GRID)
+            TAB 0: 🛎️ BÀN LỄ TÂN (XÁC NHẬN PHÒNG, ĐỔI PHÒNG, XẾP LỊCH, ĐÓN KHÁCH)
+           ════════════════════════════════════════════════════════════════ */}
+        {activeTab === "APPROVALS" && (
+          <div className="space-y-6 animate-in fade-in duration-200">
+            {/* Lễ Tân Executive Dashboard Banner */}
+            <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-r from-[#006838] via-[#043322] to-slate-900 text-white shadow-lg space-y-4">
+              <div className="flex items-start justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center text-2xl border border-white/20">
+                    👩‍💼
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-black text-emerald-300 uppercase tracking-widest">
+                      BỘ PHẬN LỄ TÂN &amp; QUẢN LÝ TÀI NGUYÊN
+                    </span>
+                    <h2 className="text-xl sm:text-2xl font-black text-white leading-tight">
+                      Bàn Lễ Tân — Duyệt Phòng, Xếp Lịch &amp; Đón Tiếp Khách
+                    </h2>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1 rounded-full bg-emerald-400/20 text-emerald-300 text-xs font-extrabold border border-emerald-400/30">
+                    🟢 Đang Hoạt Động (Ca Sáng)
+                  </span>
+                </div>
+              </div>
+
+              {/* Quick Status Cards */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
+                <div className="p-3.5 rounded-2xl bg-white/10 border border-white/15 backdrop-blur-sm">
+                  <span className="text-[11px] font-bold text-amber-300 block">Yêu cầu chờ Lễ tân duyệt</span>
+                  <div className="text-2xl font-black text-white">
+                    {bookings.filter((b) => b.status === "PENDING").length} Yêu cầu
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-white/10 border border-white/15 backdrop-blur-sm">
+                  <span className="text-[11px] font-bold text-emerald-300 block">Cuộc họp đã xác nhận</span>
+                  <div className="text-2xl font-black text-white">
+                    {bookings.filter((b) => b.status === "CONFIRMED").length} Cuộc họp
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-white/10 border border-white/15 backdrop-blur-sm">
+                  <span className="text-[11px] font-bold text-purple-300 block">Khách đang tại Lễ tân</span>
+                  <div className="text-2xl font-black text-white">
+                    {visitors.filter((v) => v.status === "CHECKED_IN").length} Lượt khách
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-white/10 border border-white/15 backdrop-blur-sm">
+                  <span className="text-[11px] font-bold text-blue-300 block">Phòng họp trống khả dụng</span>
+                  <div className="text-2xl font-black text-white">
+                    {rooms.filter((r) => !r.isLocked && r.status === "AVAILABLE").length} / {rooms.length} Phòng
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* SECTION 1: YÊU CẦU ĐẶT PHÒNG HỌP CHỜ LỄ TÂN PHÊ DUYỆT & XẾP PHÒNG */}
+            <div className="p-5 sm:p-6 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-amber-500 animate-ping" />
+                  <h3 className="text-base font-black text-slate-900 uppercase">
+                    🟡 Yêu Cầu Đăng Ký Phòng Họp Chờ Lễ Tân Xác Nhận
+                  </h3>
+                </div>
+                <span className="text-xs font-bold text-slate-500">
+                  {bookings.filter((b) => b.status === "PENDING").length} yêu cầu đang chờ
+                </span>
+              </div>
+
+              {bookings.filter((b) => b.status === "PENDING").length === 0 ? (
+                <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                  <p className="text-xs font-bold text-slate-500">
+                    🎉 Không có yêu cầu nào đang chờ duyệt. Tất cả phòng họp đã được Lễ Tân sắp xếp ổn định!
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {bookings
+                    .filter((b) => b.status === "PENDING")
+                    .map((booking) => (
+                      <div
+                        key={booking.id}
+                        className="p-4 rounded-2xl bg-amber-50/40 border border-amber-200 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-amber-300 transition-all"
+                      >
+                        <div className="space-y-1.5 flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[10px] font-extrabold uppercase border border-amber-300">
+                              Chờ Lễ Tân duyệt
+                            </span>
+                            <span className="text-xs font-extrabold text-[#006838]">
+                              {booking.roomName}
+                            </span>
+                            <span className="text-xs font-bold text-slate-500">
+                              • {booking.bookingDate} ({booking.timeSlot})
+                            </span>
+                          </div>
+
+                          <h4 className="text-base font-black text-slate-900">{booking.title}</h4>
+
+                          <div className="flex items-center gap-4 text-xs font-semibold text-slate-600 flex-wrap">
+                            <span>👤 Người đăng ký: <strong className="text-slate-900">{booking.bookerName}</strong> ({booking.department})</span>
+                            <span>👥 Tham dự: <strong className="text-slate-900">{booking.attendeesCount} người</strong></span>
+                          </div>
+
+                          {booking.notes && (
+                            <p className="text-xs italic text-slate-500 bg-white/70 p-2 rounded-xl border border-slate-200/60 mt-1">
+                              💬 Ghi chú: {booking.notes}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Lễ Tân Action Buttons */}
+                        <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
+                          <button
+                            onClick={() => handleApproveBooking(booking.id)}
+                            className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-sm cursor-pointer"
+                          >
+                            <IconCheck size={16} />
+                            <span>Duyệt &amp; Xếp Phòng</span>
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              setReassignModalBooking(booking);
+                              setNewAssignedRoomId(booking.roomId);
+                            }}
+                            className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-sm cursor-pointer"
+                          >
+                            <IconEdit size={15} />
+                            <span>Đổi Phòng Họp</span>
+                          </button>
+
+                          <button
+                            onClick={() => handleRejectBooking(booking.id)}
+                            className="px-3 py-2 rounded-xl bg-rose-100 hover:bg-rose-200 text-rose-700 font-extrabold text-xs flex items-center gap-1 cursor-pointer"
+                          >
+                            <IconX size={15} />
+                            <span>Từ Chối</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+
+            {/* SECTION 2: QUẢN LÝ & ĐIỀU CHỈNH PHÒNG HỌP ĐÃ XÁC NHẬN */}
+            <div className="p-5 sm:p-6 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h3 className="text-base font-black text-slate-900 uppercase">
+                  🟢 Lịch Họp Đã Phê Duyệt &amp; Sắp Xếp Bởi Lễ Tân
+                </h3>
+                <span className="text-xs font-bold text-slate-500">
+                  {bookings.filter((b) => b.status === "CONFIRMED").length} cuộc họp đã duyệt
+                </span>
+              </div>
+
+              <div className="overflow-x-auto text-xs">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-100 text-slate-700 font-extrabold uppercase">
+                      <th className="p-3">Thời Gian</th>
+                      <th className="p-3">Phòng Họp</th>
+                      <th className="p-3">Cuộc Họp</th>
+                      <th className="p-3">Chủ Trì / Bộ Phận</th>
+                      <th className="p-3">Trạng Thái</th>
+                      <th className="p-3 text-center">Thao Tác Lễ Tân</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {bookings
+                      .filter((b) => b.status === "CONFIRMED")
+                      .map((b) => (
+                        <tr key={b.id} className="hover:bg-slate-50 font-medium">
+                          <td className="p-3 font-bold text-blue-900">
+                            {b.bookingDate}
+                            <div className="text-[10px] text-slate-500 font-normal">{b.timeSlot}</div>
+                          </td>
+                          <td className="p-3 font-extrabold text-[#006838]">{b.roomName}</td>
+                          <td className="p-3 font-bold text-slate-900">{b.title}</td>
+                          <td className="p-3">
+                            <div className="font-bold text-slate-800">{b.bookerName}</div>
+                            <div className="text-[10px] text-slate-500">{b.department}</div>
+                          </td>
+                          <td className="p-3">
+                            <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-[#006838] text-[10px] font-extrabold uppercase">
+                              ✓ Đã duyệt
+                            </span>
+                          </td>
+                          <td className="p-3 text-center space-x-1.5">
+                            <button
+                              onClick={() => {
+                                setReassignModalBooking(b);
+                                setNewAssignedRoomId(b.roomId);
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-700 hover:text-white transition-colors text-xs font-bold border border-blue-200 cursor-pointer"
+                            >
+                              Đổi phòng
+                            </button>
+                            <button
+                              onClick={() => {
+                                setBookings((prev) =>
+                                  prev.map((item) =>
+                                    item.id === b.id ? { ...item, status: "COMPLETED" } : item
+                                  )
+                                );
+                                showToast(`🏁 Lễ Tân đã đánh dấu hoàn thành cuộc họp "${b.title}"!`);
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-800 hover:text-white transition-colors text-xs font-bold border border-slate-200 cursor-pointer"
+                            >
+                              Trả phòng
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* SECTION 3: BÀN LỄ TÂN ĐÓN KHÁCH (CHECK-IN & CHECK-OUT KHÁCH ĐỐI TÁC) */}
+            <div className="p-5 sm:p-6 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h3 className="text-base font-black text-slate-900 uppercase">
+                  🪪 Bàn Lễ Tân Đón Khách Đối Tác &amp; Cấp Thẻ Ra Vào
+                </h3>
+                <span className="text-xs font-bold text-slate-500">
+                  {visitors.length} lượt khách trong ngày
+                </span>
+              </div>
+
+              <div className="overflow-x-auto text-xs">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-100 text-slate-700 font-extrabold uppercase">
+                      <th className="p-3">Mã Thẻ</th>
+                      <th className="p-3">Tên Khách / Công Ty</th>
+                      <th className="p-3">Đón Tiếp Tại</th>
+                      <th className="p-3">Thời Gian 到</th>
+                      <th className="p-3">Trạng Thái</th>
+                      <th className="p-3 text-center">Thao Tác Lễ Tân</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {visitors.map((v) => (
+                      <tr key={v.id} className="hover:bg-slate-50">
+                        <td className="p-3 font-mono font-bold text-[#006838]">{v.badgeCode}</td>
+                        <td className="p-3">
+                          <div className="font-bold text-slate-900">{v.visitorName}</div>
+                          <div className="text-[10px] text-slate-500">{v.company}</div>
+                        </td>
+                        <td className="p-3">
+                          <div className="font-bold text-slate-800">{v.roomLocation}</div>
+                          <div className="text-[10px] text-slate-500">Đón bởi: {v.hostName}</div>
+                        </td>
+                        <td className="p-3 font-bold text-slate-800">
+                          {v.visitDate} ({v.expectedTime})
+                        </td>
+                        <td className="p-3">
+                          <span
+                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
+                              v.status === "CHECKED_IN"
+                                ? "bg-emerald-100 text-[#006838]"
+                                : v.status === "CHECKED_OUT"
+                                ? "bg-slate-200 text-slate-700"
+                                : "bg-purple-100 text-purple-800"
+                            }`}
+                          >
+                            {v.status === "CHECKED_IN"
+                              ? "🟢 Đã Check-in"
+                              : v.status === "CHECKED_OUT"
+                              ? "⚪ Đã Check-out"
+                              : "🟡 Chờ khách đến"}
+                          </span>
+                        </td>
+                        <td className="p-3 text-center space-x-1.5">
+                          {v.status === "EXPECTED" && (
+                            <button
+                              onClick={() => handleVisitorCheckIn(v.id)}
+                              className="px-3 py-1 rounded-xl bg-emerald-600 text-white font-extrabold text-xs hover:bg-emerald-700 transition-colors shadow-2xs cursor-pointer"
+                            >
+                              📥 Check-in (Khách đến)
+                            </button>
+                          )}
+                          {v.status === "CHECKED_IN" && (
+                            <button
+                              onClick={() => handleVisitorCheckOut(v.id)}
+                              className="px-3 py-1 rounded-xl bg-slate-700 text-white font-bold text-xs hover:bg-slate-800 transition-colors cursor-pointer"
+                            >
+                              📤 Check-out (Khách về)
+                            </button>
+                          )}
+                          <button
+                            onClick={() => setSelectedVisitorBadge(v)}
+                            className="px-2.5 py-1 rounded-xl bg-purple-50 text-purple-700 font-bold text-xs hover:bg-purple-700 hover:text-white transition-colors border border-purple-200 cursor-pointer"
+                          >
+                            🪪 In Thẻ
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ════════════════════════════════════════════════════════════════
+            TAB 1: 📅 LỊCH TỔNG HỢP CUỘC HỌP (COMPACT MONTHLY CALENDAR GRID)
            ════════════════════════════════════════════════════════════════ */}
         {activeTab === "CALENDAR" && (
           <div className="space-y-3 animate-in fade-in duration-200">
@@ -1426,6 +1926,70 @@ export default function MeetingRoomsPage() {
                   className="px-4 py-2 rounded-xl bg-white/20 hover:bg-white/30 text-white font-bold text-xs cursor-pointer"
                 >
                   Đóng
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════════
+          MODAL POPUP: LỄ TÂN ĐỔI PHÒNG HỌP (ROOM RE-ASSIGNMENT MODAL)
+         ════════════════════════════════════════════════════════════════ */}
+      {reassignModalBooking && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-5 bg-gradient-to-r from-blue-800 to-[#006838] text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <IconEdit size={20} />
+                <h3 className="text-base font-black uppercase tracking-tight">👩‍💼 Lễ Tân Sắp Xếp / Đổi Phòng Họp</h3>
+              </div>
+              <button onClick={() => setReassignModalBooking(null)} className="text-white/80 hover:text-white cursor-pointer">
+                <IconX size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 text-xs">
+              <div className="p-3 rounded-2xl bg-blue-50 border border-blue-100">
+                <span className="text-[10px] font-bold text-blue-700 uppercase block">Cuộc họp cần điều chuyển</span>
+                <h4 className="text-sm font-black text-slate-900 mt-0.5">{reassignModalBooking.title}</h4>
+                <p className="text-slate-600 font-semibold mt-1">
+                  Đăng ký bởi: {reassignModalBooking.bookerName} ({reassignModalBooking.department}) • {reassignModalBooking.attendeesCount} người
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="font-extrabold text-slate-800 block text-xs">
+                  Chọn phòng họp mới thích hợp:
+                </label>
+                <select
+                  value={newAssignedRoomId}
+                  onChange={(e) => setNewAssignedRoomId(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-300 font-bold text-xs outline-none focus:border-[#006838] bg-white cursor-pointer"
+                >
+                  {rooms.map((r) => (
+                    <option key={r.id} value={r.id} disabled={r.isLocked}>
+                      {r.name} (Sức chứa {r.capacity} người - {r.location}) {r.isLocked ? "[Khóa bảo trì]" : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="pt-3 flex items-center justify-end gap-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setReassignModalBooking(null)}
+                  className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-bold hover:bg-slate-200 cursor-pointer"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmReassignRoom}
+                  className="px-6 py-2 rounded-xl bg-[#006838] text-white font-extrabold hover:bg-[#00522c] cursor-pointer shadow-md flex items-center gap-1.5"
+                >
+                  <IconCheck size={16} />
+                  <span>Xác nhận Đổi &amp; Xếp Lịch</span>
                 </button>
               </div>
             </div>

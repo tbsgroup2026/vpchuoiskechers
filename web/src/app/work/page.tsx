@@ -54,6 +54,11 @@ import {
   IconPhoneCall,
   IconScissors,
   IconLayoutGrid,
+  IconDownload,
+  IconAlertCircle,
+  IconAlertTriangle,
+  IconPlayerPlay,
+  IconFilter,
 } from "@tabler/icons-react";
 
 interface DepartmentItem {
@@ -67,6 +72,7 @@ interface DepartmentItem {
 
 export default function WorkDashboardPage() {
   const [selectedDept, setSelectedDept] = useState<string | null>(null);
+  const [plantFilter, setPlantFilter] = useState("Toàn nhà máy");
   const [timeFilter, setTimeFilter] = useState("Tháng này");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -1226,95 +1232,121 @@ export default function WorkDashboardPage() {
 
           {/* IF QC (QUẢN LÝ CHẤT LƯỢNG) IS SELECTED */}
           {selectedDept === "qc" && (
-            <div className="space-y-4">
+            <div className="space-y-3.5 my-auto">
               {/* HEADER BANNER */}
-              <div className="rounded-2xl bg-gradient-to-r from-[#0b3d2e] to-[#0f4d3a] p-5 text-white">
-                <div className="flex items-start justify-between flex-wrap gap-2">
+              <div className="rounded-2xl bg-gradient-to-r from-[#0b3d2e] via-[#006838] to-[#083324] p-4 text-white shadow-md relative overflow-hidden">
+                {/* Subtle Ambient Ring */}
+                <div className="absolute right-0 top-0 translate-x-6 -translate-y-6 w-48 h-48 rounded-full border border-white/10 pointer-events-none" />
+
+                <div className="flex items-start justify-between flex-wrap gap-2 relative z-10">
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-xl">
-                      🛡️
+                    <div className="w-10 h-10 rounded-xl bg-white/15 backdrop-blur-xs flex items-center justify-center text-white border border-white/20 shadow-xs flex-shrink-0">
+                      <IconShieldCheck size={22} />
                     </div>
                     <div>
                       <span className="text-[10px] font-bold text-emerald-300 tracking-wider uppercase">
-                        Phòng Ban
+                        PHÒNG BAN QUẢN LÝ
                       </span>
-                      <h2 className="text-xl font-black leading-tight">
+                      <h2 className="text-lg sm:text-xl font-black leading-tight">
                         Quản Lý Chất Lượng (QC)
                       </h2>
-                      <p className="text-xs text-emerald-100/80 mt-0.5">
-                        Kiểm soát tiêu chuẩn chất lượng SKECHERS, chỉ số OEE và tỷ lệ lỗi trên chuyền.
+                      <p className="text-xs text-emerald-100/90 mt-0.5 font-medium">
+                        Kiểm soát tiêu chuẩn chất lượng SKECHERS, chỉ số OEE và tỷ lệ lỗi trên chuyền sản xuất.
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1.5 text-xs text-emerald-100/90">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                    Dữ liệu được cập nhật 08:35 15/08/2026
+                  <div className="flex items-center gap-2 text-xs font-semibold text-emerald-100 bg-white/10 backdrop-blur-xs px-3 py-1.5 rounded-full border border-white/15">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <span>Dữ liệu D1 Realtime: 08:35 15/08/2026</span>
                   </div>
                 </div>
               </div>
 
-              {/* FILTER BAR */}
-              <div className="flex flex-wrap items-center justify-between gap-3 bg-white border border-slate-200 rounded-2xl p-3">
+              {/* FILTER & TOOLBAR */}
+              <div className="flex flex-wrap items-center justify-between gap-3 bg-white border border-slate-200/90 rounded-2xl p-2.5 shadow-2xs">
                 <div className="flex flex-wrap items-center gap-3">
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-400 block mb-1">Phạm vi nhà máy</label>
-                    <select className="text-xs font-bold text-slate-700 border border-slate-200 rounded-lg px-3 py-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-extrabold text-slate-500 flex items-center gap-1">
+                      <IconFilter size={14} /> Nhà máy:
+                    </span>
+                    <select
+                      value={plantFilter}
+                      onChange={(e) => setPlantFilter(e.target.value)}
+                      className="text-xs font-extrabold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 outline-none cursor-pointer hover:bg-slate-100 transition-colors"
+                    >
                       <option>Toàn nhà máy</option>
+                      <option>Nhà máy 1 (NM1)</option>
+                      <option>Nhà máy 2 (NM2)</option>
+                      <option>Nhà máy 3 (NM3)</option>
                     </select>
                   </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-400 block mb-1">Khoảng thời gian</label>
-                    <div className="flex items-center gap-2 text-xs font-bold text-slate-700 border border-slate-200 rounded-lg px-3 py-1.5">
-                      📅 09/08/2026 – 15/08/2026
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-extrabold text-slate-500 flex items-center gap-1">
+                      <IconCalendarEvent size={14} /> Thời gian:
+                    </span>
+                    <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl p-1">
+                      {["Hôm nay", "Tháng này", "30 ngày", "Tùy chọn"].map((label) => (
+                        <button
+                          key={label}
+                          onClick={() => setTimeFilter(label)}
+                          className={`text-xs font-bold px-3 py-1 rounded-lg transition-all cursor-pointer ${
+                            timeFilter === label
+                              ? "bg-[#006838] text-white shadow-xs"
+                              : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
                     </div>
                   </div>
-                  <div className="flex items-center gap-1.5 mt-4">
-                    {["Hôm nay", "7 ngày", "30 ngày", "Tùy chọn"].map((label) => (
-                      <button
-                        key={label}
-                        className={`text-xs font-bold px-3 py-1.5 rounded-lg ${label === "7 ngày"
-                            ? "bg-[#0f4d3a] text-white"
-                            : "text-slate-600 hover:bg-slate-100"
-                          }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
                 </div>
-                <button className="flex items-center gap-2 bg-[#0f4d3a] text-white text-xs font-bold px-4 py-2 rounded-xl">
-                  ⬇ Xuất báo cáo
+
+                <button
+                  onClick={() => showToast("📊 Đang xuất báo cáo kiểm tra chất lượng QC...")}
+                  className="flex items-center gap-1.5 bg-[#006838] hover:bg-[#00522c] text-white text-xs font-extrabold px-3.5 py-1.5 rounded-xl shadow-xs transition-all cursor-pointer"
+                >
+                  <IconDownload size={15} />
+                  <span>Xuất báo cáo PDF/Excel</span>
                 </button>
               </div>
 
-              {/* HIỆU SUẤT TỔNG THỂ + TÌNH HÌNH LỖI */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {/* HIỆU SUẤT TỔNG THỂ */}
-                <div className="bg-white border border-slate-200 rounded-2xl p-4">
-                  <h3 className="text-sm font-black text-slate-900 mb-3">Hiệu suất tổng thể ⓘ</h3>
-                  <div className="grid grid-cols-2 gap-4">
+              {/* HIỆU SUẤT TỔNG THỂ + TÌNH HÌNH LỖI (GRID ROW 1) */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
+                {/* HIỆU SUẤT TỔNG THỂ (Col 5/12) */}
+                <div className="lg:col-span-5 bg-white border border-slate-200/80 rounded-2xl p-3.5 shadow-2xs flex flex-col justify-between">
+                  <div className="flex items-center justify-between pb-1.5 border-b border-slate-100">
+                    <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
+                      <IconTrendingUp size={16} className="text-[#006838]" />
+                      <span>Hiệu suất tổng thể</span>
+                    </h3>
+                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">Realtime</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 my-auto py-1">
                     {[
-                      { label: "Tỷ lệ đạt QC", value: 97.2, sub: "Đạt", trend: "+2.1% so với kỳ trước", target: "Mục tiêu: ≥ 95%", color: "#0f4d3a", track: "#dcfce7" },
-                      { label: "OEE Tổng thể", value: 88.6, sub: "Hiệu quả", trend: "+1.8% so với kỳ trước", target: "Mục tiêu: ≥ 85%", color: "#34d399", track: "#dcfce7" },
+                      { label: "Tỷ lệ đạt QC", value: 97.2, sub: "Đạt chuẩn", trend: "+2.1% kỳ trước", target: "Mục tiêu: ≥ 95%", color: "#006838", track: "#e6f4ed" },
+                      { label: "OEE Tổng thể", value: 88.6, sub: "Hiệu quả cao", trend: "+1.8% kỳ trước", target: "Mục tiêu: ≥ 85%", color: "#0284c7", track: "#e0f2fe" },
                     ].map((item, idx) => (
-                      <div key={idx} className="flex flex-col items-center text-center">
-                        <span className="text-xs font-bold text-slate-500 mb-2">{item.label}</span>
-                        <div className="relative w-28 h-28">
+                      <div key={idx} className="flex flex-col items-center text-center p-2 rounded-xl bg-slate-50/70 border border-slate-200/60">
+                        <span className="text-[11px] font-extrabold text-slate-700 mb-1.5">{item.label}</span>
+                        <div className="relative w-20 h-20">
                           <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
-                            <circle cx="50" cy="50" r="42" fill="none" stroke={item.track} strokeWidth="10" />
+                            <circle cx="50" cy="50" r="40" fill="none" stroke={item.track} strokeWidth="9" />
                             <circle
-                              cx="50" cy="50" r="42" fill="none"
-                              stroke={item.color} strokeWidth="10" strokeLinecap="round"
-                              strokeDasharray={`${(item.value / 100) * 264} 264`}
+                              cx="50" cy="50" r="40" fill="none"
+                              stroke={item.color} strokeWidth="9" strokeLinecap="round"
+                              strokeDasharray={`${(item.value / 100) * 251.2} 251.2`}
                             />
                           </svg>
                           <div className="absolute inset-0 flex flex-col items-center justify-center">
-                            <span className="text-xl font-black text-slate-900">{item.value}%</span>
-                            <span className="text-[10px] font-bold text-slate-400">{item.sub}</span>
+                            <span className="text-base font-black text-slate-900 leading-none">{item.value}%</span>
+                            <span className="text-[9px] font-extrabold text-slate-400 mt-0.5">{item.sub}</span>
                           </div>
                         </div>
-                        <span className="text-[11px] font-bold text-emerald-600 mt-2">▲ {item.trend}</span>
-                        <span className="text-[10px] font-bold text-slate-400 bg-slate-50 rounded-full px-3 py-1 mt-2">
+                        <span className="text-[10px] font-bold text-emerald-700 mt-1.5">▲ {item.trend}</span>
+                        <span className="text-[9px] font-bold text-slate-500 bg-white border border-slate-200 rounded-full px-2 py-0.5 mt-1">
                           {item.target}
                         </span>
                       </div>
@@ -1322,195 +1354,307 @@ export default function WorkDashboardPage() {
                   </div>
                 </div>
 
-                {/* TÌNH HÌNH LỖI */}
-                <div className="bg-white border border-slate-200 rounded-2xl p-4">
-                  <h3 className="text-sm font-black text-slate-900 mb-3">Tình hình lỗi</h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-                    {[
-                      { title: "Tổng số lỗi", val: "1,248", trend: "+12.4%" },
-                      { title: "Lỗi nghiêm trọng (SOS)", val: "15", trend: "+36.4%" },
-                      { title: "Lỗi cần cải thiện", val: "87", trend: "+8.3%" },
-                      { title: "Lỗi đã xử lý", val: "1,146", trend: "+15.7%" },
-                    ].map((item, idx) => (
-                      <div key={idx} className="p-3 rounded-xl bg-slate-50 space-y-1">
-                        <span className="text-[10px] font-bold text-slate-400 block leading-tight">{item.title}</span>
-                        <div className="text-lg font-black text-slate-900">{item.val}</div>
-                        <span className="text-[10px] font-bold text-red-500">▲ {item.trend}</span>
-                      </div>
-                    ))}
+                {/* TÌNH HÌNH LỖI (Col 7/12) */}
+                <div className="lg:col-span-7 bg-white border border-slate-200/80 rounded-2xl p-3.5 shadow-2xs flex flex-col justify-between">
+                  <div className="flex items-center justify-between pb-1.5 border-b border-slate-100">
+                    <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
+                      <IconAlertCircle size={16} className="text-amber-600" />
+                      <span>Tình hình lỗi kiểm hàng</span>
+                    </h3>
+                    <span className="text-[10px] font-bold text-slate-500">7 ngày qua</span>
                   </div>
 
-                  <span className="text-xs font-bold text-slate-500 block mb-2">Xu hướng lỗi theo ngày</span>
-                  <div className="w-full h-32 relative">
-                    <svg className="w-full h-full overflow-visible" viewBox="0 0 500 100" preserveAspectRatio="none">
-                      <defs>
-                        <linearGradient id="qcLineGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#0f4d3a" stopOpacity="0.2" />
-                          <stop offset="100%" stopColor="#0f4d3a" stopOpacity="0.0" />
-                        </linearGradient>
-                      </defs>
+                  <div className="grid grid-cols-4 gap-2 my-1">
+                    <div className="bg-slate-50 p-2 rounded-xl border border-slate-200/70">
+                      <span className="text-[10px] font-medium text-slate-500 block truncate">Tổng số lỗi</span>
+                      <div className="text-base sm:text-lg font-black text-slate-900 leading-tight mt-0.5">1,248</div>
+                      <span className="text-[9px] font-bold text-emerald-600">▲ 12.4%</span>
+                    </div>
 
-                      {/* Grid Lines */}
-                      <line x1="0" y1="20" x2="500" y2="20" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
-                      <line x1="0" y1="50" x2="500" y2="50" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
-                      <line x1="0" y1="80" x2="500" y2="80" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
+                    <div className="bg-rose-50/70 p-2 rounded-xl border border-rose-100">
+                      <span className="text-[10px] font-medium text-rose-700 block truncate">Lỗi SOS</span>
+                      <div className="text-base sm:text-lg font-black text-rose-700 leading-tight mt-0.5">15</div>
+                      <span className="text-[9px] font-bold text-rose-600">▲ 36.4%</span>
+                    </div>
 
-                      {/* Area Fill */}
-                      <polygon
-                        points="35,38 105,15 175,70 245,20 315,35 385,35 455,85 455,95 35,95"
-                        fill="url(#qcLineGradient)"
-                      />
+                    <div className="bg-amber-50/70 p-2 rounded-xl border border-amber-100">
+                      <span className="text-[10px] font-medium text-amber-800 block truncate">Lỗi cần sửa</span>
+                      <div className="text-base sm:text-lg font-black text-amber-800 leading-tight mt-0.5">87</div>
+                      <span className="text-[9px] font-bold text-amber-700">▲ 8.3%</span>
+                    </div>
 
-                      {/* Smooth Line */}
-                      <path
-                        d="M 35 38 L 105 15 L 175 70 L 245 20 L 315 35 L 385 35 L 455 85"
-                        fill="none"
-                        stroke="#0f4d3a"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
+                    <div className="bg-emerald-50/70 p-2 rounded-xl border border-emerald-100">
+                      <span className="text-[10px] font-medium text-emerald-800 block truncate">Đã xử lý</span>
+                      <div className="text-base sm:text-lg font-black text-[#006838] leading-tight mt-0.5">1,146</div>
+                      <span className="text-[9px] font-bold text-emerald-700">▲ 15.7%</span>
+                    </div>
+                  </div>
 
-                      {/* Data Points */}
-                      {[
-                        { x: 35, y: 38 },
-                        { x: 105, y: 15 },
-                        { x: 175, y: 70 },
-                        { x: 245, y: 20 },
-                        { x: 315, y: 35 },
-                        { x: 385, y: 35 },
-                        { x: 455, y: 85 },
-                      ].map((pt, i) => (
-                        <circle
-                          key={i}
-                          cx={pt.x}
-                          cy={pt.y}
-                          r="4"
-                          fill="#ffffff"
-                          stroke="#0f4d3a"
-                          strokeWidth="2.5"
+                  {/* Trend SVG Line Chart */}
+                  <div className="space-y-0.5">
+                    <div className="flex items-center justify-between text-[10px] font-semibold text-slate-500">
+                      <span>Xu hướng biến động theo ngày</span>
+                      <span className="text-[9px] text-[#006838] font-bold">TB: 178 lỗi/ngày</span>
+                    </div>
+                    <div className="w-full h-20 relative">
+                      <svg className="w-full h-full overflow-visible" viewBox="0 0 500 100" preserveAspectRatio="none">
+                        <defs>
+                          <linearGradient id="qcLineGradientHuman" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#006838" stopOpacity="0.25" />
+                            <stop offset="100%" stopColor="#006838" stopOpacity="0.0" />
+                          </linearGradient>
+                        </defs>
+
+                        <line x1="0" y1="20" x2="500" y2="20" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
+                        <line x1="0" y1="50" x2="500" y2="50" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
+                        <line x1="0" y1="80" x2="500" y2="80" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
+
+                        <polygon
+                          points="35,38 105,15 175,70 245,20 315,35 385,35 455,85 455,95 35,95"
+                          fill="url(#qcLineGradientHuman)"
                         />
-                      ))}
-                    </svg>
 
-                    {/* X-Axis Date Labels */}
-                    <div className="flex justify-between px-2 text-[10px] font-semibold text-slate-400 mt-1">
-                      <span>09/08</span>
-                      <span>10/08</span>
-                      <span>11/08</span>
-                      <span>12/08</span>
-                      <span>13/08</span>
-                      <span>14/08</span>
-                      <span>15/08</span>
+                        <path
+                          d="M 35 38 L 105 15 L 175 70 L 245 20 L 315 35 L 385 35 L 455 85"
+                          fill="none"
+                          stroke="#006838"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+
+                        {[
+                          { x: 35, y: 38 },
+                          { x: 105, y: 15 },
+                          { x: 175, y: 70 },
+                          { x: 245, y: 20 },
+                          { x: 315, y: 35 },
+                          { x: 385, y: 35 },
+                          { x: 455, y: 85 },
+                        ].map((pt, i) => (
+                          <circle
+                            key={i}
+                            cx={pt.x}
+                            cy={pt.y}
+                            r="3.5"
+                            fill="#ffffff"
+                            stroke="#006838"
+                            strokeWidth="2.5"
+                          />
+                        ))}
+                      </svg>
+
+                      <div className="flex justify-between px-2 text-[9px] font-semibold text-slate-400 mt-0.5">
+                        <span>09/08</span>
+                        <span>10/08</span>
+                        <span>11/08</span>
+                        <span>12/08</span>
+                        <span>13/08</span>
+                        <span>14/08</span>
+                        <span>15/08</span>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* CHỨC NĂNG NHANH + CẢNH BÁO + HIỆU SUẤT NHÀ MÁY */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                {/* CHỨC NĂNG NHANH */}
-                <div className="bg-white border border-slate-200 rounded-2xl p-4">
-                  <h3 className="text-sm font-black text-slate-900 mb-3">Chức năng nhanh</h3>
-                  <div className="grid grid-cols-2 gap-3">
-                    {[
-                      { icon: "📤", label: "Báo cáo vấn đề", color: "text-emerald-600 bg-emerald-50" },
-                      { icon: "✉️", label: "Nhiệm vụ & Công việc", color: "text-blue-600 bg-blue-50" },
-                      { icon: "🔔", label: "Thông báo của bạn", color: "text-purple-600 bg-purple-50" },
-                      { icon: "📋", label: "Thư viện PO & Lỗi", color: "text-slate-600 bg-slate-50" },
-                      { icon: "📊", label: "Dashboard chi tiết", color: "text-blue-600 bg-blue-50" },
-                      { icon: "⏳", label: "Chất lượng nhập", color: "text-amber-600 bg-amber-50" },
-                      { icon: "📈", label: "Chạy thử & Theo dõi", color: "text-purple-600 bg-purple-50" },
-                      { icon: "🚨", label: "Cấu tao khẩn cấp (SOS)", color: "text-red-600 bg-red-50" },
-                    ].map((item, idx) => (
-                      <button
-                        key={idx}
-                        className="flex flex-col items-center gap-1.5 border border-slate-100 rounded-xl py-3 hover:bg-slate-50"
-                      >
-                        <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm ${item.color}`}>
-                          {item.icon}
-                        </span>
-                        <span className="text-[10px] font-bold text-slate-600 text-center leading-tight px-1">
-                          {item.label}
-                        </span>
-                      </button>
-                    ))}
+              {/* CHỨC NĂNG NHANH + CẢNH BÁO + HIỆU SUẤT NHÀ MÁY (GRID ROW 2) */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
+                {/* CHỨC NĂNG NHANH (Col 5/12) */}
+                <div className="lg:col-span-5 bg-white border border-slate-200/80 rounded-2xl p-3.5 shadow-2xs flex flex-col justify-between">
+                  <div className="flex items-center justify-between pb-1.5 border-b border-slate-100">
+                    <h3 className="text-xs sm:text-sm font-extrabold text-slate-900">Chức năng thao tác nhanh</h3>
                   </div>
-                </div>
 
-                {/* CẢNH BÁO THỜI GIAN THỰC */}
-                <div className="bg-white border border-slate-200 rounded-2xl p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-black text-red-600">🔴 Cảnh báo thời gian thực</h3>
-                    <span className="text-[10px] font-bold text-slate-400">Xem tất cả →</span>
-                  </div>
-                  <div className="space-y-3">
+                  <div className="grid grid-cols-4 gap-2 my-auto">
                     {[
-                      { icon: "🔴", title: "02 sự cố quá 2 giờ", sub: "PX MAY 2 - Chuyền 5", count: 2, color: "bg-red-500" },
-                      { icon: "🟠", title: "01 sự cố chưa hoàn tất", sub: "PX GÒ - Chuyền 2", count: 1, color: "bg-amber-500" },
-                      { icon: "🟣", title: "01 sự cố nguy cơ SOS", sub: "PX ĐẾ - Chuyền 1", count: 1, color: "bg-purple-500" },
-                    ].map((item, idx) => (
-                      <div key={idx} className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span>{item.icon}</span>
-                          <div>
-                            <div className="text-xs font-bold text-slate-800">{item.title}</div>
-                            <div className="text-[10px] text-slate-400">{item.sub}</div>
+                      { name: "Báo cáo vấn đề", icon: IconAlertCircle, bg: "bg-emerald-50 text-[#006838]" },
+                      { name: "Nhiệm vụ & Việc", icon: IconBriefcase, bg: "bg-blue-50 text-blue-600" },
+                      { name: "Thông báo QC", icon: IconBell, bg: "bg-purple-50 text-purple-600" },
+                      { name: "Thư viện PO", icon: IconFileText, bg: "bg-amber-50 text-amber-600" },
+                      { name: "Dashboard", icon: IconTrendingUp, bg: "bg-blue-50 text-blue-600" },
+                      { name: "Chốt tiếp nhận", icon: IconCheck, bg: "bg-amber-50 text-amber-600" },
+                      { name: "Chạy thử chuyền", icon: IconPlayerPlay, bg: "bg-purple-50 text-purple-600" },
+                      { name: "Xử lý SOS", icon: IconAlertTriangle, bg: "bg-rose-50 text-rose-600" },
+                    ].map((app, idx) => {
+                      const AppIcon = app.icon;
+                      return (
+                        <button
+                          key={idx}
+                          onClick={() => showToast(`Thực hiện: ${app.name}`)}
+                          className="p-2 rounded-xl bg-slate-50/70 border border-slate-200/60 hover:bg-white hover:border-[#006838]/60 hover:shadow-xs transition-all flex flex-col items-center text-center gap-1 group cursor-pointer"
+                        >
+                          <div className={`w-8 h-8 rounded-lg ${app.bg} flex items-center justify-center group-hover:scale-105 transition-transform`}>
+                            <AppIcon size={18} />
                           </div>
-                        </div>
-                        <span className={`w-5 h-5 rounded-full text-white text-[10px] font-bold flex items-center justify-center ${item.color}`}>
-                          {item.count}
-                        </span>
-                      </div>
-                    ))}
+                          <span className="text-[10px] font-bold text-slate-700 leading-tight line-clamp-2">
+                            {app.name}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
-                {/* HIỆU SUẤT THEO NHÀ MÁY */}
-                <div className="bg-white border border-slate-200 rounded-2xl p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-black text-slate-900">Hiệu suất theo nhà máy</h3>
-                    <span className="text-[10px] font-bold text-slate-400">Xem chi tiết →</span>
+                {/* CẢNH BÁO THỜI GIAN THỰC (Col 3.5/12) */}
+                <div className="lg:col-span-3.5 bg-white border border-slate-200/80 rounded-2xl p-3.5 shadow-2xs flex flex-col justify-between">
+                  <div className="flex items-center justify-between pb-1.5 border-b border-slate-100">
+                    <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                      <span>Cảnh báo thời gian thực</span>
+                    </h3>
+                    <button className="text-[10px] font-bold text-[#006838] hover:underline cursor-pointer">Tất cả →</button>
                   </div>
-                  <div className="space-y-3">
-                    {[
-                      { label: "Nhà máy 1", val: 98.1, color: "bg-emerald-500" },
-                      { label: "Nhà máy 2", val: 96.5, color: "bg-emerald-500" },
-                      { label: "Nhà máy 3", val: 94.2, color: "bg-amber-500" },
-                      { label: "Toàn nhà máy", val: 97.2, color: "bg-[#0f4d3a]", bold: true },
-                    ].map((item, idx) => (
-                      <div key={idx}>
-                        <div className="flex items-center justify-between mb-1">
-                          <span className={`text-xs ${item.bold ? "font-black" : "font-bold"} text-slate-700`}>{item.label}</span>
-                          <span className="text-xs font-black text-slate-900">{item.val}%</span>
-                        </div>
-                        <div className="w-full h-2 rounded-full bg-slate-100">
-                          <div className={`h-2 rounded-full ${item.color}`} style={{ width: `${item.val}%` }} />
+
+                  <div className="space-y-2 my-auto">
+                    <div className="p-2 rounded-xl bg-rose-50/80 border border-rose-100 flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="w-2 h-2 rounded-full bg-rose-600 flex-shrink-0" />
+                        <div className="min-w-0">
+                          <h4 className="text-[11px] font-extrabold text-rose-900 truncate">02 sự cố quá 2 giờ</h4>
+                          <p className="text-[9px] text-rose-700 font-medium">PX MAY 2 - Chuyền 5</p>
                         </div>
                       </div>
-                    ))}
+                      <span className="w-5 h-5 rounded-full bg-rose-600 text-white font-bold text-[10px] flex items-center justify-center flex-shrink-0 ml-1">
+                        2
+                      </span>
+                    </div>
+
+                    <div className="p-2 rounded-xl bg-amber-50/80 border border-amber-100 flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" />
+                        <div className="min-w-0">
+                          <h4 className="text-[11px] font-extrabold text-amber-900 truncate">01 sự cố chưa hoàn tất</h4>
+                          <p className="text-[9px] text-amber-700 font-medium">PX GÒ - Chuyền 2</p>
+                        </div>
+                      </div>
+                      <span className="w-5 h-5 rounded-full bg-amber-500 text-white font-bold text-[10px] flex items-center justify-center flex-shrink-0 ml-1">
+                        1
+                      </span>
+                    </div>
+
+                    <div className="p-2 rounded-xl bg-rose-50/80 border border-rose-100 flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="w-2 h-2 rounded-full bg-rose-600 flex-shrink-0" />
+                        <div className="min-w-0">
+                          <h4 className="text-[11px] font-extrabold text-rose-900 truncate">01 sự cố nguy cơ SOS</h4>
+                          <p className="text-[9px] text-rose-700 font-medium">PX ĐẾ - Chuyền 1</p>
+                        </div>
+                      </div>
+                      <span className="w-5 h-5 rounded-full bg-rose-600 text-white font-bold text-[10px] flex items-center justify-center flex-shrink-0 ml-1">
+                        1
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* HIỆU SUẤT THEO NHÀ MÁY (Col 3.5/12) */}
+                <div className="lg:col-span-3.5 bg-white border border-slate-200/80 rounded-2xl p-3.5 shadow-2xs flex flex-col justify-between">
+                  <div className="flex items-center justify-between pb-1.5 border-b border-slate-100">
+                    <h3 className="text-xs sm:text-sm font-extrabold text-slate-900">Hiệu suất theo nhà máy</h3>
+                    <button className="text-[10px] font-bold text-[#006838] hover:underline cursor-pointer">Chi tiết →</button>
+                  </div>
+
+                  <div className="space-y-2.5 my-auto">
+                    <div>
+                      <div className="flex justify-between text-[11px] font-bold mb-1">
+                        <span className="text-slate-700">Nhà máy 1</span>
+                        <span className="text-[#006838]">98.1%</span>
+                      </div>
+                      <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+                        <div className="h-full rounded-full bg-[#006838]" style={{ width: "98.1%" }} />
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between text-[11px] font-bold mb-1">
+                        <span className="text-slate-700">Nhà máy 2</span>
+                        <span className="text-[#006838]">96.5%</span>
+                      </div>
+                      <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+                        <div className="h-full rounded-full bg-[#006838]" style={{ width: "96.5%" }} />
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between text-[11px] font-bold mb-1">
+                        <span className="text-slate-700">Nhà máy 3</span>
+                        <span className="text-amber-600">94.2%</span>
+                      </div>
+                      <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+                        <div className="h-full rounded-full bg-amber-500" style={{ width: "94.2%" }} />
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between text-[11px] font-bold mb-1">
+                        <span className="text-slate-900 font-black">Toàn nhà máy</span>
+                        <span className="text-[#006838] font-black">97.2%</span>
+                      </div>
+                      <div className="w-full h-2.5 rounded-full bg-slate-100 overflow-hidden border border-slate-200">
+                        <div className="h-full rounded-full bg-gradient-to-r from-[#006838] to-[#083324]" style={{ width: "97.2%" }} />
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* THANH HÀNH ĐỘNG DƯỚI CÙNG */}
-              <div className="bg-[#0f4d3a] rounded-2xl p-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {[
-                  { icon: "📋", title: "Tạo báo cáo kiểm tra", sub: "Ghi nhận & báo cáo QC" },
-                  { icon: "📦", title: "Tạo nhiệm vụ QC", sub: "Giao việc & theo dõi" },
-                  { icon: "📊", title: "Xem Dashboard chi tiết", sub: "Phân tích chuyên sâu" },
-                  { icon: "🔔", title: "Quản lý sự cố (SOS)", sub: "Xử lý khẩn cấp" },
-                ].map((item, idx) => (
-                  <button key={idx} className="flex items-center gap-2 text-left text-white">
-                    <span className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-sm">
-                      {item.icon}
-                    </span>
-                    <div>
-                      <div className="text-xs font-bold leading-tight">{item.title}</div>
-                      <div className="text-[10px] text-emerald-100/70 leading-tight">{item.sub}</div>
+              {/* THANH HÀNH ĐỘNG DƯỚI CÙNG (BOTTOM BAR 4 BUTTONS) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 flex-shrink-0">
+                <button
+                  onClick={() => showToast("📋 Đang tạo báo cáo kiểm tra QC...")}
+                  className="p-3 rounded-2xl bg-gradient-to-r from-[#006838] to-[#083324] text-white hover:brightness-110 shadow-xs transition-all flex items-center gap-3 group cursor-pointer text-left border border-[#006838]"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-white/15 backdrop-blur-xs flex items-center justify-center flex-shrink-0 border border-white/20 group-hover:scale-105 transition-transform">
+                    <IconFileText size={20} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h4 className="text-xs font-black truncate">Tạo báo cáo kiểm tra</h4>
+                    <p className="text-[10px] text-emerald-200 truncate font-medium">Ghi nhận &amp; báo cáo QC</p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => showToast("📥 Đang giao nhiệm vụ QC mới...")}
+                  className="p-3 rounded-2xl bg-gradient-to-r from-[#006838] to-[#083324] text-white hover:brightness-110 shadow-xs transition-all flex items-center gap-3 group cursor-pointer text-left border border-[#006838]"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-white/15 backdrop-blur-xs flex items-center justify-center flex-shrink-0 border border-white/20 group-hover:scale-105 transition-transform">
+                    <IconClipboardList size={20} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h4 className="text-xs font-black truncate">Tạo nhiệm vụ QC</h4>
+                    <p className="text-[10px] text-emerald-200 truncate font-medium">Giao việc &amp; theo dõi</p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => setIsDonutModalOpen(true)}
+                  className="p-3 rounded-2xl bg-gradient-to-r from-[#006838] to-[#083324] text-white hover:brightness-110 shadow-xs transition-all flex items-center gap-3 group cursor-pointer text-left border border-[#006838]"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-white/15 backdrop-blur-xs flex items-center justify-center flex-shrink-0 border border-white/20 group-hover:scale-105 transition-transform">
+                    <IconTrendingUp size={20} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h4 className="text-xs font-black truncate">Xem Dashboard chi tiết</h4>
+                    <p className="text-[10px] text-emerald-200 truncate font-medium">Phân tích chuyên sâu</p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => showToast("🔔 Mở trung tâm xử lý khẩn cấp SOS...")}
+                  className="p-3 rounded-2xl bg-gradient-to-r from-[#006838] to-[#083324] text-white hover:brightness-110 shadow-xs transition-all flex items-center justify-between group cursor-pointer text-left border border-[#006838]"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-xl bg-white/15 backdrop-blur-xs flex items-center justify-center flex-shrink-0 border border-white/20 group-hover:scale-105 transition-transform">
+                      <IconAlertTriangle size={20} className="text-amber-300" />
                     </div>
-                  </button>
-                ))}
+                    <div className="min-w-0 flex-1">
+                      <h4 className="text-xs font-black truncate">Quản lý sự cố (SOS)</h4>
+                      <p className="text-[10px] text-emerald-200 truncate font-medium">Xử lý khẩn cấp</p>
+                    </div>
+                  </div>
+                  <IconArrowRight size={16} className="text-emerald-200 group-hover:translate-x-1 transition-transform flex-shrink-0 ml-1" />
+                </button>
               </div>
             </div>
           )}

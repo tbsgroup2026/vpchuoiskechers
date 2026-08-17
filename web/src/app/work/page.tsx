@@ -1700,59 +1700,132 @@ export default function WorkDashboardPage() {
                     </div>
                   </div>
 
-                  {/* Trend SVG Line Chart - Interactive with Hover Tooltip Overlay */}
-                  <div className="space-y-0.5 pt-0.5">
-                    <div className="flex items-center justify-between text-[10px] font-semibold text-slate-500 mb-0.5">
-                      <span>Xu hướng biến động theo ngày</span>
-                      <span className="text-[9px] text-[#006838] font-bold">
+                  {/* Trend SVG Line Chart - Interactive with Y-axis and Higher Chart Height */}
+                  <div className="space-y-1 pt-1">
+                    <div className="flex items-center justify-between text-xs font-bold text-slate-600 mb-0.5">
+                      <span className="flex items-center gap-1.5">
+                        <span>Xu hướng biến động theo ngày</span>
+                        <span className="text-[10px] text-slate-400 font-normal">(Đơn vị: Lỗi)</span>
+                      </span>
+                      <span className="text-xs text-[#006838] font-black bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
                         TB: {plantFilter === "Nhà máy 1 (NM1)" ? "54" : plantFilter === "Nhà máy 2 (NM2)" ? "74" : plantFilter === "Nhà máy 3 (NM3)" ? "50" : "178"} lỗi/ngày
                       </span>
                     </div>
-                    <div className="w-full h-24 relative">
-                      <svg className="w-full h-full overflow-visible" viewBox="0 0 500 115" preserveAspectRatio="none">
+
+                    <div className="w-full h-48 sm:h-52 relative bg-slate-50/40 rounded-xl p-2 border border-slate-100">
+                      <svg className="w-full h-full overflow-visible" viewBox="0 0 540 165" preserveAspectRatio="none">
                         <defs>
                           <linearGradient id="qcLineGradientHuman" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#006838" stopOpacity="0.22" />
-                            <stop offset="100%" stopColor="#006838" stopOpacity="0.0" />
+                            <stop offset="0%" stopColor="#006838" stopOpacity="0.28" />
+                            <stop offset="100%" stopColor="#006838" stopOpacity="0.01" />
                           </linearGradient>
                         </defs>
 
-                        {/* Background guide lines */}
-                        <line x1="20" y1="20" x2="480" y2="20" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
-                        <line x1="20" y1="52" x2="480" y2="52" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
-                        <line x1="20" y1="84" x2="480" y2="84" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
+                        {/* Y-Axis Horizontal Grid Lines & Labels */}
+                        {[
+                          { val: 300, y: 20 },
+                          { val: 200, y: 60 },
+                          { val: 100, y: 100 },
+                          { val: 0, y: 140 },
+                        ].map((grid, idx) => (
+                          <g key={idx}>
+                            {/* Y-Axis text */}
+                            <text
+                              x="38"
+                              y={grid.y + 4}
+                              textAnchor="end"
+                              fill="#94a3b8"
+                              fontSize="10"
+                              fontWeight="700"
+                              className="select-none font-mono"
+                            >
+                              {grid.val}
+                            </text>
+                            {/* Grid line */}
+                            <line
+                              x1="46"
+                              y1={grid.y}
+                              x2="525"
+                              y2={grid.y}
+                              stroke={grid.val === 0 ? "#cbd5e1" : "#e2e8f0"}
+                              strokeWidth={grid.val === 0 ? "1.5" : "1"}
+                              strokeDasharray={grid.val === 0 ? "none" : "3 3"}
+                            />
+                          </g>
+                        ))}
+
+                        {/* Vertical Y-Axis Line */}
+                        <line x1="46" y1="15" x2="46" y2="140" stroke="#cbd5e1" strokeWidth="1.5" />
 
                         {/* Area fill under curve */}
                         <polygon
-                          points="40,56 108,38 176,76 244,20 312,44 380,44 448,88 448,96 40,96"
+                          points="75,66 145,42 215,92 285,24 355,54 425,56 495,105 495,140 75,140"
                           fill="url(#qcLineGradientHuman)"
                         />
 
                         {/* Main trend line */}
                         <path
-                          d="M 40 56 L 108 38 L 176 76 L 244 20 L 312 44 L 380 44 L 448 88"
+                          d="M 75 66 L 145 42 L 215 92 L 285 24 L 355 54 L 425 56 L 495 105"
                           fill="none"
                           stroke="#006838"
-                          strokeWidth="2.5"
+                          strokeWidth="3"
                           strokeLinecap="round"
                           strokeLinejoin="round"
                         />
 
-                        {/* Interactive QC Points with Exact Coordinates matching real chart */}
+                        {/* Interactive QC Points with Exact Coordinates and Value Badges */}
                         {[
-                          { date: "09/08", total: 185, sos: 2, fix: 14, x: 40, y: 56 },
-                          { date: "10/08", total: 245, sos: 4, fix: 18, x: 108, y: 38 },
-                          { date: "11/08", total: 120, sos: 1, fix: 8, x: 176, y: 76 },
-                          { date: "12/08", total: 290, sos: 3, fix: 15, x: 244, y: 20 },
-                          { date: "13/08", total: 215, sos: 2, fix: 14, x: 312, y: 44 },
-                          { date: "14/08", total: 210, sos: 2, fix: 12, x: 380, y: 44 },
-                          { date: "15/08", total: 88, sos: 1, fix: 6, x: 448, y: 88 },
+                          { date: "09/08", total: 185, sos: 2, fix: 14, x: 75, y: 66 },
+                          { date: "10/08", total: 245, sos: 4, fix: 18, x: 145, y: 42 },
+                          { date: "11/08", total: 120, sos: 1, fix: 8, x: 215, y: 92 },
+                          { date: "12/08", total: 290, sos: 3, fix: 15, x: 285, y: 24 },
+                          { date: "13/08", total: 215, sos: 2, fix: 14, x: 355, y: 54 },
+                          { date: "14/08", total: 210, sos: 2, fix: 12, x: 425, y: 56 },
+                          { date: "15/08", total: 88, sos: 1, fix: 6, x: 495, y: 105 },
                         ].map((pt, i) => (
-                          <g key={i}>
+                          <g key={i} className="group/pt">
+                            {/* Vertical drop line to X-axis on hover */}
+                            {hoveredQcIndex === i && (
+                              <line
+                                x1={pt.x}
+                                y1={pt.y}
+                                x2={pt.x}
+                                y2="140"
+                                stroke="#006838"
+                                strokeWidth="1.5"
+                                strokeDasharray="2 2"
+                              />
+                            )}
+
+                            {/* Exact Number Badge on top of each node */}
+                            <rect
+                              x={pt.x - 14}
+                              y={pt.y - 18}
+                              width="28"
+                              height="14"
+                              rx="4"
+                              fill={hoveredQcIndex === i ? "#006838" : "#ffffff"}
+                              stroke={hoveredQcIndex === i ? "#006838" : "#e2e8f0"}
+                              strokeWidth="1"
+                              className="transition-colors shadow-2xs"
+                            />
+                            <text
+                              x={pt.x}
+                              y={pt.y - 8}
+                              textAnchor="middle"
+                              fill={hoveredQcIndex === i ? "#ffffff" : "#0f172a"}
+                              fontSize="9"
+                              fontWeight="800"
+                              className="select-none pointer-events-none font-mono"
+                            >
+                              {pt.total}
+                            </text>
+
+                            {/* Circle Node */}
                             <circle
                               cx={pt.x}
                               cy={pt.y}
-                              r={hoveredQcIndex === i ? "6" : "3.5"}
+                              r={hoveredQcIndex === i ? "6.5" : "4"}
                               fill={hoveredQcIndex === i ? "#006838" : "#ffffff"}
                               stroke="#006838"
                               strokeWidth={hoveredQcIndex === i ? "3.5" : "2.5"}
@@ -1761,15 +1834,16 @@ export default function WorkDashboardPage() {
                               onMouseLeave={() => setHoveredQcIndex(null)}
                               onClick={() => setIsDonutModalOpen(true)}
                             />
+
                             {/* X-axis date label aligned directly under each point */}
                             <text
                               x={pt.x}
-                              y="110"
+                              y="156"
                               textAnchor="middle"
-                              fill="#94a3b8"
+                              fill={hoveredQcIndex === i ? "#006838" : "#64748b"}
                               fontSize="10"
-                              fontWeight="600"
-                              className="select-none pointer-events-none"
+                              fontWeight={hoveredQcIndex === i ? "800" : "600"}
+                              className="select-none pointer-events-none font-mono"
                             >
                               {pt.date}
                             </text>
@@ -1779,7 +1853,7 @@ export default function WorkDashboardPage() {
 
                       {/* QC Live Hover Tooltip Popup Overlay */}
                       {hoveredQcIndex !== null && (
-                        <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-slate-900/95 text-white text-[10px] font-bold px-3 py-1.5 rounded-xl shadow-xl border border-slate-700 pointer-events-none z-30 animate-in fade-in zoom-in-95 duration-150 whitespace-nowrap">
+                        <div className="absolute top-1 left-1/2 -translate-x-1/2 bg-slate-900/95 text-white text-[10px] font-bold px-3 py-1.5 rounded-xl shadow-xl border border-slate-700 pointer-events-none z-30 animate-in fade-in zoom-in-95 duration-150 whitespace-nowrap">
                           <span>📊 {[ "09/08", "10/08", "11/08", "12/08", "13/08", "14/08", "15/08" ][hoveredQcIndex]}: </span>
                           <span className="text-emerald-300 font-extrabold">{[ 185, 245, 120, 290, 215, 210, 88 ][hoveredQcIndex]} lỗi</span>
                           <span className="text-slate-400"> | </span>

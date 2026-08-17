@@ -1243,59 +1243,59 @@ export default function WorkDashboardPage() {
           {/* IF CN-CI (CẢI TIẾN LIÊN TỤC) IS SELECTED */}
           {selectedDept === "ci" && (
             <div className="space-y-4 w-full min-w-0">
-              {/* 4 TOP METRIC CARDS - Responsive 4 cols (wide main) -> 2 cols (sidebar open on 1366-1600px) -> 1 col (<700px) */}
-              <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-4 gap-4 min-w-0">
+              {/* 4 TOP METRIC CARDS - Always 4 cards in 1 single horizontal row on Desktop (lg >= 1024px) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 min-w-0">
                 {/* Card 1: Sáng kiến cải tiến */}
-                <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs flex items-center justify-start gap-3.5 group hover:shadow-md transition-all min-w-0">
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-[#006838] flex items-center justify-center border border-emerald-100/80 group-hover:scale-105 transition-transform flex-shrink-0">
-                    <IconChartBar size={24} />
+                <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 shadow-2xs flex items-center justify-start gap-3 group hover:shadow-md transition-all min-w-0">
+                  <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-emerald-50 text-[#006838] flex items-center justify-center border border-emerald-100/80 group-hover:scale-105 transition-transform flex-shrink-0">
+                    <IconChartBar size={22} />
                   </div>
-                  <div className="space-y-1 min-w-0 flex-1">
-                    <span className="text-xs font-bold text-slate-500 block truncate">Sáng kiến cải tiến</span>
-                    <div className="text-2xl font-black text-slate-900 leading-tight">128</div>
-                    <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-0.5 whitespace-nowrap">
+                  <div className="space-y-0.5 min-w-0 flex-1">
+                    <span className="text-[11px] sm:text-xs font-bold text-slate-500 block truncate">Sáng kiến cải tiến</span>
+                    <div className="text-xl sm:text-2xl font-black text-slate-900 leading-tight">128</div>
+                    <span className="text-[10px] sm:text-[11px] font-bold text-emerald-600 flex items-center gap-0.5 whitespace-nowrap">
                       +18% <span className="text-slate-400 font-normal">so với tháng trước</span> ↑
                     </span>
                   </div>
                 </div>
 
                 {/* Card 2: Cải tiến đã triển khai */}
-                <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs flex items-center justify-start gap-3.5 group hover:shadow-md transition-all min-w-0">
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-[#006838] flex items-center justify-center border border-emerald-100/80 group-hover:scale-105 transition-transform flex-shrink-0">
-                    <IconCircleCheck size={24} />
+                <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 shadow-2xs flex items-center justify-start gap-3 group hover:shadow-md transition-all min-w-0">
+                  <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-emerald-50 text-[#006838] flex items-center justify-center border border-emerald-100/80 group-hover:scale-105 transition-transform flex-shrink-0">
+                    <IconCircleCheck size={22} />
                   </div>
-                  <div className="space-y-1 min-w-0 flex-1">
-                    <span className="text-xs font-bold text-slate-500 block truncate">Cải tiến đã triển khai</span>
-                    <div className="text-2xl font-black text-slate-900 leading-tight">86</div>
-                    <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-0.5 whitespace-nowrap">
+                  <div className="space-y-0.5 min-w-0 flex-1">
+                    <span className="text-[11px] sm:text-xs font-bold text-slate-500 block truncate">Cải tiến đã triển khai</span>
+                    <div className="text-xl sm:text-2xl font-black text-slate-900 leading-tight">86</div>
+                    <span className="text-[10px] sm:text-[11px] font-bold text-emerald-600 flex items-center gap-0.5 whitespace-nowrap">
                       +12% <span className="text-slate-400 font-normal">so với tháng trước</span> ↑
                     </span>
                   </div>
                 </div>
 
                 {/* Card 3: Hiệu quả đạt được */}
-                <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs flex items-center justify-start gap-3.5 group hover:shadow-md transition-all min-w-0">
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-[#006838] flex items-center justify-center border border-emerald-100/80 group-hover:scale-105 transition-transform flex-shrink-0">
-                    <IconTrendingUp size={24} />
+                <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 shadow-2xs flex items-center justify-start gap-3 group hover:shadow-md transition-all min-w-0">
+                  <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-emerald-50 text-[#006838] flex items-center justify-center border border-emerald-100/80 group-hover:scale-105 transition-transform flex-shrink-0">
+                    <IconTrendingUp size={22} />
                   </div>
-                  <div className="space-y-1 min-w-0 flex-1">
-                    <span className="text-xs font-bold text-slate-500 block truncate">Hiệu quả đạt được</span>
-                    <div className="text-2xl font-black text-slate-900 leading-tight">3.24 tỷ</div>
-                    <span className="text-[11px] font-bold text-slate-500 whitespace-nowrap">
+                  <div className="space-y-0.5 min-w-0 flex-1">
+                    <span className="text-[11px] sm:text-xs font-bold text-slate-500 block truncate">Hiệu quả đạt được</span>
+                    <div className="text-xl sm:text-2xl font-black text-slate-900 leading-tight">3.24 tỷ</div>
+                    <span className="text-[10px] sm:text-[11px] font-bold text-slate-500 whitespace-nowrap">
                       Giá trị làm lợi (VND)
                     </span>
                   </div>
                 </div>
 
                 {/* Card 4: Thành viên tham gia */}
-                <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs flex items-center justify-start gap-3.5 group hover:shadow-md transition-all min-w-0">
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-[#006838] flex items-center justify-center border border-emerald-100/80 group-hover:scale-105 transition-transform flex-shrink-0">
-                    <IconUsers size={24} />
+                <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 shadow-2xs flex items-center justify-start gap-3 group hover:shadow-md transition-all min-w-0">
+                  <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-emerald-50 text-[#006838] flex items-center justify-center border border-emerald-100/80 group-hover:scale-105 transition-transform flex-shrink-0">
+                    <IconUsers size={22} />
                   </div>
-                  <div className="space-y-1 min-w-0 flex-1">
-                    <span className="text-xs font-bold text-slate-500 block truncate">Thành viên tham gia</span>
-                    <div className="text-2xl font-black text-slate-900 leading-tight">246</div>
-                    <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-0.5 whitespace-nowrap">
+                  <div className="space-y-0.5 min-w-0 flex-1">
+                    <span className="text-[11px] sm:text-xs font-bold text-slate-500 block truncate">Thành viên tham gia</span>
+                    <div className="text-xl sm:text-2xl font-black text-slate-900 leading-tight">246</div>
+                    <span className="text-[10px] sm:text-[11px] font-bold text-emerald-600 flex items-center gap-0.5 whitespace-nowrap">
                       +22% <span className="text-slate-400 font-normal">so với tháng trước</span> ↑
                     </span>
                   </div>

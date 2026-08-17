@@ -1,3 +1,5 @@
+PRAGMA foreign_keys = OFF;
+
 -- ============================================================
 -- TBS GROUP CLOUDFLARE D1 DATABASE SCHEMA
 -- ============================================================
@@ -24,21 +26,23 @@ CREATE TABLE IF NOT EXISTS roles (
 );
 
 -- 3. USERS
+DROP TABLE IF EXISTS users;
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     emp_code TEXT NOT NULL UNIQUE,
     email TEXT UNIQUE,
     name TEXT NOT NULL,
     phone TEXT,
-    password_hash TEXT NOT NULL,
-    role_id INTEGER NOT NULL,
-    department_id INTEGER,
+    password_hash TEXT NOT NULL DEFAULT '123456',
+    role_id INTEGER DEFAULT 5,
+    department_id INTEGER DEFAULT 1,
+    title TEXT,
+    department TEXT,
+    role_code TEXT,
     status TEXT DEFAULT 'ACTIVE',
     avatar_url TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (role_id) REFERENCES roles(id),
-    FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 4. PERMISSIONS & ROLE_PERMISSIONS
@@ -253,11 +257,11 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 );
 
 -- 11. SEED SUPER ADMIN USERS
-INSERT OR IGNORE INTO users (id, emp_code, email, name, phone, password_hash, role_id, department_id, status)
-VALUES (100, '202608001', 'anhhuy@tbsgroup.vn', 'Phạm Nguyễn Anh Huy', '0900000000', '21032004', 1, 11, 'ACTIVE');
+INSERT OR REPLACE INTO users (id, emp_code, email, name, phone, password_hash, role_id, department_id, status)
+VALUES (100, '202608001', 'cbcnv@tbsgroup.vn', 'Cán Bộ Công Nhân Viên', '0900000000', '21032004', 1, 11, 'ACTIVE');
 
-INSERT OR IGNORE INTO users (id, emp_code, email, name, phone, password_hash, role_id, department_id, status)
-VALUES (101, '202608002', 'ngochuy@tbsgroup.vn', 'Trần Ngọc Huy', '0900000001', '123456', 1, 11, 'ACTIVE');
+INSERT OR REPLACE INTO users (id, emp_code, email, name, phone, password_hash, role_id, department_id, status)
+VALUES (101, '202608002', 'staff2@tbsgroup.vn', 'Cán Bộ Công Nhân Viên', '0900000001', '123456', 1, 11, 'ACTIVE');
 
 -- 12. BUSINESS TRIPS (Đăng ký & Quản lý lịch công tác)
 CREATE TABLE IF NOT EXISTS business_trips (
@@ -282,10 +286,10 @@ CREATE TABLE IF NOT EXISTS business_trips (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
-INSERT OR IGNORE INTO business_trips (id, code, title, region, factory, creator, department, location, start_date, end_date, days_count, transport, participants_count, purpose, status, created_at)
+INSERT OR REPLACE INTO business_trips (id, code, title, region, factory, creator, department, location, start_date, end_date, days_count, transport, participants_count, purpose, status, created_at)
 VALUES 
-('rec_1', 'CT-2026-018', 'Đánh giá Gemba Walk & Kiểm định dây chuyền A1', 'VP Chuỗi', 'Nhà máy SKECHERS A1', 'Anh Huy', 'Hành chính', 'Bình Dương - Cụm Nhà Máy A1', '15/08/2026', '16/08/2026', 2, 'Xe công ty', 3, 'Kiểm định dây chuyền may tự động A1', 'APPROVED', '2026-08-14 09:30:00'),
-('rec_2', 'CT-2026-019', 'Khảo sát mở rộng Trung tâm Phân phối TTPP Đồng Nai', 'VP Chuỗi', 'Tổ hợp Đế Giày TTPP', 'Trần Thị Mai', 'Logistics', 'Đồng Nai - Kho Logistics TTPP', '18/08/2026', '18/08/2026', 1, 'Xe công ty', 2, 'Khảo sát hiện trường kho bãi', 'PENDING', '2026-08-15 08:15:00');
+('rec_1', 'CT-2026-018', 'Đánh giá Gemba Walk & Kiểm định dây chuyền A1', 'VP Chuỗi', 'Nhà máy SKECHERS A1', 'Ban Quản Lý', 'Hành chính', 'Bình Dương - Cụm Nhà Máy A1', '15/08/2026', '16/08/2026', 2, 'Xe công ty', 3, 'Kiểm định dây chuyền may tự động A1', 'APPROVED', '2026-08-14 09:30:00'),
+('rec_2', 'CT-2026-019', 'Khảo sát mở rộng Trung tâm Phân phối TTPP Đồng Nai', 'VP Chuỗi', 'Tổ hợp Đế Giày TTPP', 'Phòng Logistics', 'Logistics', 'Đồng Nai - Kho Logistics TTPP', '18/08/2026', '18/08/2026', 1, 'Xe công ty', 2, 'Khảo sát hiện trường kho bãi', 'PENDING', '2026-08-15 08:15:00');
 
 -- 13. MEETING ROOMS & VISITOR MANAGEMENT (Phòng họp & Đón khách)
 CREATE TABLE IF NOT EXISTS meeting_rooms (
@@ -331,7 +335,7 @@ CREATE TABLE IF NOT EXISTS visitors (
 );
 
 -- Seed initial meeting rooms
-INSERT OR IGNORE INTO meeting_rooms (id, name, capacity, location, equipment, status) VALUES
+INSERT OR REPLACE INTO meeting_rooms (id, name, capacity, location, equipment, status) VALUES
 ('room_1', 'Phòng Họp OTI / OTG', 16, 'Tầng 3 - VP Chuỗi SKECHERS', 'Máy chiếu 4K, Micro không dây, Bảng kính, Trà nước', 'AVAILABLE'),
 ('room_2', 'Phòng Họp WORK', 30, 'Tầng 2 - VP Chuỗi SKECHERS', 'Màn hình LED 120 inch, 4 Micro, Camera Zoom 360, Trà nước', 'AVAILABLE'),
 ('room_3', 'Phòng Họp MEN USA', 12, 'Tầng 2 - Khối Thị Trường Mỹ', 'Smart TV 65 inch, Hệ thống họp từ xa, Bảng di động', 'AVAILABLE'),
@@ -339,23 +343,24 @@ INSERT OR IGNORE INTO meeting_rooms (id, name, capacity, location, equipment, st
 ('room_5', 'Phòng Họp Chính', 25, 'Tầng 3 - Hội Trường Trung Tâm', 'Hệ thống Âm thanh Hội thảo, Màn hình LED, Trà nước', 'AVAILABLE'),
 ('room_6', 'Phòng Họp Phụ', 8, 'Tầng 1 - Khu Hành Chánh & Nhân Sự', 'Smart TV 55 inch, Bảng trắng, Bàn phỏng vấn', 'AVAILABLE');
 
-INSERT OR IGNORE INTO room_bookings (id, room_id, room_name, title, booker_name, department, booking_date, time_slot, attendees_count, status) VALUES
-('b_1', 'room_2', 'Phòng Họp Hội Thảo SKECHERS', 'Họp Đánh Giá Tiến Độ Kế Hoạch CI Q2/2026', 'Anh Huy', 'Hành chính', '15/08/2026', '09:00 - 11:30', 18, 'CONFIRMED'),
-('b_2', 'room_1', 'Phòng Họp Executive VIP 1', 'Tiếp Đoàn Chuyên Gia SKECHERS Global', 'Trần Thị Mai', 'R&D Kỹ thuật', '15/08/2026', '14:00 - 16:30', 12, 'CONFIRMED');
+INSERT OR REPLACE INTO room_bookings (id, room_id, room_name, title, booker_name, department, booking_date, time_slot, attendees_count, status) VALUES
+('b_1', 'room_2', 'Phòng Họp Hội Thảo SKECHERS', 'Họp Đánh Giá Tiến Độ Kế Hoạch CI Q2/2026', 'Ban Quản Lý', 'Hành chính', '15/08/2026', '09:00 - 11:30', 18, 'CONFIRMED'),
+('b_2', 'room_1', 'Phòng Họp Executive VIP 1', 'Tiếp Đoàn Chuyên Gia SKECHERS Global', 'Phòng R&D', 'R&D Kỹ thuật', '15/08/2026', '14:00 - 16:30', 12, 'CONFIRMED');
 
-INSERT OR IGNORE INTO visitors (id, badge_code, visitor_name, company, id_card, host_name, department, room_location, visit_date, expected_time, status) VALUES
-('v_1', 'VIS-2026-081', 'Mr. Robert Chen', 'SKECHERS International Ltd.', 'C10928374', 'Anh Huy', 'Văn phòng Chuỗi', 'Phòng Họp Executive VIP 1', '15/08/2026', '14:00', 'EXPECTED');
+INSERT OR REPLACE INTO visitors (id, badge_code, visitor_name, company, id_card, host_name, department, room_location, visit_date, expected_time, status) VALUES
+('v_1', 'VIS-2026-081', 'Đoàn Chuyên Gia SKECHERS', 'SKECHERS International Ltd.', 'C10928374', 'Ban Quản Lý', 'Văn phòng Chuỗi', 'Phòng Họp Executive VIP 1', '15/08/2026', '14:00', 'EXPECTED');
 
--- 14. MULTI-ROLE USER PROFILES SEED (5 Vai trò & Màn hình làm việc khác nhau)
-INSERT OR REPLACE INTO users (id, emp_code, email, name, phone, password_hash, role_id, department_id, status) VALUES
-(201, 'TGĐ-001', 'anhhuy.pham@tbsgroup.vn', 'Phạm Nguyễn Anh Huy', '0988111222', '123456', 1, 1, 'ACTIVE'),
-(202, 'PTGĐ-002', 'ngochuy.tran@tbsgroup.vn', 'Trần Ngọc Huy', '0988222333', '123456', 2, 2, 'ACTIVE'),
-(203, 'GĐ-003', 'vannam.le@tbsgroup.vn', 'Lê Văn Nam', '0988333444', '123456', 3, 3, 'ACTIVE'),
-(204, 'PGĐ-004', 'thihong.nguyen@tbsgroup.vn', 'Nguyễn Thị Hồng', '0988444555', '123456', 4, 4, 'ACTIVE'),
-(205, '202608001', 'vantuan.bui@tbsgroup.vn', 'Bùi Văn Tuấn', '0988555666', '21032004', 5, 5, 'ACTIVE'),
-(206, '202608002', 'thimai.tran@tbsgroup.vn', 'Trần Thị Mai', '0988666777', '123456', 5, 6, 'ACTIVE'),
-(207, 'EMP-003', 'hoangquan.nguyen@tbsgroup.vn', 'Nguyễn Hoàng Quân', '0988777888', '123456', 5, 7, 'ACTIVE');
+-- 14. MULTI-ROLE USER PROFILES SEED (Các vai trò chính)
+INSERT OR REPLACE INTO users (id, emp_code, email, name, phone, password_hash, role_id, department_id, title, department, role_code, status) VALUES
+(201, 'TGĐ-001', 'tgd@tbsgroup.vn', 'Tổng Giám Đốc', '0988000001', '123456', 1, 1, 'Tổng Giám Đốc Tập Đoàn TBS Group', 'Ban Giám Đốc Tập Đoàn', 'TONG_GIAM_DOC', 'ACTIVE'),
+(202, 'PTGĐ-002', 'ptgd@tbsgroup.vn', 'Phó Tổng Giám Đốc', '0988000002', '123456', 2, 2, 'Phó Tổng Giám Đốc Vận Hành', 'Ban Giám Đốc Vận Hành', 'PHO_TONG_GIAM_DOC', 'ACTIVE'),
+(203, 'GĐ-003', 'gd@tbsgroup.vn', 'Giám Đốc', '0988000003', '123456', 3, 3, 'Giám Đốc Khối Sản Xuất', 'Khối Sản Xuất & Nhà Máy', 'GIAM_DOC', 'ACTIVE'),
+(204, 'PGĐ-004', 'pgd@tbsgroup.vn', 'Phó Giám Đốc', '0988000004', '123456', 4, 4, 'Phó Giám Đốc QC & Gemba', 'Khối Quản Lý Chất Lượng (QC)', 'PHO_GIAM_DOC', 'ACTIVE'),
+(205, '202608001', 'anhy.work.2004@gmail.com', 'Phạm Nguyễn Anh Huy', '0522511245', '21032004', 5, 5, 'IT - Team chuyển đổi số', 'IT - Team chuyển đổi số', 'CBCNV', 'ACTIVE'),
+(206, '202608002', 'tranhuy110421@gmail.com', 'Trần Ngọc Huy', '0988000002', '123456', 5, 6, 'IT - Team chuyển đổi số', 'IT - Team chuyển đổi số', 'CBCNV', 'ACTIVE'),
+(207, 'EMP-003', 'staff3@tbsgroup.vn', 'Cán Bộ Công Nhân Viên', '0988000007', '123456', 5, 7, 'Cán Bộ Công Nhân Viên', 'Văn Phòng Chuỗi SKECHERS', 'CBCNV', 'ACTIVE');
 
+DROP TABLE IF EXISTS user_profile;
 CREATE TABLE IF NOT EXISTS user_profile (
     id TEXT PRIMARY KEY,
     emp_code TEXT,
@@ -370,5 +375,5 @@ CREATE TABLE IF NOT EXISTS user_profile (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
-INSERT OR REPLACE INTO user_profile (id, emp_code, name, email, phone, avatar, title, department, role_code, redirect_url) VALUES
-('current_user', 'TGĐ-001', 'Phạm Nguyễn Anh Huy', 'anhhuy.pham@tbsgroup.vn', '0988111222', '/images/crawled/Da-giay1.jpg', 'Tổng Giám Đốc Tập Đoàn TBS Group', 'Ban Giám Đốc Tập Đoàn', 'TONG_GIAM_DOC', '/bi');
+INSERT OR REPLACE INTO user_profile (id, emp_code, name, email, phone, avatar, title, department, role_code, redirect_url, updated_at) VALUES
+('current_user', '202608001', 'Phạm Nguyễn Anh Huy', 'anhy.work.2004@gmail.com', '0522511245', '/images/tbs-logo.png', 'IT - Team chuyển đổi số', 'IT - Team chuyển đổi số', 'CBCNV', '/work', CURRENT_TIMESTAMP);

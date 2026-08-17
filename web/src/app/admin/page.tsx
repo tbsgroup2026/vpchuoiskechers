@@ -140,9 +140,9 @@ export default function AdminPage() {
     {
       id: "emp_1",
       empCode: "TGĐ-001",
-      name: "Phạm Nguyễn Anh Huy",
-      email: "anhhuy.pham@tbsgroup.vn",
-      phone: "0988 111 222",
+      name: "Tổng Giám Đốc",
+      email: "tgd@tbsgroup.vn",
+      phone: "0988 000 001",
       title: "Tổng Giám Đốc Tập Đoàn TBS Group",
       department: "Ban Giám Đốc Tập Đoàn",
       roleCode: "TONG_GIAM_DOC",
@@ -151,9 +151,9 @@ export default function AdminPage() {
     {
       id: "emp_2",
       empCode: "PTGĐ-002",
-      name: "Trần Ngọc Huy",
-      email: "ngochuy.tran@tbsgroup.vn",
-      phone: "0988 222 333",
+      name: "Phó Tổng Giám Đốc",
+      email: "ptgd@tbsgroup.vn",
+      phone: "0988 000 002",
       title: "Phó Tổng Giám Đốc Vận Hành & Chuỗi Cung Ứng",
       department: "Ban Giám Đốc Vận Hành",
       roleCode: "PHO_TONG_GIAM_DOC",
@@ -162,9 +162,9 @@ export default function AdminPage() {
     {
       id: "emp_3",
       empCode: "GĐ-003",
-      name: "Lê Văn Nam",
-      email: "vannam.le@tbsgroup.vn",
-      phone: "0988 333 444",
+      name: "Giám Đốc",
+      email: "gd@tbsgroup.vn",
+      phone: "0988 000 003",
       title: "Giám Đốc Khối Sản Xuất & Tổ Hợp Nhà Máy",
       department: "Khối Sản Xuất & Nhà Máy",
       roleCode: "GIAM_DOC",
@@ -173,9 +173,9 @@ export default function AdminPage() {
     {
       id: "emp_4",
       empCode: "PGĐ-004",
-      name: "Nguyễn Thị Hồng",
-      email: "thihong.nguyen@tbsgroup.vn",
-      phone: "0988 444 555",
+      name: "Phó Giám Đốc",
+      email: "pgd@tbsgroup.vn",
+      phone: "0988 000 004",
       title: "Phó Giám Đốc Quản Lý Chất Lượng (QC)",
       department: "Khối Quản Lý Chất Lượng (QC)",
       roleCode: "PHO_GIAM_DOC",
@@ -184,12 +184,23 @@ export default function AdminPage() {
     {
       id: "emp_5",
       empCode: "202608001",
-      name: "Bùi Văn Tuấn",
-      email: "vantuan.bui@tbsgroup.vn",
-      phone: "0988 555 666",
-      title: "Chuyên Viên Quản Lý Hành Chính & Đón Khách",
-      department: "Nhân sự - Hành chánh",
-      roleCode: "CBCNV",
+      name: "Phạm Nguyễn Anh Huy",
+      email: "anhy.work.2004@gmail.com",
+      phone: "0522511245",
+      title: "IT - Team chuyển đổi số",
+      department: "IT - Team chuyển đổi số",
+      roleCode: "SUPER_ADMIN",
+      status: "ACTIVE",
+    },
+    {
+      id: "emp_6",
+      empCode: "202608002",
+      name: "Trần Ngọc Huy",
+      email: "tranhuy110421@gmail.com",
+      phone: "0988 000 002",
+      title: "IT - Team chuyển đổi số",
+      department: "IT - Team chuyển đổi số",
+      roleCode: "SUPER_ADMIN",
       status: "ACTIVE",
     },
   ]);
@@ -204,7 +215,35 @@ export default function AdminPage() {
     roleCode: "CBCNV",
   });
 
-  const handleAddEmployee = (e: React.FormEvent) => {
+  const fetchD1Employees = async () => {
+    try {
+      const res = await fetch("/api/users");
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+        setEmployees(
+          json.data.map((u: any) => ({
+            id: u.id ? String(u.id) : `emp_${Date.now()}`,
+            empCode: u.emp_code || u.empCode,
+            name: u.name,
+            email: u.email || `${u.emp_code}@tbsgroup.vn`,
+            phone: u.phone || "0988 000 000",
+            title: u.title || "Cán Bộ Công Nhân Viên",
+            department: u.department || "Văn Phòng Chuỗi SKECHERS",
+            roleCode: u.role_code || u.roleCode || "CBCNV",
+            status: u.status || "ACTIVE",
+          }))
+        );
+      }
+    } catch (e) {
+      console.warn("Fetch users error:", e);
+    }
+  };
+
+  useEffect(() => {
+    fetchD1Employees();
+  }, []);
+
+  const handleAddEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!employeeForm.name || !employeeForm.empCode) {
       alert("Vui lòng nhập đầy đủ tên và mã nhân viên!");
@@ -217,11 +256,32 @@ export default function AdminPage() {
     };
     setEmployees([newEmp, ...employees]);
     setEmployeeForm({ empCode: "", name: "", email: "", phone: "", title: "", department: "Khối Sản Xuất", roleCode: "CBCNV" });
-    showToast("Đã thêm mới tài khoản nhân sự thành công!");
+    
+    try {
+      await fetch("/api/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newEmp),
+      });
+      showToast("Đã lưu tài khoản nhân sự mới vào D1 Database!");
+    } catch (e) {
+      showToast("Đã thêm mới tài khoản nhân sự thành công!");
+    }
   };
 
-  const toggleEmployeeLock = (id: string) => {
-    setEmployees(employees.map((emp) => (emp.id === id ? { ...emp, status: emp.status === "ACTIVE" ? "LOCKED" : "ACTIVE" } : emp)));
+  const toggleEmployeeLock = async (id: string) => {
+    const updated = employees.map((emp) => (emp.id === id ? { ...emp, status: (emp.status === "ACTIVE" ? "LOCKED" : "ACTIVE") as "ACTIVE" | "LOCKED" } : emp));
+    setEmployees(updated);
+    const target = updated.find((emp) => emp.id === id);
+    if (target) {
+      try {
+        await fetch("/api/users", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(target),
+        });
+      } catch (e) {}
+    }
     showToast("Đã cập nhật trạng thái tài khoản!");
   };
 

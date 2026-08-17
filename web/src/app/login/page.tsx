@@ -30,26 +30,6 @@ export default function LoginPage() {
 
   const isExecutive = selectedRole !== "CBCNV";
 
-  const [activeTab, setActiveTab] = useState<"login" | "signup">("login");
-  const [signupForm, setSignupForm] = useState({ name: "", empCode: "", email: "", password: "", confirmPassword: "" });
-  const [signupSuccess, setSignupSuccess] = useState(false);
-
-  const handleSignUpSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    if (signupForm.password !== signupForm.confirmPassword) {
-      setError("Mật khẩu xác nhận không khớp");
-      return;
-    }
-    setSignupSuccess(true);
-    setTimeout(() => {
-      setSignupSuccess(false);
-      setActiveTab("login");
-      setEmpCode(signupForm.empCode);
-      setPassword(signupForm.password);
-    }, 2000);
-  };
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -79,6 +59,9 @@ export default function LoginPage() {
           isSuccess = true;
           token = data.token;
           redirectUrl = data.redirectUrl || "/work";
+          if (data.user && typeof window !== "undefined") {
+            localStorage.setItem("tbs_current_user", JSON.stringify(data.user));
+          }
         } else if (data?.error) {
           throw new Error(data.error);
         }
@@ -91,79 +74,79 @@ export default function LoginPage() {
       const ROLE_MAP: Record<string, { empCode: string; name: string; title: string; department: string; avatar: string; redirectUrl: string }> = {
         TONG_GIAM_DOC: {
           empCode: "TGĐ-001",
-          name: "Phạm Nguyễn Anh Huy",
+          name: "Tổng Giám Đốc",
           title: "Tổng Giám Đốc Tập Đoàn TBS Group",
           department: "Ban Giám Đốc Tập Đoàn",
-          avatar: "/images/crawled/Da-giay1.jpg",
-          redirectUrl: "/bi",
+          avatar: "/images/tbs-logo.png",
+          redirectUrl: "/work",
         },
         PHO_TONG_GIAM_DOC: {
           empCode: "PTGĐ-002",
-          name: "Trần Ngọc Huy",
+          name: "Phó Tổng Giám Đốc",
           title: "Phó Tổng Giám Đốc Vận Hành & Chuỗi Cung Ứng",
           department: "Ban Giám Đốc Vận Hành",
-          avatar: "/images/crawled/Da-giay2.jpg",
+          avatar: "/images/tbs-logo.png",
           redirectUrl: "/work",
         },
         GIAM_DOC: {
           empCode: "GĐ-003",
-          name: "Lê Văn Nam",
+          name: "Giám Đốc",
           title: "Giám Đốc Khối Sản Xuất & Tổ Hợp Nhà Máy",
           department: "Khối Sản Xuất & Nhà Máy",
-          avatar: "/images/crawled/Da-giay3.jpg",
-          redirectUrl: "/work?dept=production",
+          avatar: "/images/tbs-logo.png",
+          redirectUrl: "/work",
         },
         PHO_GIAM_DOC: {
           empCode: "PGĐ-004",
-          name: "Nguyễn Thị Hồng",
+          name: "Phó Giám Đốc",
           title: "Phó Giám Đốc Quản Lý Chất Lượng (QC) & Gemba",
           department: "Khối Quản Lý Chất Lượng (QC)",
-          avatar: "/images/crawled/Da-giay4.jpg",
-          redirectUrl: "/work?dept=qc",
+          avatar: "/images/tbs-logo.png",
+          redirectUrl: "/work",
         },
         "202608001": {
           empCode: "202608001",
-          name: "Bùi Văn Tuấn",
-          title: "Chuyên Viên Quản Lý Hành Chính & Đón Khách",
-          department: "Nhân sự - Hành chánh",
-          avatar: "/images/crawled/Da-giay1.jpg",
-          redirectUrl: "/rooms",
+          name: "Phạm Nguyễn Anh Huy",
+          title: "IT - Team chuyển đổi số",
+          department: "IT - Team chuyển đổi số",
+          avatar: "/images/tbs-logo.png",
+          redirectUrl: "/work",
         },
         "EMP-001": {
           empCode: "EMP-001",
-          name: "Bùi Văn Tuấn",
-          title: "Chuyên Viên Quản Lý Hành Chính & Đón Khách",
-          department: "Nhân sự - Hành chánh",
-          avatar: "/images/crawled/Da-giay1.jpg",
-          redirectUrl: "/rooms",
+          name: "Phạm Nguyễn Anh Huy",
+          title: "IT - Team chuyển đổi số",
+          department: "IT - Team chuyển đổi số",
+          avatar: "/images/tbs-logo.png",
+          redirectUrl: "/work",
         },
         "202608002": {
           empCode: "202608002",
-          name: "Trần Thị Mai",
-          title: "Chuyên Viên Logistics & Đăng Ký Công Tác",
-          department: "Logistics TTPP",
-          avatar: "/images/crawled/Da-giay2.jpg",
-          redirectUrl: "/business-trip",
+          name: "Trần Ngọc Huy",
+          title: "IT - Team chuyển đổi số",
+          department: "IT - Team chuyển đổi số",
+          avatar: "/images/tbs-logo.png",
+          redirectUrl: "/work",
         },
         "EMP-002": {
           empCode: "EMP-002",
-          name: "Trần Thị Mai",
-          title: "Chuyên Viên Logistics & Đăng Ký Công Tác",
-          department: "Logistics TTPP",
-          avatar: "/images/crawled/Da-giay2.jpg",
-          redirectUrl: "/business-trip",
+          name: "Cán Bộ Công Nhân Viên",
+          title: "Cán Bộ Công Nhân Viên",
+          department: "Văn Phòng Chuỗi SKECHERS",
+          avatar: "/images/tbs-logo.png",
+          redirectUrl: "/work",
         },
         "EMP-003": {
           empCode: "EMP-003",
-          name: "Nguyễn Hoàng Quân",
-          title: "Kỹ Sư R&D Phát Triển Mẫu SKECHERS",
-          department: "R&D Kỹ thuật",
-          avatar: "/images/crawled/Da-giay3.jpg",
-          redirectUrl: "/work?dept=rd",
+          name: "Cán Bộ Công Nhân Viên",
+          title: "Cán Bộ Công Nhân Viên",
+          department: "Văn Phòng Chuỗi SKECHERS",
+          avatar: "/images/tbs-logo.png",
+          redirectUrl: "/work",
         },
         "tbsgroup2026@gmail.com": {
           empCode: "ADMIN-2026",
-          name: "Super Administrator System",
+          name: "Quản Trị Viên Hệ Thống",
           title: "Quản Trị Viên Hệ Thống TBS Group",
           department: "Khối Quản Trị Hệ Thống",
           avatar: "/images/tbs-logo.png",
@@ -171,7 +154,7 @@ export default function LoginPage() {
         },
         SYSTEM_ADMIN: {
           empCode: "ADMIN-2026",
-          name: "Super Administrator System",
+          name: "Quản Trị Viên Hệ Thống",
           title: "Quản Trị Viên Hệ Thống TBS Group",
           department: "Khối Quản Trị Hệ Thống",
           avatar: "/images/tbs-logo.png",
@@ -179,11 +162,11 @@ export default function LoginPage() {
         },
         CBCNV: {
           empCode: "202608001",
-          name: "Bùi Văn Tuấn",
-          title: "Chuyên Viên Quản Lý Hành Chính & Đón Khách",
-          department: "Nhân sự - Hành chánh",
-          avatar: "/images/crawled/Da-giay1.jpg",
-          redirectUrl: "/rooms",
+          name: "Cán Bộ Công Nhân Viên",
+          title: "Cán Bộ Công Nhân Viên",
+          department: "Văn Phòng Chuỗi SKECHERS",
+          avatar: "/images/tbs-logo.png",
+          redirectUrl: "/work",
         },
       };
 
@@ -218,12 +201,16 @@ export default function LoginPage() {
       }
 
       const activeProfile = isExecutive ? ROLE_MAP[selectedRole] : (ROLE_MAP[empCode] || ROLE_MAP["CBCNV"]);
-      if (typeof window !== "undefined") {
+      if (typeof window !== "undefined" && !localStorage.getItem("tbs_current_user")) {
         localStorage.setItem("tbs_current_user", JSON.stringify(activeProfile));
       }
 
       document.cookie = `tbs_token=${token}; path=/; max-age=86400`;
-      router.push(activeProfile?.redirectUrl || redirectUrl);
+      let targetUrl = activeProfile?.redirectUrl || redirectUrl;
+      if (targetUrl.includes("/bi")) {
+        targetUrl = "/work";
+      }
+      router.push(targetUrl);
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Có lỗi xảy ra khi đăng nhập";
@@ -264,127 +251,13 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {/* 2 Tab Switcher: Đăng Nhập / Đăng Ký (Gemba.Pro style) */}
-          <div className="flex items-center p-1 bg-gray-100 rounded-2xl mb-6 border border-gray-200">
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab("login");
-                setError("");
-              }}
-              className={`flex-1 py-2 text-xs font-black rounded-xl transition-all cursor-pointer ${
-                activeTab === "login"
-                  ? "bg-white text-[#006838] shadow-md border border-gray-200/80"
-                  : "text-gray-500 hover:text-gray-900"
-              }`}
-            >
-              Đăng Nhập
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab("signup");
-                setError("");
-              }}
-              className={`flex-1 py-2 text-xs font-black rounded-xl transition-all cursor-pointer ${
-                activeTab === "signup"
-                  ? "bg-white text-[#006838] shadow-md border border-gray-200/80"
-                  : "text-gray-500 hover:text-gray-900"
-              }`}
-            >
-              Đăng Ký Tài Khoản
-            </button>
-          </div>
-
-          {signupSuccess && (
-            <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2 mb-4 animate-in fade-in">
-              <span>✅ Yêu cầu đăng ký đã được ghi nhận! Hệ thống tự động chuyển về trang Đăng nhập...</span>
-            </div>
-          )}
-
-          {activeTab === "signup" ? (
-            /* Form Đăng Ký Tài Khoản */
-            <form onSubmit={handleSignUpSubmit} className="space-y-3.5 text-left animate-in fade-in duration-200">
-              {error && (
-                <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold">
-                  ⚠️ {error}
-                </div>
-              )}
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-700 block">Họ và tên nhân viên</label>
-                <input
-                  type="text"
-                  required
-                  value={signupForm.name}
-                  onChange={(e) => setSignupForm({ ...signupForm, name: e.target.value })}
-                  placeholder="Ví dụ: Nguyễn Văn A"
-                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:outline-none focus:border-[#006838]"
-                />
+          {/* Form Đăng nhập trực tiếp */}
+          <form onSubmit={handleLogin} className="space-y-4">
+            {error && (
+              <div className="p-3.5 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center gap-2">
+                <span>⚠️ {error}</span>
               </div>
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-700 block">Mã nhân viên (MSNV)</label>
-                <input
-                  type="text"
-                  required
-                  value={signupForm.empCode}
-                  onChange={(e) => setSignupForm({ ...signupForm, empCode: e.target.value })}
-                  placeholder="Ví dụ: EMP-003"
-                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:outline-none focus:border-[#006838]"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-700 block">Email công việc</label>
-                <input
-                  type="email"
-                  required
-                  value={signupForm.email}
-                  onChange={(e) => setSignupForm({ ...signupForm, email: e.target.value })}
-                  placeholder="email@tbsgroup.vn"
-                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:outline-none focus:border-[#006838]"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-2.5">
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-700 block">Mật khẩu</label>
-                  <input
-                    type="password"
-                    required
-                    value={signupForm.password}
-                    onChange={(e) => setSignupForm({ ...signupForm, password: e.target.value })}
-                    placeholder="••••••••"
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:outline-none focus:border-[#006838]"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-700 block">Xác nhận MK</label>
-                  <input
-                    type="password"
-                    required
-                    value={signupForm.confirmPassword}
-                    onChange={(e) => setSignupForm({ ...signupForm, confirmPassword: e.target.value })}
-                    placeholder="••••••••"
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:outline-none focus:border-[#006838]"
-                  />
-                </div>
-              </div>
-              <p className="text-[10px] text-slate-500 italic">
-                📌 Yêu cầu đăng ký sẽ được gửi tới Quản trị viên IT để xét duyệt và kích hoạt tài khoản.
-              </p>
-              <button
-                type="submit"
-                className="w-full py-3 px-6 rounded-xl bg-[#006838] text-white font-extrabold text-xs uppercase tracking-wider shadow-md hover:bg-[#00522c] transition-colors"
-              >
-                Gửi Yêu Cầu Đăng Ký
-              </button>
-            </form>
-          ) : (
-            /* Form Đăng nhập trực tiếp */
-            <form onSubmit={handleLogin} className="space-y-4">
-              {error && (
-                <div className="p-3.5 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center gap-2">
-                  <span>⚠️ {error}</span>
-                </div>
-              )}
+            )}
 
             {/* Field 1: Chức vụ / Vai trò Dropdown */}
             <div className="space-y-1.5">
@@ -483,13 +356,12 @@ export default function LoginPage() {
               <span>{loading ? "Đang xác thực..." : "Đăng Nhập Hệ Thống"}</span>
             </button>
           </form>
-          )}
 
           {/* Quick Demo Credentials hint */}
           <div className="mt-6 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-900 space-y-1">
             <span className="font-bold block">💡 Hướng dẫn đăng nhập:</span>
             <div>👑 <b>Ban Giám Đốc</b> (Tổng Giám Đốc, Phó TGĐ, Giám Đốc, Phó GĐ): Chỉ cần chọn Chức vụ + Nhập mật khẩu (ví dụ: <code className="font-mono">123456</code>).</div>
-            <div>👤 <b>CBCNV</b>: Chọn CBCNV + Nhập MSNV (<code className="font-mono">202608001</code> / <code className="font-mono">EMP-001</code>) + Mật khẩu (<code className="font-mono">21032004</code> / <code className="font-mono">Admin@123456</code>).</div>
+            <div>👤 <b>CBCNV</b>: Chọn CBCNV + Nhập MSNV (<code className="font-mono">202608001</code>) + Mật khẩu (<code className="font-mono">21032004</code>).</div>
           </div>
         </div>
 

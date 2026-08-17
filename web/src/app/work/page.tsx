@@ -79,12 +79,19 @@ export default function WorkDashboardPage() {
 
   // User Profile Form State
   const [userInfo, setUserInfo] = useState({
-    name: "Anh Huy",
-    phone: "0988 123 456",
-    email: "huy.nguyen@tbsgroup.vn",
-    avatar: "/images/crawled/Da-giay1.jpg",
-    title: "Quản trị viên cao cấp - SKECHERS",
+    empCode: "202608001",
+    name: "Phạm Nguyễn Anh Huy",
+    phone: "0522511245",
+    email: "anhy.work.2004@gmail.com",
+    avatar: "/images/tbs-logo.png",
+    title: "IT - Team chuyển đổi số",
   });
+
+  useEffect(() => {
+    if (isProfileModalOpen) {
+      setEditProfileForm({ ...userInfo });
+    }
+  }, [isProfileModalOpen, userInfo]);
 
   // Avatar Zoom & Position Controls State
   const [avatarZoom, setAvatarZoom] = useState(1.0);
@@ -117,8 +124,46 @@ export default function WorkDashboardPage() {
   const [cropOffsetY, setCropOffsetY] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+function compressImage(dataUrl: string, maxWidth = 360, maxHeight = 360, quality = 0.8): Promise<string> {
+  return new Promise((resolve) => {
+    if (!dataUrl || !dataUrl.startsWith("data:image")) {
+      return resolve(dataUrl);
+    }
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+      } else {
+        if (height > maxHeight) {
+          width = Math.round((width * maxHeight) / height);
+          height = maxHeight;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      } else {
+        resolve(dataUrl);
+      }
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
 
   const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -127,47 +172,57 @@ export default function WorkDashboardPage() {
         alert("Dung lượng ảnh quá lớn! Vui lòng chọn ảnh dưới 10MB.");
         return;
       }
+
+      showToast("⏳ Đang nạp & xử lý ảnh...");
+
       const reader = new FileReader();
-      reader.onloadend = () => {
+      reader.onloadend = async () => {
         if (typeof reader.result === "string") {
-          setTempAvatarSrc(reader.result as string);
-          setCropZoom(1.0);
-          setCropOffsetX(0);
-          setCropOffsetY(0);
-          setIsCropModalOpen(true);
+          const rawDataUrl = reader.result;
+          
+          // 1. Compress image to max 400x400 JPEG
+          const compressed = await compressImage(rawDataUrl, 400, 400, 0.85);
+          
+          // 2. Instantly display selected photo in modal circle (0ms UI feedback)
+          setEditProfileForm((prev) => ({ ...prev, avatar: compressed }));
+          setUserInfo((prev) => ({ ...prev, avatar: compressed }));
+          showToast("🖼️ Đã nạp ảnh! Đang đồng bộ Cloudinary...");
+
+          // 3. Upload to Cloudinary & D1 via Worker endpoint
+          try {
+            const res = await fetch("/api/upload-avatar", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ image: compressed, empCode: userInfo.empCode || "202608001" }),
+            });
+
+            if (res.ok) {
+              const json = await res.json();
+              if (json.url) {
+                setEditProfileForm((prev) => ({ ...prev, avatar: json.url }));
+                setUserInfo((prev) => ({ ...prev, avatar: json.url }));
+                if (typeof window !== "undefined") {
+                  localStorage.setItem("tbs_current_user", JSON.stringify({
+                    ...userInfo,
+                    avatar: json.url
+                  }));
+                  window.dispatchEvent(new Event("tbs_profile_updated"));
+                }
+                showToast(json.isCloudinary ? "☁️ Đã tải avatar thành công lên Cloudinary!" : "🖼️ Đã cập nhật ảnh đại diện!");
+              }
+            }
+          } catch (uploadErr) {
+            console.warn("Avatar upload endpoint warning:", uploadErr);
+          }
         }
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    setIsDragging(true);
-    setDragStart({ x: e.clientX - cropOffsetX, y: e.clientY - cropOffsetY });
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging) return;
-    setCropOffsetX(e.clientX - dragStart.x);
-    setCropOffsetY(e.clientY - dragStart.y);
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
-
-  const handleApplyCrop = () => {
-    if (tempAvatarSrc) {
-      setEditProfileForm((prev) => ({ ...prev, avatar: tempAvatarSrc }));
-      setAvatarZoom(cropZoom);
-      setAvatarOffsetX(cropOffsetX);
-      setAvatarOffsetY(cropOffsetY);
-    }
-    setIsCropModalOpen(false);
-  };
-
   // Fetch initial profile data from D1 Database & Local Storage
   useEffect(() => {
+    let localCustomAvatar: string | null = null;
     if (typeof window !== "undefined") {
       const searchParams = new URLSearchParams(window.location.search);
       const deptParam = searchParams.get("dept");
@@ -179,17 +234,20 @@ export default function WorkDashboardPage() {
       if (storedUser) {
         try {
           const parsed = JSON.parse(storedUser);
-          if (parsed?.name) {
+          if (parsed?.name && parsed.name !== "Bùi Văn Tuấn") {
+            if (parsed.avatar && parsed.avatar !== "/images/tbs-logo.png") {
+              localCustomAvatar = parsed.avatar;
+            }
             const loaded = {
+              empCode: parsed.empCode || "202608001",
               name: parsed.name,
-              phone: parsed.phone || "0988 123 456",
-              email: parsed.email || "user@tbsgroup.vn",
-              avatar: parsed.avatar || "/images/crawled/Da-giay1.jpg",
-              title: parsed.title || "Văn phòng Chuỗi SKECHERS",
+              phone: parsed.phone || "0522511245",
+              email: parsed.email || "anhy.work.2004@gmail.com",
+              avatar: parsed.avatar || "/images/tbs-logo.png",
+              title: parsed.title || "IT - Team chuyển đổi số",
             };
             setUserInfo(loaded);
             setEditProfileForm(loaded);
-            return;
           }
         } catch (e) {}
       }
@@ -201,15 +259,21 @@ export default function WorkDashboardPage() {
         if (res.ok) {
           const json = await res.json();
           if (json.success && json.data) {
+            const d1Avatar = json.data.avatar || json.data.avatar_url;
+            const finalAvatar = (d1Avatar && d1Avatar !== "/images/tbs-logo.png") ? d1Avatar : (localCustomAvatar || d1Avatar || "/images/tbs-logo.png");
             const loaded = {
+              empCode: json.data.emp_code || json.data.empCode || "202608001",
               name: json.data.name || "Phạm Nguyễn Anh Huy",
-              phone: json.data.phone || "0988 123 456",
-              email: json.data.email || "anhhuy.pham@tbsgroup.vn",
-              avatar: json.data.avatar || "/images/crawled/Da-giay1.jpg",
-              title: json.data.title || "Tổng Giám Đốc Tập Đoàn TBS Group",
+              phone: json.data.phone || "0522511245",
+              email: json.data.email || "anhy.work.2004@gmail.com",
+              avatar: finalAvatar,
+              title: json.data.title || "IT - Team chuyển đổi số",
             };
             setUserInfo(loaded);
             setEditProfileForm(loaded);
+            if (typeof window !== "undefined") {
+              localStorage.setItem("tbs_current_user", JSON.stringify(loaded));
+            }
           }
         }
       } catch (err) {
@@ -217,11 +281,22 @@ export default function WorkDashboardPage() {
       }
     }
     loadD1Profile();
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("tbs_profile_updated", loadD1Profile);
+      return () => {
+        window.removeEventListener("tbs_profile_updated", loadD1Profile);
+      };
+    }
   }, []);
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setUserInfo({ ...editProfileForm });
+    if (typeof window !== "undefined") {
+      localStorage.setItem("tbs_current_user", JSON.stringify(editProfileForm));
+      window.dispatchEvent(new Event("tbs_profile_updated"));
+    }
     setIsProfileModalOpen(false);
 
     // Save/Update directly into Cloudflare D1 Database vpchuoiskechers

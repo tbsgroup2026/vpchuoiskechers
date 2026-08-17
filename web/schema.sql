@@ -14,11 +14,11 @@ CREATE TABLE IF NOT EXISTS departments (
 -- 2. User Profile Table
 CREATE TABLE IF NOT EXISTS user_profile (
   id TEXT PRIMARY KEY DEFAULT 'current_user',
-  name TEXT NOT NULL DEFAULT 'Anh Huy',
-  email TEXT NOT NULL DEFAULT 'huy.nguyen@tbsgroup.vn',
-  phone TEXT NOT NULL DEFAULT '0988 123 456',
-  avatar TEXT NOT NULL DEFAULT '/images/crawled/Da-giay1.jpg',
-  title TEXT NOT NULL DEFAULT 'Quản trị viên cao cấp - SKECHERS',
+  name TEXT NOT NULL DEFAULT 'Cán Bộ Công Nhân Viên',
+  email TEXT NOT NULL DEFAULT 'cbcnv@tbsgroup.vn',
+  phone TEXT NOT NULL DEFAULT '0988 000 005',
+  avatar TEXT NOT NULL DEFAULT '/images/tbs-logo.png',
+  title TEXT NOT NULL DEFAULT 'Cán Bộ Công Nhân Viên',
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -63,8 +63,8 @@ INSERT OR REPLACE INTO departments (id, num, name, sub, icon_name, has_data) VAL
 ('production', '07', 'Tổ hợp Nhà máy', 'Quản lý tổ hợp nhà máy & sản xuất chuỗi', 'IconBuildingFactory', 1);
 
 -- Seed Default User Profile Data
-INSERT OR REPLACE INTO user_profile (id, name, email, phone, avatar, title) VALUES
-('current_user', 'Anh Huy', 'huy.nguyen@tbsgroup.vn', '0988 123 456', '/images/crawled/Da-giay1.jpg', 'Quản trị viên cao cấp - SKECHERS');
+INSERT OR REPLACE INTO user_profile (id, name, email, phone, avatar, title, updated_at) VALUES
+('current_user', 'Cán Bộ Công Nhân Viên', 'cbcnv@tbsgroup.vn', '0988 000 005', '/images/tbs-logo.png', 'Cán Bộ Công Nhân Viên', CURRENT_TIMESTAMP);
 
 -- Seed Default System Notifications Data
 INSERT OR REPLACE INTO system_notifications (id, title, desc, dept_id, timestamp, unread) VALUES

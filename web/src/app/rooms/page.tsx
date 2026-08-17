@@ -88,10 +88,10 @@ export default function MeetingRoomsPage() {
 
   // User Profile
   const [currentUser, setCurrentUser] = useState<{ name: string; title: string; department: string; avatar: string }>({
-    name: "Phạm Nguyễn Anh Huy",
-    title: "Tổng Giám Đốc Tập Đoàn TBS Group",
-    department: "Ban Giám Đốc Tập Đoàn",
-    avatar: "/images/crawled/Da-giay1.jpg",
+    name: "Cán Bộ Công Nhân Viên",
+    title: "Cán Bộ Công Nhân Viên",
+    department: "Văn Phòng Chuỗi SKECHERS",
+    avatar: "/images/tbs-logo.png",
   });
 
   useEffect(() => {
@@ -188,7 +188,7 @@ export default function MeetingRoomsPage() {
   const [bookingForm, setBookingForm] = useState({
     roomId: "room_1",
     title: "",
-    bookerName: "Anh Huy",
+    bookerName: "Ban Quản Lý",
     department: "Hành chính",
     bookingDate: "2026-08-15",
     timeSlot: "09:00 - 10:30",
@@ -203,7 +203,7 @@ export default function MeetingRoomsPage() {
     visitorName: "",
     company: "",
     idCard: "",
-    hostName: "Anh Huy",
+    hostName: "Ban Quản Lý",
     department: "Hành chính",
     roomLocation: "Phòng Họp Executive VIP 1",
     visitDate: "2026-08-15",

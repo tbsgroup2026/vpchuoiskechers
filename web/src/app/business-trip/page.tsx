@@ -67,10 +67,10 @@ export default function BusinessTripRegistrationPage() {
   const [selectedModalRecord, setSelectedModalRecord] = useState<BusinessTripRecord | null>(null);
 
   const [currentUser, setCurrentUser] = useState<{ name: string; title: string; department: string; avatar: string }>({
-    name: "Phạm Nguyễn Anh Huy",
-    title: "Tổng Giám Đốc Tập Đoàn TBS Group",
-    department: "Ban Giám Đốc Tập Đoàn",
-    avatar: "/images/crawled/Da-giay1.jpg",
+    name: "Cán Bộ Công Nhân Viên",
+    title: "Cán Bộ Công Nhân Viên",
+    department: "Văn Phòng Chuỗi SKECHERS",
+    avatar: "/images/tbs-logo.png",
   });
 
   useEffect(() => {
@@ -92,7 +92,7 @@ export default function BusinessTripRegistrationPage() {
     title: "",
     region: "VP Chuỗi",
     factory: "",
-    creator: "Anh Huy",
+    creator: "Ban Quản Lý",
     department: "Hành chính",
     location: "",
     transport: "",
@@ -145,7 +145,7 @@ export default function BusinessTripRegistrationPage() {
           title: item.title || "Đề xuất công tác",
           region: item.region || "VP Chuỗi",
           factory: item.factory || "",
-          creator: item.creator || "Anh Huy",
+          creator: item.creator || "Ban Quản Lý",
           department: item.department || "Hành chính",
           location: item.location || "Bình Dương",
           startDate: item.start_date || item.startDate || "15/08/2026",

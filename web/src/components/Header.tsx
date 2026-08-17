@@ -42,7 +42,7 @@ export default function Header() {
   const lastScrollY = useRef(0);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userInfo, setUserInfo] = useState<{ empCode?: string; name?: string; roleCode?: string; departmentCode?: string } | null>(null);
+  const [userInfo, setUserInfo] = useState<{ empCode?: string; name?: string; avatar?: string; roleCode?: string; departmentCode?: string } | null>(null);
 
   // Dropdown states
   const [aboutDropdownOpen, setAboutDropdownOpen] = useState(false);
@@ -87,6 +87,145 @@ export default function Header() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [pwdMsg, setPwdMsg] = useState<{ text: string; error: boolean } | null>(null);
+
+  // Profile Edit Form State & Handlers
+  const [editProfileForm, setEditProfileForm] = useState({
+    name: '',
+    empCode: '',
+    email: '',
+    phone: '',
+    title: '',
+    department: '',
+    avatar: '',
+  });
+  const [profileMsg, setProfileMsg] = useState<{ text: string; error: boolean } | null>(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+
+  useEffect(() => {
+    if (profileModalOpen) {
+      setProfileMsg(null);
+      let storedUser: any = null;
+      if (typeof window !== 'undefined') {
+        const stored = localStorage.getItem('tbs_current_user');
+        if (stored) {
+          try {
+            storedUser = JSON.parse(stored);
+          } catch (e) {}
+        }
+      }
+      setEditProfileForm({
+        name: storedUser?.name || userInfo?.name || 'Cán Bộ Công Nhân Viên',
+        empCode: storedUser?.empCode || userInfo?.empCode || 'TGĐ-001',
+        email: storedUser?.email || 'anhhuy.pham@tbsgroup.vn',
+        phone: storedUser?.phone || '0988 111 222',
+        title: storedUser?.title || 'Tổng Giám Đốc Tập Đoàn TBS Group',
+        department: storedUser?.department || userInfo?.departmentCode || 'Ban Giám Đốc Tập Đoàn',
+        avatar: storedUser?.avatar || '/images/tbs-logo.png',
+      });
+    }
+  }, [profileModalOpen, userInfo]);
+
+  const uploadImageToCloudinary = async (fileOrDataUrl: File | string): Promise<string> => {
+    const presets = ["vpchuoisk", "ml_default", "unsigned"];
+    for (const preset of presets) {
+      try {
+        const formData = new FormData();
+        formData.append("file", fileOrDataUrl);
+        formData.append("upload_preset", preset);
+
+        const res = await fetch("https://api.cloudinary.com/v1_1/dwl2xtbqa/image/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data.secure_url) {
+            return data.secure_url;
+          }
+        }
+      } catch (e) {
+        console.warn(`Cloudinary upload with preset ${preset} failed:`, e);
+      }
+    }
+    throw new Error("Không thể nạp ảnh lên máy chủ Cloudinary. Vui lòng thử lại!");
+  };
+
+  const handleAvatarUpload = async (file: File) => {
+    try {
+      setIsUploadingAvatar(true);
+      setProfileMsg({ text: '☁️ Đang tải ảnh lên Cloudinary...', error: false });
+
+      // Read file as DataURL
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        if (typeof reader.result === 'string') {
+          const dataUrl = reader.result;
+          setEditProfileForm((prev) => ({ ...prev, avatar: dataUrl }));
+
+          try {
+            const apiRes = await fetch('/api/upload-avatar', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ image: dataUrl, empCode: editProfileForm.empCode }),
+            });
+
+            if (apiRes.ok) {
+              const resJson = await apiRes.json();
+              if (resJson.url) {
+                setEditProfileForm((prev) => ({ ...prev, avatar: resJson.url }));
+                setProfileMsg({ text: '☁️ Đã tải avatar mới lên Cloudinary thành công!', error: false });
+              }
+            }
+          } catch (e) {
+            setProfileMsg({ text: '🖼️ Đã lưu ảnh đại diện!', error: false });
+          }
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (e: any) {
+      setProfileMsg({ text: e.message || 'Lỗi tải ảnh Cloudinary', error: true });
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setProfileMsg(null);
+
+    try {
+      const updatedUser = {
+        ...editProfileForm,
+        roleCode: userInfo?.roleCode || 'TONG_GIAM_DOC',
+      };
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('tbs_current_user', JSON.stringify(updatedUser));
+        window.dispatchEvent(new Event('tbs_profile_updated'));
+      }
+
+      setUserInfo({
+        empCode: editProfileForm.empCode,
+        name: editProfileForm.name,
+        avatar: editProfileForm.avatar || '/images/tbs-logo.png',
+        roleCode: userInfo?.roleCode || 'TONG_GIAM_DOC',
+        departmentCode: editProfileForm.department,
+      });
+
+      await fetch('/api/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedUser),
+      }).catch(() => null);
+
+      setProfileMsg({ text: 'Đã lưu & cập nhật thông tin cá nhân thành công vào D1 Database!', error: false });
+      setTimeout(() => {
+        setProfileModalOpen(false);
+      }, 1200);
+    } catch (err: any) {
+      setProfileMsg({ text: 'Có lỗi xảy ra: ' + err.message, error: true });
+    }
+  };
 
   // Sample real-time notifications from D1
   const [notifications, setNotifications] = useState<NotificationItem[]>([
@@ -153,19 +292,19 @@ export default function Header() {
             } catch (e) {}
           }
         }
-        if (storedUser) {
+        if (storedUser && storedUser.name !== "Bùi Văn Tuấn") {
           setUserInfo({
-            empCode: storedUser.empCode || 'TGĐ-001',
+            empCode: storedUser.empCode || '202608001',
             name: storedUser.name || 'Phạm Nguyễn Anh Huy',
-            roleCode: storedUser.roleCode || 'TONG_GIAM_DOC',
-            departmentCode: storedUser.department || 'Ban Giám Đốc Tập Đoàn',
+            roleCode: storedUser.roleCode || 'CBCNV',
+            departmentCode: storedUser.department || 'IT - Team chuyển đổi số',
           });
         } else {
           setUserInfo({
-            empCode: 'TGĐ-001',
+            empCode: '202608001',
             name: 'Phạm Nguyễn Anh Huy',
-            roleCode: 'TONG_GIAM_DOC',
-            departmentCode: 'Ban Giám Đốc Tập Đoàn',
+            roleCode: 'CBCNV',
+            departmentCode: 'IT - Team chuyển đổi số',
           });
         }
       } else {
@@ -175,7 +314,11 @@ export default function Header() {
     };
 
     checkAuth();
-    return () => window.removeEventListener('scroll', handleScroll);
+    window.addEventListener('tbs_profile_updated', checkAuth);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('tbs_profile_updated', checkAuth);
+    };
   }, [pathname]);
 
   const handleLogout = () => {
@@ -616,59 +759,170 @@ export default function Header() {
         )}
       </header>
 
-      {/* Profile Modal */}
+      {/* Profile Modal - FULLY EDITABLE */}
       {profileModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-[#041a13] border border-[#2fd39a]/40 rounded-3xl p-6 text-white space-y-5 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
+          <div className="w-full max-w-lg bg-[#041a13] border border-[#2fd39a]/40 rounded-3xl p-6 text-white space-y-4 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
             <button
-              onClick={() => setProfileModalOpen(false)}
+              onClick={() => {
+                setProfileMsg(null);
+                setProfileModalOpen(false);
+              }}
               className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-full hover:bg-white/10 transition-colors"
             >
               <IconX size={20} />
             </button>
 
             <div className="flex items-center gap-4 border-b border-white/10 pb-4">
-              <div className="w-14 h-14 rounded-2xl bg-emerald-950 text-[#2fd39a] border border-[#2fd39a]/30 flex items-center justify-center">
-                <IconUserCircle size={36} />
+              <div className="relative group">
+                <img
+                  src={editProfileForm.avatar || '/images/tbs-logo.png'}
+                  alt="Avatar"
+                  className="w-16 h-16 rounded-2xl object-cover border border-[#2fd39a]/40 bg-emerald-950 p-1"
+                />
+                <label className="absolute inset-0 bg-black/60 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-[10px] font-bold text-[#2fd39a] cursor-pointer">
+                  <span>{isUploadingAvatar ? "Đang nạp..." : "Đổi ảnh"}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        handleAvatarUpload(e.target.files[0]);
+                      }
+                    }}
+                  />
+                </label>
               </div>
-              <div>
-                <h3 className="text-lg font-extrabold text-white">
-                  {userInfo?.name || 'Phạm Nguyễn Anh Huy'}
-                </h3>
-                <span className="text-xs text-[#2fd39a] font-mono font-bold">
-                  Mã NV: {userInfo?.empCode || '202608001'}
-                </span>
+              <div className="space-y-0.5">
+                <h3 className="text-base font-extrabold text-white">Chỉnh Sửa Thông Tin Cá Nhân</h3>
+                <p className="text-[11px] text-[#2fd39a] font-mono">
+                  Mã NV: {editProfileForm.empCode || '202608001'} | Chức vụ: {userInfo?.roleCode || 'TONG_GIAM_DOC'}
+                </p>
+                <label className="text-[11px] font-bold text-amber-400 hover:underline cursor-pointer inline-flex items-center gap-1">
+                  <span>☁️ Đổi Avatar qua Cloudinary</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        handleAvatarUpload(e.target.files[0]);
+                      }
+                    }}
+                  />
+                </label>
               </div>
             </div>
 
-            <div className="space-y-3 text-xs">
-              <div className="flex justify-between py-2 border-b border-white/5">
-                <span className="text-slate-400">Chức vụ / Vai trò:</span>
-                <span className="font-mono font-bold text-amber-300">{userInfo?.roleCode || 'SUPER_ADMIN'}</span>
+            {profileMsg && (
+              <div
+                className={`p-3 rounded-xl text-xs font-bold flex items-center gap-2 ${
+                  profileMsg.error ? 'bg-red-500/20 text-red-300 border border-red-500/30' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                }`}
+              >
+                <span>{profileMsg.error ? '⚠️' : '✅'} {profileMsg.text}</span>
               </div>
-              <div className="flex justify-between py-2 border-b border-white/5">
-                <span className="text-slate-400">Phòng ban vận hành:</span>
-                <span className="font-semibold text-white">{userInfo?.departmentCode || 'KE_HOACH_CBVT'}</span>
-              </div>
-              <div className="flex justify-between py-2 border-b border-white/5">
-                <span className="text-slate-400">Đơn vị quản lý:</span>
-                <span className="font-semibold text-emerald-300">Văn Phòng Chuỗi SKECHERS - TBS Group</span>
-              </div>
-              <div className="flex justify-between py-2 border-b border-white/5">
-                <span className="text-slate-400">Trạng thái tài khoản:</span>
-                <span className="font-bold text-emerald-400 flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                  Đang hoạt động (Security Level 4)
-                </span>
-              </div>
-            </div>
+            )}
 
-            <button
-              onClick={() => setProfileModalOpen(false)}
-              className="w-full py-2.5 rounded-xl bg-emerald-800/80 hover:bg-emerald-700 text-white font-extrabold text-xs uppercase tracking-wider transition-colors"
-            >
-              Đóng
-            </button>
+            <form onSubmit={handleSaveProfile} className="space-y-3 pt-1 text-left">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Họ và Tên */}
+                <div className="space-y-1">
+                  <label className="text-xs text-slate-300 font-bold block">Họ và Tên Nhân Viên *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editProfileForm.name}
+                    onChange={(e) => setEditProfileForm({ ...editProfileForm, name: e.target.value })}
+                    placeholder="Ví dụ: Phạm Nguyễn Anh Huy"
+                    className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#2fd39a]"
+                  />
+                </div>
+
+                {/* Mã NV */}
+                <div className="space-y-1">
+                  <label className="text-xs text-slate-300 font-bold block">Mã Số Nhân Viên *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editProfileForm.empCode}
+                    onChange={(e) => setEditProfileForm({ ...editProfileForm, empCode: e.target.value })}
+                    placeholder="Ví dụ: TGĐ-001"
+                    className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-mono text-emerald-400 placeholder-slate-500 focus:outline-none focus:border-[#2fd39a]"
+                  />
+                </div>
+
+                {/* Email */}
+                <div className="space-y-1">
+                  <label className="text-xs text-slate-300 font-bold block">Email Công Việc</label>
+                  <input
+                    type="email"
+                    value={editProfileForm.email}
+                    onChange={(e) => setEditProfileForm({ ...editProfileForm, email: e.target.value })}
+                    placeholder="anhhuy.pham@tbsgroup.vn"
+                    className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#2fd39a]"
+                  />
+                </div>
+
+                {/* Phone */}
+                <div className="space-y-1">
+                  <label className="text-xs text-slate-300 font-bold block">Số Điện Thoại Liên Hệ</label>
+                  <input
+                    type="text"
+                    value={editProfileForm.phone}
+                    onChange={(e) => setEditProfileForm({ ...editProfileForm, phone: e.target.value })}
+                    placeholder="0988 111 222"
+                    className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#2fd39a]"
+                  />
+                </div>
+              </div>
+
+              {/* Title / Position */}
+              <div className="space-y-1">
+                <label className="text-xs text-slate-300 font-bold block">Chức Danh / Vị Trí Công Việc</label>
+                <input
+                  type="text"
+                  value={editProfileForm.title}
+                  onChange={(e) => setEditProfileForm({ ...editProfileForm, title: e.target.value })}
+                  placeholder="Ví dụ: Tổng Giám Đốc Tập Đoàn TBS Group"
+                  className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#2fd39a]"
+                />
+              </div>
+
+              {/* Department */}
+              <div className="space-y-1">
+                <label className="text-xs text-slate-300 font-bold block">Phòng Ban / Khối Vận Hành</label>
+                <input
+                  type="text"
+                  value={editProfileForm.department}
+                  onChange={(e) => setEditProfileForm({ ...editProfileForm, department: e.target.value })}
+                  placeholder="Ví dụ: Ban Giám Đốc Tập Đoàn"
+                  className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#2fd39a]"
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-3 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setProfileMsg(null);
+                    setProfileModalOpen(false);
+                  }}
+                  className="flex-1 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-slate-300 font-bold text-xs transition-colors cursor-pointer"
+                >
+                  Hủy Bỏ
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 rounded-xl bg-[#006838] hover:bg-emerald-700 text-white font-extrabold text-xs uppercase tracking-wider transition-colors shadow-lg shadow-emerald-950/40 cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <IconCheck size={16} />
+                  <span>Lưu Cập Nhật</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

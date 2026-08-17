@@ -4,148 +4,256 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
+    // Redirect legacy /bi route to /work
+    if (url.pathname === "/bi" || url.pathname === "/bi/") {
+      return Response.redirect(new URL("/work", request.url), 301);
+    }
+
     const ROLE_ACCOUNTS = {
       TONG_GIAM_DOC: {
         empCode: "TGĐ-001",
-        name: "Phạm Nguyễn Anh Huy",
+        name: "Tổng Giám Đốc",
         title: "Tổng Giám Đốc Tập Đoàn TBS Group",
         department: "Ban Giám Đốc Tập Đoàn",
-        avatar: "/images/crawled/Da-giay1.jpg",
-        email: "anhhuy.pham@tbsgroup.vn",
-        phone: "0988 111 222",
+        avatar: "/images/tbs-logo.png",
+        email: "tgd@tbsgroup.vn",
+        phone: "0988 000 001",
         roleCode: "TONG_GIAM_DOC",
-        redirectUrl: "/bi",
+        redirectUrl: "/work",
       },
       PHO_TONG_GIAM_DOC: {
         empCode: "PTGĐ-002",
-        name: "Trần Ngọc Huy",
+        name: "Phó Tổng Giám Đốc",
         title: "Phó Tổng Giám Đốc Vận Hành & Chuỗi Cung Ứng",
         department: "Ban Giám Đốc Vận Hành",
-        avatar: "/images/crawled/Da-giay2.jpg",
-        email: "ngochuy.tran@tbsgroup.vn",
-        phone: "0988 222 333",
+        avatar: "/images/tbs-logo.png",
+        email: "ptgd@tbsgroup.vn",
+        phone: "0988 000 002",
         roleCode: "PHO_TONG_GIAM_DOC",
         redirectUrl: "/work",
       },
       GIAM_DOC: {
         empCode: "GĐ-003",
-        name: "Lê Văn Nam",
+        name: "Giám Đốc",
         title: "Giám Đốc Khối Sản Xuất & Tổ Hợp Nhà Máy",
         department: "Khối Sản Xuất & Nhà Máy",
-        avatar: "/images/crawled/Da-giay3.jpg",
-        email: "vannam.le@tbsgroup.vn",
-        phone: "0988 333 444",
+        avatar: "/images/tbs-logo.png",
+        email: "gd@tbsgroup.vn",
+        phone: "0988 000 003",
         roleCode: "GIAM_DOC",
-        redirectUrl: "/work?dept=production",
+        redirectUrl: "/work",
       },
       PHO_GIAM_DOC: {
         empCode: "PGĐ-004",
-        name: "Nguyễn Thị Hồng",
+        name: "Phó Giám Đốc",
         title: "Phó Giám Đốc Quản Lý Chất Lượng (QC) & Gemba",
         department: "Khối Quản Lý Chất Lượng (QC)",
-        avatar: "/images/crawled/Da-giay4.jpg",
-        email: "thihong.nguyen@tbsgroup.vn",
-        phone: "0988 444 555",
+        avatar: "/images/tbs-logo.png",
+        email: "pgd@tbsgroup.vn",
+        phone: "0988 000 004",
         roleCode: "PHO_GIAM_DOC",
-        redirectUrl: "/work?dept=qc",
+        redirectUrl: "/work",
       },
       CBCNV: {
         empCode: "202608001",
-        name: "Bùi Văn Tuấn",
-        title: "Chuyên Viên Quản Lý Hành Chính & Đón Khách",
-        department: "Nhân sự - Hành chánh",
-        avatar: "/images/crawled/Da-giay1.jpg",
-        email: "vantuan.bui@tbsgroup.vn",
-        phone: "0988 555 666",
+        name: "Cán Bộ Công Nhân Viên",
+        title: "Cán Bộ Công Nhân Viên",
+        department: "Văn Phòng Chuỗi SKECHERS",
+        avatar: "/images/tbs-logo.png",
+        email: "cbcnv@tbsgroup.vn",
+        phone: "0988 000 005",
         roleCode: "CBCNV",
-        redirectUrl: "/rooms",
+        redirectUrl: "/work",
       },
       SYSTEM_ADMIN: {
         empCode: "ADMIN-2026",
-        name: "Super Administrator System",
+        name: "Quản Trị Viên Hệ Thống",
         title: "Quản Trị Viên Hệ Thống TBS Group",
         department: "Khối Quản Trị Hệ Thống & Digital",
         avatar: "/images/tbs-logo.png",
-        email: "tbsgroup2026@gmail.com",
-        phone: "0988 999 888",
+        email: "admin@tbsgroup.vn",
+        phone: "0988 000 000",
         roleCode: "SYSTEM_ADMIN",
         redirectUrl: "/admin",
       },
       "tbsgroup2026@gmail.com": {
         empCode: "ADMIN-2026",
-        name: "Super Administrator System",
+        name: "Quản Trị Viên Hệ Thống",
         title: "Quản Trị Viên Hệ Thống TBS Group",
         department: "Khối Quản Trị Hệ Thống & Digital",
         avatar: "/images/tbs-logo.png",
-        email: "tbsgroup2026@gmail.com",
-        phone: "0988 999 888",
+        email: "admin@tbsgroup.vn",
+        phone: "0988 000 000",
         roleCode: "SYSTEM_ADMIN",
         redirectUrl: "/admin",
       },
       "202608001": {
         empCode: "202608001",
-        name: "Bùi Văn Tuấn",
-        title: "Chuyên Viên Quản Lý Hành Chính & Đón Khách",
-        department: "Nhân sự - Hành chánh",
-        avatar: "/images/crawled/Da-giay1.jpg",
-        email: "vantuan.bui@tbsgroup.vn",
-        phone: "0988 555 666",
+        name: "Phạm Nguyễn Anh Huy",
+        title: "IT - Team chuyển đổi số",
+        department: "IT - Team chuyển đổi số",
+        avatar: "/images/tbs-logo.png",
+        email: "anhy.work.2004@gmail.com",
+        phone: "0522511245",
         roleCode: "CBCNV",
-        redirectUrl: "/rooms",
+        redirectUrl: "/work",
       },
       "202608002": {
         empCode: "202608002",
-        name: "Trần Thị Mai",
-        title: "Chuyên Viên Logistics & Đăng Ký Công Tác",
-        department: "Logistics TTPP",
-        avatar: "/images/crawled/Da-giay2.jpg",
-        email: "thimai.tran@tbsgroup.vn",
-        phone: "0988 666 777",
+        name: "Trần Ngọc Huy",
+        title: "IT - Team chuyển đổi số",
+        department: "IT - Team chuyển đổi số",
+        avatar: "/images/tbs-logo.png",
+        email: "tranhuy110421@gmail.com",
+        phone: "0988 000 002",
         roleCode: "CBCNV",
-        redirectUrl: "/business-trip",
+        redirectUrl: "/work",
       },
       "EMP-001": {
         empCode: "EMP-001",
-        name: "Bùi Văn Tuấn",
-        title: "Chuyên Viên Quản Lý Hành Chính & Đón Khách",
-        department: "Nhân sự - Hành chánh",
-        avatar: "/images/crawled/Da-giay1.jpg",
-        email: "vantuan.bui@tbsgroup.vn",
-        phone: "0988 555 666",
+        name: "Cán Bộ Công Nhân Viên",
+        title: "Cán Bộ Công Nhân Viên",
+        department: "Văn Phòng Chuỗi SKECHERS",
+        avatar: "/images/tbs-logo.png",
+        email: "cbcnv@tbsgroup.vn",
+        phone: "0988 000 005",
         roleCode: "CBCNV",
-        redirectUrl: "/rooms",
+        redirectUrl: "/work",
       },
       "EMP-002": {
         empCode: "EMP-002",
-        name: "Trần Thị Mai",
-        title: "Chuyên Viên Logistics & Đăng Ký Công Tác",
-        department: "Logistics TTPP",
-        avatar: "/images/crawled/Da-giay2.jpg",
-        email: "thimai.tran@tbsgroup.vn",
-        phone: "0988 666 777",
+        name: "Cán Bộ Công Nhân Viên",
+        title: "Cán Bộ Công Nhân Viên",
+        department: "Văn Phòng Chuỗi SKECHERS",
+        avatar: "/images/tbs-logo.png",
+        email: "cbcnv@tbsgroup.vn",
+        phone: "0988 000 006",
         roleCode: "CBCNV",
-        redirectUrl: "/business-trip",
+        redirectUrl: "/work",
       },
       "EMP-003": {
         empCode: "EMP-003",
-        name: "Nguyễn Hoàng Quân",
-        title: "Kỹ Sư R&D Phát Triển Mẫu SKECHERS",
-        department: "R&D Kỹ thuật",
-        avatar: "/images/crawled/Da-giay3.jpg",
-        email: "hoangquan.nguyen@tbsgroup.vn",
-        phone: "0988 777 888",
+        name: "Cán Bộ Công Nhân Viên",
+        title: "Cán Bộ Công Nhân Viên",
+        department: "Văn Phòng Chuỗi SKECHERS",
+        avatar: "/images/tbs-logo.png",
+        email: "cbcnv@tbsgroup.vn",
+        phone: "0988 000 007",
         roleCode: "CBCNV",
-        redirectUrl: "/work?dept=rd",
+        redirectUrl: "/work",
       },
     };
+
+    // API Route: Cloudinary Avatar Upload Handler (/api/upload-avatar)
+    if (url.pathname === "/api/upload-avatar" && request.method === "POST") {
+      try {
+        const body = await request.json();
+        const { image, empCode } = body;
+
+        if (!image) {
+          return new Response(JSON.stringify({ success: false, error: "Thiếu dữ liệu ảnh" }), {
+            status: 400,
+            headers: { "Content-Type": "application/json" }
+          });
+        }
+
+        let cloudinaryUrl = null;
+        const presets = ["vpchuoisk", "ml_default", "unsigned"];
+
+        for (const preset of presets) {
+          try {
+            const formData = new FormData();
+            formData.append("file", image);
+            formData.append("upload_preset", preset);
+
+            const cRes = await fetch("https://api.cloudinary.com/v1_1/dwl2xtbqa/image/upload", {
+              method: "POST",
+              body: formData,
+            });
+
+            if (cRes.ok) {
+              const cData = await cRes.json();
+              if (cData.secure_url) {
+                cloudinaryUrl = cData.secure_url;
+                break;
+              }
+            }
+          } catch (cErr) {
+            console.warn("Cloudinary upload preset attempt error:", cErr);
+          }
+        }
+
+        const finalUrl = cloudinaryUrl || image;
+
+        if (env.DB) {
+          const targetEmp = empCode || "202608001";
+          try {
+            await env.DB.prepare(
+              `INSERT OR REPLACE INTO user_profile (id, emp_code, avatar, updated_at)
+               VALUES ('current_user', ?, ?, CURRENT_TIMESTAMP)`
+            ).bind(targetEmp, finalUrl).run();
+
+            await env.DB.prepare(
+              `UPDATE users SET avatar_url = ?, updated_at = CURRENT_TIMESTAMP WHERE emp_code = ?`
+            ).bind(finalUrl, targetEmp).run();
+          } catch (d1Err) {
+            console.warn("D1 save avatar error:", d1Err);
+          }
+        }
+
+        return new Response(JSON.stringify({
+          success: true,
+          url: finalUrl,
+          isCloudinary: !!cloudinaryUrl,
+          message: cloudinaryUrl ? "Tải ảnh lên Cloudinary thành công!" : "Lưu ảnh vào hệ thống thành công!"
+        }), {
+          headers: { "Content-Type": "application/json" }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+    }
 
     // 0. API Route: User Login & Session Persistence (/api/auth/login)
     if (url.pathname === "/api/auth/login" && request.method === "POST") {
       try {
         const body = await request.json();
-        const { empCode, role } = body;
+        const { empCode, role, password } = body;
 
-        let userAccount = ROLE_ACCOUNTS[role] || ROLE_ACCOUNTS[empCode] || ROLE_ACCOUNTS["TONG_GIAM_DOC"];
+        let userAccount = null;
+
+        if (env.DB) {
+          try {
+            const queryTarget = empCode || role;
+            const { results } = await env.DB.prepare(
+              `SELECT * FROM users WHERE emp_code = ? OR email = ? OR role_code = ?`
+            ).bind(queryTarget, queryTarget, queryTarget).all();
+
+            if (results && results.length > 0) {
+              const dbUser = results[0];
+              userAccount = {
+                empCode: dbUser.emp_code || empCode || "202608001",
+                name: dbUser.name || "Cán Bộ Công Nhân Viên",
+                title: dbUser.title || "Cán Bộ Công Nhân Viên",
+                department: dbUser.department || "Văn Phòng Chuỗi SKECHERS",
+                avatar: dbUser.avatar_url || "/images/tbs-logo.png",
+                email: dbUser.email || "cbcnv@tbsgroup.vn",
+                phone: dbUser.phone || "0988 000 005",
+                roleCode: dbUser.role_code || "CBCNV",
+                redirectUrl: "/work",
+              };
+            }
+          } catch (e) {
+            console.warn("D1 users lookup error:", e);
+          }
+        }
+
+        if (!userAccount) {
+          userAccount = ROLE_ACCOUNTS[role] || ROLE_ACCOUNTS[empCode] || ROLE_ACCOUNTS["CBCNV"];
+        }
 
         if (env.DB) {
           try {
@@ -165,6 +273,15 @@ export default {
               );`
             ).run();
 
+            // Preserve existing custom avatar if user previously uploaded one
+            const { results: existingProfiles } = await env.DB.prepare(
+              `SELECT avatar FROM user_profile WHERE id = 'current_user'`
+            ).all();
+
+            const savedAvatar = existingProfiles && existingProfiles[0] && existingProfiles[0].avatar ? existingProfiles[0].avatar : null;
+            const finalAvatar = (savedAvatar && savedAvatar !== "/images/tbs-logo.png") ? savedAvatar : (userAccount.avatar || "/images/tbs-logo.png");
+            userAccount.avatar = finalAvatar;
+
             await env.DB.prepare(
               `INSERT OR REPLACE INTO user_profile (id, emp_code, name, email, phone, avatar, title, department, role_code, redirect_url, updated_at)
                VALUES ('current_user', ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`
@@ -173,7 +290,7 @@ export default {
               userAccount.name,
               userAccount.email,
               userAccount.phone,
-              userAccount.avatar,
+              finalAvatar,
               userAccount.title,
               userAccount.department,
               userAccount.roleCode,
@@ -190,7 +307,7 @@ export default {
             token: `token_${userAccount.empCode.toLowerCase()}_${userAccount.roleCode.toLowerCase()}`,
             user: userAccount,
             redirectUrl: userAccount.redirectUrl,
-            message: `Đăng nhập thành công với chức vụ ${userAccount.title}`
+            message: `Đăng nhập thành công với tên ${userAccount.name}`
           }),
           { headers: { "Content-Type": "application/json" } }
         );
@@ -202,26 +319,82 @@ export default {
       }
     }
 
-    // 1. API Route: User Profile Persistence (/api/profile)
-    if (url.pathname === "/api/profile") {
+    // 0.1 API Route: Users Management (/api/users)
+    if (url.pathname === "/api/users") {
+      if (request.method === "GET") {
+        try {
+          if (env.DB) {
+            const { results } = await env.DB.prepare("SELECT * FROM users ORDER BY id DESC").all();
+            return new Response(
+              JSON.stringify({ success: true, data: results }),
+              { headers: { "Content-Type": "application/json" } }
+            );
+          }
+          return new Response(
+            JSON.stringify({ success: true, data: [] }),
+            { headers: { "Content-Type": "application/json" } }
+          );
+        } catch (err) {
+          return new Response(
+            JSON.stringify({ success: false, error: err.message }),
+            { status: 500, headers: { "Content-Type": "application/json" } }
+          );
+        }
+      }
+
+      if (request.method === "POST" || request.method === "PUT") {
+        try {
+          const body = await request.json();
+          const { empCode, name, email, phone, title, department, roleCode, password, status } = body;
+
+          if (env.DB) {
+            await env.DB.prepare(
+              `INSERT OR REPLACE INTO users (emp_code, name, email, phone, title, department, role_code, password_hash, status, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`
+            ).bind(
+              empCode,
+              name,
+              email || `${empCode}@tbsgroup.vn`,
+              phone || "0988 000 000",
+              title || "Cán Bộ Công Nhân Viên",
+              department || "Văn Phòng Chuỗi SKECHERS",
+              roleCode || "CBCNV",
+              password || "123456",
+              status || "ACTIVE"
+            ).run();
+          }
+
+          return new Response(
+            JSON.stringify({ success: true, message: "Đã lưu thông tin nhân sự vào D1 Database!" }),
+            { headers: { "Content-Type": "application/json" } }
+          );
+        } catch (err) {
+          return new Response(
+            JSON.stringify({ success: false, error: err.message }),
+            { status: 500, headers: { "Content-Type": "application/json" } }
+          );
+        }
+      }
+    }
+
+    // 1. API Route: User Profile Persistence (/api/profile & /api/user-profile)
+    if (url.pathname === "/api/profile" || url.pathname === "/api/user-profile") {
       // GET: Retrieve User Profile from D1 Database
       if (request.method === "GET") {
         try {
-          if (!env.DB) {
-            return new Response(
-              JSON.stringify({ success: false, error: "D1 Database binding env.DB missing" }),
-              { status: 500, headers: { "Content-Type": "application/json" } }
-            );
+          if (env.DB) {
+            const { results } = await env.DB.prepare(
+              "SELECT * FROM user_profile WHERE id = 'current_user'"
+            ).all();
+            if (results && results.length > 0) {
+              return new Response(
+                JSON.stringify({ success: true, data: results[0], source: "Cloudflare D1 Database vpchuoiskechers" }),
+                { headers: { "Content-Type": "application/json" } }
+              );
+            }
           }
-
-          const { results } = await env.DB.prepare(
-            "SELECT * FROM user_profile WHERE id = 'current_user'"
-          ).all();
-
-          const user = results && results.length > 0 ? results[0] : ROLE_ACCOUNTS["TONG_GIAM_DOC"];
-
           return new Response(
-            JSON.stringify({ success: true, data: user, source: "Cloudflare D1 Database vpchuoiskechers" }),
+            JSON.stringify({ success: true, data: ROLE_ACCOUNTS["TONG_GIAM_DOC"] }),
             { headers: { "Content-Type": "application/json" } }
           );
         } catch (err) {
@@ -235,34 +408,66 @@ export default {
       // POST / PUT: Update / Save User Profile to D1 Database
       if (request.method === "POST" || request.method === "PUT") {
         try {
-          if (!env.DB) {
-            return new Response(
-              JSON.stringify({ success: false, error: "D1 Database binding env.DB missing" }),
-              { status: 500, headers: { "Content-Type": "application/json" } }
-            );
-          }
-
           const body = await request.json();
-          const { name, email, phone, avatar, title } = body;
+          const { empCode, emp_code, name, email, phone, avatar, title, department, roleCode, role_code } = body;
+          const targetEmpCode = empCode || emp_code || "202608001";
+          const targetRoleCode = roleCode || role_code || "CBCNV";
 
-          await env.DB.prepare(
-            `INSERT OR REPLACE INTO user_profile (id, name, email, phone, avatar, title, updated_at)
-             VALUES ('current_user', ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`
-          )
-            .bind(
-              name || "Anh Huy",
-              email || "huy.nguyen@tbsgroup.vn",
-              phone || "0988 123 456",
-              avatar || "/images/crawled/Da-giay1.jpg",
-              title || "Quản trị viên cao cấp - SKECHERS"
+          if (env.DB) {
+            await env.DB.prepare(
+              `CREATE TABLE IF NOT EXISTS user_profile (
+                id TEXT PRIMARY KEY,
+                emp_code TEXT,
+                name TEXT NOT NULL,
+                email TEXT,
+                phone TEXT,
+                avatar TEXT,
+                title TEXT,
+                department TEXT,
+                role_code TEXT,
+                redirect_url TEXT,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+              );`
+            ).run();
+
+            await env.DB.prepare(
+              `INSERT OR REPLACE INTO user_profile (id, emp_code, name, email, phone, avatar, title, department, role_code, updated_at)
+               VALUES ('current_user', ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`
             )
-            .run();
+              .bind(
+                targetEmpCode,
+                name || "Phạm Nguyễn Anh Huy",
+                email || "anhy.work.2004@gmail.com",
+                phone || "0522511245",
+                avatar || "/images/tbs-logo.png",
+                title || "IT - Team chuyển đổi số",
+                department || "IT - Team chuyển đổi số",
+                targetRoleCode
+              )
+              .run();
+
+            try {
+              await env.DB.prepare(
+                `UPDATE users SET name = COALESCE(?, name), email = COALESCE(?, email), phone = COALESCE(?, phone), avatar_url = COALESCE(?, avatar_url), title = COALESCE(?, title), department = COALESCE(?, department), updated_at = CURRENT_TIMESTAMP WHERE emp_code = ?`
+              ).bind(
+                name,
+                email,
+                phone,
+                avatar,
+                title,
+                department,
+                targetEmpCode
+              ).run();
+            } catch (uErr) {
+              console.warn("Update users table error:", uErr);
+            }
+          }
 
           return new Response(
             JSON.stringify({
               success: true,
-              message: "Đã lưu & cập nhật thông tin thành công vào D1 Database vpchuoiskechers!",
-              data: { name, email, phone, avatar, title }
+              message: "Đã cập nhật thông tin cá nhân thành công vào D1 Database vpchuoiskechers!",
+              data: { empCode: targetEmpCode, name, email, phone, avatar, title, department, roleCode: targetRoleCode }
             }),
             { headers: { "Content-Type": "application/json" } }
           );

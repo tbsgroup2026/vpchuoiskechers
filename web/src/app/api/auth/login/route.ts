@@ -49,19 +49,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Vui lòng nhập mã nhân viên và mật khẩu' }, { status: 400 });
     }
 
-    // User 0.1: Phạm Nguyễn Anh Huy - IT Team Số Hóa (Super Admin)
+    // User 0.1: MSNV 202608001 (Phạm Nguyễn Anh Huy)
     if (empCode === '202608001' && password === '21032004') {
       const payload = {
         userId: 100,
         empCode: '202608001',
         name: 'Phạm Nguyễn Anh Huy',
-        title: 'IT - Team Số Hóa',
+        title: 'IT - Team chuyển đổi số',
+        email: 'anhy.work.2004@gmail.com',
+        phone: '0522511245',
         roleId: 1,
         roleCode: 'SUPER_ADMIN',
         roleLevel: 1,
         departmentId: 11,
-        departmentCode: 'IT_SO_HOA',
-        departmentName: 'IT - Team Số Hóa',
+        departmentCode: 'IT_DIGITAL',
+        departmentName: 'IT - Team chuyển đổi số',
       };
 
       const token = await signToken(payload);
@@ -74,19 +76,20 @@ export async function POST(request: Request) {
       });
     }
 
-    // User 0.2: Trần Ngọc Huy - IT Team Số Hóa (Super Admin)
+    // User 0.2: MSNV 202608002 (Trần Ngọc Huy)
     if (empCode === '202608002' && password === '123456') {
       const payload = {
         userId: 101,
         empCode: '202608002',
         name: 'Trần Ngọc Huy',
-        title: 'IT - Team Số Hóa',
+        title: 'IT - Team chuyển đổi số',
+        email: 'tranhuy110421@gmail.com',
         roleId: 1,
         roleCode: 'SUPER_ADMIN',
         roleLevel: 1,
         departmentId: 11,
-        departmentCode: 'IT_SO_HOA',
-        departmentName: 'IT - Team Số Hóa',
+        departmentCode: 'IT_DIGITAL',
+        departmentName: 'IT - Team chuyển đổi số',
       };
 
       const token = await signToken(payload);

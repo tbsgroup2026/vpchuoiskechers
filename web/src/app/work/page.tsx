@@ -44,11 +44,9 @@ import {
   IconAlertCircle,
   IconMessage,
   IconFlame,
-  IconCircleCheck,
   IconCalendar,
   IconInfoCircle,
   IconPlus,
-  IconFilter,
   IconLayoutGrid,
 } from "@tabler/icons-react";
 
@@ -66,6 +64,7 @@ export default function WorkDashboardPage() {
   const [selectedDept, setSelectedDept] = useState<string | null>("qc");
   const [timeFilter, setTimeFilter] = useState("7 ngày");
   const [factoryScope, setFactoryScope] = useState("Toàn nhà máy");
+  const [activeRole, setActiveRole] = useState<"qc" | "production" | "rd" | "hr">("qc");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
@@ -313,7 +312,59 @@ export default function WorkDashboardPage() {
     showToast("Đổi mật khẩu tài khoản thành công!");
   };
 
-  // 7 Executive Departments List matching the screenshot
+  // Roles & Task Data for CBNV Role Task Completion System
+  const roleTaskData = {
+    qc: {
+      roleName: "Chuyên Viên Quản Lý Chất Lượng (QC)",
+      overallProgress: 94.5,
+      completedTasks: 18,
+      totalTasks: 19,
+      tasks: [
+        { name: "Kiểm tra tiêu chuẩn QC chuyền May 2", pct: 100, status: "Đã hoàn thành", desc: "Đạt 98.2% tiêu chuẩn SKECHERS" },
+        { name: "Đánh giá hiệu suất OEE ca sáng", pct: 100, status: "Đã hoàn thành", desc: "Ghi nhận chỉ số 88.6%" },
+        { name: "Xử lý báo cáo sự cố Gemba Walk", pct: 85, status: "Đang thực hiện", desc: "Còn 1 sự cố chuyền Gò 2" },
+        { name: "Phê duyệt mẫu thử vật tư đầu vào", pct: 90, status: "Đang thực hiện", desc: "Đã duyệt 9/10 mẫu" },
+      ],
+    },
+    production: {
+      roleName: "Quản Lý Sản Xuất (Tổ Hợp Nhà Máy)",
+      overallProgress: 88.2,
+      completedTasks: 15,
+      totalTasks: 17,
+      tasks: [
+        { name: "Điều phối sản lượng chuyền Gò #3", pct: 100, status: "Đã hoàn thành", desc: "Đạt 1,250 đôi / ca" },
+        { name: "Theo dõi tiến độ đơn hàng SK-PERF-01", pct: 92, status: "Đang thực hiện", desc: "Đã xuất xưởng 8,500 đôi" },
+        { name: "Khắc phục cảnh báo nghẽn chuyền 5", pct: 75, status: "Đang xử lý", desc: "Bổ sung 2 công nhân hỗ trợ" },
+        { name: "Báo cáo tổng kết ca sản xuất", pct: 85, status: "Đang thực hiện", desc: "Chờ dữ liệu từ Xưởng Đế" },
+      ],
+    },
+    rd: {
+      roleName: "Kỹ Sư R&D / Phát Triển Sản Phẩm",
+      overallProgress: 91.0,
+      completedTasks: 10,
+      totalTasks: 11,
+      tasks: [
+        { name: "Thử nghiệm độ đàn hồi đế Ultra Go", pct: 100, status: "Đã hoàn thành", desc: "Đạt độ bền 100,000 chu kỳ" },
+        { name: "Chuyển giao tài liệu kỹ thuật SK-LIFE-02", pct: 90, status: "Đang thực hiện", desc: "Đã gửi bản vẽ cho Xưởng May" },
+        { name: "Kiểm tra mẫu FEP lần 1", pct: 85, status: "Đang thực hiện", desc: "Chờ phê duyệt từ SKECHERS Global" },
+        { name: "Tối ưu hóa thiết kế khuôn đế", pct: 88, status: "Đang thực hiện", desc: "Đang giả lập 3D CAD" },
+      ],
+    },
+    hr: {
+      roleName: "Chuyên Viên Nhân Sự & Hành Chính",
+      overallProgress: 96.0,
+      completedTasks: 24,
+      totalTasks: 25,
+      tasks: [
+        { name: "Phê duyệt lịch phòng họp & đón khách", pct: 100, status: "Đã hoàn thành", desc: "Đã xử lý 8 yêu cầu hôm nay" },
+        { name: "Duyệt đơn đăng ký công tác", pct: 95, status: "Đang thực hiện", desc: "Còn 1 đơn chờ Trưởng phòng duyệt" },
+        { name: "Tổng hợp dữ liệu chấm công tuần", pct: 93, status: "Đang thực hiện", desc: "Khóa dữ liệu 5,000 nhân sự" },
+        { name: "Tuyển dụng nhân sự kỹ thuật", pct: 96, status: "Đã hoàn thành", desc: "Đã phỏng vấn 12 ứng viên" },
+      ],
+    },
+  };
+
+  // 7 Executive Departments List
   const departments: DepartmentItem[] = [
     {
       id: "hr",
@@ -390,7 +441,7 @@ export default function WorkDashboardPage() {
   return (
     <div className="h-screen w-screen overflow-hidden flex bg-[#f0f4f2] text-slate-900 font-sans antialiased selection:bg-[#08221a] selection:text-white">
       {/* ════════════════════════════════════════════════════════════════
-          LEFT SIDEBAR (Human-Crafted Executive Sidebar)
+          LEFT SIDEBAR (Executive Sidebar)
          ════════════════════════════════════════════════════════════════ */}
       <aside
         className={`bg-white h-screen flex flex-col justify-between border-r border-slate-200/90 flex-shrink-0 shadow-sm transition-all duration-300 ease-in-out z-30 ${
@@ -538,7 +589,7 @@ export default function WorkDashboardPage() {
       </aside>
 
       {/* ════════════════════════════════════════════════════════════════
-          MAIN DASHBOARD AREA (Exact 1-Viewport Fit Dashboard)
+          MAIN DASHBOARD AREA (1-Viewport Fit Executive Dashboard)
          ════════════════════════════════════════════════════════════════ */}
       <main className="flex-1 h-screen overflow-hidden flex flex-col justify-between bg-[#f0f4f2]">
         {/* Top Header Bar */}
@@ -647,10 +698,102 @@ export default function WorkDashboardPage() {
            ════════════════════════════════════════════════════════════════ */}
         <div className="flex-1 p-3.5 flex flex-col justify-between overflow-hidden gap-2.5">
           {/* ════════════════════════════════════════════════════════════════
-              MODE: QUẢN LÝ CHẤT LƯỢNG (QC) DASHBOARD (Matching Exact Screenshot Layout)
+              NEW UNIVERSAL SECTION: % TIẾN ĐỘ NHIỆM VỤ THEO VAI TRÒ (ROLE CBNV)
+             ════════════════════════════════════════════════════════════════ */}
+          <div className="bg-white p-3 rounded-2xl border border-slate-200/90 shadow-2xs flex-shrink-0">
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="w-2.5 h-2.5 rounded-full bg-[#08221a] animate-pulse" />
+                <h3 className="text-xs sm:text-sm font-black text-slate-900 tracking-tight">
+                  TIẾN ĐỘ THỰC HIỆN NHIỆM VỤ THEO VAI TRÒ CBNV
+                </h3>
+              </div>
+
+              {/* Role Selection Tabs */}
+              <div className="flex items-center gap-1.5 overflow-x-auto">
+                {[
+                  { id: "qc", label: "QC Specialist", icon: IconShieldCheck, pct: "94.5%" },
+                  { id: "production", label: "Quản Lý Sản Xuất", icon: IconBuildingFactory, pct: "88.2%" },
+                  { id: "rd", label: "Kỹ Sư R&D", icon: IconFlask, pct: "91.0%" },
+                  { id: "hr", label: "Nhân Sự – Hành Chính", icon: IconUsers, pct: "96.0%" },
+                ].map((role) => (
+                  <button
+                    key={role.id}
+                    onClick={() => setActiveRole(role.id as any)}
+                    className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                      activeRole === role.id
+                        ? "bg-[#08221a] text-white shadow-xs"
+                        : "bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200/80"
+                    }`}
+                  >
+                    <role.icon size={13} />
+                    <span>{role.label}</span>
+                    <span
+                      className={`text-[9px] font-mono px-1.5 py-0.2 rounded-full font-black ${
+                        activeRole === role.id ? "bg-emerald-500/30 text-emerald-200" : "bg-emerald-100 text-emerald-800"
+                      }`}
+                    >
+                      {role.pct}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Selected Role Progress Overview */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-2.5 pt-2 items-center">
+              <div className="lg:col-span-4 bg-slate-50/80 p-2.5 rounded-xl border border-slate-200/80 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">
+                    {roleTaskData[activeRole].roleName}
+                  </span>
+                  <span className="text-xs font-black text-[#08221a]">
+                    {roleTaskData[activeRole].overallProgress}%
+                  </span>
+                </div>
+                <div className="w-full h-2.5 rounded-full bg-slate-200 overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-[#08221a] to-emerald-500 rounded-full transition-all duration-500"
+                    style={{ width: `${roleTaskData[activeRole].overallProgress}%` }}
+                  />
+                </div>
+                <div className="flex items-center justify-between text-[10px] font-bold text-slate-600">
+                  <span>Hoàn thành: <strong>{roleTaskData[activeRole].completedTasks}/{roleTaskData[activeRole].totalTasks}</strong> nhiệm vụ</span>
+                  <span className="text-emerald-700">✓ Đạt chỉ số mục tiêu</span>
+                </div>
+              </div>
+
+              {/* Task Breakdown Chips */}
+              <div className="lg:col-span-8 grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                {roleTaskData[activeRole].tasks.map((task, idx) => (
+                  <div key={idx} className="p-2 rounded-xl bg-slate-50 border border-slate-200/70 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-slate-900 truncate max-w-[80%]">{task.name}</span>
+                      <span
+                        className={`text-[9px] font-black px-1 rounded-full ${
+                          task.pct === 100 ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
+                        }`}
+                      >
+                        {task.pct}%
+                      </span>
+                    </div>
+                    <div className="w-full h-1.5 rounded-full bg-slate-200 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${task.pct === 100 ? "bg-emerald-600" : "bg-amber-500"}`}
+                        style={{ width: `${task.pct}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* ════════════════════════════════════════════════════════════════
+              MODE: QUẢN LÝ CHẤT LƯỢNG (QC) DASHBOARD
              ════════════════════════════════════════════════════════════════ */}
           {selectedDept === "qc" && (
-            <div className="h-full flex flex-col justify-between gap-2.5 overflow-hidden">
+            <div className="flex-1 flex flex-col justify-between gap-2.5 overflow-hidden">
               {/* TOP CARD: DEPARTMENT BANNER & TITLE */}
               <div className="bg-gradient-to-r from-[#08221a] via-[#0b3226] to-[#0c3c2e] text-white p-3.5 sm:p-4 rounded-2xl border border-emerald-950/40 shadow-md flex items-center justify-between flex-shrink-0">
                 <div className="flex items-center gap-3">
@@ -730,21 +873,21 @@ export default function WorkDashboardPage() {
               {/* MIDDLE ROW: PERFORMANCE GAUGES (LEFT) + DEFECT OVERVIEW & LINE CHART (RIGHT) */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-2.5 flex-1 min-h-0">
                 {/* LEFT PANEL: HIỆU SUẤT TỔNG THỂ (2 RING GAUGES) */}
-                <div className="lg:col-span-5 bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col justify-between min-h-0">
+                <div className="lg:col-span-5 bg-white p-3 sm:p-3.5 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col justify-between min-h-0">
                   <div className="flex items-center justify-between pb-1 flex-shrink-0">
-                    <h3 className="text-sm font-black text-slate-900 flex items-center gap-1.5">
+                    <h3 className="text-xs font-black text-slate-900 flex items-center gap-1.5">
                       <span>Hiệu suất tổng thể</span>
                       <IconInfoCircle size={14} className="text-slate-400" />
                     </h3>
                   </div>
 
                   {/* 2 Circular Ring Gauges */}
-                  <div className="grid grid-cols-2 gap-3 items-center justify-center my-auto py-1">
+                  <div className="grid grid-cols-2 gap-2 items-center justify-center my-auto py-1">
                     {/* Ring Gauge 1: Tỷ lệ đạt QC */}
-                    <div className="flex flex-col items-center text-center space-y-1.5">
-                      <span className="text-xs font-bold text-slate-600">Tỷ lệ đạt QC</span>
+                    <div className="flex flex-col items-center text-center space-y-1">
+                      <span className="text-[11px] font-bold text-slate-600">Tỷ lệ đạt QC</span>
                       
-                      <div className="relative w-32 h-32 sm:w-36 sm:h-36 flex items-center justify-center">
+                      <div className="relative w-28 h-28 sm:w-32 sm:h-32 flex items-center justify-center">
                         <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
                           <circle cx="50" cy="50" r="40" stroke="#e2e8f0" strokeWidth="11" fill="transparent" />
                           <circle
@@ -760,24 +903,22 @@ export default function WorkDashboardPage() {
                           />
                         </svg>
                         <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                          <span className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">97.2%</span>
-                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full mt-0.5">Đạt</span>
+                          <span className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">97.2%</span>
+                          <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded-full">Đạt</span>
                         </div>
                       </div>
 
                       <div className="space-y-0.5">
-                        <span className="text-[11px] font-bold text-emerald-700 flex items-center justify-center gap-0.5">
-                          ▲ 2.1% so với kỳ trước
-                        </span>
-                        <span className="text-[10px] text-slate-500 font-semibold block">Mục tiêu: ≥ 95%</span>
+                        <span className="text-[10px] font-bold text-emerald-700 block">▲ 2.1% so với kỳ trước</span>
+                        <span className="text-[9px] text-slate-500 block">Mục tiêu: ≥ 95%</span>
                       </div>
                     </div>
 
                     {/* Ring Gauge 2: OEE Tổng thể */}
-                    <div className="flex flex-col items-center text-center space-y-1.5">
-                      <span className="text-xs font-bold text-slate-600">OEE Tổng thể</span>
+                    <div className="flex flex-col items-center text-center space-y-1">
+                      <span className="text-[11px] font-bold text-slate-600">OEE Tổng thể</span>
 
-                      <div className="relative w-32 h-32 sm:w-36 sm:h-36 flex items-center justify-center">
+                      <div className="relative w-28 h-28 sm:w-32 sm:h-32 flex items-center justify-center">
                         <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
                           <circle cx="50" cy="50" r="40" stroke="#e2e8f0" strokeWidth="11" fill="transparent" />
                           <circle
@@ -793,67 +934,62 @@ export default function WorkDashboardPage() {
                           />
                         </svg>
                         <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                          <span className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">88.6%</span>
-                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full mt-0.5">Hiệu quả</span>
+                          <span className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">88.6%</span>
+                          <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded-full">Hiệu quả</span>
                         </div>
                       </div>
 
                       <div className="space-y-0.5">
-                        <span className="text-[11px] font-bold text-emerald-700 flex items-center justify-center gap-0.5">
-                          ▲ 1.8% so với kỳ trước
-                        </span>
-                        <span className="text-[10px] text-slate-500 font-semibold block">Mục tiêu: ≥ 85%</span>
+                        <span className="text-[10px] font-bold text-emerald-700 block">▲ 1.8% so với kỳ trước</span>
+                        <span className="text-[9px] text-slate-500 block">Mục tiêu: ≥ 85%</span>
                       </div>
                     </div>
                   </div>
                 </div>
 
                 {/* RIGHT PANEL: TÌNH HÌNH LỖI (4 METRIC BOXES + SMOOTH LINE CHART) */}
-                <div className="lg:col-span-7 bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col justify-between min-h-0">
+                <div className="lg:col-span-7 bg-white p-3 sm:p-3.5 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col justify-between min-h-0">
                   <div className="pb-1 flex-shrink-0">
-                    <h3 className="text-sm font-black text-slate-900">Tình hình lỗi</h3>
+                    <h3 className="text-xs font-black text-slate-900">Tình hình lỗi</h3>
                   </div>
 
                   {/* 4 Stat Metric Cards */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 flex-shrink-0">
-                    <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80">
-                      <span className="text-[11px] font-bold text-slate-500 block truncate">Tổng số lỗi</span>
-                      <div className="text-xl font-black text-slate-900 mt-0.5">1,248</div>
-                      <span className="text-[10px] font-bold text-rose-600 mt-0.5 block">▲ 12.4%</span>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 flex-shrink-0">
+                    <div className="p-2 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-500 block truncate">Tổng số lỗi</span>
+                      <div className="text-lg font-black text-slate-900 mt-0.5">1,248</div>
+                      <span className="text-[9px] font-bold text-rose-600 block">▲ 12.4%</span>
                     </div>
 
-                    <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80">
-                      <span className="text-[11px] font-bold text-slate-500 block truncate">Lỗi nghiêm trọng (SOS)</span>
-                      <div className="text-xl font-black text-slate-900 mt-0.5">15</div>
-                      <span className="text-[10px] font-bold text-rose-600 mt-0.5 block">▲ 36.4%</span>
+                    <div className="p-2 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-500 block truncate">Lỗi nghiêm trọng (SOS)</span>
+                      <div className="text-lg font-black text-slate-900 mt-0.5">15</div>
+                      <span className="text-[9px] font-bold text-rose-600 block">▲ 36.4%</span>
                     </div>
 
-                    <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80">
-                      <span className="text-[11px] font-bold text-slate-500 block truncate">Lỗi cần cải thiện</span>
-                      <div className="text-xl font-black text-slate-900 mt-0.5">87</div>
-                      <span className="text-[10px] font-bold text-amber-600 mt-0.5 block">▲ 8.3%</span>
+                    <div className="p-2 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-500 block truncate">Lỗi cần cải thiện</span>
+                      <div className="text-lg font-black text-slate-900 mt-0.5">87</div>
+                      <span className="text-[9px] font-bold text-amber-600 block">▲ 8.3%</span>
                     </div>
 
-                    <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80">
-                      <span className="text-[11px] font-bold text-slate-500 block truncate">Lỗi đã xử lý</span>
-                      <div className="text-xl font-black text-slate-900 mt-0.5">1,146</div>
-                      <span className="text-[10px] font-bold text-emerald-600 mt-0.5 block">▲ 15.7%</span>
+                    <div className="p-2 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-500 block truncate">Lỗi đã xử lý</span>
+                      <div className="text-lg font-black text-slate-900 mt-0.5">1,146</div>
+                      <span className="text-[9px] font-bold text-emerald-600 block">▲ 15.7%</span>
                     </div>
                   </div>
 
                   {/* Line Chart: Xu hướng lỗi theo ngày */}
-                  <div className="mt-2 flex-1 min-h-[110px] flex flex-col justify-between">
-                    <span className="text-xs font-bold text-slate-700 block mb-1">Xu hướng lỗi theo ngày</span>
+                  <div className="mt-1 flex-1 min-h-[80px] flex flex-col justify-between">
+                    <span className="text-[11px] font-bold text-slate-700 block">Xu hướng lỗi theo ngày</span>
                     
-                    {/* SVG Line Graph */}
-                    <div className="relative w-full h-full min-h-[90px] flex items-end">
+                    <div className="relative w-full h-full min-h-[60px] flex items-end">
                       <svg className="w-full h-full overflow-visible" viewBox="0 0 500 100" preserveAspectRatio="none">
-                        {/* Grid lines */}
                         <line x1="0" y1="20" x2="500" y2="20" stroke="#f1f5f9" strokeWidth="1" />
                         <line x1="0" y1="50" x2="500" y2="50" stroke="#f1f5f9" strokeWidth="1" />
                         <line x1="0" y1="80" x2="500" y2="80" stroke="#f1f5f9" strokeWidth="1" />
 
-                        {/* Smooth Line Path */}
                         <path
                           d="M 20 65 Q 80 40 150 35 T 280 70 T 380 45 T 480 60"
                           fill="none"
@@ -861,7 +997,6 @@ export default function WorkDashboardPage() {
                           strokeWidth="2.5"
                         />
 
-                        {/* Line Nodes */}
                         <circle cx="20" cy="65" r="4" fill="#08221a" />
                         <circle cx="95" cy="48" r="4" fill="#08221a" />
                         <circle cx="170" cy="38" r="4" fill="#08221a" />
@@ -872,8 +1007,7 @@ export default function WorkDashboardPage() {
                       </svg>
                     </div>
 
-                    {/* Date Labels below Graph */}
-                    <div className="flex items-center justify-between text-[10px] font-semibold text-slate-400 pt-1">
+                    <div className="flex items-center justify-between text-[9px] font-semibold text-slate-400 pt-0.5">
                       <span>09/08</span>
                       <span>10/08</span>
                       <span>11/08</span>
@@ -888,11 +1022,11 @@ export default function WorkDashboardPage() {
 
               {/* LOWER ROW: QUICK FUNCTIONS (COL-4) + REALTIME ALERTS (COL-4) + FACTORY PERFORMANCE (COL-4) */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-2.5 flex-1 min-h-0">
-                {/* PANEL 1: CHỨC NĂNG NHANH (8 TILES) */}
-                <div className="lg:col-span-4 bg-white p-3 sm:p-3.5 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col justify-between min-h-0">
-                  <h3 className="text-xs font-black text-slate-900 pb-1.5">Chức năng nhanh</h3>
+                {/* PANEL 1: CHỨC NĂNG NHANH */}
+                <div className="lg:col-span-4 bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col justify-between min-h-0">
+                  <h3 className="text-xs font-black text-slate-900 pb-1">Chức năng nhanh</h3>
                   
-                  <div className="grid grid-cols-4 gap-1.5 my-auto">
+                  <div className="grid grid-cols-4 gap-1 my-auto">
                     {[
                       { label: "Báo cáo vấn đề", icon: IconShieldCheck, bg: "bg-emerald-100 text-[#08221a]" },
                       { label: "Nhiệm vụ & Công việc", icon: IconClipboardList, bg: "bg-blue-100 text-blue-700" },
@@ -905,12 +1039,12 @@ export default function WorkDashboardPage() {
                     ].map((tile, idx) => (
                       <button
                         key={idx}
-                        className="p-1.5 rounded-xl bg-slate-50 hover:bg-emerald-50/70 border border-slate-200/70 flex flex-col items-center text-center justify-center gap-1 transition-all cursor-pointer group hover:scale-[1.02]"
+                        className="p-1 rounded-xl bg-slate-50 hover:bg-emerald-50/70 border border-slate-200/70 flex flex-col items-center text-center justify-center gap-0.5 transition-all cursor-pointer group hover:scale-[1.02]"
                       >
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${tile.bg} group-hover:scale-105 transition-transform`}>
-                          <tile.icon size={16} />
+                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${tile.bg} group-hover:scale-105 transition-transform`}>
+                          <tile.icon size={15} />
                         </div>
-                        <span className="text-[9px] font-bold text-slate-700 group-hover:text-[#08221a] leading-tight line-clamp-2">
+                        <span className="text-[8.5px] font-bold text-slate-700 group-hover:text-[#08221a] leading-tight line-clamp-2">
                           {tile.label}
                         </span>
                       </button>
@@ -919,62 +1053,59 @@ export default function WorkDashboardPage() {
                 </div>
 
                 {/* PANEL 2: CẢNH BÁO THỜI GIAN THỰC */}
-                <div className="lg:col-span-4 bg-white p-3 sm:p-3.5 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col justify-between min-h-0">
+                <div className="lg:col-span-4 bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col justify-between min-h-0">
                   <div className="flex items-center justify-between pb-1 flex-shrink-0">
-                    <h3 className="text-xs font-black text-slate-900 flex items-center gap-1.5">
+                    <h3 className="text-xs font-black text-slate-900 flex items-center gap-1">
                       <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
                       <span>Cảnh báo thời gian thực</span>
                     </h3>
-                    <button className="text-[11px] font-bold text-[#08221a] hover:underline cursor-pointer">
+                    <button className="text-[10px] font-bold text-[#08221a] hover:underline cursor-pointer">
                       Xem tất cả →
                     </button>
                   </div>
 
-                  <div className="space-y-1.5 my-auto">
-                    {/* Alert 1 */}
-                    <div className="p-2 rounded-xl bg-rose-50/60 border border-rose-200/70 flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className="w-6 h-6 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center flex-shrink-0">
-                          <IconAlertTriangle size={14} />
+                  <div className="space-y-1 my-auto">
+                    <div className="p-1.5 rounded-xl bg-rose-50/60 border border-rose-200/70 flex items-center justify-between gap-1.5">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <div className="w-5 h-5 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center flex-shrink-0">
+                          <IconAlertTriangle size={13} />
                         </div>
                         <div className="min-w-0">
-                          <h4 className="text-xs font-bold text-slate-900 truncate">02 sự cố quá 2 giờ</h4>
-                          <span className="text-[10px] text-slate-500 font-medium block truncate">PX MAY 2 – Chuyền 5</span>
+                          <h4 className="text-[11px] font-bold text-slate-900 truncate">02 sự cố quá 2 giờ</h4>
+                          <span className="text-[9px] text-slate-500 font-medium block truncate">PX MAY 2 – Chuyền 5</span>
                         </div>
                       </div>
-                      <span className="w-5 h-5 rounded-full bg-rose-600 text-white font-bold text-[10px] flex items-center justify-center flex-shrink-0">
+                      <span className="w-4 h-4 rounded-full bg-rose-600 text-white font-bold text-[9px] flex items-center justify-center flex-shrink-0">
                         2
                       </span>
                     </div>
 
-                    {/* Alert 2 */}
-                    <div className="p-2 rounded-xl bg-amber-50/60 border border-amber-200/70 flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className="w-6 h-6 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center flex-shrink-0">
-                          <IconAlertCircle size={14} />
+                    <div className="p-1.5 rounded-xl bg-amber-50/60 border border-amber-200/70 flex items-center justify-between gap-1.5">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <div className="w-5 h-5 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center flex-shrink-0">
+                          <IconAlertCircle size={13} />
                         </div>
                         <div className="min-w-0">
-                          <h4 className="text-xs font-bold text-slate-900 truncate">01 sự cố chưa hoàn tất</h4>
-                          <span className="text-[10px] text-slate-500 font-medium block truncate">PX GÒ – Chuyền 2</span>
+                          <h4 className="text-[11px] font-bold text-slate-900 truncate">01 sự cố chưa hoàn tất</h4>
+                          <span className="text-[9px] text-slate-500 font-medium block truncate">PX GÒ – Chuyền 2</span>
                         </div>
                       </div>
-                      <span className="w-5 h-5 rounded-full bg-amber-500 text-white font-bold text-[10px] flex items-center justify-center flex-shrink-0">
+                      <span className="w-4 h-4 rounded-full bg-amber-500 text-white font-bold text-[9px] flex items-center justify-center flex-shrink-0">
                         1
                       </span>
                     </div>
 
-                    {/* Alert 3 */}
-                    <div className="p-2 rounded-xl bg-rose-50/60 border border-rose-200/70 flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className="w-6 h-6 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center flex-shrink-0">
-                          <IconFlame size={14} />
+                    <div className="p-1.5 rounded-xl bg-rose-50/60 border border-rose-200/70 flex items-center justify-between gap-1.5">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <div className="w-5 h-5 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center flex-shrink-0">
+                          <IconFlame size={13} />
                         </div>
                         <div className="min-w-0">
-                          <h4 className="text-xs font-bold text-slate-900 truncate">01 sự cố nguy cơ SOS</h4>
-                          <span className="text-[10px] text-slate-500 font-medium block truncate">PX ĐẾ – Chuyền 1</span>
+                          <h4 className="text-[11px] font-bold text-slate-900 truncate">01 sự cố nguy cơ SOS</h4>
+                          <span className="text-[9px] text-slate-500 font-medium block truncate">PX ĐẾ – Chuyền 1</span>
                         </div>
                       </div>
-                      <span className="w-5 h-5 rounded-full bg-rose-600 text-white font-bold text-[10px] flex items-center justify-center flex-shrink-0">
+                      <span className="w-4 h-4 rounded-full bg-rose-600 text-white font-bold text-[9px] flex items-center justify-center flex-shrink-0">
                         1
                       </span>
                     </div>
@@ -982,27 +1113,27 @@ export default function WorkDashboardPage() {
                 </div>
 
                 {/* PANEL 3: HIỆU SUẤT THEO NHÀ MÁY */}
-                <div className="lg:col-span-4 bg-white p-3 sm:p-3.5 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col justify-between min-h-0">
+                <div className="lg:col-span-4 bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col justify-between min-h-0">
                   <div className="flex items-center justify-between pb-1 flex-shrink-0">
                     <h3 className="text-xs font-black text-slate-900">Hiệu suất theo nhà máy</h3>
-                    <button className="text-[11px] font-bold text-[#08221a] hover:underline cursor-pointer">
+                    <button className="text-[10px] font-bold text-[#08221a] hover:underline cursor-pointer">
                       Xem chi tiết →
                     </button>
                   </div>
 
-                  <div className="space-y-2 my-auto">
+                  <div className="space-y-1.5 my-auto">
                     {[
                       { name: "Nhà máy 1", pct: "98.1%", val: 98.1, color: "bg-emerald-600" },
                       { name: "Nhà máy 2", pct: "96.5%", val: 96.5, color: "bg-emerald-600" },
                       { name: "Nhà máy 3", pct: "94.2%", val: 94.2, color: "bg-amber-500" },
                       { name: "Toàn nhà máy", pct: "97.2%", val: 97.2, color: "bg-[#08221a]" },
                     ].map((fac, idx) => (
-                      <div key={idx} className="space-y-1">
-                        <div className="flex items-center justify-between text-xs font-bold">
+                      <div key={idx} className="space-y-0.5">
+                        <div className="flex items-center justify-between text-[11px] font-bold">
                           <span className="text-slate-700">{fac.name}</span>
                           <span className="text-slate-900 font-black">{fac.pct}</span>
                         </div>
-                        <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+                        <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden">
                           <div className={`h-full ${fac.color} rounded-full`} style={{ width: `${fac.val}%` }} />
                         </div>
                       </div>
@@ -1012,45 +1143,45 @@ export default function WorkDashboardPage() {
               </div>
 
               {/* BOTTOM STRIP: DARK GREEN QUICK CREATION BAR */}
-              <div className="bg-[#08221a] text-white p-2.5 rounded-2xl border border-emerald-950/60 shadow-md flex items-center justify-between flex-shrink-0">
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full">
-                  <button className="p-2 rounded-xl bg-white/10 hover:bg-white/20 transition-colors flex items-center gap-2.5 text-left cursor-pointer group border border-white/10">
-                    <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-300 flex items-center justify-center flex-shrink-0">
-                      <IconPlus size={16} />
+              <div className="bg-[#08221a] text-white p-2 rounded-2xl border border-emerald-950/60 shadow-md flex items-center justify-between flex-shrink-0">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 w-full">
+                  <button className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 transition-colors flex items-center gap-2 text-left cursor-pointer border border-white/10">
+                    <div className="w-6 h-6 rounded-lg bg-emerald-500/20 text-emerald-300 flex items-center justify-center flex-shrink-0">
+                      <IconPlus size={15} />
                     </div>
                     <div className="min-w-0">
                       <h4 className="text-xs font-bold text-white truncate">Tạo báo cáo kiểm tra</h4>
-                      <span className="text-[9px] text-emerald-200/80 block truncate">Ghi nhận &amp; báo cáo QC</span>
+                      <span className="text-[8.5px] text-emerald-200/80 block truncate">Ghi nhận &amp; báo cáo QC</span>
                     </div>
                   </button>
 
-                  <button className="p-2 rounded-xl bg-white/10 hover:bg-white/20 transition-colors flex items-center gap-2.5 text-left cursor-pointer group border border-white/10">
-                    <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-300 flex items-center justify-center flex-shrink-0">
-                      <IconClipboardList size={16} />
+                  <button className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 transition-colors flex items-center gap-2 text-left cursor-pointer border border-white/10">
+                    <div className="w-6 h-6 rounded-lg bg-emerald-500/20 text-emerald-300 flex items-center justify-center flex-shrink-0">
+                      <IconClipboardList size={15} />
                     </div>
                     <div className="min-w-0">
                       <h4 className="text-xs font-bold text-white truncate">Tạo nhiệm vụ QC</h4>
-                      <span className="text-[9px] text-emerald-200/80 block truncate">Giao việc &amp; theo dõi</span>
+                      <span className="text-[8.5px] text-emerald-200/80 block truncate">Giao việc &amp; theo dõi</span>
                     </div>
                   </button>
 
-                  <button className="p-2 rounded-xl bg-white/10 hover:bg-white/20 transition-colors flex items-center gap-2.5 text-left cursor-pointer group border border-white/10">
-                    <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-300 flex items-center justify-center flex-shrink-0">
-                      <IconTrendingUp size={16} />
+                  <button className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 transition-colors flex items-center gap-2 text-left cursor-pointer border border-white/10">
+                    <div className="w-6 h-6 rounded-lg bg-emerald-500/20 text-emerald-300 flex items-center justify-center flex-shrink-0">
+                      <IconTrendingUp size={15} />
                     </div>
                     <div className="min-w-0">
                       <h4 className="text-xs font-bold text-white truncate">Xem Dashboard chi tiết</h4>
-                      <span className="text-[9px] text-emerald-200/80 block truncate">Phân tích chuyên sâu</span>
+                      <span className="text-[8.5px] text-emerald-200/80 block truncate">Phân tích chuyên sâu</span>
                     </div>
                   </button>
 
-                  <button className="p-2 rounded-xl bg-white/10 hover:bg-white/20 transition-colors flex items-center gap-2.5 text-left cursor-pointer group border border-white/10">
-                    <div className="w-7 h-7 rounded-lg bg-rose-500/20 text-rose-300 flex items-center justify-center flex-shrink-0">
-                      <IconFlame size={16} />
+                  <button className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 transition-colors flex items-center gap-2 text-left cursor-pointer border border-white/10">
+                    <div className="w-6 h-6 rounded-lg bg-rose-500/20 text-rose-300 flex items-center justify-center flex-shrink-0">
+                      <IconFlame size={15} />
                     </div>
                     <div className="min-w-0 flex-1">
                       <h4 className="text-xs font-bold text-white truncate">Quản lý sự cố (SOS)</h4>
-                      <span className="text-[9px] text-rose-200/80 block truncate">Xử lý khẩn cấp →</span>
+                      <span className="text-[8.5px] text-rose-200/80 block truncate">Xử lý khẩn cấp →</span>
                     </div>
                   </button>
                 </div>
@@ -1058,11 +1189,9 @@ export default function WorkDashboardPage() {
             </div>
           )}
 
-          {/* ════════════════════════════════════════════════════════════════
-              MODE: NHÂN SỰ HÀNH CHÍNH (HR) DASHBOARD (Zero-Scroll Viewport Fit)
-             ════════════════════════════════════════════════════════════════ */}
+          {/* MODE: NHÂN SỰ HÀNH CHÍNH (HR) DASHBOARD */}
           {selectedDept === "hr" && (
-            <div className="h-full flex flex-col justify-between gap-2 overflow-hidden">
+            <div className="flex-1 flex flex-col justify-between gap-2 overflow-hidden">
               <div className="space-y-1.5 flex-shrink-0">
                 <div className="flex items-center gap-2 pb-0.5">
                   <div className="w-7 h-7 rounded-lg bg-[#08221a] text-white flex items-center justify-center">
@@ -1113,7 +1242,6 @@ export default function WorkDashboardPage() {
                 </div>
               </div>
 
-              {/* Sub Section: Nhân sự */}
               <div className="space-y-1.5 flex-1 min-h-0 flex flex-col justify-between">
                 <div className="flex items-center gap-2 pb-0.5 flex-shrink-0">
                   <div className="w-7 h-7 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center">
@@ -1159,11 +1287,11 @@ export default function WorkDashboardPage() {
 
           {/* OTHER DEPARTMENTS OR COMING SOON */}
           {selectedDept && selectedDept !== "qc" && selectedDept !== "hr" && (
-            <div className="h-full flex flex-col items-center justify-center p-8 bg-white rounded-2xl border border-slate-200/90 shadow-2xs text-center space-y-3">
-              <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-[#08221a] flex items-center justify-center border border-emerald-100">
-                <IconClock size={28} />
+            <div className="flex-1 flex flex-col items-center justify-center p-6 bg-white rounded-2xl border border-slate-200/90 shadow-2xs text-center space-y-2">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-[#08221a] flex items-center justify-center border border-emerald-100">
+                <IconClock size={24} />
               </div>
-              <h3 className="text-lg font-black text-slate-900">
+              <h3 className="text-base font-black text-slate-900">
                 Bảng Điều Khiển {activeDeptObj?.name}
               </h3>
               <p className="text-slate-500 text-xs max-w-sm">
@@ -1171,7 +1299,7 @@ export default function WorkDashboardPage() {
               </p>
               <button
                 onClick={() => setSelectedDept("qc")}
-                className="px-4 py-2 rounded-xl bg-[#08221a] text-white text-xs font-bold hover:bg-[#0b3226] transition-colors cursor-pointer"
+                className="px-3.5 py-1.5 rounded-xl bg-[#08221a] text-white text-xs font-bold hover:bg-[#0b3226] transition-colors cursor-pointer"
               >
                 Về Bảng Quản Lý Chất Lượng (QC)
               </button>

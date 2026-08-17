@@ -74,7 +74,7 @@ export default function LoginPage() {
       }
 
 
-      const ROLE_MAP: Record<string, { empCode: string; name: string; title: string; department: string; roles: string[]; managedDepartmentId?: string; avatar: string; redirectUrl: string }> = {
+      const ROLE_MAP: Record<string, { empCode: string; name: string; title: string; department: string; roles: string[]; managedDepartmentId?: string; avatar: string; redirectUrl: string; email?: string; phone?: string }> = {
         ceo: {
           empCode: "TGĐ-001",
           name: "Tổng Giám Đốc",
@@ -125,6 +125,18 @@ export default function LoginPage() {
           name: "Phạm Nguyễn Anh Huy",
           title: "Trưởng Phòng CN-CI",
           department: "CN-CI (Cải Tiến Liên Tục)",
+          roles: ["employee", "department_head", "ci"],
+          managedDepartmentId: "ci",
+          avatar: "/images/tbs-logo.png",
+          redirectUrl: "/work",
+        },
+        "2026080001": {
+          empCode: "2026080001",
+          name: "Phạm Nguyễn Anh Huy",
+          title: "Trưởng Phòng CN-CI",
+          department: "CN-CI (Cải Tiến Liên Tục)",
+          email: "anhy.work.2004@gmail.com",
+          phone: "0522511245",
           roles: ["employee", "department_head", "ci"],
           managedDepartmentId: "ci",
           avatar: "/images/tbs-logo.png",
@@ -185,10 +197,11 @@ export default function LoginPage() {
         ? (ROLE_MAP[selectedRole] || ROLE_MAP["202608001"])
         : (ROLE_MAP[cleanEmpCode] || {
             empCode: cleanEmpCode || "202608001",
-            name: apiName || (cleanEmpCode ? cleanEmpCode : "Phạm Nguyễn Anh Huy"),
+            // Dùng tên từ D1 (API) nếu có, kựng thì hiện "Cán Bộ Nhân Viên" — không dung số MSNV làm tên
+            name: apiName || "Cán Bộ Nhân Viên",
             title: apiTitle || "Cán Bộ Công Nhân Viên",
             department: apiDept || "Văn Phòng Chuỗi SKECHERS",
-            email: apiEmail,
+            email: apiEmail || `${cleanEmpCode}@tbsgroup.vn`,
             phone: apiPhone,
             roles: ["employee"],
             avatar: "/images/tbs-logo.png",

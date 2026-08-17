@@ -34,6 +34,8 @@ import {
   IconFileText,
   IconNotes,
 } from "@tabler/icons-react";
+import Can from "@/components/Can";
+import { PERMISSIONS } from "@/lib/permissions";
 
 interface MeetingRoom {
   id: string;
@@ -774,7 +776,7 @@ export default function MeetingRoomsPage() {
             TOP NAVIGATION TABS (SEGMENTED CONTROL BAR - TASTE SKILL HUMAN STYLE)
            ════════════════════════════════════════════════════════════════ */}
         <div className="bg-slate-200/60 p-1.5 rounded-2xl border border-slate-200/90 shadow-inner flex items-center gap-1 overflow-x-auto">
-          {userRole === "LE_TAN" && (
+          <Can permission={PERMISSIONS.ROOMS_APPROVE}>
             <button
               onClick={() => setActiveTab("APPROVALS")}
               className={`px-4 py-2.5 rounded-xl font-extrabold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
@@ -791,7 +793,7 @@ export default function MeetingRoomsPage() {
                 </span>
               )}
             </button>
-          )}
+          </Can>
 
           <button
             onClick={() => setActiveTab("BOOKING")}

@@ -15,12 +15,12 @@ import {
   IconBuildingFactory,
   IconArrowRight,
   IconChevronDown,
-  IconBuildingStore,
 } from "@tabler/icons-react";
+import { LOGIN_ROLE_OPTIONS } from "@/lib/permissions";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [selectedRole, setSelectedRole] = useState("CBCNV");
+  const [selectedRole, setSelectedRole] = useState<string>("employee");
   const [empCode, setEmpCode] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
@@ -28,7 +28,8 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const isExecutive = selectedRole !== "CBCNV";
+  const selectedRoleOpt = LOGIN_ROLE_OPTIONS.find((r) => r.value === selectedRole) || LOGIN_ROLE_OPTIONS[4];
+  const isPasswordOnly = selectedRoleOpt.loginMethod === "password_only";
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,7 +45,7 @@ export default function LoginPage() {
         const res = await fetch("/api/auth/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ empCode: isExecutive ? selectedRole : empCode, password, role: selectedRole }),
+          body: JSON.stringify({ empCode: isPasswordOnly ? selectedRole : empCode, password, role: selectedRole }),
         });
 
         const text = await res.text();
@@ -61,6 +62,7 @@ export default function LoginPage() {
           redirectUrl = data.redirectUrl || "/work";
           if (data.user && typeof window !== "undefined") {
             localStorage.setItem("tbs_current_user", JSON.stringify(data.user));
+            window.dispatchEvent(new Event("tbs_profile_updated"));
           }
         } else if (data?.error) {
           throw new Error(data.error);
@@ -71,100 +73,78 @@ export default function LoginPage() {
         }
       }
 
-      const ROLE_MAP: Record<string, { empCode: string; name: string; title: string; department: string; avatar: string; redirectUrl: string }> = {
-        TONG_GIAM_DOC: {
+      const ROLE_MAP: Record<string, { empCode: string; name: string; title: string; department: string; roles: string[]; managedDepartmentId?: string; avatar: string; redirectUrl: string }> = {
+        ceo: {
           empCode: "TGĐ-001",
           name: "Tổng Giám Đốc",
           title: "Tổng Giám Đốc Tập Đoàn TBS Group",
           department: "Ban Giám Đốc Tập Đoàn",
+          roles: ["ceo"],
           avatar: "/images/tbs-logo.png",
           redirectUrl: "/work",
         },
-        PHO_TONG_GIAM_DOC: {
+        deputy_ceo: {
           empCode: "PTGĐ-002",
           name: "Phó Tổng Giám Đốc",
           title: "Phó Tổng Giám Đốc Vận Hành & Chuỗi Cung Ứng",
           department: "Ban Giám Đốc Vận Hành",
+          roles: ["deputy_ceo"],
           avatar: "/images/tbs-logo.png",
           redirectUrl: "/work",
         },
-        GIAM_DOC: {
+        director: {
           empCode: "GĐ-003",
           name: "Giám Đốc",
           title: "Giám Đốc Khối Sản Xuất & Tổ Hợp Nhà Máy",
           department: "Khối Sản Xuất & Nhà Máy",
+          roles: ["director"],
           avatar: "/images/tbs-logo.png",
           redirectUrl: "/work",
         },
-        PHO_GIAM_DOC: {
+        deputy_director: {
           empCode: "PGĐ-004",
           name: "Phó Giám Đốc",
           title: "Phó Giám Đốc Quản Lý Chất Lượng (QC) & Gemba",
           department: "Khối Quản Lý Chất Lượng (QC)",
+          roles: ["deputy_director"],
           avatar: "/images/tbs-logo.png",
           redirectUrl: "/work",
+        },
+        admin: {
+          empCode: "ADMIN-2026",
+          name: "Quản Trị Viên Hệ Thống",
+          title: "Quản Trị Viên Hệ Thống TBS Group",
+          department: "Khối Quản Trị Hệ Thống",
+          roles: ["admin"],
+          avatar: "/images/tbs-logo.png",
+          redirectUrl: "/admin/roles",
         },
         "202608001": {
           empCode: "202608001",
           name: "Phạm Nguyễn Anh Huy",
-          title: "IT - Team chuyển đổi số",
-          department: "IT - Team chuyển đổi số",
-          avatar: "/images/tbs-logo.png",
-          redirectUrl: "/work",
-        },
-        "EMP-001": {
-          empCode: "EMP-001",
-          name: "Phạm Nguyễn Anh Huy",
-          title: "IT - Team chuyển đổi số",
-          department: "IT - Team chuyển đổi số",
+          title: "Trưởng Phòng CN-CI",
+          department: "CN-CI (Cải Tiến Liên Tục)",
+          roles: ["employee", "department_head", "ci"],
+          managedDepartmentId: "ci",
           avatar: "/images/tbs-logo.png",
           redirectUrl: "/work",
         },
         "202608002": {
           empCode: "202608002",
           name: "Trần Ngọc Huy",
-          title: "IT - Team chuyển đổi số",
-          department: "IT - Team chuyển đổi số",
+          title: "Lễ Tân Văn Phòng",
+          department: "Nhân Sự - Hành Chánh",
+          roles: ["employee", "receptionist"],
+          managedDepartmentId: "hr",
           avatar: "/images/tbs-logo.png",
-          redirectUrl: "/work",
+          redirectUrl: "/rooms",
         },
-        "EMP-002": {
-          empCode: "EMP-002",
+        employee: {
+          empCode: "EMP-001",
           name: "Cán Bộ Công Nhân Viên",
           title: "Cán Bộ Công Nhân Viên",
           department: "Văn Phòng Chuỗi SKECHERS",
-          avatar: "/images/tbs-logo.png",
-          redirectUrl: "/work",
-        },
-        "EMP-003": {
-          empCode: "EMP-003",
-          name: "Cán Bộ Công Nhân Viên",
-          title: "Cán Bộ Công Nhân Viên",
-          department: "Văn Phòng Chuỗi SKECHERS",
-          avatar: "/images/tbs-logo.png",
-          redirectUrl: "/work",
-        },
-        "tbsgroup2026@gmail.com": {
-          empCode: "ADMIN-2026",
-          name: "Quản Trị Viên Hệ Thống",
-          title: "Quản Trị Viên Hệ Thống TBS Group",
-          department: "Khối Quản Trị Hệ Thống",
-          avatar: "/images/tbs-logo.png",
-          redirectUrl: "/admin",
-        },
-        SYSTEM_ADMIN: {
-          empCode: "ADMIN-2026",
-          name: "Quản Trị Viên Hệ Thống",
-          title: "Quản Trị Viên Hệ Thống TBS Group",
-          department: "Khối Quản Trị Hệ Thống",
-          avatar: "/images/tbs-logo.png",
-          redirectUrl: "/admin",
-        },
-        CBCNV: {
-          empCode: "202608001",
-          name: "Cán Bộ Công Nhân Viên",
-          title: "Cán Bộ Công Nhân Viên",
-          department: "Văn Phòng Chuỗi SKECHERS",
+          roles: ["employee"],
           avatar: "/images/tbs-logo.png",
           redirectUrl: "/work",
         },
@@ -172,25 +152,22 @@ export default function LoginPage() {
 
       // Fallback for static exports on Cloudflare Workers where API routes are static
       if (!isSuccess) {
-        if (isExecutive) {
+        if (isPasswordOnly) {
           if (!password) {
             throw new Error("Vui lòng nhập mật khẩu xác thực");
           }
           isSuccess = true;
-          token = `token_${selectedRole.toLowerCase()}_executive`;
+          token = `token_${selectedRole}_executive`;
         } else {
           if (empCode === "202608001" && password === "21032004") {
             isSuccess = true;
             token = "token_202608001_super_admin";
           } else if (empCode === "202608002" && password === "123456") {
             isSuccess = true;
-            token = "token_202608002_super_admin";
-          } else if ((empCode === "EMP-001" || empCode === "admin@tbsgroup.vn") && password === "Admin@123456") {
+            token = "token_202608002_receptionist";
+          } else if (selectedRole === "admin") {
             isSuccess = true;
-            token = "token_emp001_admin";
-          } else if (empCode === "EMP-002" && password === "User@123456") {
-            isSuccess = true;
-            token = "token_emp002_staff";
+            token = "token_system_admin";
           } else if (empCode && password) {
             isSuccess = true;
             token = `token_${empCode}_staff`;
@@ -200,16 +177,14 @@ export default function LoginPage() {
         }
       }
 
-      const activeProfile = isExecutive ? ROLE_MAP[selectedRole] : (ROLE_MAP[empCode] || ROLE_MAP["CBCNV"]);
-      if (typeof window !== "undefined" && !localStorage.getItem("tbs_current_user")) {
+      const activeProfile = isPasswordOnly ? (ROLE_MAP[selectedRole] || ROLE_MAP["employee"]) : (ROLE_MAP[empCode] || ROLE_MAP["employee"]);
+      if (typeof window !== "undefined") {
         localStorage.setItem("tbs_current_user", JSON.stringify(activeProfile));
+        window.dispatchEvent(new Event("tbs_profile_updated"));
       }
 
       document.cookie = `tbs_token=${token}; path=/; max-age=86400`;
       let targetUrl = activeProfile?.redirectUrl || redirectUrl;
-      if (targetUrl.includes("/bi")) {
-        targetUrl = "/work";
-      }
       router.push(targetUrl);
     } catch (err: unknown) {
       const message =
@@ -222,9 +197,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-[#08221a] font-sans antialiased text-white selection:bg-[#2fd39a] selection:text-[#08221a]">
-      {/* ════════════════════════════════════════════════════════════════
-          CỘT TRÁI — FORM ĐĂNG NHẬP (Nền trắng / Sáng, ~45% Desktop, 100% Mobile)
-         ════════════════════════════════════════════════════════════════ */}
+      {/* CỘT TRÁI — FORM ĐĂNG NHẬP */}
       <div className="w-full md:w-[45%] lg:w-[42%] bg-white text-gray-900 flex flex-col justify-between p-6 sm:p-10 lg:p-14 shadow-2xl relative z-10">
         <div>
           {/* Header nhỏ trên cùng */}
@@ -275,41 +248,40 @@ export default function LoginPage() {
                   }}
                   className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-800 focus:outline-none focus:border-[#08221a] focus:ring-2 focus:ring-[#08221a]/10 transition-all appearance-none cursor-pointer pr-10"
                 >
-                  <option value="TONG_GIAM_DOC">👑 Tổng Giám Đốc</option>
-                  <option value="PHO_TONG_GIAM_DOC">⭐ Phó Tổng Giám Đốc</option>
-                  <option value="GIAM_DOC">👔 Giám Đốc</option>
-                  <option value="PHO_GIAM_DOC">💼 Phó Giám Đốc</option>
-                  <option value="CBCNV">👤 CBCNV (Cán Bộ Công Nhân Viên)</option>
-                  <option value="SYSTEM_ADMIN">🛠️ Quản Trị Viên Hệ Thống (Admin)</option>
+                  {LOGIN_ROLE_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.icon} {opt.label}
+                    </option>
+                  ))}
                 </select>
                 <IconChevronDown size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
               </div>
             </div>
 
-            {/* Field 2: Người dùng (Mã nhân viên) — CHI HIỆN CHO CBCNV */}
-            {!isExecutive && (
+            {/* Field 2: Mã số nhân viên — CHI HIỆN CHO LOGIN_METHOD === "msnv_password" */}
+            {!isPasswordOnly && (
               <div className="space-y-1.5 animate-in fade-in duration-200">
                 <label htmlFor="empCode" className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
                   <IconUser size={15} className="text-gray-500" />
-                  <span>Mã nhân viên / Người dùng</span>
+                  <span>Mã số nhân viên (MSNV)</span>
                 </label>
                 <input
                   id="empCode"
                   type="text"
-                  required={!isExecutive}
+                  required={!isPasswordOnly}
                   value={empCode}
                   onChange={(e) => setEmpCode(e.target.value)}
-                  placeholder="EMP-001 hoặc EMP-002"
+                  placeholder="VD: 202608001"
                   className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:outline-none focus:border-[#08221a] focus:ring-2 focus:ring-[#08221a]/10 transition-all placeholder:text-gray-400"
                 />
               </div>
             )}
 
-            {/* Field 3: Mật khẩu (Luôn hiển thị cho cả Executive & CBCNV) */}
+            {/* Field 3: Mật khẩu */}
             <div className="space-y-1.5">
               <label htmlFor="password" className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
                 <IconLock size={15} className="text-gray-500" />
-                <span>Mật khẩu {isExecutive && "xác thực Ban Giám Đốc"}</span>
+                <span>Mật khẩu {isPasswordOnly && "xác thực Ban Giám Đốc"}</span>
               </label>
               <div className="relative">
                 <input
@@ -331,7 +303,7 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Hàng dưới cùng form: Remember me & Forgot PW */}
+            {/* Hàng dưới cùng form */}
             <div className="flex items-center justify-between pt-1 text-xs">
               <label className="flex items-center gap-2 cursor-pointer text-gray-600 font-medium select-none">
                 <input
@@ -347,20 +319,21 @@ export default function LoginPage() {
               </a>
             </div>
 
-            {/* Submit Button: Gradient xanh lá đậm -> đen */}
+            {/* Submit Button */}
             <button
               type="submit"
               disabled={loading}
               className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-[#08221a] via-[#0f4133] to-[#08221a] text-white font-extrabold text-xs uppercase tracking-wider shadow-xl shadow-emerald-950/20 hover:brightness-110 active:scale-[0.99] disabled:opacity-50 transition-all duration-200 flex items-center justify-center gap-2 mt-4"
             >
-              <span>{loading ? "Đang xác thực..." : "Đăng Nhập Hệ Thống"}</span>
+              <span>{loading ? "Đang xác thực..." : "ĐĂNG NHẬP HỆ THỐNG"}</span>
             </button>
           </form>
 
           {/* Quick Demo Credentials hint */}
-          <div className="mt-6 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-900 space-y-1">
+          {/* Quick Demo Credentials hint */}
+          <div className="mt-6 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-900 space-y-1.5">
             <span className="font-bold block">💡 Hướng dẫn đăng nhập:</span>
-            <div>👑 <b>Ban Giám Đốc</b> (Tổng Giám Đốc, Phó TGĐ, Giám Đốc, Phó GĐ): Chỉ cần chọn Chức vụ + Nhập mật khẩu (ví dụ: <code className="font-mono">123456</code>).</div>
+            <div>👑 <b>Ban Giám Đốc</b> (Tổng TGĐ, Phó TGĐ, Giám Đốc, Phó GĐ): Chỉ cần chọn Chức vụ + Nhập mật khẩu (ví dụ: <code className="font-mono">123456</code>).</div>
             <div>👤 <b>CBCNV</b>: Chọn CBCNV + Nhập MSNV (<code className="font-mono">202608001</code>) + Mật khẩu (<code className="font-mono">21032004</code>).</div>
           </div>
         </div>

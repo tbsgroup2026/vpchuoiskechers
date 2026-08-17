@@ -2,6 +2,9 @@
 
 import { useState } from 'react';
 
+import Can from '@/components/Can';
+import { PERMISSIONS } from '@/lib/permissions';
+
 export default function DocumentApprovalsPage() {
   const [approvals, setApprovals] = useState([
     { id: 1, docTitle: 'Đơn Xin Nghỉ Phép', creator: 'Nguyễn Văn A (EMP-088)', dept: 'Sản Xuất', date: '2026-08-01', status: 'PENDING' },
@@ -46,20 +49,20 @@ export default function DocumentApprovalsPage() {
                 </td>
                 <td className="p-4 text-right space-x-2">
                   {item.status === 'PENDING' ? (
-                    <>
+                    <Can permission={PERMISSIONS.DOC_APPROVE} fallback={<span className="text-gray-400 text-[11px]">Không có quyền duyệt</span>}>
                       <button
                         onClick={() => handleAction(item.id, 'APPROVED')}
-                        className="px-3 py-1 bg-accent text-white rounded-lg font-bold hover:bg-accent-light"
+                        className="px-3 py-1 bg-[#006838] text-white rounded-lg font-bold hover:bg-[#00522c] cursor-pointer"
                       >
                         Đồng Ý
                       </button>
                       <button
                         onClick={() => handleAction(item.id, 'REJECTED')}
-                        className="px-3 py-1 bg-red-500 text-white rounded-lg font-bold hover:bg-red-600"
+                        className="px-3 py-1 bg-red-500 text-white rounded-lg font-bold hover:bg-red-600 cursor-pointer ml-2"
                       >
                         Từ Chối
                       </button>
-                    </>
+                    </Can>
                   ) : (
                     <span className="text-gray-400 text-[11px]">Hoàn tất</span>
                   )}

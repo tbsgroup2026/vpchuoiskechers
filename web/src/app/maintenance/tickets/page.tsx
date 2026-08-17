@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import Can from '@/components/Can';
+import { PERMISSIONS } from '@/lib/permissions';
 
 export default function MaintenanceTicketsPage() {
   const [tickets] = useState([
@@ -34,9 +36,20 @@ export default function MaintenanceTicketsPage() {
 
   return (
     <div className="min-h-screen bg-tbs-light p-8 space-y-6">
-      <div>
-        <h1 className="text-2xl font-extrabold text-tbs-dark">Danh Sách Ticket Sự Cố Bảo Trì</h1>
-        <p className="text-xs text-gray-500 mt-1">Theo dõi tiến độ từ lúc Công nhân quét mã hỏng đến khi Bảo trì sửa xong</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-extrabold text-tbs-dark">Danh Sách Ticket Sự Cố Bảo Trì</h1>
+          <p className="text-xs text-gray-500 mt-1">Theo dõi tiến độ từ lúc Công nhân quét mã hỏng đến khi Bảo trì sửa xong</p>
+        </div>
+
+        <Can permission={PERMISSIONS.MAINT_CREATE_TICKET}>
+          <button
+            onClick={() => alert("Mở form báo sự cố máy móc mới!")}
+            className="px-4 py-2 bg-[#006838] hover:bg-[#00522c] text-white text-xs font-bold rounded-xl shadow-xs transition cursor-pointer"
+          >
+            + Báo Sự Cố Mới
+          </button>
+        </Can>
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-xl overflow-hidden">
@@ -50,6 +63,7 @@ export default function MaintenanceTicketsPage() {
               <th className="p-4">Loại Lỗi</th>
               <th className="p-4">Trạng Thái Ticket</th>
               <th className="p-4">Thời Gian Báo</th>
+              <th className="p-4 text-center">Hành Động</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 text-xs text-gray-700">
@@ -68,6 +82,16 @@ export default function MaintenanceTicketsPage() {
                   {t.status === 'RESOLVED' && <span className="px-2.5 py-1 bg-emerald-500/20 text-emerald-700 font-bold rounded">Đã Xong</span>}
                 </td>
                 <td className="p-4 font-mono text-gray-500">{t.reportedAt}</td>
+                <td className="p-4 text-center">
+                  <Can permission={PERMISSIONS.MAINT_MANAGE}>
+                    <button
+                      onClick={() => alert(`Phân công hoặc cập nhật ticket ${t.ticketCode}`)}
+                      className="px-2.5 py-1 bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white font-bold text-[11px] rounded transition cursor-pointer border border-blue-200"
+                    >
+                      Xử Lý Ticket
+                    </button>
+                  </Can>
+                </td>
               </tr>
             ))}
           </tbody>

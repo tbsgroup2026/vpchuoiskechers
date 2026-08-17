@@ -4,6 +4,8 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import NotificationCenter from "@/components/NotificationCenter";
 import DonutChartModal from "@/components/DonutChartModal";
+import Can from "@/components/Can";
+import { PERMISSIONS } from "@/lib/permissions";
 import {
   IconUsers,
   IconCalculator,
@@ -1576,13 +1578,15 @@ export default function WorkDashboardPage() {
                   </div>
                 </div>
 
-                <button
-                  onClick={() => showToast("📊 Đang xuất báo cáo kiểm tra chất lượng QC...")}
-                  className="flex items-center gap-1.5 bg-[#006838] hover:bg-[#00522c] text-white text-xs font-extrabold px-3.5 py-1.5 rounded-xl shadow-xs transition-all cursor-pointer"
-                >
-                  <IconDownload size={15} />
-                  <span>Xuất báo cáo PDF/Excel</span>
-                </button>
+                <Can permission={PERMISSIONS.QC_MANAGE}>
+                  <button
+                    onClick={() => showToast("📊 Đang xuất báo cáo kiểm tra chất lượng QC...")}
+                    className="flex items-center gap-1.5 bg-[#006838] hover:bg-[#00522c] text-white text-xs font-extrabold px-3.5 py-1.5 rounded-xl shadow-xs transition-all cursor-pointer"
+                  >
+                    <IconDownload size={15} />
+                    <span>Xuất báo cáo PDF/Excel</span>
+                  </button>
+                </Can>
               </div>
 
               {/* HIỆU SUẤT TỔNG THỂ + TÌNH HÌNH LỖI (GRID ROW 1) */}

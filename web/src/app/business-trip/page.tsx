@@ -27,6 +27,9 @@ import {
   IconDownload,
   IconRefresh,
 } from "@tabler/icons-react";
+import Can from "@/components/Can";
+import { usePermission } from "@/hooks/usePermission";
+import { PERMISSIONS } from "@/lib/permissions";
 
 interface Participant {
   id: string;
@@ -38,6 +41,16 @@ interface Participant {
   pickupLocation: string;
 }
 
+export type TripStatus =
+  | "pending_department_head"
+  | "pending_executive_board"
+  | "approved"
+  | "rejected_by_department_head"
+  | "rejected_by_executive_board"
+  | "PENDING"
+  | "APPROVED"
+  | "REJECTED";
+
 interface BusinessTripRecord {
   id: string;
   code: string;
@@ -46,6 +59,7 @@ interface BusinessTripRecord {
   factory?: string;
   creator: string;
   department: string;
+  departmentId?: string;
   location: string;
   startDate: string;
   endDate: string;
@@ -56,15 +70,21 @@ interface BusinessTripRecord {
   address?: string;
   proposalText?: string;
   participantsJson?: string;
-  status: "PENDING" | "APPROVED" | "REJECTED";
+  status: TripStatus;
+  rejectionReason?: string;
   createdAt: string;
 }
 
 export default function BusinessTripRegistrationPage() {
+  const { can, roles, managedDepartmentId } = usePermission();
   const [activeTab, setActiveTab] = useState<"FORM" | "LIST">("FORM");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedModalRecord, setSelectedModalRecord] = useState<BusinessTripRecord | null>(null);
+
+  // Rejection Modal State
+  const [rejectionTarget, setRejectionTarget] = useState<{ id: string; level: "department_head" | "executive_board" } | null>(null);
+  const [rejectionReasonInput, setRejectionReasonInput] = useState("");
 
   const [currentUser, setCurrentUser] = useState<{ name: string; title: string; department: string; avatar: string }>({
     name: "Cán Bộ Công Nhân Viên",
@@ -86,6 +106,38 @@ export default function BusinessTripRegistrationPage() {
       }
     }
   }, []);
+
+  // Sequential Approval Handlers
+  const handleApproveTrip = (id: string, level: "department_head" | "executive_board") => {
+    const nextStatus: TripStatus = level === "department_head" ? "pending_executive_board" : "approved";
+    setRecords((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, status: nextStatus } : r))
+    );
+    showToast(
+      level === "department_head"
+        ? "✅ Trưởng phòng đã duyệt! Đã chuyển đơn lên Ban Giám Đốc (Cấp 2)."
+        : "🎉 Ban Giám Đốc đã duyệt hoàn tất đơn công tác!"
+    );
+  };
+
+  const handleOpenRejectModal = (id: string, level: "department_head" | "executive_board") => {
+    setRejectionTarget({ id, level });
+    setRejectionReasonInput("");
+  };
+
+  const handleConfirmReject = () => {
+    if (!rejectionTarget) return;
+    const { id, level } = rejectionTarget;
+    const nextStatus: TripStatus = level === "department_head" ? "rejected_by_department_head" : "rejected_by_executive_board";
+
+    setRecords((prev) =>
+      prev.map((r) =>
+        r.id === id ? { ...r, status: nextStatus, rejectionReason: rejectionReasonInput || "Không đáp ứng điều kiện" } : r
+      )
+    );
+    setRejectionTarget(null);
+    showToast(`❌ Đã từ chối đơn công tác (${level === "department_head" ? "Trưởng phòng" : "Ban Giám Đốc"})`);
+  };
 
   // Form State: Proposal Info
   const [proposalForm, setProposalForm] = useState({
@@ -983,25 +1035,52 @@ export default function BusinessTripRegistrationPage() {
                           <td className="p-3 text-center font-bold text-slate-900">{rec.daysCount}</td>
                           <td className="p-3 font-bold text-slate-800">{rec.endDate}</td>
                           <td className="p-3 text-center">
-                            {rec.status === "APPROVED" && (
-                              <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-[#006838] text-[10px] font-extrabold uppercase">
-                                ✓ Đã duyệt
-                              </span>
-                            )}
-                            {rec.status === "PENDING" && (
-                              <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 text-[10px] font-extrabold uppercase">
-                                ⏳ Chờ xét duyệt
-                              </span>
-                            )}
-                            {rec.status === "REJECTED" && (
-                              <span className="px-2.5 py-1 rounded-full bg-rose-100 text-rose-700 text-[10px] font-extrabold uppercase">
-                                ✕ Từ chối
-                              </span>
-                            )}
+                            {/* Stepper Timeline Badge */}
+                            <div className="flex flex-col items-center gap-1">
+                              {(rec.status === "approved" || rec.status === "APPROVED") && (
+                                <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-[#006838] text-[10px] font-extrabold uppercase flex items-center gap-1">
+                                  <span>✓</span> Đã duyệt hoàn tất
+                                </span>
+                              )}
+                              {(rec.status === "pending_department_head" || rec.status === "PENDING") && (
+                                <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 text-[10px] font-extrabold uppercase flex items-center gap-1">
+                                  <span>⏳</span> Chờ Trưởng phòng duyệt (Cấp 1)
+                                </span>
+                              )}
+                              {rec.status === "pending_executive_board" && (
+                                <span className="px-2.5 py-1 rounded-full bg-blue-100 text-blue-800 text-[10px] font-extrabold uppercase flex items-center gap-1">
+                                  <span>⏳</span> Chờ Ban Giám Đốc duyệt (Cấp 2)
+                                </span>
+                              )}
+                              {(rec.status === "rejected_by_department_head" || rec.status === "REJECTED") && (
+                                <div className="text-center">
+                                  <span className="px-2.5 py-1 rounded-full bg-rose-100 text-rose-700 text-[10px] font-extrabold uppercase flex items-center gap-1 justify-center">
+                                    <span>✕</span> TP từ chối
+                                  </span>
+                                  {rec.rejectionReason && (
+                                    <span className="text-[9px] text-rose-600 font-medium block mt-0.5 max-w-[120px] truncate" title={rec.rejectionReason}>
+                                      Lý do: {rec.rejectionReason}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                              {rec.status === "rejected_by_executive_board" && (
+                                <div className="text-center">
+                                  <span className="px-2.5 py-1 rounded-full bg-rose-100 text-rose-700 text-[10px] font-extrabold uppercase flex items-center gap-1 justify-center">
+                                    <span>✕</span> BGĐ từ chối
+                                  </span>
+                                  {rec.rejectionReason && (
+                                    <span className="text-[9px] text-rose-600 font-medium block mt-0.5 max-w-[120px] truncate" title={rec.rejectionReason}>
+                                      Lý do: {rec.rejectionReason}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </td>
                           <td className="p-3 font-semibold text-slate-700">{rec.transport}</td>
                           <td className="p-3">
-                            <div className="flex items-center justify-center gap-1.5">
+                            <div className="flex items-center justify-center gap-1.5 flex-wrap">
                               {/* Detail Modal View */}
                               <button
                                 onClick={() => setSelectedModalRecord(rec)}
@@ -1011,24 +1090,76 @@ export default function BusinessTripRegistrationPage() {
                                 <IconEye size={15} />
                               </button>
 
-                              {/* Quick Approve / Reject Actions */}
-                              {rec.status === "PENDING" && (
-                                <>
+                              {/* Level 1 Approval Actions (Trưởng phòng) */}
+                              {(rec.status === "pending_department_head" || rec.status === "PENDING") && (
+                                <Can permission={PERMISSIONS.TRIP_APPROVE_LEVEL1}>
+                                  {(!rec.departmentId || !managedDepartmentId || rec.departmentId === managedDepartmentId || roles.includes("admin")) && (
+                                    <div className="flex items-center gap-1">
+                                      <button
+                                        onClick={() => handleApproveTrip(rec.id, "department_head")}
+                                        className="px-2 py-1 rounded-lg bg-emerald-50 text-[#006838] hover:bg-[#006838] hover:text-white font-extrabold text-[10px] transition-colors cursor-pointer border border-emerald-200"
+                                        title="Duyệt Cấp 1 (Trưởng phòng)"
+                                      >
+                                        Duyệt TP
+                                      </button>
+                                      <button
+                                        onClick={() => handleOpenRejectModal(rec.id, "department_head")}
+                                        className="px-2 py-1 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white font-extrabold text-[10px] transition-colors cursor-pointer border border-rose-200"
+                                        title="Từ chối"
+                                      >
+                                        Từ chối
+                                      </button>
+                                    </div>
+                                  )}
+                                </Can>
+                              )}
+
+                              {/* Level 2 Approval Actions (Ban Giám Đốc) */}
+                              {rec.status === "pending_executive_board" && (
+                                <Can permission={PERMISSIONS.TRIP_APPROVE_LEVEL2}>
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      onClick={() => handleApproveTrip(rec.id, "executive_board")}
+                                      className="px-2 py-1 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-700 hover:text-white font-extrabold text-[10px] transition-colors cursor-pointer border border-blue-200"
+                                      title="Duyệt Cấp 2 (Ban Giám Đốc)"
+                                    >
+                                      Duyệt BGĐ
+                                    </button>
+                                    <button
+                                      onClick={() => handleOpenRejectModal(rec.id, "executive_board")}
+                                      className="px-2 py-1 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white font-extrabold text-[10px] transition-colors cursor-pointer border border-rose-200"
+                                      title="Từ chối"
+                                    >
+                                      Từ chối
+                                    </button>
+                                  </div>
+                                </Can>
+                              )}
+
+                              {/* Dispatch Vehicle Action */}
+                              {(rec.status === "approved" || rec.status === "APPROVED") && (
+                                <Can permission={PERMISSIONS.TRIP_DISPATCH_VEHICLE}>
                                   <button
-                                    onClick={() => handleUpdateStatus(rec.id, "APPROVED")}
-                                    className="p-1.5 rounded-lg bg-emerald-50 text-[#006838] hover:bg-[#006838] hover:text-white transition-colors cursor-pointer border border-emerald-200"
-                                    title="Duyệt đề xuất"
+                                    onClick={() => showToast("🚘 Đã gửi lệnh điều xe công tác!")}
+                                    className="px-2 py-1 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-700 hover:text-white font-extrabold text-[10px] transition-colors cursor-pointer border border-purple-200"
+                                    title="Điều xe công tác"
                                   >
-                                    <IconCheck size={15} />
+                                    Điều xe
                                   </button>
+                                </Can>
+                              )}
+
+                              {/* Approve Advance Expense Action */}
+                              {(rec.status === "approved" || rec.status === "APPROVED") && (
+                                <Can permission={PERMISSIONS.TRIP_APPROVE_ADVANCE}>
                                   <button
-                                    onClick={() => handleUpdateStatus(rec.id, "REJECTED")}
-                                    className="p-1.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white transition-colors cursor-pointer border border-rose-200"
-                                    title="Từ chối"
+                                    onClick={() => showToast("💰 Đã duyệt tạm ứng chi phí công tác!")}
+                                    className="px-2 py-1 rounded-lg bg-amber-50 text-amber-800 hover:bg-amber-600 hover:text-white font-extrabold text-[10px] transition-colors cursor-pointer border border-amber-200"
+                                    title="Duyệt tạm ứng chi phí"
                                   >
-                                    <IconX size={15} />
+                                    Tạm ứng
                                   </button>
-                                </>
+                                </Can>
                               )}
                             </div>
                           </td>
@@ -1037,6 +1168,55 @@ export default function BusinessTripRegistrationPage() {
                     )}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 🔴 REJECTION REASON MODAL POPUP */}
+        {rejectionTarget && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+              <div className="p-4 bg-rose-600 text-white flex items-center justify-between">
+                <h3 className="text-sm font-extrabold flex items-center gap-2">
+                  <span>⚠️</span>
+                  <span>Từ chối đơn công tác ({rejectionTarget.level === "department_head" ? "Trưởng phòng" : "Ban Giám Đốc"})</span>
+                </h3>
+                <button
+                  onClick={() => setRejectionTarget(null)}
+                  className="p-1 rounded-full hover:bg-white/20 text-white cursor-pointer"
+                >
+                  <IconX size={16} />
+                </button>
+              </div>
+              <div className="p-5 space-y-3 text-xs">
+                <label className="font-bold text-slate-700 block">
+                  Vui lòng nhập lý do từ chối <span className="text-rose-500">*</span>
+                </label>
+                <textarea
+                  rows={3}
+                  required
+                  value={rejectionReasonInput}
+                  onChange={(e) => setRejectionReasonInput(e.target.value)}
+                  placeholder="Ví dụ: Lịch trình chưa hợp lý / Thiếu hồ sơ đính kèm..."
+                  className="w-full p-3 rounded-xl border border-slate-300 font-medium outline-none focus:border-rose-500 bg-slate-50"
+                />
+                <div className="pt-2 flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setRejectionTarget(null)}
+                    className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-bold hover:bg-slate-200 cursor-pointer"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmReject}
+                    className="px-4 py-2 rounded-xl bg-rose-600 text-white font-bold hover:bg-rose-700 cursor-pointer"
+                  >
+                    Xác nhận từ chối
+                  </button>
+                </div>
               </div>
             </div>
           </div>

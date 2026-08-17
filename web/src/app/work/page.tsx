@@ -251,16 +251,17 @@ export default function WorkDashboardPage() {
         try {
           const parsed = JSON.parse(storedUser);
           if (parsed?.name && parsed.name !== "Bùi Văn Tuấn") {
+            const isDemo = parsed.name === "Cán Bộ Công Nhân Viên" || parsed.empCode === "EMP-001";
             if (parsed.avatar && parsed.avatar !== "/images/tbs-logo.png") {
               localCustomAvatar = parsed.avatar;
             }
             const loaded = {
-              empCode: parsed.empCode || "202608001",
-              name: parsed.name,
+              empCode: isDemo ? "202608001" : (parsed.empCode || "202608001"),
+              name: isDemo ? "Phạm Nguyễn Anh Huy" : (parsed.name || "Phạm Nguyễn Anh Huy"),
               phone: parsed.phone || "0522511245",
-              email: parsed.email || "anhy.work.2004@gmail.com",
+              email: isDemo ? "anhy.work.2004@gmail.com" : (parsed.email || "anhy.work.2004@gmail.com"),
               avatar: parsed.avatar || "/images/tbs-logo.png",
-              title: parsed.title || "IT - Team chuyển đổi số",
+              title: isDemo ? "Trưởng Phòng CN-CI" : (parsed.title || "CN-CI (Cải Tiến Liên Tục)"),
             };
             setUserInfo(loaded);
             setEditProfileForm(loaded);

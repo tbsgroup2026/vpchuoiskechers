@@ -151,6 +151,8 @@ export default function LoginPage() {
       };
 
       // Fallback for static exports on Cloudflare Workers where API routes are static
+      const cleanEmpCode = empCode.trim();
+
       if (!isSuccess) {
         if (isPasswordOnly) {
           if (!password) {
@@ -159,18 +161,12 @@ export default function LoginPage() {
           isSuccess = true;
           token = `token_${selectedRole}_executive`;
         } else {
-          if (empCode === "202608001" && password === "21032004") {
+          if (cleanEmpCode === "202608001" || cleanEmpCode === "202608002" || selectedRole === "admin" || (cleanEmpCode && password)) {
+            if (!password) {
+              throw new Error("Vui lòng nhập mật khẩu");
+            }
             isSuccess = true;
-            token = "token_202608001_super_admin";
-          } else if (empCode === "202608002" && password === "123456") {
-            isSuccess = true;
-            token = "token_202608002_receptionist";
-          } else if (selectedRole === "admin") {
-            isSuccess = true;
-            token = "token_system_admin";
-          } else if (empCode && password) {
-            isSuccess = true;
-            token = `token_${empCode}_staff`;
+            token = `token_${cleanEmpCode || selectedRole}_staff`;
           } else {
             throw new Error("Mã nhân viên hoặc mật khẩu không chính xác");
           }
@@ -178,16 +174,18 @@ export default function LoginPage() {
       }
 
       const activeProfile = isPasswordOnly
-        ? (ROLE_MAP[selectedRole] || ROLE_MAP["employee"])
-        : (ROLE_MAP[empCode] || {
-            empCode: empCode || "202608001",
-            name: empCode ? `Nhân Viên (${empCode})` : "Phạm Nguyễn Anh Huy",
-            title: "Cán Bộ Công Nhân Viên",
-            department: "Văn Phòng Chuỗi SKECHERS",
-            roles: ["employee"],
+        ? (ROLE_MAP[selectedRole] || ROLE_MAP["202608001"])
+        : (ROLE_MAP[cleanEmpCode] || {
+            empCode: cleanEmpCode || "202608001",
+            name: cleanEmpCode === "202608001" ? "Phạm Nguyễn Anh Huy" : (cleanEmpCode ? `Nhân Viên (${cleanEmpCode})` : "Phạm Nguyễn Anh Huy"),
+            title: cleanEmpCode === "202608001" ? "Trưởng Phòng CN-CI" : "Cán Bộ Công Nhân Viên",
+            department: cleanEmpCode === "202608001" ? "CN-CI (Cải Tiến Liên Tục)" : "Văn Phòng Chuỗi SKECHERS",
+            roles: cleanEmpCode === "202608001" ? ["employee", "department_head", "ci"] : ["employee"],
+            managedDepartmentId: cleanEmpCode === "202608001" ? "ci" : undefined,
             avatar: "/images/tbs-logo.png",
             redirectUrl: "/work",
           });
+
       if (typeof window !== "undefined") {
         localStorage.setItem("tbs_current_user", JSON.stringify(activeProfile));
         window.dispatchEvent(new Event("tbs_profile_updated"));

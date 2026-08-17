@@ -293,24 +293,31 @@ export default function Header() {
           }
         }
         if (storedUser && storedUser.name !== "Bùi Văn Tuấn") {
+          const isDemoFallback = storedUser.name === "Cán Bộ Công Nhân Viên" || storedUser.empCode === "EMP-001";
+          const empCodeVal = isDemoFallback ? '202608001' : (storedUser.empCode || '202608001');
+          const nameVal = isDemoFallback ? 'Phạm Nguyễn Anh Huy' : (storedUser.name || 'Phạm Nguyễn Anh Huy');
+          const emailVal = empCodeVal === '202608001' ? 'anhy.work.2004@gmail.com' : (storedUser.email || `${empCodeVal.toLowerCase()}@tbsgroup.vn`);
+          const titleVal = empCodeVal === '202608001' ? 'Trưởng Phòng CN-CI' : (storedUser.title || 'Cán Bộ Nhân Viên (CBCNV)');
+          const deptVal = empCodeVal === '202608001' ? 'CN-CI (Cải Tiến Liên Tục)' : (storedUser.department || 'Văn Phòng Chuỗi SKECHERS');
+
           setUserInfo({
-            empCode: storedUser.empCode || '202608001',
-            name: storedUser.name || 'Phạm Nguyễn Anh Huy',
-            roleCode: storedUser.roleCode || 'CBCNV',
-            departmentCode: storedUser.department || 'IT - Team chuyển đổi số',
+            empCode: empCodeVal,
+            name: nameVal,
+            roleCode: storedUser.roleCode || (empCodeVal === '202608001' ? 'TRƯỞNG PHÒNG' : 'CBCNV'),
+            departmentCode: deptVal,
             avatar: storedUser.avatar || '/images/tbs-logo.png',
-            email: storedUser.email || 'anhhuy.pham@tbsgroup.vn',
-            title: storedUser.title || 'Cán Bộ Nhân Viên (CBCNV)',
+            email: emailVal,
+            title: titleVal,
           });
         } else {
           setUserInfo({
             empCode: '202608001',
             name: 'Phạm Nguyễn Anh Huy',
-            roleCode: 'CBCNV',
-            departmentCode: 'IT - Team chuyển đổi số',
+            roleCode: 'TRƯỞNG PHÒNG',
+            departmentCode: 'CN-CI (Cải Tiến Liên Tục)',
             avatar: '/images/tbs-logo.png',
-            email: 'anhhuy.pham@tbsgroup.vn',
-            title: 'Cán Bộ Nhân Viên (CBCNV)',
+            email: 'anhy.work.2004@gmail.com',
+            title: 'Trưởng Phòng CN-CI',
           });
         }
       } else {

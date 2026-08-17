@@ -1312,8 +1312,8 @@ export default function WorkDashboardPage() {
                   </div>
 
                   {/* SVG Line Chart for 6 months T3, T4, T5, T6, T7, T8 */}
-                  <div className="w-full h-36 relative min-w-0 overflow-hidden">
-                    <svg className="w-full h-28 overflow-visible" viewBox="0 0 500 120" preserveAspectRatio="none">
+                  <div className={`w-full ${!isSidebarCollapsed ? "h-28" : "h-32"} relative min-w-0 overflow-hidden transition-all duration-300`}>
+                    <svg className={`w-full ${!isSidebarCollapsed ? "h-20" : "h-24"} overflow-visible transition-all duration-300`} viewBox="0 0 450 120" preserveAspectRatio="none">
                       <defs>
                         <linearGradient id="ciLineGrad" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor="#006838" stopOpacity="0.25" />
@@ -1322,9 +1322,9 @@ export default function WorkDashboardPage() {
                       </defs>
 
                       {/* Grid lines */}
-                      <line x1="30" y1="20" x2="480" y2="20" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
-                      <line x1="30" y1="50" x2="480" y2="50" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
-                      <line x1="30" y1="80" x2="480" y2="80" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
+                      <line x1="30" y1="20" x2="410" y2="20" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
+                      <line x1="30" y1="50" x2="410" y2="50" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
+                      <line x1="30" y1="80" x2="410" y2="80" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
 
                       {/* Y Axis Labels */}
                       <text x="5" y="24" className="text-[10px] fill-slate-400 font-semibold">100</text>
@@ -1334,13 +1334,13 @@ export default function WorkDashboardPage() {
 
                       {/* Area Fill */}
                       <polygon
-                        points="35,90 120,70 205,60 290,40 375,30 460,15 460,110 35,110"
+                        points="35,90 110,70 185,60 260,40 335,30 405,15 405,110 35,110"
                         fill="url(#ciLineGrad)"
                       />
 
                       {/* Line Curve */}
                       <path
-                        d="M 35 90 L 120 70 L 205 60 L 290 40 L 375 30 L 460 15"
+                        d="M 35 90 L 110 70 L 185 60 L 260 40 L 335 30 L 405 15"
                         fill="none"
                         stroke="#006838"
                         strokeWidth="3"
@@ -1351,11 +1351,11 @@ export default function WorkDashboardPage() {
                       {/* Data points */}
                       {[
                         { x: 35, y: 90 },
-                        { x: 120, y: 70 },
-                        { x: 205, y: 60 },
-                        { x: 290, y: 40 },
-                        { x: 375, y: 30 },
-                        { x: 460, y: 15 },
+                        { x: 110, y: 70 },
+                        { x: 185, y: 60 },
+                        { x: 260, y: 40 },
+                        { x: 335, y: 30 },
+                        { x: 405, y: 15 },
                       ].map((pt, i) => (
                         <circle
                           key={i}
@@ -1370,7 +1370,7 @@ export default function WorkDashboardPage() {
                     </svg>
 
                     {/* X Labels */}
-                    <div className="flex justify-between pl-8 pr-2 text-[11px] font-bold text-slate-500 mt-2">
+                    <div className="flex justify-between pl-7 pr-6 text-[11px] font-bold text-slate-500 mt-1">
                       <span>T3</span>
                       <span>T4</span>
                       <span>T5</span>

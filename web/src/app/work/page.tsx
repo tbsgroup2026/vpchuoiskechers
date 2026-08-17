@@ -250,19 +250,17 @@ export default function WorkDashboardPage() {
       if (storedUser) {
         try {
           const parsed = JSON.parse(storedUser);
-          if (parsed?.name && parsed.name !== "Bùi Văn Tuấn") {
-            const isDemo = parsed.name === "Cán Bộ Công Nhân Viên" || parsed.empCode === "EMP-001";
+          if (parsed?.name) {
             if (parsed.avatar && parsed.avatar !== "/images/tbs-logo.png") {
               localCustomAvatar = parsed.avatar;
             }
-            const is202608001 = parsed.empCode === "202608001" || parsed.name?.includes("202608001") || isDemo;
             const loaded = {
-              empCode: is202608001 ? "202608001" : (parsed.empCode || "202608001"),
-              name: is202608001 ? "Phạm Nguyễn Anh Huy" : (parsed.name || "Phạm Nguyễn Anh Huy"),
+              empCode: parsed.empCode || "202608001",
+              name: parsed.name,
               phone: parsed.phone || "0522511245",
-              email: is202608001 ? "anhy.work.2004@gmail.com" : (parsed.email || "anhy.work.2004@gmail.com"),
+              email: parsed.email || `${parsed.empCode || ''}@tbsgroup.vn`,
               avatar: parsed.avatar || "/images/tbs-logo.png",
-              title: is202608001 ? "Trưởng Phòng CN-CI" : (parsed.title || "CN-CI (Cải Tiến Liên Tục)"),
+              title: parsed.title || "Cán Bộ Công Nhân Viên",
             };
             setUserInfo(loaded);
             setEditProfileForm(loaded);

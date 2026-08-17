@@ -40,6 +40,7 @@ export default function LoginPage() {
       let isSuccess = false;
       let token = "";
       let redirectUrl = "/work";
+      let apiUserData: any = null;
 
       try {
         const res = await fetch("/api/auth/login", {
@@ -60,16 +61,8 @@ export default function LoginPage() {
           isSuccess = true;
           token = data.token;
           redirectUrl = data.redirectUrl || "/work";
-          if (data.user && typeof window !== "undefined") {
-            const sanitizedUser = {
-              ...data.user,
-              empCode: data.user.empCode === "202608001" ? "202608001" : data.user.empCode,
-              name: (data.user.empCode === "202608001" || data.user.name?.includes("202608001")) ? "Phạm Nguyễn Anh Huy" : data.user.name,
-              email: data.user.empCode === "202608001" ? "anhy.work.2004@gmail.com" : data.user.email,
-              title: data.user.empCode === "202608001" ? "Trưởng Phòng CN-CI" : data.user.title,
-            };
-            localStorage.setItem("tbs_current_user", JSON.stringify(sanitizedUser));
-            window.dispatchEvent(new Event("tbs_profile_updated"));
+          if (data.user) {
+            apiUserData = data.user; // Giữ dữ liệu từ D1/API để dùng khi MSNV không có trong ROLE_MAP
           }
         } else if (data?.error) {
           throw new Error(data.error);
@@ -79,6 +72,7 @@ export default function LoginPage() {
           throw apiErr;
         }
       }
+
 
       const ROLE_MAP: Record<string, { empCode: string; name: string; title: string; department: string; roles: string[]; managedDepartmentId?: string; avatar: string; redirectUrl: string }> = {
         ceo: {
@@ -180,23 +174,33 @@ export default function LoginPage() {
         }
       }
 
+      // Ưu tiên: ROLE_MAP → dữ liệu D1 từ API → fallback generic
+      const apiName = apiUserData?.name && !apiUserData.name.includes("Nhân Viên (") ? apiUserData.name : null;
+      const apiTitle = apiUserData?.title || null;
+      const apiDept = apiUserData?.departmentName || apiUserData?.department || null;
+      const apiEmail = apiUserData?.email || null;
+      const apiPhone = apiUserData?.phone || null;
+
       const activeProfile = isPasswordOnly
         ? (ROLE_MAP[selectedRole] || ROLE_MAP["202608001"])
         : (ROLE_MAP[cleanEmpCode] || {
             empCode: cleanEmpCode || "202608001",
-            name: cleanEmpCode === "202608001" ? "Phạm Nguyễn Anh Huy" : (cleanEmpCode ? `Nhân Viên (${cleanEmpCode})` : "Phạm Nguyễn Anh Huy"),
-            title: cleanEmpCode === "202608001" ? "Trưởng Phòng CN-CI" : "Cán Bộ Công Nhân Viên",
-            department: cleanEmpCode === "202608001" ? "CN-CI (Cải Tiến Liên Tục)" : "Văn Phòng Chuỗi SKECHERS",
-            roles: cleanEmpCode === "202608001" ? ["employee", "department_head", "ci"] : ["employee"],
-            managedDepartmentId: cleanEmpCode === "202608001" ? "ci" : undefined,
+            name: apiName || (cleanEmpCode ? cleanEmpCode : "Phạm Nguyễn Anh Huy"),
+            title: apiTitle || "Cán Bộ Công Nhân Viên",
+            department: apiDept || "Văn Phòng Chuỗi SKECHERS",
+            email: apiEmail,
+            phone: apiPhone,
+            roles: ["employee"],
             avatar: "/images/tbs-logo.png",
             redirectUrl: "/work",
           });
 
-      if (!isSuccess && typeof window !== "undefined") {
+      // Lưu profile (từ ROLE_MAP hoặc D1) vào localStorage
+      if (isSuccess && typeof window !== "undefined") {
         localStorage.setItem("tbs_current_user", JSON.stringify(activeProfile));
         window.dispatchEvent(new Event("tbs_profile_updated"));
       }
+
 
       document.cookie = `tbs_token=${token}; path=/; max-age=86400`;
       let targetUrl = activeProfile?.redirectUrl || redirectUrl;

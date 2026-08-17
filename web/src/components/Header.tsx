@@ -292,33 +292,19 @@ export default function Header() {
             } catch (e) {}
           }
         }
-        if (storedUser && storedUser.name !== "Bùi Văn Tuấn") {
-          const isDemoFallback = storedUser.name === "Cán Bộ Công Nhân Viên" || storedUser.empCode === "EMP-001";
-          const empCodeVal = isDemoFallback ? '202608001' : (storedUser.empCode || '202608001');
-          const nameVal = isDemoFallback ? 'Phạm Nguyễn Anh Huy' : (storedUser.name || 'Phạm Nguyễn Anh Huy');
-          const emailVal = empCodeVal === '202608001' ? 'anhy.work.2004@gmail.com' : (storedUser.email || `${empCodeVal.toLowerCase()}@tbsgroup.vn`);
-          const titleVal = empCodeVal === '202608001' ? 'Trưởng Phòng CN-CI' : (storedUser.title || 'Cán Bộ Nhân Viên (CBCNV)');
-          const deptVal = empCodeVal === '202608001' ? 'CN-CI (Cải Tiến Liên Tục)' : (storedUser.department || 'Văn Phòng Chuỗi SKECHERS');
-
+        if (storedUser && storedUser.name) {
           setUserInfo({
-            empCode: empCodeVal,
-            name: nameVal,
-            roleCode: storedUser.roleCode || (empCodeVal === '202608001' ? 'TRƯỞNG PHÒNG' : 'CBCNV'),
-            departmentCode: deptVal,
+            empCode: storedUser.empCode || '202608001',
+            name: storedUser.name,
+            roleCode: storedUser.roleCode || storedUser.roles?.[0] || 'CBCNV',
+            departmentCode: storedUser.department || storedUser.departmentCode || storedUser.departmentName || 'Văn Phòng Chuỗi SKECHERS',
             avatar: storedUser.avatar || '/images/tbs-logo.png',
-            email: emailVal,
-            title: titleVal,
+            email: storedUser.email || `${storedUser.empCode || ''}@tbsgroup.vn`,
+            title: storedUser.title || 'Cán Bộ Công Nhân Viên',
           });
         } else {
-          setUserInfo({
-            empCode: '202608001',
-            name: 'Phạm Nguyễn Anh Huy',
-            roleCode: 'TRƯỞNG PHÒNG',
-            departmentCode: 'CN-CI (Cải Tiến Liên Tục)',
-            avatar: '/images/tbs-logo.png',
-            email: 'anhy.work.2004@gmail.com',
-            title: 'Trưởng Phòng CN-CI',
-          });
+          // Token có nhưng không có user trong localStorage — chờ tbs_profile_updated
+          setUserInfo(null);
         }
       } else {
         setIsLoggedIn(false);

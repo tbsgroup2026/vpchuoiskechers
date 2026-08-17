@@ -692,9 +692,11 @@ export default function MeetingRoomsPage() {
           </Link>
 
           <div className="inline-flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-[#006838] text-white flex items-center justify-center font-bold text-sm">
-              TBS
-            </div>
+            <img
+              src="/images/tbs-logo.png"
+              alt="TBS Group Logo"
+              className="h-10 w-auto object-contain"
+            />
           </div>
 
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">

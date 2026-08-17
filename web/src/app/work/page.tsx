@@ -68,8 +68,60 @@ interface DepartmentItem {
 export default function WorkDashboardPage() {
   const [selectedDept, setSelectedDept] = useState<string | null>(null);
   const [timeFilter, setTimeFilter] = useState("Tháng này");
+  const [activeQcRole, setActiveQcRole] = useState<"line_qc" | "oee_eng" | "factory_sup" | "kaizen_lead">("line_qc");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+  const qcRolesData = {
+    line_qc: {
+      roleName: "Chuyên Viên QC Chuyền (Line QC Specialist)",
+      overallProgress: 98.5,
+      completedTasks: 19,
+      totalTasks: 19,
+      tasks: [
+        { name: "Kiểm tra tiêu chuẩn QC chuyền May 2", pct: 100, desc: "Đạt 98.2% tiêu chuẩn SKECHERS Global" },
+        { name: "Đánh giá AQL lẫy mẫu ngẫu nhiên ca sáng", pct: 100, desc: "Kiểm tra 200 đôi mẫu không phát hiện lỗi nặng" },
+        { name: "Báo cáo sự cố Gemba Walk", pct: 95, desc: "Đã xử lý 3/3 sự cố phát sinh ca trước" },
+        { name: "Thử nghiệm độ mài mòn vật liệu đế", pct: 100, desc: "Đạt chuẩn thử nghiệm 50,000 chu kỳ" },
+      ],
+    },
+    oee_eng: {
+      roleName: "Kỹ Sư OEE & Thiết Bị (OEE & Equipment Engineer)",
+      overallProgress: 92.0,
+      completedTasks: 11,
+      totalTasks: 12,
+      tasks: [
+        { name: "Đo lường chỉ số OEE nhà máy thời gian thực", pct: 100, desc: "OEE đạt 91.5% vượt chỉ tiêu 85%" },
+        { name: "Khắc phục nghẽn chuyền Gò #2", pct: 90, desc: "Tối ưu hóa tốc độ băng chuyền +12%" },
+        { name: "Báo cáo Downtime sự cố máy ép đế", pct: 86, desc: "Giảm thời gian dừng máy xuống dưới 15 phút" },
+        { name: "Bảo trì cảm biến kiểm soát lỗi AI", pct: 92, desc: "Hiệu chuẩn 12 camera AI quét lỗi bề mặt" },
+      ],
+    },
+    factory_sup: {
+      roleName: "Giám Sát Chất Lượng Xưởng (Factory Quality Supervisor)",
+      overallProgress: 95.2,
+      completedTasks: 20,
+      totalTasks: 21,
+      tasks: [
+        { name: "Phê duyệt báo cáo kiểm tra lô hàng xuất khẩu", pct: 100, desc: "Đã duyệt 15 container hàng xuất xưởng" },
+        { name: "Xử lý cảnh báo sự cố SOS khẩn cấp", pct: 95, desc: "Phản hồi & giải quyết trong vòng 10 phút" },
+        { name: "Kiểm định tiêu chuẩn nhà máy SKECHERS Audit", pct: 92, desc: "Đạt 97/100 điểm đánh giá tuân thủ" },
+        { name: "Đánh giá KPI chất lượng tuần của 33 chuyền", pct: 94, desc: "Tổng hợp dữ liệu D1 Database Realtime" },
+      ],
+    },
+    kaizen_lead: {
+      roleName: "Team Lead Kaizen & Cải Tiến QC (Continuous Improvement)",
+      overallProgress: 89.0,
+      completedTasks: 8,
+      totalTasks: 9,
+      tasks: [
+        { name: "Đánh giá sáng kiến cải tiến Kaizen chuyền May", pct: 92, desc: "Áp dụng 4 đề xuất tiết kiệm 120 giờ làm" },
+        { name: "Thống kê & Phân tích nguyên nhân gốc lỗi tuần", pct: 88, desc: "Giảm 18% lỗi may đường viền mũi giày" },
+        { name: "Đào tạo quy trình kiểm hàng mới cho CBNV", pct: 87, desc: "Hoàn thành đào tạo cho 45 nhân sự QC" },
+        { name: "Số hóa biểu mẫu kiểm tra QC bằng máy tính bảng", pct: 89, desc: "Triển khai 100% chuyền may & gò" },
+      ],
+    },
+  };
 
   // User Profile & Account Dropdown State
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
@@ -1242,8 +1294,8 @@ function compressImage(dataUrl: string, maxWidth = 360, maxHeight = 360, quality
                     Hệ thống kiểm soát tỷ lệ lỗi Gemba Walk và chỉ số OEE nhà máy.
                   </p>
                 </div>
-                <span className="px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-bold">
-                  Dữ liệu QC Live
+                <span className="px-3 py-1 rounded-full bg-emerald-100 text-[#006838] text-xs font-bold border border-emerald-200">
+                  ● Dữ liệu QC Realtime
                 </span>
               </div>
 
@@ -1254,12 +1306,125 @@ function compressImage(dataUrl: string, maxWidth = 360, maxHeight = 360, quality
                   { title: "Lỗi Gemba Cần Sửa", val: "3 Lỗi", trend: "Xử lý 92%", color: "purple" },
                   { title: "Chỉ Số OEE Nhà Máy", val: "91.5%", trend: "+3.5%", color: "amber" },
                 ].map((item, idx) => (
-                  <div key={idx} className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-1.5">
+                  <div key={idx} className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-1.5 hover:border-[#006838]/60 transition-all">
                     <span className="text-xs font-bold text-slate-500">{item.title}</span>
-                    <div className="text-xl font-black text-slate-900">{item.val}</div>
+                    <div className="text-2xl font-black text-slate-900">{item.val}</div>
                     <span className="text-xs text-[#006838] font-bold block">{item.trend} so với tháng trước</span>
                   </div>
                 ))}
+              </div>
+
+              {/* ════════════════════════════════════════════════════════════════
+                  MODULE: % TIẾN ĐỘ THỰC HIỆN NHIỆM VỤ THEO VAI TRÒ CBNV (PHÒNG QC)
+                 ════════════════════════════════════════════════════════════════ */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-sm space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                  <div>
+                    <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#006838]" />
+                      <span>TIẾN ĐỘ THỰC HIỆN NHIỆM VỤ THEO VAI TRÒ CBNV (PHÒNG QC)</span>
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5 font-medium">
+                      Đo lường tỷ lệ hoàn thành công việc &amp; phân quyền chức năng cho từng vị trí nhân sự trong chuỗi QC SKECHERS.
+                    </p>
+                  </div>
+
+                  {/* Role Pills Selector */}
+                  <div className="flex items-center gap-2 overflow-x-auto">
+                    {[
+                      { id: "line_qc", label: "Chuyên Viên QC Chuyền", icon: IconShieldCheck, pct: "98.5%" },
+                      { id: "oee_eng", label: "Kỹ Sư OEE & Thiết Bị", icon: IconSettings, pct: "92.0%" },
+                      { id: "factory_sup", label: "Giám Sát Chất Lượng Xưởng", icon: IconBuildingFactory, pct: "95.2%" },
+                      { id: "kaizen_lead", label: "Team Lead Kaizen & QC", icon: IconTrendingUp, pct: "89.0%" },
+                    ].map((role) => (
+                      <button
+                        key={role.id}
+                        onClick={() => setActiveQcRole(role.id as any)}
+                        className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                          activeQcRole === role.id
+                            ? "bg-[#006838] text-white shadow-sm"
+                            : "bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200/80"
+                        }`}
+                      >
+                        <role.icon size={15} />
+                        <span>{role.label}</span>
+                        <span
+                          className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-black ${
+                            activeQcRole === role.id ? "bg-emerald-400/30 text-emerald-100" : "bg-emerald-100 text-emerald-800"
+                          }`}
+                        >
+                          {role.pct}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Active Role Content */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+                  {/* Left Column: Role Overview & Progress Bar */}
+                  <div className="lg:col-span-4 bg-slate-50 p-4 rounded-xl border border-slate-200/80 flex flex-col justify-between space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-11 h-11 rounded-xl bg-[#006838] text-white flex items-center justify-center flex-shrink-0 font-bold shadow-xs">
+                        <IconShieldCheck size={24} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="text-sm font-black text-slate-900 truncate">
+                          {qcRolesData[activeQcRole].roleName}
+                        </h4>
+                        <span className="text-xs text-emerald-800 font-bold bg-emerald-100 px-2.5 py-0.5 rounded-full inline-block mt-0.5">
+                          {qcRolesData[activeQcRole].completedTasks} / {qcRolesData[activeQcRole].totalTasks} nhiệm vụ hoàn tất
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5 my-2">
+                      <div className="flex items-center justify-between text-xs font-bold">
+                        <span className="text-slate-600">Tỷ lệ hoàn thành mục tiêu ca</span>
+                        <span className="text-slate-900 font-black text-base">{qcRolesData[activeQcRole].overallProgress}%</span>
+                      </div>
+                      <div className="w-full h-3 rounded-full bg-slate-200 overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-[#006838] to-emerald-500 rounded-full transition-all duration-500"
+                          style={{ width: `${qcRolesData[activeQcRole].overallProgress}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    <button className="w-full py-2 rounded-xl bg-[#006838] text-white text-xs font-bold hover:bg-[#00522c] transition-colors cursor-pointer text-center flex items-center justify-center gap-1.5">
+                      <IconCheck size={16} />
+                      <span>Cập nhật tiến độ nhiệm vụ role này</span>
+                    </button>
+                  </div>
+
+                  {/* Right Column: Tasks Checklist with % */}
+                  <div className="lg:col-span-8 space-y-2.5">
+                    <h4 className="text-xs font-bold text-slate-700">Chức năng &amp; Nhiệm vụ phân công cho role này:</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {qcRolesData[activeQcRole].tasks.map((task, idx) => (
+                        <div key={idx} className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="text-xs font-bold text-slate-900 leading-snug">{task.name}</span>
+                            <span
+                              className={`text-[10px] font-black px-2 py-0.5 rounded-full flex-shrink-0 ${
+                                task.pct === 100 ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
+                              }`}
+                            >
+                              {task.pct}%
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 font-medium line-clamp-1">{task.desc}</p>
+                          <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
+                            <div
+                              className={`h-full rounded-full ${task.pct === 100 ? "bg-emerald-600" : "bg-amber-500"}`}
+                              style={{ width: `${task.pct}%` }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}

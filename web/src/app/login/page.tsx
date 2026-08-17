@@ -177,7 +177,17 @@ export default function LoginPage() {
         }
       }
 
-      const activeProfile = isPasswordOnly ? (ROLE_MAP[selectedRole] || ROLE_MAP["employee"]) : (ROLE_MAP[empCode] || ROLE_MAP["employee"]);
+      const activeProfile = isPasswordOnly
+        ? (ROLE_MAP[selectedRole] || ROLE_MAP["employee"])
+        : (ROLE_MAP[empCode] || {
+            empCode: empCode || "202608001",
+            name: empCode ? `Nhân Viên (${empCode})` : "Phạm Nguyễn Anh Huy",
+            title: "Cán Bộ Công Nhân Viên",
+            department: "Văn Phòng Chuỗi SKECHERS",
+            roles: ["employee"],
+            avatar: "/images/tbs-logo.png",
+            redirectUrl: "/work",
+          });
       if (typeof window !== "undefined") {
         localStorage.setItem("tbs_current_user", JSON.stringify(activeProfile));
         window.dispatchEvent(new Event("tbs_profile_updated"));

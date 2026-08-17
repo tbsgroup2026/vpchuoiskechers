@@ -6,13 +6,19 @@ export async function POST(request: Request) {
   try {
     const { empCode, password, role } = await request.json();
 
+    const EXECUTIVE_ROLES = ['ceo', 'deputy_ceo', 'director', 'deputy_director', 'TONG_GIAM_DOC', 'PHO_TONG_GIAM_DOC', 'GIAM_DOC', 'PHO_GIAM_DOC'];
+
     // Check Executive Roles (Tổng Giám Đốc, Phó Tổng Giám Đốc, Giám Đốc, Phó Giám Đốc)
-    if (role && role !== 'CBCNV') {
+    if (role && EXECUTIVE_ROLES.includes(role)) {
       if (!password) {
         return NextResponse.json({ error: 'Vui lòng nhập mật khẩu xác thực' }, { status: 400 });
       }
 
       const roleNames: Record<string, string> = {
+        ceo: 'Tổng Giám Đốc TBS Group',
+        deputy_ceo: 'Phó Tổng Giám Đốc TBS Group',
+        director: 'Giám Đốc Chuỗi Skechers',
+        deputy_director: 'Phó Giám Đốc Chuỗi Skechers',
         TONG_GIAM_DOC: 'Tổng Giám Đốc TBS Group',
         PHO_TONG_GIAM_DOC: 'Phó Tổng Giám Đốc TBS Group',
         GIAM_DOC: 'Giám Đốc Chuỗi Skechers',
@@ -104,17 +110,29 @@ export async function POST(request: Request) {
 
     // If empCode provided with correct password, allow standard login
     if (password === '123456' || password === '21032004' || password === 'Admin@123456') {
+      const knownNames: Record<string, { name: string; title: string; dept: string }> = {
+        '202608001': { name: 'Phạm Nguyễn Anh Huy', title: 'Trưởng Phòng CN-CI', dept: 'CN-CI (Cải Tiến Liên Tục)' },
+        '202608002': { name: 'Trần Ngọc Huy', title: 'Lễ Tân Văn Phòng', dept: 'Nhân Sự - Hành Chánh' },
+        'EMP-004': { name: 'Phạm Văn Bảo Trì', title: 'Kỹ Thuật Viên Bảo Trì', dept: 'Tổ Hợp Nhà Máy & Sản Xuất' },
+      };
+
+      const matched = knownNames[empCode] || {
+        name: `Nhân Viên (${empCode})`,
+        title: 'Cán Bộ Công Nhân Viên',
+        dept: 'Văn Phòng Chuỗi SKECHERS',
+      };
+
       const payload = {
         userId: 888,
         empCode: empCode,
-        name: `CBCNV (${empCode})`,
-        title: 'Cán Bộ Công Nhân Viên',
+        name: matched.name,
+        title: matched.title,
         roleId: 4,
         roleCode: 'STAFF',
         roleLevel: 4,
         departmentId: 2,
         departmentCode: 'SAN_XUAT',
-        departmentName: 'Văn Phòng Chuỗi SKECHERS',
+        departmentName: matched.dept,
       };
 
       const token = await signToken(payload);

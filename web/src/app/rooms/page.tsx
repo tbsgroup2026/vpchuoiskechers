@@ -707,49 +707,65 @@ export default function MeetingRoomsPage() {
           </p>
         </div>
 
-        {/* 📊 4 STAT DASHBOARD SUMMARY CARDS (TASTE SKILL HUMAN STYLE) */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-          <div className="p-4 rounded-2xl bg-white/90 backdrop-blur-md border border-slate-200/80 shadow-xs hover:border-[#006838]/40 hover:shadow-md transition-all flex items-center gap-3.5 group">
-            <div className="w-11 h-11 rounded-2xl bg-[#006838]/10 text-[#006838] flex items-center justify-center border border-[#006838]/20 group-hover:scale-105 transition-transform">
-              <IconBuilding size={22} />
+        {/* 📊 4 STAT DASHBOARD SUMMARY CARDS (MATCHING CN-CI DASHBOARD LAYOUT) */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Card 1: Tổng phòng họp */}
+          <div className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs hover:shadow-md transition-all flex items-center gap-3.5 group min-w-0">
+            <div className="w-12 h-12 rounded-2xl bg-[#006838]/10 text-[#006838] flex items-center justify-center border border-[#006838]/20 group-hover:scale-105 transition-transform flex-shrink-0">
+              <IconBuilding size={24} />
             </div>
-            <div>
-              <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">Tổng phòng họp</span>
-              <div className="text-xl font-black text-slate-900">{rooms.length} Phòng</div>
+            <div className="space-y-0.5 min-w-0 flex-1">
+              <span className="text-xs font-bold text-slate-500 block truncate">Tổng phòng họp</span>
+              <div className="text-2xl font-black text-slate-900 leading-tight">{rooms.length} Phòng</div>
+              <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-0.5 whitespace-nowrap">
+                +100% <span className="text-slate-400 font-normal">sẵn sàng sử dụng</span> ↑
+              </span>
             </div>
           </div>
 
-          <div className="p-4 rounded-2xl bg-white/90 backdrop-blur-md border border-slate-200/80 shadow-xs hover:border-emerald-500/40 hover:shadow-md transition-all flex items-center gap-3.5 group">
-            <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200 group-hover:scale-105 transition-transform">
-              <IconCheck size={22} />
+          {/* Card 2: Phòng trống khả dụng */}
+          <div className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs hover:shadow-md transition-all flex items-center gap-3.5 group min-w-0">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200 group-hover:scale-105 transition-transform flex-shrink-0">
+              <IconCheck size={24} />
             </div>
-            <div>
-              <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">Phòng trống khả dụng</span>
-              <div className="text-xl font-black text-[#006838]">
+            <div className="space-y-0.5 min-w-0 flex-1">
+              <span className="text-xs font-bold text-slate-500 block truncate">Phòng trống khả dụng</span>
+              <div className="text-2xl font-black text-[#006838] leading-tight">
                 {rooms.filter((r) => !r.isLocked && r.status === "AVAILABLE").length} Phòng
               </div>
+              <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-0.5 whitespace-nowrap">
+                +100% <span className="text-slate-400 font-normal">hoạt động bình thường</span> ↑
+              </span>
             </div>
           </div>
 
-          <div className="p-4 rounded-2xl bg-white/90 backdrop-blur-md border border-slate-200/80 shadow-xs hover:border-blue-500/40 hover:shadow-md transition-all flex items-center gap-3.5 group">
-            <div className="w-11 h-11 rounded-2xl bg-blue-50 text-blue-700 flex items-center justify-center border border-blue-200 group-hover:scale-105 transition-transform">
-              <IconCalendar size={22} />
+          {/* Card 3: Lịch họp hôm nay */}
+          <div className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs hover:shadow-md transition-all flex items-center gap-3.5 group min-w-0">
+            <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-700 flex items-center justify-center border border-blue-200 group-hover:scale-105 transition-transform flex-shrink-0">
+              <IconCalendar size={24} />
             </div>
-            <div>
-              <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">Lịch họp hôm nay</span>
-              <div className="text-xl font-black text-slate-900">
+            <div className="space-y-0.5 min-w-0 flex-1">
+              <span className="text-xs font-bold text-slate-500 block truncate">Lịch họp hôm nay</span>
+              <div className="text-2xl font-black text-slate-900 leading-tight">
                 {bookings.filter((b) => b.bookingDate === "15/08/2026").length} Cuộc họp
               </div>
+              <span className="text-[11px] font-bold text-blue-600 flex items-center gap-0.5 whitespace-nowrap">
+                +15% <span className="text-slate-400 font-normal">so với hôm qua</span> ↑
+              </span>
             </div>
           </div>
 
-          <div className="p-4 rounded-2xl bg-white/90 backdrop-blur-md border border-slate-200/80 shadow-xs hover:border-purple-500/40 hover:shadow-md transition-all flex items-center gap-3.5 group">
-            <div className="w-11 h-11 rounded-2xl bg-purple-50 text-purple-700 flex items-center justify-center border border-purple-200 group-hover:scale-105 transition-transform">
-              <IconId size={22} />
+          {/* Card 4: Khách đón trong ngày */}
+          <div className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs hover:shadow-md transition-all flex items-center gap-3.5 group min-w-0">
+            <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-700 flex items-center justify-center border border-purple-200 group-hover:scale-105 transition-transform flex-shrink-0">
+              <IconId size={24} />
             </div>
-            <div>
-              <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">Khách đón trong ngày</span>
-              <div className="text-xl font-black text-slate-900">{visitors.length} Lượt khách</div>
+            <div className="space-y-0.5 min-w-0 flex-1">
+              <span className="text-xs font-bold text-slate-500 block truncate">Khách đón trong ngày</span>
+              <div className="text-2xl font-black text-slate-900 leading-tight">{visitors.length} Lượt khách</div>
+              <span className="text-[11px] font-bold text-purple-600 flex items-center gap-0.5 whitespace-nowrap">
+                +25% <span className="text-slate-400 font-normal">so với tuần trước</span> ↑
+              </span>
             </div>
           </div>
         </div>

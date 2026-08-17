@@ -59,6 +59,12 @@ import {
   IconAlertTriangle,
   IconPlayerPlay,
   IconFilter,
+  IconBulb,
+  IconCircleCheck,
+  IconTrophy,
+  IconBook,
+  IconFolder,
+  IconChartBar,
 } from "@tabler/icons-react";
 
 interface DepartmentItem {
@@ -412,7 +418,7 @@ export default function WorkDashboardPage() {
       name: "CN-CI",
       sub: "Cải tiến liên tục & năng suất 4.0",
       icon: IconSettings,
-      hasData: false,
+      hasData: true,
     },
     {
       id: "qc",
@@ -1226,6 +1232,285 @@ export default function WorkDashboardPage() {
                     <span className="text-xs text-[#006838] font-bold block">{item.trend} so với tháng trước</span>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* IF CN-CI (CẢI TIẾN LIÊN TỤC) IS SELECTED */}
+          {selectedDept === "ci" && (
+            <div className="space-y-4 w-full">
+              {/* 4 TOP METRIC CARDS */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Card 1: Sáng kiến cải tiến */}
+                <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs flex items-center justify-between group hover:shadow-md transition-all">
+                  <div className="space-y-1">
+                    <span className="text-xs font-bold text-slate-500 block">Sáng kiến cải tiến</span>
+                    <div className="text-2xl font-black text-slate-900 leading-tight">128</div>
+                    <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-0.5">
+                      +18% <span className="text-slate-400 font-normal">so với tháng trước</span> ↑
+                    </span>
+                  </div>
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-[#006838] flex items-center justify-center border border-emerald-100/80 group-hover:scale-105 transition-transform flex-shrink-0">
+                    <IconChartBar size={24} />
+                  </div>
+                </div>
+
+                {/* Card 2: Cải tiến đã triển khai */}
+                <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs flex items-center justify-between group hover:shadow-md transition-all">
+                  <div className="space-y-1">
+                    <span className="text-xs font-bold text-slate-500 block">Cải tiến đã triển khai</span>
+                    <div className="text-2xl font-black text-slate-900 leading-tight">86</div>
+                    <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-0.5">
+                      +12% <span className="text-slate-400 font-normal">so với tháng trước</span> ↑
+                    </span>
+                  </div>
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-[#006838] flex items-center justify-center border border-emerald-100/80 group-hover:scale-105 transition-transform flex-shrink-0">
+                    <IconCircleCheck size={24} />
+                  </div>
+                </div>
+
+                {/* Card 3: Hiệu quả đạt được */}
+                <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs flex items-center justify-between group hover:shadow-md transition-all">
+                  <div className="space-y-1">
+                    <span className="text-xs font-bold text-slate-500 block">Hiệu quả đạt được</span>
+                    <div className="text-2xl font-black text-slate-900 leading-tight">3.24 tỷ</div>
+                    <span className="text-[11px] font-bold text-slate-500">
+                      Giá trị làm lợi (VND)
+                    </span>
+                  </div>
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-[#006838] flex items-center justify-center border border-emerald-100/80 group-hover:scale-105 transition-transform flex-shrink-0">
+                    <IconTrendingUp size={24} />
+                  </div>
+                </div>
+
+                {/* Card 4: Thành viên tham gia */}
+                <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs flex items-center justify-between group hover:shadow-md transition-all">
+                  <div className="space-y-1">
+                    <span className="text-xs font-bold text-slate-500 block">Thành viên tham gia</span>
+                    <div className="text-2xl font-black text-slate-900 leading-tight">246</div>
+                    <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-0.5">
+                      +22% <span className="text-slate-400 font-normal">so với tháng trước</span> ↑
+                    </span>
+                  </div>
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-[#006838] flex items-center justify-center border border-emerald-100/80 group-hover:scale-105 transition-transform flex-shrink-0">
+                    <IconUsers size={24} />
+                  </div>
+                </div>
+              </div>
+
+              {/* 3 COLUMNS MIDDLE SECTION */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                {/* COL 1 (5/12): XU HƯỚNG CẢI TIẾN */}
+                <div className="lg:col-span-5 bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs flex flex-col justify-between space-y-3">
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                    <h3 className="text-sm font-black text-slate-900">Xu hướng cải tiến</h3>
+                    <select className="text-xs font-bold text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 outline-none cursor-pointer">
+                      <option>6 tháng gần đây</option>
+                      <option>3 tháng gần đây</option>
+                      <option>Năm 2026</option>
+                    </select>
+                  </div>
+
+                  {/* SVG Line Chart for 6 months T3, T4, T5, T6, T7, T8 */}
+                  <div className="w-full h-44 relative">
+                    <svg className="w-full h-full overflow-visible" viewBox="0 0 500 120" preserveAspectRatio="none">
+                      <defs>
+                        <linearGradient id="ciLineGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#006838" stopOpacity="0.25" />
+                          <stop offset="100%" stopColor="#006838" stopOpacity="0.0" />
+                        </linearGradient>
+                      </defs>
+
+                      {/* Grid lines */}
+                      <line x1="30" y1="20" x2="480" y2="20" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
+                      <line x1="30" y1="50" x2="480" y2="50" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
+                      <line x1="30" y1="80" x2="480" y2="80" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
+
+                      {/* Y Axis Labels */}
+                      <text x="5" y="24" className="text-[10px] fill-slate-400 font-semibold">100</text>
+                      <text x="5" y="54" className="text-[10px] fill-slate-400 font-semibold">75</text>
+                      <text x="5" y="84" className="text-[10px] fill-slate-400 font-semibold">50</text>
+                      <text x="5" y="114" className="text-[10px] fill-slate-400 font-semibold">0</text>
+
+                      {/* Area Fill */}
+                      <polygon
+                        points="35,90 120,70 205,60 290,40 375,30 460,15 460,110 35,110"
+                        fill="url(#ciLineGrad)"
+                      />
+
+                      {/* Line Curve */}
+                      <path
+                        d="M 35 90 L 120 70 L 205 60 L 290 40 L 375 30 L 460 15"
+                        fill="none"
+                        stroke="#006838"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+
+                      {/* Data points */}
+                      {[
+                        { x: 35, y: 90 },
+                        { x: 120, y: 70 },
+                        { x: 205, y: 60 },
+                        { x: 290, y: 40 },
+                        { x: 375, y: 30 },
+                        { x: 460, y: 15 },
+                      ].map((pt, i) => (
+                        <circle
+                          key={i}
+                          cx={pt.x}
+                          cy={pt.y}
+                          r="4.5"
+                          fill="#ffffff"
+                          stroke="#006838"
+                          strokeWidth="3"
+                        />
+                      ))}
+                    </svg>
+
+                    {/* X Labels */}
+                    <div className="flex justify-between pl-8 pr-2 text-[11px] font-bold text-slate-500 mt-2">
+                      <span>T3</span>
+                      <span>T4</span>
+                      <span>T5</span>
+                      <span>T6</span>
+                      <span>T7</span>
+                      <span>T8</span>
+                    </div>
+                  </div>
+
+                  {/* Legend */}
+                  <div className="flex items-center justify-center gap-6 pt-1 text-xs font-semibold text-slate-600">
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#006838]" />
+                      <span>Sáng kiến</span>
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-200" />
+                      <span>Triển khai</span>
+                    </span>
+                  </div>
+                </div>
+
+                {/* COL 2 (4/12): HOẠT ĐỘNG NỔI BẬT */}
+                <div className="lg:col-span-4 bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs flex flex-col justify-between space-y-3">
+                  <div className="pb-2 border-b border-slate-100">
+                    <h3 className="text-sm font-black text-slate-900">Hoạt động nổi bật</h3>
+                  </div>
+
+                  <div className="space-y-3 flex-1 my-auto">
+                    {/* Activity 1 */}
+                    <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-200/60 flex items-center justify-between gap-2">
+                      <div className="flex items-start gap-2.5 min-w-0">
+                        <div className="w-8 h-8 rounded-lg bg-emerald-100/70 text-[#006838] flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <IconBulb size={18} />
+                        </div>
+                        <div className="min-w-0">
+                          <h4 className="text-xs font-extrabold text-slate-900 truncate">
+                            Kaizen: Giảm thời gian setup line A
+                          </h4>
+                          <p className="text-[10px] text-slate-500 font-medium mt-0.5">
+                            Được duyệt • 2 giờ trước
+                          </p>
+                        </div>
+                      </div>
+                      <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-[#006838] text-[10px] font-bold flex-shrink-0">
+                        Đã triển khai
+                      </span>
+                    </div>
+
+                    {/* Activity 2 */}
+                    <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-200/60 flex items-center justify-between gap-2">
+                      <div className="flex items-start gap-2.5 min-w-0">
+                        <div className="w-8 h-8 rounded-lg bg-emerald-100/70 text-[#006838] flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <IconCircleCheck size={18} />
+                        </div>
+                        <div className="min-w-0">
+                          <h4 className="text-xs font-extrabold text-slate-900 truncate">
+                            Gemba Walk tuần 31
+                          </h4>
+                          <p className="text-[10px] text-slate-500 font-medium mt-0.5">
+                            Đã hoàn thành • 1 ngày trước
+                          </p>
+                        </div>
+                      </div>
+                      <span className="px-2.5 py-1 rounded-full bg-teal-100 text-teal-800 text-[10px] font-bold flex-shrink-0">
+                        Hoàn thành
+                      </span>
+                    </div>
+
+                    {/* Activity 3 */}
+                    <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-200/60 flex items-center justify-between gap-2">
+                      <div className="flex items-start gap-2.5 min-w-0">
+                        <div className="w-8 h-8 rounded-lg bg-amber-100/70 text-amber-800 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <IconFileText size={18} />
+                        </div>
+                        <div className="min-w-0">
+                          <h4 className="text-xs font-extrabold text-slate-900 truncate">
+                            Đề xuất cải tiến đóng gói
+                          </h4>
+                          <p className="text-[10px] text-slate-500 font-medium mt-0.5">
+                            Đang đánh giá • 2 ngày trước
+                          </p>
+                        </div>
+                      </div>
+                      <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold flex-shrink-0">
+                        Đang xét duyệt
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 text-center border-t border-slate-100">
+                    <button className="text-xs font-bold text-[#006838] hover:underline cursor-pointer inline-flex items-center gap-1">
+                      <span>Xem tất cả hoạt động</span>
+                      <span>→</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* COL 3 (3/12): TRUY CẬP NHANH - CN-CI */}
+                <div className="lg:col-span-3 bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs flex flex-col justify-between space-y-3">
+                  <div className="pb-2 border-b border-slate-100">
+                    <h3 className="text-sm font-black text-slate-900">Truy cập nhanh – CN–CI</h3>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-2 my-auto">
+                    {[
+                      { name: "Kaizen", icon: IconBulb, bg: "bg-emerald-50 text-[#006838]" },
+                      { name: "Gemba", icon: IconUsers, bg: "bg-blue-50 text-blue-600" },
+                      { name: "CI", icon: IconTrendingUp, bg: "bg-teal-50 text-teal-600" },
+                      { name: "Thư viện", icon: IconBook, bg: "bg-amber-50 text-amber-600" },
+                      { name: "Lưu trữ", icon: IconFolder, bg: "bg-purple-50 text-purple-600" },
+                      { name: "Thi đua", icon: IconTrophy, bg: "bg-[#006838]/10 text-[#006838]" },
+                      { name: "Báo cáo", icon: IconFileText, bg: "bg-blue-50 text-blue-600" },
+                      { name: "Cài đặt", icon: IconSettings, bg: "bg-slate-100 text-slate-600" },
+                    ].map((tile, idx) => {
+                      const TileIcon = tile.icon;
+                      return (
+                        <button
+                          key={idx}
+                          onClick={() => showToast(`Mở chức năng: ${tile.name}`)}
+                          className="p-2 rounded-xl bg-slate-50/80 border border-slate-200/60 hover:bg-white hover:border-[#006838]/60 hover:shadow-xs transition-all flex flex-col items-center text-center gap-1 group cursor-pointer"
+                        >
+                          <div className={`w-8 h-8 rounded-lg ${tile.bg} flex items-center justify-center group-hover:scale-105 transition-transform`}>
+                            <TileIcon size={18} />
+                          </div>
+                          <span className="text-[10px] font-bold text-slate-700 leading-tight">
+                            {tile.name}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="pt-2 text-center border-t border-slate-100">
+                    <button className="w-full py-2 rounded-xl bg-emerald-50 text-[#006838] hover:bg-[#006838] hover:text-white text-xs font-bold transition-all cursor-pointer inline-flex items-center justify-center gap-1">
+                      <span>Xem tất cả chức năng</span>
+                      <span>→</span>
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           )}

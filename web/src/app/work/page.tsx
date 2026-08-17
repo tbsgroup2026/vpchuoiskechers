@@ -794,7 +794,7 @@ export default function WorkDashboardPage() {
         </header>
 
         {/* Dashboard Body */}
-        <div className="p-4 lg:p-6 flex-1 flex flex-col justify-between overflow-y-auto gap-4">
+        <div className="p-4 lg:p-6 space-y-4 pb-12">
           {/* ════════════════════════════════════════════════════════════════
               DEPARTMENT HERO BANNER CARD (Screenshot 1 Layout)
              ════════════════════════════════════════════════════════════════ */}
@@ -863,10 +863,10 @@ export default function WorkDashboardPage() {
           )}
 
           {/* ════════════════════════════════════════════════════════════════
-              IF HR (NHÂN SỰ HÀNH CHÁNH) IS SELECTED (Zero-Scroll Viewport Fit)
+              IF HR (NHÂN SỰ HÀNH CHÁNH) IS SELECTED
              ════════════════════════════════════════════════════════════════ */}
           {selectedDept === "hr" && (
-            <div className="flex-1 flex flex-col justify-between overflow-hidden gap-2.5 my-auto">
+            <div className="space-y-4 w-full">
               {/* ════════ SECTION 1: HÀNH CHÍNH ════════ */}
               <div className="space-y-2 flex-shrink-0">
                 {/* Section Title Header */}

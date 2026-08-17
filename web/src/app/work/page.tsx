@@ -1660,14 +1660,14 @@ export default function WorkDashboardPage() {
                 <div className="lg:col-span-7 bg-white border border-slate-200/80 rounded-2xl p-3.5 shadow-2xs flex flex-col justify-between">
                   <div className="flex items-center justify-between pb-1.5 border-b border-slate-100">
                     <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
-                      <IconAlertCircle size={16} className="text-amber-600" />
+                      <IconAlertCircle size={16} className="text-amber-500" />
                       <span>Tình hình lỗi kiểm hàng ({plantFilter})</span>
                     </h3>
                     <span className="text-[10px] font-bold text-slate-500">7 ngày qua</span>
                   </div>
 
                   <div className="grid grid-cols-4 gap-2 my-1">
-                    <div className="bg-slate-50 p-2 rounded-xl border border-slate-200/70">
+                    <div className="bg-slate-50 p-2 sm:p-2.5 rounded-xl border border-slate-200/70">
                       <span className="text-[10px] font-medium text-slate-500 block truncate">Tổng số lỗi</span>
                       <div className="text-base sm:text-lg font-black text-slate-900 leading-tight mt-0.5">
                         {plantFilter === "Nhà máy 1 (NM1)" ? "380" : plantFilter === "Nhà máy 2 (NM2)" ? "520" : plantFilter === "Nhà máy 3 (NM3)" ? "348" : "1,248"}
@@ -1675,15 +1675,15 @@ export default function WorkDashboardPage() {
                       <span className="text-[9px] font-bold text-emerald-600">▲ 12.4%</span>
                     </div>
 
-                    <div className="bg-rose-50/70 p-2 rounded-xl border border-rose-100">
+                    <div className="bg-rose-50/70 p-2 sm:p-2.5 rounded-xl border border-rose-100">
                       <span className="text-[10px] font-medium text-rose-700 block truncate">Lỗi SOS</span>
-                      <div className="text-base sm:text-lg font-black text-rose-700 leading-tight mt-0.5">
+                      <div className="text-base sm:text-lg font-black text-rose-600 leading-tight mt-0.5">
                         {plantFilter === "Nhà máy 1 (NM1)" ? "3" : plantFilter === "Nhà máy 2 (NM2)" ? "8" : plantFilter === "Nhà máy 3 (NM3)" ? "4" : "15"}
                       </div>
                       <span className="text-[9px] font-bold text-rose-600">▲ 36.4%</span>
                     </div>
 
-                    <div className="bg-amber-50/70 p-2 rounded-xl border border-amber-100">
+                    <div className="bg-amber-50/70 p-2 sm:p-2.5 rounded-xl border border-amber-100">
                       <span className="text-[10px] font-medium text-amber-800 block truncate">Lỗi cần sửa</span>
                       <div className="text-base sm:text-lg font-black text-amber-800 leading-tight mt-0.5">
                         {plantFilter === "Nhà máy 1 (NM1)" ? "24" : plantFilter === "Nhà máy 2 (NM2)" ? "42" : plantFilter === "Nhà máy 3 (NM3)" ? "21" : "87"}
@@ -1691,7 +1691,7 @@ export default function WorkDashboardPage() {
                       <span className="text-[9px] font-bold text-amber-700">▲ 8.3%</span>
                     </div>
 
-                    <div className="bg-emerald-50/70 p-2 rounded-xl border border-emerald-100">
+                    <div className="bg-emerald-50/70 p-2 sm:p-2.5 rounded-xl border border-emerald-100">
                       <span className="text-[10px] font-medium text-emerald-800 block truncate">Đã xử lý</span>
                       <div className="text-base sm:text-lg font-black text-[#006838] leading-tight mt-0.5">
                         {plantFilter === "Nhà máy 1 (NM1)" ? "353" : plantFilter === "Nhà máy 2 (NM2)" ? "470" : plantFilter === "Nhà máy 3 (NM3)" ? "323" : "1,146"}
@@ -1701,33 +1701,36 @@ export default function WorkDashboardPage() {
                   </div>
 
                   {/* Trend SVG Line Chart - Interactive with Hover Tooltip Overlay */}
-                  <div className="space-y-0.5">
-                    <div className="flex items-center justify-between text-[10px] font-semibold text-slate-500">
+                  <div className="space-y-0.5 pt-0.5">
+                    <div className="flex items-center justify-between text-[10px] font-semibold text-slate-500 mb-0.5">
                       <span>Xu hướng biến động theo ngày</span>
                       <span className="text-[9px] text-[#006838] font-bold">
                         TB: {plantFilter === "Nhà máy 1 (NM1)" ? "54" : plantFilter === "Nhà máy 2 (NM2)" ? "74" : plantFilter === "Nhà máy 3 (NM3)" ? "50" : "178"} lỗi/ngày
                       </span>
                     </div>
-                    <div className="w-full h-20 relative">
-                      <svg className="w-full h-full overflow-visible" viewBox="0 0 500 100" preserveAspectRatio="none">
+                    <div className="w-full h-24 relative">
+                      <svg className="w-full h-full overflow-visible" viewBox="0 0 500 115" preserveAspectRatio="none">
                         <defs>
                           <linearGradient id="qcLineGradientHuman" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#006838" stopOpacity="0.25" />
+                            <stop offset="0%" stopColor="#006838" stopOpacity="0.22" />
                             <stop offset="100%" stopColor="#006838" stopOpacity="0.0" />
                           </linearGradient>
                         </defs>
 
-                        <line x1="0" y1="20" x2="500" y2="20" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
-                        <line x1="0" y1="50" x2="500" y2="50" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
-                        <line x1="0" y1="80" x2="500" y2="80" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
+                        {/* Background guide lines */}
+                        <line x1="20" y1="20" x2="480" y2="20" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
+                        <line x1="20" y1="52" x2="480" y2="52" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
+                        <line x1="20" y1="84" x2="480" y2="84" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
 
+                        {/* Area fill under curve */}
                         <polygon
-                          points="35,38 105,15 175,70 245,20 315,35 385,35 455,85 455,95 35,95"
+                          points="40,56 108,38 176,76 244,20 312,44 380,44 448,88 448,96 40,96"
                           fill="url(#qcLineGradientHuman)"
                         />
 
+                        {/* Main trend line */}
                         <path
-                          d="M 35 38 L 105 15 L 175 70 L 245 20 L 315 35 L 385 35 L 455 85"
+                          d="M 40 56 L 108 38 L 176 76 L 244 20 L 312 44 L 380 44 L 448 88"
                           fill="none"
                           stroke="#006838"
                           strokeWidth="2.5"
@@ -1735,29 +1738,42 @@ export default function WorkDashboardPage() {
                           strokeLinejoin="round"
                         />
 
-                        {/* Interactive QC Points with Hover State */}
+                        {/* Interactive QC Points with Exact Coordinates matching real chart */}
                         {[
-                          { date: "09/08", total: 185, sos: 2, fix: 14, x: 35, y: 38 },
-                          { date: "10/08", total: 245, sos: 4, fix: 18, x: 105, y: 15 },
-                          { date: "11/08", total: 120, sos: 1, fix: 8, x: 175, y: 70 },
-                          { date: "12/08", total: 230, sos: 3, fix: 15, x: 245, y: 20 },
-                          { date: "13/08", total: 195, sos: 2, fix: 14, x: 315, y: 35 },
-                          { date: "14/08", total: 190, sos: 2, fix: 12, x: 385, y: 35 },
-                          { date: "15/08", total: 88, sos: 1, fix: 6, x: 455, y: 85 },
+                          { date: "09/08", total: 185, sos: 2, fix: 14, x: 40, y: 56 },
+                          { date: "10/08", total: 245, sos: 4, fix: 18, x: 108, y: 38 },
+                          { date: "11/08", total: 120, sos: 1, fix: 8, x: 176, y: 76 },
+                          { date: "12/08", total: 290, sos: 3, fix: 15, x: 244, y: 20 },
+                          { date: "13/08", total: 215, sos: 2, fix: 14, x: 312, y: 44 },
+                          { date: "14/08", total: 210, sos: 2, fix: 12, x: 380, y: 44 },
+                          { date: "15/08", total: 88, sos: 1, fix: 6, x: 448, y: 88 },
                         ].map((pt, i) => (
-                          <circle
-                            key={i}
-                            cx={pt.x}
-                            cy={pt.y}
-                            r={hoveredQcIndex === i ? "6" : "3.5"}
-                            fill={hoveredQcIndex === i ? "#006838" : "#ffffff"}
-                            stroke="#006838"
-                            strokeWidth={hoveredQcIndex === i ? "3.5" : "2.5"}
-                            className="cursor-pointer transition-all duration-150"
-                            onMouseEnter={() => setHoveredQcIndex(i)}
-                            onMouseLeave={() => setHoveredQcIndex(null)}
-                            onClick={() => setIsDonutModalOpen(true)}
-                          />
+                          <g key={i}>
+                            <circle
+                              cx={pt.x}
+                              cy={pt.y}
+                              r={hoveredQcIndex === i ? "6" : "3.5"}
+                              fill={hoveredQcIndex === i ? "#006838" : "#ffffff"}
+                              stroke="#006838"
+                              strokeWidth={hoveredQcIndex === i ? "3.5" : "2.5"}
+                              className="cursor-pointer transition-all duration-150"
+                              onMouseEnter={() => setHoveredQcIndex(i)}
+                              onMouseLeave={() => setHoveredQcIndex(null)}
+                              onClick={() => setIsDonutModalOpen(true)}
+                            />
+                            {/* X-axis date label aligned directly under each point */}
+                            <text
+                              x={pt.x}
+                              y="110"
+                              textAnchor="middle"
+                              fill="#94a3b8"
+                              fontSize="10"
+                              fontWeight="600"
+                              className="select-none pointer-events-none"
+                            >
+                              {pt.date}
+                            </text>
+                          </g>
                         ))}
                       </svg>
 
@@ -1765,23 +1781,13 @@ export default function WorkDashboardPage() {
                       {hoveredQcIndex !== null && (
                         <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-slate-900/95 text-white text-[10px] font-bold px-3 py-1.5 rounded-xl shadow-xl border border-slate-700 pointer-events-none z-30 animate-in fade-in zoom-in-95 duration-150 whitespace-nowrap">
                           <span>📊 {[ "09/08", "10/08", "11/08", "12/08", "13/08", "14/08", "15/08" ][hoveredQcIndex]}: </span>
-                          <span className="text-emerald-300 font-extrabold">{[ 185, 245, 120, 230, 195, 190, 88 ][hoveredQcIndex]} lỗi</span>
+                          <span className="text-emerald-300 font-extrabold">{[ 185, 245, 120, 290, 215, 210, 88 ][hoveredQcIndex]} lỗi</span>
                           <span className="text-slate-400"> | </span>
                           <span className="text-rose-300">SOS: {[ 2, 4, 1, 3, 2, 2, 1 ][hoveredQcIndex]}</span>
                           <span className="text-slate-400"> | </span>
                           <span className="text-amber-300">Sửa: {[ 14, 18, 8, 15, 14, 12, 6 ][hoveredQcIndex]}</span>
                         </div>
                       )}
-
-                      <div className="flex justify-between px-2 text-[9px] font-semibold text-slate-400 mt-0.5">
-                        <span>09/08</span>
-                        <span>10/08</span>
-                        <span>11/08</span>
-                        <span>12/08</span>
-                        <span>13/08</span>
-                        <span>14/08</span>
-                        <span>15/08</span>
-                      </div>
                     </div>
                   </div>
                 </div>

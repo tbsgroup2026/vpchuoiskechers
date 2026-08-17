@@ -1312,8 +1312,8 @@ export default function WorkDashboardPage() {
                   </div>
 
                   {/* SVG Line Chart for 6 months T3, T4, T5, T6, T7, T8 */}
-                  <div className="w-full h-44 relative min-w-0 overflow-hidden">
-                    <svg className="w-full h-full overflow-visible" viewBox="0 0 500 120" preserveAspectRatio="none">
+                  <div className="w-full h-36 relative min-w-0 overflow-hidden">
+                    <svg className="w-full h-28 overflow-visible" viewBox="0 0 500 120" preserveAspectRatio="none">
                       <defs>
                         <linearGradient id="ciLineGrad" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor="#006838" stopOpacity="0.25" />

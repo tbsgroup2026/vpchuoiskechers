@@ -120,8 +120,10 @@ export default function WorkDashboardPage() {
     confirmPassword: "",
   });
 
-  // Donut Chart Modal State
+  // Donut Chart Modal State & Interactive Chart Hover States
   const [isDonutModalOpen, setIsDonutModalOpen] = useState(false);
+  const [hoveredQcIndex, setHoveredQcIndex] = useState<number | null>(null);
+  const [hoveredCiIndex, setHoveredCiIndex] = useState<number | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -1348,26 +1350,40 @@ export default function WorkDashboardPage() {
                         strokeLinejoin="round"
                       />
 
-                      {/* Data points */}
+                      {/* Data points (Interactive with Hover Tooltips) */}
                       {[
-                        { x: 35, y: 90 },
-                        { x: 110, y: 70 },
-                        { x: 185, y: 60 },
-                        { x: 260, y: 40 },
-                        { x: 335, y: 30 },
-                        { x: 405, y: 15 },
+                        { month: "T3", idea: 35, impl: 20, x: 35, y: 90 },
+                        { month: "T4", idea: 50, impl: 32, x: 110, y: 70 },
+                        { month: "T5", idea: 62, impl: 45, x: 185, y: 60 },
+                        { month: "T6", idea: 78, impl: 58, x: 260, y: 40 },
+                        { month: "T7", idea: 88, impl: 70, x: 335, y: 30 },
+                        { month: "T8", idea: 100, impl: 86, x: 405, y: 15 },
                       ].map((pt, i) => (
                         <circle
                           key={i}
                           cx={pt.x}
                           cy={pt.y}
-                          r="4.5"
-                          fill="#ffffff"
+                          r={hoveredCiIndex === i ? "6" : "4.5"}
+                          fill={hoveredCiIndex === i ? "#006838" : "#ffffff"}
                           stroke="#006838"
-                          strokeWidth="3"
+                          strokeWidth={hoveredCiIndex === i ? "3.5" : "3"}
+                          className="cursor-pointer transition-all duration-150"
+                          onMouseEnter={() => setHoveredCiIndex(i)}
+                          onMouseLeave={() => setHoveredCiIndex(null)}
+                          onClick={() => setIsDonutModalOpen(true)}
                         />
                       ))}
                     </svg>
+
+                    {/* Interactive Hover Tooltip Popup Overlay */}
+                    {hoveredCiIndex !== null && (
+                      <div className="absolute top-1 left-1/2 -translate-x-1/2 bg-slate-900/90 text-white text-[10px] font-bold px-2.5 py-1 rounded-xl shadow-lg border border-slate-700 pointer-events-none z-30 animate-in fade-in zoom-in-95 duration-150 whitespace-nowrap">
+                        <span>💡 Tháng {[ "T3", "T4", "T5", "T6", "T7", "T8" ][hoveredCiIndex]}: </span>
+                        <span className="text-emerald-300 font-extrabold">{[ 35, 50, 62, 78, 88, 100 ][hoveredCiIndex]} sáng kiến</span>
+                        <span className="text-slate-400"> | </span>
+                        <span className="text-teal-300">{[ 20, 32, 45, 58, 70, 86 ][hoveredCiIndex]} triển khai</span>
+                      </div>
+                    )}
 
                     {/* X Labels */}
                     <div className="flex justify-between pl-7 pr-6 text-[11px] font-bold text-slate-500 mt-1">
@@ -1583,12 +1599,33 @@ export default function WorkDashboardPage() {
 
                   <div className="grid grid-cols-2 gap-3 my-auto py-1">
                     {[
-                      { label: "Tỷ lệ đạt QC", value: 97.2, sub: "Đạt chuẩn", trend: "+2.1% kỳ trước", target: "Mục tiêu: ≥ 95%", color: "#006838", track: "#e6f4ed" },
-                      { label: "OEE Tổng thể", value: 88.6, sub: "Hiệu quả cao", trend: "+1.8% kỳ trước", target: "Mục tiêu: ≥ 85%", color: "#0284c7", track: "#e0f2fe" },
+                      {
+                        label: "Tỷ lệ đạt QC",
+                        value: plantFilter === "Nhà máy 1 (NM1)" ? 98.1 : plantFilter === "Nhà máy 2 (NM2)" ? 96.4 : plantFilter === "Nhà máy 3 (NM3)" ? 97.5 : 97.2,
+                        sub: "Đạt chuẩn",
+                        trend: "+2.1% kỳ trước",
+                        target: "Mục tiêu: ≥ 95%",
+                        color: "#006838",
+                        track: "#e6f4ed",
+                      },
+                      {
+                        label: "OEE Tổng thể",
+                        value: plantFilter === "Nhà máy 1 (NM1)" ? 91.2 : plantFilter === "Nhà máy 2 (NM2)" ? 86.8 : plantFilter === "Nhà máy 3 (NM3)" ? 89.0 : 88.6,
+                        sub: "Hiệu quả cao",
+                        trend: "+1.8% kỳ trước",
+                        target: "Mục tiêu: ≥ 85%",
+                        color: "#0284c7",
+                        track: "#e0f2fe",
+                      },
                     ].map((item, idx) => (
-                      <div key={idx} className="flex flex-col items-center text-center p-2 rounded-xl bg-slate-50/70 border border-slate-200/60">
+                      <button
+                        key={idx}
+                        onClick={() => setIsDonutModalOpen(true)}
+                        className="flex flex-col items-center text-center p-2 rounded-xl bg-slate-50/70 border border-slate-200/60 hover:bg-white hover:border-[#006838]/60 hover:shadow-md transition-all cursor-pointer group min-w-0"
+                        title="Bấm để xem phân bổ chi tiết 6 xưởng SKECHERS"
+                      >
                         <span className="text-[11px] font-extrabold text-slate-700 mb-1.5">{item.label}</span>
-                        <div className="relative w-20 h-20">
+                        <div className="relative w-20 h-20 group-hover:scale-105 transition-transform">
                           <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
                             <circle cx="50" cy="50" r="40" fill="none" stroke={item.track} strokeWidth="9" />
                             <circle
@@ -1603,20 +1640,20 @@ export default function WorkDashboardPage() {
                           </div>
                         </div>
                         <span className="text-[10px] font-bold text-emerald-700 mt-1.5">▲ {item.trend}</span>
-                        <span className="text-[9px] font-bold text-slate-500 bg-white border border-slate-200 rounded-full px-2 py-0.5 mt-1">
-                          {item.target}
+                        <span className="text-[9px] font-bold text-slate-500 bg-white border border-slate-200 rounded-full px-2 py-0.5 mt-1 group-hover:bg-[#006838] group-hover:text-white transition-colors">
+                          Xem chi tiết xưởng →
                         </span>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 </div>
 
-                {/* TÌNH HÌNH LỖI (Col 7/12) */}
+                {/* TÌNH HÌNH LỖI (Col 7/12) - Dynamic Data Connected */}
                 <div className="lg:col-span-7 bg-white border border-slate-200/80 rounded-2xl p-3.5 shadow-2xs flex flex-col justify-between">
                   <div className="flex items-center justify-between pb-1.5 border-b border-slate-100">
                     <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
                       <IconAlertCircle size={16} className="text-amber-600" />
-                      <span>Tình hình lỗi kiểm hàng</span>
+                      <span>Tình hình lỗi kiểm hàng ({plantFilter})</span>
                     </h3>
                     <span className="text-[10px] font-bold text-slate-500">7 ngày qua</span>
                   </div>
@@ -1624,34 +1661,44 @@ export default function WorkDashboardPage() {
                   <div className="grid grid-cols-4 gap-2 my-1">
                     <div className="bg-slate-50 p-2 rounded-xl border border-slate-200/70">
                       <span className="text-[10px] font-medium text-slate-500 block truncate">Tổng số lỗi</span>
-                      <div className="text-base sm:text-lg font-black text-slate-900 leading-tight mt-0.5">1,248</div>
+                      <div className="text-base sm:text-lg font-black text-slate-900 leading-tight mt-0.5">
+                        {plantFilter === "Nhà máy 1 (NM1)" ? "380" : plantFilter === "Nhà máy 2 (NM2)" ? "520" : plantFilter === "Nhà máy 3 (NM3)" ? "348" : "1,248"}
+                      </div>
                       <span className="text-[9px] font-bold text-emerald-600">▲ 12.4%</span>
                     </div>
 
                     <div className="bg-rose-50/70 p-2 rounded-xl border border-rose-100">
                       <span className="text-[10px] font-medium text-rose-700 block truncate">Lỗi SOS</span>
-                      <div className="text-base sm:text-lg font-black text-rose-700 leading-tight mt-0.5">15</div>
+                      <div className="text-base sm:text-lg font-black text-rose-700 leading-tight mt-0.5">
+                        {plantFilter === "Nhà máy 1 (NM1)" ? "3" : plantFilter === "Nhà máy 2 (NM2)" ? "8" : plantFilter === "Nhà máy 3 (NM3)" ? "4" : "15"}
+                      </div>
                       <span className="text-[9px] font-bold text-rose-600">▲ 36.4%</span>
                     </div>
 
                     <div className="bg-amber-50/70 p-2 rounded-xl border border-amber-100">
                       <span className="text-[10px] font-medium text-amber-800 block truncate">Lỗi cần sửa</span>
-                      <div className="text-base sm:text-lg font-black text-amber-800 leading-tight mt-0.5">87</div>
+                      <div className="text-base sm:text-lg font-black text-amber-800 leading-tight mt-0.5">
+                        {plantFilter === "Nhà máy 1 (NM1)" ? "24" : plantFilter === "Nhà máy 2 (NM2)" ? "42" : plantFilter === "Nhà máy 3 (NM3)" ? "21" : "87"}
+                      </div>
                       <span className="text-[9px] font-bold text-amber-700">▲ 8.3%</span>
                     </div>
 
                     <div className="bg-emerald-50/70 p-2 rounded-xl border border-emerald-100">
                       <span className="text-[10px] font-medium text-emerald-800 block truncate">Đã xử lý</span>
-                      <div className="text-base sm:text-lg font-black text-[#006838] leading-tight mt-0.5">1,146</div>
+                      <div className="text-base sm:text-lg font-black text-[#006838] leading-tight mt-0.5">
+                        {plantFilter === "Nhà máy 1 (NM1)" ? "353" : plantFilter === "Nhà máy 2 (NM2)" ? "470" : plantFilter === "Nhà máy 3 (NM3)" ? "323" : "1,146"}
+                      </div>
                       <span className="text-[9px] font-bold text-emerald-700">▲ 15.7%</span>
                     </div>
                   </div>
 
-                  {/* Trend SVG Line Chart */}
+                  {/* Trend SVG Line Chart - Interactive with Hover Tooltip Overlay */}
                   <div className="space-y-0.5">
                     <div className="flex items-center justify-between text-[10px] font-semibold text-slate-500">
                       <span>Xu hướng biến động theo ngày</span>
-                      <span className="text-[9px] text-[#006838] font-bold">TB: 178 lỗi/ngày</span>
+                      <span className="text-[9px] text-[#006838] font-bold">
+                        TB: {plantFilter === "Nhà máy 1 (NM1)" ? "54" : plantFilter === "Nhà máy 2 (NM2)" ? "74" : plantFilter === "Nhà máy 3 (NM3)" ? "50" : "178"} lỗi/ngày
+                      </span>
                     </div>
                     <div className="w-full h-20 relative">
                       <svg className="w-full h-full overflow-visible" viewBox="0 0 500 100" preserveAspectRatio="none">
@@ -1680,26 +1727,43 @@ export default function WorkDashboardPage() {
                           strokeLinejoin="round"
                         />
 
+                        {/* Interactive QC Points with Hover State */}
                         {[
-                          { x: 35, y: 38 },
-                          { x: 105, y: 15 },
-                          { x: 175, y: 70 },
-                          { x: 245, y: 20 },
-                          { x: 315, y: 35 },
-                          { x: 385, y: 35 },
-                          { x: 455, y: 85 },
+                          { date: "09/08", total: 185, sos: 2, fix: 14, x: 35, y: 38 },
+                          { date: "10/08", total: 245, sos: 4, fix: 18, x: 105, y: 15 },
+                          { date: "11/08", total: 120, sos: 1, fix: 8, x: 175, y: 70 },
+                          { date: "12/08", total: 230, sos: 3, fix: 15, x: 245, y: 20 },
+                          { date: "13/08", total: 195, sos: 2, fix: 14, x: 315, y: 35 },
+                          { date: "14/08", total: 190, sos: 2, fix: 12, x: 385, y: 35 },
+                          { date: "15/08", total: 88, sos: 1, fix: 6, x: 455, y: 85 },
                         ].map((pt, i) => (
                           <circle
                             key={i}
                             cx={pt.x}
                             cy={pt.y}
-                            r="3.5"
-                            fill="#ffffff"
+                            r={hoveredQcIndex === i ? "6" : "3.5"}
+                            fill={hoveredQcIndex === i ? "#006838" : "#ffffff"}
                             stroke="#006838"
-                            strokeWidth="2.5"
+                            strokeWidth={hoveredQcIndex === i ? "3.5" : "2.5"}
+                            className="cursor-pointer transition-all duration-150"
+                            onMouseEnter={() => setHoveredQcIndex(i)}
+                            onMouseLeave={() => setHoveredQcIndex(null)}
+                            onClick={() => setIsDonutModalOpen(true)}
                           />
                         ))}
                       </svg>
+
+                      {/* QC Live Hover Tooltip Popup Overlay */}
+                      {hoveredQcIndex !== null && (
+                        <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-slate-900/95 text-white text-[10px] font-bold px-3 py-1.5 rounded-xl shadow-xl border border-slate-700 pointer-events-none z-30 animate-in fade-in zoom-in-95 duration-150 whitespace-nowrap">
+                          <span>📊 {[ "09/08", "10/08", "11/08", "12/08", "13/08", "14/08", "15/08" ][hoveredQcIndex]}: </span>
+                          <span className="text-emerald-300 font-extrabold">{[ 185, 245, 120, 230, 195, 190, 88 ][hoveredQcIndex]} lỗi</span>
+                          <span className="text-slate-400"> | </span>
+                          <span className="text-rose-300">SOS: {[ 2, 4, 1, 3, 2, 2, 1 ][hoveredQcIndex]}</span>
+                          <span className="text-slate-400"> | </span>
+                          <span className="text-amber-300">Sửa: {[ 14, 18, 8, 15, 14, 12, 6 ][hoveredQcIndex]}</span>
+                        </div>
+                      )}
 
                       <div className="flex justify-between px-2 text-[9px] font-semibold text-slate-400 mt-0.5">
                         <span>09/08</span>

@@ -42,7 +42,7 @@ export default function Header() {
   const lastScrollY = useRef(0);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userInfo, setUserInfo] = useState<{ empCode?: string; name?: string; avatar?: string; roleCode?: string; departmentCode?: string } | null>(null);
+  const [userInfo, setUserInfo] = useState<{ empCode?: string; name?: string; avatar?: string; roleCode?: string; departmentCode?: string; email?: string; title?: string; phone?: string } | null>(null);
 
   // Dropdown states
   const [aboutDropdownOpen, setAboutDropdownOpen] = useState(false);
@@ -298,6 +298,9 @@ export default function Header() {
             name: storedUser.name || 'Phạm Nguyễn Anh Huy',
             roleCode: storedUser.roleCode || 'CBCNV',
             departmentCode: storedUser.department || 'IT - Team chuyển đổi số',
+            avatar: storedUser.avatar || '/images/tbs-logo.png',
+            email: storedUser.email || 'anhhuy.pham@tbsgroup.vn',
+            title: storedUser.title || 'Cán Bộ Nhân Viên (CBCNV)',
           });
         } else {
           setUserInfo({
@@ -305,6 +308,9 @@ export default function Header() {
             name: 'Phạm Nguyễn Anh Huy',
             roleCode: 'CBCNV',
             departmentCode: 'IT - Team chuyển đổi số',
+            avatar: '/images/tbs-logo.png',
+            email: 'anhhuy.pham@tbsgroup.vn',
+            title: 'Cán Bộ Nhân Viên (CBCNV)',
           });
         }
       } else {
@@ -559,11 +565,22 @@ export default function Header() {
                   onClick={() => setUserDropdownOpen(!userDropdownOpen)}
                   className="flex items-center gap-2 bg-[#0f4133]/90 hover:bg-[#0f4133] px-3.5 py-1.5 rounded-full border border-[#2fd39a]/40 shadow-md text-white transition-all cursor-pointer group"
                 >
-                  <div className="w-6 h-6 rounded-full bg-[#2fd39a]/20 text-[#2fd39a] flex items-center justify-center font-bold">
-                    <IconUserCircle size={18} />
+                  <div className="relative">
+                    <div className="w-7 h-7 rounded-full bg-slate-900 border border-[#2fd39a] overflow-hidden shadow-xs group-hover:scale-105 transition-transform flex items-center justify-center">
+                      {userInfo?.avatar ? (
+                        <img
+                          src={userInfo.avatar}
+                          alt={userInfo.name || "User Avatar"}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <IconUserCircle size={20} className="text-[#2fd39a]" />
+                      )}
+                    </div>
+                    <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-400 border border-white" />
                   </div>
                   <span className="text-xs font-extrabold text-[#f2dc9a] max-w-[140px] truncate">
-                    {userInfo?.name || userInfo?.empCode || 'CBCNV SKECHERS'}
+                    {userInfo?.name || userInfo?.empCode || 'Phạm Nguyễn Anh Huy'}
                   </span>
                   <IconChevronDown
                     size={13}
@@ -573,9 +590,9 @@ export default function Header() {
                   />
                 </button>
 
-                {/* User Executive Dropdown Menu with Hover Bridge & Grace Delay */}
+                {/* User Executive Dropdown Menu Popup (Matching /work Page Specs & Aesthetic) */}
                 <div
-                  className={`absolute top-full right-0 pt-2 w-64 z-50 transition-all duration-300 transform origin-top-right ${
+                  className={`absolute top-full right-0 pt-2 w-72 sm:w-80 z-50 transition-all duration-300 transform origin-top-right ${
                     userDropdownOpen
                       ? 'opacity-100 scale-100 pointer-events-auto translate-y-0'
                       : 'opacity-0 scale-95 pointer-events-none -translate-y-2'
@@ -583,54 +600,91 @@ export default function Header() {
                   onMouseEnter={handleUserMouseEnter}
                   onMouseLeave={handleUserMouseLeave}
                 >
-                  <div className="rounded-2xl bg-[#041a13]/98 border border-[#2fd39a]/40 p-2.5 shadow-2xl backdrop-blur-2xl text-left">
-                    {/* Header info inside dropdown */}
-                    <div className="px-3 py-2.5 border-b border-white/10 mb-1.5">
-                      <div className="text-xs font-extrabold text-white truncate">
-                        {userInfo?.name || 'Phạm Nguyễn Anh Huy'}
+                  <div className="rounded-2xl bg-white border border-slate-200/90 shadow-2xl overflow-hidden text-left animate-in fade-in slide-in-from-top-2 duration-150">
+                    {/* User Info Header Banner */}
+                    <div className="p-4 bg-gradient-to-br from-[#006838] to-[#004d29] text-white space-y-2">
+                      <div className="flex items-center gap-3">
+                        <div className="w-11 h-11 rounded-full border-2 border-white/80 overflow-hidden flex-shrink-0 shadow-sm bg-slate-900 flex items-center justify-center">
+                          {userInfo?.avatar ? (
+                            <img
+                              src={userInfo.avatar}
+                              alt={userInfo.name || "User"}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <IconUserCircle size={24} className="text-white" />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h4 className="text-sm font-black truncate text-white">{userInfo?.name || 'Phạm Nguyễn Anh Huy'}</h4>
+                          <p className="text-xs text-emerald-100 truncate font-medium">{userInfo?.email || 'anhhuy.pham@tbsgroup.vn'}</p>
+                        </div>
                       </div>
-                      <div className="text-[10px] text-[#2fd39a] font-mono mt-0.5">
-                        Mã NV: {userInfo?.empCode || '202608001'} ({userInfo?.roleCode || 'SUPER_ADMIN'})
+                      <div className="flex items-center justify-between pt-0.5">
+                        <span className="inline-block px-2.5 py-0.5 rounded-full bg-white/20 text-white text-[10px] font-extrabold uppercase tracking-wider">
+                          {userInfo?.roleCode || 'CBCNV'}
+                        </span>
+                        <span className="text-[10px] font-mono text-emerald-200">
+                          Mã NV: {userInfo?.empCode || '202608001'}
+                        </span>
                       </div>
                     </div>
 
-                    {/* Item 1: Thông tin cá nhân */}
-                    <button
-                      onClick={() => {
-                        setUserDropdownOpen(false);
-                        setProfileModalOpen(true);
-                      }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-gray-200 hover:text-[#2fd39a] hover:bg-white/10 rounded-xl transition text-left cursor-pointer"
-                    >
-                      <IconUser size={15} className="text-[#2fd39a]" />
-                      <span>Thông tin cá nhân</span>
-                    </button>
+                    {/* Menu Options List */}
+                    <div className="p-2 space-y-1 bg-white">
+                      {/* Option 1: Thông tin cá nhân */}
+                      <button
+                        onClick={() => {
+                          setUserDropdownOpen(false);
+                          setProfileModalOpen(true);
+                        }}
+                        className="w-full p-2.5 rounded-xl text-left flex items-center gap-3 text-xs font-bold text-slate-700 hover:bg-emerald-50 hover:text-[#006838] transition-colors cursor-pointer group"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-emerald-100/70 text-[#006838] flex items-center justify-center group-hover:bg-[#006838] group-hover:text-white transition-colors flex-shrink-0">
+                          <IconUser size={16} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-extrabold text-slate-900 group-hover:text-[#006838]">Thông tin cá nhân</div>
+                          <div className="text-[10px] text-slate-500 font-normal truncate">Họ tên, SĐT, Email &amp; Avatar</div>
+                        </div>
+                      </button>
 
-                    {/* Item 2: Đổi mật khẩu */}
-                    <button
-                      onClick={() => {
-                        setUserDropdownOpen(false);
-                        setChangePasswordModalOpen(true);
-                      }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-gray-200 hover:text-[#2fd39a] hover:bg-white/10 rounded-xl transition text-left cursor-pointer"
-                    >
-                      <IconKey size={15} className="text-[#2fd39a]" />
-                      <span>Đổi mật khẩu</span>
-                    </button>
+                      {/* Option 2: Đổi mật khẩu */}
+                      <button
+                        onClick={() => {
+                          setUserDropdownOpen(false);
+                          setChangePasswordModalOpen(true);
+                        }}
+                        className="w-full p-2.5 rounded-xl text-left flex items-center gap-3 text-xs font-bold text-slate-700 hover:bg-amber-50 hover:text-amber-800 transition-colors cursor-pointer group"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-amber-100/70 text-amber-800 flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition-colors flex-shrink-0">
+                          <IconKey size={16} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-extrabold text-slate-900 group-hover:text-amber-800">Đổi mật khẩu</div>
+                          <div className="text-[10px] text-slate-500 font-normal truncate">Cập nhật mật khẩu tài khoản</div>
+                        </div>
+                      </button>
 
-                    <div className="my-1.5 border-t border-white/10" />
+                      <div className="h-[1px] bg-slate-100 my-1" />
 
-                    {/* Item 3: Đăng xuất */}
-                    <button
-                      onClick={() => {
-                        setUserDropdownOpen(false);
-                        handleLogout();
-                      }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl transition text-left cursor-pointer"
-                    >
-                      <IconLogout size={15} />
-                      <span>Đăng xuất</span>
-                    </button>
+                      {/* Option 3: Đăng xuất */}
+                      <button
+                        onClick={() => {
+                          setUserDropdownOpen(false);
+                          handleLogout();
+                        }}
+                        className="w-full p-2.5 rounded-xl text-left flex items-center gap-3 text-xs font-bold text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer group"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center group-hover:bg-rose-600 group-hover:text-white transition-colors flex-shrink-0">
+                          <IconLogout size={16} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-extrabold text-rose-600">Đăng xuất</div>
+                          <div className="text-[10px] text-rose-400 font-normal truncate">Thoát tài khoản an toàn</div>
+                        </div>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

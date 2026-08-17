@@ -772,28 +772,24 @@ export default function MeetingRoomsPage() {
           </div>
         </div>
 
-        {/* ════════════════════════════════════════════════════════════════
-            TOP NAVIGATION TABS (SEGMENTED CONTROL BAR - TASTE SKILL HUMAN STYLE)
-           ════════════════════════════════════════════════════════════════ */}
+        {/* TOP NAVIGATION TABS */}
         <div className="bg-slate-200/60 p-1.5 rounded-2xl border border-slate-200/90 shadow-inner flex items-center gap-1 overflow-x-auto">
-          <Can permission={PERMISSIONS.ROOMS_APPROVE}>
-            <button
-              onClick={() => setActiveTab("APPROVALS")}
-              className={`px-4 py-2.5 rounded-xl font-extrabold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
-                activeTab === "APPROVALS"
-                  ? "bg-[#006838] text-white shadow-md border border-[#004e2a]"
-                  : "text-slate-700 hover:text-[#006838] hover:bg-white/70"
-              }`}
-            >
-              <IconChecklist size={18} />
-              <span>Bàn Lễ Tân (Xác nhận &amp; Xếp lịch)</span>
-              {bookings.filter((b) => b.status === "PENDING").length > 0 && (
-                <span className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[11px] font-black animate-pulse">
-                  {bookings.filter((b) => b.status === "PENDING").length} chờ duyệt
-                </span>
-              )}
-            </button>
-          </Can>
+          <button
+            onClick={() => setActiveTab("APPROVALS")}
+            className={`px-4 py-2.5 rounded-xl font-extrabold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === "APPROVALS"
+                ? "bg-[#006838] text-white shadow-md border border-[#004e2a]"
+                : "text-slate-700 hover:text-[#006838] hover:bg-white/70"
+            }`}
+          >
+            <IconChecklist size={18} />
+            <span>Bàn Lễ Tân (Xác nhận &amp; Xếp lịch)</span>
+            {bookings.filter((b) => b.status === "PENDING").length > 0 && (
+              <span className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[11px] font-black animate-pulse">
+                {bookings.filter((b) => b.status === "PENDING").length} chờ duyệt
+              </span>
+            )}
+          </button>
 
           <button
             onClick={() => setActiveTab("BOOKING")}
@@ -852,7 +848,7 @@ export default function MeetingRoomsPage() {
         {/* ════════════════════════════════════════════════════════════════
             TAB 0: 🛎️ BÀN LỄ TÂN (XÁC NHẬN PHÒNG, ĐỔI PHÒNG, XẾP LỊCH, ĐÓN KHÁCH)
            ════════════════════════════════════════════════════════════════ */}
-        {activeTab === "APPROVALS" && userRole === "LE_TAN" && (
+        {activeTab === "APPROVALS" && (
           <div className="space-y-6 animate-in fade-in duration-200">
             {/* Lễ Tân Executive Dashboard Banner */}
             <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-r from-[#006838] via-[#043322] to-slate-900 text-white shadow-lg space-y-4">

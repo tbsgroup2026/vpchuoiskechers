@@ -1298,10 +1298,10 @@ export default function WorkDashboardPage() {
                 </div>
               </div>
 
-              {/* 3 COLUMNS MIDDLE SECTION - Auto wraps cleanly when main width changes */}
-              <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 min-w-0">
-                {/* COL 1 (Xu hướng cải tiến): 5/12 on 2XL, 12/12 on XL/LG screens */}
-                <div className="2xl:col-span-5 xl:col-span-12 bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs flex flex-col justify-between space-y-3 min-w-0">
+              {/* 3 COLUMNS MIDDLE SECTION - 3 Columns Side-by-Side on Desktop (lg >= 1024px) */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 min-w-0">
+                {/* COL 1 (Xu hướng cải tiến): 5/12 width on Desktop (>=1024px) */}
+                <div className="lg:col-span-5 bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs flex flex-col justify-between space-y-3 min-w-0">
                   <div className="flex items-center justify-between pb-2 border-b border-slate-100 gap-2">
                     <h3 className="text-sm font-black text-slate-900 truncate">Xu hướng cải tiến</h3>
                     <select className="text-xs font-bold text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 outline-none cursor-pointer flex-shrink-0">
@@ -1393,8 +1393,8 @@ export default function WorkDashboardPage() {
                   </div>
                 </div>
 
-                {/* COL 2 (Hoạt động nổi bật): 4/12 on 2XL, 6/12 on XL */}
-                <div className="2xl:col-span-4 xl:col-span-6 bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs flex flex-col justify-between space-y-3 min-w-0">
+                {/* COL 2 (Hoạt động nổi bật): 4/12 width on Desktop (>=1024px) */}
+                <div className="lg:col-span-4 bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs flex flex-col justify-between space-y-3 min-w-0">
                   <div className="pb-2 border-b border-slate-100">
                     <h3 className="text-sm font-black text-slate-900">Hoạt động nổi bật</h3>
                   </div>
@@ -1469,8 +1469,8 @@ export default function WorkDashboardPage() {
                   </div>
                 </div>
 
-                {/* COL 3 (Truy cập nhanh CN-CI): 3/12 on 2XL, 6/12 on XL */}
-                <div className="2xl:col-span-3 xl:col-span-6 bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs flex flex-col justify-between space-y-3 min-w-0">
+                {/* COL 3 (Truy cập nhanh CN-CI): 3/12 width on Desktop (>=1024px) */}
+                <div className="lg:col-span-3 bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs flex flex-col justify-between space-y-3 min-w-0">
                   <div className="pb-2 border-b border-slate-100">
                     <h3 className="text-sm font-black text-slate-900 truncate">Truy cập nhanh – CN–CI</h3>
                   </div>

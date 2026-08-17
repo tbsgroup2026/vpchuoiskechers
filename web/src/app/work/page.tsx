@@ -61,15 +61,14 @@ interface DepartmentItem {
 }
 
 export default function WorkDashboardPage() {
-  // Default to QC department as requested by user prompt
+  // Default to QC department as shown in Image 2
   const [selectedDept, setSelectedDept] = useState<string | null>("qc");
 
-  // Filters & State Management
+  // QC Filters & Dashboard State Management
   const [factoryScope, setFactoryScope] = useState<string>("Toàn nhà máy");
   const [timeFilter, setTimeFilter] = useState<string>("7 ngày");
   const [dateRange, setDateRange] = useState<string>("09/08/2026 - 15/08/2026");
   const [isExportDropdownOpen, setIsExportDropdownOpen] = useState<boolean>(false);
-  const [activeQcRole, setActiveQcRole] = useState<"line_qc" | "oee_eng" | "factory_sup" | "kaizen_lead">("line_qc");
   const [hoveredChartPoint, setHoveredChartPoint] = useState<number | null>(null);
   const [hoveredFactory, setHoveredFactory] = useState<string | null>(null);
 
@@ -207,7 +206,7 @@ export default function WorkDashboardPage() {
   };
 
   // ════════════════════════════════════════════════════════════════
-  // DYNAMIC QC METRICS DATA MATRIX (BY FACTORY SCOPE)
+  // DYNAMIC QC METRICS DATA MATRIX (BY FACTORY SCOPE) - EXACT MATCH IMAGE 2
   // ════════════════════════════════════════════════════════════════
   const qcMetricsData: Record<
     string,
@@ -344,58 +343,6 @@ export default function WorkDashboardPage() {
   };
 
   const currentQcMetrics = qcMetricsData[factoryScope] || qcMetricsData["Toàn nhà máy"];
-
-  // Roles & Tasks for CBNV QC Progress
-  const qcRolesData = {
-    line_qc: {
-      roleName: "Chuyên Viên QC Chuyền (Line QC Specialist)",
-      overallProgress: 98.5,
-      completedTasks: 19,
-      totalTasks: 19,
-      tasks: [
-        { name: "Kiểm tra tiêu chuẩn QC chuyền May 2", pct: 100, desc: "Đạt 98.2% tiêu chuẩn SKECHERS Global" },
-        { name: "Đánh giá AQL lẫy mẫu ngẫu nhiên ca sáng", pct: 100, desc: "Kiểm tra 200 đôi mẫu không phát hiện lỗi nặng" },
-        { name: "Báo cáo sự cố Gemba Walk", pct: 95, desc: "Đã xử lý 3/3 sự cố phát sinh ca trước" },
-        { name: "Thử nghiệm độ mài mòn vật liệu đế", pct: 100, desc: "Đạt chuẩn thử nghiệm 50,000 chu kỳ" },
-      ],
-    },
-    oee_eng: {
-      roleName: "Kỹ Sư OEE & Thiết Bị (OEE & Equipment Engineer)",
-      overallProgress: 92.0,
-      completedTasks: 11,
-      totalTasks: 12,
-      tasks: [
-        { name: "Đo lường chỉ số OEE nhà máy thời gian thực", pct: 100, desc: "OEE đạt 91.5% vượt chỉ tiêu 85%" },
-        { name: "Khắc phục nghẽn chuyền Gò #2", pct: 90, desc: "Tối ưu hóa tốc độ băng chuyền +12%" },
-        { name: "Báo cáo Downtime sự cố máy ép đế", pct: 86, desc: "Giảm thời gian dừng máy xuống dưới 15 phút" },
-        { name: "Bảo trì cảm biến kiểm soát lỗi AI", pct: 92, desc: "Hiệu chuẩn 12 camera AI quét lỗi bề mặt" },
-      ],
-    },
-    factory_sup: {
-      roleName: "Giám Sát Chất Lượng Xưởng (Factory Quality Supervisor)",
-      overallProgress: 95.2,
-      completedTasks: 20,
-      totalTasks: 21,
-      tasks: [
-        { name: "Phê duyệt báo cáo kiểm tra lô hàng xuất khẩu", pct: 100, desc: "Đã duyệt 15 container hàng xuất xưởng" },
-        { name: "Xử lý cảnh báo sự cố SOS khẩn cấp", pct: 95, desc: "Phản hồi & giải quyết trong vòng 10 phút" },
-        { name: "Kiểm định tiêu chuẩn nhà máy SKECHERS Audit", pct: 92, desc: "Đạt 97/100 điểm đánh giá tuân thủ" },
-        { name: "Đánh giá KPI chất lượng tuần của 33 chuyền", pct: 94, desc: "Tổng hợp dữ liệu D1 Database Realtime" },
-      ],
-    },
-    kaizen_lead: {
-      roleName: "Team Lead Kaizen & Cải Tiến QC (Continuous Improvement)",
-      overallProgress: 89.0,
-      completedTasks: 8,
-      totalTasks: 9,
-      tasks: [
-        { name: "Đánh giá sáng kiến cải tiến Kaizen chuyền May", pct: 92, desc: "Áp dụng 4 đề xuất tiết kiệm 120 giờ làm" },
-        { name: "Thống kê & Phân tích nguyên nhân gốc lỗi tuần", pct: 88, desc: "Giảm 18% lỗi may đường viền mũi giày" },
-        { name: "Đào tạo quy trình kiểm hàng mới cho CBNV", pct: 87, desc: "Hoàn thành đào tạo cho 45 nhân sự QC" },
-        { name: "Số hóa biểu mẫu kiểm tra QC bằng máy tính bảng", pct: 89, desc: "Triển khai 100% chuyền may & gò" },
-      ],
-    },
-  };
 
   // 7 Executive Departments List
   const departments: DepartmentItem[] = [
@@ -619,10 +566,10 @@ export default function WorkDashboardPage() {
       </aside>
 
       {/* ════════════════════════════════════════════════════════════════
-          MAIN AREA (Top Header + Single Viewport QC Content)
+          MAIN AREA (Top Header + Single Viewport QC Content - EXACT MATCH IMAGE 2)
          ════════════════════════════════════════════════════════════════ */}
       <main className="flex-1 h-screen overflow-hidden flex flex-col justify-between bg-[#f0f4f2]">
-        {/* Top Header Bar (Unchanged Header) */}
+        {/* Top Header Bar */}
         <header className="h-[52px] min-h-[52px] px-5 py-2 flex items-center justify-between border-b border-slate-200/80 bg-white/95 backdrop-blur-md flex-shrink-0 z-40">
           <div>
             <h1 className="text-base sm:text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
@@ -724,11 +671,11 @@ export default function WorkDashboardPage() {
         </header>
 
         {/* ════════════════════════════════════════════════════════════════
-            DASHBOARD CONTENT AREA (Exact User Prompt Redesign Specification)
+            DASHBOARD CONTENT AREA (EXACT MATCH IMAGE 2)
            ════════════════════════════════════════════════════════════════ */}
         <div className="flex-1 p-3 sm:p-3.5 flex flex-col justify-between overflow-hidden gap-2">
           {/* ════════════════════════════════════════════════════════════════
-              SECTION 3: HEADER QC HERO CARD
+              SECTION 3: HEADER QC HERO CARD (IMAGE 2 MATCH)
              ════════════════════════════════════════════════════════════════ */}
           <div className="bg-gradient-to-r from-[#006838] via-[#004d29] to-[#08221a] text-white p-3 sm:p-3.5 rounded-2xl border border-emerald-950/40 shadow-sm flex items-center justify-between flex-shrink-0">
             <div className="flex items-center gap-3">
@@ -741,11 +688,8 @@ export default function WorkDashboardPage() {
                     PHÒNG BAN
                   </span>
                   <h2 className="text-base sm:text-lg lg:text-xl font-black tracking-tight text-white">
-                    QUẢN LÝ CHẤT LƯỢNG (QC)
+                    Quản Lý Chất Lượng (QC)
                   </h2>
-                  <span className="hidden sm:inline-block text-[9px] font-bold text-emerald-200 bg-emerald-500/30 px-2 py-0.5 rounded-full border border-emerald-400/30">
-                    Đang hoạt động
-                  </span>
                 </div>
                 <p className="text-xs text-emerald-100/90 mt-0.5 font-medium">
                   Kiểm soát tiêu chuẩn chất lượng SKECHERS, chỉ số OEE và tỷ lệ lỗi trên chuyền.
@@ -852,7 +796,7 @@ export default function WorkDashboardPage() {
           </div>
 
           {/* ════════════════════════════════════════════════════════════════
-              SECTION 5 & 6: MAIN DASHBOARD GRID (2 COLUMNS)
+              MAIN DASHBOARD GRID (IMAGE 2 MATCH)
              ════════════════════════════════════════════════════════════════ */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-2.5 flex-1 min-h-0">
             {/* CỘT TRÁI: HIỆU SUẤT TỔNG THỂ (2 DONUT CHARTS) */}
@@ -1045,10 +989,10 @@ export default function WorkDashboardPage() {
           </div>
 
           {/* ════════════════════════════════════════════════════════════════
-              SECTION 7, 8, 9: LOWER ROW (3 CARDS GRID)
+              LOWER ROW (3 CARDS GRID - IMAGE 2 MATCH)
              ════════════════════════════════════════════════════════════════ */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-2.5 flex-1 min-h-0">
-            {/* CARD 1: CHỨC NĂNG NHANH (SECTION 7) */}
+            {/* CARD 1: CHỨC NĂNG NHANH */}
             <div className="lg:col-span-4 bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col justify-between min-h-0">
               <h3 className="text-xs font-black text-slate-900 pb-1">Chức năng nhanh</h3>
               
@@ -1079,7 +1023,7 @@ export default function WorkDashboardPage() {
               </div>
             </div>
 
-            {/* CARD 2: CẢNH BÁO THỜI GIAN THỰC (SECTION 8) */}
+            {/* CARD 2: CẢNH BÁO THỜI GIAN THỰC */}
             <div className="lg:col-span-4 bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col justify-between min-h-0">
               <div className="flex items-center justify-between pb-1 flex-shrink-0">
                 <h3 className="text-xs font-black text-slate-900 flex items-center gap-1.5">
@@ -1095,7 +1039,6 @@ export default function WorkDashboardPage() {
               </div>
 
               <div className="space-y-1 my-auto">
-                {/* Alert 1 */}
                 <div className="p-1.5 rounded-xl bg-rose-50/70 border border-rose-200 flex items-center justify-between gap-1.5 hover:bg-rose-100/70 transition-colors cursor-pointer">
                   <div className="flex items-center gap-1.5 min-w-0">
                     <div className="w-5 h-5 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center flex-shrink-0">
@@ -1111,7 +1054,6 @@ export default function WorkDashboardPage() {
                   </span>
                 </div>
 
-                {/* Alert 2 */}
                 <div className="p-1.5 rounded-xl bg-amber-50/70 border border-amber-200 flex items-center justify-between gap-1.5 hover:bg-amber-100/70 transition-colors cursor-pointer">
                   <div className="flex items-center gap-1.5 min-w-0">
                     <div className="w-5 h-5 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center flex-shrink-0">
@@ -1127,7 +1069,6 @@ export default function WorkDashboardPage() {
                   </span>
                 </div>
 
-                {/* Alert 3 */}
                 <div className="p-1.5 rounded-xl bg-rose-50/70 border border-rose-200 flex items-center justify-between gap-1.5 hover:bg-rose-100/70 transition-colors cursor-pointer">
                   <div className="flex items-center gap-1.5 min-w-0">
                     <div className="w-5 h-5 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center flex-shrink-0">
@@ -1145,7 +1086,7 @@ export default function WorkDashboardPage() {
               </div>
             </div>
 
-            {/* CARD 3: HIỆU SUẤT THEO NHÀ MÁY (SECTION 9) */}
+            {/* CARD 3: HIỆU SUẤT THEO NHÀ MÁY */}
             <div className="lg:col-span-4 bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col justify-between min-h-0">
               <div className="flex items-center justify-between pb-1 flex-shrink-0">
                 <h3 className="text-xs font-black text-slate-900">Hiệu suất theo nhà máy</h3>
@@ -1189,11 +1130,10 @@ export default function WorkDashboardPage() {
           </div>
 
           {/* ════════════════════════════════════════════════════════════════
-              SECTION 10: THANH ACTION BAR PHÍA DƯỚI (BOTTOM ACTION STRIP)
+              THANH ACTION BAR PHÍA DƯỚI (BOTTOM ACTION STRIP)
              ════════════════════════════════════════════════════════════════ */}
           <div className="bg-[#006838] text-white p-2 rounded-2xl border border-emerald-950/60 shadow-md flex items-center justify-between flex-shrink-0">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 w-full">
-              {/* Action 1 */}
               <button
                 onClick={() => showToast("Khởi tạo báo cáo kiểm tra QC...")}
                 className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 transition-colors flex items-center gap-2 text-left cursor-pointer border border-white/10 group"
@@ -1207,7 +1147,6 @@ export default function WorkDashboardPage() {
                 </div>
               </button>
 
-              {/* Action 2 */}
               <button
                 onClick={() => showToast("Tạo nhiệm vụ QC mới...")}
                 className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 transition-colors flex items-center gap-2 text-left cursor-pointer border border-white/10 group"
@@ -1221,7 +1160,6 @@ export default function WorkDashboardPage() {
                 </div>
               </button>
 
-              {/* Action 3 */}
               <button
                 onClick={() => showToast("Mở Dashboard chi tiết...")}
                 className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 transition-colors flex items-center gap-2 text-left cursor-pointer border border-white/10 group"
@@ -1235,7 +1173,6 @@ export default function WorkDashboardPage() {
                 </div>
               </button>
 
-              {/* Action 4 */}
               <button
                 onClick={() => showToast("Kích hoạt quản lý sự cố khẩn cấp (SOS)...")}
                 className="p-1.5 rounded-xl bg-white/10 hover:bg-rose-500/30 transition-colors flex items-center gap-2 text-left cursor-pointer border border-white/10 group"

@@ -455,12 +455,12 @@ export default function WorkDashboardPage() {
   const activeDeptObj = departments.find((d) => d.id === selectedDept);
 
   return (
-    <div className="min-h-screen w-full flex bg-[#f4f7f5] text-slate-900 font-sans antialiased selection:bg-[#006838] selection:text-white">
+    <div className="h-screen w-full flex overflow-hidden bg-[#f4f7f5] text-slate-900 font-sans antialiased selection:bg-[#006838] selection:text-white">
       {/* ════════════════════════════════════════════════════════════════
-          LEFT SIDEBAR (With Circular Floating Toggle Button)
+          LEFT SIDEBAR (Fixed Height, Independent Scroll)
          ════════════════════════════════════════════════════════════════ */}
       <aside
-        className={`bg-white min-h-screen flex flex-col justify-between border-r border-slate-200/80 flex-shrink-0 shadow-sm transition-all duration-300 ease-in-out z-30 ${isSidebarCollapsed ? "w-20 px-2.5 py-4" : "w-80 lg:w-96 p-4 lg:p-5"
+        className={`bg-white h-screen flex flex-col justify-between border-r border-slate-200/80 flex-shrink-0 shadow-sm transition-all duration-300 ease-in-out z-30 ${isSidebarCollapsed ? "w-20 px-2.5 py-4" : "w-80 lg:w-96 p-4 lg:p-5"
           }`}
       >
         <div className="space-y-4 flex-1 flex flex-col">
@@ -518,7 +518,7 @@ export default function WorkDashboardPage() {
           )}
 
           {/* Department List (Executive Responsive Sidebar Cards) */}
-          <div className={`flex-1 pr-0.5 w-full flex flex-col items-center ${isSidebarCollapsed ? "space-y-3.5 pt-1" : "space-y-2.5"}`}>
+          <div className={`flex-1 overflow-y-auto min-h-0 pr-0.5 w-full flex flex-col items-center ${isSidebarCollapsed ? "space-y-3.5 pt-1" : "space-y-2.5"}`}>
             {departments.map((dept) => {
               const IconComp = dept.icon;
               const isSelected = selectedDept === dept.id;
@@ -650,9 +650,9 @@ export default function WorkDashboardPage() {
       {/* ════════════════════════════════════════════════════════════════
           MAIN DASHBOARD AREA
          ════════════════════════════════════════════════════════════════ */}
-      <main className="flex-1 min-h-screen bg-[#f4f7f5] text-slate-900 rounded-tl-[24px] flex flex-col justify-between transition-all duration-300">
+      <main className="flex-1 h-screen overflow-y-auto bg-[#f4f7f5] text-slate-900 rounded-tl-[24px] flex flex-col justify-between transition-all duration-300">
         {/* Top Header Bar (High Z-Index Stacking Context) */}
-        <header className="relative z-50 px-5 lg:px-6 py-3 flex items-center justify-between border-b border-slate-200/80 bg-white/90 backdrop-blur-md flex-shrink-0">
+        <header className="sticky top-0 z-40 px-5 lg:px-6 py-3 flex items-center justify-between border-b border-slate-200/80 bg-white/95 backdrop-blur-md flex-shrink-0">
           <div>
             <h1 className="text-xl lg:text-2xl font-black text-slate-900 tracking-tight">
               Xin chào, <span className="text-[#006838]">{userInfo.name}!</span>

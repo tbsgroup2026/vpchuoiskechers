@@ -466,7 +466,7 @@ export default function WorkDashboardPage() {
           LEFT SIDEBAR (Fixed Height, Independent Scroll)
          ════════════════════════════════════════════════════════════════ */}
       <aside
-        className={`bg-white h-screen flex flex-col justify-between border-r border-slate-200/80 flex-shrink-0 shadow-sm transition-all duration-300 ease-in-out z-30 ${isSidebarCollapsed ? "w-20 px-2.5 py-4" : "w-80 lg:w-96 p-4 lg:p-5"
+        className={`bg-white h-screen flex flex-col justify-between border-r border-slate-200/80 flex-shrink-0 shadow-sm transition-all duration-300 ease-in-out z-30 ${isSidebarCollapsed ? "w-20 px-2.5 py-4" : "w-72 lg:w-80 p-4"
           }`}
       >
         <div className="space-y-4 flex-1 flex flex-col">
@@ -1401,13 +1401,13 @@ export default function WorkDashboardPage() {
 
                   <div className="space-y-3 flex-1 my-auto">
                     {/* Activity 1 */}
-                    <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-200/60 flex items-center justify-between gap-2">
-                      <div className="flex items-start gap-2.5 min-w-0">
-                        <div className="w-8 h-8 rounded-lg bg-emerald-100/70 text-[#006838] flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <div className="p-2.5 sm:p-3 rounded-xl bg-slate-50/80 border border-slate-200/60 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <div className="w-8 h-8 rounded-lg bg-emerald-100/70 text-[#006838] flex items-center justify-center flex-shrink-0">
                           <IconBulb size={18} />
                         </div>
-                        <div className="min-w-0">
-                          <h4 className="text-xs font-extrabold text-slate-900 truncate">
+                        <div className="min-w-0 flex-1">
+                          <h4 className="text-xs font-extrabold text-slate-900 leading-tight">
                             Kaizen: Giảm thời gian setup line A
                           </h4>
                           <p className="text-[10px] text-slate-500 font-medium mt-0.5">
@@ -1415,19 +1415,19 @@ export default function WorkDashboardPage() {
                           </p>
                         </div>
                       </div>
-                      <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-[#006838] text-[10px] font-bold flex-shrink-0">
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-[#006838] text-[10px] font-bold flex-shrink-0 whitespace-nowrap">
                         Đã triển khai
                       </span>
                     </div>
 
                     {/* Activity 2 */}
-                    <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-200/60 flex items-center justify-between gap-2">
-                      <div className="flex items-start gap-2.5 min-w-0">
-                        <div className="w-8 h-8 rounded-lg bg-emerald-100/70 text-[#006838] flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <div className="p-2.5 sm:p-3 rounded-xl bg-slate-50/80 border border-slate-200/60 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <div className="w-8 h-8 rounded-lg bg-emerald-100/70 text-[#006838] flex items-center justify-center flex-shrink-0">
                           <IconCircleCheck size={18} />
                         </div>
-                        <div className="min-w-0">
-                          <h4 className="text-xs font-extrabold text-slate-900 truncate">
+                        <div className="min-w-0 flex-1">
+                          <h4 className="text-xs font-extrabold text-slate-900 leading-tight">
                             Gemba Walk tuần 31
                           </h4>
                           <p className="text-[10px] text-slate-500 font-medium mt-0.5">
@@ -1435,19 +1435,19 @@ export default function WorkDashboardPage() {
                           </p>
                         </div>
                       </div>
-                      <span className="px-2.5 py-1 rounded-full bg-teal-100 text-teal-800 text-[10px] font-bold flex-shrink-0">
+                      <span className="px-2 py-0.5 rounded-full bg-teal-100 text-teal-800 text-[10px] font-bold flex-shrink-0 whitespace-nowrap">
                         Hoàn thành
                       </span>
                     </div>
 
                     {/* Activity 3 */}
-                    <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-200/60 flex items-center justify-between gap-2">
-                      <div className="flex items-start gap-2.5 min-w-0">
-                        <div className="w-8 h-8 rounded-lg bg-amber-100/70 text-amber-800 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <div className="p-2.5 sm:p-3 rounded-xl bg-slate-50/80 border border-slate-200/60 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <div className="w-8 h-8 rounded-lg bg-amber-100/70 text-amber-800 flex items-center justify-center flex-shrink-0">
                           <IconFileText size={18} />
                         </div>
-                        <div className="min-w-0">
-                          <h4 className="text-xs font-extrabold text-slate-900 truncate">
+                        <div className="min-w-0 flex-1">
+                          <h4 className="text-xs font-extrabold text-slate-900 leading-tight">
                             Đề xuất cải tiến đóng gói
                           </h4>
                           <p className="text-[10px] text-slate-500 font-medium mt-0.5">
@@ -1455,7 +1455,7 @@ export default function WorkDashboardPage() {
                           </p>
                         </div>
                       </div>
-                      <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold flex-shrink-0">
+                      <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold flex-shrink-0 whitespace-nowrap">
                         Đang xét duyệt
                       </span>
                     </div>
@@ -1475,7 +1475,7 @@ export default function WorkDashboardPage() {
                     <h3 className="text-sm font-black text-slate-900">Truy cập nhanh – CN–CI</h3>
                   </div>
 
-                  <div className="grid grid-cols-4 gap-2 my-auto">
+                  <div className="grid grid-cols-4 gap-1.5 my-auto">
                     {[
                       { name: "Kaizen", icon: IconBulb, bg: "bg-emerald-50 text-[#006838]" },
                       { name: "Gemba", icon: IconUsers, bg: "bg-blue-50 text-blue-600" },
@@ -1491,12 +1491,12 @@ export default function WorkDashboardPage() {
                         <button
                           key={idx}
                           onClick={() => showToast(`Mở chức năng: ${tile.name}`)}
-                          className="p-2 rounded-xl bg-slate-50/80 border border-slate-200/60 hover:bg-white hover:border-[#006838]/60 hover:shadow-xs transition-all flex flex-col items-center text-center gap-1 group cursor-pointer"
+                          className="p-1.5 sm:p-2 rounded-xl bg-slate-50/80 border border-slate-200/60 hover:bg-white hover:border-[#006838]/60 hover:shadow-xs transition-all flex flex-col items-center text-center gap-1 group cursor-pointer"
                         >
                           <div className={`w-8 h-8 rounded-lg ${tile.bg} flex items-center justify-center group-hover:scale-105 transition-transform`}>
                             <TileIcon size={18} />
                           </div>
-                          <span className="text-[10px] font-bold text-slate-700 leading-tight">
+                          <span className="text-[10px] font-bold text-slate-700 leading-tight truncate w-full">
                             {tile.name}
                           </span>
                         </button>

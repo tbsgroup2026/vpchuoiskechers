@@ -42,7 +42,7 @@ import {
   IconDownload,
   IconAlertTriangle,
   IconAlertCircle,
-  IconMessageSquare,
+  IconMessage,
   IconFlame,
   IconCircleCheck,
   IconCalendar,
@@ -899,7 +899,7 @@ export default function WorkDashboardPage() {
                       { label: "Thông báo của bạn", icon: IconClock, bg: "bg-purple-100 text-purple-700" },
                       { label: "Thư viện PO & Lỗi", icon: IconPackage, bg: "bg-amber-100 text-amber-800" },
                       { label: "Dashboard chi tiết", icon: IconTrendingUp, bg: "bg-sky-100 text-sky-700" },
-                      { label: "Chat tiếp nhận", icon: IconMessageSquare, bg: "bg-orange-100 text-orange-700" },
+                      { label: "Chat tiếp nhận", icon: IconMessage, bg: "bg-orange-100 text-orange-700" },
                       { label: "Chạy thử & Theo dõi", icon: IconLayoutGrid, bg: "bg-[#08221a] text-white" },
                       { label: "Câu trả lời khẩn cấp (SOS)", icon: IconFlame, bg: "bg-rose-100 text-rose-700" },
                     ].map((tile, idx) => (

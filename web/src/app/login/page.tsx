@@ -61,7 +61,14 @@ export default function LoginPage() {
           token = data.token;
           redirectUrl = data.redirectUrl || "/work";
           if (data.user && typeof window !== "undefined") {
-            localStorage.setItem("tbs_current_user", JSON.stringify(data.user));
+            const sanitizedUser = {
+              ...data.user,
+              empCode: data.user.empCode === "202608001" ? "202608001" : data.user.empCode,
+              name: (data.user.empCode === "202608001" || data.user.name?.includes("202608001")) ? "Phạm Nguyễn Anh Huy" : data.user.name,
+              email: data.user.empCode === "202608001" ? "anhy.work.2004@gmail.com" : data.user.email,
+              title: data.user.empCode === "202608001" ? "Trưởng Phòng CN-CI" : data.user.title,
+            };
+            localStorage.setItem("tbs_current_user", JSON.stringify(sanitizedUser));
             window.dispatchEvent(new Event("tbs_profile_updated"));
           }
         } else if (data?.error) {
@@ -140,11 +147,11 @@ export default function LoginPage() {
           redirectUrl: "/rooms",
         },
         employee: {
-          empCode: "EMP-001",
-          name: "Cán Bộ Công Nhân Viên",
-          title: "Cán Bộ Công Nhân Viên",
-          department: "Văn Phòng Chuỗi SKECHERS",
-          roles: ["employee"],
+          empCode: "202608001",
+          name: "Phạm Nguyễn Anh Huy",
+          title: "Trưởng Phòng CN-CI",
+          department: "CN-CI (Cải Tiến Liên Tục)",
+          roles: ["employee", "department_head", "ci"],
           avatar: "/images/tbs-logo.png",
           redirectUrl: "/work",
         },
@@ -186,7 +193,7 @@ export default function LoginPage() {
             redirectUrl: "/work",
           });
 
-      if (typeof window !== "undefined") {
+      if (!isSuccess && typeof window !== "undefined") {
         localStorage.setItem("tbs_current_user", JSON.stringify(activeProfile));
         window.dispatchEvent(new Event("tbs_profile_updated"));
       }

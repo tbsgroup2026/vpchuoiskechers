@@ -110,21 +110,26 @@ export async function POST(request: Request) {
 
     // If empCode provided with correct password, allow standard login
     if (password === '123456' || password === '21032004' || password === 'Admin@123456') {
+      const cleanEmpCode = (empCode || '').trim();
       const knownNames: Record<string, { name: string; title: string; dept: string }> = {
         '202608001': { name: 'Phạm Nguyễn Anh Huy', title: 'Trưởng Phòng CN-CI', dept: 'CN-CI (Cải Tiến Liên Tục)' },
         '202608002': { name: 'Trần Ngọc Huy', title: 'Lễ Tân Văn Phòng', dept: 'Nhân Sự - Hành Chánh' },
         'EMP-004': { name: 'Phạm Văn Bảo Trì', title: 'Kỹ Thuật Viên Bảo Trì', dept: 'Tổ Hợp Nhà Máy & Sản Xuất' },
       };
 
-      const matched = knownNames[empCode] || {
-        name: `Nhân Viên (${empCode})`,
+      const matched = knownNames[cleanEmpCode] || (cleanEmpCode === '202608001' ? {
+        name: 'Phạm Nguyễn Anh Huy',
+        title: 'Trưởng Phòng CN-CI',
+        dept: 'CN-CI (Cải Tiến Liên Tục)',
+      } : {
+        name: cleanEmpCode ? `Nhân Viên (${cleanEmpCode})` : 'Phạm Nguyễn Anh Huy',
         title: 'Cán Bộ Công Nhân Viên',
         dept: 'Văn Phòng Chuỗi SKECHERS',
-      };
+      });
 
       const payload = {
         userId: 888,
-        empCode: empCode,
+        empCode: cleanEmpCode || empCode,
         name: matched.name,
         title: matched.title,
         roleId: 4,

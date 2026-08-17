@@ -255,13 +255,14 @@ export default function WorkDashboardPage() {
             if (parsed.avatar && parsed.avatar !== "/images/tbs-logo.png") {
               localCustomAvatar = parsed.avatar;
             }
+            const is202608001 = parsed.empCode === "202608001" || parsed.name?.includes("202608001") || isDemo;
             const loaded = {
-              empCode: isDemo ? "202608001" : (parsed.empCode || "202608001"),
-              name: isDemo ? "Phạm Nguyễn Anh Huy" : (parsed.name || "Phạm Nguyễn Anh Huy"),
+              empCode: is202608001 ? "202608001" : (parsed.empCode || "202608001"),
+              name: is202608001 ? "Phạm Nguyễn Anh Huy" : (parsed.name || "Phạm Nguyễn Anh Huy"),
               phone: parsed.phone || "0522511245",
-              email: isDemo ? "anhy.work.2004@gmail.com" : (parsed.email || "anhy.work.2004@gmail.com"),
+              email: is202608001 ? "anhy.work.2004@gmail.com" : (parsed.email || "anhy.work.2004@gmail.com"),
               avatar: parsed.avatar || "/images/tbs-logo.png",
-              title: isDemo ? "Trưởng Phòng CN-CI" : (parsed.title || "CN-CI (Cải Tiến Liên Tục)"),
+              title: is202608001 ? "Trưởng Phòng CN-CI" : (parsed.title || "CN-CI (Cải Tiến Liên Tục)"),
             };
             setUserInfo(loaded);
             setEditProfileForm(loaded);

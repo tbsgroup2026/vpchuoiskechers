@@ -1233,34 +1233,7 @@ export default function WorkDashboardPage() {
           {/* IF QC (QUẢN LÝ CHẤT LƯỢNG) IS SELECTED */}
           {selectedDept === "qc" && (
             <div className="space-y-3.5 my-auto">
-              {/* HEADER BANNER */}
-              <div className="rounded-2xl bg-gradient-to-r from-[#0b3d2e] via-[#006838] to-[#083324] p-4 text-white shadow-md relative overflow-hidden">
-                {/* Subtle Ambient Ring */}
-                <div className="absolute right-0 top-0 translate-x-6 -translate-y-6 w-48 h-48 rounded-full border border-white/10 pointer-events-none" />
 
-                <div className="flex items-start justify-between flex-wrap gap-2 relative z-10">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-white/15 backdrop-blur-xs flex items-center justify-center text-white border border-white/20 shadow-xs flex-shrink-0">
-                      <IconShieldCheck size={22} />
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-bold text-emerald-300 tracking-wider uppercase">
-                        PHÒNG BAN QUẢN LÝ
-                      </span>
-                      <h2 className="text-lg sm:text-xl font-black leading-tight">
-                        Quản Lý Chất Lượng (QC)
-                      </h2>
-                      <p className="text-xs text-emerald-100/90 mt-0.5 font-medium">
-                        Kiểm soát tiêu chuẩn chất lượng SKECHERS, chỉ số OEE và tỷ lệ lỗi trên chuyền sản xuất.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs font-semibold text-emerald-100 bg-white/10 backdrop-blur-xs px-3 py-1.5 rounded-full border border-white/15">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                    <span>Dữ liệu D1 Realtime: 08:35 15/08/2026</span>
-                  </div>
-                </div>
-              </div>
 
               {/* FILTER & TOOLBAR */}
               <div className="flex flex-wrap items-center justify-between gap-3 bg-white border border-slate-200/90 rounded-2xl p-2.5 shadow-2xs">
@@ -1290,11 +1263,10 @@ export default function WorkDashboardPage() {
                         <button
                           key={label}
                           onClick={() => setTimeFilter(label)}
-                          className={`text-xs font-bold px-3 py-1 rounded-lg transition-all cursor-pointer ${
-                            timeFilter === label
+                          className={`text-xs font-bold px-3 py-1 rounded-lg transition-all cursor-pointer ${timeFilter === label
                               ? "bg-[#006838] text-white shadow-xs"
                               : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
-                          }`}
+                            }`}
                         >
                           {label}
                         </button>
@@ -1496,14 +1468,14 @@ export default function WorkDashboardPage() {
                   </div>
                 </div>
 
-                {/* CẢNH BÁO THỜI GIAN THỰC (Col 3.5/12) */}
-                <div className="lg:col-span-3.5 bg-white border border-slate-200/80 rounded-2xl p-3.5 shadow-2xs flex flex-col justify-between">
-                  <div className="flex items-center justify-between pb-1.5 border-b border-slate-100">
-                    <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-                      <span>Cảnh báo thời gian thực</span>
+                {/* CẢNH BÁO THỜI GIAN THỰC (Col 3/12) */}
+                <div className="lg:col-span-3 bg-white border border-slate-200/80 rounded-2xl p-3.5 shadow-2xs flex flex-col justify-between min-w-0">
+                  <div className="flex items-center justify-between pb-1.5 border-b border-slate-100 min-w-0">
+                    <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 flex items-center gap-1.5 whitespace-nowrap min-w-0">
+                      <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse flex-shrink-0" />
+                      <span className="truncate">Cảnh báo thời gian thực</span>
                     </h3>
-                    <button className="text-[10px] font-bold text-[#006838] hover:underline cursor-pointer">Tất cả →</button>
+                    <button className="text-[10px] font-bold text-[#006838] hover:underline cursor-pointer flex-shrink-0 ml-1">Tất cả →</button>
                   </div>
 
                   <div className="space-y-2 my-auto">
@@ -1512,7 +1484,7 @@ export default function WorkDashboardPage() {
                         <span className="w-2 h-2 rounded-full bg-rose-600 flex-shrink-0" />
                         <div className="min-w-0">
                           <h4 className="text-[11px] font-extrabold text-rose-900 truncate">02 sự cố quá 2 giờ</h4>
-                          <p className="text-[9px] text-rose-700 font-medium">PX MAY 2 - Chuyền 5</p>
+                          <p className="text-[9px] text-rose-700 font-medium truncate">PX MAY 2 - Chuyền 5</p>
                         </div>
                       </div>
                       <span className="w-5 h-5 rounded-full bg-rose-600 text-white font-bold text-[10px] flex items-center justify-center flex-shrink-0 ml-1">
@@ -1524,8 +1496,8 @@ export default function WorkDashboardPage() {
                       <div className="flex items-center gap-2 min-w-0">
                         <span className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" />
                         <div className="min-w-0">
-                          <h4 className="text-[11px] font-extrabold text-amber-900 truncate">01 sự cố chưa hoàn tất</h4>
-                          <p className="text-[9px] text-amber-700 font-medium">PX GÒ - Chuyền 2</p>
+                          <h4 className="text-[11px] font-extrabold text-amber-900 truncate">01 sự cố chưa xong</h4>
+                          <p className="text-[9px] text-amber-700 font-medium truncate">PX GÒ - Chuyền 2</p>
                         </div>
                       </div>
                       <span className="w-5 h-5 rounded-full bg-amber-500 text-white font-bold text-[10px] flex items-center justify-center flex-shrink-0 ml-1">
@@ -1538,7 +1510,7 @@ export default function WorkDashboardPage() {
                         <span className="w-2 h-2 rounded-full bg-rose-600 flex-shrink-0" />
                         <div className="min-w-0">
                           <h4 className="text-[11px] font-extrabold text-rose-900 truncate">01 sự cố nguy cơ SOS</h4>
-                          <p className="text-[9px] text-rose-700 font-medium">PX ĐẾ - Chuyền 1</p>
+                          <p className="text-[9px] text-rose-700 font-medium truncate">PX ĐẾ - Chuyền 1</p>
                         </div>
                       </div>
                       <span className="w-5 h-5 rounded-full bg-rose-600 text-white font-bold text-[10px] flex items-center justify-center flex-shrink-0 ml-1">
@@ -1548,11 +1520,11 @@ export default function WorkDashboardPage() {
                   </div>
                 </div>
 
-                {/* HIỆU SUẤT THEO NHÀ MÁY (Col 3.5/12) */}
-                <div className="lg:col-span-3.5 bg-white border border-slate-200/80 rounded-2xl p-3.5 shadow-2xs flex flex-col justify-between">
-                  <div className="flex items-center justify-between pb-1.5 border-b border-slate-100">
-                    <h3 className="text-xs sm:text-sm font-extrabold text-slate-900">Hiệu suất theo nhà máy</h3>
-                    <button className="text-[10px] font-bold text-[#006838] hover:underline cursor-pointer">Chi tiết →</button>
+                {/* HIỆU SUẤT THEO NHÀ MÁY (Col 4/12) */}
+                <div className="lg:col-span-4 bg-white border border-slate-200/80 rounded-2xl p-3.5 shadow-2xs flex flex-col justify-between min-w-0">
+                  <div className="flex items-center justify-between pb-1.5 border-b border-slate-100 min-w-0">
+                    <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 whitespace-nowrap min-w-0 truncate">Hiệu suất theo nhà máy</h3>
+                    <button className="text-[10px] font-bold text-[#006838] hover:underline cursor-pointer flex-shrink-0 ml-1">Chi tiết →</button>
                   </div>
 
                   <div className="space-y-2.5 my-auto">

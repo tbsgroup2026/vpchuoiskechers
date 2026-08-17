@@ -106,7 +106,7 @@ export default function MeetingRoomsPage() {
           if (parsed?.name) {
             setCurrentUser(parsed);
           }
-        } catch (e) {}
+        } catch (e) { }
       }
     }
   }, []);
@@ -627,13 +627,15 @@ export default function MeetingRoomsPage() {
               onClick={() => {
                 const nextRole = userRole === "LE_TAN" ? "CBCNV" : "LE_TAN";
                 setUserRole(nextRole);
+                if (nextRole === "CBCNV" && activeTab === "APPROVALS") {
+                  setActiveTab("BOOKING");
+                }
                 showToast(`Đã chuyển vai trò: ${nextRole === "LE_TAN" ? "👩‍💼 Lễ Tân (Xác nhận phòng & Xếp lịch)" : "👤 Cán Bộ Công Nhân Viên"}`);
               }}
-              className={`px-3 py-1 rounded-full text-xs font-black transition-all cursor-pointer shadow-2xs flex items-center gap-1.5 ${
-                userRole === "LE_TAN"
-                  ? "bg-[#006838] text-white hover:bg-[#00522c]"
-                  : "bg-blue-600 text-white hover:bg-blue-700"
-              }`}
+              className={`px-3 py-1 rounded-full text-xs font-black transition-all cursor-pointer shadow-2xs flex items-center gap-1.5 ${userRole === "LE_TAN"
+                ? "bg-[#006838] text-white hover:bg-[#00522c]"
+                : "bg-blue-600 text-white hover:bg-blue-700"
+                }`}
             >
               {userRole === "LE_TAN" ? (
                 <>
@@ -751,33 +753,33 @@ export default function MeetingRoomsPage() {
         </div>
 
         {/* ════════════════════════════════════════════════════════════════
-            TOP NAVIGATION TABS (5 TABS INCLUDING LỄ TÂN DESK)
+            TOP NAVIGATION TABS (LỄ TÂN TAB IS ONLY VISIBLE TO LE_TAN ROLE)
            ════════════════════════════════════════════════════════════════ */}
         <div className="flex items-center justify-start border-b border-slate-200 gap-1 sm:gap-2 overflow-x-auto">
-          <button
-            onClick={() => setActiveTab("APPROVALS")}
-            className={`px-4 py-2.5 rounded-t-xl font-extrabold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer border-b-2 whitespace-nowrap ${
-              activeTab === "APPROVALS"
+          {userRole === "LE_TAN" && (
+            <button
+              onClick={() => setActiveTab("APPROVALS")}
+              className={`px-4 py-2.5 rounded-t-xl font-extrabold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer border-b-2 whitespace-nowrap ${activeTab === "APPROVALS"
                 ? "bg-[#006838] text-white border-[#006838] shadow-md"
                 : "bg-white text-slate-700 hover:text-[#006838] border-slate-200"
-            }`}
-          >
-            <IconChecklist size={17} />
-            <span>🛎️ Bàn Lễ Tân (Xác nhận &amp; Xếp lịch)</span>
-            {bookings.filter((b) => b.status === "PENDING").length > 0 && (
-              <span className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-900 text-[11px] font-black animate-pulse">
-                {bookings.filter((b) => b.status === "PENDING").length} chờ duyệt
-              </span>
-            )}
-          </button>
+                }`}
+            >
+              <IconChecklist size={17} />
+              <span>🛎️ Bàn Lễ Tân (Xác nhận &amp; Xếp lịch)</span>
+              {bookings.filter((b) => b.status === "PENDING").length > 0 && (
+                <span className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-900 text-[11px] font-black animate-pulse">
+                  {bookings.filter((b) => b.status === "PENDING").length} chờ duyệt
+                </span>
+              )}
+            </button>
+          )}
 
           <button
             onClick={() => setActiveTab("BOOKING")}
-            className={`px-4 py-2.5 rounded-t-xl font-extrabold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer border-b-2 whitespace-nowrap ${
-              activeTab === "BOOKING"
-                ? "bg-white text-[#006838] border-[#006838] shadow-2xs"
-                : "text-slate-500 hover:text-slate-800 border-transparent"
-            }`}
+            className={`px-4 py-2.5 rounded-t-xl font-extrabold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer border-b-2 whitespace-nowrap ${activeTab === "BOOKING"
+              ? "bg-white text-[#006838] border-[#006838] shadow-2xs"
+              : "text-slate-500 hover:text-slate-800 border-transparent"
+              }`}
           >
             <IconEdit size={17} />
             <span>📝 Đặt phòng họp</span>
@@ -785,11 +787,10 @@ export default function MeetingRoomsPage() {
 
           <button
             onClick={() => setActiveTab("ROOMS")}
-            className={`px-4 py-2.5 rounded-t-xl font-extrabold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer border-b-2 whitespace-nowrap ${
-              activeTab === "ROOMS"
-                ? "bg-white text-[#006838] border-[#006838] shadow-2xs"
-                : "text-slate-500 hover:text-slate-800 border-transparent"
-            }`}
+            className={`px-4 py-2.5 rounded-t-xl font-extrabold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer border-b-2 whitespace-nowrap ${activeTab === "ROOMS"
+              ? "bg-white text-[#006838] border-[#006838] shadow-2xs"
+              : "text-slate-500 hover:text-slate-800 border-transparent"
+              }`}
           >
             <IconBuilding size={17} />
             <span>🏢 Danh sách phòng họp</span>
@@ -797,11 +798,10 @@ export default function MeetingRoomsPage() {
 
           <button
             onClick={() => setActiveTab("VISITORS")}
-            className={`px-4 py-2.5 rounded-t-xl font-extrabold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer border-b-2 whitespace-nowrap ${
-              activeTab === "VISITORS"
-                ? "bg-white text-[#006838] border-[#006838] shadow-2xs"
-                : "text-slate-500 hover:text-slate-800 border-transparent"
-            }`}
+            className={`px-4 py-2.5 rounded-t-xl font-extrabold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer border-b-2 whitespace-nowrap ${activeTab === "VISITORS"
+              ? "bg-white text-[#006838] border-[#006838] shadow-2xs"
+              : "text-slate-500 hover:text-slate-800 border-transparent"
+              }`}
           >
             <IconId size={17} />
             <span>🪪 Đón khách &amp; Cấp thẻ</span>
@@ -809,11 +809,10 @@ export default function MeetingRoomsPage() {
 
           <button
             onClick={() => setActiveTab("CALENDAR")}
-            className={`px-4 py-2.5 rounded-t-xl font-extrabold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer border-b-2 whitespace-nowrap ${
-              activeTab === "CALENDAR"
-                ? "bg-white text-[#006838] border-[#006838] shadow-2xs"
-                : "text-slate-500 hover:text-slate-800 border-transparent"
-            }`}
+            className={`px-4 py-2.5 rounded-t-xl font-extrabold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer border-b-2 whitespace-nowrap ${activeTab === "CALENDAR"
+              ? "bg-white text-[#006838] border-[#006838] shadow-2xs"
+              : "text-slate-500 hover:text-slate-800 border-transparent"
+              }`}
           >
             <IconCalendar size={17} />
             <span>📅 Lịch tổng hợp cuộc họp</span>
@@ -826,7 +825,7 @@ export default function MeetingRoomsPage() {
         {/* ════════════════════════════════════════════════════════════════
             TAB 0: 🛎️ BÀN LỄ TÂN (XÁC NHẬN PHÒNG, ĐỔI PHÒNG, XẾP LỊCH, ĐÓN KHÁCH)
            ════════════════════════════════════════════════════════════════ */}
-        {activeTab === "APPROVALS" && (
+        {activeTab === "APPROVALS" && userRole === "LE_TAN" && (
           <div className="space-y-6 animate-in fade-in duration-200">
             {/* Lễ Tân Executive Dashboard Banner */}
             <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-r from-[#006838] via-[#043322] to-slate-900 text-white shadow-lg space-y-4">
@@ -1089,19 +1088,18 @@ export default function MeetingRoomsPage() {
                         </td>
                         <td className="p-3">
                           <span
-                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
-                              v.status === "CHECKED_IN"
-                                ? "bg-emerald-100 text-[#006838]"
-                                : v.status === "CHECKED_OUT"
+                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${v.status === "CHECKED_IN"
+                              ? "bg-emerald-100 text-[#006838]"
+                              : v.status === "CHECKED_OUT"
                                 ? "bg-slate-200 text-slate-700"
                                 : "bg-purple-100 text-purple-800"
-                            }`}
+                              }`}
                           >
                             {v.status === "CHECKED_IN"
                               ? "🟢 Đã Check-in"
                               : v.status === "CHECKED_OUT"
-                              ? "⚪ Đã Check-out"
-                              : "🟡 Chờ khách đến"}
+                                ? "⚪ Đã Check-out"
+                                : "🟡 Chờ khách đến"}
                           </span>
                         </td>
                         <td className="p-3 text-center space-x-1.5">
@@ -1224,20 +1222,18 @@ export default function MeetingRoomsPage() {
                         bookingDate: dayObj.dateStr.split("/").reverse().join("-"),
                       });
                     }}
-                    className={`min-h-[65px] sm:min-h-[78px] md:min-h-[85px] p-1 transition-all flex flex-col justify-between cursor-pointer ${
-                      dayObj.isCurrentMonth ? "bg-white" : "bg-slate-50/60 text-slate-300"
-                    } ${dayObj.isToday ? "bg-blue-50/40 ring-2 ring-blue-600 ring-inset" : "hover:bg-slate-50"}`}
+                    className={`min-h-[65px] sm:min-h-[78px] md:min-h-[85px] p-1 transition-all flex flex-col justify-between cursor-pointer ${dayObj.isCurrentMonth ? "bg-white" : "bg-slate-50/60 text-slate-300"
+                      } ${dayObj.isToday ? "bg-blue-50/40 ring-2 ring-blue-600 ring-inset" : "hover:bg-slate-50"}`}
                   >
                     {/* Day Number Header */}
                     <div className="flex items-center justify-between mb-0.5">
                       <span
-                        className={`text-[10px] font-black inline-flex items-center justify-center rounded-full w-5 h-5 ${
-                          dayObj.isToday
-                            ? "bg-blue-700 text-white shadow-2xs"
-                            : dayObj.isCurrentMonth
+                        className={`text-[10px] font-black inline-flex items-center justify-center rounded-full w-5 h-5 ${dayObj.isToday
+                          ? "bg-blue-700 text-white shadow-2xs"
+                          : dayObj.isCurrentMonth
                             ? "text-slate-700"
                             : "text-slate-400"
-                        }`}
+                          }`}
                       >
                         {dayObj.displayDay}
                       </span>
@@ -1450,13 +1446,12 @@ export default function MeetingRoomsPage() {
               {rooms.map((room) => (
                 <div
                   key={room.id}
-                  className={`p-5 rounded-2xl bg-white border shadow-xs transition-all flex flex-col justify-between gap-4 ${
-                    room.isLocked
-                      ? "border-rose-300 bg-rose-50/20"
-                      : room.status === "BUSY"
+                  className={`p-5 rounded-2xl bg-white border shadow-xs transition-all flex flex-col justify-between gap-4 ${room.isLocked
+                    ? "border-rose-300 bg-rose-50/20"
+                    : room.status === "BUSY"
                       ? "border-amber-300"
                       : "border-slate-200/80 hover:border-[#006838]/60"
-                  }`}
+                    }`}
                 >
                   <div className="space-y-3">
                     <div className="flex items-start justify-between">
@@ -1464,13 +1459,12 @@ export default function MeetingRoomsPage() {
                         <h3 className="text-base font-black text-slate-900 tracking-tight">{room.name}</h3>
                       </div>
                       <span
-                        className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase ${
-                          room.isLocked
-                            ? "bg-rose-100 text-rose-700"
-                            : room.status === "BUSY"
+                        className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase ${room.isLocked
+                          ? "bg-rose-100 text-rose-700"
+                          : room.status === "BUSY"
                             ? "bg-amber-100 text-amber-800"
                             : "bg-emerald-100 text-[#006838]"
-                        }`}
+                          }`}
                       >
                         {room.isLocked ? "🔒 Khóa bảo trì" : room.status === "BUSY" ? "⏳ Đang họp" : "✓ Phòng trống"}
                       </span>
@@ -1504,11 +1498,10 @@ export default function MeetingRoomsPage() {
                     <span className="text-[11px] text-slate-400 font-medium">Quyền Quản Trị Hành Chánh</span>
                     <button
                       onClick={() => handleToggleRoomLock(room.id)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-colors flex items-center gap-1.5 cursor-pointer ${
-                        room.isLocked
-                          ? "bg-emerald-600 text-white hover:bg-emerald-700"
-                          : "bg-slate-100 text-slate-700 hover:bg-rose-600 hover:text-white"
-                      }`}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-colors flex items-center gap-1.5 cursor-pointer ${room.isLocked
+                        ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                        : "bg-slate-100 text-slate-700 hover:bg-rose-600 hover:text-white"
+                        }`}
                     >
                       {room.isLocked ? (
                         <>

@@ -1316,8 +1316,8 @@ export default function WorkDashboardPage() {
                   </div>
 
                   {/* SVG Line Chart for 6 months T3, T4, T5, T6, T7, T8 */}
-                  <div className={`w-full ${!isSidebarCollapsed ? "h-28" : "h-32"} relative min-w-0 overflow-hidden transition-all duration-300`}>
-                    <svg className={`w-full ${!isSidebarCollapsed ? "h-20" : "h-24"} overflow-visible transition-all duration-300`} viewBox="0 0 450 120" preserveAspectRatio="none">
+                  <div className={`w-full ${!isSidebarCollapsed ? "h-32" : "h-36"} relative min-w-0 overflow-hidden transition-all duration-300`}>
+                    <svg className={`w-full ${!isSidebarCollapsed ? "h-24" : "h-28"} overflow-visible transition-all duration-300`} viewBox="0 0 450 130" preserveAspectRatio="none">
                       <defs>
                         <linearGradient id="ciLineGrad" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor="#006838" stopOpacity="0.25" />
@@ -1326,25 +1326,25 @@ export default function WorkDashboardPage() {
                       </defs>
 
                       {/* Grid lines */}
-                      <line x1="30" y1="20" x2="410" y2="20" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
-                      <line x1="30" y1="50" x2="410" y2="50" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
-                      <line x1="30" y1="80" x2="410" y2="80" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
+                      <line x1="30" y1="20" x2="415" y2="20" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
+                      <line x1="30" y1="50" x2="415" y2="50" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
+                      <line x1="30" y1="80" x2="415" y2="80" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
 
                       {/* Y Axis Labels */}
                       <text x="5" y="24" className="text-[10px] fill-slate-400 font-semibold">100</text>
                       <text x="5" y="54" className="text-[10px] fill-slate-400 font-semibold">75</text>
                       <text x="5" y="84" className="text-[10px] fill-slate-400 font-semibold">50</text>
-                      <text x="5" y="114" className="text-[10px] fill-slate-400 font-semibold">0</text>
+                      <text x="5" y="104" className="text-[10px] fill-slate-400 font-semibold">0</text>
 
                       {/* Area Fill */}
                       <polygon
-                        points="35,90 110,70 185,60 260,40 335,30 405,15 405,110 35,110"
+                        points="35,90 109,70 183,60 257,40 331,30 405,15 405,100 35,100"
                         fill="url(#ciLineGrad)"
                       />
 
                       {/* Line Curve */}
                       <path
-                        d="M 35 90 L 110 70 L 185 60 L 260 40 L 335 30 L 405 15"
+                        d="M 35 90 L 109 70 L 183 60 L 257 40 L 331 30 L 405 15"
                         fill="none"
                         stroke="#006838"
                         strokeWidth="3"
@@ -1352,28 +1352,39 @@ export default function WorkDashboardPage() {
                         strokeLinejoin="round"
                       />
 
-                      {/* Data points (Interactive with Hover Tooltips) */}
+                      {/* Data points + Month Labels (100% Mathematically Aligned) */}
                       {[
                         { month: "T3", idea: 35, impl: 20, x: 35, y: 90 },
-                        { month: "T4", idea: 50, impl: 32, x: 110, y: 70 },
-                        { month: "T5", idea: 62, impl: 45, x: 185, y: 60 },
-                        { month: "T6", idea: 78, impl: 58, x: 260, y: 40 },
-                        { month: "T7", idea: 88, impl: 70, x: 335, y: 30 },
+                        { month: "T4", idea: 50, impl: 32, x: 109, y: 70 },
+                        { month: "T5", idea: 62, impl: 45, x: 183, y: 60 },
+                        { month: "T6", idea: 78, impl: 58, x: 257, y: 40 },
+                        { month: "T7", idea: 88, impl: 70, x: 331, y: 30 },
                         { month: "T8", idea: 100, impl: 86, x: 405, y: 15 },
                       ].map((pt, i) => (
-                        <circle
-                          key={i}
-                          cx={pt.x}
-                          cy={pt.y}
-                          r={hoveredCiIndex === i ? "6" : "4.5"}
-                          fill={hoveredCiIndex === i ? "#006838" : "#ffffff"}
-                          stroke="#006838"
-                          strokeWidth={hoveredCiIndex === i ? "3.5" : "3"}
-                          className="cursor-pointer transition-all duration-150"
-                          onMouseEnter={() => setHoveredCiIndex(i)}
-                          onMouseLeave={() => setHoveredCiIndex(null)}
-                          onClick={() => setIsDonutModalOpen(true)}
-                        />
+                        <g key={i}>
+                          {/* X Month Label directly under point (Centered with textAnchor="middle") */}
+                          <text
+                            x={pt.x}
+                            y="122"
+                            textAnchor="middle"
+                            className="text-[11px] fill-slate-600 font-bold select-none"
+                          >
+                            {pt.month}
+                          </text>
+
+                          <circle
+                            cx={pt.x}
+                            cy={pt.y}
+                            r={hoveredCiIndex === i ? "6" : "4.5"}
+                            fill={hoveredCiIndex === i ? "#006838" : "#ffffff"}
+                            stroke="#006838"
+                            strokeWidth={hoveredCiIndex === i ? "3.5" : "3"}
+                            className="cursor-pointer transition-all duration-150"
+                            onMouseEnter={() => setHoveredCiIndex(i)}
+                            onMouseLeave={() => setHoveredCiIndex(null)}
+                            onClick={() => setIsDonutModalOpen(true)}
+                          />
+                        </g>
                       ))}
                     </svg>
 
@@ -1386,16 +1397,6 @@ export default function WorkDashboardPage() {
                         <span className="text-teal-300">{[ 20, 32, 45, 58, 70, 86 ][hoveredCiIndex]} triển khai</span>
                       </div>
                     )}
-
-                    {/* X Labels */}
-                    <div className="flex justify-between pl-7 pr-6 text-[11px] font-bold text-slate-500 mt-1">
-                      <span>T3</span>
-                      <span>T4</span>
-                      <span>T5</span>
-                      <span>T6</span>
-                      <span>T7</span>
-                      <span>T8</span>
-                    </div>
                   </div>
 
                   {/* Legend */}

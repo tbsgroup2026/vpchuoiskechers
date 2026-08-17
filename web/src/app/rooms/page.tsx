@@ -707,69 +707,70 @@ export default function MeetingRoomsPage() {
           </p>
         </div>
 
-        {/* 📊 4 STAT DASHBOARD SUMMARY CARDS */}
+        {/* 📊 4 STAT DASHBOARD SUMMARY CARDS (TASTE SKILL HUMAN STYLE) */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-          <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#e6f4ed] text-[#006838] flex items-center justify-center border border-emerald-100">
+          <div className="p-4 rounded-2xl bg-white/90 backdrop-blur-md border border-slate-200/80 shadow-xs hover:border-[#006838]/40 hover:shadow-md transition-all flex items-center gap-3.5 group">
+            <div className="w-11 h-11 rounded-2xl bg-[#006838]/10 text-[#006838] flex items-center justify-center border border-[#006838]/20 group-hover:scale-105 transition-transform">
               <IconBuilding size={22} />
             </div>
             <div>
-              <span className="text-[11px] font-bold text-slate-500 block">Tổng phòng họp</span>
+              <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">Tổng phòng họp</span>
               <div className="text-xl font-black text-slate-900">{rooms.length} Phòng</div>
             </div>
           </div>
 
-          <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-100">
+          <div className="p-4 rounded-2xl bg-white/90 backdrop-blur-md border border-slate-200/80 shadow-xs hover:border-emerald-500/40 hover:shadow-md transition-all flex items-center gap-3.5 group">
+            <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200 group-hover:scale-105 transition-transform">
               <IconCheck size={22} />
             </div>
             <div>
-              <span className="text-[11px] font-bold text-slate-500 block">Phòng trống khả dụng</span>
+              <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">Phòng trống khả dụng</span>
               <div className="text-xl font-black text-[#006838]">
                 {rooms.filter((r) => !r.isLocked && r.status === "AVAILABLE").length} Phòng
               </div>
             </div>
           </div>
 
-          <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100">
+          <div className="p-4 rounded-2xl bg-white/90 backdrop-blur-md border border-slate-200/80 shadow-xs hover:border-blue-500/40 hover:shadow-md transition-all flex items-center gap-3.5 group">
+            <div className="w-11 h-11 rounded-2xl bg-blue-50 text-blue-700 flex items-center justify-center border border-blue-200 group-hover:scale-105 transition-transform">
               <IconCalendar size={22} />
             </div>
             <div>
-              <span className="text-[11px] font-bold text-slate-500 block">Lịch họp hôm nay</span>
+              <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">Lịch họp hôm nay</span>
               <div className="text-xl font-black text-slate-900">
                 {bookings.filter((b) => b.bookingDate === "15/08/2026").length} Cuộc họp
               </div>
             </div>
           </div>
 
-          <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center border border-purple-100">
+          <div className="p-4 rounded-2xl bg-white/90 backdrop-blur-md border border-slate-200/80 shadow-xs hover:border-purple-500/40 hover:shadow-md transition-all flex items-center gap-3.5 group">
+            <div className="w-11 h-11 rounded-2xl bg-purple-50 text-purple-700 flex items-center justify-center border border-purple-200 group-hover:scale-105 transition-transform">
               <IconId size={22} />
             </div>
             <div>
-              <span className="text-[11px] font-bold text-slate-500 block">Khách đón trong ngày</span>
+              <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">Khách đón trong ngày</span>
               <div className="text-xl font-black text-slate-900">{visitors.length} Lượt khách</div>
             </div>
           </div>
         </div>
 
         {/* ════════════════════════════════════════════════════════════════
-            TOP NAVIGATION TABS (LỄ TÂN TAB IS ONLY VISIBLE TO LE_TAN ROLE)
+            TOP NAVIGATION TABS (SEGMENTED CONTROL BAR - TASTE SKILL HUMAN STYLE)
            ════════════════════════════════════════════════════════════════ */}
-        <div className="flex items-center justify-start border-b border-slate-200 gap-1 sm:gap-2 overflow-x-auto">
+        <div className="bg-slate-200/60 p-1.5 rounded-2xl border border-slate-200/90 shadow-inner flex items-center gap-1 overflow-x-auto">
           {userRole === "LE_TAN" && (
             <button
               onClick={() => setActiveTab("APPROVALS")}
-              className={`px-4 py-2.5 rounded-t-xl font-extrabold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer border-b-2 whitespace-nowrap ${activeTab === "APPROVALS"
-                ? "bg-[#006838] text-white border-[#006838] shadow-md"
-                : "bg-white text-slate-700 hover:text-[#006838] border-slate-200"
-                }`}
+              className={`px-4 py-2.5 rounded-xl font-extrabold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === "APPROVALS"
+                  ? "bg-[#006838] text-white shadow-md border border-[#004e2a]"
+                  : "text-slate-700 hover:text-[#006838] hover:bg-white/70"
+              }`}
             >
-              <IconChecklist size={17} />
-              <span>🛎️ Bàn Lễ Tân (Xác nhận &amp; Xếp lịch)</span>
+              <IconChecklist size={18} />
+              <span>Bàn Lễ Tân (Xác nhận &amp; Xếp lịch)</span>
               {bookings.filter((b) => b.status === "PENDING").length > 0 && (
-                <span className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-900 text-[11px] font-black animate-pulse">
+                <span className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[11px] font-black animate-pulse">
                   {bookings.filter((b) => b.status === "PENDING").length} chờ duyệt
                 </span>
               )}
@@ -778,47 +779,53 @@ export default function MeetingRoomsPage() {
 
           <button
             onClick={() => setActiveTab("BOOKING")}
-            className={`px-4 py-2.5 rounded-t-xl font-extrabold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer border-b-2 whitespace-nowrap ${activeTab === "BOOKING"
-              ? "bg-white text-[#006838] border-[#006838] shadow-2xs"
-              : "text-slate-500 hover:text-slate-800 border-transparent"
-              }`}
+            className={`px-4 py-2.5 rounded-xl font-extrabold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === "BOOKING"
+                ? "bg-[#006838] text-white shadow-md border border-[#004e2a]"
+                : "text-slate-700 hover:text-[#006838] hover:bg-white/70"
+            }`}
           >
-            <IconEdit size={17} />
-            <span>📝 Đặt phòng họp</span>
+            <IconEdit size={18} />
+            <span>Đặt phòng họp</span>
           </button>
 
           <button
             onClick={() => setActiveTab("ROOMS")}
-            className={`px-4 py-2.5 rounded-t-xl font-extrabold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer border-b-2 whitespace-nowrap ${activeTab === "ROOMS"
-              ? "bg-white text-[#006838] border-[#006838] shadow-2xs"
-              : "text-slate-500 hover:text-slate-800 border-transparent"
-              }`}
+            className={`px-4 py-2.5 rounded-xl font-extrabold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === "ROOMS"
+                ? "bg-[#006838] text-white shadow-md border border-[#004e2a]"
+                : "text-slate-700 hover:text-[#006838] hover:bg-white/70"
+            }`}
           >
-            <IconBuilding size={17} />
-            <span>🏢 Danh sách phòng họp</span>
+            <IconBuilding size={18} />
+            <span>Danh sách phòng họp</span>
           </button>
 
           <button
             onClick={() => setActiveTab("VISITORS")}
-            className={`px-4 py-2.5 rounded-t-xl font-extrabold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer border-b-2 whitespace-nowrap ${activeTab === "VISITORS"
-              ? "bg-white text-[#006838] border-[#006838] shadow-2xs"
-              : "text-slate-500 hover:text-slate-800 border-transparent"
-              }`}
+            className={`px-4 py-2.5 rounded-xl font-extrabold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === "VISITORS"
+                ? "bg-[#006838] text-white shadow-md border border-[#004e2a]"
+                : "text-slate-700 hover:text-[#006838] hover:bg-white/70"
+            }`}
           >
-            <IconId size={17} />
-            <span>🪪 Đón khách &amp; Cấp thẻ</span>
+            <IconId size={18} />
+            <span>Đón khách &amp; Cấp thẻ</span>
           </button>
 
           <button
             onClick={() => setActiveTab("CALENDAR")}
-            className={`px-4 py-2.5 rounded-t-xl font-extrabold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer border-b-2 whitespace-nowrap ${activeTab === "CALENDAR"
-              ? "bg-white text-[#006838] border-[#006838] shadow-2xs"
-              : "text-slate-500 hover:text-slate-800 border-transparent"
-              }`}
+            className={`px-4 py-2.5 rounded-xl font-extrabold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === "CALENDAR"
+                ? "bg-[#006838] text-white shadow-md border border-[#004e2a]"
+                : "text-slate-700 hover:text-[#006838] hover:bg-white/70"
+            }`}
           >
-            <IconCalendar size={17} />
-            <span>📅 Lịch tổng hợp cuộc họp</span>
-            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-[#006838] text-[11px] font-extrabold">
+            <IconCalendar size={18} />
+            <span>Lịch tổng hợp cuộc họp</span>
+            <span className={`px-2 py-0.5 rounded-full text-[11px] font-black ${
+              activeTab === "CALENDAR" ? "bg-white/20 text-white" : "bg-slate-300/80 text-slate-800"
+            }`}>
               {bookings.length}
             </span>
           </button>
@@ -888,10 +895,10 @@ export default function MeetingRoomsPage() {
             {/* SECTION 1: YÊU CẦU ĐẶT PHÒNG HỌP CHỜ LỄ TÂN PHÊ DUYỆT & XẾP PHÒNG */}
             <div className="p-5 sm:p-6 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full bg-amber-500 animate-ping" />
-                  <h3 className="text-base font-black text-slate-900 uppercase">
-                    🟡 Yêu Cầu Đăng Ký Phòng Họp Chờ Lễ Tân Xác Nhận
+                <div className="flex items-center gap-2.5">
+                  <div className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
+                  <h3 className="text-base font-black text-slate-900 uppercase tracking-tight">
+                    Yêu Cầu Đăng Ký Phòng Họp Chờ Lễ Tân Xác Nhận
                   </h3>
                 </div>
                 <span className="text-xs font-bold text-slate-500">
@@ -902,7 +909,7 @@ export default function MeetingRoomsPage() {
               {bookings.filter((b) => b.status === "PENDING").length === 0 ? (
                 <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
                   <p className="text-xs font-bold text-slate-500">
-                    🎉 Không có yêu cầu nào đang chờ duyệt. Tất cả phòng họp đã được Lễ Tân sắp xếp ổn định!
+                    Không có yêu cầu nào đang chờ duyệt. Tất cả phòng họp đã được Lễ Tân sắp xếp ổn định!
                   </p>
                 </div>
               ) : (
@@ -912,7 +919,7 @@ export default function MeetingRoomsPage() {
                     .map((booking) => (
                       <div
                         key={booking.id}
-                        className="p-4 rounded-2xl bg-amber-50/40 border border-amber-200 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-amber-300 transition-all"
+                        className="p-4 rounded-2xl bg-amber-50/40 border border-amber-200/80 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-amber-300 transition-all"
                       >
                         <div className="space-y-1.5 flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
@@ -930,13 +937,13 @@ export default function MeetingRoomsPage() {
                           <h4 className="text-base font-black text-slate-900">{booking.title}</h4>
 
                           <div className="flex items-center gap-4 text-xs font-semibold text-slate-600 flex-wrap">
-                            <span>👤 Người đăng ký: <strong className="text-slate-900">{booking.bookerName}</strong> ({booking.department})</span>
-                            <span>👥 Tham dự: <strong className="text-slate-900">{booking.attendeesCount} người</strong></span>
+                            <span>Người đăng ký: <strong className="text-slate-900">{booking.bookerName}</strong> ({booking.department})</span>
+                            <span>Tham dự: <strong className="text-slate-900">{booking.attendeesCount} người</strong></span>
                           </div>
 
                           {booking.notes && (
                             <p className="text-xs italic text-slate-500 bg-white/70 p-2 rounded-xl border border-slate-200/60 mt-1">
-                              💬 Ghi chú: {booking.notes}
+                              Ghi chú: {booking.notes}
                             </p>
                           )}
                         </div>
@@ -979,9 +986,12 @@ export default function MeetingRoomsPage() {
             {/* SECTION 2: QUẢN LÝ & ĐIỀU CHỈNH PHÒNG HỌP ĐÃ XÁC NHẬN */}
             <div className="p-5 sm:p-6 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <h3 className="text-base font-black text-slate-900 uppercase">
-                  🟢 Lịch Họp Đã Phê Duyệt &amp; Sắp Xếp Bởi Lễ Tân
-                </h3>
+                <div className="flex items-center gap-2.5">
+                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                  <h3 className="text-base font-black text-slate-900 uppercase tracking-tight">
+                    Lịch Họp Đã Phê Duyệt &amp; Sắp Xếp Bởi Lễ Tân
+                  </h3>
+                </div>
                 <span className="text-xs font-bold text-slate-500">
                   {bookings.filter((b) => b.status === "CONFIRMED").length} cuộc họp đã duyệt
                 </span>
@@ -1036,7 +1046,7 @@ export default function MeetingRoomsPage() {
                                     item.id === b.id ? { ...item, status: "COMPLETED" } : item
                                   )
                                 );
-                                showToast(`🏁 Lễ Tân đã đánh dấu hoàn thành cuộc họp "${b.title}"!`);
+                                showToast(`Lễ Tân đã đánh dấu hoàn thành cuộc họp "${b.title}"!`);
                               }}
                               className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-800 hover:text-white transition-colors text-xs font-bold border border-slate-200 cursor-pointer"
                             >
@@ -1053,9 +1063,12 @@ export default function MeetingRoomsPage() {
             {/* SECTION 3: BÀN LỄ TÂN ĐÓN KHÁCH (CHECK-IN & CHECK-OUT KHÁCH ĐỐI TÁC) */}
             <div className="p-5 sm:p-6 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <h3 className="text-base font-black text-slate-900 uppercase">
-                  🪪 Bàn Lễ Tân Đón Khách Đối Tác &amp; Cấp Thẻ Ra Vào
-                </h3>
+                <div className="flex items-center gap-2.5">
+                  <div className="w-2.5 h-2.5 rounded-full bg-purple-500" />
+                  <h3 className="text-base font-black text-slate-900 uppercase tracking-tight">
+                    Bàn Lễ Tân Đón Khách Đối Tác &amp; Cấp Thẻ Ra Vào
+                  </h3>
+                </div>
                 <span className="text-xs font-bold text-slate-500">
                   {visitors.length} lượt khách trong ngày
                 </span>

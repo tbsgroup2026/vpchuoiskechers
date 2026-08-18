@@ -7,7 +7,11 @@ import DonutChartModal from "@/components/DonutChartModal";
 import UserAvatar from "@/components/UserAvatar";
 import Can from "@/components/Can";
 import { PERMISSIONS } from "@/lib/permissions";
+import OverviewDashboard from "@/components/work/OverviewDashboard";
 import {
+  IconHome,
+  IconLeaf,
+  IconGridDots,
   IconUsers,
   IconCalculator,
   IconFlask,
@@ -98,7 +102,7 @@ interface DepartmentItem {
 }
 
 export default function WorkDashboardPage() {
-  const [selectedDept, setSelectedDept] = useState<string | null>(null);
+  const [selectedDept, setSelectedDept] = useState<string | null>("overview");
   const [plantFilter, setPlantFilter] = useState("Toàn nhà máy");
   const [timeFilter, setTimeFilter] = useState("Tháng này");
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -545,12 +549,20 @@ export default function WorkDashboardPage() {
     },
   };
 
-  // 7 Numbered Departments List
+  // Departments List
   const departments: DepartmentItem[] = [
+    {
+      id: "overview",
+      num: "00",
+      name: "Tổng quan",
+      sub: "Bảng điều khiển & chỉ số toàn chuỗi",
+      icon: IconHome,
+      hasData: true,
+    },
     {
       id: "hr",
       num: "01",
-      name: "Nhân sự - Hành chánh",
+      name: "Nhân sự – Hành chính",
       sub: "Quản lý văn thư, tài sản & tuyển dụng",
       icon: IconUsers,
       hasData: true,
@@ -558,7 +570,7 @@ export default function WorkDashboardPage() {
     {
       id: "finance",
       num: "02",
-      name: "Kế toán và quản trị",
+      name: "Kế toán và tài chính",
       sub: "Quản lý tài chính, ngân sách & báo cáo",
       icon: IconCalculator,
       hasData: true,
@@ -566,7 +578,7 @@ export default function WorkDashboardPage() {
     {
       id: "rd",
       num: "03",
-      name: "R&D (phát triển sản phẩm)",
+      name: "R&D (Phát triển sản phẩm)",
       sub: "Nghiên cứu, thiết kế mẫu & kỹ thuật",
       icon: IconFlask,
       hasData: true,
@@ -574,7 +586,7 @@ export default function WorkDashboardPage() {
     {
       id: "ci",
       num: "04",
-      name: "CN-CI",
+      name: "CN-CI (Cải tiến liên tục)",
       sub: "Cải tiến liên tục & năng suất 4.0",
       icon: IconSettings,
       hasData: true,
@@ -582,7 +594,7 @@ export default function WorkDashboardPage() {
     {
       id: "qc",
       num: "05",
-      name: "Quản lý chất lượng",
+      name: "Quản lý chất lượng (QC)",
       sub: "Kiểm soát QC, OEE & chỉ số lỗi",
       icon: IconShieldCheck,
       hasData: true,
@@ -590,7 +602,7 @@ export default function WorkDashboardPage() {
     {
       id: "logistics",
       num: "06",
-      name: "Kế hoạch chuẩn bị – TTPP",
+      name: "Kho & Logistics",
       sub: "Logistics, vật tư & chuỗi cung ứng",
       icon: IconTruck,
       hasData: false,
@@ -780,6 +792,35 @@ export default function WorkDashboardPage() {
               );
             })}
           </div>
+
+          {/* Sidebar Bottom Brand Cards (Matching Screenshot 2) */}
+          {!isSidebarCollapsed && (
+            <div className="pt-2 space-y-2 border-t border-slate-100 flex-shrink-0 w-full">
+              {/* Skechers Comfort Makes Better Card */}
+              <div className="p-2 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center gap-2.5 shadow-2xs">
+                <img
+                  src="/images/crawled/De-giay.jpg"
+                  alt="Skechers Shoe"
+                  className="w-10 h-7 object-contain rounded-md"
+                />
+                <div className="min-w-0">
+                  <div className="text-[11px] font-black text-slate-800 tracking-tight leading-none">SKECHERS</div>
+                  <div className="text-[9px] text-slate-500 font-medium truncate mt-0.5">Comfort Makes Better</div>
+                </div>
+              </div>
+
+              {/* TBS Group Innovation • Efficiency • Growth Card */}
+              <div className="p-2 rounded-xl bg-emerald-50/80 border border-emerald-200/70 flex items-center gap-2.5 shadow-2xs">
+                <div className="w-7 h-7 rounded-lg bg-[#006838] text-white flex items-center justify-center flex-shrink-0">
+                  <IconLeaf size={14} />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[11px] font-black text-[#006838] tracking-tight leading-none">TBS GROUP</div>
+                  <div className="text-[9px] text-emerald-800 font-medium truncate mt-0.5">Innovation • Efficiency • Growth</div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Executive Footer Credit */}
@@ -819,45 +860,52 @@ export default function WorkDashboardPage() {
         {/* Top Header Bar (High Z-Index Stacking Context) */}
         <header className="sticky top-0 z-40 px-5 lg:px-6 py-3 flex items-center justify-between border-b border-slate-200/80 bg-white/95 backdrop-blur-md flex-shrink-0">
           <div>
-            <h1 className="text-xl lg:text-2xl font-black text-slate-900 tracking-tight">
-              Xin chào, <span className="text-[#006838]">{userInfo.name}!</span>
+            <h1 className="text-base sm:text-lg lg:text-xl font-black text-slate-900 tracking-tight flex items-center gap-1.5">
+              <span>Văn phòng Chuỗi</span>
+              <span className="text-[#006838]">SKECHERS</span>
+              <span className="text-slate-400 font-normal">–</span>
+              <span>TBS Group</span>
             </h1>
             <p className="text-xs text-slate-500 mt-0.5 font-medium">
-              Chúc bạn một ngày làm việc hiệu quả tại Văn Phòng Chuỗi SKECHERS - TBS Group.
+              Dashboard quản trị – Vận hành – Số hóa quy trình
             </p>
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
-
             {/* Notification Center */}
             <NotificationCenter />
+
+            {/* Grid 9-dots icon launcher */}
+            <Link
+              href="/"
+              className="p-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 hover:bg-slate-100 transition-colors shadow-2xs"
+              title="Danh mục ứng dụng & Trang chủ"
+            >
+              <IconGridDots size={18} />
+            </Link>
 
             {/* Fullscreen Toggle */}
             <button
               onClick={toggleFullscreen}
-              className="p-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 hover:bg-slate-100 transition-colors shadow-sm"
+              className="p-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 hover:bg-slate-100 transition-colors shadow-2xs"
               title="Toàn màn hình"
             >
               <IconMaximize size={18} />
             </button>
 
-            {/* User Avatar & Executive Dropdown Menu */}
+            {/* User Avatar & Executive Dropdown Menu (HA Huy Anh Admin Pill) */}
             <div className="relative">
               <button
                 onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
-                className="flex items-center gap-1.5 p-1 rounded-full hover:bg-slate-100 transition-colors cursor-pointer group"
+                className="flex items-center gap-2 p-1 pl-1.5 pr-2.5 rounded-full hover:bg-slate-100 transition-colors cursor-pointer group border border-slate-200/80 bg-slate-50/60"
                 title="Tài khoản cá nhân"
               >
-                <div className="relative">
-                  <UserAvatar
-                    src={userInfo.avatar}
-                    name={userInfo.name}
-                    size="md"
-                    zoom={avatarZoom}
-                    offsetX={avatarOffsetX}
-                    offsetY={avatarOffsetY}
-                    showOnlineBadge={true}
-                  />
+                <div className="w-8 h-8 rounded-full bg-[#006838] text-white flex items-center justify-center font-black text-xs shadow-2xs">
+                  HA
+                </div>
+                <div className="hidden sm:block text-left text-xs leading-tight">
+                  <div className="font-extrabold text-slate-900">Huy Anh</div>
+                  <div className="text-[10px] text-slate-500 font-medium">Admin</div>
                 </div>
                 <IconChevronDown size={14} className={`text-slate-500 transition-transform duration-200 ${isUserDropdownOpen ? "rotate-180 text-[#006838]" : ""}`} />
               </button>
@@ -955,9 +1003,19 @@ export default function WorkDashboardPage() {
         {/* Dashboard Body */}
         <div className="p-4 lg:p-6 space-y-4 pb-12 w-full min-w-0">
           {/* ════════════════════════════════════════════════════════════════
+              THẺ 00: TỔNG QUAN HỆ THỐNG (CHẾ ĐỘ XEM ĐẦY ĐỦ - SCREENSHOT 2)
+             ════════════════════════════════════════════════════════════════ */}
+          {selectedDept === "overview" && (
+            <OverviewDashboard
+              onSelectDept={(deptId) => setSelectedDept(selectedDept === deptId ? null : deptId)}
+              userName={userInfo.name}
+            />
+          )}
+
+          {/* ════════════════════════════════════════════════════════════════
               DEPARTMENT HERO BANNER CARD (Screenshot 1 Layout)
              ════════════════════════════════════════════════════════════════ */}
-          {activeDeptObj && (
+          {activeDeptObj && activeDeptObj.id !== "overview" && (
             <div className="relative w-full rounded-3xl overflow-hidden border border-slate-200/90 shadow-md flex-shrink-0 bg-slate-900 group">
               {/* Background Image with Dark Emerald Overlay */}
               <img

@@ -271,9 +271,7 @@ export default function FinanceShell({
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive =
-              item.activeMatch !== undefined
-                ? item.activeMatch
-                : item.href === "/finance"
+              item.href === "/finance"
                 ? pathname === "/finance"
                 : pathname.startsWith(item.href);
             const isExpanded = expandedMenus[item.key] ?? false;

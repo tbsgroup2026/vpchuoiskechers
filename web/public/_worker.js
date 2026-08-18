@@ -508,7 +508,7 @@ export default {
     }
 
     // 3. API Route: Business Trips Persistence (/api/business-trips)
-    if (url.pathname === "/api/business-trips") {
+    if (url.pathname.startsWith("/api/business-trips")) {
       if (env.DB) {
         try {
           await env.DB.prepare(`
@@ -529,11 +529,17 @@ export default {
                 purpose TEXT,
                 address TEXT,
                 proposal_text TEXT,
+                attachments_json TEXT,
+                invoices_json TEXT,
                 participants_json TEXT,
                 status TEXT DEFAULT 'PENDING',
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             );
           `).run();
+
+          // Safe column migration if table existed previously without attachments_json/invoices_json
+          try { await env.DB.prepare("ALTER TABLE business_trips ADD COLUMN attachments_json TEXT").run(); } catch(e) {}
+          try { await env.DB.prepare("ALTER TABLE business_trips ADD COLUMN invoices_json TEXT").run(); } catch(e) {}
         } catch (e) {
           // table check ignore
         }
@@ -565,7 +571,7 @@ export default {
         }
       }
 
-      // POST: Create a new proposal
+      // POST: Create a new proposal OR add invoice
       if (request.method === "POST") {
         try {
           if (!env.DB) {
@@ -576,18 +582,50 @@ export default {
           }
 
           const body = await request.json();
+          
+          // Specific endpoint for adding/updating invoices: /api/business-trips/invoices
+          if (url.pathname === "/api/business-trips/invoices") {
+            const { tripId, invoice } = body;
+            if (!tripId || !invoice) {
+              return new Response(JSON.stringify({ success: false, error: "Thiếu tripId hoặc thông tin hóa đơn" }), {
+                status: 400, headers: { "Content-Type": "application/json" }
+              });
+            }
+
+            const { results } = await env.DB.prepare("SELECT invoices_json FROM business_trips WHERE id = ?").bind(tripId).all();
+            let currentInvoices = [];
+            if (results && results[0] && results[0].invoices_json) {
+              try { currentInvoices = JSON.parse(results[0].invoices_json); } catch(e) { currentInvoices = []; }
+            }
+            currentInvoices.push(invoice);
+
+            await env.DB.prepare("UPDATE business_trips SET invoices_json = ? WHERE id = ?")
+              .bind(JSON.stringify(currentInvoices), tripId).run();
+
+            return new Response(JSON.stringify({
+              success: true,
+              message: "Đã lưu hóa đơn chứng từ vào Cloudflare D1 thành công!",
+              invoices: currentInvoices
+            }), { headers: { "Content-Type": "application/json" } });
+          }
+
           const {
             id, code, title, region, factory, creator, department,
             location, startDate, endDate, daysCount, transport,
-            participantsCount, purpose, address, proposalText, participants
+            participantsCount, purpose, address, proposalText,
+            attachmentsJson, attachments, invoicesJson, invoices,
+            participants
           } = body;
+
+          const finalAttachmentsJson = typeof attachmentsJson === "string" ? attachmentsJson : JSON.stringify(attachments || []);
+          const finalInvoicesJson = typeof invoicesJson === "string" ? invoicesJson : JSON.stringify(invoices || []);
 
           await env.DB.prepare(`
             INSERT OR REPLACE INTO business_trips (
               id, code, title, region, factory, creator, department,
               location, start_date, end_date, days_count, transport,
-              participants_count, purpose, address, proposal_text, participants_json, status, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', CURRENT_TIMESTAMP)
+              participants_count, purpose, address, proposal_text, attachments_json, invoices_json, participants_json, status, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', CURRENT_TIMESTAMP)
           `).bind(
             id || `rec_${Date.now()}`,
             code || `CT-2026-${Math.floor(100 + Math.random() * 900)}`,
@@ -605,6 +643,8 @@ export default {
             purpose || "",
             address || "",
             proposalText || "",
+            finalAttachmentsJson,
+            finalInvoicesJson,
             JSON.stringify(participants || [])
           ).run();
 
@@ -624,7 +664,7 @@ export default {
         }
       }
 
-      // PUT: Update Status (APPROVED / REJECTED)
+      // PUT: Update Status (APPROVED / REJECTED) or Update Invoices / Attachments
       if (request.method === "PUT") {
         try {
           if (!env.DB) {
@@ -635,17 +675,27 @@ export default {
           }
 
           const body = await request.json();
-          const { id, status } = body;
+          const { id, status, invoices_json, invoices, attachments_json, attachments } = body;
 
-          await env.DB.prepare(
-            "UPDATE business_trips SET status = ? WHERE id = ?"
-          ).bind(status, id).run();
+          if (invoices_json || invoices) {
+            const invStr = typeof invoices_json === "string" ? invoices_json : JSON.stringify(invoices);
+            await env.DB.prepare("UPDATE business_trips SET invoices_json = ? WHERE id = ?").bind(invStr, id).run();
+          }
+
+          if (attachments_json || attachments) {
+            const attStr = typeof attachments_json === "string" ? attachments_json : JSON.stringify(attachments);
+            await env.DB.prepare("UPDATE business_trips SET attachments_json = ? WHERE id = ?").bind(attStr, id).run();
+          }
+
+          if (status) {
+            await env.DB.prepare("UPDATE business_trips SET status = ? WHERE id = ?").bind(status, id).run();
+          }
 
           return new Response(
             JSON.stringify({
               success: true,
-              message: `Đã cập nhật trạng thái thành ${status} trong D1 Database!`,
-              id, status
+              message: "Đã cập nhật dữ liệu đề xuất công tác trong D1 Database thành công!",
+              id
             }),
             { headers: { "Content-Type": "application/json" } }
           );

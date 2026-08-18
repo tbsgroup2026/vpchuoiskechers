@@ -857,6 +857,13 @@ export default {
       // ════════════════════════════════════════════════════════════════
       // 📊 BI EXPORT & EXECUTIVE EMAIL AUTOMATION APIS
       // ════════════════════════════════════════════════════════════════
+      const SECURE_JSON_HEADERS = {
+        "Content-Type": "application/json",
+        "X-Frame-Options": "SAMEORIGIN",
+        "X-Content-Type-Options": "nosniff",
+        "Referrer-Policy": "strict-origin-when-cross-origin",
+        "Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
+      };
 
       // GET /api/bi/export: Aggregate BI Metrics for Finance & Factory OEE
       if (url.pathname === "/api/bi/export" && request.method === "GET") {
@@ -914,17 +921,19 @@ export default {
               headers: {
                 "Content-Type": "text/csv; charset=utf-8",
                 "Content-Disposition": 'attachment; filename="TBS_BI_Weekly_Report.csv"',
+                "X-Content-Type-Options": "nosniff",
+                "X-Frame-Options": "SAMEORIGIN",
               },
             });
           }
 
           return new Response(JSON.stringify({ success: true, data: biData }), {
-            headers: { "Content-Type": "application/json" },
+            headers: SECURE_JSON_HEADERS,
           });
         } catch (err) {
           return new Response(JSON.stringify({ success: false, error: err.message }), {
             status: 500,
-            headers: { "Content-Type": "application/json" },
+            headers: SECURE_JSON_HEADERS,
           });
         }
       }
@@ -988,12 +997,12 @@ export default {
 
           return new Response(
             JSON.stringify({ success: true, schedule: defaultSchedule, history: recentLogs }),
-            { headers: { "Content-Type": "application/json" } }
+            { headers: SECURE_JSON_HEADERS }
           );
         } catch (err) {
           return new Response(JSON.stringify({ success: false, error: err.message }), {
             status: 500,
-            headers: { "Content-Type": "application/json" },
+            headers: SECURE_JSON_HEADERS,
           });
         }
       }
@@ -1008,12 +1017,12 @@ export default {
               message: "Đã cập nhật cấu hình lập lịch gửi báo cáo BI tự động thành công!",
               data: body,
             }),
-            { headers: { "Content-Type": "application/json" } }
+            { headers: SECURE_JSON_HEADERS }
           );
         } catch (err) {
           return new Response(JSON.stringify({ success: false, error: err.message }), {
             status: 500,
-            headers: { "Content-Type": "application/json" },
+            headers: SECURE_JSON_HEADERS,
           });
         }
       }
@@ -1150,12 +1159,12 @@ export default {
               recipientsCount: 5,
               htmlPreview: htmlReportPreview,
             }),
-            { headers: { "Content-Type": "application/json" } }
+            { headers: SECURE_JSON_HEADERS }
           );
         } catch (err) {
           return new Response(JSON.stringify({ success: false, error: err.message }), {
             status: 500,
-            headers: { "Content-Type": "application/json" },
+            headers: SECURE_JSON_HEADERS,
           });
         }
       }

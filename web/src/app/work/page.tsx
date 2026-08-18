@@ -793,39 +793,9 @@ export default function WorkDashboardPage() {
           })}
         </div>
 
-        {/* Sidebar Bottom Brand Cards & Footer Credit (Fixed Bottom) */}
-        <div className="flex-shrink-0 mt-auto pt-2 space-y-2.5 border-t border-slate-200/80">
-          {/* Brand Cards (Matching Screenshot 2) */}
-          {!isSidebarCollapsed && (
-            <div className="space-y-2 w-full">
-              {/* Skechers Comfort Makes Better Card */}
-              <div className="p-2 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center gap-2.5 shadow-2xs">
-                <img
-                  src="/images/crawled/De-giay.jpg"
-                  alt="Skechers Shoe"
-                  className="w-10 h-7 object-contain rounded-md"
-                />
-                <div className="min-w-0">
-                  <div className="text-[11px] font-black text-slate-800 tracking-tight leading-none">SKECHERS</div>
-                  <div className="text-[9px] text-slate-500 font-medium truncate mt-0.5">Comfort Makes Better</div>
-                </div>
-              </div>
-
-              {/* TBS Group Innovation • Efficiency • Growth Card */}
-              <div className="p-2 rounded-xl bg-emerald-50/80 border border-emerald-200/70 flex items-center gap-2.5 shadow-2xs">
-                <div className="w-7 h-7 rounded-lg bg-[#006838] text-white flex items-center justify-center flex-shrink-0">
-                  <IconLeaf size={14} />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-[11px] font-black text-[#006838] tracking-tight leading-none">TBS GROUP</div>
-                  <div className="text-[9px] text-emerald-800 font-medium truncate mt-0.5">Innovation • Efficiency • Growth</div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Executive Footer Credit */}
-          <div className="flex items-center justify-between text-xs text-slate-500 pt-0.5">
+        {/* Sidebar Footer Credit (Fixed Bottom) */}
+        <div className="flex-shrink-0 mt-auto pt-2.5 border-t border-slate-200/80">
+          <div className="flex items-center justify-between text-xs text-slate-500">
             {!isSidebarCollapsed ? (
               <>
                 <Link href="/" title="Về Trang Chủ TBS Group" className="flex items-center gap-1.5 hover:opacity-80 transition-opacity">

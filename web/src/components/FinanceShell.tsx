@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import UserAvatar from "@/components/UserAvatar";
 import {
   IconHome,
@@ -49,7 +49,6 @@ export default function FinanceShell({
   activeSubmenu,
 }: FinanceShellProps) {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [userInfo, setUserInfo] = useState<{
     name: string;
@@ -101,14 +100,14 @@ export default function FinanceShell({
       label: "Bàn làm việc kế toán",
       icon: IconCalculator,
       href: "/finance?tab=desk",
-      activeMatch: (pathname === "/finance" && searchParams?.get("tab") !== "overview"),
+      activeMatch: pathname === "/finance" && activeSubmenu !== "Tổng quan 10 phân hệ",
     },
     {
       key: "tong-quan",
       label: "Tổng quan 10 phân hệ",
       icon: IconChartBar,
       href: "/finance?tab=overview",
-      activeMatch: (pathname === "/finance" && searchParams?.get("tab") === "overview"),
+      activeMatch: pathname === "/finance" && activeSubmenu === "Tổng quan 10 phân hệ",
     },
     {
       key: "thu-chi",

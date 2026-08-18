@@ -289,7 +289,7 @@ function FinanceHubContent() {
         { label: "Kế toán & Quản trị", href: "/finance" },
         { label: activeMainTab === "desk" ? "Bàn làm việc nhập liệu" : "Tổng quan phân hệ" },
       ]}
-      activeSubmenu={activeMainTab === "desk" ? "Phiếu thu" : undefined}
+      activeSubmenu={activeMainTab === "overview" ? "Tổng quan 10 phân hệ" : "Bàn làm việc kế toán"}
     >
       {/* ════════ MAIN TAB SWITCHER NAVIGATION ════════ */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1 border-b border-slate-200/80">

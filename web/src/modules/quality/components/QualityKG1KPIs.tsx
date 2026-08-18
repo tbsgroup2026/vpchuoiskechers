@@ -19,128 +19,128 @@ interface QualityKG1KPIsProps {
 
 export default function QualityKG1KPIs({ kpis, onFilterClick }: QualityKG1KPIsProps) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 sm:gap-4">
-      {/* KPI 01: Sự cố chưa xử lý */}
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      {/* KPI 01: Sự cố chờ tiếp nhận */}
       <div
         onClick={() => onFilterClick && onFilterClick("unprocessed")}
-        className="p-4 rounded-2xl bg-white border border-amber-200/90 shadow-2xs hover:shadow-md hover:border-amber-400 transition-all cursor-pointer group relative overflow-hidden"
+        className="p-5 rounded-2xl bg-white border border-amber-200/90 shadow-2xs hover:shadow-md hover:border-amber-400 transition-all cursor-pointer group relative overflow-hidden"
       >
         <div className="flex items-center justify-between gap-2">
-          <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center group-hover:scale-105 transition-transform">
-            <IconInbox size={18} />
+          <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center group-hover:scale-105 transition-transform border border-amber-100">
+            <IconInbox size={20} />
           </div>
-          <span className="px-2 py-0.5 rounded-full bg-amber-100/80 text-amber-800 text-[10px] font-black tracking-wider flex items-center gap-1">
-            <IconClock size={11} />
-            15 phút SLA
+          <span className="px-2.5 py-0.5 rounded-full bg-amber-100/90 text-amber-900 text-[10px] font-black tracking-wider flex items-center gap-1 border border-amber-200">
+            <IconClock size={12} />
+            15m SLA
           </span>
         </div>
 
-        <div className="mt-3">
-          <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+        <div className="mt-4">
+          <div className="text-3xl font-black text-slate-900 tracking-tight">
             {kpis.unprocessed.toString().padStart(2, "0")}
           </div>
-          <div className="text-xs font-black text-amber-800 mt-0.5">
-            01 – Sự cố chưa xử lý
+          <div className="text-xs font-black text-amber-900 mt-1">
+            Sự Cố Chờ Tiếp Nhận
           </div>
           <div className="text-[11px] text-slate-500 font-medium mt-0.5">
-            Cần tiếp nhận & phân bổ
+            Cần tiếp nhận & phân công
           </div>
         </div>
       </div>
 
-      {/* KPI 02: Đang xử lý */}
+      {/* KPI 02: Đang xử lý khắc phục */}
       <div
         onClick={() => onFilterClick && onFilterClick("processing")}
-        className="p-4 rounded-2xl bg-white border border-blue-200/90 shadow-2xs hover:shadow-md hover:border-blue-400 transition-all cursor-pointer group"
+        className="p-5 rounded-2xl bg-white border border-blue-200/90 shadow-2xs hover:shadow-md hover:border-blue-400 transition-all cursor-pointer group"
       >
-        <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-105 transition-transform">
-          <IconLoader2 size={18} className="animate-spin-slow" />
+        <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center group-hover:scale-105 transition-transform border border-blue-100">
+          <IconLoader2 size={20} className="animate-spin-slow" />
         </div>
 
-        <div className="mt-3">
-          <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+        <div className="mt-4">
+          <div className="text-3xl font-black text-slate-900 tracking-tight">
             {kpis.processing.toString().padStart(2, "0")}
           </div>
-          <div className="text-xs font-black text-blue-800 mt-0.5">
-            02 – Đang xử lý
+          <div className="text-xs font-black text-blue-900 mt-1">
+            Đang Xử Lý Khắc Phục
           </div>
           <div className="text-[11px] text-slate-500 font-medium mt-0.5">
-            Đang điều tra / khắc phục
+            Điều tra 5M+1E & sửa chữa
           </div>
         </div>
       </div>
 
-      {/* KPI 03: Chạy thử */}
+      {/* KPI 03: Chuyền theo dõi chạy thử */}
       <div
         onClick={() => onFilterClick && onFilterClick("trial")}
-        className="p-4 rounded-2xl bg-white border border-purple-200/90 shadow-2xs hover:shadow-md hover:border-purple-400 transition-all cursor-pointer group"
+        className="p-5 rounded-2xl bg-white border border-purple-200/90 shadow-2xs hover:shadow-md hover:border-purple-400 transition-all cursor-pointer group"
       >
-        <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center group-hover:scale-105 transition-transform">
-          <IconPlayerPlay size={18} />
+        <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center group-hover:scale-105 transition-transform border border-purple-100">
+          <IconPlayerPlay size={20} />
         </div>
 
-        <div className="mt-3">
-          <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+        <div className="mt-4">
+          <div className="text-3xl font-black text-slate-900 tracking-tight">
             {kpis.trialRun.toString().padStart(2, "0")}
           </div>
-          <div className="text-xs font-black text-purple-800 mt-0.5">
-            03 – Chạy thử
+          <div className="text-xs font-black text-purple-900 mt-1">
+            Theo Dõi Chạy Thử
           </div>
           <div className="text-[11px] text-slate-500 font-medium mt-0.5">
-            Theo dõi 3h – 48h
+            Thời lượng 3h – 48h
           </div>
         </div>
       </div>
 
-      {/* KPI 04: Đã hoàn thành */}
+      {/* KPI 04: Đã nghiệm thu đạt chuẩn */}
       <div
         onClick={() => onFilterClick && onFilterClick("completed")}
-        className="p-4 rounded-2xl bg-white border border-emerald-200/90 shadow-2xs hover:shadow-md hover:border-emerald-500 transition-all cursor-pointer group"
+        className="p-5 rounded-2xl bg-white border border-emerald-200/90 shadow-2xs hover:shadow-md hover:border-emerald-500 transition-all cursor-pointer group"
       >
-        <div className="w-8 h-8 rounded-xl bg-emerald-50 text-[#006838] flex items-center justify-center group-hover:scale-105 transition-transform">
-          <IconCircleCheck size={18} />
+        <div className="w-9 h-9 rounded-xl bg-emerald-50 text-[#006838] flex items-center justify-center group-hover:scale-105 transition-transform border border-emerald-100">
+          <IconCircleCheck size={20} />
         </div>
 
-        <div className="mt-3">
-          <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+        <div className="mt-4">
+          <div className="text-3xl font-black text-slate-900 tracking-tight">
             {kpis.completed}
           </div>
-          <div className="text-xs font-black text-[#006838] mt-0.5">
-            04 – Đã hoàn thành
+          <div className="text-xs font-black text-[#006838] mt-1">
+            Đã Nghiệm Thu Hoàn Tất
           </div>
           <div className="text-[11px] text-slate-500 font-medium mt-0.5">
-            Đã nghiệm thu đạt chuẩn
+            Đóng phiếu đạt chuẩn QA
           </div>
         </div>
       </div>
 
-      {/* KPI 05: SOS Khẩn cấp (Màu đỏ cảnh báo đặc biệt) */}
+      {/* KPI 05: Báo động SOS khẩn cấp */}
       <div
         onClick={() => onFilterClick && onFilterClick("sos")}
-        className="p-4 rounded-2xl bg-gradient-to-br from-rose-500 to-red-600 text-white shadow-md shadow-rose-950/20 hover:shadow-lg hover:from-rose-600 hover:to-red-700 transition-all cursor-pointer group relative overflow-hidden ring-2 ring-rose-300/50"
+        className="p-5 rounded-2xl bg-gradient-to-br from-rose-600 to-red-700 text-white shadow-md shadow-rose-950/25 hover:shadow-lg hover:from-rose-700 hover:to-red-800 transition-all cursor-pointer group relative overflow-hidden"
       >
-        <div className="absolute -right-2 -bottom-2 opacity-20 pointer-events-none">
-          <IconFlame size={80} />
+        <div className="absolute -right-3 -bottom-3 opacity-15 pointer-events-none">
+          <IconFlame size={90} />
         </div>
 
-        <div className="flex items-center justify-between">
-          <div className="w-8 h-8 rounded-xl bg-white/20 text-white flex items-center justify-center group-hover:scale-110 transition-transform">
-            <IconAlertCircle size={18} />
+        <div className="flex items-center justify-between relative z-10">
+          <div className="w-9 h-9 rounded-xl bg-white/20 text-white flex items-center justify-center group-hover:scale-110 transition-transform">
+            <IconAlertCircle size={20} />
           </div>
-          <span className="px-2 py-0.5 rounded-full bg-white/25 text-white text-[10px] font-black tracking-wider uppercase animate-pulse">
-            CẤP BÁCH
+          <span className="px-2.5 py-0.5 rounded-full bg-white/25 text-white text-[10px] font-black tracking-widest uppercase animate-pulse">
+            KHẨN CẤP
           </span>
         </div>
 
-        <div className="mt-3 relative z-10">
-          <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+        <div className="mt-4 relative z-10">
+          <div className="text-3xl font-black text-white tracking-tight">
             {kpis.emergencySOS.toString().padStart(2, "0")}
           </div>
-          <div className="text-xs font-black text-rose-100 mt-0.5">
-            05 – SOS khẩn cấp
+          <div className="text-xs font-black text-rose-100 mt-1">
+            Báo Động SOS Khẩn
           </div>
           <div className="text-[11px] text-rose-100/90 font-medium mt-0.5">
-            Cần xử lý ngay lập tức
+            Cần lãnh đạo chỉ đạo ngay
           </div>
         </div>
       </div>

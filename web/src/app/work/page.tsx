@@ -271,7 +271,7 @@ export default function WorkDashboardPage() {
         : "bg-emerald-50 text-emerald-700 border-emerald-200",
     };
     setFinTransactions([newEntry, ...finTransactions]);
-    showToast(isSubmitForApproval ? "⚡ Đã lưu và chuyển chứng từ sang hàng đợi Phê Duyệt!" : "💾 Đã ghi sổ chứng từ thành công vào hệ thống D1!");
+    showToast(isSubmitForApproval ? "Đã lưu và chuyển chứng từ sang hàng đợi Phê Duyệt." : "Đã ghi sổ chứng từ thành công vào hệ thống D1.");
     // Reset form code for next entry
     const prefix = finEntryType === "thu" ? "PT" : finEntryType === "chi" ? "PC" : finEntryType === "tam_ung" ? "TU" : finEntryType === "hoa_don" ? "HD" : "CN";
     setFinForm({
@@ -344,7 +344,7 @@ export default function WorkDashboardPage() {
         return;
       }
 
-      showToast("⏳ Đang nạp & xử lý ảnh...");
+      showToast("Đang nạp và xử lý ảnh...");
 
       const reader = new FileReader();
       reader.onloadend = async () => {
@@ -357,7 +357,7 @@ export default function WorkDashboardPage() {
           // 2. Instantly display selected photo in modal circle (0ms UI feedback)
           setEditProfileForm((prev) => ({ ...prev, avatar: compressed }));
           setUserInfo((prev) => ({ ...prev, avatar: compressed }));
-          showToast("🖼️ Đã nạp ảnh! Đang đồng bộ Cloudinary...");
+          showToast("Đã nạp ảnh thành công. Đang đồng bộ...");
 
           // 3. Upload to Cloudinary & D1 via Worker endpoint
           try {
@@ -379,7 +379,7 @@ export default function WorkDashboardPage() {
                   }));
                   window.dispatchEvent(new Event("tbs_profile_updated"));
                 }
-                showToast(json.isCloudinary ? "☁️ Đã tải avatar thành công lên Cloudinary!" : "🖼️ Đã cập nhật ảnh đại diện!");
+                showToast(json.isCloudinary ? "Đã tải avatar lên Cloudinary." : "Đã cập nhật ảnh đại diện.");
               }
             }
           } catch (uploadErr) {
@@ -1003,7 +1003,7 @@ export default function WorkDashboardPage() {
                 {/* Top Row: Subtitle Badge & App Count Badge */}
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-widest text-emerald-200/90 bg-white/10 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10 shadow-2xs">
-                    PHÒNG BAN
+                    PHÂN HỆ NGHIỆP VỤ
                   </span>
                   <div className="px-3.5 py-1 rounded-full bg-emerald-400/20 border border-emerald-300/30 text-emerald-100 text-xs font-extrabold backdrop-blur-md flex items-center gap-1.5 shadow-2xs">
                     <IconLayoutGrid size={14} className="text-emerald-300" />

@@ -32,7 +32,7 @@ export default function FactorySelector({
 
   return (
     <div className="relative" ref={dropdownRef}>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2.5">
         <span className="text-xs font-bold text-slate-500 uppercase tracking-wider hidden sm:inline-block">
           Phạm vi dữ liệu:
         </span>
@@ -40,16 +40,16 @@ export default function FactorySelector({
         {/* Trigger Button */}
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-white border border-slate-200 shadow-2xs hover:border-[#006838] transition-all cursor-pointer group"
+          className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs hover:border-[#006838] transition-all cursor-pointer group"
         >
           <div className="w-6 h-6 rounded-lg bg-emerald-50 text-[#006838] flex items-center justify-center group-hover:bg-[#006838] group-hover:text-white transition-colors">
             {currentFactory.id === "all" ? (
-              <IconWorld size={14} />
+              <IconWorld size={15} />
             ) : (
-              <IconBuildingFactory2 size={14} />
+              <IconBuildingFactory2 size={15} />
             )}
           </div>
-          <span className="text-xs font-black text-slate-800 tracking-tight">
+          <span className="text-xs font-black text-slate-900 tracking-tight">
             {currentFactory.name}
           </span>
           {currentFactory.status === "live" && currentFactory.id !== "all" && (
@@ -66,10 +66,15 @@ export default function FactorySelector({
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute left-0 sm:right-0 sm:left-auto top-full mt-2 w-72 sm:w-80 bg-white rounded-2xl border border-slate-200 shadow-2xl z-50 p-2 space-y-1 animate-in fade-in zoom-in-95 duration-150">
+        <div className="absolute right-0 top-full mt-2 w-72 sm:w-80 bg-white rounded-2xl border border-slate-200/90 shadow-2xl z-50 p-2 space-y-1 animate-in fade-in zoom-in-95 duration-150">
           <div className="px-3 py-2 text-[11px] font-black uppercase tracking-wider text-slate-400 border-b border-slate-100 flex items-center justify-between">
-            <span>🏭 Chọn nhà máy</span>
-            <span className="text-[10px] text-emerald-600 font-mono">D1 Realtime</span>
+            <span className="flex items-center gap-1.5">
+              <IconBuildingFactory2 size={14} className="text-slate-500" />
+              Chọn nhà máy
+            </span>
+            <span className="text-[10px] text-emerald-700 font-mono font-bold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+              D1 Realtime
+            </span>
           </div>
 
           <div className="py-1 space-y-1">
@@ -82,7 +87,7 @@ export default function FactorySelector({
                     onSelectFactory(factory);
                     setIsOpen(false);
                   }}
-                  className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between transition-all cursor-pointer ${
+                  className={`w-full text-left px-3.5 py-2.5 rounded-xl flex items-center justify-between transition-all cursor-pointer ${
                     isSelected
                       ? "bg-[#006838] text-white shadow-sm"
                       : "hover:bg-slate-50 text-slate-700 hover:text-slate-900"
@@ -145,13 +150,13 @@ export default function FactorySelector({
           <div className="pt-1.5 border-t border-slate-100">
             <button
               onClick={() => {
-                alert("Tính năng thêm nhà máy mới sẽ có trong bản cập nhật quản trị!");
+                alert("Tính năng đăng ký nhà máy mới sẽ mở trong bản cập nhật phân quyền quản trị.");
                 setIsOpen(false);
               }}
               className="w-full px-3 py-2 rounded-xl text-left flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-[#006838] hover:bg-emerald-50/50 transition-colors cursor-pointer"
             >
               <IconPlus size={14} />
-              <span>+ Thêm nhà máy</span>
+              <span>Thêm cơ sở sản xuất mới</span>
             </button>
           </div>
         </div>

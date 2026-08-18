@@ -18,6 +18,12 @@ import {
   IconCalendar,
   IconPackage,
   IconBell,
+  IconActivity,
+  IconArrowUpRight,
+  IconBolt,
+  IconCircleCheck,
+  IconSparkles,
+  IconLayersSubtract,
 } from "@tabler/icons-react";
 
 interface OverviewDashboardProps {
@@ -80,110 +86,113 @@ export default function OverviewDashboard({
   }, "");
 
   return (
-    <div className="space-y-4 sm:space-y-4.5 w-full min-w-0 animate-in fade-in duration-300">
+    <div className="space-y-5 w-full min-w-0 animate-in fade-in duration-300">
       {/* ════════════════════════════════════════════════════════════════
-          1. HERO BANNER CARD (XANH LÁ TBS + GIÀY SKECHERS NEON)
+          1. HERO BANNER CARD - AWWWARDS & HUMAN TASTE QUALITY
          ════════════════════════════════════════════════════════════════ */}
-      <div className="relative w-full rounded-3xl overflow-hidden shadow-md bg-gradient-to-r from-[#006838] via-[#008f4c] to-[#005a30] text-white p-5 sm:p-7 border border-emerald-700/40 flex flex-col md:flex-row items-center justify-between gap-6 min-h-[170px]">
-        {/* Subtle Wave Neon Background Graphic */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_right_center,rgba(141,198,63,0.25),transparent_60%)] pointer-events-none" />
-        <div className="absolute -right-10 -bottom-10 w-80 h-80 bg-emerald-400/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="relative w-full rounded-3xl overflow-hidden shadow-lg bg-gradient-to-br from-[#006838] via-[#005a30] to-[#072419] text-white p-6 sm:p-8 border border-emerald-600/30 flex flex-col md:flex-row items-center justify-between gap-6 min-h-[180px]">
+        {/* Ambient Glows */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_right_center,rgba(141,198,63,0.18),transparent_65%)] pointer-events-none" />
+        <div className="absolute -left-10 -bottom-10 w-72 h-72 bg-emerald-400/10 rounded-full blur-3xl pointer-events-none" />
 
-        {/* Left: Greeting & Mission Pills */}
-        <div className="relative z-10 space-y-3.5 max-w-xl text-left">
-          <div className="space-y-1">
-            <h2 className="text-2xl sm:text-3xl font-sans font-black tracking-tight text-white flex items-center gap-2">
-              <span>👋</span>
-              <span>Xin chào, {userName}!</span>
+        {/* Left: Greeting & Human Mission Directives */}
+        <div className="relative z-10 space-y-4 max-w-xl text-left">
+          <div className="space-y-1.5">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-emerald-200 text-xs font-black uppercase tracking-wider backdrop-blur-md">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              Trung Tâm Điều Hành Chuỗi SKECHERS
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-sans font-black tracking-tight text-white">
+              Xin chào, {userName}
             </h2>
-            <p className="text-xs sm:text-sm text-emerald-100 font-medium leading-relaxed">
-              Chúc bạn một ngày làm việc hiệu quả tại Văn phòng Chuỗi SKECHERS – TBS Group.
+            <p className="text-xs sm:text-sm text-emerald-100/90 font-medium leading-relaxed">
+              Chúc bạn một ngày làm việc sáng tạo, minh bạch và hiệu quả cao tại TBS Group.
             </p>
           </div>
 
-          {/* 3 Pills */}
-          <div className="flex items-center gap-2 flex-wrap pt-0.5">
-            <span className="px-3.5 py-1 rounded-full bg-white/20 hover:bg-white/25 border border-white/25 text-[11px] font-bold text-white backdrop-blur-xs transition-colors shadow-2xs">
+          {/* 3 Mission Pillars */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="px-3.5 py-1 rounded-full bg-white/15 hover:bg-white/25 border border-white/20 text-[11px] font-bold text-white backdrop-blur-md transition-colors shadow-2xs">
               Hiệu quả hơn
             </span>
-            <span className="px-3.5 py-1 rounded-full bg-white/20 hover:bg-white/25 border border-white/25 text-[11px] font-bold text-white backdrop-blur-xs transition-colors shadow-2xs">
+            <span className="px-3.5 py-1 rounded-full bg-white/15 hover:bg-white/25 border border-white/20 text-[11px] font-bold text-white backdrop-blur-md transition-colors shadow-2xs">
               Minh bạch hơn
             </span>
-            <span className="px-3.5 py-1 rounded-full bg-white/20 hover:bg-white/25 border border-white/25 text-[11px] font-bold text-white backdrop-blur-xs transition-colors shadow-2xs">
+            <span className="px-3.5 py-1 rounded-full bg-white/15 hover:bg-white/25 border border-white/20 text-[11px] font-bold text-white backdrop-blur-md transition-colors shadow-2xs">
               Số hóa toàn diện
             </span>
           </div>
         </div>
 
-        {/* Right: Skechers Shoe 3D Graphic with Glowing Neon Orb */}
+        {/* Right: Skechers Shoe 3D Graphic with Refined Lighting */}
         <div className="relative z-10 flex-shrink-0 flex items-center justify-center">
-          <div className="relative w-56 sm:w-64 h-32 sm:h-36 flex items-center justify-center">
-            {/* Neon Speed Ring Effect */}
-            <div className="absolute inset-0 rounded-full border-2 border-lime-300/40 blur-xs scale-90 -rotate-12 animate-pulse" />
-            <div className="absolute w-44 h-16 bg-lime-400/20 rounded-full blur-xl top-1/2 -translate-y-1/2" />
+          <div className="relative w-56 sm:w-64 h-32 sm:h-36 flex items-center justify-center group">
+            {/* Speed Ring Effect */}
+            <div className="absolute inset-0 rounded-full border border-lime-300/30 blur-xs scale-95 -rotate-6 group-hover:rotate-0 transition-transform duration-700" />
+            <div className="absolute w-44 h-16 bg-lime-400/20 rounded-full blur-2xl top-1/2 -translate-y-1/2" />
 
             {/* Glowing Shoe Graphic */}
             <img
               src="/images/crawled/De-giay.jpg"
-              alt="SKECHERS Innovation Shoe"
-              className="w-full h-full object-contain drop-shadow-[0_12px_24px_rgba(0,0,0,0.45)] hover:scale-105 transition-transform duration-500 rounded-2xl"
+              alt="SKECHERS Innovation"
+              className="w-full h-full object-contain drop-shadow-[0_16px_32px_rgba(0,0,0,0.5)] group-hover:scale-105 transition-transform duration-500 rounded-2xl"
             />
           </div>
         </div>
       </div>
 
       {/* ════════════════════════════════════════════════════════════════
-          2. ROW 1: 6 THẺ PHÒNG BAN + KHỐI TRUY CẬP NHANH (4 ICON)
+          2. ROW 1: 6 THẺ PHÒNG BAN + KHỐI TRUY CẬP NHANH
          ════════════════════════════════════════════════════════════════ */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Left (Col 8/12): 6 Thẻ Phòng Ban Chính */}
-        <div className="lg:col-span-8 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+        <div className="lg:col-span-8 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {[
             {
               id: "hr",
               name: "Nhân sự\n& Hành chính",
               icon: IconUsers,
-              iconBg: "bg-emerald-100 text-emerald-700",
+              iconBg: "bg-emerald-50 text-[#006838] border-emerald-100",
             },
             {
               id: "finance",
               name: "Kế toán\n& Tài chính",
               icon: IconCalculator,
-              iconBg: "bg-blue-100 text-blue-700",
+              iconBg: "bg-blue-50 text-blue-700 border-blue-100",
             },
             {
               id: "rd",
               name: "R&D\n(Phát triển SP)",
               icon: IconFlask,
-              iconBg: "bg-purple-100 text-purple-700",
+              iconBg: "bg-purple-50 text-purple-700 border-purple-100",
             },
             {
               id: "qc",
               name: "Quản lý\nchất lượng",
               icon: IconShieldCheck,
-              iconBg: "bg-teal-100 text-teal-700",
+              iconBg: "bg-teal-50 text-teal-700 border-teal-100",
             },
             {
               id: "logistics",
               name: "Kho &\nLogistics",
               icon: IconTruck,
-              iconBg: "bg-orange-100 text-orange-700",
+              iconBg: "bg-amber-50 text-amber-800 border-amber-100",
             },
             {
               id: "report",
               name: "Báo cáo\nthống kê",
               icon: IconChartBar,
-              iconBg: "bg-cyan-100 text-cyan-700",
+              iconBg: "bg-cyan-50 text-cyan-700 border-cyan-100",
               href: "/finance/bao-cao",
             },
           ].map((item) => {
             const IconC = item.icon;
             const content = (
-              <div className="flex flex-col items-center text-center p-3 sm:p-3.5 rounded-2xl bg-white border border-slate-200/80 shadow-2xs hover:border-[#006838]/60 hover:shadow-sm transition-all duration-200 group cursor-pointer h-full justify-center space-y-2">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-transform duration-200 group-hover:scale-110 ${item.iconBg}`}>
-                  <IconC size={20} />
+              <div className="flex flex-col items-center text-center p-3.5 rounded-2xl bg-white border border-slate-200/90 shadow-2xs hover:border-[#006838] hover:shadow-md transition-all duration-300 group cursor-pointer h-full justify-center space-y-2.5">
+                <div className={`w-11 h-11 rounded-xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110 border ${item.iconBg}`}>
+                  <IconC size={22} />
                 </div>
-                <span className="text-[11px] font-extrabold text-slate-700 leading-tight whitespace-pre-line group-hover:text-[#006838] transition-colors">
+                <span className="text-[11px] font-extrabold text-slate-800 leading-tight whitespace-pre-line group-hover:text-[#006838] transition-colors">
                   {item.name}
                 </span>
               </div>
@@ -211,36 +220,38 @@ export default function OverviewDashboard({
         </div>
 
         {/* Right (Col 4/12): Khối Truy Cập Nhanh */}
-        <div className="lg:col-span-4 bg-white border border-slate-200/90 rounded-2xl p-3.5 sm:p-4 shadow-2xs flex flex-col justify-between space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-xs font-black text-slate-900">
-              <span className="text-emerald-600">⚡</span>
+        <div className="lg:col-span-4 bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-2xs flex flex-col justify-between space-y-3.5">
+          <div className="flex items-center justify-between pb-1 border-b border-slate-100">
+            <div className="flex items-center gap-2 text-xs font-black text-slate-900">
+              <div className="w-6 h-6 rounded-md bg-emerald-50 text-[#006838] flex items-center justify-center">
+                <IconBolt size={14} />
+              </div>
               <span>Truy cập nhanh</span>
             </div>
             <Link
               href="/finance"
-              className="text-[11px] font-extrabold text-[#006838] hover:underline flex items-center gap-0.5"
+              className="text-[11px] font-extrabold text-[#006838] hover:underline flex items-center gap-1"
             >
-              <span>Xem tất cả</span>
-              <span>→</span>
+              <span>Tất cả</span>
+              <IconArrowUpRight size={13} />
             </Link>
           </div>
 
           <div className="grid grid-cols-4 gap-2">
             {[
-              { label: "Nhập liệu", icon: IconFileText, href: "/finance?tab=desk", color: "text-emerald-700", bg: "bg-emerald-50 hover:bg-emerald-100" },
-              { label: "Báo cáo", icon: IconChartBar, href: "/finance/bao-cao", color: "text-blue-700", bg: "bg-blue-50 hover:bg-blue-100" },
-              { label: "Lịch công việc", icon: IconCalendarEvent, href: "/business-trip", color: "text-amber-700", bg: "bg-amber-50 hover:bg-amber-100" },
-              { label: "Hỗ trợ", icon: IconHeadset, href: "/rooms", color: "text-purple-700", bg: "bg-purple-50 hover:bg-purple-100" },
+              { label: "Nhập liệu", icon: IconFileText, href: "/finance?tab=desk", color: "text-[#006838]", bg: "bg-emerald-50 hover:bg-emerald-100 border-emerald-100" },
+              { label: "Báo cáo", icon: IconChartBar, href: "/finance/bao-cao", color: "text-blue-700", bg: "bg-blue-50 hover:bg-blue-100 border-blue-100" },
+              { label: "Công việc", icon: IconCalendarEvent, href: "/business-trip", color: "text-amber-800", bg: "bg-amber-50 hover:bg-amber-100 border-amber-100" },
+              { label: "Hỗ trợ", icon: IconHeadset, href: "/rooms", color: "text-purple-700", bg: "bg-purple-50 hover:bg-purple-100 border-purple-100" },
             ].map((q, idx) => {
               const QIcon = q.icon;
               return (
                 <Link
                   key={idx}
                   href={q.href}
-                  className="flex flex-col items-center text-center p-2 rounded-xl border border-slate-200/70 hover:border-[#006838]/60 hover:shadow-2xs transition-all duration-200 group bg-slate-50/60"
+                  className="flex flex-col items-center text-center p-2 rounded-xl border border-slate-200/80 hover:border-[#006838] hover:shadow-2xs transition-all duration-200 group bg-slate-50/50"
                 >
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-transform duration-200 group-hover:scale-105 ${q.bg} ${q.color}`}>
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-transform duration-200 group-hover:scale-105 border ${q.bg} ${q.color}`}>
                     <QIcon size={18} />
                   </div>
                   <span className="text-[10px] font-bold text-slate-700 mt-1.5 truncate w-full group-hover:text-[#006838] transition-colors">
@@ -256,13 +267,13 @@ export default function OverviewDashboard({
       {/* ════════════════════════════════════════════════════════════════
           3. ROW 2: 4 THẺ KPI CHỈ SỐ HOẠT ĐỘNG TOÀN HỆ THỐNG
          ════════════════════════════════════════════════════════════════ */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* KPI 1: Nhân sự toàn hệ thống */}
         <div
           onClick={() => onSelectDept?.("hr")}
-          className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs hover:border-emerald-400 hover:shadow-sm transition-all duration-200 flex items-center gap-3.5 cursor-pointer group"
+          className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-2xs hover:border-[#006838] hover:shadow-md transition-all duration-300 flex items-center gap-4 cursor-pointer group"
         >
-          <div className="w-12 h-12 rounded-2xl bg-emerald-100/80 text-[#006838] flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-[#006838] border border-emerald-100 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
             <IconUsers size={24} />
           </div>
           <div className="flex-1 min-w-0">
@@ -271,11 +282,11 @@ export default function OverviewDashboard({
               <IconChevronRight size={14} className="text-slate-400 group-hover:text-[#006838] group-hover:translate-x-0.5 transition-all" />
             </div>
             <div className="flex items-baseline gap-1.5 mt-0.5">
-              <span className="text-xl sm:text-2xl font-black text-slate-900 font-sans">586</span>
-              <span className="text-[11px] font-bold text-slate-500">Đang hoạt động</span>
+              <span className="text-2xl font-black text-slate-900 font-sans">586</span>
+              <span className="text-[11px] font-bold text-slate-500">Đang làm việc</span>
             </div>
-            <div className="flex items-center gap-1 text-[10px] font-extrabold text-emerald-700 mt-0.5">
-              <span>▲ +12% so với tháng trước</span>
+            <div className="flex items-center gap-1 text-[10px] font-extrabold text-[#006838] mt-0.5">
+              <span>+12% so với tháng trước</span>
             </div>
           </div>
         </div>
@@ -283,22 +294,22 @@ export default function OverviewDashboard({
         {/* KPI 2: Đơn hàng / Logistics */}
         <div
           onClick={() => onSelectDept?.("logistics")}
-          className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs hover:border-blue-400 hover:shadow-sm transition-all duration-200 flex items-center gap-3.5 cursor-pointer group"
+          className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-2xs hover:border-blue-500 hover:shadow-md transition-all duration-300 flex items-center gap-4 cursor-pointer group"
         >
-          <div className="w-12 h-12 rounded-2xl bg-blue-100/80 text-blue-700 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+          <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-700 border border-blue-100 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
             <IconTruck size={24} />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between text-xs font-black text-slate-800">
-              <span className="truncate">Đơn hàng / Logistics</span>
+              <span className="truncate">Dây chuyền Logistics</span>
               <IconChevronRight size={14} className="text-slate-400 group-hover:text-blue-700 group-hover:translate-x-0.5 transition-all" />
             </div>
             <div className="flex items-baseline gap-1.5 mt-0.5">
-              <span className="text-xl sm:text-2xl font-black text-slate-900 font-sans">33</span>
+              <span className="text-2xl font-black text-slate-900 font-sans">33</span>
               <span className="text-[11px] font-bold text-slate-500">chuyền</span>
             </div>
             <div className="flex items-center gap-1 text-[10px] font-extrabold text-blue-700 mt-0.5">
-              <span>▲ +8% so với tháng trước</span>
+              <span>+8% so với tháng trước</span>
             </div>
           </div>
         </div>
@@ -306,21 +317,21 @@ export default function OverviewDashboard({
         {/* KPI 3: Tỷ lệ chất lượng (QC) */}
         <div
           onClick={() => onSelectDept?.("qc")}
-          className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs hover:border-purple-400 hover:shadow-sm transition-all duration-200 flex items-center gap-3.5 cursor-pointer group"
+          className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-2xs hover:border-purple-500 hover:shadow-md transition-all duration-300 flex items-center gap-4 cursor-pointer group"
         >
-          <div className="w-12 h-12 rounded-2xl bg-purple-100/80 text-purple-700 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+          <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-700 border border-purple-100 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
             <IconPackage size={24} />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between text-xs font-black text-slate-800">
-              <span className="truncate">Tỷ lệ chất lượng (QC)</span>
+              <span className="truncate">Chất lượng tổng thể (QC)</span>
               <IconChevronRight size={14} className="text-slate-400 group-hover:text-purple-700 group-hover:translate-x-0.5 transition-all" />
             </div>
             <div className="flex items-baseline gap-1.5 mt-0.5">
-              <span className="text-xl sm:text-2xl font-black text-slate-900 font-sans">92.4%</span>
+              <span className="text-2xl font-black text-slate-900 font-sans">92.4%</span>
             </div>
-            <div className="flex items-center gap-1 text-[10px] font-extrabold text-emerald-700 mt-0.5">
-              <span>▲ +5% so với tháng trước</span>
+            <div className="flex items-center gap-1 text-[10px] font-extrabold text-[#006838] mt-0.5">
+              <span>+5% so với tháng trước</span>
             </div>
           </div>
         </div>
@@ -328,44 +339,46 @@ export default function OverviewDashboard({
         {/* KPI 4: Dự án R&D */}
         <div
           onClick={() => onSelectDept?.("rd")}
-          className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs hover:border-teal-400 hover:shadow-sm transition-all duration-200 flex items-center gap-3.5 cursor-pointer group"
+          className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-2xs hover:border-teal-500 hover:shadow-md transition-all duration-300 flex items-center gap-4 cursor-pointer group"
         >
-          <div className="w-12 h-12 rounded-2xl bg-teal-100/80 text-teal-700 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+          <div className="w-12 h-12 rounded-2xl bg-teal-50 text-teal-700 border border-teal-100 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
             <IconFlask size={24} />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between text-xs font-black text-slate-800">
-              <span className="truncate">Dự án R&amp;D</span>
+              <span className="truncate">Dự án R&amp;D Mẫu mới</span>
               <IconChevronRight size={14} className="text-slate-400 group-hover:text-teal-700 group-hover:translate-x-0.5 transition-all" />
             </div>
             <div className="flex items-baseline gap-1.5 mt-0.5">
-              <span className="text-xl sm:text-2xl font-black text-slate-900 font-sans">12</span>
+              <span className="text-2xl font-black text-slate-900 font-sans">12</span>
               <span className="text-[11px] font-bold text-slate-500">dự án</span>
             </div>
             <div className="flex items-center gap-1 text-[10px] font-extrabold text-teal-700 mt-0.5">
-              <span>▲ +20% so với tháng trước</span>
+              <span>+20% so với tháng trước</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* ════════════════════════════════════════════════════════════════
-          4. ROW 3: BIỂU ĐỒ HOẠT ĐỘNG (TRAI) + VIỆC CẦN XỬ LÝ + THÔNG BÁO
+          4. ROW 3: BIỂU ĐỒ HOẠT ĐỘNG + CÔNG VIỆC CẦN XỬ LÝ + THÔNG BÁO
          ════════════════════════════════════════════════════════════════ */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Col 5/12: Biểu đồ biến động hoạt động theo tháng */}
-        <div className="lg:col-span-5 bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-2xs flex flex-col justify-between space-y-3">
+        <div className="lg:col-span-5 bg-white border border-slate-200/90 rounded-2xl p-5 shadow-2xs flex flex-col justify-between space-y-4">
           {/* Header & Month Toggle */}
-          <div className="flex items-center justify-between pb-1 border-b border-slate-100">
-            <h3 className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-2">
-              <span className="h-6 w-6 rounded-lg bg-emerald-100 text-[#006838] flex items-center justify-center text-xs">
-                📈
-              </span>
-              <span>Biến động hoạt động theo tháng</span>
-            </h3>
+          <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-emerald-50 text-[#006838] flex items-center justify-center">
+                <IconActivity size={16} />
+              </div>
+              <h3 className="text-xs sm:text-sm font-black text-slate-900">
+                Biến động hoạt động theo tháng
+              </h3>
+            </div>
 
             {/* Toggle Tabs */}
-            <div className="flex items-center gap-1 bg-slate-100/90 p-1 rounded-xl text-[11px] font-bold">
+            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-[11px] font-bold">
               <button
                 type="button"
                 onClick={() => setChartTab("thisMonth")}
@@ -396,7 +409,7 @@ export default function OverviewDashboard({
             <svg className="w-full h-full overflow-visible" viewBox="0 0 640 160" preserveAspectRatio="none">
               <defs>
                 <linearGradient id="overviewAreaGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#006838" stopOpacity="0.25" />
+                  <stop offset="0%" stopColor="#006838" stopOpacity="0.22" />
                   <stop offset="100%" stopColor="#006838" stopOpacity="0.01" />
                 </linearGradient>
               </defs>
@@ -443,7 +456,6 @@ export default function OverviewDashboard({
               <div className="absolute left-[38%] top-[14%] -translate-x-1/2 -translate-y-full bg-white border-2 border-[#006838] px-2.5 py-1 rounded-xl shadow-md text-center pointer-events-none animate-bounce">
                 <div className="text-xs font-black text-slate-900 leading-none">78</div>
                 <div className="text-[9px] font-extrabold text-[#006838] leading-none mt-0.5">Hoạt động</div>
-                {/* Arrow */}
                 <div className="w-2 h-2 bg-white border-r-2 border-b-2 border-[#006838] rotate-45 mx-auto -mb-2 mt-0.5" />
               </div>
             )}
@@ -451,16 +463,19 @@ export default function OverviewDashboard({
         </div>
 
         {/* Col 4/12: Công Việc Cần Xử Lý */}
-        <div className="lg:col-span-4 bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-2xs flex flex-col justify-between space-y-3">
-          <div className="flex items-center justify-between pb-1 border-b border-slate-100">
-            <h3 className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-2">
-              <span className="text-emerald-600">🌱</span>
-              <span>Công việc cần xử lý</span>
-              <span className="h-5 w-5 rounded-full bg-rose-500 text-white text-[10px] font-black flex items-center justify-center">
-                3
-              </span>
-            </h3>
-            <span className="text-slate-400 text-xs">›</span>
+        <div className="lg:col-span-4 bg-white border border-slate-200/90 rounded-2xl p-5 shadow-2xs flex flex-col justify-between space-y-4">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-emerald-50 text-[#006838] flex items-center justify-center">
+                <IconCircleCheck size={16} />
+              </div>
+              <h3 className="text-xs sm:text-sm font-black text-slate-900">
+                Công việc cần xử lý
+              </h3>
+            </div>
+            <span className="h-5 px-2 rounded-full bg-rose-500 text-white text-[10px] font-black flex items-center justify-center">
+              3 việc
+            </span>
           </div>
 
           <div className="space-y-2.5">
@@ -470,7 +485,7 @@ export default function OverviewDashboard({
                 dept: "Phòng Kế toán",
                 deadline: "28/08",
                 icon: IconFileText,
-                iconBg: "bg-emerald-100 text-emerald-700",
+                iconBg: "bg-emerald-50 text-[#006838] border-emerald-100",
                 href: "/finance",
               },
               {
@@ -478,7 +493,7 @@ export default function OverviewDashboard({
                 dept: "Phòng R&D",
                 deadline: "30/08",
                 icon: IconFlask,
-                iconBg: "bg-purple-100 text-purple-700",
+                iconBg: "bg-purple-50 text-purple-700 border-purple-100",
                 href: "/work",
               },
               {
@@ -486,7 +501,7 @@ export default function OverviewDashboard({
                 dept: "Phòng QC",
                 deadline: "29/08",
                 icon: IconShieldCheck,
-                iconBg: "bg-teal-100 text-teal-700",
+                iconBg: "bg-teal-50 text-teal-700 border-teal-100",
                 href: "/work",
               },
             ].map((task, idx) => {
@@ -494,10 +509,10 @@ export default function OverviewDashboard({
               return (
                 <div
                   key={idx}
-                  className="p-2.5 rounded-xl border border-slate-200/80 bg-slate-50/60 hover:bg-white hover:border-[#006838]/60 hover:shadow-2xs transition-all duration-200 flex items-center justify-between gap-3 group"
+                  className="p-3 rounded-xl border border-slate-200/80 bg-slate-50/50 hover:bg-white hover:border-[#006838] hover:shadow-2xs transition-all duration-200 flex items-center justify-between gap-3 group"
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${task.iconBg}`}>
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 border ${task.iconBg}`}>
                       <TIcon size={16} />
                     </div>
                     <div className="min-w-0">
@@ -507,7 +522,7 @@ export default function OverviewDashboard({
                       <p className="text-[10px] text-slate-500 font-medium truncate">{task.dept}</p>
                     </div>
                   </div>
-                  <span className="px-2 py-0.5 rounded-md bg-rose-50 border border-rose-200 text-rose-600 text-[10px] font-black whitespace-nowrap">
+                  <span className="px-2 py-0.5 rounded-md bg-rose-50 border border-rose-200 text-rose-700 text-[10px] font-black whitespace-nowrap">
                     Hạn: {task.deadline}
                   </span>
                 </div>
@@ -517,15 +532,19 @@ export default function OverviewDashboard({
         </div>
 
         {/* Col 3/12: Thông Báo */}
-        <div className="lg:col-span-3 bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-2xs flex flex-col justify-between space-y-3">
-          <div className="flex items-center justify-between pb-1 border-b border-slate-100">
-            <h3 className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-1.5">
-              <IconBell size={16} className="text-emerald-600" />
-              <span>Thông báo</span>
-            </h3>
-            <Link href="/news" className="text-[11px] font-extrabold text-[#006838] hover:underline flex items-center gap-0.5">
+        <div className="lg:col-span-3 bg-white border border-slate-200/90 rounded-2xl p-5 shadow-2xs flex flex-col justify-between space-y-4">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-emerald-50 text-[#006838] flex items-center justify-center">
+                <IconBell size={16} />
+              </div>
+              <h3 className="text-xs sm:text-sm font-black text-slate-900">
+                Thông báo
+              </h3>
+            </div>
+            <Link href="/news" className="text-[11px] font-extrabold text-[#006838] hover:underline flex items-center gap-1">
               <span>Xem tất cả</span>
-              <span>→</span>
+              <IconArrowUpRight size={13} />
             </Link>
           </div>
 
@@ -535,35 +554,35 @@ export default function OverviewDashboard({
                 title: "Khai trương mô hình số hóa Văn phòng Chuỗi SKECHERS",
                 date: "26/08/2025",
                 icon: IconSpeakerphone,
-                iconBg: "bg-emerald-100 text-[#006838]",
+                iconBg: "bg-emerald-50 text-[#006838] border-emerald-100",
               },
               {
-                title: "Cập nhật quy trình nhập liệu mới",
+                title: "Cập nhật quy trình nhập liệu tài chính kế toán",
                 date: "24/08/2025",
                 icon: IconInfoCircle,
-                iconBg: "bg-blue-100 text-blue-700",
+                iconBg: "bg-blue-50 text-blue-700 border-blue-100",
               },
               {
                 title: "Lịch đào tạo nội bộ tháng 9",
                 date: "22/08/2025",
                 icon: IconCalendar,
-                iconBg: "bg-purple-100 text-purple-700",
+                iconBg: "bg-purple-50 text-purple-700 border-purple-100",
               },
             ].map((news, idx) => {
               const NIcon = news.icon;
               return (
                 <div
                   key={idx}
-                  className="p-2.5 rounded-xl border border-slate-200/80 bg-slate-50/60 hover:bg-white hover:border-[#006838]/60 hover:shadow-2xs transition-all duration-200 flex items-start gap-2.5 group"
+                  className="p-3 rounded-xl border border-slate-200/80 bg-slate-50/50 hover:bg-white hover:border-[#006838] hover:shadow-2xs transition-all duration-200 flex items-start gap-2.5 group"
                 >
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 ${news.iconBg}`}>
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 border ${news.iconBg}`}>
                     <NIcon size={16} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <h4 className="text-xs font-bold text-slate-800 leading-snug line-clamp-2 group-hover:text-[#006838] transition-colors">
                       {news.title}
                     </h4>
-                    <span className="text-[10px] font-medium text-slate-400 mt-0.5 block">{news.date}</span>
+                    <span className="text-[10px] font-medium text-slate-400 mt-1 block">{news.date}</span>
                   </div>
                 </div>
               );
@@ -575,14 +594,13 @@ export default function OverviewDashboard({
       {/* ════════════════════════════════════════════════════════════════
           5. FOOTER THƯƠNG HIỆU & SỨ MỆNH
          ════════════════════════════════════════════════════════════════ */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 px-4 py-3 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 text-[11px] font-bold text-[#006838]">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 text-[11px] font-bold text-[#006838]">
         <div className="flex items-center gap-2">
-          <span>🌱</span>
+          <IconSparkles size={16} />
           <span>Sống tinh gọn – Làm việc hiệu quả – Cùng phát triển bền vững</span>
         </div>
         <div className="flex items-center gap-1.5 text-slate-600 font-medium">
-          <span>© 2025 TBS Group – Văn phòng Chuỗi SKECHERS – R&amp;D Center</span>
-          <span>💚</span>
+          <span>© 2026 TBS Group – Văn phòng Chuỗi SKECHERS – R&amp;D Center</span>
         </div>
       </div>
     </div>

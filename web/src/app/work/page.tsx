@@ -9,6 +9,7 @@ import Can from "@/components/Can";
 import { PERMISSIONS } from "@/lib/permissions";
 import OverviewDashboard from "@/components/work/OverviewDashboard";
 import QualityModule from "@/modules/quality/QualityModule";
+import RDModule from "@/modules/rd/RDModule";
 import {
   IconHome,
   IconLeaf,
@@ -1811,34 +1812,10 @@ export default function WorkDashboardPage() {
           {/* IF R&D (PHÁT TRIỂN SẢN PHẨM) IS SELECTED */}
           {selectedDept === "rd" && (
             <div className="space-y-4 my-auto">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-black text-slate-900">
-                    🧪 Chỉ Số Phòng Phát Triển Sản Phẩm (R&D)
-                  </h2>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Cập nhật thời gian thực về tiến độ phát triển mẫu giày SKECHERS.
-                  </p>
-                </div>
-                <span className="px-3 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-bold">
-                  Dữ liệu R&D Live
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {[
-                  { title: "Mẫu Đã Duyệt", val: "142 Mẫu", trend: "+18%", color: "emerald" },
-                  { title: "Mẫu Đang Thử Nghiệm", val: "28 Mẫu", trend: "+5%", color: "blue" },
-                  { title: "Thời Gian Lead Time", val: "4.2 Ngày", trend: "-15%", color: "purple" },
-                  { title: "Duyệt Mẫu Lần 1", val: "94.8%", trend: "+2.1%", color: "amber" },
-                ].map((item, idx) => (
-                  <div key={idx} className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-1.5">
-                    <span className="text-xs font-bold text-slate-500">{item.title}</span>
-                    <div className="text-xl font-black text-slate-900">{item.val}</div>
-                    <span className="text-xs text-[#006838] font-bold block">{item.trend} so với tháng trước</span>
-                  </div>
-                ))}
-              </div>
+              <RDModule
+                userName={userInfo.name}
+                onSelectDept={(deptId) => setSelectedDept(deptId)}
+              />
             </div>
           )}
 

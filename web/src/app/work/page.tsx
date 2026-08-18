@@ -989,7 +989,7 @@ export default function WorkDashboardPage() {
           {/* ════════════════════════════════════════════════════════════════
               DEPARTMENT HERO BANNER CARD (Screenshot 1 Layout)
              ════════════════════════════════════════════════════════════════ */}
-          {activeDeptObj && activeDeptObj.id !== "overview" && (
+          {activeDeptObj && activeDeptObj.id !== "overview" && activeDeptObj.id !== "rd" && (
             <div className="relative w-full rounded-3xl overflow-hidden border border-slate-200/90 shadow-md flex-shrink-0 bg-slate-900 group">
               {/* Background Image with Dark Emerald Overlay */}
               <img
@@ -1811,7 +1811,7 @@ export default function WorkDashboardPage() {
 
           {/* IF R&D (PHÁT TRIỂN SẢN PHẨM) IS SELECTED */}
           {selectedDept === "rd" && (
-            <div className="space-y-4 my-auto">
+            <div className="space-y-4 w-full">
               <RDModule
                 userName={userInfo.name}
                 onSelectDept={(deptId) => setSelectedDept(deptId)}

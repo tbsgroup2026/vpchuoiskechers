@@ -1,168 +1,235 @@
 "use client";
+
 import React from "react";
 import Link from "next/link";
+import FinanceShell from "@/components/FinanceShell";
 import {
-  IconArrowLeft, IconCash, IconFileInvoice, IconArrowsRightLeft,
-  IconChartBar, IconChartPie, IconBuilding, IconPackage, IconRefresh,
-  IconCircleCheck, IconChevronRight, IconTrendingUp,
+  IconCoins,
+  IconClock,
+  IconTrendingUp,
+  IconAdjustmentsHorizontal,
+  IconWallet,
+  IconFileInvoice,
+  IconUsers,
+  IconCalendarEvent,
+  IconChartPie,
+  IconDeviceDesktop,
+  IconPackage,
+  IconArrowsRightLeft,
+  IconShieldCheck,
+  IconChartBar,
+  IconArrowRight,
+  IconPlus,
 } from "@tabler/icons-react";
 
 const MODULES = [
   {
     href: "/finance/thu-chi",
-    icon: IconCash,
-    color: "bg-emerald-600",
-    lightColor: "bg-emerald-50",
-    textColor: "text-emerald-700",
-    title: "Thu – Chi",
-    desc: "Phiếu thu, phiếu chi, tạm ứng, hoàn ứng và theo dõi quỹ tiền mặt",
-    stat: "8 phiếu tháng này",
+    icon: IconWallet,
+    title: "1. 💰 Thu – Chi",
+    badge: "8 phiếu T8",
+    desc: ["Tạo phiếu thu / Tạo phiếu chi", "Tạm ứng / Hoàn ứng", "Theo dõi quỹ tiền mặt & NH", "Duyệt phiếu thu/chi & Lịch sử"],
   },
   {
     href: "/finance/hoa-don",
     icon: IconFileInvoice,
-    color: "bg-blue-600",
-    lightColor: "bg-blue-50",
-    textColor: "text-blue-700",
-    title: "Hóa đơn & Chứng từ",
-    desc: "Nhập hóa đơn điện tử, đối chiếu và lưu trữ chứng từ",
-    stat: "47 hóa đơn T8",
+    title: "2. 🧾 Hóa đơn & Chứng từ",
+    badge: "47 HĐ T8",
+    desc: ["Hóa đơn đầu vào & đầu ra", "Nhập & tra cứu hóa đơn", "Đính kèm chứng từ điện tử", "Đối chiếu hóa đơn - Phiếu chi"],
   },
   {
     href: "/finance/cong-no",
-    icon: IconArrowsRightLeft,
-    color: "bg-violet-600",
-    lightColor: "bg-violet-50",
-    textColor: "text-violet-700",
-    title: "Công nợ",
-    desc: "Phải thu, phải trả, theo dõi hạn thanh toán và cảnh báo quá hạn",
-    stat: "2 khoản quá hạn",
-    alert: true,
+    icon: IconUsers,
+    title: "3. 🤝 Công nợ",
+    badge: "2 quá hạn",
+    desc: ["Công nợ phải trả & phải thu", "Danh sách đối tác & NCC", "Theo dõi hạn & quá hạn", "Cảnh báo & đối chiếu công nợ"],
   },
   {
     href: "/finance/ngan-sach",
-    icon: IconChartBar,
-    color: "bg-cyan-600",
-    lightColor: "bg-cyan-50",
-    textColor: "text-cyan-700",
-    title: "Ngân sách",
-    desc: "Lập ngân sách, phân bổ và theo dõi Budget/Actual theo phòng ban",
-    stat: "1 PB vượt NS",
-    alert: true,
+    icon: IconCalendarEvent,
+    title: "4. 📊 Ngân sách",
+    badge: "1 PB vượt NS",
+    desc: ["Lập & phân bổ ngân sách", "Ngân sách theo PB / Đơn vị", "Theo dõi Budget / Actual", "Cảnh báo vượt & điều chỉnh"],
   },
   {
     href: "/finance/chi-phi",
     icon: IconChartPie,
-    color: "bg-orange-500",
-    lightColor: "bg-orange-50",
-    textColor: "text-orange-700",
-    title: "Chi phí",
-    desc: "Phân loại chi phí theo danh mục, phòng ban và theo dõi xu hướng",
-    stat: "1.77 tỷ đ T8",
+    title: "5. 💸 Chi phí",
+    badge: "1.77 tỷ đ",
+    desc: ["Chi phí văn phòng, nhân sự", "Chi phí công tác & R&D", "Chi phí mua sắm & dịch vụ", "Chi phí thuê mặt bằng & vận hành"],
   },
   {
     href: "/finance/tai-san",
-    icon: IconBuilding,
-    color: "bg-teal-600",
-    lightColor: "bg-teal-50",
-    textColor: "text-teal-700",
-    title: "Tài sản",
-    desc: "Quản lý tài sản cố định, điều chuyển, khấu hao và thanh lý",
-    stat: "1 TS hư hỏng",
-    alert: true,
+    icon: IconDeviceDesktop,
+    title: "6. 🏢 Tài sản",
+    badge: "1 TS sửa",
+    desc: ["Danh sách tài sản & cấp phát", "Bàn giao & điều chuyển TS", "Kiểm kê & theo dõi khấu hao", "Tài sản hư hỏng & thanh lý"],
   },
   {
     href: "/finance/vat-tu-kho",
     icon: IconPackage,
-    color: "bg-indigo-600",
-    lightColor: "bg-indigo-50",
-    textColor: "text-indigo-700",
-    title: "Vật tư & Kho",
-    desc: "Nhập xuất kho, tồn kho và cảnh báo vật tư thấp",
-    stat: "2 VT tồn thấp",
-    alert: true,
+    title: "7. 📦 Vật tư & Kho",
+    badge: "2 tồn thấp",
+    desc: ["Nhập kho / Xuất kho", "Điều chuyển & kiểm kê kho", "Theo dõi nhập - xuất - tồn", "Cảnh báo tồn kho thấp"],
   },
   {
     href: "/finance/doi-soat",
-    icon: IconRefresh,
-    color: "bg-pink-600",
-    lightColor: "bg-pink-50",
-    textColor: "text-pink-700",
-    title: "Đối soát",
-    desc: "Đối soát thu chi, ngân hàng, hóa đơn, công nợ và chứng từ",
-    stat: "3 chênh lệch",
-    alert: true,
+    icon: IconArrowsRightLeft,
+    title: "8. 🔄 Đối soát",
+    badge: "3 chênh lệch",
+    desc: ["Đối soát thu chi & ngân hàng", "Đối soát hóa đơn & công nợ", "Đối soát chứng từ & NS", "Ghi nhận nguyên nhân lệch"],
   },
   {
     href: "/finance/phe-duyet",
-    icon: IconCircleCheck,
-    color: "bg-emerald-700",
-    lightColor: "bg-emerald-50",
-    textColor: "text-emerald-800",
-    title: "Phê duyệt",
-    desc: "Quy trình duyệt phiếu chi, tạm ứng, mua sắm và điều chỉnh ngân sách",
-    stat: "2 chờ duyệt",
-    alert: true,
+    icon: IconShieldCheck,
+    title: "9. ✅ Phê duyệt",
+    badge: "2 chờ duyệt",
+    desc: ["Quy trình workflow 4 cấp", "Duyệt phiếu chi & tạm ứng", "Duyệt đề nghị mua sắm", "Duyệt điều chỉnh ngân sách"],
   },
   {
     href: "/finance/bao-cao",
-    icon: IconTrendingUp,
-    color: "bg-blue-700",
-    lightColor: "bg-blue-50",
-    textColor: "text-blue-800",
-    title: "Báo cáo Quản trị",
-    desc: "Tổng hợp toàn bộ báo cáo tài chính, xuất Excel/PDF theo kỳ",
-    stat: "8 loại báo cáo",
+    icon: IconChartBar,
+    title: "10. 📈 Báo cáo quản trị",
+    badge: "8 báo cáo",
+    desc: ["BC Thu-Chi & Chi phí", "BC Ngân sách & Công nợ", "BC Tài sản, Kho & Dòng tiền", "Xuất file Excel/PDF định kỳ"],
   },
 ];
 
-export default function FinanceIndexPage() {
+export default function FinanceHubPage() {
   return (
-    <div className="min-h-screen bg-[#f7f8fc]" style={{ fontFamily: "'Outfit', sans-serif" }}>
-      <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center gap-3">
-          <Link href="/work?dept=finance" className="p-2 rounded-xl hover:bg-gray-100 transition-colors">
-            <IconArrowLeft size={20} className="text-gray-500" />
+    <FinanceShell
+      breadcrumbs={[
+        { label: "Kế toán & Quản trị", href: "/finance" },
+        { label: "Tổng quan" },
+      ]}
+      title="Trung Tâm Quản Trị Tài Chính & Kế Toán"
+      actions={
+        <div className="flex items-center gap-2">
+          <Link
+            href="/finance/thu-chi?tab=chi"
+            className="px-4 py-2 rounded-xl bg-[#006838] hover:bg-[#00522c] text-white text-xs font-black transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+          >
+            <IconPlus size={16} />
+            <span>+ Tạo phiếu chi mới</span>
           </Link>
-          <div className="w-px h-6 bg-gray-200" />
-          <div>
-            <h1 className="text-sm font-700 text-gray-900">Kế toán & Quản trị</h1>
-            <p className="text-xs text-gray-400">Quản lý tài chính, tài sản và báo cáo</p>
+        </div>
+      }
+    >
+      {/* 4 Top KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs flex items-center gap-3.5 hover:shadow-sm transition-all">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-[#006838] flex items-center justify-center flex-shrink-0 border border-emerald-100/80 shadow-2xs">
+            <IconCoins size={24} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <span className="text-[11px] font-bold text-slate-500 block truncate">Doanh thu tháng</span>
+            <div className="text-xl sm:text-2xl font-black text-slate-900 leading-tight mt-0.5">
+              12.4 tỷ
+            </div>
+            <span className="text-[10px] font-bold text-emerald-700 mt-0.5 flex items-center gap-0.5">
+              +12% so với tháng trước ↑
+            </span>
           </div>
         </div>
-      </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-8">
-        <div className="mb-6">
-          <h2 className="text-xl font-800 text-gray-900">Chọn chức năng</h2>
-          <p className="text-sm text-gray-400 mt-1">10 phân hệ quản trị tài chính nội bộ</p>
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs flex items-center gap-3.5 hover:shadow-sm transition-all">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-[#006838] flex items-center justify-center flex-shrink-0 border border-emerald-100/80 shadow-2xs">
+            <IconClock size={24} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <span className="text-[11px] font-bold text-slate-500 block truncate">Chi phí vận hành</span>
+            <div className="text-xl sm:text-2xl font-black text-slate-900 leading-tight mt-0.5">
+              3.1 tỷ
+            </div>
+            <span className="text-[10px] font-bold text-emerald-700 mt-0.5 flex items-center gap-0.5">
+              -8% so với tháng trước ↓
+            </span>
+          </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {MODULES.map(mod => (
-            <Link key={mod.href} href={mod.href}
-              className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:border-gray-300 hover:shadow-md transition-all group cursor-pointer">
-              <div className="flex items-start justify-between mb-4">
-                <div className={`w-10 h-10 rounded-xl ${mod.color} flex items-center justify-center`}>
-                  <mod.icon size={18} className="text-white" />
+
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs flex items-center gap-3.5 hover:shadow-sm transition-all">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-[#006838] flex items-center justify-center flex-shrink-0 border border-emerald-100/80 shadow-2xs">
+            <IconTrendingUp size={24} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <span className="text-[11px] font-bold text-slate-500 block truncate">Lợi nhuận ròng</span>
+            <div className="text-xl sm:text-2xl font-black text-slate-900 leading-tight mt-0.5">
+              2.6 tỷ
+            </div>
+            <span className="text-[10px] font-bold text-emerald-700 mt-0.5 flex items-center gap-0.5">
+              +18% so với tháng trước ↑
+            </span>
+          </div>
+        </div>
+
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs flex items-center gap-3.5 hover:shadow-sm transition-all">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-[#006838] flex items-center justify-center flex-shrink-0 border border-emerald-100/80 shadow-2xs">
+            <IconAdjustmentsHorizontal size={24} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <span className="text-[11px] font-bold text-slate-500 block truncate">Tỷ lệ chi phí/doanh thu</span>
+            <div className="text-xl sm:text-2xl font-black text-slate-900 leading-tight mt-0.5">
+              25.0%
+            </div>
+            <span className="text-[10px] font-bold text-emerald-700 mt-0.5 flex items-center gap-0.5">
+              -3% so với tháng trước ↓
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Grid 10 Modules */}
+      <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-2xs space-y-4">
+        <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+          <div>
+            <h3 className="text-base font-black text-slate-900 tracking-tight">
+              Danh Mục 10 Phân Hệ Nghiệp Vụ Kế Toán
+            </h3>
+            <p className="text-xs text-slate-500 font-medium">
+              Truy cập nhanh các nghiệp vụ quản lý tài chính, ngân sách, tài sản và dòng tiền
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+          {MODULES.map((mod, idx) => {
+            const ModIcon = mod.icon;
+            return (
+              <Link
+                key={idx}
+                href={mod.href}
+                className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-200/70 hover:bg-white hover:border-[#006838]/60 hover:shadow-sm transition-all flex flex-col justify-between gap-3 group cursor-pointer"
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-1.5 pb-1 border-b border-slate-200/50">
+                    <h4 className="text-xs font-black text-slate-900 group-hover:text-[#006838] transition-colors leading-tight flex items-center gap-1.5">
+                      <ModIcon size={16} className="text-[#006838]" />
+                      <span>{mod.title}</span>
+                    </h4>
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-50 text-[#006838] border border-emerald-100 flex-shrink-0">
+                      {mod.badge}
+                    </span>
+                  </div>
+
+                  <ul className="space-y-0.5 pt-2">
+                    {mod.desc.map((d, dIdx) => (
+                      <li key={dIdx} className="text-[10px] text-slate-600 flex items-start gap-1 leading-snug">
+                        <span className="text-[#006838] font-bold">•</span>
+                        <span className="truncate">{d}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-                {mod.alert && (
-                  <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                )}
-              </div>
-              <h3 className="text-sm font-700 text-gray-900 mb-1.5">{mod.title}</h3>
-              <p className="text-xs text-gray-400 leading-relaxed mb-4">{mod.desc}</p>
-              <div className="flex items-center justify-between">
-                <span className={`text-xs font-600 px-2 py-0.5 rounded-full ${mod.lightColor} ${mod.textColor}`}>
-                  {mod.stat}
-                </span>
-                <IconChevronRight size={14} className="text-gray-300 group-hover:text-gray-500 group-hover:translate-x-0.5 transition-all" />
-              </div>
-            </Link>
-          ))}
+
+                <div className="pt-1.5 border-t border-slate-200/50 flex items-center justify-between text-[10px] font-extrabold text-[#006838] group-hover:translate-x-0.5 transition-transform">
+                  <span>Mở phân hệ</span>
+                  <IconArrowRight size={12} />
+                </div>
+              </Link>
+            );
+          })}
         </div>
-      </main>
-    </div>
+      </div>
+    </FinanceShell>
   );
 }

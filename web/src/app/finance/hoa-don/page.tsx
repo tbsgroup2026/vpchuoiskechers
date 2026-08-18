@@ -1,209 +1,418 @@
 "use client";
+
 import React, { useState } from "react";
 import Link from "next/link";
+import FinanceShell from "@/components/FinanceShell";
 import {
-  IconArrowLeft, IconPlus, IconSearch, IconFilter, IconDownload,
-  IconFileInvoice, IconUpload, IconLink, IconCheck, IconX,
-  IconChevronRight, IconEye, IconAlertCircle, IconCircleCheck,
-  IconClock, IconFileCheck, IconPaperclip, IconArrowsRightLeft,
+  IconFileInvoice,
+  IconCheck,
+  IconPaperclip,
+  IconTrash,
+  IconPlus,
+  IconSettings,
+  IconBuildingBank,
+  IconSearch,
+  IconFilter,
+  IconUser,
+  IconUsers,
+  IconEye,
+  IconDownload,
+  IconUpload,
 } from "@tabler/icons-react";
 
-const STATUS_COLOR: Record<string, string> = {
-  "Đã đối chiếu": "bg-emerald-100 text-emerald-700",
-  "Chờ xử lý": "bg-amber-100 text-amber-700",
-  "Có sai lệch": "bg-red-100 text-red-700",
-  "Chưa nhập": "bg-gray-100 text-gray-500",
-};
-
-const INVOICES = [
-  { id: "HĐ-IN-2026-0142", type: "Đầu vào", date: "15/08/2026", supplier: "Cty TNHH Vật Tư Minh Long", amount: 48_500_000, tax: 4_850_000, status: "Đã đối chiếu", linked: "PC-2026-0812", dept: "Mua Hàng" },
-  { id: "HĐ-OUT-2026-0089", type: "Đầu ra", date: "14/08/2026", supplier: "SKECHERS Vietnam Ltd.", amount: 142_000_000, tax: 14_200_000, status: "Đã đối chiếu", linked: "PT-2026-0801", dept: "Kinh Doanh" },
-  { id: "HĐ-IN-2026-0139", type: "Đầu vào", date: "12/08/2026", supplier: "Cty CP Hoá Chất Thuận An", amount: 12_300_000, tax: 1_230_000, status: "Chờ xử lý", linked: null, dept: "Sản Xuất" },
-  { id: "HĐ-IN-2026-0137", type: "Đầu vào", date: "10/08/2026", supplier: "Cty TNHH Đế Giày Phú Cường", amount: 85_000_000, tax: 8_500_000, status: "Có sai lệch", linked: "PC-2026-0799", dept: "Sản Xuất" },
-  { id: "HĐ-OUT-2026-0086", type: "Đầu ra", date: "08/08/2026", supplier: "Đại lý SKECHERS HCM", amount: 62_400_000, tax: 6_240_000, status: "Đã đối chiếu", linked: "PT-2026-0785", dept: "Kinh Doanh" },
-  { id: "HĐ-IN-2026-0131", type: "Đầu vào", date: "05/08/2026", supplier: "Cty CP Dịch Vụ Hậu Cần VN", amount: 24_800_000, tax: 2_480_000, status: "Chưa nhập", linked: null, dept: "Logistics" },
-];
-
-const STATS = [
-  { label: "Tổng hóa đơn tháng 8", value: "47 hóa đơn", sub: "28 đầu vào / 19 đầu ra", color: "bg-blue-50 text-blue-600" },
-  { label: "Tổng giá trị đầu vào", value: "312.4M", sub: "+8.1% tháng trước", color: "bg-rose-50 text-rose-600" },
-  { label: "Tổng giá trị đầu ra", value: "498.7M", sub: "+14.2% tháng trước", color: "bg-emerald-50 text-emerald-700" },
-  { label: "Chưa đối chiếu", value: "6 hóa đơn", sub: "Cần xử lý ngay", color: "bg-amber-50 text-amber-600" },
-];
+interface InvoiceItem {
+  id: string;
+  name: string;
+  unit: string;
+  qty: number;
+  price: number;
+  vatRate: number;
+}
 
 export default function HoaDonPage() {
-  const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState("Tất cả");
-  const [showUpload, setShowUpload] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
 
-  const filtered = INVOICES.filter(inv => {
-    const matchType = typeFilter === "Tất cả" || inv.type === typeFilter;
-    const matchSearch = !search || inv.id.toLowerCase().includes(search.toLowerCase()) || inv.supplier.toLowerCase().includes(search.toLowerCase());
-    return matchType && matchSearch;
+  const [form, setForm] = useState({
+    type: "Hóa đơn đầu vào (Mua vào)",
+    code: "HĐ-2026-0818",
+    symbol: "1C26TBA",
+    date: "2026-08-15",
+    supplier: "Công ty TNHH Vật Tư Da Giày Minh Long",
+    taxCode: "3700147988",
+    address: "KCN Sóng Thần 2, Dĩ An, Bình Dương",
+    buyer: "Văn phòng Chuỗi SKECHERS - TBS Group",
+    paymentTerm: "30 ngày kể từ ngày xuất HĐ",
+    note: "Hóa đơn vật tư da PU ép nhiệt lô sản xuất Skechers D'Lites",
   });
 
+  const [items, setItems] = useState<InvoiceItem[]>([
+    {
+      id: "1",
+      name: "Da PU Synthetic Eco High-Grade",
+      unit: "Mét",
+      qty: 1200,
+      price: 65000,
+      vatRate: 10,
+    },
+    {
+      id: "2",
+      name: "Keo dán PU Polymer nhiệt dẻo",
+      unit: "Thùng",
+      qty: 50,
+      price: 320000,
+      vatRate: 10,
+    },
+  ]);
+
+  const subtotal = items.reduce((sum, item) => sum + item.qty * item.price, 0);
+  const vatTotal = items.reduce((sum, item) => sum + (item.qty * item.price * item.vatRate) / 100, 0);
+  const grandTotal = subtotal + vatTotal;
+
+  const handleAddItem = () => {
+    setItems([
+      ...items,
+      {
+        id: (items.length + 1).toString(),
+        name: "Nguyên phụ liệu sản xuất",
+        unit: "Cái",
+        qty: 1,
+        price: 0,
+        vatRate: 10,
+      },
+    ]);
+  };
+
+  const handleRemoveItem = (id: string) => {
+    if (items.length === 1) {
+      showToast("⚠️ Cần ít nhất 1 dòng hàng hóa!");
+      return;
+    }
+    setItems(items.filter((it) => it.id !== id));
+  };
+
   return (
-    <div className="min-h-screen bg-[#f7f8fc]" style={{ fontFamily: "'Outfit', sans-serif" }}>
-      <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <Link href="/work?dept=finance" className="p-2 rounded-xl hover:bg-gray-100 transition-colors">
-              <IconArrowLeft size={20} className="text-gray-500" />
-            </Link>
-            <div className="w-px h-6 bg-gray-200" />
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center">
-                <IconFileInvoice size={16} className="text-white" />
-              </div>
-              <div>
-                <h1 className="text-sm font-700 text-gray-900 leading-tight">Hóa đơn & Chứng từ</h1>
-                <p className="text-xs text-gray-400">Kế toán & Quản trị</p>
-              </div>
-            </div>
+    <FinanceShell
+      breadcrumbs={[
+        { label: "Kế toán & Quản trị", href: "/finance" },
+        { label: "Hóa đơn & Chứng từ", href: "/finance/hoa-don" },
+        { label: "Nhập hóa đơn điện tử" },
+      ]}
+      activeSubmenu="Hóa đơn đầu vào"
+    >
+      {/* Title Header Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#006838] to-[#004d29] text-white flex items-center justify-center shadow-xs">
+            <IconFileInvoice size={22} />
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => setShowUpload(true)} className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-600 text-gray-600 hover:bg-gray-50 transition-colors">
-              <IconUpload size={14} />
-              Nhập hóa đơn
-            </button>
-            <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-600 text-gray-600 hover:bg-gray-50 transition-colors">
-              <IconDownload size={14} />
-              Xuất danh sách
-            </button>
+          <div>
+            <h2 className="text-xl font-black text-slate-900 tracking-tight">
+              Nhập &amp; Lưu Trữ Hóa Đơn Điện Tử
+            </h2>
+            <p className="text-xs text-slate-500 font-medium">
+              Kiểm tra tính hợp lệ XML/PDF, đối chiếu với phiếu chi và lưu trữ chứng từ điện tử TBS
+            </p>
           </div>
         </div>
-      </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-8 space-y-6">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {STATS.map(s => (
-            <div key={s.label} className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-              <p className="text-xs text-gray-500 mb-2">{s.label}</p>
-              <p className="text-xl font-800 text-gray-900">{s.value}</p>
-              <p className={`text-xs mt-1.5 font-500 px-2 py-0.5 rounded-full w-fit ${s.color}`}>{s.sub}</p>
-            </div>
-          ))}
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => showToast("Đã hủy nhập liệu!")}
+            className="px-4 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-bold transition-all shadow-2xs cursor-pointer"
+          >
+            Hủy
+          </button>
+          <button
+            type="button"
+            onClick={() => showToast("💾 Đã lưu nháp hóa đơn điện tử thành công!")}
+            className="px-4 py-2 rounded-xl bg-[#e6f4ed] hover:bg-emerald-100 text-[#006838] border border-emerald-200 text-xs font-black transition-all shadow-2xs cursor-pointer"
+          >
+            Lưu nháp
+          </button>
+          <button
+            type="button"
+            onClick={() => showToast("⚡ Đã lưu hóa đơn & kích hoạt đối chiếu tự động với Phiếu Chi!")}
+            className="px-5 py-2 rounded-xl bg-[#006838] hover:bg-[#00522c] text-white text-xs font-black transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
+          >
+            <IconCheck size={16} />
+            <span>Lưu &amp; Đối chiếu</span>
+          </button>
         </div>
+      </div>
 
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
-          <div className="px-6 pt-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex gap-1 p-1 bg-gray-50 rounded-xl w-fit">
-              {["Tất cả", "Đầu vào", "Đầu ra"].map(t => (
-                <button key={t} onClick={() => setTypeFilter(t)}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-600 transition-all ${typeFilter === t ? "bg-white text-blue-700 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
-                  {t}
-                </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <IconSearch size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input value={search} onChange={e => setSearch(e.target.value)}
-                  placeholder="Mã HĐ, nhà cung cấp..."
-                  className="pl-8 pr-4 py-2 text-xs bg-gray-50 border border-gray-200 rounded-lg w-56 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400" />
-              </div>
-              <button className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50"><IconFilter size={14} className="text-gray-500" /></button>
-            </div>
-          </div>
+      {/* Grid 12 cols layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+        {/* Left Column (9 cols) */}
+        <div className="lg:col-span-9 space-y-4">
+          {/* Khối 1: Thông tin hóa đơn */}
+          <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-2xs space-y-4">
+            <h3 className="text-sm font-black text-slate-900 tracking-tight">
+              1. Thông tin hóa đơn &amp; Người bán
+            </h3>
 
-          <div className="overflow-x-auto mt-4">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-100">
-                  {["Mã hóa đơn", "Loại", "Ngày", "Đối tác", "Giá trị (VAT)", "Thuế VAT", "Liên kết phiếu", "Trạng thái", ""].map(h => (
-                    <th key={h} className="px-5 py-3 text-left text-xs font-600 text-gray-400 whitespace-nowrap">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {filtered.map(inv => (
-                  <tr key={inv.id} className="hover:bg-gray-50/70 transition-colors group">
-                    <td className="px-5 py-3.5">
-                      <span className="text-xs font-700 text-gray-900 font-mono">{inv.id}</span>
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-600 ${inv.type === "Đầu vào" ? "bg-rose-50 text-rose-600" : "bg-emerald-50 text-emerald-700"}`}>
-                        {inv.type}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3.5 text-xs text-gray-500">{inv.date}</td>
-                    <td className="px-5 py-3.5 max-w-xs">
-                      <p className="text-xs text-gray-700 truncate">{inv.supplier}</p>
-                      <p className="text-xs text-gray-400">{inv.dept}</p>
-                    </td>
-                    <td className="px-5 py-3.5 text-sm font-700 text-gray-800">
-                      {(inv.amount / 1_000_000).toFixed(1)}M đ
-                    </td>
-                    <td className="px-5 py-3.5 text-xs text-gray-500">
-                      {(inv.tax / 1_000_000).toFixed(2)}M đ
-                    </td>
-                    <td className="px-5 py-3.5">
-                      {inv.linked ? (
-                        <span className="flex items-center gap-1 text-xs text-blue-600 font-600">
-                          <IconLink size={12} />
-                          {inv.linked}
-                        </span>
-                      ) : (
-                        <button className="flex items-center gap-1 text-xs text-gray-400 hover:text-blue-600 transition-colors">
-                          <IconArrowsRightLeft size={12} />
-                          Đối chiếu
-                        </button>
-                      )}
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-600 ${STATUS_COLOR[inv.status]}`}>{inv.status}</span>
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button className="p-1.5 rounded-lg hover:bg-gray-100"><IconEye size={13} className="text-gray-500" /></button>
-                        <button className="p-1.5 rounded-lg hover:bg-gray-100"><IconPaperclip size={13} className="text-gray-500" /></button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="px-5 py-4 border-t border-gray-100 flex items-center justify-between">
-            <p className="text-xs text-gray-400">{filtered.length} / {INVOICES.length} hóa đơn</p>
-            <button className="text-xs font-600 text-blue-600 hover:underline flex items-center gap-1">
-              Tra cứu toàn bộ <IconChevronRight size={13} />
-            </button>
-          </div>
-        </div>
-      </main>
-
-      {showUpload && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-base font-700 text-gray-900">Nhập hóa đơn</h2>
-              <button onClick={() => setShowUpload(false)} className="p-1.5 rounded-lg hover:bg-gray-100"><IconX size={16} className="text-gray-500" /></button>
-            </div>
-            <div className="border-2 border-dashed border-gray-200 rounded-xl p-10 text-center hover:border-blue-400 transition-colors cursor-pointer">
-              <IconUpload size={32} className="text-gray-400 mx-auto mb-3" />
-              <p className="text-sm font-600 text-gray-700">Kéo thả file hoặc nhấn để chọn</p>
-              <p className="text-xs text-gray-400 mt-1">Hỗ trợ: PDF, XML (hóa đơn điện tử), XLSX</p>
-            </div>
-            <div className="space-y-3 mt-5">
-              {[{ label: "Loại hóa đơn", placeholder: "Đầu vào / Đầu ra" }, { label: "Số hóa đơn", placeholder: "Nhập số hóa đơn..." }, { label: "Ngày hóa đơn", placeholder: "" }].map(f => (
-                <div key={f.label}>
-                  <label className="text-xs font-600 text-gray-600 mb-1 block">{f.label}</label>
-                  <input placeholder={f.placeholder} className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400" />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-700 block">Loại hóa đơn *</label>
+                  <select
+                    value={form.type}
+                    onChange={(e) => setForm({ ...form, type: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-900 outline-none focus:border-[#006838] bg-slate-50/50"
+                  >
+                    <option value="Hóa đơn đầu vào (Mua vào)">Hóa đơn đầu vào (Mua vào)</option>
+                    <option value="Hóa đơn đầu ra (Bán ra)">Hóa đơn đầu ra (Bán ra)</option>
+                    <option value="Hóa đơn dịch vụ">Hóa đơn dịch vụ</option>
+                  </select>
                 </div>
-              ))}
-            </div>
-            <div className="flex gap-3 mt-5">
-              <button onClick={() => setShowUpload(false)} className="flex-1 py-2.5 rounded-lg border border-gray-200 text-sm font-600 text-gray-600 hover:bg-gray-50">Hủy</button>
-              <button className="flex-1 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-600 hover:bg-blue-700 flex items-center justify-center gap-2">
-                <IconCheck size={15} /> Nhập hóa đơn
-              </button>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-700 block">Số hóa đơn *</label>
+                  <input
+                    type="text"
+                    value={form.code}
+                    onChange={(e) => setForm({ ...form, code: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono font-bold text-slate-900 outline-none focus:border-[#006838] bg-slate-50/50"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-700 block">Ký hiệu hóa đơn *</label>
+                  <input
+                    type="text"
+                    value={form.symbol}
+                    onChange={(e) => setForm({ ...form, symbol: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono font-bold text-slate-900 outline-none focus:border-[#006838] bg-slate-50/50"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-700 block">Ngày hóa đơn *</label>
+                  <input
+                    type="date"
+                    value={form.date}
+                    onChange={(e) => setForm({ ...form, date: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-900 outline-none focus:border-[#006838] bg-slate-50/50"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-700 block">Tên đơn vị bán hàng *</label>
+                  <input
+                    type="text"
+                    value={form.supplier}
+                    onChange={(e) => setForm({ ...form, supplier: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-900 outline-none focus:border-[#006838] bg-slate-50/50"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-700 block">Mã số thuế bên bán *</label>
+                  <input
+                    type="text"
+                    value={form.taxCode}
+                    onChange={(e) => setForm({ ...form, taxCode: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono font-bold text-slate-900 outline-none focus:border-[#006838] bg-slate-50/50"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-700 block">Địa chỉ người bán</label>
+                  <input
+                    type="text"
+                    value={form.address}
+                    onChange={(e) => setForm({ ...form, address: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-900 outline-none focus:border-[#006838] bg-slate-50/50"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-700 block">Tệp XML / PDF gốc</label>
+                  <div className="p-3 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50/50 flex flex-col items-center justify-center text-center gap-1 cursor-pointer">
+                    <span className="text-[11px] font-bold text-slate-600">Đính kèm hóa đơn XML / PDF</span>
+                    <button
+                      type="button"
+                      onClick={() => showToast("📎 Đã nạp thành công hóa đơn điện tử XML!")}
+                      className="px-2 py-0.5 rounded bg-white border border-slate-200 text-[10px] font-extrabold text-slate-800"
+                    >
+                      Chọn tệp
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
+
+          {/* Khối 2: Danh sách hàng hóa & dịch vụ */}
+          <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-2xs space-y-3.5">
+            <h3 className="text-sm font-black text-slate-900 tracking-tight">
+              2. Chi tiết danh mục hàng hóa &amp; dịch vụ
+            </h3>
+
+            <div className="overflow-x-auto rounded-xl border border-slate-200/80 shadow-2xs">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-extrabold text-slate-600">
+                    <th className="py-2.5 px-3 w-10 text-center">#</th>
+                    <th className="py-2.5 px-3">Tên hàng hóa / Dịch vụ *</th>
+                    <th className="py-2.5 px-3 w-20">ĐVT</th>
+                    <th className="py-2.5 px-3 w-24 text-right">Số lượng</th>
+                    <th className="py-2.5 px-3 text-right">Đơn giá (VNĐ)</th>
+                    <th className="py-2.5 px-3 w-20 text-center">Thuế VAT</th>
+                    <th className="py-2.5 px-3 text-right">Thành tiền (VNĐ)</th>
+                    <th className="py-2.5 px-3 w-12 text-center">Xóa</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {items.map((row, idx) => (
+                    <tr key={row.id} className="hover:bg-emerald-50/20 transition-colors">
+                      <td className="py-2 px-3 text-center font-bold text-slate-400">{idx + 1}</td>
+                      <td className="py-2 px-2">
+                        <input
+                          type="text"
+                          value={row.name}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setItems(items.map((it) => (it.id === row.id ? { ...it, name: val } : it)));
+                          }}
+                          className="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-800 outline-none focus:border-[#006838] bg-slate-50/40"
+                        />
+                      </td>
+                      <td className="py-2 px-2">
+                        <input
+                          type="text"
+                          value={row.unit}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setItems(items.map((it) => (it.id === row.id ? { ...it, unit: val } : it)));
+                          }}
+                          className="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-800 text-center outline-none focus:border-[#006838] bg-slate-50/40"
+                        />
+                      </td>
+                      <td className="py-2 px-2">
+                        <input
+                          type="number"
+                          value={row.qty}
+                          onChange={(e) => {
+                            const val = Number(e.target.value);
+                            setItems(items.map((it) => (it.id === row.id ? { ...it, qty: val } : it)));
+                          }}
+                          className="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-xs font-mono font-bold text-slate-800 text-right outline-none focus:border-[#006838] bg-slate-50/40"
+                        />
+                      </td>
+                      <td className="py-2 px-2">
+                        <input
+                          type="number"
+                          value={row.price}
+                          onChange={(e) => {
+                            const val = Number(e.target.value);
+                            setItems(items.map((it) => (it.id === row.id ? { ...it, price: val } : it)));
+                          }}
+                          className="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-xs font-mono font-bold text-slate-800 text-right outline-none focus:border-[#006838] bg-slate-50/40"
+                        />
+                      </td>
+                      <td className="py-2 px-2 text-center">
+                        <span className="font-mono font-bold text-slate-700">{row.vatRate}%</span>
+                      </td>
+                      <td className="py-2 px-3 text-right font-mono font-black text-slate-900">
+                        {(row.qty * row.price).toLocaleString("vi-VN")}
+                      </td>
+                      <td className="py-2 px-2 text-center">
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveItem(row.id)}
+                          className="p-1.5 rounded-lg hover:bg-rose-50 text-rose-500 transition-colors"
+                        >
+                          <IconTrash size={15} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pt-2">
+              <button
+                type="button"
+                onClick={handleAddItem}
+                className="px-3.5 py-1.5 rounded-xl border border-emerald-300 text-[#006838] bg-emerald-50/60 hover:bg-emerald-100 text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+              >
+                <IconPlus size={15} />
+                <span>+ Thêm dòng hàng hóa</span>
+              </button>
+
+              <div className="space-y-1.5 text-xs text-slate-600 min-w-[240px] text-right">
+                <div className="flex justify-between gap-4">
+                  <span className="font-medium">Tiền hàng chưa thuế:</span>
+                  <span className="font-mono font-bold text-slate-900">{subtotal.toLocaleString("vi-VN")} đ</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="font-medium">Tiền thuế GTGT (10%):</span>
+                  <span className="font-mono font-bold text-slate-900">{vatTotal.toLocaleString("vi-VN")} đ</span>
+                </div>
+                <div className="flex justify-between gap-4 pt-1.5 border-t border-slate-200 text-sm">
+                  <span className="font-black text-slate-900">Tổng tiền thanh toán:</span>
+                  <span className="font-mono font-black text-[#006838]">{grandTotal.toLocaleString("vi-VN")} đ</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column (3 cols) */}
+        <div className="lg:col-span-3 space-y-4">
+          <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-2xs space-y-4">
+            <h3 className="text-sm font-black text-slate-900 tracking-tight">
+              Thông tin đối chiếu
+            </h3>
+            <div className="space-y-2.5 text-xs text-slate-600">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500">Trạng thái HĐ</span>
+                <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-bold text-[10px]">
+                  Hợp lệ XML
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500">Liên kết phiếu chi</span>
+                <span className="font-mono font-bold text-[#006838]">PC-250815-0001</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500">Chênh lệch đối soát</span>
+                <span className="font-mono font-bold text-slate-900">0 đ</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-2xs space-y-4">
+            <h3 className="text-sm font-black text-slate-900 tracking-tight">
+              Người thực hiện
+            </h3>
+            <div className="space-y-2 text-xs">
+              <p className="font-bold text-slate-800">Phạm Nguyễn Anh Huy</p>
+              <p className="text-slate-500 text-[11px]">Kế toán tổng hợp chuỗi Skechers</p>
+              <p className="text-[10px] text-slate-400 font-mono">15/08/2026 10:30</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-2xl z-50 flex items-center gap-3 animate-in slide-in-from-bottom-3 duration-200 border border-slate-700">
+          <div className="w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center flex-shrink-0">
+            <IconCheck size={16} />
+          </div>
+          <span className="text-xs font-bold">{toastMessage}</span>
         </div>
       )}
-    </div>
+    </FinanceShell>
   );
 }

@@ -1,182 +1,249 @@
 "use client";
+
 import React, { useState } from "react";
 import Link from "next/link";
+import FinanceShell from "@/components/FinanceShell";
 import {
-  IconArrowLeft, IconSearch, IconFilter, IconDownload, IconPlus,
-  IconAlertTriangle, IconChevronRight, IconX, IconCheck, IconCalendar,
-  IconBuildingStore, IconArrowUp, IconArrowDown, IconArrowsRightLeft,
-  IconBell, IconEye, IconSend,
+  IconUsers,
+  IconCheck,
+  IconClock,
+  IconAlertTriangle,
+  IconArrowUpRight,
+  IconArrowDownRight,
+  IconPlus,
+  IconSearch,
+  IconFilter,
+  IconPrinter,
+  IconPhoneCall,
+  IconMail,
+  IconBuildingBank,
 } from "@tabler/icons-react";
 
-const RECEIVABLES = [
-  { id: "CN-THU-001", partner: "SKECHERS Vietnam Ltd.", type: "Phải thu", amount: 285_000_000, due: "20/08/2026", daysLeft: 3, status: "Gần đến hạn", contact: "Mr. David Chen" },
-  { id: "CN-THU-002", partner: "Đại lý Bình Dương No.1", type: "Phải thu", amount: 48_500_000, due: "25/08/2026", daysLeft: 8, status: "Bình thường", contact: "Lê Văn Hùng" },
-  { id: "CN-THU-003", partner: "Chuỗi SKECHERS HCM", type: "Phải thu", amount: 124_000_000, due: "05/08/2026", daysLeft: -10, status: "Quá hạn", contact: "Nguyễn Thị Lan" },
-  { id: "CN-CHI-001", partner: "Cty TNHH Vật Tư Minh Long", type: "Phải trả", amount: 92_300_000, due: "18/08/2026", daysLeft: 1, status: "Gần đến hạn", contact: "Minh Long Sales" },
-  { id: "CN-CHI-002", partner: "Cty CP Hoá Chất Thuận An", type: "Phải trả", amount: 12_300_000, due: "30/08/2026", daysLeft: 13, status: "Bình thường", contact: "Sales Dept" },
-  { id: "CN-CHI-003", partner: "Cty TNHH Đế Giày Phú Cường", type: "Phải trả", amount: 56_800_000, due: "01/08/2026", daysLeft: -14, status: "Quá hạn", contact: "Phú Cường KT" },
-];
-
-const STATUS_CONF: Record<string, { bg: string; text: string; dot: string }> = {
-  "Bình thường": { bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500" },
-  "Gần đến hạn": { bg: "bg-amber-50", text: "text-amber-700", dot: "bg-amber-500" },
-  "Quá hạn": { bg: "bg-red-50", text: "text-red-600", dot: "bg-red-500" },
-};
-
-const SUMMARY = [
-  { label: "Tổng phải thu", value: "457.5M", note: "3 đối tác", icon: IconArrowDown, color: "text-emerald-600 bg-emerald-50" },
-  { label: "Tổng phải trả", value: "161.4M", note: "3 nhà cung cấp", icon: IconArrowUp, color: "text-rose-500 bg-rose-50" },
-  { label: "Quá hạn", value: "180.8M", note: "2 khoản", icon: IconAlertTriangle, color: "text-red-600 bg-red-50" },
-  { label: "Gần đến hạn", value: "377.3M", note: "Trong 7 ngày", icon: IconBell, color: "text-amber-600 bg-amber-50" },
-];
-
 export default function CongNoPage() {
-  const [filter, setFilter] = useState("Tất cả");
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  const [activeTab, setActiveTab] = useState<"tra" | "thu">("tra");
   const [search, setSearch] = useState("");
 
-  const filtered = RECEIVABLES.filter(r => {
-    const matchFilter = filter === "Tất cả" || r.type === filter || (filter === "Quá hạn" && r.status === "Quá hạn");
-    const matchSearch = !search || r.partner.toLowerCase().includes(search.toLowerCase()) || r.id.toLowerCase().includes(search.toLowerCase());
-    return matchFilter && matchSearch;
-  });
+  const debts = [
+    {
+      id: "CN-NCC-001",
+      partner: "Công ty CP Da Giày TBS - Nhà Cung Ứng",
+      taxCode: "3700147988",
+      type: "Phải trả",
+      typeCode: "tra",
+      total: 450000000,
+      paid: 200000000,
+      remain: 250000000,
+      dueDate: "2026-08-25",
+      status: "Trong hạn",
+      statusColor: "bg-emerald-100 text-emerald-800",
+    },
+    {
+      id: "CN-NCC-002",
+      partner: "Tập Đoàn Hóa Chất TexChem Việt Nam",
+      taxCode: "0301122334",
+      type: "Phải trả",
+      typeCode: "tra",
+      total: 180000000,
+      paid: 50000000,
+      remain: 130000000,
+      dueDate: "2026-08-10",
+      status: "Quá hạn 7 ngày",
+      statusColor: "bg-rose-100 text-rose-800",
+    },
+    {
+      id: "CN-KH-001",
+      partner: "SKECHERS USA Inc. (Đơn hàng D'Lites)",
+      taxCode: "US-99887766",
+      type: "Phải thu",
+      typeCode: "thu",
+      total: 1250000000,
+      paid: 800000000,
+      remain: 450000000,
+      dueDate: "2026-08-30",
+      status: "Trong hạn",
+      statusColor: "bg-emerald-100 text-emerald-800",
+    },
+  ];
 
   return (
-    <div className="min-h-screen bg-[#f7f8fc]" style={{ fontFamily: "'Outfit', sans-serif" }}>
-      <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link href="/work?dept=finance" className="p-2 rounded-xl hover:bg-gray-100 transition-colors">
-              <IconArrowLeft size={20} className="text-gray-500" />
-            </Link>
-            <div className="w-px h-6 bg-gray-200" />
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-violet-600 flex items-center justify-center">
-                <IconArrowsRightLeft size={16} className="text-white" />
-              </div>
-              <div>
-                <h1 className="text-sm font-700 text-gray-900">Công nợ</h1>
-                <p className="text-xs text-gray-400">Kế toán & Quản trị</p>
-              </div>
-            </div>
+    <FinanceShell
+      breadcrumbs={[
+        { label: "Kế toán & Quản trị", href: "/finance" },
+        { label: "Công nợ", href: "/finance/cong-no" },
+        { label: activeTab === "tra" ? "Công nợ phải trả" : "Công nợ phải thu" },
+      ]}
+      activeSubmenu={activeTab === "tra" ? "Công nợ phải trả" : "Công nợ phải thu"}
+    >
+      {/* Title Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#006838] to-[#004d29] text-white flex items-center justify-center shadow-xs">
+            <IconUsers size={22} />
           </div>
-          <div className="flex items-center gap-2">
-            <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-600 text-gray-600 hover:bg-gray-50">
-              <IconBell size={14} /> Cảnh báo công nợ
-            </button>
-            <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-violet-600 text-white text-xs font-600 hover:bg-violet-700 shadow-sm">
-              <IconPlus size={14} /> Thêm công nợ
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-6 py-8 space-y-6">
-        {/* Alert quá hạn */}
-        <div className="bg-red-50 border border-red-200 rounded-2xl px-5 py-4 flex items-start gap-3">
-          <IconAlertTriangle size={18} className="text-red-500 mt-0.5 shrink-0" />
           <div>
-            <p className="text-sm font-700 text-red-700">2 khoản công nợ quá hạn cần xử lý ngay</p>
-            <p className="text-xs text-red-600 mt-0.5">Tổng giá trị 180.8M đ — Chuỗi SKECHERS HCM (10 ngày) và Đế Giày Phú Cường (14 ngày)</p>
-          </div>
-          <button className="ml-auto px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-600 hover:bg-red-700 whitespace-nowrap">Xem ngay</button>
-        </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {SUMMARY.map(s => (
-            <div key={s.label} className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs text-gray-500">{s.label}</span>
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${s.color.split(" ")[1]}`}>
-                  <s.icon size={15} className={s.color.split(" ")[0]} />
-                </div>
-              </div>
-              <p className="text-2xl font-800 text-gray-900">{s.value}</p>
-              <p className="text-xs text-gray-400 mt-1">{s.note}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Table */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
-          <div className="px-6 pt-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex gap-1 p-1 bg-gray-50 rounded-xl w-fit">
-              {["Tất cả", "Phải thu", "Phải trả", "Quá hạn"].map(t => (
-                <button key={t} onClick={() => setFilter(t)}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-600 transition-all ${filter === t ? "bg-white text-violet-700 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
-                  {t}
-                </button>
-              ))}
-            </div>
-            <div className="relative">
-              <IconSearch size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input value={search} onChange={e => setSearch(e.target.value)}
-                placeholder="Tên đối tác, mã CN..."
-                className="pl-8 pr-4 py-2 text-xs bg-gray-50 border border-gray-200 rounded-lg w-56 focus:outline-none focus:ring-2 focus:ring-violet-500/20" />
-            </div>
-          </div>
-
-          <div className="overflow-x-auto mt-4">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-100">
-                  {["Mã CN", "Đối tác", "Loại", "Số tiền", "Đến hạn", "Tình trạng", "Liên hệ", ""].map(h => (
-                    <th key={h} className="px-5 py-3 text-left text-xs font-600 text-gray-400 whitespace-nowrap">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {filtered.map(r => {
-                  const conf = STATUS_CONF[r.status];
-                  return (
-                    <tr key={r.id} className="hover:bg-gray-50/70 transition-colors group">
-                      <td className="px-5 py-3.5"><span className="text-xs font-700 font-mono text-gray-800">{r.id}</span></td>
-                      <td className="px-5 py-3.5">
-                        <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-lg bg-violet-100 flex items-center justify-center shrink-0">
-                            <IconBuildingStore size={13} className="text-violet-600" />
-                          </div>
-                          <span className="text-xs text-gray-700 font-500">{r.partner}</span>
-                        </div>
-                      </td>
-                      <td className="px-5 py-3.5">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-600 ${r.type === "Phải thu" ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-600"}`}>{r.type}</span>
-                      </td>
-                      <td className="px-5 py-3.5 text-sm font-800 text-gray-900">
-                        {(r.amount / 1_000_000).toFixed(1)}M đ
-                      </td>
-                      <td className="px-5 py-3.5">
-                        <p className="text-xs text-gray-700">{r.due}</p>
-                        <p className={`text-xs font-600 mt-0.5 ${r.daysLeft < 0 ? "text-red-500" : r.daysLeft <= 7 ? "text-amber-600" : "text-gray-400"}`}>
-                          {r.daysLeft < 0 ? `Quá ${Math.abs(r.daysLeft)} ngày` : `Còn ${r.daysLeft} ngày`}
-                        </p>
-                      </td>
-                      <td className="px-5 py-3.5">
-                        <span className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-600 w-fit ${conf.bg} ${conf.text}`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${conf.dot}`} />
-                          {r.status}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3.5 text-xs text-gray-500">{r.contact}</td>
-                      <td className="px-5 py-3.5">
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button className="p-1.5 rounded-lg hover:bg-gray-100"><IconEye size={13} className="text-gray-500" /></button>
-                          <button className="p-1.5 rounded-lg hover:bg-gray-100"><IconSend size={13} className="text-gray-500" /></button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          <div className="px-5 py-4 border-t border-gray-100">
-            <p className="text-xs text-gray-400">{filtered.length} / {RECEIVABLES.length} khoản công nợ</p>
+            <h2 className="text-xl font-black text-slate-900 tracking-tight">
+              Quản Lý Công Nợ Đối Tác &amp; Nhà Cung Cấp
+            </h2>
+            <p className="text-xs text-slate-500 font-medium">
+              Theo dõi hạn thanh toán, lịch sử đối soát và cảnh báo công nợ quá hạn chuỗi Skechers
+            </p>
           </div>
         </div>
-      </main>
-    </div>
+
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => showToast("🖨️ Đang xuất biên bản đối chiếu công nợ PDF...")}
+            className="px-4 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
+          >
+            <IconPrinter size={15} />
+            <span>In đối chiếu</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => showToast("⚡ Đã gửi cảnh báo nhắc hạn công nợ tự động tới nhà cung cấp!")}
+            className="px-5 py-2 rounded-xl bg-[#006838] hover:bg-[#00522c] text-white text-xs font-black transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
+          >
+            <IconCheck size={16} />
+            <span>Gửi nhắc nợ tự động</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 4 Quick Stat Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs">
+          <span className="text-[11px] font-bold text-slate-500 block">Tổng công nợ phải trả</span>
+          <div className="text-xl font-black text-slate-900 mt-1">380,000,000 đ</div>
+          <span className="text-[10px] font-bold text-amber-700 mt-0.5 block">2 nhà cung cấp</span>
+        </div>
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs">
+          <span className="text-[11px] font-bold text-slate-500 block">Tổng công nợ phải thu</span>
+          <div className="text-xl font-black text-[#006838] mt-1">450,000,000 đ</div>
+          <span className="text-[10px] font-bold text-emerald-700 mt-0.5 block">1 đối tác Skechers USA</span>
+        </div>
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs">
+          <span className="text-[11px] font-bold text-slate-500 block">Công nợ quá hạn</span>
+          <div className="text-xl font-black text-rose-600 mt-1">130,000,000 đ</div>
+          <span className="text-[10px] font-bold text-rose-600 mt-0.5 block">Cần xử lý thanh toán</span>
+        </div>
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs">
+          <span className="text-[11px] font-bold text-slate-500 block">Tỷ lệ thanh toán đúng hạn</span>
+          <div className="text-xl font-black text-slate-900 mt-1">94.2%</div>
+          <span className="text-[10px] font-bold text-emerald-700 mt-0.5 block">Đạt chỉ tiêu KPI</span>
+        </div>
+      </div>
+
+      {/* Main Table Card */}
+      <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-2xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-100">
+          {/* Tabs */}
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+            <button
+              type="button"
+              onClick={() => setActiveTab("tra")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${
+                activeTab === "tra"
+                  ? "bg-white text-[#006838] shadow-2xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              Công nợ phải trả (NCC)
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("thu")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${
+                activeTab === "thu"
+                  ? "bg-white text-[#006838] shadow-2xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              Công nợ phải thu (Khách hàng)
+            </button>
+          </div>
+
+          <div className="relative">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Tìm theo tên đối tác, MST..."
+              className="pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-900 outline-none focus:border-[#006838] w-64"
+            />
+            <IconSearch size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          </div>
+        </div>
+
+        {/* Debt Table */}
+        <div className="overflow-x-auto rounded-xl border border-slate-200/80 shadow-2xs">
+          <table className="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-extrabold text-slate-600">
+                <th className="py-2.5 px-3">Mã Đối Tác</th>
+                <th className="py-2.5 px-3">Tên Đối Tác / Nhà Cung Cấp</th>
+                <th className="py-2.5 px-3">Mã Số Thuế</th>
+                <th className="py-2.5 px-3 text-right">Tổng Phát Sinh</th>
+                <th className="py-2.5 px-3 text-right">Đã Thanh Toán</th>
+                <th className="py-2.5 px-3 text-right font-black">Còn Phải Trả/Thu</th>
+                <th className="py-2.5 px-3">Hạn Thanh Toán</th>
+                <th className="py-2.5 px-3 text-center">Trạng Thái</th>
+                <th className="py-2.5 px-3 text-center">Thao Tác</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 bg-white">
+              {debts
+                .filter((d) => d.typeCode === activeTab)
+                .filter((d) => (search ? d.partner.toLowerCase().includes(search.toLowerCase()) : true))
+                .map((row) => (
+                  <tr key={row.id} className="hover:bg-emerald-50/20 transition-colors">
+                    <td className="py-2.5 px-3 font-mono font-bold text-slate-900">{row.id}</td>
+                    <td className="py-2.5 px-3 font-bold text-slate-800">{row.partner}</td>
+                    <td className="py-2.5 px-3 font-mono text-slate-600">{row.taxCode}</td>
+                    <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-700">
+                      {row.total.toLocaleString("vi-VN")} đ
+                    </td>
+                    <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-700">
+                      {row.paid.toLocaleString("vi-VN")} đ
+                    </td>
+                    <td className="py-2.5 px-3 text-right font-mono font-black text-rose-700">
+                      {row.remain.toLocaleString("vi-VN")} đ
+                    </td>
+                    <td className="py-2.5 px-3 font-mono font-bold text-slate-600">{row.dueDate}</td>
+                    <td className="py-2.5 px-3 text-center">
+                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${row.statusColor}`}>
+                        {row.status}
+                      </span>
+                    </td>
+                    <td className="py-2.5 px-3 text-center">
+                      <Link
+                        href={`/finance/thu-chi?tab=${activeTab === "tra" ? "chi" : "thu"}`}
+                        className="px-2 py-1 rounded bg-[#e6f4ed] hover:bg-emerald-100 text-[#006838] font-bold text-[10px] inline-block"
+                      >
+                        Tạo phiếu TT
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-2xl z-50 flex items-center gap-3 animate-in slide-in-from-bottom-3 duration-200 border border-slate-700">
+          <div className="w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center flex-shrink-0">
+            <IconCheck size={16} />
+          </div>
+          <span className="text-xs font-bold">{toastMessage}</span>
+        </div>
+      )}
+    </FinanceShell>
   );
 }

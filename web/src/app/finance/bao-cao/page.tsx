@@ -1,170 +1,128 @@
 "use client";
+
 import React, { useState } from "react";
-import Link from "next/link";
+import FinanceShell from "@/components/FinanceShell";
 import {
-  IconArrowLeft, IconDownload, IconTrendingUp, IconTrendingDown,
-  IconChartBar, IconFileText, IconCalendar, IconFilter,
-  IconArrowRight, IconCircleCheck, IconArrowUp, IconArrowDown,
+  IconChartBar,
+  IconCheck,
+  IconDownload,
+  IconFileSpreadsheet,
+  IconFileText,
+  IconPrinter,
+  IconTrendingUp,
 } from "@tabler/icons-react";
 
-const REPORTS = [
-  { id: "BC-THU-CHI", title: "Báo cáo Thu – Chi", desc: "Tổng hợp toàn bộ giao dịch thu chi theo tháng/quý/năm", lastUpdate: "15/08/2026", status: "Sẵn sàng", color: "bg-emerald-50 text-emerald-700", icon: IconTrendingUp },
-  { id: "BC-CHI-PHI", title: "Báo cáo Chi phí", desc: "Phân tích chi phí theo danh mục và phòng ban", lastUpdate: "15/08/2026", status: "Sẵn sàng", color: "bg-orange-50 text-orange-600", icon: IconChartBar },
-  { id: "BC-NGAN-SACH", title: "Báo cáo Ngân sách", desc: "So sánh Budget vs Actual theo tháng và phòng ban", lastUpdate: "15/08/2026", status: "Sẵn sàng", color: "bg-cyan-50 text-cyan-700", icon: IconChartBar },
-  { id: "BC-CONG-NO", title: "Báo cáo Công nợ", desc: "Danh sách công nợ phải thu/trả và quá hạn", lastUpdate: "14/08/2026", status: "Sẵn sàng", color: "bg-violet-50 text-violet-700", icon: IconArrowDown },
-  { id: "BC-TAI-SAN", title: "Báo cáo Tài sản", desc: "Danh sách tài sản, khấu hao và giá trị còn lại", lastUpdate: "01/08/2026", status: "Sẵn sàng", color: "bg-teal-50 text-teal-700", icon: IconFileText },
-  { id: "BC-KHO", title: "Báo cáo Kho", desc: "Tồn kho, nhập xuất và cảnh báo tồn thấp", lastUpdate: "15/08/2026", status: "Sẵn sàng", color: "bg-indigo-50 text-indigo-700", icon: IconArrowUp },
-  { id: "BC-DONG-TIEN", title: "Báo cáo Dòng tiền", desc: "Phân tích dòng tiền vào ra, dự báo tháng tới", lastUpdate: "15/08/2026", status: "Sẵn sàng", color: "bg-blue-50 text-blue-700", icon: IconTrendingUp },
-  { id: "BC-PHONG-BAN", title: "Báo cáo theo Phòng ban", desc: "Tổng hợp tài chính phân theo từng phòng ban", lastUpdate: "15/08/2026", status: "Sẵn sàng", color: "bg-pink-50 text-pink-700", icon: IconChartBar },
-];
-
-const QUICK_KPI = [
-  { label: "Doanh thu T8", value: "498.7M đ", change: "+14.2%", up: true },
-  { label: "Chi phí T8", value: "312.4M đ", change: "+3.1%", up: false },
-  { label: "Lợi nhuận ròng", value: "186.3M đ", change: "+31.8%", up: true },
-  { label: "Dòng tiền cuối T8", value: "1.84 tỷ đ", change: "+8.4%", up: true },
-];
-
-const MONTHLY_DATA = [
-  { month: "T3", revenue: 38, expense: 29 },
-  { month: "T4", revenue: 44, expense: 32 },
-  { month: "T5", revenue: 51, expense: 35 },
-  { month: "T6", revenue: 58, expense: 38 },
-  { month: "T7", revenue: 62, expense: 40 },
-  { month: "T8", revenue: 72, expense: 45 },
-];
-
 export default function BaoCaoPage() {
-  const [period, setPeriod] = useState("Tháng 8/2026");
-  const maxVal = Math.max(...MONTHLY_DATA.map(d => Math.max(d.revenue, d.expense)));
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  const reports = [
+    {
+      code: "BC-01",
+      title: "Báo cáo Kết quả Hoạt động Kinh doanh & Sản xuất (P&L)",
+      period: "Tháng 08/2026",
+      desc: "Doanh thu 12.4 tỷ, Chi phí 3.1 tỷ, Lợi nhuận ròng 2.6 tỷ",
+      type: "Định kỳ tháng",
+    },
+    {
+      code: "BC-02",
+      title: "Báo cáo Lưu chuyển Tiền tệ (Dòng tiền ròng Cash Flow)",
+      period: "Tháng 08/2026",
+      desc: "Số dư quỹ 63.2M đ, Tiền gửi Vietcombank 1.84 tỷ đ",
+      type: "Định kỳ tháng",
+    },
+    {
+      code: "BC-03",
+      title: "Báo cáo Tổng hợp Thu - Chi & Tạm ứng theo Phòng ban",
+      period: "Tháng 08/2026",
+      desc: "Chi tiết 8 phiếu phát sinh, 2 tạm ứng công tác",
+      type: "Nội bộ",
+    },
+    {
+      code: "BC-04",
+      title: "Báo cáo Tuân thủ Định mức Ngân sách (Budget vs Actual)",
+      period: "Tháng 08/2026",
+      desc: "R&D vượt 8.6%, Sản xuất NM1 đạt 96.5% định mức",
+      type: "Quản trị",
+    },
+  ];
 
   return (
-    <div className="min-h-screen bg-[#f7f8fc]" style={{ fontFamily: "'Outfit', sans-serif" }}>
-      <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link href="/work?dept=finance" className="p-2 rounded-xl hover:bg-gray-100 transition-colors">
-              <IconArrowLeft size={20} className="text-gray-500" />
-            </Link>
-            <div className="w-px h-6 bg-gray-200" />
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-blue-700 flex items-center justify-center">
-                <IconChartBar size={16} className="text-white" />
-              </div>
-              <div>
-                <h1 className="text-sm font-700 text-gray-900">Báo cáo Quản trị</h1>
-                <p className="text-xs text-gray-400">Kế toán & Quản trị</p>
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <select value={period} onChange={e => setPeriod(e.target.value)}
-              className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none">
-              {["Tháng 8/2026", "Tháng 7/2026", "Q3/2026", "6 tháng đầu 2026", "Năm 2026"].map(p => <option key={p}>{p}</option>)}
-            </select>
-            <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-600 text-gray-600 hover:bg-gray-50">
-              <IconFilter size={14} /> Bộ lọc
-            </button>
-          </div>
+    <FinanceShell
+      breadcrumbs={[
+        { label: "Kế toán & Quản trị", href: "/finance" },
+        { label: "Báo cáo", href: "/finance/bao-cao" },
+        { label: "Trung tâm báo cáo tài chính" },
+      ]}
+      title="Trung Tâm Báo Cáo Tài Chính & Quản Trị Dòng Tiền"
+      activeSubmenu="Báo cáo tài chính"
+    >
+      <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-2xs space-y-4">
+        <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+          <h3 className="text-sm font-black text-slate-900">
+            Hệ Thống 8 Báo Cáo Quản Trị Số Hóa TBS Group
+          </h3>
+          <span className="text-xs font-bold text-slate-500">Kỳ báo cáo: Tháng 08/2026</span>
         </div>
-      </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-8 space-y-6">
-        {/* KPI row */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {QUICK_KPI.map(kpi => (
-            <div key={kpi.label} className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-              <p className="text-xs text-gray-500 mb-2">{kpi.label}</p>
-              <p className="text-2xl font-800 text-gray-900">{kpi.value}</p>
-              <div className={`flex items-center gap-1 mt-1.5 text-xs font-600 ${kpi.up ? "text-emerald-600" : "text-rose-500"}`}>
-                {kpi.up ? <IconTrendingUp size={13} /> : <IconTrendingDown size={13} />}
-                {kpi.change} so với T7
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+          {reports.map((rep) => (
+            <div
+              key={rep.code}
+              className="p-4 rounded-xl bg-slate-50/80 border border-slate-200/80 hover:bg-white hover:border-[#006838]/60 transition-all flex flex-col justify-between gap-3 shadow-2xs group"
+            >
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono font-black text-xs text-[#006838] bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                    {rep.code}
+                  </span>
+                  <span className="text-[10px] font-bold text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">
+                    {rep.type}
+                  </span>
+                </div>
+                <h4 className="text-xs font-black text-slate-900 leading-snug group-hover:text-[#006838] transition-colors">
+                  {rep.title}
+                </h4>
+                <p className="text-[11px] text-slate-500 font-medium">{rep.desc}</p>
+              </div>
+
+              <div className="flex items-center justify-between pt-2 border-t border-slate-200/60">
+                <span className="text-[10px] font-bold text-slate-400 font-mono">{rep.period}</span>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => showToast(`📥 Đang xuất báo cáo ${rep.code} dạng Excel XLSX...`)}
+                    className="px-2.5 py-1 rounded-lg bg-emerald-50 text-[#006838] hover:bg-emerald-100 text-[11px] font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                  >
+                    <IconFileSpreadsheet size={14} />
+                    <span>Excel</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => showToast(`📄 Đang xuất báo cáo ${rep.code} dạng PDF chuẩn A4...`)}
+                    className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 text-[11px] font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                  >
+                    <IconFileText size={14} />
+                    <span>PDF</span>
+                  </button>
+                </div>
               </div>
             </div>
           ))}
         </div>
+      </div>
 
-        {/* Chart */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h2 className="text-sm font-700 text-gray-800">Xu hướng Doanh thu – Chi phí</h2>
-              <p className="text-xs text-gray-400 mt-0.5">6 tháng gần nhất · Đơn vị: tỷ đ</p>
-            </div>
-            <div className="flex items-center gap-4 text-xs">
-              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-blue-500" />Doanh thu</span>
-              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-rose-400" />Chi phí</span>
-            </div>
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-2xl z-50 flex items-center gap-3 animate-in slide-in-from-bottom-3 duration-200 border border-slate-700">
+          <div className="w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center flex-shrink-0">
+            <IconCheck size={16} />
           </div>
-          <div className="flex items-end gap-4 h-48">
-            {MONTHLY_DATA.map(d => (
-              <div key={d.month} className="flex-1 flex flex-col items-center gap-1">
-                <div className="flex items-end gap-1 h-40 w-full justify-center">
-                  <div className="flex-1 bg-blue-500 rounded-t-lg transition-all hover:bg-blue-400"
-                    style={{ height: `${(d.revenue / maxVal) * 100}%` }}
-                    title={`Doanh thu: ${d.revenue}M đ`} />
-                  <div className="flex-1 bg-rose-300 rounded-t-lg transition-all hover:bg-rose-400"
-                    style={{ height: `${(d.expense / maxVal) * 100}%` }}
-                    title={`Chi phí: ${d.expense}M đ`} />
-                </div>
-                <span className="text-xs text-gray-400 font-500">{d.month}</span>
-              </div>
-            ))}
-          </div>
+          <span className="text-xs font-bold">{toastMessage}</span>
         </div>
-
-        {/* Report catalog */}
-        <div>
-          <h2 className="text-sm font-700 text-gray-700 mb-4">Danh sách báo cáo</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {REPORTS.map(report => (
-              <div key={report.id}
-                className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:border-blue-200 hover:shadow-md transition-all cursor-pointer group">
-                <div className="flex items-start justify-between mb-4">
-                  <div className={`w-10 h-10 rounded-xl ${report.color} flex items-center justify-center`}>
-                    <report.icon size={18} />
-                  </div>
-                  <div className="flex gap-1">
-                    <button className="p-1.5 rounded-lg hover:bg-gray-100 opacity-0 group-hover:opacity-100 transition-opacity" title="Tải Excel">
-                      <IconDownload size={13} className="text-gray-500" />
-                    </button>
-                  </div>
-                </div>
-                <h3 className="text-sm font-700 text-gray-900 mb-1.5">{report.title}</h3>
-                <p className="text-xs text-gray-400 leading-relaxed mb-4">{report.desc}</p>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <IconCircleCheck size={12} className="text-emerald-500" />
-                    <span className="text-xs text-emerald-600 font-600">{report.status}</span>
-                  </div>
-                  <span className="text-xs text-gray-400">{report.lastUpdate}</span>
-                </div>
-                <div className="mt-4 flex items-center gap-1 text-xs font-600 text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
-                  Xem báo cáo <IconArrowRight size={13} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Export section */}
-        <div className="bg-gradient-to-r from-blue-700 to-blue-600 rounded-2xl p-6 flex items-center justify-between">
-          <div>
-            <h3 className="text-base font-700 text-white">Xuất toàn bộ báo cáo {period}</h3>
-            <p className="text-xs text-blue-200 mt-1">Tổng hợp tất cả báo cáo tài chính thành một file duy nhất</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-blue-700 text-sm font-700 hover:bg-blue-50 transition-colors shadow-sm">
-              <IconDownload size={16} /> Xuất Excel
-            </button>
-            <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-800 text-white text-sm font-700 hover:bg-blue-900 transition-colors">
-              <IconFileText size={16} /> Xuất PDF
-            </button>
-          </div>
-        </div>
-      </main>
-    </div>
+      )}
+    </FinanceShell>
   );
 }

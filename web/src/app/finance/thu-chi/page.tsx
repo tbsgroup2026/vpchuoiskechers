@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import FinanceShell from "@/components/FinanceShell";
@@ -36,7 +36,7 @@ interface PaymentItem {
   vat: number;
 }
 
-export default function ThuChiPage() {
+function ThuChiContent() {
   const searchParams = useSearchParams();
   const initialTab = searchParams.get("tab") || "chi";
 
@@ -720,5 +720,22 @@ export default function ThuChiPage() {
         </div>
       )}
     </FinanceShell>
+  );
+}
+
+export default function ThuChiPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#f4f7f5] flex items-center justify-center">
+          <div className="p-8 text-center space-y-2">
+            <div className="w-8 h-8 rounded-full border-2 border-[#006838] border-t-transparent animate-spin mx-auto" />
+            <p className="text-xs font-bold text-slate-500">Đang tải bàn làm việc Thu – Chi...</p>
+          </div>
+        </div>
+      }
+    >
+      <ThuChiContent />
+    </Suspense>
   );
 }

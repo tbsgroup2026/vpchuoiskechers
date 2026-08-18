@@ -387,8 +387,12 @@ export default {
               "SELECT * FROM user_profile WHERE id = 'current_user'"
             ).all();
             if (results && results.length > 0) {
+              const userProf = { ...results[0] };
+              if (!userProf.avatar || typeof userProf.avatar !== "string" || userProf.avatar.trim() === "") {
+                userProf.avatar = "/images/tbs-logo.png";
+              }
               return new Response(
-                JSON.stringify({ success: true, data: results[0], source: "Cloudflare D1 Database vpchuoiskechers" }),
+                JSON.stringify({ success: true, data: userProf, source: "Cloudflare D1 Database vpchuoiskechers" }),
                 { headers: { "Content-Type": "application/json" } }
               );
             }
@@ -413,6 +417,7 @@ export default {
           const targetEmpCode = empCode || emp_code || "202608001";
           const targetRoleCode = roleCode || role_code || "CBCNV";
 
+          let finalAvatar = avatar;
           if (env.DB) {
             await env.DB.prepare(
               `CREATE TABLE IF NOT EXISTS user_profile (
@@ -430,6 +435,13 @@ export default {
               );`
             ).run();
 
+            if (!finalAvatar || typeof finalAvatar !== "string" || finalAvatar.trim() === "") {
+              const { results: existing } = await env.DB.prepare("SELECT avatar FROM user_profile WHERE id = 'current_user'").all();
+              finalAvatar = (existing && existing[0] && existing[0].avatar && existing[0].avatar.trim() !== "")
+                ? existing[0].avatar
+                : "/images/tbs-logo.png";
+            }
+
             await env.DB.prepare(
               `INSERT OR REPLACE INTO user_profile (id, emp_code, name, email, phone, avatar, title, department, role_code, updated_at)
                VALUES ('current_user', ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`
@@ -439,7 +451,7 @@ export default {
                 name || "Phạm Nguyễn Anh Huy",
                 email || "anhy.work.2004@gmail.com",
                 phone || "0522511245",
-                avatar || "/images/tbs-logo.png",
+                finalAvatar,
                 title || "IT - Team chuyển đổi số",
                 department || "IT - Team chuyển đổi số",
                 targetRoleCode
@@ -453,7 +465,7 @@ export default {
                 name,
                 email,
                 phone,
-                avatar,
+                finalAvatar,
                 title,
                 department,
                 targetEmpCode
@@ -467,7 +479,7 @@ export default {
             JSON.stringify({
               success: true,
               message: "Đã cập nhật thông tin cá nhân thành công vào D1 Database vpchuoiskechers!",
-              data: { empCode: targetEmpCode, name, email, phone, avatar, title, department, roleCode: targetRoleCode }
+              data: { empCode: targetEmpCode, name, email, phone, avatar: finalAvatar, title, department, roleCode: targetRoleCode }
             }),
             { headers: { "Content-Type": "application/json" } }
           );

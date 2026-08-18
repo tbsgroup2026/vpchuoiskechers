@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import UserAvatar from '@/components/UserAvatar';
 import {
   IconArrowRight,
   IconMenu2,
@@ -559,18 +560,12 @@ export default function Header() {
                   className="flex items-center gap-2 bg-[#0f4133]/90 hover:bg-[#0f4133] px-3.5 py-1.5 rounded-full border border-[#2fd39a]/40 shadow-md text-white transition-all cursor-pointer group"
                 >
                   <div className="relative">
-                    <div className="w-7 h-7 rounded-full bg-slate-900 border border-[#2fd39a] overflow-hidden shadow-xs group-hover:scale-105 transition-transform flex items-center justify-center">
-                      {userInfo?.avatar ? (
-                        <img
-                          src={userInfo.avatar}
-                          alt={userInfo.name || "User Avatar"}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <IconUserCircle size={20} className="text-[#2fd39a]" />
-                      )}
-                    </div>
-                    <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-400 border border-white" />
+                    <UserAvatar
+                      src={userInfo?.avatar}
+                      name={userInfo?.name || userInfo?.empCode || 'Phạm Nguyễn Anh Huy'}
+                      size="xs"
+                      showOnlineBadge={true}
+                    />
                   </div>
                   <span className="text-xs font-extrabold text-[#f2dc9a] max-w-[140px] truncate">
                     {userInfo?.name || userInfo?.empCode || 'Phạm Nguyễn Anh Huy'}
@@ -597,17 +592,11 @@ export default function Header() {
                     {/* User Info Header Banner */}
                     <div className="p-3.5 rounded-2xl bg-gradient-to-r from-[#0a3528] to-[#041a13] border border-[#2fd39a]/30 mb-2 space-y-2">
                       <div className="flex items-center gap-3">
-                        <div className="w-11 h-11 rounded-full border-2 border-[#2fd39a] overflow-hidden flex-shrink-0 shadow-md bg-slate-900 flex items-center justify-center">
-                          {userInfo?.avatar ? (
-                            <img
-                              src={userInfo.avatar}
-                              alt={userInfo.name || "User"}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <IconUserCircle size={26} className="text-[#2fd39a]" />
-                          )}
-                        </div>
+                        <UserAvatar
+                          src={userInfo?.avatar}
+                          name={userInfo?.name || userInfo?.empCode || 'Phạm Nguyễn Anh Huy'}
+                          size="lg"
+                        />
                         <div className="min-w-0 flex-1">
                           <h4 className="text-sm font-black truncate text-white">{userInfo?.name || 'Phạm Nguyễn Anh Huy'}</h4>
                           <p className="text-xs text-[#2fd39a] truncate font-medium mt-0.5">{userInfo?.email || 'anhhuy.pham@tbsgroup.vn'}</p>
@@ -822,12 +811,13 @@ export default function Header() {
 
             <div className="flex items-center gap-4 border-b border-white/10 pb-4">
               <div className="relative group">
-                <img
+                <UserAvatar
                   src={editProfileForm.avatar || '/images/tbs-logo.png'}
-                  alt="Avatar"
-                  className="w-16 h-16 rounded-2xl object-cover border border-[#2fd39a]/40 bg-emerald-950 p-1"
+                  name={editProfileForm.name}
+                  size="xl"
+                  className="rounded-2xl border border-[#2fd39a]/40 bg-emerald-950 p-1"
                 />
-                <label className="absolute inset-0 bg-black/60 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-[10px] font-bold text-[#2fd39a] cursor-pointer">
+                <label className="absolute inset-0 bg-black/60 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-[10px] font-bold text-[#2fd39a] cursor-pointer z-10">
                   <span>{isUploadingAvatar ? "Đang nạp..." : "Đổi ảnh"}</span>
                   <input
                     type="file"

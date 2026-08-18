@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import NotificationCenter from "@/components/NotificationCenter";
 import DonutChartModal from "@/components/DonutChartModal";
+import UserAvatar from "@/components/UserAvatar";
 import Can from "@/components/Can";
 import { PERMISSIONS } from "@/lib/permissions";
 import {
@@ -388,6 +389,8 @@ export default function WorkDashboardPage() {
   // Fetch initial profile data from D1 Database & Local Storage
   useEffect(() => {
     let localCustomAvatar: string | null = null;
+    const isValidAvatar = (str: any) => typeof str === "string" && str.trim().length > 4 && str !== "undefined" && str !== "null";
+
     if (typeof window !== "undefined") {
       const searchParams = new URLSearchParams(window.location.search);
       const deptParam = searchParams.get("dept");
@@ -400,7 +403,7 @@ export default function WorkDashboardPage() {
         try {
           const parsed = JSON.parse(storedUser);
           if (parsed?.name) {
-            if (parsed.avatar && parsed.avatar !== "/images/tbs-logo.png") {
+            if (isValidAvatar(parsed.avatar)) {
               localCustomAvatar = parsed.avatar;
             }
             const loaded = {
@@ -408,7 +411,7 @@ export default function WorkDashboardPage() {
               name: parsed.name,
               phone: parsed.phone || "0522511245",
               email: parsed.email || `${parsed.empCode || ''}@tbsgroup.vn`,
-              avatar: parsed.avatar || "/images/tbs-logo.png",
+              avatar: isValidAvatar(parsed.avatar) ? parsed.avatar : "/images/tbs-logo.png",
               title: parsed.title || "Cán Bộ Công Nhân Viên",
             };
             setUserInfo(loaded);
@@ -425,7 +428,10 @@ export default function WorkDashboardPage() {
           const json = await res.json();
           if (json.success && json.data) {
             const d1Avatar = json.data.avatar || json.data.avatar_url;
-            const finalAvatar = (d1Avatar && d1Avatar !== "/images/tbs-logo.png") ? d1Avatar : (localCustomAvatar || d1Avatar || "/images/tbs-logo.png");
+            const finalAvatar = isValidAvatar(localCustomAvatar)
+              ? localCustomAvatar
+              : (isValidAvatar(d1Avatar) ? d1Avatar : "/images/tbs-logo.png");
+
             const loaded = {
               empCode: json.data.emp_code || json.data.empCode || "202608001",
               name: json.data.name || "Phạm Nguyễn Anh Huy",
@@ -843,18 +849,15 @@ export default function WorkDashboardPage() {
                 title="Tài khoản cá nhân"
               >
                 <div className="relative">
-                  <div className="w-9 h-9 rounded-full bg-slate-900 border-2 border-[#006838] overflow-hidden shadow-sm group-hover:scale-105 transition-transform">
-                    <img
-                      src={userInfo.avatar}
-                      alt={userInfo.name}
-                      style={{
-                        transform: `scale(${avatarZoom}) translate(${avatarOffsetX}px, ${avatarOffsetY}px)`,
-                        transformOrigin: "center center",
-                      }}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white" />
+                  <UserAvatar
+                    src={userInfo.avatar}
+                    name={userInfo.name}
+                    size="md"
+                    zoom={avatarZoom}
+                    offsetX={avatarOffsetX}
+                    offsetY={avatarOffsetY}
+                    showOnlineBadge={true}
+                  />
                 </div>
                 <IconChevronDown size={14} className={`text-slate-500 transition-transform duration-200 ${isUserDropdownOpen ? "rotate-180 text-[#006838]" : ""}`} />
               </button>
@@ -870,17 +873,14 @@ export default function WorkDashboardPage() {
                     {/* User Info Header */}
                     <div className="p-4 bg-gradient-to-br from-[#006838] to-[#004d29] text-white space-y-2">
                       <div className="flex items-center gap-3">
-                        <div className="w-11 h-11 rounded-full border-2 border-white/80 overflow-hidden flex-shrink-0 shadow-sm">
-                          <img
-                            src={userInfo.avatar}
-                            alt={userInfo.name}
-                            style={{
-                              transform: `scale(${avatarZoom}) translate(${avatarOffsetX}px, ${avatarOffsetY}px)`,
-                              transformOrigin: "center center",
-                            }}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
+                        <UserAvatar
+                          src={userInfo.avatar}
+                          name={userInfo.name}
+                          size="lg"
+                          zoom={avatarZoom}
+                          offsetX={avatarOffsetX}
+                          offsetY={avatarOffsetY}
+                        />
                         <div className="min-w-0 flex-1">
                           <h4 className="text-sm font-black truncate">{userInfo.name}</h4>
                           <p className="text-xs text-emerald-100 truncate font-medium">{userInfo.email}</p>
@@ -3571,16 +3571,16 @@ export default function WorkDashboardPage() {
                   className="w-full h-full rounded-full border-4 border-[#006838] shadow-lg overflow-hidden relative bg-slate-100 cursor-pointer group"
                   title="Nhấn để tải và chỉnh sửa ảnh mới"
                 >
-                  <img
+                  <UserAvatar
                     src={editProfileForm.avatar}
-                    alt={editProfileForm.name}
-                    style={{
-                      transform: `scale(${avatarZoom}) translate(${avatarOffsetX}px, ${avatarOffsetY}px)`,
-                      transformOrigin: "center center",
-                    }}
-                    className="w-full h-full object-cover group-hover:opacity-90 transition-opacity"
+                    name={editProfileForm.name}
+                    size="custom"
+                    className="w-full h-full"
+                    zoom={avatarZoom}
+                    offsetX={avatarOffsetX}
+                    offsetY={avatarOffsetY}
                   />
-                  <div className="absolute inset-0 rounded-full bg-slate-900/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity">
+                  <div className="absolute inset-0 rounded-full bg-slate-900/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity z-10">
                     <IconCamera size={26} />
                   </div>
                 </div>

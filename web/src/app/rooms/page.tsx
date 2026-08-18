@@ -35,6 +35,7 @@ import {
   IconNotes,
 } from "@tabler/icons-react";
 import Can from "@/components/Can";
+import UserAvatar from "@/components/UserAvatar";
 import { PERMISSIONS } from "@/lib/permissions";
 
 interface MeetingRoom {
@@ -662,10 +663,10 @@ export default function MeetingRoomsPage() {
             <span className="absolute top-0 right-0 w-2 h-2 rounded-full bg-rose-500 border border-white" />
           </button>
           <div className="flex items-center gap-2 border-l border-slate-200 pl-3">
-            <img
-              src={currentUser.avatar || "/images/crawled/Da-giay1.jpg"}
-              alt="Avatar"
-              className="w-8 h-8 rounded-full border-2 border-[#006838] object-cover"
+            <UserAvatar
+              src={currentUser.avatar}
+              name={userRole === "LE_TAN" ? "Phạm Nguyễn Anh Huy" : currentUser.name}
+              size="sm"
             />
             <div className="hidden md:block text-left">
               <div className="text-xs font-bold text-slate-900 leading-none">

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ROLES } from "@/lib/permissions";
+import UserAvatar from "@/components/UserAvatar";
 import { IconUsers, IconUserPlus, IconLock, IconLockOpen, IconSearch, IconCheck, IconShield, IconBuilding } from "@tabler/icons-react";
 
 interface UserAccount {
@@ -195,8 +196,13 @@ export default function UsersAdminPage() {
               <tr key={u.id} className="hover:bg-slate-50 transition">
                 <td className="p-3.5 font-mono font-bold text-[#006838]">{u.empCode}</td>
                 <td className="p-3.5">
-                  <div className="font-extrabold text-slate-900">{u.name}</div>
-                  <div className="text-[10px] text-gray-400 font-mono">{u.email}</div>
+                  <div className="flex items-center gap-2.5">
+                    <UserAvatar name={u.name} size="xs" />
+                    <div>
+                      <div className="font-extrabold text-slate-900">{u.name}</div>
+                      <div className="text-[10px] text-gray-400 font-mono">{u.email}</div>
+                    </div>
+                  </div>
                 </td>
                 <td className="p-3.5 font-medium text-slate-700">{u.department}</td>
                 <td className="p-3.5 font-mono font-bold text-emerald-700">

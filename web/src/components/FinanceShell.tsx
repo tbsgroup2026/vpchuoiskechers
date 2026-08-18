@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import UserAvatar from "@/components/UserAvatar";
 import {
   IconHome,
   IconWallet,
@@ -48,6 +49,33 @@ export default function FinanceShell({
 }: FinanceShellProps) {
   const pathname = usePathname();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [userInfo, setUserInfo] = useState<{
+    name: string;
+    title: string;
+    avatar: string;
+  }>({
+    name: "Phạm Nguyễn Anh Huy",
+    title: "Kế toán tổng hợp",
+    avatar: "/images/tbs-logo.png",
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("tbs_current_user");
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          if (parsed?.name) {
+            setUserInfo({
+              name: parsed.name,
+              title: parsed.title || "Kế toán tổng hợp",
+              avatar: parsed.avatar || "/images/tbs-logo.png",
+            });
+          }
+        } catch (e) {}
+      }
+    }
+  }, []);
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({
     "thu-chi": true,
     "hoa-don": false,
@@ -360,12 +388,15 @@ export default function FinanceShell({
 
             {/* User Profile Pill */}
             <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
-              <div className="w-8 h-8 rounded-full bg-emerald-100 border-2 border-[#006838] overflow-hidden flex items-center justify-center">
-                <img src="/images/tbs-logo.png" alt="Avatar" className="w-full h-full object-cover" />
-              </div>
+              <UserAvatar
+                src={userInfo.avatar}
+                name={userInfo.name}
+                size="sm"
+                showOnlineBadge={true}
+              />
               <div className="hidden sm:block text-left leading-tight">
-                <span className="text-xs font-black text-slate-900 block truncate">Phạm Nguyễn Anh Huy</span>
-                <span className="text-[10px] text-slate-500 block font-medium">Kế toán tổng hợp</span>
+                <span className="text-xs font-black text-slate-900 block truncate">{userInfo.name}</span>
+                <span className="text-[10px] text-slate-500 block font-medium">{userInfo.title}</span>
               </div>
               <IconChevronDown size={14} className="text-slate-400" />
             </div>

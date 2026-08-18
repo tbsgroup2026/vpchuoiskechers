@@ -77,6 +77,7 @@ export default function FinanceShell({
     }
   }, []);
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({
+    "tong-quan": true,
     "thu-chi": true,
     "hoa-don": false,
     "cong-no": false,
@@ -98,7 +99,10 @@ export default function FinanceShell({
       label: "Tổng quan",
       icon: IconHome,
       href: "/finance",
-      isExact: true,
+      subItems: [
+        { label: "Bàn làm việc nhập liệu", href: "/finance?tab=desk" },
+        { label: "Tổng quan 10 phân hệ", href: "/finance?tab=overview" },
+      ],
     },
     {
       key: "thu-chi",

@@ -269,9 +269,10 @@ export default function FinanceShell({
         <nav className="flex-1 overflow-y-auto p-3 space-y-1 scrollbar-thin">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = item.isExact
-              ? pathname === item.href
-              : pathname.startsWith(item.href) && item.href !== "/finance";
+            const isActive =
+              item.href === "/finance"
+                ? pathname === "/finance"
+                : pathname.startsWith(item.href);
             const isExpanded = expandedMenus[item.key] ?? false;
 
             return (

@@ -637,165 +637,167 @@ export default function WorkDashboardPage() {
           LEFT SIDEBAR (Fixed Height, Independent Scroll)
          ════════════════════════════════════════════════════════════════ */}
       <aside
-        className={`bg-white h-screen flex flex-col justify-between border-r border-slate-200/80 flex-shrink-0 shadow-sm transition-all duration-300 ease-in-out z-30 ${isSidebarCollapsed ? "w-20 px-2.5 py-4" : "w-80 lg:w-[360px] p-4 lg:p-5"
-          }`}
+        className={`bg-white h-screen flex flex-col border-r border-slate-200/80 flex-shrink-0 shadow-sm transition-all duration-300 ease-in-out z-30 ${
+          isSidebarCollapsed ? "w-20 px-2.5 py-4" : "w-80 lg:w-[360px] p-4 lg:p-5"
+        }`}
       >
-        <div className="space-y-4 flex-1 flex flex-col">
-          {/* Executive Brand Lockup & Header Toggle Button */}
-          {!isSidebarCollapsed ? (
-            <div className="flex items-center justify-between pb-3.5 border-b border-slate-200/80 flex-shrink-0 min-h-[56px]">
-              <Link href="/" title="Về Trang Chủ TBS Group (https://vpchuoiskechers.tbsgroup2026.workers.dev)" className="flex items-center gap-2.5 group overflow-hidden cursor-pointer">
-                <img
-                  src="/images/tbs-logo.png"
-                  alt="TBS Group Logo"
-                  className="h-7 sm:h-8 w-auto object-contain group-hover:scale-105 transition-transform"
-                />
-                <div className="h-5.5 w-[1px] bg-slate-200 flex-shrink-0" />
-                <img
-                  src="/images/skechers-logo.png"
-                  alt="Skechers Logo"
-                  className="h-6 sm:h-7 w-auto object-contain group-hover:scale-105 transition-transform flex-shrink-0"
-                />
-              </Link>
+        {/* Executive Brand Lockup & Header Toggle Button (Fixed Top) */}
+        {!isSidebarCollapsed ? (
+          <div className="flex items-center justify-between pb-3.5 border-b border-slate-200/80 flex-shrink-0 min-h-[56px]">
+            <Link href="/" title="Về Trang Chủ TBS Group (https://vpchuoiskechers.tbsgroup2026.workers.dev)" className="flex items-center gap-2.5 group overflow-hidden cursor-pointer">
+              <img
+                src="/images/tbs-logo.png"
+                alt="TBS Group Logo"
+                className="h-7 sm:h-8 w-auto object-contain group-hover:scale-105 transition-transform"
+              />
+              <div className="h-5.5 w-[1px] bg-slate-200 flex-shrink-0" />
+              <img
+                src="/images/skechers-logo.png"
+                alt="Skechers Logo"
+                className="h-6 sm:h-7 w-auto object-contain group-hover:scale-105 transition-transform flex-shrink-0"
+              />
+            </Link>
 
-              {/* Clean Inline Toggle Button (Expanded State) */}
-              <button
-                onClick={() => setIsSidebarCollapsed(true)}
-                className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-[#006838] text-slate-600 hover:text-white border border-slate-200/80 flex items-center justify-center transition-all duration-200 cursor-pointer flex-shrink-0 ml-2 shadow-2xs group"
-                title="Thu nhỏ menu"
-              >
-                <IconChevronLeft size={18} className="group-hover:-translate-x-0.5 transition-transform" />
-              </button>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center gap-2.5 pb-3 border-b border-slate-200/80 flex-shrink-0 w-full">
-              <Link href="/" title="Về Trang Chủ TBS Group & SKECHERS" className="flex flex-col items-center gap-1.5 py-0.5 group cursor-pointer">
-                <img
-                  src="/images/tbs-logo.png"
-                  alt="TBS Group"
-                  className="h-5.5 w-auto object-contain group-hover:scale-105 transition-transform"
-                />
-                <div className="w-5 h-[1px] bg-slate-200/90" />
-                <img
-                  src="/images/skechers-logo.png"
-                  alt="SKECHERS"
-                  className="h-4.5 w-auto object-contain group-hover:scale-105 transition-transform"
-                />
-              </Link>
+            {/* Clean Inline Toggle Button (Expanded State) */}
+            <button
+              onClick={() => setIsSidebarCollapsed(true)}
+              className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-[#006838] text-slate-600 hover:text-white border border-slate-200/80 flex items-center justify-center transition-all duration-200 cursor-pointer flex-shrink-0 ml-2 shadow-2xs group"
+              title="Thu nhỏ menu"
+            >
+              <IconChevronLeft size={18} className="group-hover:-translate-x-0.5 transition-transform" />
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-2.5 pb-3 border-b border-slate-200/80 flex-shrink-0 w-full">
+            <Link href="/" title="Về Trang Chủ TBS Group & SKECHERS" className="flex flex-col items-center gap-1.5 py-0.5 group cursor-pointer">
+              <img
+                src="/images/tbs-logo.png"
+                alt="TBS Group"
+                className="h-5.5 w-auto object-contain group-hover:scale-105 transition-transform"
+              />
+              <div className="w-5 h-[1px] bg-slate-200/90" />
+              <img
+                src="/images/skechers-logo.png"
+                alt="SKECHERS"
+                className="h-4.5 w-auto object-contain group-hover:scale-105 transition-transform"
+              />
+            </Link>
 
-              {/* Clean Inline Toggle Button (Collapsed State) */}
-              <button
-                onClick={() => setIsSidebarCollapsed(false)}
-                className="w-8 h-8 rounded-xl bg-[#006838] text-white shadow-md flex items-center justify-center hover:bg-[#00522c] hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer group"
-                title="Mở rộng menu"
-              >
-                <IconChevronRight size={18} className="group-hover:translate-x-0.5 transition-transform" />
-              </button>
-            </div>
-          )}
+            {/* Clean Inline Toggle Button (Collapsed State) */}
+            <button
+              onClick={() => setIsSidebarCollapsed(false)}
+              className="w-8 h-8 rounded-xl bg-[#006838] text-white shadow-md flex items-center justify-center hover:bg-[#00522c] hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer group"
+              title="Mở rộng menu"
+            >
+              <IconChevronRight size={18} className="group-hover:translate-x-0.5 transition-transform" />
+            </button>
+          </div>
+        )}
 
-          {/* Department List (Executive Responsive Sidebar Cards) */}
-          <div className={`flex-1 overflow-y-auto min-h-0 pr-0.5 w-full flex flex-col items-center ${isSidebarCollapsed ? "space-y-3.5 pt-1" : "space-y-2.5"}`}>
-            {departments.map((dept) => {
-              const IconComp = dept.icon;
-              const isSelected = selectedDept === dept.id;
+        {/* Department List (INDEPENDENT SCROLL CONTAINER WITH CUSTOM SCROLLBAR) */}
+        <div className={`flex-1 min-h-0 overflow-y-auto overflow-x-hidden my-2.5 pr-1 w-full focus:outline-none ${isSidebarCollapsed ? "space-y-3.5" : "space-y-2.5"}`}>
+          {departments.map((dept) => {
+            const IconComp = dept.icon;
+            const isSelected = selectedDept === dept.id;
 
-              // COLLAPSED MODE RENDERING (Ultra Sleek Single 44x44 Icon Tile with Generous Breathing Space)
-              if (isSidebarCollapsed) {
-                return (
-                  <button
-                    key={dept.id}
-                    onClick={() => setSelectedDept(isSelected ? null : dept.id)}
-                    className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-all duration-200 group relative cursor-pointer ${isSelected
-                      ? "bg-[#006838] text-white shadow-md shadow-emerald-900/30 ring-2 ring-emerald-600/30 scale-105"
-                      : "bg-white hover:bg-[#e6f4ed] text-[#006838] border border-slate-200/90 shadow-2xs"
-                      }`}
-                    title={dept.name}
-                  >
-                    {/* Active Left Indicator Bar */}
-                    {isSelected && (
-                      <span className="absolute -left-3.5 top-2 bottom-2 w-1 bg-[#006838] rounded-r-full shadow-xs" />
-                    )}
-
-                    <IconComp size={22} className="flex-shrink-0" />
-
-                    {/* Coming Soon Dot Indicator */}
-                    {!dept.hasData && (
-                      <span className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-amber-400 border-2 border-white" />
-                    )}
-
-                    {/* Collapsed Hover Tooltip Popup */}
-                    <div className="absolute left-full ml-3 px-3.5 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl shadow-2xl whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none flex items-center gap-2 border border-slate-700/60">
-                      <span>{dept.name}</span>
-                      {!dept.hasData && (
-                        <span className="text-[10px] font-mono text-amber-300 font-normal">
-                          (Soon)
-                        </span>
-                      )}
-                    </div>
-                  </button>
-                );
-              }
-
-              // EXPANDED MODE RENDERING (Full Department Card)
+            // COLLAPSED MODE RENDERING (Ultra Sleek Single 44x44 Icon Tile with Generous Breathing Space)
+            if (isSidebarCollapsed) {
               return (
                 <button
                   key={dept.id}
                   onClick={() => setSelectedDept(isSelected ? null : dept.id)}
-                  className={`w-full text-left rounded-2xl flex items-center p-3.5 sm:p-4 gap-3.5 transition-all duration-200 group relative cursor-pointer ${isSelected
-                    ? "bg-[#006838] text-white shadow-md shadow-emerald-900/20 border border-[#006838]"
-                    : "bg-white hover:bg-[#e6f4ed]/50 text-slate-700 hover:text-slate-900 border border-slate-200/90 shadow-xs"
+                  className={`w-11 h-11 mx-auto rounded-2xl flex items-center justify-center transition-all duration-200 group relative cursor-pointer ${isSelected
+                    ? "bg-[#006838] text-white shadow-md shadow-emerald-900/30 ring-2 ring-emerald-600/30 scale-105"
+                    : "bg-white hover:bg-[#e6f4ed] text-[#006838] border border-slate-200/90 shadow-2xs"
                     }`}
+                  title={dept.name}
                 >
                   {/* Active Left Indicator Bar */}
                   {isSelected && (
-                    <span className="absolute left-0 top-2.5 bottom-2.5 w-1 bg-white rounded-r-full" />
+                    <span className="absolute -left-3.5 top-2 bottom-2 w-1 bg-[#006838] rounded-r-full shadow-xs" />
                   )}
 
-                  {/* Icon Box */}
-                  <div
-                    className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${isSelected
-                      ? "bg-white/20 text-white"
-                      : "bg-[#e6f4ed] text-[#006838] group-hover:bg-[#006838] group-hover:text-white"
-                      }`}
-                  >
-                    <IconComp size={22} />
-                  </div>
+                  <IconComp size={22} className="flex-shrink-0" />
 
-                  {/* Department Title & Subtitle */}
-                  <div className="flex-1 min-w-0">
-                    <div>
-                      <h4 className="text-sm font-extrabold truncate tracking-tight">
-                        {dept.name}
-                      </h4>
-                    </div>
-                    <p
-                      className={`text-xs truncate mt-0.5 font-medium ${isSelected ? "text-emerald-100" : "text-slate-500"
-                        }`}
-                    >
-                      {dept.sub}
-                    </p>
-                  </div>
-
-                  {/* Subtle Status Tag */}
+                  {/* Coming Soon Dot Indicator */}
                   {!dept.hasData && (
-                    <span
-                      className={`text-xs font-mono font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${isSelected
-                        ? "bg-white/20 text-white"
-                        : "bg-amber-100/90 text-amber-800 border border-amber-200/90"
-                        }`}
-                    >
-                      Soon
-                    </span>
+                    <span className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-amber-400 border-2 border-white" />
                   )}
+
+                  {/* Collapsed Hover Tooltip Popup */}
+                  <div className="absolute left-full ml-3 px-3.5 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl shadow-2xl whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none flex items-center gap-2 border border-slate-700/60">
+                    <span>{dept.name}</span>
+                    {!dept.hasData && (
+                      <span className="text-[10px] font-mono text-amber-300 font-normal">
+                        (Soon)
+                      </span>
+                    )}
+                  </div>
                 </button>
               );
-            })}
-          </div>
+            }
 
-          {/* Sidebar Bottom Brand Cards (Matching Screenshot 2) */}
+            // EXPANDED MODE RENDERING (Full Department Card)
+            return (
+              <button
+                key={dept.id}
+                onClick={() => setSelectedDept(isSelected ? null : dept.id)}
+                className={`w-full text-left rounded-2xl flex items-center p-3.5 sm:p-4 gap-3.5 transition-all duration-200 group relative cursor-pointer ${isSelected
+                  ? "bg-[#006838] text-white shadow-md shadow-emerald-900/20 border border-[#006838]"
+                  : "bg-white hover:bg-[#e6f4ed]/50 text-slate-700 hover:text-slate-900 border border-slate-200/90 shadow-xs"
+                  }`}
+              >
+                {/* Active Left Indicator Bar */}
+                {isSelected && (
+                  <span className="absolute left-0 top-2.5 bottom-2.5 w-1 bg-white rounded-r-full" />
+                )}
+
+                {/* Icon Box */}
+                <div
+                  className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${isSelected
+                    ? "bg-white/20 text-white"
+                    : "bg-[#e6f4ed] text-[#006838] group-hover:bg-[#006838] group-hover:text-white"
+                    }`}
+                >
+                  <IconComp size={22} />
+                </div>
+
+                {/* Department Title & Subtitle */}
+                <div className="flex-1 min-w-0">
+                  <div>
+                    <h4 className="text-sm font-extrabold truncate tracking-tight">
+                      {dept.name}
+                    </h4>
+                  </div>
+                  <p
+                    className={`text-xs truncate mt-0.5 font-medium ${isSelected ? "text-emerald-100" : "text-slate-500"
+                      }`}
+                  >
+                    {dept.sub}
+                  </p>
+                </div>
+
+                {/* Subtle Status Tag */}
+                {!dept.hasData && (
+                  <span
+                    className={`text-xs font-mono font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${isSelected
+                      ? "bg-white/20 text-white"
+                      : "bg-amber-100/90 text-amber-800 border border-amber-200/90"
+                      }`}
+                  >
+                    Soon
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Sidebar Bottom Brand Cards & Footer Credit (Fixed Bottom) */}
+        <div className="flex-shrink-0 mt-auto pt-2 space-y-2.5 border-t border-slate-200/80">
+          {/* Brand Cards (Matching Screenshot 2) */}
           {!isSidebarCollapsed && (
-            <div className="pt-2 space-y-2 border-t border-slate-100 flex-shrink-0 w-full">
+            <div className="space-y-2 w-full">
               {/* Skechers Comfort Makes Better Card */}
               <div className="p-2 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center gap-2.5 shadow-2xs">
                 <img
@@ -821,35 +823,35 @@ export default function WorkDashboardPage() {
               </div>
             </div>
           )}
-        </div>
 
-        {/* Executive Footer Credit */}
-        <div className="pt-3 border-t border-slate-200/80 flex items-center justify-between text-xs text-slate-500 flex-shrink-0">
-          {!isSidebarCollapsed ? (
-            <>
-              <Link href="/" title="Về Trang Chủ TBS Group" className="flex items-center gap-1.5 hover:opacity-80 transition-opacity">
+          {/* Executive Footer Credit */}
+          <div className="flex items-center justify-between text-xs text-slate-500 pt-0.5">
+            {!isSidebarCollapsed ? (
+              <>
+                <Link href="/" title="Về Trang Chủ TBS Group" className="flex items-center gap-1.5 hover:opacity-80 transition-opacity">
+                  <img
+                    src="/images/tbs-logo.png"
+                    alt="TBS Logo"
+                    className="h-3.5 w-auto object-contain"
+                  />
+                  <span className="font-semibold text-slate-700 text-[10px]">
+                    TBS Group System
+                  </span>
+                </Link>
+                <span className="text-[9px] font-mono text-slate-400">
+                  © 2026
+                </span>
+              </>
+            ) : (
+              <Link href="/" className="mx-auto hover:opacity-80 transition-opacity" title="Về Trang Chủ TBS Group">
                 <img
                   src="/images/tbs-logo.png"
                   alt="TBS Logo"
                   className="h-3.5 w-auto object-contain"
                 />
-                <span className="font-semibold text-slate-700 text-[10px]">
-                  TBS Group System
-                </span>
               </Link>
-              <span className="text-[9px] font-mono text-slate-400">
-                © 2026
-              </span>
-            </>
-          ) : (
-            <Link href="/" className="mx-auto hover:opacity-80 transition-opacity" title="Về Trang Chủ TBS Group">
-              <img
-                src="/images/tbs-logo.png"
-                alt="TBS Logo"
-                className="h-3.5 w-auto object-contain"
-              />
-            </Link>
-          )}
+            )}
+          </div>
         </div>
       </aside>
 

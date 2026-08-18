@@ -95,14 +95,18 @@ export default function FinanceShell({
 
   const navItems = [
     {
+      key: "ban-lam-viec",
+      label: "Bàn làm việc kế toán",
+      icon: IconCalculator,
+      href: "/finance?tab=desk",
+      activeMatch: (pathname === "/finance" && searchParams?.get("tab") !== "overview"),
+    },
+    {
       key: "tong-quan",
-      label: "Tổng quan",
-      icon: IconHome,
-      href: "/finance",
-      subItems: [
-        { label: "Bàn làm việc nhập liệu", href: "/finance?tab=desk" },
-        { label: "Tổng quan 10 phân hệ", href: "/finance?tab=overview" },
-      ],
+      label: "Tổng quan 10 phân hệ",
+      icon: IconChartBar,
+      href: "/finance?tab=overview",
+      activeMatch: (pathname === "/finance" && searchParams?.get("tab") === "overview"),
     },
     {
       key: "thu-chi",
@@ -270,7 +274,9 @@ export default function FinanceShell({
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive =
-              item.href === "/finance"
+              item.activeMatch !== undefined
+                ? item.activeMatch
+                : item.href === "/finance"
                 ? pathname === "/finance"
                 : pathname.startsWith(item.href);
             const isExpanded = expandedMenus[item.key] ?? false;

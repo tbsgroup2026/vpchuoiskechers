@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import FinanceShell from "@/components/FinanceShell";
 import {
   IconCoins,
@@ -122,9 +122,26 @@ const MODULES = [
 ];
 
 function FinanceHubContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const initialTab = searchParams.get("tab") === "overview" ? "overview" : "desk";
-  const [activeMainTab, setActiveMainTab] = useState<"desk" | "overview">(initialTab);
+  const tabParam = searchParams.get("tab");
+  const [activeMainTab, setActiveMainTab] = useState<"desk" | "overview">(
+    tabParam === "overview" ? "overview" : "desk"
+  );
+
+  useEffect(() => {
+    const currentTab = searchParams.get("tab");
+    if (currentTab === "overview") {
+      setActiveMainTab("overview");
+    } else {
+      setActiveMainTab("desk");
+    }
+  }, [searchParams]);
+
+  const switchTab = (tab: "desk" | "overview") => {
+    setActiveMainTab(tab);
+    router.push(`/finance?tab=${tab}`, { scroll: false });
+  };
 
   // Accounting Desk State
   const [finEntryType, setFinEntryType] = useState<"thu" | "chi" | "tam_ung" | "hoan_ung" | "hoa_don" | "cong_no">("thu");
@@ -276,10 +293,10 @@ function FinanceHubContent() {
     >
       {/* ════════ MAIN TAB SWITCHER NAVIGATION ════════ */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1 border-b border-slate-200/80">
-        <div className="flex items-center gap-2 bg-slate-200/70 p-1 rounded-2xl w-fit">
+        <div className="flex items-center gap-1.5 bg-slate-200/70 p-1 rounded-2xl w-fit">
           <button
             type="button"
-            onClick={() => setActiveMainTab("desk")}
+            onClick={() => switchTab("desk")}
             className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 ${
               activeMainTab === "desk"
                 ? "bg-white text-[#006838] shadow-xs border border-emerald-200/80"
@@ -293,7 +310,7 @@ function FinanceHubContent() {
 
           <button
             type="button"
-            onClick={() => setActiveMainTab("overview")}
+            onClick={() => switchTab("overview")}
             className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 ${
               activeMainTab === "overview"
                 ? "bg-white text-[#006838] shadow-xs border border-emerald-200/80"

@@ -711,10 +711,10 @@ export default function BusinessTripRegistrationPage() {
 
                 {/* Đề xuất */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 block">Đề xuất phụ cấp/hỗ trợ</label>
+                  <label className="text-xs font-bold text-slate-700 block">Đề xuất</label>
                   <textarea
                     rows={3}
-                    placeholder="Nhập đề xuất hỗ trợ (nếu có)..."
+                    placeholder="Nhập đề xuất (nếu có)..."
                     value={proposalForm.proposalText}
                     onChange={(e) => setProposalForm({ ...proposalForm, proposalText: e.target.value })}
                     className="w-full p-3 rounded-xl border border-slate-300 text-xs font-medium outline-none focus:border-[#006838] focus:ring-1 focus:ring-[#006838] bg-white resize-none"

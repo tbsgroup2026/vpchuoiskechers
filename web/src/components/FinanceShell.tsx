@@ -2,10 +2,11 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import UserAvatar from "@/components/UserAvatar";
 import {
   IconHome,
+  IconCalculator,
   IconWallet,
   IconFileInvoice,
   IconUsers,
@@ -48,6 +49,7 @@ export default function FinanceShell({
   activeSubmenu,
 }: FinanceShellProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [userInfo, setUserInfo] = useState<{
     name: string;

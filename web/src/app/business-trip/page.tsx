@@ -1317,34 +1317,18 @@ export default function BusinessTripRegistrationPage() {
                 />
               </div>
 
-              {/* Action Buttons: Xóa lọc, Import Hóa Đơn & Báo cáo */}
+              {/* Action Buttons: Xóa lọc & Báo cáo (Chuẩn giao diện ban đầu) */}
               <div className="flex items-center gap-2 pt-1">
                 <button
                   onClick={handleResetFilters}
-                  className="px-3.5 py-2 rounded-xl bg-slate-600 hover:bg-slate-700 text-white font-extrabold transition-colors cursor-pointer shadow-2xs"
+                  className="px-4 py-2 rounded-xl bg-slate-600 hover:bg-slate-700 text-white font-extrabold transition-colors cursor-pointer shadow-2xs"
                 >
                   Xóa lọc
                 </button>
 
-                {/* Nút Import Hóa Đơn Chứng Từ Toàn Cục */}
-                <button
-                  onClick={() => {
-                    if (records.length === 0) {
-                      alert("Chưa có chuyến công tác nào để import hóa đơn!");
-                      return;
-                    }
-                    setSelectedTripIdForImport(records[0]?.id || "");
-                    setGlobalImportModal(true);
-                  }}
-                  className="px-3.5 py-2 rounded-xl bg-[#006838] hover:bg-[#00522c] text-white font-extrabold transition-colors cursor-pointer shadow-2xs flex items-center gap-1.5"
-                >
-                  <IconReceipt size={15} />
-                  <span>📥 Import Hóa Đơn</span>
-                </button>
-
                 <button
                   onClick={() => showToast("Đã xuất báo cáo lịch công tác & hóa đơn chi phí thành công (File Excel/CSV)!")}
-                  className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold transition-colors cursor-pointer shadow-2xs flex items-center gap-1"
+                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold transition-colors cursor-pointer shadow-2xs flex items-center gap-1"
                 >
                   <IconDownload size={14} />
                   <span>Báo cáo</span>
@@ -1352,7 +1336,7 @@ export default function BusinessTripRegistrationPage() {
               </div>
             </div>
 
-            {/* Records Data Table */}
+            {/* Records Data Table (12 Headers with Dedicated IMPORT HÓA ĐƠN Column) */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
@@ -1363,17 +1347,19 @@ export default function BusinessTripRegistrationPage() {
                       <th className="p-3">Tên đề xuất</th>
                       <th className="p-3">Người tạo</th>
                       <th className="p-3">Công tác tại</th>
-                      <th className="p-3">Thời gian</th>
+                      <th className="p-3">Ngày bắt đầu</th>
                       <th className="p-3 text-center">Số ngày</th>
-                      <th className="p-3 text-center">Hóa đơn</th>
+                      <th className="p-3">Ngày kết thúc</th>
                       <th className="p-3 text-center">Trạng thái</th>
+                      <th className="p-3">Hình thức di chuyển</th>
+                      <th className="p-3 text-center">Import Hóa Đơn</th>
                       <th className="p-3 text-center">Hành động</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-xs">
                     {filteredRecords.length === 0 ? (
                       <tr>
-                        <td colSpan={10} className="py-12 text-center text-slate-400 font-semibold">
+                        <td colSpan={12} className="py-12 text-center text-slate-400 font-semibold">
                           Không có dữ liệu phù hợp
                         </td>
                       </tr>
@@ -1393,7 +1379,7 @@ export default function BusinessTripRegistrationPage() {
                                 {attachmentCount > 0 && (
                                   <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 font-medium flex items-center gap-0.5 border border-slate-200" title={`${attachmentCount} tệp đính kèm đề xuất`}>
                                     <IconPaperclip size={10} />
-                                    <span>{attachmentCount}</span>
+                                    <span>{attachmentCount} file</span>
                                   </span>
                                 )}
                               </div>
@@ -1403,27 +1389,9 @@ export default function BusinessTripRegistrationPage() {
                               <div className="text-[10px] text-slate-500">{rec.department}</div>
                             </td>
                             <td className="p-3 font-medium text-slate-700">{rec.location}</td>
-                            <td className="p-3">
-                              <div className="font-bold text-slate-800">{rec.startDate}</div>
-                              <div className="text-[10px] text-slate-400 font-medium">đến {rec.endDate}</div>
-                            </td>
+                            <td className="p-3 font-bold text-slate-800">{rec.startDate}</td>
                             <td className="p-3 text-center font-bold text-slate-900">{rec.daysCount}</td>
-
-                            {/* Cột Hóa Đơn Chứng Từ */}
-                            <td className="p-3 text-center">
-                              <button
-                                onClick={() => setActiveInvoiceTrip(rec)}
-                                className={`px-2.5 py-1 rounded-xl text-[11px] font-extrabold flex items-center justify-center gap-1 mx-auto transition-all cursor-pointer border ${
-                                  invoiceCount > 0
-                                    ? "bg-emerald-50 text-[#006838] border-emerald-200 hover:bg-[#006838] hover:text-white"
-                                    : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-200"
-                                }`}
-                                title="Quản lý & Tải lên hóa đơn chứng từ"
-                              >
-                                <IconReceipt size={13} />
-                                <span>{invoiceCount > 0 ? `${invoiceCount} HĐ` : "+ Thêm HĐ"}</span>
-                              </button>
-                            </td>
+                            <td className="p-3 font-bold text-slate-800">{rec.endDate}</td>
 
                             <td className="p-3 text-center">
                               <div className="flex flex-col items-center gap-1">
@@ -1434,12 +1402,12 @@ export default function BusinessTripRegistrationPage() {
                                 )}
                                 {(rec.status === "pending_department_head" || rec.status === "PENDING") && (
                                   <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 text-[10px] font-extrabold uppercase flex items-center gap-1">
-                                    <span>⏳</span> Chờ TP duyệt (Cấp 1)
+                                    <span>⏳</span> Chờ TP duyệt
                                   </span>
                                 )}
                                 {rec.status === "pending_executive_board" && (
                                   <span className="px-2.5 py-1 rounded-full bg-blue-100 text-blue-800 text-[10px] font-extrabold uppercase flex items-center gap-1">
-                                    <span>⏳</span> Chờ BGĐ duyệt (Cấp 2)
+                                    <span>⏳</span> Chờ BGĐ duyệt
                                   </span>
                                 )}
                                 {(rec.status === "rejected_by_department_head" || rec.status === "REJECTED") && (
@@ -1453,6 +1421,24 @@ export default function BusinessTripRegistrationPage() {
                                   </span>
                                 )}
                               </div>
+                            </td>
+
+                            <td className="p-3 font-semibold text-slate-700">{rec.transport}</td>
+
+                            {/* Cột IMPORT HÓA ĐƠN */}
+                            <td className="p-3 text-center">
+                              <button
+                                onClick={() => setActiveInvoiceTrip(rec)}
+                                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 mx-auto transition-all cursor-pointer border shadow-2xs ${
+                                  invoiceCount > 0
+                                    ? "bg-emerald-50 text-[#006838] border-emerald-300 hover:bg-[#006838] hover:text-white"
+                                    : "bg-[#e6f4ed] text-[#006838] border-emerald-200 hover:bg-[#006838] hover:text-white"
+                                }`}
+                                title="Bấm để Import hóa đơn & chứng từ chi phí"
+                              >
+                                <IconReceipt size={14} />
+                                <span>{invoiceCount > 0 ? `🧾 ${invoiceCount} HĐ` : "📥 Import HĐ"}</span>
+                              </button>
                             </td>
 
                             <td className="p-3">

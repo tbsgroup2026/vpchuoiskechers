@@ -96,18 +96,14 @@ export default function FinanceShell({
 
   const navItems = [
     {
-      key: "ban-lam-viec",
-      label: "Bàn làm việc kế toán",
-      icon: IconCalculator,
-      href: "/finance?tab=desk",
-      activeMatch: pathname === "/finance" && activeSubmenu !== "Tổng quan 10 phân hệ",
-    },
-    {
       key: "tong-quan",
-      label: "Tổng quan 10 phân hệ",
-      icon: IconChartBar,
-      href: "/finance?tab=overview",
-      activeMatch: pathname === "/finance" && activeSubmenu === "Tổng quan 10 phân hệ",
+      label: "Tổng quan",
+      icon: IconHome,
+      href: "/finance",
+      subItems: [
+        { label: "Bàn làm việc kế toán", href: "/finance?tab=desk" },
+        { label: "Tổng quan 10 phân hệ", href: "/finance?tab=overview" },
+      ],
     },
     {
       key: "thu-chi",
@@ -309,9 +305,18 @@ export default function FinanceShell({
                     {!isSidebarCollapsed && isExpanded && (
                       <div className="pl-7 pr-2 py-1 space-y-0.5 border-l border-slate-200 ml-5 my-0.5">
                         {item.subItems.map((sub, sIdx) => {
-                          const isSubActive =
-                            activeSubmenu === sub.label ||
-                            (isActive && sIdx === 0 && !activeSubmenu);
+                          let isSubActive = false;
+                          if (item.key === "tong-quan") {
+                            if (sub.label === "Tổng quan 10 phân hệ") {
+                              isSubActive = pathname === "/finance" && activeSubmenu === "Tổng quan 10 phân hệ";
+                            } else {
+                              isSubActive = pathname === "/finance" && activeSubmenu !== "Tổng quan 10 phân hệ";
+                            }
+                          } else {
+                            isSubActive =
+                              activeSubmenu === sub.label ||
+                              (isActive && sIdx === 0 && !activeSubmenu);
+                          }
                           return (
                             <Link
                               key={sIdx}

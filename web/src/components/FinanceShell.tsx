@@ -111,12 +111,12 @@ export default function FinanceShell({
       icon: IconWallet,
       href: "/finance/thu-chi",
       subItems: [
-        { label: "Phiếu chi", href: "/finance/thu-chi?tab=chi" },
-        { label: "Phiếu thu", href: "/finance/thu-chi?tab=thu" },
-        { label: "Tạm ứng", href: "/finance/thu-chi?tab=tam_ung" },
-        { label: "Hoàn ứng", href: "/finance/thu-chi?tab=hoan_ung" },
-        { label: "Quỹ tiền mặt", href: "/finance/thu-chi?tab=quy" },
-        { label: "Ngân hàng", href: "/finance/thu-chi?tab=ngan_hang" },
+        { label: "Phiếu chi", href: "/finance/thu-chi/phieu-chi" },
+        { label: "Phiếu thu", href: "/finance/thu-chi/phieu-thu" },
+        { label: "Tạm ứng", href: "/finance/thu-chi/tam-ung" },
+        { label: "Hoàn ứng", href: "/finance/thu-chi/hoan-ung" },
+        { label: "Quỹ tiền mặt", href: "/finance/thu-chi/quy-tien-mat" },
+        { label: "Ngân hàng", href: "/finance/thu-chi/ngan-hang" },
       ],
     },
     {
@@ -125,9 +125,9 @@ export default function FinanceShell({
       icon: IconFileInvoice,
       href: "/finance/hoa-don",
       subItems: [
-        { label: "Hóa đơn đầu vào", href: "/finance/hoa-don?tab=in" },
-        { label: "Hóa đơn đầu ra", href: "/finance/hoa-don?tab=out" },
-        { label: "Tra cứu hóa đơn", href: "/finance/hoa-don?tab=search" },
+        { label: "Hóa đơn đầu vào", href: "/finance/hoa-don/dau-vao" },
+        { label: "Hóa đơn đầu ra", href: "/finance/hoa-don/dau-ra" },
+        { label: "Tra cứu hóa đơn", href: "/finance/hoa-don/tra-cuu" },
       ],
     },
     {
@@ -136,9 +136,9 @@ export default function FinanceShell({
       icon: IconUsers,
       href: "/finance/cong-no",
       subItems: [
-        { label: "Công nợ phải trả", href: "/finance/cong-no?tab=tra" },
-        { label: "Công nợ phải thu", href: "/finance/cong-no?tab=thu" },
-        { label: "Đối tác & NCC", href: "/finance/cong-no?tab=ncc" },
+        { label: "Công nợ phải trả", href: "/finance/cong-no/phai-tra" },
+        { label: "Công nợ phải thu", href: "/finance/cong-no/phai-thu" },
+        { label: "Đối tác & NCC", href: "/finance/cong-no/doi-tac" },
       ],
     },
     {
@@ -147,9 +147,9 @@ export default function FinanceShell({
       icon: IconCalendarEvent,
       href: "/finance/ngan-sach",
       subItems: [
-        { label: "Lập ngân sách", href: "/finance/ngan-sach?tab=lap" },
-        { label: "Phân bổ phòng ban", href: "/finance/ngan-sach?tab=pb" },
-        { label: "Budget vs Actual", href: "/finance/ngan-sach?tab=actual" },
+        { label: "Lập ngân sách", href: "/finance/ngan-sach/lap-ngan-sach" },
+        { label: "Phân bổ phòng ban", href: "/finance/ngan-sach/phan-bo" },
+        { label: "Budget vs Actual", href: "/finance/ngan-sach/budget-vs-actual" },
       ],
     },
     {
@@ -158,9 +158,9 @@ export default function FinanceShell({
       icon: IconChartPie,
       href: "/finance/chi-phi",
       subItems: [
-        { label: "Chi phí văn phòng", href: "/finance/chi-phi?tab=vp" },
-        { label: "Chi phí công tác", href: "/finance/chi-phi?tab=ct" },
-        { label: "Chi phí R&D", href: "/finance/chi-phi?tab=rd" },
+        { label: "Chi phí văn phòng", href: "/finance/chi-phi/van-phong" },
+        { label: "Chi phí công tác", href: "/finance/chi-phi/cong-tac" },
+        { label: "Chi phí R&D", href: "/finance/chi-phi/rd" },
       ],
     },
     {
@@ -200,7 +200,7 @@ export default function FinanceShell({
       icon: IconChartBar,
       href: "/finance/bao-cao",
       subItems: [
-        { label: "Báo cáo tài chính", href: "/finance/bao-cao?tab=tc" },
+        { label: "Báo cáo tài chính", href: "/finance/bao-cao" },
         { label: "Báo cáo dòng tiền", href: "/finance/bao-cao?tab=cf" },
       ],
     },
@@ -217,7 +217,7 @@ export default function FinanceShell({
       href: "/finance",
       subItems: [
         { label: "Hệ thống tài khoản", href: "/finance" },
-        { label: "Danh mục đối tác", href: "/finance/cong-no" },
+        { label: "Danh mục đối tác", href: "/finance/cong-no/doi-tac" },
       ],
     },
     {
@@ -231,6 +231,14 @@ export default function FinanceShell({
       ],
     },
   ];
+
+  useEffect(() => {
+    navItems.forEach((item) => {
+      if (item.href !== "/finance" && pathname.startsWith(item.href)) {
+        setExpandedMenus((prev) => ({ ...prev, [item.key]: true }));
+      }
+    });
+  }, [pathname]);
 
   return (
     <div className="min-h-screen bg-[#f4f7f5] flex text-slate-800 font-sans antialiased selection:bg-[#006838] selection:text-white">
@@ -319,6 +327,7 @@ export default function FinanceShell({
                       <div className="pl-7 pr-2 py-1 space-y-0.5 border-l border-slate-200 ml-5 my-0.5">
                         {item.subItems.map((sub, sIdx) => {
                           let isSubActive = false;
+                          const cleanSubHref = sub.href.split("?")[0];
                           if (item.key === "tong-quan") {
                             if (sub.label === "Tổng quan 10 phân hệ") {
                               isSubActive = pathname === "/finance" && activeSubmenu === "Tổng quan 10 phân hệ";
@@ -327,8 +336,9 @@ export default function FinanceShell({
                             }
                           } else {
                             isSubActive =
+                              pathname === cleanSubHref ||
                               activeSubmenu === sub.label ||
-                              (isActive && sIdx === 0 && !activeSubmenu);
+                              (isActive && sIdx === 0 && !activeSubmenu && pathname === item.href);
                           }
                           return (
                             <Link

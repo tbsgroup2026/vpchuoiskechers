@@ -233,33 +233,48 @@ export default function FinanceShell({
   ];
 
   return (
-    <div className="min-h-screen bg-[#f4f7f5] flex text-slate-800 font-sans" style={{ fontFamily: "'Outfit', 'Inter', sans-serif" }}>
+    <div className="min-h-screen bg-[#f4f7f5] flex text-slate-800 font-sans antialiased selection:bg-[#006838] selection:text-white">
       {/* ════════════════════════════════════════════════════════════════
-          SIDEBAR NAVIGATION (EXACT SCREENSHOT STYLE)
+          SIDEBAR NAVIGATION (UNIFIED BRANDING & TYPOGRAPHY)
          ════════════════════════════════════════════════════════════════ */}
       <aside
         className={`${
-          isSidebarCollapsed ? "w-20" : "w-64"
-        } bg-white border-r border-slate-200/90 flex flex-col flex-shrink-0 transition-all duration-300 select-none z-30 sticky top-0 h-screen`}
+          isSidebarCollapsed ? "w-20" : "w-64 lg:w-72"
+        } bg-white border-r border-slate-200/90 flex flex-col flex-shrink-0 transition-all duration-300 select-none z-30 sticky top-0 h-screen shadow-2xs`}
       >
         {/* Sidebar Header Brand Logo */}
-        <div className="p-4 flex items-center justify-between border-b border-slate-100 flex-shrink-0">
-          <Link href="/work" className="flex items-center gap-2.5 min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="font-black text-lg text-[#006838] tracking-tight">TBS</span>
-              <div className="w-2 h-2 rounded-full bg-lime-500" />
-            </div>
-            {!isSidebarCollapsed && (
-              <div className="leading-tight border-l border-slate-200 pl-2">
-                <span className="text-[11px] font-black text-slate-900 tracking-wider block uppercase">SKECHERS</span>
-                <span className="text-[9px] font-bold text-slate-500 block uppercase">R&D CENTER</span>
-              </div>
-            )}
-          </Link>
+        <div className="p-3.5 sm:p-4 flex items-center justify-between border-b border-slate-100 flex-shrink-0 min-h-[58px]">
+          {!isSidebarCollapsed ? (
+            <Link
+              href="/"
+              title="Về Trang Chủ TBS Group (https://vpchuoiskechers.tbsgroup2026.workers.dev)"
+              className="flex items-center gap-2 group overflow-hidden cursor-pointer min-w-0"
+            >
+              <img
+                src="/images/tbs-logo.png"
+                alt="TBS Group Logo"
+                className="h-7 w-auto object-contain group-hover:scale-105 transition-transform flex-shrink-0"
+              />
+              <div className="h-5 w-[1px] bg-slate-200 flex-shrink-0 mx-0.5" />
+              <img
+                src="/images/skechers-logo.png"
+                alt="Skechers Logo"
+                className="h-5.5 w-auto object-contain group-hover:scale-105 transition-transform flex-shrink-0"
+              />
+            </Link>
+          ) : (
+            <Link href="/" className="mx-auto hover:opacity-80 transition-opacity" title="Về Trang Chủ TBS Group">
+              <img
+                src="/images/tbs-logo.png"
+                alt="TBS Logo"
+                className="h-6 w-auto object-contain"
+              />
+            </Link>
+          )}
 
           <button
             onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-            className="w-7 h-7 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500 transition-colors cursor-pointer"
+            className="w-7 h-7 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500 transition-colors cursor-pointer flex-shrink-0 ml-1"
             title={isSidebarCollapsed ? "Mở rộng menu" : "Thu gọn menu"}
           >
             {isSidebarCollapsed ? <IconChevronRight size={15} /> : <IconChevronLeft size={15} />}
@@ -351,15 +366,27 @@ export default function FinanceShell({
           })}
         </nav>
 
-        {/* Sidebar Footer */}
+        {/* Unified Sidebar Footer */}
         <div className="p-3 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400 flex-shrink-0">
-          {!isSidebarCollapsed && (
-            <div className="flex items-center gap-1.5">
-              <span className="font-bold text-[#006838]">TBS</span>
-              <span>TBS Group System</span>
+          {!isSidebarCollapsed ? (
+            <div className="flex items-center justify-between w-full">
+              <div className="flex items-center gap-1.5">
+                <img
+                  src="/images/tbs-logo.png"
+                  alt="TBS Logo"
+                  className="h-3.5 w-auto object-contain opacity-70"
+                />
+                <span className="font-bold text-slate-600">TBS GROUP</span>
+                <span className="text-slate-300">|</span>
+                <span className="font-mono text-[9px] text-slate-400">© 2026</span>
+              </div>
+              <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-[#006838] font-extrabold text-[9px] border border-emerald-200">
+                ERP LIVE
+              </span>
             </div>
+          ) : (
+            <span className="font-mono text-[9px] mx-auto text-[#006838] font-black">TBS</span>
           )}
-          <span className="font-mono">v2.4.0</span>
         </div>
       </aside>
 

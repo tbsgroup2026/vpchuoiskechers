@@ -90,17 +90,27 @@ export default function AdminLayout({
       {/* Admin sidebar */}
       <aside className="w-64 bg-accent-deep text-white p-6 border-r border-accent/15 flex flex-col justify-between">
         <div>
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 rounded-xl bg-accent-light flex items-center justify-center font-bold text-white">
-              TBS
-            </div>
-            <div>
-              <div className="font-bold text-sm text-gold-light">
-                ADMIN PANEL
-              </div>
-              <div className="text-[11px] text-white/30">
-                Quản trị RBAC &amp; Hệ thống
-              </div>
+          <div className="mb-8 pb-4 border-b border-white/10">
+            <Link href="/" className="flex items-center gap-2.5 group">
+              <img
+                src="/images/tbs-logo.png"
+                alt="TBS Group Logo"
+                className="h-8 w-auto object-contain brightness-0 invert group-hover:scale-105 transition-transform"
+              />
+              <div className="h-5.5 w-[1px] bg-white/20" />
+              <img
+                src="/images/skechers-logo.png"
+                alt="Skechers Logo"
+                className="h-6 w-auto object-contain brightness-0 invert group-hover:scale-105 transition-transform"
+              />
+            </Link>
+            <div className="mt-3 flex items-center justify-between">
+              <span className="font-mono text-[10px] font-black text-emerald-400 uppercase tracking-widest">
+                ADMIN SYSTEM RBAC
+              </span>
+              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                PROD
+              </span>
             </div>
           </div>
 

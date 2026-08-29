@@ -130,12 +130,22 @@ export const DEFAULT_LANDING_CMS: LandingCMSConfig = {
   },
 };
 
-export const CMS_STORAGE_KEY = "tbs_landing_cms";
+export const CMS_STORAGE_KEY = "vpchuoiskechers_landing_cms";
+
+export function getSiteStorageKey(): string {
+  if (typeof window === "undefined") return "vpchuoiskechers_landing_cms";
+  const host = window.location.hostname;
+  if (host.includes("thkiengiangshoes")) {
+    return "thkiengiangshoes_landing_cms";
+  }
+  return "vpchuoiskechers_landing_cms";
+}
 
 export function getLandingCMS(): LandingCMSConfig {
   if (typeof window === "undefined") return DEFAULT_LANDING_CMS;
   try {
-    const raw = localStorage.getItem(CMS_STORAGE_KEY);
+    const key = getSiteStorageKey();
+    const raw = localStorage.getItem(key) || localStorage.getItem(CMS_STORAGE_KEY);
     if (!raw) return DEFAULT_LANDING_CMS;
     const parsed = JSON.parse(raw);
     const storedProducts = parsed.products || {};
@@ -169,7 +179,9 @@ export function getLandingCMS(): LandingCMSConfig {
 
 export function saveLandingCMS(config: LandingCMSConfig) {
   if (typeof window !== "undefined") {
-    localStorage.setItem(CMS_STORAGE_KEY, JSON.stringify(config));
+    const key = getSiteStorageKey();
+    localStorage.setItem(key, JSON.stringify(config));
     window.dispatchEvent(new Event("tbs_landing_cms_updated"));
   }
 }
+

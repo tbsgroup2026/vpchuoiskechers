@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "description": "TBS II Production & Workflow Management Platform Monorepo",
   "scripts": {
-    "build": "cd web && npm install && npm run build",
-    "deploy": "cd web && npx wrangler deploy",
+    "build": "npx next build web",
+    "deploy": "npx wrangler deploy",
     "install-all": "npm install --prefix backend && npm install --prefix web",
     "dev:backend": "npm run dev --prefix backend",
     "dev:web": "npm run dev --prefix web",

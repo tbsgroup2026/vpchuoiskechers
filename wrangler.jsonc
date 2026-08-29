@@ -9,7 +9,28 @@
     "directory": "web/out"
   },
   "vars": {
+    "SITE_ID": "vpchuoiskechers",
+    "CLOUDINARY_FOLDER": "vpchuoiskechers",
     "NEXT_PUBLIC_APP_URL": "https://vpchuoiskechers.tbsgroup2026.workers.dev",
     "JWT_SECRET": "tbs_group_secure_jwt_secret_key_2026"
-  }
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "vpchuoiskechers-db",
+      "database_id": "ae3a7efd-ff5d-45c2-8c49-78d1518e3aa1"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "KV",
+      "id": "vpchuoiskechers-kv-id"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "BUCKET",
+      "bucket_name": "vpchuoiskechers-assets"
+    }
+  ]
 }

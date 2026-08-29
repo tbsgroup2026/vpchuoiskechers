@@ -137,6 +137,7 @@ export default function Header() {
         const formData = new FormData();
         formData.append("file", fileOrDataUrl);
         formData.append("upload_preset", preset);
+        formData.append("folder", "vpchuoiskechers");
 
         const res = await fetch("https://api.cloudinary.com/v1_1/dwl2xtbqa/image/upload", {
           method: "POST",

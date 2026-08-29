@@ -210,6 +210,7 @@ export default {
             const formData = new FormData();
             formData.append("file", image);
             formData.append("upload_preset", preset);
+            formData.append("folder", (env && env.CLOUDINARY_FOLDER) || "vpchuoiskechers");
 
             const cRes = await fetch("https://api.cloudinary.com/v1_1/dwl2xtbqa/image/upload", {
               method: "POST",

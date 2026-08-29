@@ -104,6 +104,7 @@ export default function KaizenPublicSubmitForm() {
       }
 
       formData.append("upload_preset", preset);
+      formData.append("folder", "vpchuoiskechers");
 
       const res = await fetch(
         `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/${fileType}/upload`,

@@ -1,0 +1,15 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "vpchuoiskechers",
+  "compatibility_date": "2024-09-23",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "assets": {
+    "directory": "web/out"
+  },
+  "vars": {
+    "NEXT_PUBLIC_APP_URL": "https://vpchuoiskechers.tbsgroup2026.workers.dev",
+    "JWT_SECRET": "tbs_group_secure_jwt_secret_key_2026"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "tbs2-platform",
+  "version": "1.0.0",
+  "description": "TBS II Production & Workflow Management Platform Monorepo",
+  "scripts": {
+    "build": "cd web && npm install && npm run build",
+    "deploy": "cd web && npx wrangler deploy",
+    "install-all": "npm install --prefix backend && npm install --prefix web",
+    "dev:backend": "npm run dev --prefix backend",
+    "dev:web": "npm run dev --prefix web",
+    "dev": "npx --yes concurrently \"npm run dev --prefix backend\" \"npm run dev --prefix web\"",
+    "security-scan": "node scripts/security-scan.js",
+    "security-scan:all": "node scripts/security-scan.js --all",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "husky": "^8.0.3"
+  }
+}

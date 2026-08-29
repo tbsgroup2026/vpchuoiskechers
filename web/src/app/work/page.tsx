@@ -2319,7 +2319,7 @@ export default function WorkDashboardPage() {
                 <div className="flex items-start justify-between border-b border-slate-200 pb-3">
                   <div>
                     <h4 className="font-sans font-black text-xs text-[#006838] tracking-wider uppercase">
-                      CÔNG TY CP ĐẦU TƯ THÁI BÌNH (TBS GROUP)
+                      VĂN PHÒNG CHUỖI SKECHERS (TBS GROUP)
                     </h4>
                     <p className="text-[11px] text-slate-600 font-sans">
                       Văn Phòng Chuỗi SKECHERS - 5A Xuyên Á, Dĩ An, Bình Dương

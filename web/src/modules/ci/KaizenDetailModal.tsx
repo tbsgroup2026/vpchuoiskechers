@@ -146,7 +146,7 @@ export default function KaizenDetailModal({
               <span className="text-2xl font-black text-emerald-600 block">
                 {proposal.score_points || 0} / 100
               </span>
-              <span className="text-[10px] font-bold text-slate-400">{proposal.evaluated_at ? "Đã" : "Chờ"}</span>
+              <span className="text-[10px] font-bold text-emerald-600">Đã duyệt</span>
             </div>
           </div>
 
@@ -233,12 +233,15 @@ export default function KaizenDetailModal({
           {/* Header with Close Button & Category Badges */}
           <div className="flex-shrink-0 p-5 md:p-6 border-b border-slate-200 bg-white">
             <div className="flex items-start justify-between gap-4 mb-4">
-              <div className="flex gap-2">
+              <div className="flex items-center gap-2">
                 <span className={`inline-block px-3 py-1.5 rounded-full text-[11px] font-black ${catObj.color}`}>
                   {catObj.label}
                 </span>
-                <span className="inline-block px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-700 text-[11px] font-black">
-                  {proposal.registration_type === "THI_DUA" ? "🏆 Thi Đua" : "📦 Lưu Trữ"}
+                <span className="inline-block px-3 py-1.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-[11px] font-black">
+                  {proposal.registration_type === "THI_DUA" ? "🏆 Thi đua" : "📦 Lưu Trữ"}
+                </span>
+                <span className="inline-block px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300 text-[11px] font-black">
+                  ✓ Đã duyệt
                 </span>
               </div>
               <button

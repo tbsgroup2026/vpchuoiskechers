@@ -2209,14 +2209,10 @@ export default function CIModule() {
                     📦 {activeProposal.category_label || "1.Tiết kiệm Vật tư"}
                   </span>
                   <span className="px-3 py-1 rounded-full bg-amber-50 text-amber-800 font-black border border-amber-200 flex items-center gap-1">
-                    🏆 {activeProposal.registration_type === "THI_DUA" ? "Thi đua" : activeProposal.registration_type === "LUU_TRU" ? "Lưu trữ" : "Chờ đánh giá"}
+                    🏆 {activeProposal.registration_type === "THI_DUA" ? "Thi đua" : activeProposal.registration_type === "LUU_TRU" ? "Lưu trữ" : "Thi đua"}
                   </span>
-                  <span className={`px-3 py-1 rounded-full text-xs font-black border flex items-center gap-1 ${
-                    activeProposal.sub_status === "DA_DANH_GIA"
-                      ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                      : "bg-amber-50 text-amber-900 border-amber-200"
-                  }`}>
-                    {activeProposal.sub_status === "DA_DANH_GIA" ? "🟢 Đã tổng hợp điểm" : "🟡 Chờ đánh giá"}
+                  <span className="px-3 py-1 rounded-full text-xs font-black border flex items-center gap-1 bg-emerald-50 text-emerald-800 border-emerald-300">
+                    ✓ Đã duyệt
                   </span>
                 </div>
 
@@ -2711,10 +2707,10 @@ export default function CIModule() {
                   </p>
                 </div>
               ) : (
-                <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 font-bold space-y-2">
+                <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-emerald-900 font-bold space-y-2">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="flex items-center gap-1 text-amber-700 font-black">
-                      ⏳ Đang Chờ Đánh Giá
+                    <span className="flex items-center gap-1 text-emerald-700 font-black">
+                      ✓ Đã Duyệt
                     </span>
                     <span className="text-[11px] font-black text-amber-800">
                       Tiến độ: {activeProposal.rating_count || 0}/5 sếp đã chấm

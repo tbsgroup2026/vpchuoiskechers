@@ -52,24 +52,41 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const selectedRoleOpt = LOGIN_ROLE_OPTIONS.find((r) => r.value === selectedRole) || LOGIN_ROLE_OPTIONS[5];
-  const isPasswordOnly = selectedRoleOpt.loginMethod === "password_only";
+  const EXECUTIVE_RANKS = ["ceo", "deputy_ceo", "director", "deputy_director"];
+  const isExecutiveRank = EXECUTIVE_RANKS.includes(selectedRole);
   const currentExecutiveOfficers = EXECUTIVE_OFFICERS[selectedRole];
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    setLoading(true);
 
     try {
       const cleanEmpCode = empCode.trim();
-      const targetIdentifier = isPasswordOnly
-        ? (selectedOfficerCode || selectedRole)
-        : (cleanEmpCode || selectedRole);
 
-      if (!password && !isPasswordOnly) {
+      // Quy tắc xác thực khi bấm Đăng Nhập:
+      // 1. Vai trò thuộc nhóm PGĐ trở lên (Executive Rank):
+      //    Bắt buộc phải có tên cán bộ chọn từ thả xuống (hoặc MSNV tự động điền từ tên đó)
+      if (isExecutiveRank) {
+        if (!selectedOfficerCode && !cleanEmpCode) {
+          throw new Error("Vui lòng chọn tên Cán bộ / Lãnh đạo trong danh sách thả xuống");
+        }
+      } else {
+        // 2. Vai trò thuộc nhóm còn lại (Trưởng Phòng, Admin, CBCNV):
+        //    Bắt buộc phải nhập MSNV thủ công, để trống không gửi
+        if (!cleanEmpCode) {
+          throw new Error("Vui lòng nhập Mã số nhân viên (MSNV)");
+        }
+      }
+
+      if (!password) {
         throw new Error("Vui lòng nhập mật khẩu xác thực");
       }
+
+      setLoading(true);
+
+      const targetIdentifier = isExecutiveRank
+        ? (selectedOfficerCode || cleanEmpCode)
+        : cleanEmpCode;
 
       // Đăng nhập và nạp chính xác Profile + Avatar theo MSNV đồng bộ với Cloudflare D1 Database
       const profile = await loginWithD1Database(targetIdentifier, password, selectedRole);
@@ -89,12 +106,12 @@ export default function LoginPage() {
   };
 
   const handleQuickDemoSelect = (roleKey: string, code: string, pass: string) => {
-    if (roleKey === "ceo" || roleKey === "deputy_ceo" || roleKey === "director" || roleKey === "deputy_director" || roleKey === "admin") {
+    if (EXECUTIVE_RANKS.includes(roleKey)) {
       setSelectedRole(roleKey);
       setSelectedOfficerCode(code);
       setEmpCode(code);
     } else {
-      setSelectedRole("employee");
+      setSelectedRole(roleKey);
       setSelectedOfficerCode("");
       setEmpCode(code);
     }
@@ -152,17 +169,15 @@ export default function LoginPage() {
                   onChange={(e) => {
                     const val = e.target.value;
                     setSelectedRole(val);
-                    if (EXECUTIVE_OFFICERS[val] && EXECUTIVE_OFFICERS[val].length > 0) {
+                    if (EXECUTIVE_RANKS.includes(val) && EXECUTIVE_OFFICERS[val] && EXECUTIVE_OFFICERS[val].length > 0) {
                       const firstCode = EXECUTIVE_OFFICERS[val][0].empCode;
                       setSelectedOfficerCode(firstCode);
                       setEmpCode(firstCode);
                       setPassword("123456");
                     } else {
                       setSelectedOfficerCode("");
-                      const opt = LOGIN_ROLE_OPTIONS.find((r) => r.value === val);
-                      if (opt && "defaultEmpCode" in opt && opt.defaultEmpCode) {
-                        setEmpCode(opt.defaultEmpCode);
-                      }
+                      setEmpCode("");
+                      setPassword("");
                     }
                     setError("");
                   }}
@@ -178,12 +193,12 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Field 1B: Cadre Dropdown for Executive Ranks (PGĐ to PTGĐ/TGĐ) */}
-            {currentExecutiveOfficers && currentExecutiveOfficers.length > 0 && (
+            {/* Field 1B: Thả xuống chọn tên Cán bộ / Lãnh đạo (CHỈ HIỆN CHO NHÓM PGĐ TRỞ LÊN) */}
+            {isExecutiveRank && currentExecutiveOfficers && currentExecutiveOfficers.length > 0 && (
               <div className="space-y-1.5 animate-in fade-in duration-200">
                 <label htmlFor="officerSelect" className="text-xs font-bold text-[#08221a] flex items-center gap-1.5">
                   <IconUser size={15} className="text-[#08221a]" />
-                  <span>Cán bộ / Lãnh đạo chức danh</span>
+                  <span>Họ tên Cán bộ / Lãnh đạo ({LOGIN_ROLE_OPTIONS.find(r => r.value === selectedRole)?.label.replace(/^[^\s]+\s*/, '')})</span>
                 </label>
                 <div className="relative">
                   <select
@@ -207,23 +222,26 @@ export default function LoginPage() {
                   </select>
                   <IconChevronDown size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#08221a] pointer-events-none" />
                 </div>
+                <div className="text-[10px] text-emerald-700 font-semibold px-1 flex items-center justify-between">
+                  <span>✓ Mã MSNV hệ thống (tự động): <strong className="font-mono">{selectedOfficerCode || currentExecutiveOfficers[0].empCode}</strong></span>
+                </div>
               </div>
             )}
 
-            {/* Field 2: Mã số nhân viên — CHI HIỆN CHO LOGIN_METHOD === "msnv_password" */}
-            {!isPasswordOnly && (
+            {/* Field 2: Nhập Mã số nhân viên (MSNV) thủ công — ẨN KHI LÀ CẤP PGĐ TRỞ LÊN, CHỈ HIỆN CHO CÁC VAI TRÒ CÒN LẠI */}
+            {!isExecutiveRank && (
               <div className="space-y-1.5 animate-in fade-in duration-200">
                 <label htmlFor="empCode" className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
                   <IconUser size={15} className="text-gray-500" />
-                  <span>Mã số nhân viên (MSNV)</span>
+                  <span>Mã số nhân viên (MSNV) *</span>
                 </label>
                 <input
                   id="empCode"
                   type="text"
-                  required={!isPasswordOnly}
+                  required
                   value={empCode}
                   onChange={(e) => setEmpCode(e.target.value)}
-                  placeholder="VD: 202608001, NS-001, KT-001..."
+                  placeholder="VD: 202608001, NS-001, KT-001, QC-001..."
                   className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:outline-none focus:border-[#08221a] focus:ring-2 focus:ring-[#08221a]/10 transition-all placeholder:text-gray-400"
                 />
               </div>

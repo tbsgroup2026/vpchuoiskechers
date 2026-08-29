@@ -128,9 +128,10 @@ export const ROLES: Record<string, Permission[]> = {
 export const LOGIN_ROLE_OPTIONS = [
   { value: "ceo", label: "👑 Tổng Giám Đốc", icon: "👑", loginMethod: "password_only" },
   { value: "deputy_ceo", label: "🌟 Phó Tổng Giám Đốc", icon: "🌟", loginMethod: "password_only" },
-  { value: "director", label: "🏢 Giám Đốc", icon: "🏢", loginMethod: "password_only" },
-  { value: "deputy_director", label: "💼 Phó Giám Đốc", icon: "💼", loginMethod: "password_only" },
-  { value: "admin", label: "🔧 Quản Trị Viên Hệ Thống", icon: "🔧", loginMethod: "password_only" },
-  { value: "employee", label: "👤 CBCNV", icon: "👤", loginMethod: "msnv_password", defaultEmpCode: "" },
+  { value: "director", label: "🏢 Giám Đốc Khối", icon: "🏢", loginMethod: "password_only" },
+  { value: "deputy_director", label: "💼 Phó Giám Đốc Khối", icon: "💼", loginMethod: "password_only" },
+  { value: "department_head", label: "👔 Trưởng Phòng / Quản Lý", icon: "👔", loginMethod: "msnv_password" },
+  { value: "admin", label: "🔧 Quản Trị Viên Hệ Thống (Admin)", icon: "🔧", loginMethod: "msnv_password" },
+  { value: "employee", label: "👤 Cán Bộ Công Nhân Viên (CBCNV)", icon: "👤", loginMethod: "msnv_password", defaultEmpCode: "" },
 ] as const;
 

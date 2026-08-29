@@ -37,8 +37,10 @@ const EXECUTIVE_OFFICERS: Record<
     { empCode: "GĐ-004", name: "Vũ Thị Thanh", title: "Giám Đốc Khối Chuỗi Cung Ứng SKECHERS", defaultPass: "123456" },
   ],
   deputy_director: [
+    { empCode: "PGĐ-001", name: "Kiều Thanh Vũ", title: "Phó Giám Đốc Phân Hệ CN CI PPH (PGĐ)", defaultPass: "123456" },
     { empCode: "PGĐ-004", name: "Nguyễn Thị Mai", title: "Phó Giám Đốc Quản Lý Chất Lượng (QC) & Gemba", defaultPass: "123456" },
     { empCode: "PGĐ-005", name: "Bùi Văn Hùng", title: "Phó Giám Đốc Sản Xuất Nhà Máy KG1", defaultPass: "123456" },
+    { empCode: "PGĐ-006", name: "Đỗ Thị Thu", title: "Phó Giám Đốc Nhân Sự & Hành Chánh", defaultPass: "123456" },
   ],
 };
 
@@ -207,7 +209,7 @@ export default function LoginPage() {
                       setPassword(found?.defaultPass || "123456");
                       setError("");
                     }}
-                    className="w-full px-4 py-3 bg-[#eefcf6] border border-[#86efac] rounded-2xl text-xs font-extrabold text-[#062c21] focus:outline-none focus:border-[#08221a] focus:ring-2 focus:ring-[#08221a]/10 transition-all appearance-none cursor-pointer pr-10 shadow-2xs"
+                    className="w-full px-4 py-3 bg-white border border-[#006838] rounded-2xl text-xs font-extrabold text-slate-900 focus:outline-none focus:border-[#08221a] focus:ring-2 focus:ring-[#08221a]/10 transition-all appearance-none cursor-pointer pr-10 shadow-2xs"
                   >
                     {currentExecutiveOfficers.map((officer) => (
                       <option key={officer.empCode} value={officer.empCode}>

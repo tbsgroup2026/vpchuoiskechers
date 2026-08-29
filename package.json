@@ -4,16 +4,26 @@
   "description": "TBS II Production & Workflow Management Platform Monorepo",
   "scripts": {
     "build": "npx next build web",
-    "deploy": "npx wrangler deploy",
-    "install-all": "npm install --prefix backend && npm install --prefix web",
-    "dev:backend": "npm run dev --prefix backend",
-    "dev:web": "npm run dev --prefix web",
-    "dev": "npx --yes concurrently \"npm run dev --prefix backend\" \"npm run dev --prefix web\"",
-    "security-scan": "node scripts/security-scan.js",
-    "security-scan:all": "node scripts/security-scan.js --all",
-    "prepare": "husky"
+    "deploy": "npx wrangler deploy"
+  },
+  "dependencies": {
+    "next": "14.2.15",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "@tabler/icons-react": "^3.19.0",
+    "clsx": "^2.1.1",
+    "chart.js": "^4.4.4",
+    "react-chartjs-2": "^5.2.0",
+    "jose": "^5.9.3",
+    "tailwindcss": "^3.4.1",
+    "postcss": "^8.4.38",
+    "autoprefixer": "^10.4.19"
   },
   "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "typescript": "^5",
     "husky": "^8.0.3"
   }
 }

@@ -59,7 +59,7 @@ interface MeetingRoom {
   badgeBg: string;
 }
 
-export type BookingStatus =
+type BookingStatus =
   | "PENDING"
   | "APPROVING"
   | "RECEPTIONIST_PROPOSED"
@@ -102,7 +102,7 @@ interface VisitorRecord {
   createdAt: string;
 }
 
-export const DEPARTMENT_OPTIONS = [
+const DEPARTMENT_OPTIONS = [
   "BAN ĐH-QT",
   "KD PTSP",
   "QLCL",

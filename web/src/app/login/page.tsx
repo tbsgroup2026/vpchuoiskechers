@@ -19,9 +19,32 @@ import {
 import { LOGIN_ROLE_OPTIONS } from "@/lib/permissions";
 import { loginWithD1Database, loginUserProfile, SYSTEM_USERS } from "@/lib/userProfiles";
 
+const EXECUTIVE_OFFICERS: Record<
+  string,
+  Array<{ empCode: string; name: string; title: string; defaultPass: string }>
+> = {
+  ceo: [
+    { empCode: "TGĐ-001", name: "Nguyễn Văn Hùng", title: "Tổng Giám Đốc Tập Đoàn TBS Group", defaultPass: "123456" },
+    { empCode: "TGĐ-002", name: "Phạm Đức Hoàng", title: "Tổng Giám Đốc Vận Hành SKECHERS", defaultPass: "123456" },
+  ],
+  deputy_ceo: [
+    { empCode: "PTGĐ-002", name: "Lê Hoàng Nam", title: "Phó Tổng Giám Đốc Vận Hành & Chuỗi Cung Ứng", defaultPass: "123456" },
+    { empCode: "PTGĐ-003", name: "Trịnh Văn Thành", title: "Phó Tổng Giám Đốc Kỹ Thuật & R&D", defaultPass: "123456" },
+  ],
+  director: [
+    { empCode: "GĐ-003", name: "Đặng Minh Tuấn", title: "Giám Đốc Khối Sản Xuất & Nhà Máy", defaultPass: "123456" },
+    { empCode: "GĐ-004", name: "Vũ Thị Thanh", title: "Giám Đốc Khối Chuỗi Cung Ứng SKECHERS", defaultPass: "123456" },
+  ],
+  deputy_director: [
+    { empCode: "PGĐ-004", name: "Nguyễn Thị Mai", title: "Phó Giám Đốc Quản Lý Chất Lượng (QC) & Gemba", defaultPass: "123456" },
+    { empCode: "PGĐ-005", name: "Bùi Văn Hùng", title: "Phó Giám Đốc Sản Xuất Nhà Máy KG1", defaultPass: "123456" },
+  ],
+};
+
 export default function LoginPage() {
   const router = useRouter();
   const [selectedRole, setSelectedRole] = useState<string>("employee");
+  const [selectedOfficerCode, setSelectedOfficerCode] = useState<string>("");
   const [empCode, setEmpCode] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
@@ -29,8 +52,9 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const selectedRoleOpt = LOGIN_ROLE_OPTIONS.find((r) => r.value === selectedRole) || LOGIN_ROLE_OPTIONS[4];
+  const selectedRoleOpt = LOGIN_ROLE_OPTIONS.find((r) => r.value === selectedRole) || LOGIN_ROLE_OPTIONS[5];
   const isPasswordOnly = selectedRoleOpt.loginMethod === "password_only";
+  const currentExecutiveOfficers = EXECUTIVE_OFFICERS[selectedRole];
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,7 +63,9 @@ export default function LoginPage() {
 
     try {
       const cleanEmpCode = empCode.trim();
-      const targetIdentifier = isPasswordOnly ? selectedRole : (cleanEmpCode || selectedRole);
+      const targetIdentifier = isPasswordOnly
+        ? (selectedOfficerCode || selectedRole)
+        : (cleanEmpCode || selectedRole);
 
       if (!password && !isPasswordOnly) {
         throw new Error("Vui lòng nhập mật khẩu xác thực");
@@ -65,9 +91,11 @@ export default function LoginPage() {
   const handleQuickDemoSelect = (roleKey: string, code: string, pass: string) => {
     if (roleKey === "ceo" || roleKey === "deputy_ceo" || roleKey === "director" || roleKey === "deputy_director" || roleKey === "admin") {
       setSelectedRole(roleKey);
-      setEmpCode("");
+      setSelectedOfficerCode(code);
+      setEmpCode(code);
     } else {
       setSelectedRole("employee");
+      setSelectedOfficerCode("");
       setEmpCode(code);
     }
     setPassword(pass);
@@ -124,9 +152,17 @@ export default function LoginPage() {
                   onChange={(e) => {
                     const val = e.target.value;
                     setSelectedRole(val);
-                    const opt = LOGIN_ROLE_OPTIONS.find((r) => r.value === val);
-                    if (opt && "defaultEmpCode" in opt && opt.defaultEmpCode) {
-                      setEmpCode(opt.defaultEmpCode);
+                    if (EXECUTIVE_OFFICERS[val] && EXECUTIVE_OFFICERS[val].length > 0) {
+                      const firstCode = EXECUTIVE_OFFICERS[val][0].empCode;
+                      setSelectedOfficerCode(firstCode);
+                      setEmpCode(firstCode);
+                      setPassword("123456");
+                    } else {
+                      setSelectedOfficerCode("");
+                      const opt = LOGIN_ROLE_OPTIONS.find((r) => r.value === val);
+                      if (opt && "defaultEmpCode" in opt && opt.defaultEmpCode) {
+                        setEmpCode(opt.defaultEmpCode);
+                      }
                     }
                     setError("");
                   }}
@@ -141,6 +177,38 @@ export default function LoginPage() {
                 <IconChevronDown size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
               </div>
             </div>
+
+            {/* Field 1B: Cadre Dropdown for Executive Ranks (PGĐ to PTGĐ/TGĐ) */}
+            {currentExecutiveOfficers && currentExecutiveOfficers.length > 0 && (
+              <div className="space-y-1.5 animate-in fade-in duration-200">
+                <label htmlFor="officerSelect" className="text-xs font-bold text-[#08221a] flex items-center gap-1.5">
+                  <IconUser size={15} className="text-[#08221a]" />
+                  <span>Cán bộ / Lãnh đạo chức danh</span>
+                </label>
+                <div className="relative">
+                  <select
+                    id="officerSelect"
+                    value={selectedOfficerCode || currentExecutiveOfficers[0].empCode}
+                    onChange={(e) => {
+                      const code = e.target.value;
+                      setSelectedOfficerCode(code);
+                      setEmpCode(code);
+                      const found = currentExecutiveOfficers.find((o) => o.empCode === code);
+                      setPassword(found?.defaultPass || "123456");
+                      setError("");
+                    }}
+                    className="w-full px-3.5 py-2.5 bg-emerald-50/70 border border-emerald-300 rounded-xl text-xs font-extrabold text-[#08221a] focus:outline-none focus:border-[#08221a] focus:ring-2 focus:ring-[#08221a]/10 transition-all appearance-none cursor-pointer pr-10 shadow-2xs"
+                  >
+                    {currentExecutiveOfficers.map((officer) => (
+                      <option key={officer.empCode} value={officer.empCode}>
+                        👤 {officer.name} — {officer.title} ({officer.empCode})
+                      </option>
+                    ))}
+                  </select>
+                  <IconChevronDown size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#08221a] pointer-events-none" />
+                </div>
+              </div>
+            )}
 
             {/* Field 2: Mã số nhân viên — CHI HIỆN CHO LOGIN_METHOD === "msnv_password" */}
             {!isPasswordOnly && (

@@ -28,6 +28,7 @@ const EXECUTIVE_OFFICERS: Record<
     { empCode: "TGĐ-002", name: "Phạm Đức Hoàng", title: "Tổng Giám Đốc Vận Hành SKECHERS", defaultPass: "123456" },
   ],
   deputy_ceo: [
+    { empCode: "PTGĐ-001", name: "Bùi Đình Trung", title: "Phó Tổng Giám Đốc KHCB & TTPP", defaultPass: "123456" },
     { empCode: "PTGĐ-002", name: "Lê Hoàng Nam", title: "Phó Tổng Giám Đốc Vận Hành & Chuỗi Cung Ứng", defaultPass: "123456" },
     { empCode: "PTGĐ-003", name: "Trịnh Văn Thành", title: "Phó Tổng Giám Đốc Kỹ Thuật & R&D", defaultPass: "123456" },
   ],
@@ -63,16 +64,11 @@ export default function LoginPage() {
     try {
       const cleanEmpCode = empCode.trim();
 
-      // Quy tắc xác thực khi bấm Đăng Nhập:
-      // 1. Vai trò thuộc nhóm PGĐ trở lên (Executive Rank):
-      //    Bắt buộc phải có tên cán bộ chọn từ thả xuống (hoặc MSNV tự động điền từ tên đó)
       if (isExecutiveRank) {
         if (!selectedOfficerCode && !cleanEmpCode) {
           throw new Error("Vui lòng chọn tên Cán bộ / Lãnh đạo trong danh sách thả xuống");
         }
       } else {
-        // 2. Vai trò thuộc nhóm còn lại (Trưởng Phòng, Admin, CBCNV):
-        //    Bắt buộc phải nhập MSNV thủ công, để trống không gửi
         if (!cleanEmpCode) {
           throw new Error("Vui lòng nhập Mã số nhân viên (MSNV)");
         }
@@ -88,7 +84,6 @@ export default function LoginPage() {
         ? (selectedOfficerCode || cleanEmpCode)
         : cleanEmpCode;
 
-      // Đăng nhập và nạp chính xác Profile + Avatar theo MSNV đồng bộ với Cloudflare D1 Database
       const profile = await loginWithD1Database(targetIdentifier, password, selectedRole);
 
       const targetUrl = (selectedRole === "admin" || cleanEmpCode === "ADMIN-2026" || profile.empCode === "ADMIN-2026")
@@ -137,13 +132,13 @@ export default function LoginPage() {
             </Link>
           </div>
 
-          {/* Tiêu đề chào mừng */}
+          {/* Tiêu đề chào mừng (Khớp chính xác giao diện) */}
           <div className="space-y-1.5 mb-6">
-            <h1 className="text-xl sm:text-2xl font-extrabold text-[#08221a] tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-[#08221a] tracking-tight leading-snug">
               Đăng Nhập Hệ Thống <br />
-              <span className="text-[#0f4133]">Văn Phòng Chuỗi SKECHERS</span>
+              <span className="text-[#08221a]">Văn phòng Chuỗi SKECHERS – TBS Group</span>
             </h1>
-            <p className="text-xs text-gray-500 leading-relaxed">
+            <p className="text-xs text-gray-500 font-medium leading-relaxed">
               Chọn vai trò hoặc tài khoản demo bên dưới để bắt đầu làm việc
             </p>
           </div>
@@ -158,8 +153,8 @@ export default function LoginPage() {
 
             {/* Field 1: Chức vụ / Vai trò Dropdown */}
             <div className="space-y-1.5">
-              <label htmlFor="roleSelect" className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
-                <IconShieldCheck size={15} className="text-[#08221a]" />
+              <label htmlFor="roleSelect" className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
+                <IconShieldCheck size={16} className="text-gray-700" />
                 <span>Chức vụ / Vai trò đăng nhập</span>
               </label>
               <div className="relative">
@@ -181,7 +176,7 @@ export default function LoginPage() {
                     }
                     setError("");
                   }}
-                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-800 focus:outline-none focus:border-[#08221a] focus:ring-2 focus:ring-[#08221a]/10 transition-all appearance-none cursor-pointer pr-10"
+                  className="w-full px-4 py-3 bg-white border border-gray-200 rounded-2xl text-xs font-bold text-gray-900 focus:outline-none focus:border-[#08221a] focus:ring-2 focus:ring-[#08221a]/10 transition-all appearance-none cursor-pointer pr-10 shadow-2xs"
                 >
                   {LOGIN_ROLE_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>
@@ -189,16 +184,16 @@ export default function LoginPage() {
                     </option>
                   ))}
                 </select>
-                <IconChevronDown size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                <IconChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
               </div>
             </div>
 
-            {/* Field 1B: Thả xuống chọn tên Cán bộ / Lãnh đạo (CHỈ HIỆN CHO NHÓM PGĐ TRỞ LÊN) */}
+            {/* Field 1B: Tên Cán bộ / Lãnh đạo (Khớp 100% hình minh hoạ với background mint nhạt và icon sparkles) */}
             {isExecutiveRank && currentExecutiveOfficers && currentExecutiveOfficers.length > 0 && (
               <div className="space-y-1.5 animate-in fade-in duration-200">
-                <label htmlFor="officerSelect" className="text-xs font-bold text-[#08221a] flex items-center gap-1.5">
-                  <IconUser size={15} className="text-[#08221a]" />
-                  <span>Họ tên Cán bộ / Lãnh đạo ({LOGIN_ROLE_OPTIONS.find(r => r.value === selectedRole)?.label.replace(/^[^\s]+\s*/, '')})</span>
+                <label htmlFor="officerSelect" className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
+                  <IconSparkles size={16} className="text-amber-500" />
+                  <span>Tên Cán bộ / Lãnh đạo ({currentExecutiveOfficers.length} nhân sự)</span>
                 </label>
                 <div className="relative">
                   <select
@@ -212,27 +207,24 @@ export default function LoginPage() {
                       setPassword(found?.defaultPass || "123456");
                       setError("");
                     }}
-                    className="w-full px-3.5 py-2.5 bg-emerald-50/70 border border-emerald-300 rounded-xl text-xs font-extrabold text-[#08221a] focus:outline-none focus:border-[#08221a] focus:ring-2 focus:ring-[#08221a]/10 transition-all appearance-none cursor-pointer pr-10 shadow-2xs"
+                    className="w-full px-4 py-3 bg-[#eefcf6] border border-[#86efac] rounded-2xl text-xs font-extrabold text-[#062c21] focus:outline-none focus:border-[#08221a] focus:ring-2 focus:ring-[#08221a]/10 transition-all appearance-none cursor-pointer pr-10 shadow-2xs"
                   >
                     {currentExecutiveOfficers.map((officer) => (
                       <option key={officer.empCode} value={officer.empCode}>
-                        👤 {officer.name} — {officer.title} ({officer.empCode})
+                        {officer.name} — {officer.title}
                       </option>
                     ))}
                   </select>
-                  <IconChevronDown size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#08221a] pointer-events-none" />
-                </div>
-                <div className="text-[10px] text-emerald-700 font-semibold px-1 flex items-center justify-between">
-                  <span>✓ Mã MSNV hệ thống (tự động): <strong className="font-mono">{selectedOfficerCode || currentExecutiveOfficers[0].empCode}</strong></span>
+                  <IconChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-emerald-700 pointer-events-none" />
                 </div>
               </div>
             )}
 
-            {/* Field 2: Nhập Mã số nhân viên (MSNV) thủ công — ẨN KHI LÀ CẤP PGĐ TRỞ LÊN, CHỈ HIỆN CHO CÁC VAI TRÒ CÒN LẠI */}
+            {/* Field 2: Mã số nhân viên (MSNV) — ẨN KHI LÀ CẤP PGĐ TRỞ LÊN */}
             {!isExecutiveRank && (
               <div className="space-y-1.5 animate-in fade-in duration-200">
-                <label htmlFor="empCode" className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
-                  <IconUser size={15} className="text-gray-500" />
+                <label htmlFor="empCode" className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
+                  <IconUser size={16} className="text-gray-500" />
                   <span>Mã số nhân viên (MSNV) *</span>
                 </label>
                 <input
@@ -242,16 +234,16 @@ export default function LoginPage() {
                   value={empCode}
                   onChange={(e) => setEmpCode(e.target.value)}
                   placeholder="VD: 202608001, NS-001, KT-001, QC-001..."
-                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:outline-none focus:border-[#08221a] focus:ring-2 focus:ring-[#08221a]/10 transition-all placeholder:text-gray-400"
+                  className="w-full px-4 py-3 bg-white border border-gray-200 rounded-2xl text-xs font-semibold text-gray-900 focus:outline-none focus:border-[#08221a] focus:ring-2 focus:ring-[#08221a]/10 transition-all placeholder:text-gray-400"
                 />
               </div>
             )}
 
-            {/* Field 3: Mật khẩu */}
+            {/* Field 3: Mật khẩu xác thực vai trò (Background nhạt xám/lam mộc mạc theo ảnh) */}
             <div className="space-y-1.5">
-              <label htmlFor="password" className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
-                <IconLock size={15} className="text-gray-500" />
-                <span>Mật khẩu {isPasswordOnly && "xác thực vai trò"}</span>
+              <label htmlFor="password" className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
+                <IconLock size={16} className="text-gray-500" />
+                <span>Mật khẩu xác thực vai trò</span>
               </label>
               <div className="relative">
                 <input
@@ -261,12 +253,12 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full pl-3.5 pr-10 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:outline-none focus:border-[#08221a] focus:ring-2 focus:ring-[#08221a]/10 transition-all placeholder:text-gray-400"
+                  className="w-full pl-4 pr-10 py-3 bg-[#eff4fe] border border-indigo-100/80 rounded-2xl text-xs font-bold text-gray-900 focus:outline-none focus:border-[#08221a] focus:ring-2 focus:ring-[#08221a]/10 transition-all placeholder:text-gray-400"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"
                 >
                   {showPassword ? <IconEyeOff size={16} /> : <IconEye size={16} />}
                 </button>

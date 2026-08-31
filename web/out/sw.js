@@ -92,13 +92,15 @@ self.addEventListener("notificationclick", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
-  // Ignore non-GET requests, API routes, Next.js RSC data prefetch, and txt assets
+  const requestUrl = event.request.url;
+  // Ignore non-GET requests, non-http/https schemes (e.g. chrome-extension), API routes, Next.js RSC data prefetch, and txt assets
   if (
     event.request.method !== "GET" ||
-    event.request.url.includes("/api/") ||
-    event.request.url.includes("_rsc=") ||
-    event.request.url.includes("__next") ||
-    event.request.url.includes(".txt")
+    (!requestUrl.startsWith("http://") && !requestUrl.startsWith("https://")) ||
+    requestUrl.includes("/api/") ||
+    requestUrl.includes("_rsc=") ||
+    requestUrl.includes("__next") ||
+    requestUrl.includes(".txt")
   ) {
     return;
   }
@@ -107,9 +109,11 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(
     fetch(event.request)
       .then((networkResponse) => {
-        if (networkResponse && networkResponse.status === 200) {
+        if (networkResponse && networkResponse.status === 200 && networkResponse.type === "basic") {
           const responseToCache = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache).catch(() => {});
+          });
         }
         return networkResponse;
       })

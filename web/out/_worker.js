@@ -4198,8 +4198,24 @@ export default {
       }
     }
 
-    // Default Fallback: Serve Next.js Static Export Assets
-    return env.ASSETS.fetch(request);
+    // Default Fallback: Serve Next.js Static Export Assets with HTML extension resolution
+    let res = await env.ASSETS.fetch(request);
+    if (res.status === 404 && request.method === "GET" && !url.pathname.includes(".")) {
+      const cleanPath = url.pathname.endsWith("/") ? url.pathname.slice(0, -1) : url.pathname;
+      
+      // 1. Try path.html (e.g., /1-5-2.html)
+      const htmlUrl = new URL(request.url);
+      htmlUrl.pathname = `${cleanPath}.html`;
+      const htmlRes = await env.ASSETS.fetch(new Request(htmlUrl.toString(), request));
+      if (htmlRes.status === 200) return htmlRes;
+
+      // 2. Try path/index.html (e.g., /1-5-2/index.html)
+      const indexUrl = new URL(request.url);
+      indexUrl.pathname = `${cleanPath}/index.html`;
+      const indexRes = await env.ASSETS.fetch(new Request(indexUrl.toString(), request));
+      if (indexRes.status === 200) return indexRes;
+    }
+    return res;
   },
 
   // ⏰ Cloudflare Worker Cron Trigger Handler (Automated Weekly Execution)

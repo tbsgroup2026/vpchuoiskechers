@@ -53,6 +53,7 @@ export default function RootLayout({
       className="h-full antialiased font-sans"
     >
       <head>
+        <meta name="mobile-web-app-capable" content="yes" />
         <link rel="icon" href="/icon.png" type="image/png" />
         <link rel="shortcut icon" href="/icon.png" type="image/png" />
         <link rel="apple-touch-icon" href="/icon.png" />

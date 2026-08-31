@@ -1418,10 +1418,6 @@ video {
   height: 88px;
 }
 
-.h-\[90vh\]{
-  height: 90vh;
-}
-
 .h-auto{
   height: auto;
 }
@@ -2627,10 +2623,6 @@ video {
 
 .border{
   border-width: 1px;
-}
-
-.border-0{
-  border-width: 0px;
 }
 
 .border-2{
@@ -4267,12 +4259,8 @@ video {
   background-color: rgb(2 6 23 / var(--tw-bg-opacity, 1));
 }
 
-.bg-slate-950\/60{
-  background-color: rgb(2 6 23 / 0.6);
-}
-
-.bg-slate-950\/70{
-  background-color: rgb(2 6 23 / 0.7);
+.bg-slate-950\/65{
+  background-color: rgb(2 6 23 / 0.65);
 }
 
 .bg-slate-950\/80{
@@ -5605,6 +5593,10 @@ video {
 .text-4xl{
   font-size: 2.25rem;
   line-height: 2.5rem;
+}
+
+.text-\[10\.5px\]{
+  font-size: 10.5px;
 }
 
 .text-\[10px\]{
@@ -7273,6 +7265,14 @@ body {
   color: rgb(255 255 255 / var(--tw-text-opacity, 1));
 }
 
+.placeholder\:font-normal::-moz-placeholder{
+  font-weight: 400;
+}
+
+.placeholder\:font-normal::placeholder{
+  font-weight: 400;
+}
+
 .placeholder\:text-gray-400::-moz-placeholder{
   --tw-text-opacity: 1;
   color: rgb(156 163 175 / var(--tw-text-opacity, 1));
@@ -7291,6 +7291,16 @@ body {
 .placeholder\:text-rose-400::placeholder{
   --tw-text-opacity: 1;
   color: rgb(251 113 133 / var(--tw-text-opacity, 1));
+}
+
+.placeholder\:text-slate-400::-moz-placeholder{
+  --tw-text-opacity: 1;
+  color: rgb(148 163 184 / var(--tw-text-opacity, 1));
+}
+
+.placeholder\:text-slate-400::placeholder{
+  --tw-text-opacity: 1;
+  color: rgb(148 163 184 / var(--tw-text-opacity, 1));
 }
 
 .before\:absolute::before{
@@ -8218,6 +8228,11 @@ body {
   border-color: rgb(52 211 153 / 0.5);
 }
 
+.focus\:border-emerald-500:focus{
+  --tw-border-opacity: 1;
+  border-color: rgb(16 185 129 / var(--tw-border-opacity, 1));
+}
+
 .focus\:border-emerald-600:focus{
   --tw-border-opacity: 1;
   border-color: rgb(5 150 105 / var(--tw-border-opacity, 1));
@@ -8287,6 +8302,10 @@ body {
 .focus\:ring-emerald-100:focus{
   --tw-ring-opacity: 1;
   --tw-ring-color: rgb(209 250 229 / var(--tw-ring-opacity, 1));
+}
+
+.focus\:ring-emerald-500\/30:focus{
+  --tw-ring-color: rgb(16 185 129 / 0.3);
 }
 
 .focus\:ring-emerald-600:focus{
@@ -8405,11 +8424,6 @@ body {
   border-color: rgb(52 211 153 / 0.4);
 }
 
-.group:hover .group-hover\:bg-\[\#004029\]{
-  --tw-bg-opacity: 1;
-  background-color: rgb(0 64 41 / var(--tw-bg-opacity, 1));
-}
-
 .group:hover .group-hover\:bg-\[\#006838\]{
   --tw-bg-opacity: 1;
   background-color: rgb(0 104 56 / var(--tw-bg-opacity, 1));
@@ -8438,6 +8452,11 @@ body {
 .group:hover .group-hover\:bg-amber-600{
   --tw-bg-opacity: 1;
   background-color: rgb(217 119 6 / var(--tw-bg-opacity, 1));
+}
+
+.group:hover .group-hover\:bg-emerald-500{
+  --tw-bg-opacity: 1;
+  background-color: rgb(16 185 129 / var(--tw-bg-opacity, 1));
 }
 
 .group:hover .group-hover\:bg-red-500{

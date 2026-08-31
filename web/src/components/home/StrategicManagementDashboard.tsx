@@ -14,119 +14,133 @@ import {
   IconBuildingFactory,
   IconDatabase,
   IconTarget,
+  IconSearch,
 } from "@tabler/icons-react";
 
 export interface ReportItem {
   id: string;
   title: string;
-  desc: string;
-  category: string;
-  url: string;
+  subtitle: string;
+  tag1: string;
+  tag2: string;
+  link: string;
 }
 
 const SAMPLE_REPORTS: Record<string, ReportItem[]> = {
   DINH_HUONG: [
     {
       id: "DH-01",
-      title: "Báo cáo Định hướng Ngân sách năm 2026 - VP Chuỗi SKECHERS",
-      desc: "Kế hoạch phân bổ ngân sách các trụ cột và chỉ tiêu doanh thu chuỗi.",
-      category: "Định hướng & Ngân sách",
-      url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vS-skechers-152-master/pubhtml",
+      title: "01. KH-KQ N.SÁCH N.2026_BQLVH1",
+      subtitle: "KH-KQ N.SÁCH N.2026_BQLVH1",
+      tag1: "Ngân Sách",
+      tag2: "N.SXCN",
+      link: "https://docs.google.com/spreadsheets/d/18Hbql-HZdji3mPuKjQi2yAxcBdHDewivNqGlMzMy5XI/edit?gid=150933183#gid=150933183",
     },
     {
       id: "DH-02",
-      title: "Hạn mức Chi phí Vận hành & Đầu tư R&D Chuỗi SKECHERS",
-      desc: "Quản trị ngân sách chi tiết phòng ban và hạn mức giải ngân.",
-      category: "Định hướng & Ngân sách",
-      url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vS-skechers-152-master/pubhtml",
+      title: "02. BM CÁC CHỈ SỐ QT THÁNG",
+      subtitle: "BM CÁC CHỈ SỐ QT THÁNG",
+      tag1: "Ngân Sách",
+      tag2: "N.SXCN",
+      link: "https://docs.google.com/spreadsheets/d/15IhXF4qWvrHfNJTM9hxnfD6AudP7_k9qqm9G8RE788k/edit?gid=150933183#gid=150933183",
+    },
+    {
+      id: "DH-03",
+      title: "03. BM CÁC CHỈ SỐ QT LK NĂM",
+      subtitle: "BM CÁC CHỈ SỐ QT LK NĂM",
+      tag1: "Ngân Sách",
+      tag2: "N.SXCN",
+      link: "https://docs.google.com/spreadsheets/d/1kiXB36DDiM7Y1gR7952DKr_aCNyZvZBMSIB-xfzKZUw/edit?gid=150933183#gid=150933183",
     },
   ],
   DIEU_HANH: [
     {
-      id: "DH-03",
-      title: "Bảng Điều Hành Giao Ban Sản Xuất Tuần 35",
-      desc: "Chỉ số OEE, tiến độ đơn hàng và cảnh báo nghẽn chuyền sản xuất.",
-      category: "Điều hành",
-      url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vS-skechers-152-master/pubhtml",
-    },
-    {
       id: "DH-04",
-      title: "Báo cáo Quản trị Hiệu suất Tổ hợp Nhà máy TBS",
-      desc: "Tổng hợp chỉ số KPIs và năng suất lao động toàn chuỗi SKECHERS.",
-      category: "Điều hành",
-      url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vS-skechers-152-master/pubhtml",
+      title: "Bảng Điều Hành Giao Ban Sản Xuất Tuần 35",
+      subtitle: "Chỉ số OEE, tiến độ đơn hàng và cảnh báo nghẽn chuyền sản xuất.",
+      tag1: "Điều hành",
+      tag2: "N.SXCN",
+      link: "https://docs.google.com/spreadsheets/d/e/2PACX-1vS-skechers-152-master/pubhtml",
     },
   ],
   HACH_TOAN: [
     {
       id: "HT-01",
       title: "Báo cáo Thanh khoản & Công nợ Khách hàng SKECHERS",
-      desc: "Đối soát thanh toán, hạn mức tín dụng và dòng tiền.",
-      category: "Hạch toán",
-      url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vS-skechers-152-master/pubhtml",
+      subtitle: "Đối soát thanh toán, hạn mức tín dụng và dòng tiền.",
+      tag1: "Hạch toán",
+      tag2: "Tài chính",
+      link: "https://docs.google.com/spreadsheets/d/e/2PACX-1vS-skechers-152-master/pubhtml",
     },
   ],
   CHIEN_LUOC: [
     {
       id: "CL-01",
       title: "Chiến lược Phát triển Chuỗi Cung ứng SKECHERS 2026-2030",
-      desc: "Lộ trình mở rộng quy mô nhà máy và tích hợp tự động hóa.",
-      category: "Chiến lược",
-      url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vS-skechers-152-master/pubhtml",
+      subtitle: "Lộ trình mở rộng quy mô nhà máy và tích hợp tự động hóa.",
+      tag1: "Chiến lược",
+      tag2: "TBS Group",
+      link: "https://docs.google.com/spreadsheets/d/e/2PACX-1vS-skechers-152-master/pubhtml",
     },
   ],
   TC_CN_HTS: [
     {
       id: "TC-01",
       title: "Báo cáo Tài chính - Công nghệ - Hệ thống Số 2026",
-      desc: "Tích hợp hệ thống ERP D1 Realtime và hạ tầng số hóa.",
-      category: "TC-CN-HTS",
-      url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vS-skechers-152-master/pubhtml",
+      subtitle: "Tích hợp hệ thống ERP D1 Realtime và hạ tầng số hóa.",
+      tag1: "TC-CN-HTS",
+      tag2: "Công nghệ",
+      link: "https://docs.google.com/spreadsheets/d/e/2PACX-1vS-skechers-152-master/pubhtml",
     },
   ],
   KH_CC: [
     {
       id: "KH-01",
       title: "Kế hoạch Cung ứng Nguyên phụ liệu Giày SKECHERS",
-      desc: "Tiến độ nhập vật tư da, đế, phụ liệu và cân bằng chuyền.",
-      category: "KH & CC",
-      url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vS-skechers-152-master/pubhtml",
+      subtitle: "Tiến độ nhập vật tư da, đế, phụ liệu và cân bằng chuyền.",
+      tag1: "KH & CC",
+      tag2: "Cung ứng",
+      link: "https://docs.google.com/spreadsheets/d/e/2PACX-1vS-skechers-152-master/pubhtml",
     },
   ],
   TH_NM: [
     {
       id: "TH-01",
       title: "Tiến độ Vận hành Tổ hợp Nhà máy TBS SKECHERS",
-      desc: "Công suất sản xuất thực tế tại các tổ hợp nhà máy.",
-      category: "TH & NM",
-      url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vS-skechers-152-master/pubhtml",
+      subtitle: "Công suất sản xuất thực tế tại các tổ hợp nhà máy.",
+      tag1: "TH & NM",
+      tag2: "Sản xuất",
+      link: "https://docs.google.com/spreadsheets/d/e/2PACX-1vS-skechers-152-master/pubhtml",
     },
   ],
   VHDN: [
     {
       id: "VH-01",
       title: "Chương trình Văn hóa Enterprise TBS Group 2026",
-      desc: "Chuẩn mực văn hóa tự vận hành, kỷ luật và cải tiến liên tục.",
-      category: "VHDN",
-      url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vS-skechers-152-master/pubhtml",
+      subtitle: "Chuẩn mực văn hóa tự vận hành, kỷ luật và cải tiến liên tục.",
+      tag1: "VHDN",
+      tag2: "Văn hóa",
+      link: "https://docs.google.com/spreadsheets/d/e/2PACX-1vS-skechers-152-master/pubhtml",
     },
   ],
   TO_CHUC_HA_TANG: [
     {
       id: "HT-02",
       title: "Sơ đồ Tổ chức & Hạ tầng Số hóa Chuỗi SKECHERS",
-      desc: "Cấu trúc nhân sự, phân quyền và hạ tầng vận hành.",
-      category: "Tổ chức - Hạ tầng",
-      url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vS-skechers-152-master/pubhtml",
+      subtitle: "Cấu trúc nhân sự, phân quyền và hạ tầng vận hành.",
+      tag1: "Tổ chức",
+      tag2: "Hạ tầng",
+      link: "https://docs.google.com/spreadsheets/d/e/2PACX-1vS-skechers-152-master/pubhtml",
     },
   ],
   DU_LIEU_SO: [
     {
       id: "DL-01",
       title: "Kho Dữ Liệu Số & Hệ Thống Báo Cáo Realtime D1",
-      desc: "Cơ sở dữ liệu tập trung 1-5-2 cho toàn bộ chuỗi SKECHERS.",
-      category: "Dữ liệu số",
-      url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vS-skechers-152-master/pubhtml",
+      subtitle: "Cơ sở dữ liệu tập trung 1-5-2 cho toàn bộ chuỗi SKECHERS.",
+      tag1: "Dữ liệu",
+      tag2: "Digital",
+      link: "https://docs.google.com/spreadsheets/d/e/2PACX-1vS-skechers-152-master/pubhtml",
     },
   ],
 };
@@ -134,28 +148,28 @@ const SAMPLE_REPORTS: Record<string, ReportItem[]> = {
 export function StrategicManagementContent() {
   const [activeModalKey, setActiveModalKey] = useState<string | null>(null);
   const [modalTitle, setModalTitle] = useState<string>("");
-  const [selectedReport, setSelectedReport] = useState<ReportItem | null>(null);
+  const [searchTerm, setSearchTerm] = useState<string>("");
 
   const handleOpenModal = (key: string, title: string) => {
     setActiveModalKey(key);
     setModalTitle(title);
+    setSearchTerm("");
   };
 
-  const currentReports = activeModalKey ? SAMPLE_REPORTS[activeModalKey] || [
-    {
-      id: `REP-${activeModalKey}`,
-      title: `Báo cáo Phân hệ ${modalTitle}`,
-      desc: `Chỉ số quản trị và danh mục tài liệu phân hệ ${modalTitle} thuộc Hệ thống 1-5-2.`,
-      category: modalTitle,
-      url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vS-skechers-152-master/pubhtml",
-    }
-  ] : [];
+  const currentReports = activeModalKey ? SAMPLE_REPORTS[activeModalKey] || [] : [];
+
+  const filteredReports = currentReports.filter(
+    (rep) =>
+      rep.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      rep.subtitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      rep.tag1.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      rep.tag2.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-4 sm:p-5 w-full min-w-0 h-auto">
       {/* 2-COLUMN LAYOUT MATCHING 1-5-2 DESIGN */}
       <div className="flex flex-col lg:flex-row items-stretch gap-4 sm:gap-5 w-full min-w-0">
-        
         {/* LEFT COLUMN: BÁO CÁO NHANH + MISC */}
         <div className="w-full lg:w-[240px] flex-shrink-0 flex flex-col gap-3.5 sm:gap-4">
           {/* TOP LEFT: TBS LOGO STACK */}
@@ -312,89 +326,93 @@ export function StrategicManagementContent() {
         </div>
       </div>
 
-      {/* REPORT GROUP MODAL */}
+      {/* REPORT GROUP MODAL WITH 3 CARDS PER ROW GRID */}
       {activeModalKey && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-2xl w-full border border-slate-200 shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 bg-slate-950/65 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-4xl w-full border border-slate-200/90 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
             {/* Modal Header */}
             <div className="p-4 sm:p-5 bg-gradient-to-r from-[#004029] to-[#006838] text-white flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center border border-white/20">
-                  <IconFileSpreadsheet size={20} className="text-emerald-300" />
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center border border-white/20 shadow-inner">
+                  <IconFileSpreadsheet size={22} className="text-emerald-300" />
                 </div>
                 <div>
                   <h3 className="text-base sm:text-lg font-black uppercase tracking-tight">{modalTitle}</h3>
-                  <span className="text-xs text-emerald-200/90 font-medium">Hệ Thống Quản Trị Chiến Lược 1-5-2</span>
+                  <p className="text-xs text-emerald-200/90 font-medium">Hệ Thống Quản Trị Chiến Lược 1-5-2 • Danh Mục Tài Liệu</p>
                 </div>
               </div>
               <button
                 onClick={() => setActiveModalKey(null)}
-                className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition"
+                className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer"
               >
                 <IconX size={20} />
               </button>
             </div>
 
-            {/* Modal Reports List */}
-            <div className="p-4 sm:p-6 overflow-y-auto space-y-3 flex-1">
-              {currentReports.map((report) => (
-                <div
-                  key={report.id}
-                  onClick={() => setSelectedReport(report)}
-                  className="p-4 rounded-2xl bg-slate-50 hover:bg-emerald-50/60 border border-slate-200/90 hover:border-emerald-300 transition-all cursor-pointer group flex items-center justify-between gap-4"
-                >
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-md">
-                      {report.category}
-                    </span>
-                    <h4 className="text-sm font-black text-slate-900 group-hover:text-[#004029] transition-colors">
-                      {report.title}
-                    </h4>
-                    <p className="text-xs text-slate-500 line-clamp-1">{report.desc}</p>
-                  </div>
-                  <div className="w-8 h-8 rounded-xl bg-white border border-slate-200 group-hover:bg-[#004029] group-hover:text-white flex items-center justify-center transition-colors flex-shrink-0">
-                    <IconChevronRight size={18} />
-                  </div>
-                </div>
-              ))}
+            {/* Modal Search Bar */}
+            <div className="px-5 pt-4 pb-2 bg-slate-50 border-b border-slate-200/80">
+              <div className="relative">
+                <IconSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <input
+                  type="text"
+                  placeholder="Tìm kiếm tài liệu báo cáo..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all placeholder:text-slate-400 placeholder:font-normal"
+                />
+              </div>
             </div>
-          </div>
-        </div>
-      )}
 
-      {/* REPORT VIEWER MODAL */}
-      {selectedReport && (
-        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-4xl w-full h-[90vh] border border-slate-200 shadow-2xl overflow-hidden flex flex-col">
-            <div className="p-4 bg-[#004029] text-white flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <IconFileSpreadsheet size={22} className="text-emerald-300" />
-                <h3 className="text-sm sm:text-base font-bold truncate max-w-xl">{selectedReport.title}</h3>
-              </div>
-              <div className="flex items-center gap-2">
-                <a
-                  href={selectedReport.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold flex items-center gap-1 transition"
-                >
-                  <span>Mở tab mới</span>
-                  <IconExternalLink size={14} />
-                </a>
-                <button
-                  onClick={() => setSelectedReport(null)}
-                  className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition"
-                >
-                  <IconX size={18} />
-                </button>
-              </div>
-            </div>
-            <div className="flex-1 bg-slate-100 relative">
-              <iframe
-                src={selectedReport.url}
-                className="w-full h-full border-0"
-                title={selectedReport.title}
-              />
+            {/* Modal Reports Grid List (3 CARDS PER ROW) */}
+            <div className="p-4 sm:p-6 overflow-y-auto flex-1 bg-slate-50/50">
+              {filteredReports.length === 0 ? (
+                <div className="py-12 text-center text-slate-400 space-y-2">
+                  <IconFolder size={40} className="mx-auto text-slate-300" />
+                  <p className="text-sm font-medium">Không tìm thấy tài liệu phù hợp</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {filteredReports.map((report) => (
+                    <a
+                      key={report.id}
+                      href={report.link}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="p-4 rounded-2xl bg-white hover:bg-emerald-50/40 border border-slate-200/90 hover:border-emerald-400 shadow-2xs hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between gap-3 h-full"
+                    >
+                      <div className="space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="w-10 h-10 rounded-xl bg-[#004029] text-white flex items-center justify-center shadow-xs flex-shrink-0 group-hover:scale-105 transition-transform">
+                            <IconFileSpreadsheet size={22} className="text-emerald-300" />
+                          </div>
+                          <span className="w-7 h-7 rounded-lg bg-slate-100 group-hover:bg-emerald-500 group-hover:text-white text-slate-500 flex items-center justify-center transition-colors flex-shrink-0">
+                            <IconExternalLink size={15} />
+                          </span>
+                        </div>
+
+                        <div>
+                          <h4 className="text-sm font-black text-slate-900 group-hover:text-[#004029] transition-colors leading-snug line-clamp-2">
+                            {report.title}
+                          </h4>
+                          <p className="text-xs font-semibold text-slate-500 line-clamp-2 mt-1">
+                            {report.subtitle}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* 2 Tags: tag1 (light gray) & tag2 (light green) */}
+                      <div className="flex items-center gap-2 pt-2 border-t border-slate-100 mt-auto">
+                        <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10.5px] font-extrabold border border-slate-200/80">
+                          {report.tag1}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[10.5px] font-extrabold border border-emerald-200/80">
+                          {report.tag2}
+                        </span>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>

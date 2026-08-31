@@ -1,5 +1,5 @@
 // PWA Service Worker for Văn Phòng Chuỗi SKECHERS - TBS Group
-const CACHE_NAME = "skechers-tbs-v10-force-reload";
+const CACHE_NAME = "skechers-tbs-v20-network-first";
 const ASSETS_TO_CACHE = [
   "/favicon.ico",
   "/icon.png",
@@ -103,19 +103,26 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // Network-First strategy: Always fetch fresh HTML & JS from server first
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) return cachedResponse;
-      return fetch(event.request)
-        .then((networkResponse) => networkResponse)
-        .catch(() => {
+    fetch(event.request)
+      .then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200) {
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
+        }
+        return networkResponse;
+      })
+      .catch(() => {
+        return caches.match(event.request).then((cachedResponse) => {
+          if (cachedResponse) return cachedResponse;
           return new Response("Service Unavailable", {
             status: 503,
             statusText: "Service Unavailable",
             headers: new Headers({ "Content-Type": "text/plain" }),
           });
         });
-    })
+      })
   );
 });
 

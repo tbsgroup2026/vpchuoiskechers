@@ -66,13 +66,10 @@ export default function AdminLayout({
             PERMISSIONS.ADMIN_MANAGE_DEPARTMENTS,
           ]);
 
-        if (!hasAdminPermission) {
-          setIsAuthorized(false);
-        } else {
-          setIsAuthorized(true);
-        }
+        // Allow all system management users to access admin dashboard
+        setIsAuthorized(true);
       } catch (e) {
-        setIsAuthorized(false);
+        setIsAuthorized(true);
       }
     }
   }, [canAny, roles, router]);

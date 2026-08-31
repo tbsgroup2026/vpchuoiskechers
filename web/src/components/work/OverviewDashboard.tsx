@@ -24,7 +24,9 @@ import {
   IconCircleCheck,
   IconSparkles,
   IconLayersSubtract,
+  IconLayoutGrid,
 } from "@tabler/icons-react";
+
 
 interface OverviewDashboardProps {
   onSelectDept?: (deptId: string) => void;
@@ -132,25 +134,21 @@ export default function OverviewDashboard({
           2. ROW 1: 6 THẺ PHÒNG BAN + KHỐI TRUY CẬP NHANH
          ════════════════════════════════════════════════════════════════ */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* Left (Col 8/12): 6 Thẻ Phòng Ban Chính */}
+        {/* Left (Col 8/12): 7 Thẻ Phòng Ban & Quản Trị Chính */}
         <div className="lg:col-span-8 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {[
+            {
+              id: "finance",
+              name: "Hệ thống\nquản trị 1-5-2",
+              icon: IconLayoutGrid,
+              iconBg: "bg-emerald-100/80 text-[#004029] border-emerald-300 font-bold",
+            },
             {
               id: "hr",
               name: "Nhân sự\n& Hành chính",
               icon: IconUsers,
               iconBg: "bg-emerald-50 text-[#006838] border-emerald-200",
             },
-            ...(canViewFinance
-              ? [
-                  {
-                    id: "finance",
-                    name: "Kế toán\n& Tài chính",
-                    icon: IconCalculator,
-                    iconBg: "bg-emerald-50/80 text-[#005a30] border-emerald-200",
-                  },
-                ]
-              : []),
             {
               id: "rd",
               name: "R&D\n(Phát triển SP)",

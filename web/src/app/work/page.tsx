@@ -19,6 +19,8 @@ import HRContractsView from "@/modules/hr/components/HRContractsView";
 import QualityModule from "@/modules/quality/QualityModule";
 import RDModule from "@/modules/rd/RDModule";
 import CNCIWrapper from "@/modules/ci/CNCIWrapper";
+import { StrategicManagementContent } from "@/components/home/StrategicManagementDashboard";
+
 import {
   IconHome,
   IconLeaf,
@@ -527,28 +529,27 @@ export default function WorkDashboardPage() {
     async function loadD1Profile() {
       try {
         const res = await fetch("/api/profile");
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success && json.data) {
-            const d1Avatar = json.data.avatar || json.data.avatar_url;
-            const finalAvatar = isValidAvatar(localCustomAvatar)
-              ? localCustomAvatar
-              : (isValidAvatar(d1Avatar) ? d1Avatar : "/images/tbs-logo.png");
+        if (!res.ok) return;
+        const json = await res.json();
+        if (json.success && json.data) {
+          const d1Avatar = json.data.avatar || json.data.avatar_url;
+          const finalAvatar = isValidAvatar(localCustomAvatar)
+            ? localCustomAvatar
+            : (isValidAvatar(d1Avatar) ? d1Avatar : "/images/tbs-logo.png");
 
-            const loaded = {
-              empCode: json.data.emp_code || json.data.empCode || "202608001",
-              name: json.data.name || "Phạm Nguyễn Anh Huy",
-              phone: json.data.phone || "0522511245",
-              email: json.data.email || "anhy.work.2004@gmail.com",
-              avatar: finalAvatar,
-              title: json.data.title || "IT - Team chuyển đổi số",
-            };
-            setUserInfo(loaded);
-            setEditProfileForm(loaded);
-            if (typeof window !== "undefined") {
-              sessionStorage.setItem("tbs_current_user", JSON.stringify(loaded));
-              localStorage.setItem("tbs_current_user", JSON.stringify(loaded));
-            }
+          const loaded = {
+            empCode: json.data.emp_code || json.data.empCode || "202608001",
+            name: json.data.name || "Phạm Nguyễn Anh Huy",
+            phone: json.data.phone || "0522511245",
+            email: json.data.email || "anhy.work.2004@gmail.com",
+            avatar: finalAvatar,
+            title: json.data.title || "IT - Team chuyển đổi số",
+          };
+          setUserInfo(loaded);
+          setEditProfileForm(loaded);
+          if (typeof window !== "undefined") {
+            sessionStorage.setItem("tbs_current_user", JSON.stringify(loaded));
+            localStorage.setItem("tbs_current_user", JSON.stringify(loaded));
           }
         }
       } catch (err) {
@@ -614,8 +615,8 @@ export default function WorkDashboardPage() {
     },
     finance: {
       bg: "/images/crawled/Vat-tu.jpg",
-      title: "Kế Toán & Quản Trị",
-      sub: "Quản lý tài chính, ngân sách, chi phí sản xuất và báo cáo tài chính hợp nhất.",
+      title: "Hệ Thống Quản Trị 1-5-2",
+      sub: "Bảng điều khiển 1 mục đích xuyên suốt, 5 trụ cột vận hành và 2 nền tảng quản trị.",
       appCount: 10,
     },
     rd: {
@@ -661,19 +662,19 @@ export default function WorkDashboardPage() {
       hasData: true,
     },
     {
-      id: "hr",
+      id: "finance",
       num: "01",
-      name: "Nhân sự – Hành chính",
-      sub: "Quản lý văn thư, tài sản & tuyển dụng",
-      icon: IconUsers,
+      name: "Hệ thống quản trị 1-5-2",
+      sub: "Bảng điều khiển 1 mục đích, 5 trụ cột, 2 nền tảng",
+      icon: IconLayoutGrid,
       hasData: true,
     },
     {
-      id: "finance",
+      id: "hr",
       num: "02",
-      name: "Kế toán và tài chính",
-      sub: "Quản lý tài chính, ngân sách & báo cáo",
-      icon: IconCalculator,
+      name: "Nhân sự – Hành chính",
+      sub: "Quản lý văn thư, tài sản & tuyển dụng",
+      icon: IconUsers,
       hasData: true,
     },
     {
@@ -1166,7 +1167,7 @@ export default function WorkDashboardPage() {
           )}
 
           {/* ════════════════════════════════════════════════════════════════
-              THẺ 04: CN-CI (CẢI TIẾN LIÊN TỤC / KAIZEN / GEMBA) MODULE VIEW
+              THẺ 05: CN-CI (CẢI TIẾN LIÊN TỤC / KAIZEN / GEMBA) MODULE VIEW
              ════════════════════════════════════════════════════════════════ */}
           {selectedDept === "ci" && (
             <CNCIWrapper />
@@ -1176,7 +1177,7 @@ export default function WorkDashboardPage() {
           {/* ════════════════════════════════════════════════════════════════
               DEPARTMENT HERO BANNER CARD (Screenshot 1 Layout)
              ════════════════════════════════════════════════════════════════ */}
-          {activeDeptObj && activeDeptObj.id !== "overview" && activeDeptObj.id !== "rd" && activeDeptObj.id !== "hr" && activeDeptObj.id !== "ci" && (
+          {activeDeptObj && activeDeptObj.id !== "overview" && activeDeptObj.id !== "finance" && activeDeptObj.id !== "rd" && activeDeptObj.id !== "hr" && activeDeptObj.id !== "ci" && (
             <div className="relative w-full rounded-3xl overflow-hidden border border-slate-200/90 shadow-md flex-shrink-0 bg-slate-900 group">
               {/* Background Image with Dark Emerald Overlay */}
               <img
@@ -1223,7 +1224,7 @@ export default function WorkDashboardPage() {
           )}
 
           {/* IF A "COMING SOON" DEPARTMENT IS SELECTED */}
-          {activeDeptObj && !activeDeptObj.hasData && (
+          {activeDeptObj && !activeDeptObj.hasData && activeDeptObj.id !== "finance" && (
             <div className="p-8 rounded-2xl bg-white border border-slate-200 shadow-sm text-center space-y-3 max-w-xl mx-auto my-auto">
               <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto border border-amber-200">
                 <IconClock size={30} />
@@ -1241,425 +1242,10 @@ export default function WorkDashboardPage() {
           )}
 
           {/* ════════════════════════════════════════════════════════════════
-              IF FINANCE (KẾ TOÁN & QUẢN TRỊ) IS SELECTED
-             ════════════════════════════════════════════════════════════════ */}
-          {/* ════════════════════════════════════════════════════════════════
-              IF FINANCE (KẾ TOÁN & QUẢN TRỊ NỘI BỘ) IS SELECTED
-              ACCOUNTING WORKSPACE & LIVE DATA ENTRY DESK
+              IF HỆ THỐNG QUẢN TRỊ CHIẾN LƯỢC 1-5-2 (FINANCE DEPT) IS SELECTED
              ════════════════════════════════════════════════════════════════ */}
           {selectedDept === "finance" && (
-            <div className="space-y-4 w-full">
-              {/* ════════ 4 TOP KPI CARDS ════════ */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                {/* KPI 1: Doanh thu tháng */}
-                <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs flex items-center gap-3.5 hover:shadow-sm transition-all">
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-[#006838] flex items-center justify-center flex-shrink-0 border border-emerald-100/80 shadow-2xs">
-                    <IconCoins size={24} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <span className="text-[11px] font-bold text-slate-500 block truncate">Doanh thu tháng</span>
-                    <div className="text-xl sm:text-2xl font-black text-slate-900 leading-tight mt-0.5">
-                      12.4 tỷ
-                    </div>
-                    <span className="text-[10px] font-bold text-emerald-700 mt-0.5 flex items-center gap-0.5">
-                      +12% so với tháng trước ↑
-                    </span>
-                  </div>
-                </div>
-
-                {/* KPI 2: Chi phí vận hành */}
-                <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs flex items-center gap-3.5 hover:shadow-sm transition-all">
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-[#006838] flex items-center justify-center flex-shrink-0 border border-emerald-100/80 shadow-2xs">
-                    <IconClock size={24} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <span className="text-[11px] font-bold text-slate-500 block truncate">Chi phí vận hành</span>
-                    <div className="text-xl sm:text-2xl font-black text-slate-900 leading-tight mt-0.5">
-                      3.1 tỷ
-                    </div>
-                    <span className="text-[10px] font-bold text-emerald-700 mt-0.5 flex items-center gap-0.5">
-                      -8% so với tháng trước ↓
-                    </span>
-                  </div>
-                </div>
-
-                {/* KPI 3: Lợi nhuận ròng */}
-                <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs flex items-center gap-3.5 hover:shadow-sm transition-all">
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-[#006838] flex items-center justify-center flex-shrink-0 border border-emerald-100/80 shadow-2xs">
-                    <IconTrendingUp size={24} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <span className="text-[11px] font-bold text-slate-500 block truncate">Lợi nhuận ròng</span>
-                    <div className="text-xl sm:text-2xl font-black text-slate-900 leading-tight mt-0.5">
-                      2.6 tỷ
-                    </div>
-                    <span className="text-[10px] font-bold text-emerald-700 mt-0.5 flex items-center gap-0.5">
-                      +18% so với tháng trước ↑
-                    </span>
-                  </div>
-                </div>
-
-                {/* KPI 4: Tỷ lệ chi phí/doanh thu */}
-                <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs flex items-center gap-3.5 hover:shadow-sm transition-all">
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-[#006838] flex items-center justify-center flex-shrink-0 border border-emerald-100/80 shadow-2xs">
-                    <IconAdjustmentsHorizontal size={24} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <span className="text-[11px] font-bold text-slate-500 block truncate">Tỷ lệ chi phí/doanh thu</span>
-                    <div className="text-xl sm:text-2xl font-black text-slate-900 leading-tight mt-0.5">
-                      25.0%
-                    </div>
-                    <span className="text-[10px] font-bold text-emerald-700 mt-0.5 flex items-center gap-0.5">
-                      -3% so với tháng trước ↓
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* ════════ 3 MAIN CARDS GRID (Xu hướng, Hoạt động, Truy cập nhanh) ════════ */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
-                {/* 1. XU HƯỚNG TÀI CHÍNH (Col 4/12) */}
-                <div className="lg:col-span-4 bg-white border border-slate-200/80 rounded-2xl p-4 shadow-2xs flex flex-col justify-between">
-                  <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                    <h3 className="text-sm font-extrabold text-slate-900">Xu hướng tài chính</h3>
-                    <div className="flex items-center gap-1 text-[11px] font-bold text-slate-600 bg-slate-50 border border-slate-200 px-2 py-1 rounded-lg">
-                      <span>6 tháng gần đây</span>
-                      <IconChevronDown size={13} className="text-slate-400" />
-                    </div>
-                  </div>
-
-                  {/* Line Chart with 2 Series (Doanh thu & Chi phí) */}
-                  <div className="w-full h-44 my-2 relative">
-                    <svg className="w-full h-full overflow-visible" viewBox="0 0 340 140" preserveAspectRatio="none">
-                      {/* Gridlines & Y-Axis Scale (125, 100, 75, 50, 25, 0) */}
-                      {[
-                        { label: "125", y: 15 },
-                        { label: "100", y: 38 },
-                        { label: "75", y: 61 },
-                        { label: "50", y: 84 },
-                        { label: "25", y: 107 },
-                        { label: "0", y: 130 },
-                      ].map((g, i) => (
-                        <g key={i}>
-                          <text x="24" y={g.y + 3.5} textAnchor="end" fill="#94a3b8" fontSize="9" fontWeight="600" className="font-mono">
-                            {g.label}
-                          </text>
-                          <line x1="32" y1={g.y} x2="330" y2={g.y} stroke="#f1f5f9" strokeWidth="1" />
-                        </g>
-                      ))}
-
-                      {/* Line 1: Doanh thu (#006838 - Dark Green) */}
-                      <path
-                        d="M 50 91 L 105 75 L 160 62 L 215 49 L 270 36 L 325 21"
-                        fill="none"
-                        stroke="#006838"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                      {[
-                        { x: 50, y: 91, val: "42M" },
-                        { x: 105, y: 75, val: "60M" },
-                        { x: 160, y: 62, val: "74M" },
-                        { x: 215, y: 49, val: "88M" },
-                        { x: 270, y: 36, val: "102M" },
-                        { x: 325, y: 21, val: "118M" },
-                      ].map((pt, idx) => (
-                        <circle key={idx} cx={pt.x} cy={pt.y} r="4" fill="#006838" stroke="#ffffff" strokeWidth="2" />
-                      ))}
-
-                      {/* Line 2: Chi phí (#4ade80 - Light Green) */}
-                      <path
-                        d="M 50 110 L 105 102 L 160 97 L 215 89 L 270 78 L 325 67"
-                        fill="none"
-                        stroke="#4ade80"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                      {[
-                        { x: 50, y: 110, val: "22M" },
-                        { x: 105, y: 102, val: "30M" },
-                        { x: 160, y: 97, val: "36M" },
-                        { x: 215, y: 89, val: "45M" },
-                        { x: 270, y: 78, val: "56M" },
-                        { x: 325, y: 67, val: "68M" },
-                      ].map((pt, idx) => (
-                        <circle key={idx} cx={pt.x} cy={pt.y} r="4" fill="#4ade80" stroke="#ffffff" strokeWidth="2" />
-                      ))}
-
-                      {/* X-Axis Labels (T3, T4, T5, T6, T7, T8) */}
-                      {["T3", "T4", "T5", "T6", "T7", "T8"].map((m, i) => (
-                        <text key={m} x={50 + i * 55} y="139" textAnchor="middle" fill="#64748b" fontSize="10" fontWeight="700" className="font-mono">
-                          {m}
-                        </text>
-                      ))}
-                    </svg>
-                  </div>
-
-                  {/* Legend Footer */}
-                  <div className="flex items-center justify-center gap-6 pt-1 text-[11px] font-bold text-slate-600">
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded-full bg-[#006838]" />
-                      Doanh thu
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded-full bg-[#4ade80]" />
-                      Chi phí
-                    </span>
-                  </div>
-                </div>
-
-                {/* 2. HOẠT ĐỘNG NỔI BẬT (Col 4/12) */}
-                <div className="lg:col-span-4 bg-white border border-slate-200/80 rounded-2xl p-4 shadow-2xs flex flex-col justify-between">
-                  <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                    <h3 className="text-sm font-extrabold text-slate-900">Hoạt động nổi bật</h3>
-                  </div>
-
-                  <div className="space-y-2.5 my-auto py-1">
-                    {/* Item 1 */}
-                    <Link href="/finance/bao-cao" className="p-2.5 rounded-xl bg-slate-50/70 border border-slate-200/60 hover:bg-emerald-50/40 hover:border-emerald-200 transition-all flex items-center justify-between gap-3 group">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-9 h-9 rounded-xl bg-emerald-50 text-[#006838] flex items-center justify-center flex-shrink-0 border border-emerald-100">
-                          <IconFileInvoice size={18} />
-                        </div>
-                        <div className="min-w-0">
-                          <h4 className="text-xs font-black text-slate-900 truncate group-hover:text-[#006838] transition-colors">
-                            Báo cáo tài chính tháng 8
-                          </h4>
-                          <p className="text-[10px] text-slate-400 mt-0.5">
-                            Đã hoàn thành • 2 giờ trước
-                          </p>
-                        </div>
-                      </div>
-                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-md flex-shrink-0">
-                        Hoàn thành
-                      </span>
-                    </Link>
-
-                    {/* Item 2 */}
-                    <Link href="/finance/cong-no" className="p-2.5 rounded-xl bg-slate-50/70 border border-slate-200/60 hover:bg-amber-50/40 hover:border-amber-200 transition-all flex items-center justify-between gap-3 group">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-9 h-9 rounded-xl bg-emerald-50 text-[#006838] flex items-center justify-center flex-shrink-0 border border-emerald-100">
-                          <IconShoppingCart size={18} />
-                        </div>
-                        <div className="min-w-0">
-                          <h4 className="text-xs font-black text-slate-900 truncate group-hover:text-amber-800 transition-colors">
-                            Đối soát công nợ nhà cung cấp
-                          </h4>
-                          <p className="text-[10px] text-slate-400 mt-0.5">
-                            Đang xử lý • 1 ngày trước
-                          </p>
-                        </div>
-                      </div>
-                      <span className="text-[10px] font-bold text-amber-800 bg-amber-100/80 px-2 py-0.5 rounded-md flex-shrink-0">
-                        Đang xử lý
-                      </span>
-                    </Link>
-
-                    {/* Item 3 */}
-                    <Link href="/finance/chi-phi" className="p-2.5 rounded-xl bg-slate-50/70 border border-slate-200/60 hover:bg-emerald-50/40 hover:border-emerald-200 transition-all flex items-center justify-between gap-3 group">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-9 h-9 rounded-xl bg-emerald-50 text-[#006838] flex items-center justify-center flex-shrink-0 border border-emerald-100">
-                          <IconChartPie size={18} />
-                        </div>
-                        <div className="min-w-0">
-                          <h4 className="text-xs font-black text-slate-900 truncate group-hover:text-[#006838] transition-colors">
-                            Tổng hợp chi phí sản xuất
-                          </h4>
-                          <p className="text-[10px] text-slate-400 mt-0.5">
-                            Đã hoàn thành • 2 ngày trước
-                          </p>
-                        </div>
-                      </div>
-                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-md flex-shrink-0">
-                        Hoàn thành
-                      </span>
-                    </Link>
-                  </div>
-
-                  <Link href="/finance/bao-cao" className="text-center text-xs font-bold text-[#006838] hover:underline pt-2 block">
-                    Xem tất cả hoạt động →
-                  </Link>
-                </div>
-
-                {/* 3. TRUY CẬP NHANH - KẾ TOÁN & QT (Col 4/12) */}
-                <div className="lg:col-span-4 bg-white border border-slate-200/80 rounded-2xl p-4 shadow-2xs flex flex-col justify-between">
-                  <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                    <h3 className="text-sm font-extrabold text-slate-900">Truy cập nhanh – Kế toán & QT</h3>
-                  </div>
-
-                  {/* 8 Quick Action Tiles (4 cols x 2 rows) */}
-                  <div className="grid grid-cols-4 gap-2 my-auto py-1">
-                    {[
-                      { name: "Thu – Chi", icon: IconWallet, href: "/finance/thu-chi" },
-                      { name: "Báo cáo tài chính", icon: IconChartBar, href: "/finance/bao-cao" },
-                      { name: "Ngân sách", icon: IconCalendarEvent, href: "/finance/ngan-sach" },
-                      { name: "Công nợ", icon: IconUsers, href: "/finance/cong-no" },
-                      { name: "Kho quỹ", icon: IconMail, href: "/finance/vat-tu-kho" },
-                      { name: "Hóa đơn", icon: IconFileText, href: "/finance/hoa-don" },
-                      { name: "Tài sản", icon: IconDeviceDesktop, href: "/finance/tai-san" },
-                      { name: "Cài đặt", icon: IconSettings, href: "/finance" },
-                    ].map((btn, idx) => {
-                      const BtnIcon = btn.icon;
-                      return (
-                        <Link
-                          key={idx}
-                          href={btn.href}
-                          className="p-2 rounded-xl bg-slate-50/70 border border-slate-200/60 hover:bg-[#e6f4ed] hover:border-[#006838]/60 transition-all flex flex-col items-center text-center gap-1 group cursor-pointer"
-                        >
-                          <div className="w-8 h-8 rounded-lg bg-[#e6f4ed] text-[#006838] group-hover:bg-[#006838] group-hover:text-white transition-all flex items-center justify-center">
-                            <BtnIcon size={18} />
-                          </div>
-                          <span className="text-[10px] font-bold text-slate-700 leading-tight group-hover:text-[#006838] transition-colors line-clamp-2">
-                            {btn.name}
-                          </span>
-                        </Link>
-                      );
-                    })}
-                  </div>
-
-                  <Link
-                    href="/finance"
-                    className="w-full py-2 px-3 rounded-xl bg-emerald-50/80 hover:bg-[#006838] text-[#006838] hover:text-white border border-emerald-200/80 text-xs font-extrabold text-center transition-all shadow-2xs mt-2 block"
-                  >
-                    Xem tất cả chức năng →
-                  </Link>
-                </div>
-              </div>
-
-              {/* ════════ 10 PHÂN HỆ KẾ TOÁN & QUẢN TRỊ NỘI BỘ (FULL LIST) ════════ */}
-              <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-2xs space-y-4">
-                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-[#e6f4ed] text-[#006838] flex items-center justify-center font-black">
-                      <IconCalculator size={18} />
-                    </div>
-                    <div>
-                      <h3 className="text-sm sm:text-base font-black text-slate-900 tracking-tight">
-                        Danh Mục 10 Phân Hệ Kế Toán &amp; Quản Trị
-                      </h3>
-                      <p className="text-[11px] text-slate-500 font-medium">
-                        Hệ thống phân hệ nghiệp vụ số hóa hoàn chỉnh cho Văn phòng chuỗi SKECHERS - TBS Group
-                      </p>
-                    </div>
-                  </div>
-                  <Link
-                    href="/finance"
-                    className="text-xs font-bold text-[#006838] hover:underline flex items-center gap-1"
-                  >
-                    <span>Mở Hub Kế toán</span>
-                    <IconArrowRight size={13} />
-                  </Link>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
-                  {[
-                    {
-                      num: "01",
-                      title: "1. 💰 Thu – Chi",
-                      href: "/finance/thu-chi",
-                      badge: "8 phiếu T8",
-                      desc: ["Tạo phiếu thu / Tạo phiếu chi", "Tạm ứng / Hoàn ứng", "Theo dõi quỹ tiền mặt & NH", "Duyệt phiếu thu/chi & Lịch sử"],
-                    },
-                    {
-                      num: "02",
-                      title: "2. 🧾 Hóa đơn & Chứng từ",
-                      href: "/finance/hoa-don",
-                      badge: "47 HĐ T8",
-                      desc: ["Hóa đơn đầu vào & đầu ra", "Nhập & tra cứu hóa đơn", "Đính kèm chứng từ điện tử", "Đối chiếu hóa đơn - Phiếu chi"],
-                    },
-                    {
-                      num: "03",
-                      title: "3. 🤝 Công nợ",
-                      href: "/finance/cong-no",
-                      badge: "2 quá hạn",
-                      desc: ["Công nợ phải trả & phải thu", "Danh sách đối tác & NCC", "Theo dõi hạn & quá hạn", "Cảnh báo & đối chiếu công nợ"],
-                    },
-                    {
-                      num: "04",
-                      title: "4. 📊 Ngân sách",
-                      href: "/finance/ngan-sach",
-                      badge: "1 PB vượt NS",
-                      desc: ["Lập & phân bổ ngân sách", "Ngân sách theo PB / Đơn vị", "Theo dõi Budget / Actual", "Cảnh báo vượt & điều chỉnh"],
-                    },
-                    {
-                      num: "05",
-                      title: "5. 💸 Chi phí",
-                      href: "/finance/chi-phi",
-                      badge: "1.77 tỷ đ",
-                      desc: ["Chi phí văn phòng, nhân sự", "Chi phí công tác & R&D", "Chi phí mua sắm & dịch vụ", "Chi phí thuê mặt bằng & vận hành"],
-                    },
-                    {
-                      num: "06",
-                      title: "6. 🏢 Tài sản",
-                      href: "/finance/tai-san",
-                      badge: "1 TS sửa",
-                      desc: ["Danh sách tài sản & cấp phát", "Bàn giao & điều chuyển TS", "Kiểm kê & theo dõi khấu hao", "Tài sản hư hỏng & thanh lý"],
-                    },
-                    {
-                      num: "07",
-                      title: "7. 📦 Vật tư & Kho",
-                      href: "/finance/vat-tu-kho",
-                      badge: "2 tồn thấp",
-                      desc: ["Nhập kho / Xuất kho", "Điều chuyển & kiểm kê kho", "Theo dõi nhập - xuất - tồn", "Cảnh báo tồn kho thấp"],
-                    },
-                    {
-                      num: "08",
-                      title: "8. 🔄 Đối soát",
-                      href: "/finance/doi-soat",
-                      badge: "3 chênh lệch",
-                      desc: ["Đối soát thu chi & ngân hàng", "Đối soát hóa đơn & công nợ", "Đối soát chứng từ & NS", "Ghi nhận nguyên nhân lệch"],
-                    },
-                    {
-                      num: "09",
-                      title: "9. ✅ Phê duyệt",
-                      href: "/finance/phe-duyet",
-                      badge: "2 chờ duyệt",
-                      desc: ["Quy trình workflow 4 cấp", "Duyệt phiếu chi & tạm ứng", "Duyệt đề nghị mua sắm", "Duyệt điều chỉnh ngân sách"],
-                    },
-                    {
-                      num: "10",
-                      title: "10. 📈 Báo cáo quản trị",
-                      href: "/finance/bao-cao",
-                      badge: "8 báo cáo",
-                      desc: ["BC Thu-Chi & Chi phí", "BC Ngân sách & Công nợ", "BC Tài sản, Kho & Dòng tiền", "Xuất file Excel/PDF định kỳ"],
-                    },
-                  ].map((mod, idx) => (
-                    <Link
-                      key={idx}
-                      href={mod.href}
-                      className="p-3 rounded-xl bg-slate-50/70 border border-slate-200/70 hover:bg-white hover:border-[#006838]/60 hover:shadow-sm transition-all flex flex-col justify-between gap-2.5 group cursor-pointer"
-                    >
-                      <div>
-                        <div className="flex items-center justify-between gap-1.5 pb-1 border-b border-slate-200/50">
-                          <h4 className="text-xs font-black text-slate-900 group-hover:text-[#006838] transition-colors leading-tight">
-                            {mod.title}
-                          </h4>
-                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-50 text-[#006838] border border-emerald-100 flex-shrink-0">
-                            {mod.badge}
-                          </span>
-                        </div>
-
-                        <ul className="space-y-0.5 pt-1.5">
-                          {mod.desc.map((d, dIdx) => (
-                            <li key={dIdx} className="text-[10px] text-slate-600 flex items-start gap-1 leading-snug">
-                              <span className="text-[#006838] font-bold">•</span>
-                              <span className="truncate">{d}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-
-                      <div className="pt-1 border-t border-slate-200/50 flex items-center justify-between text-[10px] font-extrabold text-[#006838] group-hover:translate-x-0.5 transition-transform">
-                        <span>Truy cập module</span>
-                        <IconArrowRight size={12} />
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            </div>
+            <StrategicManagementContent />
           )}
 
           {/* IF HR (NHÂN SỰ HÀNH CHÁNH) IS SELECTED */}

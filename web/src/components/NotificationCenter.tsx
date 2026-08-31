@@ -66,41 +66,7 @@ export default function NotificationCenter() {
       }
     } catch (e) {}
 
-    // 2. Poll D1 Database every 5s for remote receiver notification updates
-    const fetchRemoteNotifications = async () => {
-      try {
-        const res = await fetch("/api/notifications");
-        const json = await res.json();
-        if (json.success && Array.isArray(json.data)) {
-          const remoteItems: NotificationItem[] = json.data.map((item: any) => ({
-            id: item.id || Date.now(),
-            title: item.title,
-            message: item.message,
-            type: item.type || "INFO",
-            is_read: item.is_read || 0,
-            created_at: item.created_at ? new Date(item.created_at).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "Vừa xong",
-            link: item.record_id || "/work",
-            targetUser: item.user_id,
-          }));
-
-          setNotifications((prev) => {
-            const combined = [...prev];
-            let hasNewUnread = false;
-            remoteItems.forEach((r) => {
-              const existingIdx = combined.findIndex((c) => String(c.id) === String(r.id));
-              if (existingIdx === -1) {
-                combined.unshift(r);
-                if (r.is_read === 0) hasNewUnread = true;
-              }
-            });
-            return combined;
-          });
-        }
-      } catch (e) {}
-    };
-
-    fetchRemoteNotifications();
-    const pollInterval = setInterval(fetchRemoteNotifications, 5000);
+    // 2. Listen to realtime custom notification events
 
     // 3. Listen to realtime custom notification events
     const handleNewNotif = (e: any) => {
@@ -111,7 +77,6 @@ export default function NotificationCenter() {
 
     window.addEventListener("tbs_new_notification", handleNewNotif);
     return () => {
-      clearInterval(pollInterval);
       window.removeEventListener("tbs_new_notification", handleNewNotif);
     };
   }, []);

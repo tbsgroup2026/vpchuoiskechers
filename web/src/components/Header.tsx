@@ -297,17 +297,17 @@ export default function Header() {
     checkAuth();
     window.addEventListener('tbs_profile_updated', checkAuth);
 
-    const fetchNotifications = async () => {
+    const fetchNotifications = () => {
       try {
-        const res = await fetch('/api/notifications');
-        if (res.ok) {
-          const json = await res.json();
-          if (json.data && Array.isArray(json.data) && json.data.length > 0) {
-            setNotifications(json.data.map((item: any) => ({
+        const storedNotifs = localStorage.getItem('tbs_notifications_list');
+        if (storedNotifs) {
+          const list = JSON.parse(storedNotifs);
+          if (Array.isArray(list) && list.length > 0) {
+            setNotifications(list.slice(0, 15).map((item: any) => ({
               id: item.id,
               title: item.title,
               message: item.message,
-              time: item.created_at ? new Date(item.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : 'Vừa xong',
+              time: item.created_at || 'Vừa xong',
               isRead: !!item.is_read,
               type: item.type === 'WARNING' ? 'gemba' : (item.type === 'SUCCESS' ? 'kaizen' : 'permission')
             })));
@@ -317,12 +317,12 @@ export default function Header() {
     };
 
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 10000); // 10s polling fallback for real-time notifications
+    window.addEventListener('tbs_new_notification', fetchNotifications);
 
     return () => {
       window.removeEventListener('scroll', handleScroll);
       window.removeEventListener('tbs_profile_updated', checkAuth);
-      clearInterval(interval);
+      window.removeEventListener('tbs_new_notification', fetchNotifications);
     };
   }, [pathname]);
 

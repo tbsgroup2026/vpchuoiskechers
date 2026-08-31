@@ -116,6 +116,15 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
   if (typeof window === "undefined" || !("serviceWorker" in navigator)) return null;
 
   try {
+    // Unregister any legacy service workers (e.g. 2sw.js, 37zmb6.js) to clean up client browsers
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    for (const reg of registrations) {
+      if (reg.active && !reg.active.scriptURL.endsWith("/sw.js")) {
+        console.log("Purging old service worker registration:", reg.active.scriptURL);
+        await reg.unregister();
+      }
+    }
+
     const reg = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
     return reg;
   } catch (err) {

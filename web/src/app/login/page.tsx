@@ -24,8 +24,8 @@ const EXECUTIVE_OFFICERS: Record<
   Array<{ empCode: string; name: string; title: string; defaultPass: string }>
 > = {
   ceo: [
-    { empCode: "TGĐ-001", name: "Nguyễn Văn Hùng", title: "Tổng Giám Đốc Tập Đoàn TBS Group", defaultPass: "123456" },
-    { empCode: "TGĐ-002", name: "Phạm Đức Hoàng", title: "Tổng Giám Đốc Vận Hành SKECHERS", defaultPass: "123456" },
+    { empCode: "TGĐ-001", name: "Nguyễn Đức Thuấn", title: "Chủ Tịch HĐQT & Tổng Giám Đốc Tập Đoàn TBS Group", defaultPass: "123456" },
+    { empCode: "TGĐ-002", name: "Nguyễn Thị Vui", title: "Tổng Giám Đốc Vận Hành SKECHERS", defaultPass: "123456" },
   ],
   deputy_ceo: [
     { empCode: "PTGĐ-001", name: "Bùi Đình Trung", title: "Phó Tổng Giám Đốc KHCB & TTPP", defaultPass: "123456" },

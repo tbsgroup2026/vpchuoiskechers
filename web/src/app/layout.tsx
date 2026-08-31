@@ -22,10 +22,10 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   icons: {
     icon: [
-      { url: "/favicon.ico", type: "image/x-icon" },
       { url: "/icon.png", type: "image/png" },
+      { url: "/favicon.png", type: "image/png" },
     ],
-    shortcut: "/favicon.ico",
+    shortcut: "/icon.png",
     apple: "/icon.png",
   },
   appleWebApp: {
@@ -53,8 +53,8 @@ export default function RootLayout({
       className="h-full antialiased font-sans"
     >
       <head>
-        <link rel="icon" href="/favicon.ico" type="image/x-icon" />
-        <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
+        <link rel="icon" href="/icon.png" type="image/png" />
+        <link rel="shortcut icon" href="/icon.png" type="image/png" />
         <link rel="apple-touch-icon" href="/icon.png" />
       </head>
       <body className="min-h-full flex flex-col font-sans bg-canvas text-ink pb-16 sm:pb-0">

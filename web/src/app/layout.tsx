@@ -56,6 +56,34 @@ export default function RootLayout({
         <link rel="icon" href="/icon.png" type="image/png" />
         <link rel="shortcut icon" href="/icon.png" type="image/png" />
         <link rel="apple-touch-icon" href="/icon.png" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                window.addEventListener('error', function(e) {
+                  var target = e.target;
+                  if (target && (target.tagName === 'LINK' || target.tagName === 'SCRIPT')) {
+                    var url = target.src || target.href || '';
+                    if (url.indexOf('/_next/static/') !== -1) {
+                      console.warn('Detected 404 missing chunk or CSS, clearing cache & reloading...', url);
+                      if (!sessionStorage.getItem('tbs_chunk_auto_reloaded')) {
+                        sessionStorage.setItem('tbs_chunk_auto_reloaded', '1');
+                        if ('serviceWorker' in navigator) {
+                          navigator.serviceWorker.getRegistrations().then(function(regs) {
+                            for (var i = 0; i < regs.length; i++) { regs[i].unregister(); }
+                            window.location.reload(true);
+                          });
+                        } else {
+                          window.location.reload(true);
+                        }
+                      }
+                    }
+                  }
+                }, true);
+              })();
+            `,
+          }}
+        />
       </head>
       <body className="min-h-full flex flex-col font-sans bg-canvas text-ink pb-16 sm:pb-0">
         <DevToolsShield />

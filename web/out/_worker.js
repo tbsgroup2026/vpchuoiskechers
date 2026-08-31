@@ -4198,6 +4198,23 @@ export default {
       }
     }
 
+    // Helper to ensure HTML pages are never cached by browser/CDN, while assets are cached safely
+    const withCacheHeaders = (response, isHtml = false) => {
+      const h = new Headers(response.headers);
+      if (isHtml) {
+        h.set("Cache-Control", "no-cache, no-store, must-revalidate, max-age=0, s-maxage=0");
+        h.set("Pragma", "no-cache");
+        h.set("Expires", "0");
+      } else if (url.pathname.startsWith("/_next/static/")) {
+        h.set("Cache-Control", "public, max-age=31536000, immutable");
+      }
+      return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: h,
+      });
+    };
+
     // Default Fallback: Serve Next.js Static Export Assets with HTML extension resolution
     let res = await env.ASSETS.fetch(request);
     if (res.status === 404 && request.method === "GET" && !url.pathname.includes(".")) {
@@ -4207,15 +4224,18 @@ export default {
       const htmlUrl = new URL(request.url);
       htmlUrl.pathname = `${cleanPath}.html`;
       const htmlRes = await env.ASSETS.fetch(new Request(htmlUrl.toString(), request));
-      if (htmlRes.status === 200) return htmlRes;
+      if (htmlRes.status === 200) return withCacheHeaders(htmlRes, true);
 
       // 2. Try path/index.html (e.g., /1-5-2/index.html)
       const indexUrl = new URL(request.url);
       indexUrl.pathname = `${cleanPath}/index.html`;
       const indexRes = await env.ASSETS.fetch(new Request(indexUrl.toString(), request));
-      if (indexRes.status === 200) return indexRes;
+      if (indexRes.status === 200) return withCacheHeaders(indexRes, true);
     }
-    return res;
+
+    const contentType = res.headers.get("content-type") || "";
+    const isHtmlResponse = contentType.includes("text/html") || url.pathname.endsWith(".html") || !url.pathname.includes(".");
+    return withCacheHeaders(res, isHtmlResponse);
   },
 
   // ⏰ Cloudflare Worker Cron Trigger Handler (Automated Weekly Execution)

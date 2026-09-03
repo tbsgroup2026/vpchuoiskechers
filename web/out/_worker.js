@@ -4201,7 +4201,7 @@ export default {
     // Helper to ensure HTML pages are never cached by browser/CDN, while assets are cached safely
     const withCacheHeaders = (response, isHtml = false) => {
       const h = new Headers(response.headers);
-      if (isHtml) {
+      if (isHtml || url.pathname === "/sw.js" || url.pathname === "/manifest.json") {
         h.set("Cache-Control", "no-cache, no-store, must-revalidate, max-age=0, s-maxage=0");
         h.set("Pragma", "no-cache");
         h.set("Expires", "0");

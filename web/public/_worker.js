@@ -4430,14 +4430,18 @@ export default {
       }
     }
 
-    // Helper to ensure HTML pages are never cached by browser/CDN, while assets are cached safely
+    // Helper to ensure HTML pages & API routes are never cached by browser/CDN, while static JS/CSS/Fonts are cached safely
     const withCacheHeaders = (response, isHtml = false) => {
       const h = new Headers(response.headers);
-      if (isHtml || url.pathname === "/sw.js" || url.pathname === "/manifest.json") {
+      if (isHtml || url.pathname === "/sw.js" || url.pathname === "/manifest.json" || url.pathname.startsWith("/api/")) {
         h.set("Cache-Control", "no-cache, no-store, must-revalidate, max-age=0, s-maxage=0");
         h.set("Pragma", "no-cache");
         h.set("Expires", "0");
-      } else if (url.pathname.startsWith("/_next/static/")) {
+      } else if (
+        url.pathname.startsWith("/_next/static/") ||
+        url.pathname === "/compiled-tailwind.css" ||
+        url.pathname.startsWith("/images/")
+      ) {
         h.set("Cache-Control", "public, max-age=31536000, immutable");
       }
       return new Response(response.body, {

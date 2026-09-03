@@ -14,6 +14,8 @@ interface UserAvatarProps {
   showOnlineBadge?: boolean;
 }
 
+import SmartImage from "@/components/SmartImage";
+
 export default function UserAvatar({
   src,
   name = "User",
@@ -65,10 +67,12 @@ export default function UserAvatar({
     <div className={`relative inline-block flex-shrink-0 ${currentSizeClass} ${className}`}>
       <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center select-none shadow-2xs border border-emerald-500/40 bg-gradient-to-br from-[#006838] via-[#04331d] to-[#011a11] text-[#f2dc9a] font-black tracking-wider uppercase">
         {hasValidSrc ? (
-          <img
+          <SmartImage
             src={src}
             alt={name || "User Avatar"}
             onError={() => setImgError(true)}
+            fallbackInitials={getInitials(name)}
+            priority={true}
             style={{
               transform: `scale(${zoom}) translate(${offsetX}px, ${offsetY}px)`,
               transformOrigin: "center center",

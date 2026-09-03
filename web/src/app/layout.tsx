@@ -42,6 +42,9 @@ export const metadata: Metadata = {
   },
 };
 
+import { PerformanceProvider } from "@/components/PerformanceProvider";
+import PerfDebugOverlay from "@/components/PerfDebugOverlay";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -88,10 +91,13 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-full flex flex-col font-sans bg-canvas text-ink pb-16 sm:pb-0">
-        <DevToolsShield />
-        <NotificationInitializer />
-        {children}
-        <MobileBottomNav />
+        <PerformanceProvider>
+          <DevToolsShield />
+          <NotificationInitializer />
+          {children}
+          <MobileBottomNav />
+          <PerfDebugOverlay />
+        </PerformanceProvider>
       </body>
     </html>
   );

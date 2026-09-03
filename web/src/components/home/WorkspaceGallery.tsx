@@ -14,7 +14,7 @@ import {
   IconEye,
   IconBuildingWarehouse,
 } from "@tabler/icons-react";
-import { useTranslation } from "@/hooks/useTranslation";
+import SmartImage from "@/components/SmartImage";
 
 export interface WorkspaceItem {
   id: string;
@@ -314,7 +314,7 @@ export default function WorkspaceGallery() {
                 className="group relative h-[260px] sm:h-[280px] rounded-[24px] overflow-hidden shadow-md hover:shadow-2xl transition-all duration-500 cursor-pointer border border-slate-200"
               >
                 {/* Image */}
-                <img
+                <SmartImage
                   src={item.image}
                   alt={item.title}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"

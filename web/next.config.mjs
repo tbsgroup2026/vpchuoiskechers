@@ -2,7 +2,8 @@
 const nextConfig = {
   output: 'export',
   images: {
-    unoptimized: true,
+    loader: 'custom',
+    loaderFile: './src/lib/cloudinaryLoader.ts',
   },
   typescript: {
     ignoreBuildErrors: true,

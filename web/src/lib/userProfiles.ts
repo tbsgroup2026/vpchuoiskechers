@@ -416,20 +416,11 @@ export function getUserAvatar(empCode: string): string | null {
   if (typeof window === "undefined" || !empCode) return null;
   const cleanCode = normalizeEmpCode(empCode);
 
-  // Nếu không phải 202608001 mà localStorage có lưu URL nzcft200bebofw7b4uzg -> XÓA SẠCH RÁC BỊ DÍNH CŨ!
-  if (cleanCode !== "202608001") {
-    const cached = localStorage.getItem(`tbs_avatar_${cleanCode}`);
-    if (cached && cached.includes("nzcft200bebofw7b4uzg")) {
-      localStorage.removeItem(`tbs_avatar_${cleanCode}`);
-    }
-  }
-
   const custom = localStorage.getItem(`tbs_avatar_${cleanCode}`);
   if (
     custom &&
     custom.trim() !== "" &&
-    custom !== "/images/tbs-logo.png" &&
-    (cleanCode === "202608001" || !custom.includes("nzcft200bebofw7b4uzg"))
+    custom !== "/images/tbs-logo.png"
   ) {
     return custom;
   }
@@ -514,25 +505,18 @@ export function getCurrentUser(): UserProfile | null {
     const normalizedCode = normalizeEmpCode(parsed.empCode);
     const baseInfo = SYSTEM_USERS[normalizedCode];
 
-    // Nếu session đang lưu nhầm avatar IT guy cho tài khoản khác -> XÓA SẠCH VÀ SỬA NGAY!
-    if (normalizedCode !== "202608001" && parsed.avatar && parsed.avatar.includes("nzcft200bebofw7b4uzg")) {
-      parsed.avatar = baseInfo?.avatar || "/images/tbs-logo.png";
-      sessionStorage.setItem("tbs_current_user", JSON.stringify(parsed));
-      localStorage.setItem("tbs_current_user", JSON.stringify(parsed));
-    }
-
     // Lấy avatar riêng biệt theo empCode:
     const customAvatar = getUserAvatar(normalizedCode);
 
     // Thứ tự ưu tiên nghiêm ngặt:
     // 1. Custom Avatar của chính empCode này (nếu hợp lệ)
     // 2. Base Avatar chuẩn của empCode này trong SYSTEM_USERS
-    // 3. Parsed avatar từ session (chỉ nếu không dính ảnh IT guy)
+    // 3. Parsed avatar từ session
     let finalAvatar = customAvatar;
     if (!finalAvatar && baseInfo?.avatar) {
       finalAvatar = baseInfo.avatar;
     }
-    if (!finalAvatar && parsed.avatar && (normalizedCode === "202608001" || !parsed.avatar.includes("nzcft200bebofw7b4uzg"))) {
+    if (!finalAvatar && parsed.avatar) {
       finalAvatar = parsed.avatar;
     }
     if (!finalAvatar) {
@@ -706,3 +690,56 @@ export function logoutUserProfile(): void {
   // Bắn event để tất cả các page/component tự động reset về trạng thái chưa đăng nhập
   window.dispatchEvent(new Event("tbs_profile_updated"));
 }
+
+/**
+ * Kiểm tra người dùng có vai trò Admin / Super Admin (hoặc Ban Giám Đốc / IT Admin)
+ * để cho phép hiển thị & truy cập Trang Quản Trị (/admin).
+ * Các tài khoản nhân viên / user thông thường sẽ KHÔNG được hiển thị nút này.
+ */
+export function isAdminUser(user: any): boolean {
+  if (!user) return false;
+
+  const empCode = (user.empCode || user.emp_code || "").toString().trim().toUpperCase();
+  const roleCode = (user.roleCode || user.role_code || "").toString().trim().toUpperCase();
+  const roles: string[] = Array.isArray(user.roles)
+    ? user.roles.map((r: any) => r.toString().toLowerCase())
+    : [];
+
+  // 1. Kiểm tra vai trò Admin / Super Admin chuẩn
+  if (
+    roleCode === "SUPER_ADMIN" ||
+    roleCode === "ADMIN" ||
+    roleCode === "SYSTEM_ADMIN" ||
+    roleCode === "ADMIN-2026"
+  ) {
+    return true;
+  }
+
+  // 2. Kiểm tra mảng roles
+  if (
+    roles.includes("admin") ||
+    roles.includes("superadmin") ||
+    roles.includes("system_admin")
+  ) {
+    return true;
+  }
+
+  // 3. Kiểm tra mã nhân viên quản trị đặc biệt
+  if (
+    empCode === "ADMIN-2026" ||
+    empCode === "202608001" ||
+    empCode === "2026080001" ||
+    empCode === "202608002"
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+export function formatTitleWithDepartment(title?: string, department?: string): string {
+  if (!title) return department || "";
+  if (!department || title.includes(department)) return title;
+  return `${title} - ${department}`;
+}
+

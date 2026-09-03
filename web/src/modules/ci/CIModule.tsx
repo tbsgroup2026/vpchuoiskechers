@@ -1,8 +1,41 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import Link from "next/link";
-import KaizenDashboard from "./KaizenDashboard";
+import React, { useState, useEffect, useMemo } from "react";
+import NavLink from "@/components/NavLink";
+import dynamic from "next/dynamic";
+import { useStatusCounts } from "@/context/StatusCountsContext";
+
+// Dynamic Imports for Modals & Sub-views to shrink initial JS bundle & accelerate 3G/4G loading
+const KaizenDashboard = dynamic(() => import("./KaizenDashboard"), { ssr: false });
+const KaizenEarlyWarning = dynamic(() => import("./KaizenEarlyWarning"), { ssr: false });
+const KaizenFiveStepSubmitForm = dynamic(() => import("./KaizenFiveStepSubmitForm"), { ssr: false });
+const KaizenPublicSubmitForm = dynamic(() => import("./KaizenPublicSubmitForm"), { ssr: false });
+const KaizenDetailModal = dynamic(() => import("./KaizenDetailModal"), { ssr: false });
+const EvaluationModal = dynamic(() => import("./EvaluationModal"), { ssr: false });
+const FeasibilityApprovalModal = dynamic(() => import("./FeasibilityApprovalModal"), { ssr: false });
+const PreliminaryReviewModal = dynamic(() => import("./PreliminaryReviewModal"), { ssr: false });
+const KaizenDuplicateCompareModal = dynamic(() => import("./KaizenDuplicateCompareModal"), { ssr: false });
+const KaizenLeaderboard = dynamic(() => import("./KaizenLeaderboard"), { ssr: false });
+
+const PROPOSALS_CACHE_KEY = "vpchuoiskechers_kaizen_proposals_cache_v2";
+
+// Resilient Fetch with AbortController Timeout & Exponential Backoff Retry for Weak 3G/4G Networks
+async function fetchWithRetryAndTimeout(url: string, options: RequestInit = {}, retries = 2, timeoutMs = 8000): Promise<Response> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, { ...options, signal: controller.signal });
+      clearTimeout(timer);
+      if (res.ok || attempt === retries) return res;
+    } catch (err: any) {
+      clearTimeout(timer);
+      if (attempt === retries) throw err;
+      await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+    }
+  }
+  throw new Error("Network request failed after retries");
+}
 import {
   IconLayoutGrid,
   IconList,
@@ -47,6 +80,8 @@ import {
   IconVideo,
   IconExternalLink,
 } from "@tabler/icons-react";
+import { formatTitleWithDepartment } from "@/lib/userProfiles";
+import { usePermission } from "@/hooks/usePermission";
 
 export interface KaizenProposal {
   id: string;
@@ -66,6 +101,15 @@ export interface KaizenProposal {
   before_description?: string;
   after_solution?: string;
   saved_seconds: number;
+  time_before_seconds?: number;
+  time_after_seconds?: number;
+  efficiency_value_vnd?: number;
+  pair_quantity?: number;
+  so_luong_giay?: number;
+  total_savings_vnd?: number;
+  tong_tien_tiet_kiem?: number;
+  total_savings_words?: string;
+  tong_tien_bang_chu?: string;
   before_image_url?: string;
   after_image_url?: string;
   attachments_json?: string;
@@ -81,11 +125,64 @@ export interface KaizenProposal {
   rejection_reason?: string;
   required_reviewer_ids_json?: string;
   evaluated_at?: string;
+  is_thi_dua?: number;
+  propose_thi_dua?: number;
+  scores_json?: string;
+  approval_status?: string;
+  review_status?: string;
+  is_archived?: boolean | number;
+  trang_thai?: string;
+  line?: string;
+  nguoi_kiem_chung?: string;
+  anh_kiem_chung_json?: string;
+  nhan_xet_kiem_chung?: string;
+  so_giay_tiet_kiem?: number;
+  diem_hieu_qua?: number;
+  diem_tong_hop?: number;
+  hang_xep?: number;
+  merged_into_id?: string;
   version: number;
   created_at: string;
 }
 
-const CATEGORIES = [
+export function normalizeProposal(p: KaizenProposal): KaizenProposal {
+  if (!p) return p;
+  let isArchived = Boolean(
+    Number(p.is_archived) === 1 ||
+    p.is_archived === true ||
+    p.sub_status === "LUU_TRU" ||
+    p.registration_type === "LUU_TRU" ||
+    p.status === "ARCHIVED" ||
+    p.approval_status === "TU_CHOI" ||
+    p.sub_status === "TU_CHOI_TRIEN_KHAI" ||
+    p.status === "REJECTED"
+  );
+
+  let reviewStatus = p.review_status;
+  if (!reviewStatus) {
+    const appStatus = String(p.approval_status || "").toUpperCase();
+    const subStatus = String(p.sub_status || "").toUpperCase();
+    const mainStatus = String(p.status || "").toUpperCase();
+
+    if (appStatus === "TU_CHOI" || subStatus === "TU_CHOI_TRIEN_KHAI" || mainStatus === "REJECTED") {
+      reviewStatus = "TU_CHOI_DUYET";
+    } else if (subStatus === "DA_DANH_GIA" || appStatus === "DA_DANH_GIA" || (Number(p.avg_rating || p.average_score || 0) > 0 && !["CHO_REVIEW", "CHO_DANH_GIA"].includes(subStatus))) {
+      reviewStatus = "DA_DANH_GIA";
+    } else if (subStatus === "CHO_DANH_GIA" || appStatus === "PHE_DUYET" || mainStatus === "APPROVED" || Number(p.is_thi_dua) === 1) {
+      reviewStatus = "CHO_DANH_GIA";
+    } else {
+      reviewStatus = "CHO_PHE_DUYET";
+    }
+  }
+
+  return {
+    ...p,
+    review_status: reviewStatus as any,
+    is_archived: isArchived
+  };
+}
+
+export const CATEGORIES = [
   { id: "MATERIAL_SAVING", label: "1.Tiết kiệm Vật tư", color: "bg-blue-600 text-white" },
   { id: "COST_SAVING", label: "2.Tiết kiệm Chi phí", color: "bg-emerald-600 text-white" },
   { id: "PRODUCTIVITY", label: "3.Tăng Năng suất", color: "bg-blue-500 text-white" },
@@ -93,20 +190,14 @@ const CATEGORIES = [
   { id: "5S", label: "5.5S", color: "bg-sky-500 text-white" },
   { id: "AUTOMATION", label: "6.Tự động hoá", color: "bg-indigo-600 text-white" },
   { id: "EQUIPMENT", label: "7.MMTB CCDC", color: "bg-purple-600 text-white" },
-  { id: "OTHER", label: "8.Khác", color: "bg-slate-600 text-white" },
 ];
 
-const REGIONS = [
-  "Kiên Giang 1",
-  "Kiên Giang 2",
-  "Kiên Giang 3",
-  "Hoàn Thiện Đế",
-  "Nhà Máy Miền Đông",
-  "VP Chuỗi (R&D)",
-];
+import { REAL_DEPARTMENTS } from "./KaizenPublicSubmitForm";
+
+const REGIONS = REAL_DEPARTMENTS;
 
 interface HalfStarRatingProps {
-  value: number; // current rating 0.5 - 5.0
+  value: number;
   onChange?: (val: number) => void;
   readOnly?: boolean;
   size?: number;
@@ -168,51 +259,236 @@ export function HalfStarRating({ value, onChange, readOnly = false, size = 22 }:
   );
 }
 
-const TH_KG_SUB_ITEMS = ["Kiên Giang 1", "Kiên Giang 2", "Kiên Giang 3", "Hoàn Thiện Đế"];
-const MAIN_REGIONS = ["TH-KG", "Nhà Máy Miền Đông", "VP Chuỗi (R&D)"];
+const REGION_SUB_ITEMS = [
+  "VP CHUỖI (R&D)",
+  "VP2 SKECHERS",
+  "Nhà Máy Miền Đông",
+  "Kiên Giang 1",
+  "Kiên Giang 2",
+  "Kiên Giang 3",
+  "Hoàn thiện đế",
+  "Phòng kế hoạch",
+  "Phòng CN-CI",
+  "Phòng chất lượng",
+  "Phòng nhân sự",
+];
 
-const matchRegionFilter = (propRegion: string, filterRegion: string) => {
+const matchRegionFilter = (propRegionOrObj: any, filterRegion: string) => {
   if (!filterRegion || filterRegion === "ALL") return true;
-  if (!propRegion) return false;
+  if (!propRegionOrObj) return false;
 
-  const pr = propRegion.toUpperCase();
-  const fr = filterRegion.toUpperCase();
+  let propStr = "";
+  if (typeof propRegionOrObj === "string") {
+    propStr = propRegionOrObj;
+  } else if (typeof propRegionOrObj === "object") {
+    propStr = `${propRegionOrObj.factory || ""} ${propRegionOrObj.region || ""} ${propRegionOrObj.department || ""} ${propRegionOrObj.area || ""} ${propRegionOrObj.code || ""} ${propRegionOrObj.title || ""}`;
+  }
 
-  if (filterRegion === "TH-KG") {
+  const pr = propStr.toUpperCase();
+
+  if (filterRegion === "VP CHUỖI (R&D)" || filterRegion === "VP CHUỖI") {
+    return pr.includes("VP CHUỖI") || pr.includes("VP CHUOI") || pr.includes("R&D") || pr.includes("SKECHERS");
+  }
+  if (filterRegion === "VP2 SKECHERS") {
+    return pr.includes("VP2") || pr.includes("SKECHERS");
+  }
+  if (filterRegion === "Nhà Máy Miền Đông") {
+    return pr.includes("MIỀN ĐÔNG") || pr.includes("MIEN DONG") || pr.includes("LONG XUYÊN") || pr.includes("ĐÀ NẴNG") || pr.includes("HỘI AN") || pr.includes("ĐỒNG XOÀI");
+  }
+  if (filterRegion === "Kiên Giang 1" || filterRegion === "KG 1") {
     return (
-      pr.includes("TH-KG") ||
-      pr.includes("KIÊN GIANG") ||
-      pr.includes("KIEN GIANG") ||
+      pr.includes("KIÊN GIANG 1") ||
+      pr.includes("KIEN GIANG 1") ||
+      pr.includes("KG 1") ||
+      pr.includes("KG1") ||
+      pr.includes("KG-1") ||
+      pr.includes("MŨI KG1") ||
+      pr.includes("MUI KG1")
+    );
+  }
+  if (filterRegion === "Kiên Giang 2" || filterRegion === "KG 2") {
+    return (
+      pr.includes("KIÊN GIANG 2") ||
+      pr.includes("KIEN GIANG 2") ||
+      pr.includes("KG 2") ||
+      pr.includes("KG2") ||
+      pr.includes("KG-2")
+    );
+  }
+  if (filterRegion === "Kiên Giang 3" || filterRegion === "KG 3") {
+    return (
+      pr.includes("KIÊN GIANG 3") ||
+      pr.includes("KIEN GIANG 3") ||
+      pr.includes("KG 3") ||
+      pr.includes("KG3") ||
+      pr.includes("KG-3") ||
+      pr.includes("XƯỞNG SẢN XUẤT KG3") ||
+      pr.includes("XUONG SAN XUAT KG3") ||
+      pr.includes("SẢN XUẤT KG3") ||
+      pr.includes("SAN XUAT KG3")
+    );
+  }
+  if (filterRegion === "Hoàn thiện đế" || filterRegion === "Hoàn Thiện Đế") {
+    return (
       pr.includes("HOÀN THIỆN ĐẾ") ||
       pr.includes("HOAN THIEN DE") ||
-      pr === "ĐẾ" ||
-      pr === "DE"
+      pr.includes("HTĐ") ||
+      pr.includes("HTD") ||
+      pr.includes("ĐẾ") ||
+      pr.includes("DE")
     );
   }
-
-  if (filterRegion === "Nhà Máy Miền Đông") {
-    return (
-      pr.includes("MIỀN ĐÔNG") ||
-      pr.includes("MIEN DONG") ||
-      pr.includes("LONG XUYÊN") ||
-      pr.includes("ĐÀ NẴNG") ||
-      pr.includes("HỘI AN") ||
-      pr.includes("ĐỒNG XOÀI")
-    );
+  if (filterRegion === "Phòng kế hoạch") {
+    return pr.includes("KẾ HOẠCH") || pr.includes("KE HOACH") || pr.includes("PPC");
+  }
+  if (filterRegion === "Phòng CN-CI") {
+    return pr.includes("CN-CI") || pr.includes("CN CI") || pr.includes("CONTINUOUS IMPROVEMENT") || pr.includes("CI");
+  }
+  if (filterRegion === "Phòng chất lượng") {
+    return pr.includes("CHẤT LƯỢNG") || pr.includes("CHAT LUONG") || pr.includes("QA") || pr.includes("QC");
+  }
+  if (filterRegion === "Phòng nhân sự") {
+    return pr.includes("NHÂN SỰ") || pr.includes("NHAN SU") || pr.includes("HR") || pr.includes("HÀNH CHÍNH");
   }
 
-  if (filterRegion === "VP Chuỗi (R&D)") {
-    return pr.includes("VP CHUỖI") || pr.includes("VP CHUOI") || pr.includes("R&D") || pr.includes("NGÀNH S");
-  }
-
-  return pr.includes(fr);
+  return pr.includes(filterRegion.toUpperCase());
 };
 
+export function isApprovedProposal(p: KaizenProposal): boolean {
+  if (!p) return false;
+  const appStatus = String(p.approval_status || "").toUpperCase();
+  const subStatus = String(p.sub_status || p.review_status || "").toUpperCase();
+  const status = String(p.status || "").toUpperCase();
+
+  if (appStatus === "TU_CHOI" || subStatus === "TU_CHOI_TRIEN_KHAI" || status === "REJECTED") {
+    return false;
+  }
+
+  return (
+    appStatus === "PHE_DUYET" ||
+    subStatus === "CHO_DANH_GIA" ||
+    subStatus === "DA_DANH_GIA" ||
+    subStatus === "DA_DUYET" ||
+    status === "APPROVED" ||
+    status === "UNDER_REVIEW" ||
+    status === "COMPLETED" ||
+    Number(p.avg_rating || p.average_score || 0) > 0
+  );
+}
+
+export function isPendingApprovalProposal(p: KaizenProposal): boolean {
+  if (!p) return false;
+  if (isApprovedProposal(p)) return false;
+
+  const appStatus = String(p.approval_status || "").toUpperCase();
+  const subStatus = String(p.sub_status || p.review_status || "").toUpperCase();
+  const status = String(p.status || "").toUpperCase();
+
+  if (appStatus === "TU_CHOI" || subStatus === "TU_CHOI_TRIEN_KHAI" || status === "REJECTED") {
+    return false;
+  }
+
+  return true;
+}
+
+export function matchRegTypeFilter(p: KaizenProposal, regType: string): boolean {
+  if (!p) return false;
+  if (!regType || regType === "ALL") return true;
+
+  const isArchived = Boolean(p.is_archived) || p.sub_status === "LUU_TRU" || p.registration_type === "LUU_TRU" || p.status === "ARCHIVED";
+
+  if (regType === "LUU_TRU") {
+    return isArchived;
+  }
+
+  if (isArchived) return false;
+
+  if (regType === "THI_DUA") {
+    return true;
+  }
+
+  if (regType === "CHO_PHE_DUYET" || regType === "CHO_DUYET") {
+    return isPendingApprovalProposal(p);
+  }
+
+  if (regType === "DA_DANH_GIA" || regType === "DA_DUYET") {
+    return isApprovedProposal(p);
+  }
+
+  if (regType === "CAN_CHINH_SUA") {
+    return String(p.sub_status || p.trang_thai || "").toUpperCase() === "CAN_CHINH_SUA";
+  }
+
+  return true;
+}
+
+export function renderCardTopRightBadge(prop: KaizenProposal, rankInfo?: any) {
+  const isRejected =
+    Boolean(prop.is_archived) ||
+    prop.approval_status === "TU_CHOI" ||
+    prop.sub_status === "TU_CHOI_TRIEN_KHAI" ||
+    prop.sub_status === "TU_CHOI_DUYET" ||
+    prop.status === "REJECTED";
+
+  if (isRejected) {
+    return (
+      <span className="px-2 py-0.5 rounded bg-rose-600 text-white text-[9px] font-black shadow-2xs flex items-center gap-0.5">
+        ❌ Từ chối
+      </span>
+    );
+  }
+
+  const isApproved = isApprovedProposal(prop);
+  const isPending = isPendingApprovalProposal(prop);
+
+  if (isPending) {
+    return (
+      <span className="px-2 py-0.5 rounded bg-amber-500 text-white text-[9px] font-black shadow-2xs flex items-center gap-0.5">
+        ⏳ Chờ duyệt
+      </span>
+    );
+  }
+
+  if (isApproved) {
+    if (rankInfo) {
+      return (
+        <span className={`px-2 py-0.5 rounded text-[10px] font-black shadow-md flex items-center gap-1 ${rankInfo.badgeStyle}`}>
+          <span>{rankInfo.badgeLabel}</span>
+        </span>
+      );
+    }
+    return (
+      <span className="px-2 py-0.5 rounded bg-emerald-600 text-white text-[9px] font-black shadow-2xs flex items-center gap-0.5">
+        ✅ Đã duyệt
+      </span>
+    );
+  }
+
+  return (
+    <span className="px-2 py-0.5 rounded bg-amber-500 text-white text-[9px] font-black shadow-2xs flex items-center gap-0.5">
+      ⏳ Chờ duyệt
+    </span>
+  );
+}
+
 export default function CIModule() {
-  const [proposals, setProposals] = useState<KaizenProposal[]>([]);
-  const [loading, setLoading] = useState(false);
+  const { isExecutiveOrAdmin } = usePermission();
+  const [proposals, setProposals] = useState<KaizenProposal[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem(PROPOSALS_CACHE_KEY);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch (e) {}
+    }
+    return [];
+  });
+  const [loading, setLoading] = useState(proposals.length === 0);
   const [viewMode, setViewMode] = useState<"GRID" | "LIST">("GRID");
-  const [activeTab, setActiveTab] = useState<"LIBRARY" | "DASHBOARD">("LIBRARY");
+  const [activeTab, setActiveTab] = useState<"LIBRARY" | "DASHBOARD" | "EARLY_WARNING">("LIBRARY");
+  const [isFiveStepModalOpen, setIsFiveStepModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Filters State
@@ -222,13 +498,18 @@ export default function CIModule() {
   const [selectedRegType, setSelectedRegType] = useState("ALL");
   const [selectedSubStatus, setSelectedSubStatus] = useState("CHO_DANH_GIA");
   const [selectedStatus, setSelectedStatus] = useState("ALL");
-    // Sidebar States
+
+  // Evaluation Modal State
+  const [isEvaluationModalOpen, setIsEvaluationModalOpen] = useState(false);
+  const [evaluatingProposal, setEvaluatingProposal] = useState<KaizenProposal | null>(null);
+
+  // Sidebar States
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isRegTypeExpanded, setIsRegTypeExpanded] = useState(true);
   const [isRegionExpanded, setIsRegionExpanded] = useState(true);
   const [isCategoryExpanded, setIsCategoryExpanded] = useState(true);
-  const [isThKgExpanded, setIsThKgExpanded] = useState(true);
-  // Synchronized Logged-in User Profile from /work session
+
+  // Synchronized Logged-in User Profile
   const [currentUser, setCurrentUser] = useState<{
     name: string;
     title: string;
@@ -266,221 +547,64 @@ export default function CIModule() {
     return () => window.removeEventListener("tbs_profile_updated", loadUser);
   }, []);
 
+  // Preliminary Review Modal State
+  const [isPreliminaryModalOpen, setIsPreliminaryModalOpen] = useState(false);
+  const [preliminaryProposal, setPreliminaryProposal] = useState<KaizenProposal | null>(null);
+
+  // Duplicate Compare Modal State
+  const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
+  const [duplicateNewSubmission, setDuplicateNewSubmission] = useState<any>(null);
+  const [duplicateMatches, setDuplicateMatches] = useState<any[]>([]);
+
   // Modal States
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingProposal, setEditingProposal] = useState<KaizenProposal | null>(null);
   const [isEvalModalOpen, setIsEvalModalOpen] = useState(false);
   const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [detailActiveTab, setDetailActiveTab] = useState<"INFO" | "EVALUATION" | "RATING">("INFO");
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+  const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
+  const [approvalModalProposal, setApprovalModalProposal] = useState<KaizenProposal | null>(null);
   const [activeProposal, setActiveProposal] = useState<KaizenProposal | null>(null);
-  const [isCreateDropdownOpen, setIsCreateDropdownOpen] = useState(false);
-  const dropdownRef = React.useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsCreateDropdownOpen(false);
-      }
-    };
-
-    if (isCreateDropdownOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
-    }
-  }, [isCreateDropdownOpen]);
-
-  // Cloudinary Configuration
-  const CLOUDINARY_CLOUD_NAME = "dwl2xtbqa";
-  const CLOUDINARY_PRESETS = {
-    image: "vpchuoisk",
-    video: "vpchuoisk",
-  };
-
-  const uploadToCloudinary = async (fileOrDataUrl: File | string, fileType: "image" | "video"): Promise<string> => {
-    try {
-      const formData = new FormData();
-      const preset = CLOUDINARY_PRESETS[fileType];
-
-      if (typeof fileOrDataUrl === "string") {
-        const response = await fetch(fileOrDataUrl);
-        const blob = await response.blob();
-        formData.append("file", blob);
-      } else {
-        formData.append("file", fileOrDataUrl);
-      }
-
-      formData.append("upload_preset", preset);
-      formData.append("folder", "vpchuoiskechers");
-
-      const res = await fetch(
-        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/${fileType}/upload`,
-        { method: "POST", body: formData }
-      );
-
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error?.message || `Failed to upload ${fileType}`);
-      }
-
-      const data = await res.json();
-      return data.secure_url;
-    } catch (err) {
-      console.error(`Cloudinary ${fileType} upload error:`, err);
-      throw err;
-    }
-  };
-
-  // Create Form State (Matching /work/kaizen/register structure)
-  const [createForm, setCreateForm] = useState({
-    proposerName: "",
-    proposerEmpCode: "",
-    proposerPosition: "",
-    proposerMonth: new Date().getMonth() + 1,
-    proposerYear: new Date().getFullYear(),
-    factory: "VP2 SKECHERS",
-    department: "",
-    region: "Kiên Giang 1",
-    hrSuggestor: "",
-    customer: "",
-    registrationType: "CHO_DANH_GIA",
-    category: "PRODUCTIVITY",
-    categoryLabel: "3.Tăng Năng suất",
-    title: "",
-    beforeDescription: "",
-    afterSolution: "",
-    productGroup: "",
-    productCode: "",
-    quantity: 0,
-    savedSeconds: 30,
-    pricingDirection: "THOI_GIAN",
-    efficiencyValueVND: 0,
-    beforeImageUrl: "",
-    afterImageUrl: "",
-    beforeVideoUrl: "",
-    afterVideoUrl: "",
-  });
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, fieldName: "beforeImageUrl" | "afterImageUrl") => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith("image/")) {
-      showToast("❌ Vui lòng chọn file hình ảnh (JPG, PNG, WEBP)");
-      return;
-    }
-
-    if (file.size > 10 * 1024 * 1024) {
-      showToast("❌ Dung lượng ảnh tối đa là 10MB");
-      return;
-    }
-
-    try {
-      showToast("☁️ Đang tải ảnh lên Cloudinary...");
-      const cloudinaryUrl = await uploadToCloudinary(file, "image");
-      setCreateForm((prev) => ({
-        ...prev,
-        [fieldName]: cloudinaryUrl,
-      }));
-      showToast("✅ Ảnh đã tải lên thành công!");
-    } catch (err: any) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setCreateForm((prev) => ({
-          ...prev,
-          [fieldName]: event.target?.result as string,
-        }));
-        showToast("✅ Ảnh đã lưu!");
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>, fieldName: "beforeVideoUrl" | "afterVideoUrl") => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith("video/")) {
-      showToast("❌ Vui lòng chọn file video (MP4, WEBM, MOV)");
-      return;
-    }
-
-    if (file.size > 50 * 1024 * 1024) {
-      showToast("❌ Dung lượng video tối đa là 50MB");
-      return;
-    }
-
-    try {
-      showToast("🎬 Đang tải video lên Cloudinary...");
-      const cloudinaryUrl = await uploadToCloudinary(file, "video");
-      setCreateForm((prev) => ({
-        ...prev,
-        [fieldName]: cloudinaryUrl,
-      }));
-      showToast("✅ Video đã tải lên thành công!");
-    } catch (err: any) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setCreateForm((prev) => ({
-          ...prev,
-          [fieldName]: event.target?.result as string,
-        }));
-        showToast("✅ Video đã lưu!");
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  // Evaluate Form State
-  const [evalForm, setEvalForm] = useState({
-    awardTitle: "Giải Nhất",
-    scorePoints: 95.0,
-    reviewComment: "",
-  });
-  const [evalErrors, setEvalErrors] = useState<{
-    awardTitle?: string;
-    scorePoints?: string;
-    reviewComment?: string;
-  }>({});
-
-  // Star Rating Form State
-  const [starRating, setStarRating] = useState(5);
-  const [ratingComment, setRatingComment] = useState("");
+  const { counts: statusCounts, loading: isCountsLoading, refetchStatusCounts } = useStatusCounts();
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  // Fetch Proposals from D1 Database
-  const fetchProposals = async () => {
+  const fetchProposals = async (silent = false) => {
     try {
-      setLoading(true);
-      const params = new URLSearchParams();
-      if (selectedCategory !== "ALL") params.append("category", selectedCategory);
-      if (selectedRegion !== "ALL") params.append("region", selectedRegion);
-      if (selectedRegType !== "ALL") params.append("registration_type", selectedRegType);
-      if (selectedSubStatus !== "ALL") params.append("sub_status", selectedSubStatus);
-      if (selectedStatus !== "ALL") params.append("status", selectedStatus);
-      if (searchQuery) params.append("search", searchQuery);
-
-      const res = await fetch(`/api/ci-kaizen?${params.toString()}`);
+      if (!silent && proposals.length === 0) setLoading(true);
+      const res = await fetchWithRetryAndTimeout(`/api/ci-kaizen`, {}, 2, 8000);
+      if (!res.ok) {
+        if (!silent && proposals.length === 0) setLoading(false);
+        return;
+      }
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
         setProposals(json.data);
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem(PROPOSALS_CACHE_KEY, JSON.stringify(json.data));
+          } catch (e) {}
+        }
       }
     } catch (err) {
-      showToast("❌ Lỗi khi tải danh sách cải tiến Kaizen");
+      if (!silent && proposals.length === 0) {
+        showToast("⚠️ Kết nối mạng yếu: Đang hiển thị bản ghi đã lưu gần nhất");
+      }
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchProposals();
-  }, [selectedCategory, selectedRegion, selectedRegType, selectedSubStatus, selectedStatus]);
+    fetchProposals(proposals.length > 0);
+  }, []);
 
-  // Handle View Counter Increment
   const handleRecordView = async (prop: KaizenProposal) => {
     setActiveProposal(prop);
     setIsDetailModalOpen(true);
@@ -490,14 +614,12 @@ export default function CIModule() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: prop.id }),
       });
-      // Local optimistic increment
       setProposals((prev) =>
         prev.map((p) => (p.id === prop.id ? { ...p, view_count: p.view_count + 1 } : p))
       );
     } catch (e) {}
   };
 
-  // Handle Vote Button Click
   const handleVote = async (e: React.MouseEvent, propId: string) => {
     e.stopPropagation();
     try {
@@ -520,110 +642,6 @@ export default function CIModule() {
     }
   };
 
-  // Handle Create Submit
-  const handleCreateSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (
-      !createForm.proposerName.trim() ||
-      !createForm.proposerEmpCode.trim() ||
-      !createForm.proposerPosition.trim() ||
-      !createForm.factory.trim() ||
-      !createForm.department.trim() ||
-      !createForm.region.trim() ||
-      !createForm.category.trim() ||
-      !createForm.title.trim() ||
-      !createForm.beforeDescription.trim() ||
-      !createForm.afterSolution.trim() ||
-      !createForm.pricingDirection.trim()
-    ) {
-      showToast("⚠️ Vui lòng điền đầy đủ tất cả các trường thông tin bắt buộc có dấu (*) màu đỏ!");
-      return;
-    }
-
-    try {
-      const res = await fetch("/api/ci-kaizen", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...createForm,
-          registrationType: createForm.registrationType || "CHO_DANH_GIA",
-        }),
-      });
-      const json = await res.json();
-      if (json.success) {
-        showToast(`🎉 Đã gửi thành công đề xuất cải tiến ${json.code || "mới"}!`);
-        setIsCreateModalOpen(false);
-        fetchProposals();
-      } else {
-        showToast(`❌ ${json.message || "Lỗi khi gửi đề xuất"}`);
-      }
-    } catch (err) {
-      showToast("❌ Lỗi mạng hoặc máy chủ!");
-    }
-  };
-
-  // Handle Direct Star Rating (Single action 0.5 - 5.0)
-  const handleDirectRating = async (proposalId: string, score: number) => {
-    try {
-      const res = await fetch("/api/ci-kaizen/rate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          proposalId,
-          score,
-          comments: ratingComment,
-        }),
-      });
-      const json = await res.json();
-      if (json.success) {
-        showToast(json.message || `⭐ Đã gửi đánh giá ${score} sao thành công!`);
-        fetchProposals();
-        if (activeProposal && activeProposal.id === proposalId) {
-          const updated = {
-            ...activeProposal,
-            sub_status: json.isCompleted ? "DA_DANH_GIA" : activeProposal.sub_status,
-            avg_rating: json.averageScore || activeProposal.avg_rating,
-            average_score: json.averageScore || activeProposal.average_score,
-          };
-          setActiveProposal(updated);
-        }
-      } else {
-        showToast(`❌ ${json.message || "Lỗi khi gửi đánh giá"}`);
-      }
-    } catch (err) {
-      showToast("❌ Lỗi kết nối máy chủ!");
-    }
-  };
-
-  // Handle Admin Exempt Reviewer Override
-  const handleExemptReviewer = async (proposalId: string, reviewerEmpCode: string) => {
-    try {
-      const res = await fetch("/api/ci-kaizen/exempt-reviewer", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ proposalId, reviewerEmpCode }),
-      });
-      const json = await res.json();
-      if (json.success) {
-        showToast(`✅ ${json.message}`);
-        fetchProposals();
-        if (activeProposal && activeProposal.id === proposalId) {
-          const updated = {
-            ...activeProposal,
-            sub_status: json.isCompleted ? "DA_DANH_GIA" : activeProposal.sub_status,
-            required_reviewer_ids_json: JSON.stringify(json.requiredReviewers),
-          };
-          setActiveProposal(updated);
-        }
-      } else {
-        showToast(`❌ ${json.message || "Lỗi thực hiện miễn nhiệm"}`);
-      }
-    } catch (e) {
-      showToast("❌ Lỗi kết nối!");
-    }
-  };
-
-  // Handle Delete Proposal
   const handleDeleteProposal = async (proposalId: string) => {
     if (!confirm("Bạn có chắc chắn muốn xóa đề xuất cải tiến này khỏi hệ thống D1 Database?")) return;
     try {
@@ -633,6 +651,7 @@ export default function CIModule() {
         showToast("🗑️ Đã xóa đề xuất cải tiến thành công!");
         setIsDetailModalOpen(false);
         fetchProposals();
+        refetchStatusCounts();
       } else {
         showToast(`❌ ${json.message || "Lỗi khi xóa đề xuất"}`);
       }
@@ -641,117 +660,209 @@ export default function CIModule() {
     }
   };
 
-  // Handle Evaluation Submit (Chấm Điểm & Phê Duyệt Thi Đua)
-  const handleEvalSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!activeProposal) return;
+  const normalizedProposals = useMemo(() => {
+    return proposals.map(normalizeProposal);
+  }, [proposals]);
 
-    const errors: { awardTitle?: string; scorePoints?: string; reviewComment?: string } = {};
-    if (!evalForm.awardTitle.trim()) {
-      errors.awardTitle = "Vui lòng chọn Hạng Giải Thưởng!";
-    }
-    if (!evalForm.scorePoints || isNaN(evalForm.scorePoints) || evalForm.scorePoints <= 0) {
-      errors.scorePoints = "Vui lòng nhập Điểm Đánh Giá hợp lệ (lớn hơn 0)!";
-    }
-    if (!evalForm.reviewComment.trim()) {
-      errors.reviewComment = "Vui lòng nhập nhận xét, góp ý về sáng kiến!";
-    }
-
-    if (Object.keys(errors).length > 0) {
-      setEvalErrors(errors);
-      showToast("⚠️ Vui lòng điền đầy đủ tất cả các trường thông tin bắt buộc!");
-      return;
-    }
-    setEvalErrors({});
-
-    try {
-      const res = await fetch("/api/ci-kaizen", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: activeProposal.id,
-          action: "EVALUATE",
-          awardTitle: evalForm.awardTitle,
-          scorePoints: evalForm.scorePoints,
-          reviewComment: evalForm.reviewComment.trim(),
-          version: activeProposal.version,
-        }),
-      });
-      const json = await res.json();
-      if (json.success) {
-        showToast(`🏆 Đã chấm điểm ${evalForm.scorePoints}đ & trao ${evalForm.awardTitle} thành công!`);
-        setIsEvalModalOpen(false);
-        fetchProposals();
-      } else {
-        showToast(`❌ ${json.message || "Lỗi khi chấm điểm"}`);
-      }
-    } catch (err) {
-      showToast("❌ Lỗi kết nối!");
-    }
+  const getProposalSavingsVal = (p: any): number => {
+    if (!p) return 0;
+    const directTotalVnd = Number(p.total_savings_vnd || (p as any).tong_tien_tiet_kiem || 0);
+    if (directTotalVnd > 0) return directTotalVnd / 1000000;
+    const savedSecs = Number(p.saved_seconds || 0);
+    const qty = Number(p.pair_quantity || (p as any).so_luong_giay || 0);
+    if (savedSecs > 0 && qty > 0) return (savedSecs * 12.5 * qty) / 1000000;
+    return Number(p.efficiency_value_vnd || 0) / 1000000;
   };
 
-  // Handle Rating Submit (Đánh Giá 1-5 Sao)
-  const handleRatingSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!activeProposal) return;
-    try {
-      const res = await fetch("/api/ci-kaizen/rate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          proposalId: activeProposal.id,
-          stars: starRating,
-          comments: ratingComment,
-        }),
-      });
-      const json = await res.json();
-      if (json.success) {
-        showToast(`⭐ Đã gửi đánh giá ${starRating} sao thành công!`);
-        setIsRatingModalOpen(false);
-        fetchProposals();
-      } else {
-        showToast(`❌ ${json.message || "Lỗi khi gửi đánh giá"}`);
+  const proposalRanksMap = useMemo(() => {
+    const map: Record<string, { rank: number; rankIndex: number; rankTitle: string; badgeLabel: string; badgeStyle: string; icon: string }> = {};
+
+    const thiDuaList = normalizedProposals.filter((p) => {
+      if (!p || p.is_archived) return false;
+
+      const appStatus = String(p.approval_status || "").toUpperCase();
+      const subStatus = String(p.sub_status || p.review_status || "").toUpperCase();
+      const status = String(p.status || "").toUpperCase();
+
+      if (appStatus === "TU_CHOI" || subStatus === "TU_CHOI_TRIEN_KHAI" || status === "REJECTED") {
+        return false;
       }
-    } catch (err) {
-      showToast("❌ Lỗi kết nối!");
-    }
-  };
 
-  // Filtered List Computation
-  const filteredProposals = proposals.filter((p) => {
-    if (selectedRegion !== "ALL" && !matchRegionFilter(p.region, selectedRegion)) {
-      return false;
-    }
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      const matchSearch =
-        p.title.toLowerCase().includes(q) ||
-        p.code.toLowerCase().includes(q) ||
-        p.proposer_name.toLowerCase().includes(q) ||
-        p.department.toLowerCase().includes(q);
-      if (!matchSearch) return false;
-    }
-    return true;
-  });
+      if (subStatus === "CHO_REVIEW" || appStatus === "PENDING" || status === "SUBMITTED") {
+        return false;
+      }
 
-  // Calculate Badge Counters
-  const countThiDua = proposals.filter((p) => p.registration_type === "THI_DUA").length;
-  const countDaDanhGia = proposals.filter((p) => p.sub_status === "DA_DANH_GIA").length;
-  const countChoDanhGia = proposals.filter((p) => p.sub_status === "CHO_DANH_GIA").length;
-  const countLuuTru = proposals.filter((p) => p.registration_type === "LUU_TRU").length;
+      const isApproved =
+        appStatus === "PHE_DUYET" ||
+        subStatus === "CHO_DANH_GIA" ||
+        subStatus === "DA_DANH_GIA" ||
+        status === "UNDER_REVIEW" ||
+        status === "APPROVED" ||
+        status === "COMPLETED";
+
+      const regType = String(p.registration_type || "").toUpperCase();
+      return isApproved && (regType === "THI_DUA" || Number(p.is_thi_dua) === 1 || subStatus === "CHO_DANH_GIA" || subStatus === "DA_DANH_GIA");
+    });
+
+    const sorted = [...thiDuaList].sort((a, b) => {
+      const valA = getProposalSavingsVal(a);
+      const valB = getProposalSavingsVal(b);
+      if (valB !== valA) return valB - valA;
+
+      const scoreA = Number(a.score_points || (a as any).scorePoints || 0);
+      const scoreB = Number(b.score_points || (b as any).scorePoints || 0);
+      if (scoreB !== scoreA) return scoreB - scoreA;
+
+      const voteA = Number(a.vote_count || 0);
+      const voteB = Number(b.vote_count || 0);
+      if (voteB !== voteA) return voteB - voteA;
+
+      const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return dateB - dateA;
+    });
+
+    sorted.forEach((item, index) => {
+      let rank = 1;
+      let rankTitle = "Hạng Nhất";
+      let badgeLabel = "🥇 Hạng 1";
+      let badgeStyle = "bg-amber-400 text-amber-950 font-black border border-amber-300 shadow-md";
+      let icon = "🥇";
+
+      if (index === 0) {
+        rank = 1;
+        rankTitle = "Hạng Nhất";
+        badgeLabel = "🥇 Hạng 1";
+        badgeStyle = "bg-amber-400 text-amber-950 font-black border border-amber-300 shadow-md";
+        icon = "🥇";
+      } else if (index >= 1 && index <= 2) {
+        rank = 2;
+        rankTitle = "Hạng Nhì";
+        badgeLabel = "🥈 Hạng 2";
+        badgeStyle = "bg-slate-200 text-slate-900 font-black border border-slate-300 shadow-xs";
+        icon = "🥈";
+      } else if (index >= 3 && index <= 7) {
+        rank = 3;
+        rankTitle = "Hạng Ba";
+        badgeLabel = "🥉 Hạng 3";
+        badgeStyle = "bg-amber-800 text-amber-100 font-black border border-amber-600 shadow-xs";
+        icon = "🥉";
+      } else if (index >= 8 && index <= 17) {
+        rank = 4;
+        rankTitle = "Hạng 4";
+        badgeLabel = "🎖️ Hạng 4";
+        badgeStyle = "bg-blue-100 text-blue-900 font-extrabold border border-blue-300 shadow-2xs";
+        icon = "🎖️";
+      } else if (index >= 18 && index <= 37) {
+        rank = 5;
+        rankTitle = "Hạng 5";
+        badgeLabel = "🎗️ Hạng 5";
+        badgeStyle = "bg-emerald-100 text-emerald-900 font-extrabold border border-emerald-300 shadow-2xs";
+        icon = "🎗️";
+      } else {
+        rank = index + 1;
+        rankTitle = `Hạng ${index + 1}`;
+        badgeLabel = `#${index + 1}`;
+        badgeStyle = "bg-slate-100 text-slate-700 font-bold border border-slate-200";
+        icon = "#";
+      }
+
+      map[item.id] = { rank, rankIndex: index, rankTitle, badgeLabel, badgeStyle, icon };
+    });
+
+    return map;
+  }, [normalizedProposals]);
+
+  const filteredProposals = useMemo(() => {
+    const filtered = normalizedProposals.filter((p) => {
+      if (selectedRegion !== "ALL" && !matchRegionFilter(p, selectedRegion)) {
+        return false;
+      }
+      if (selectedCategory !== "ALL" && p.category !== selectedCategory) {
+        return false;
+      }
+      if (!matchRegTypeFilter(p, selectedRegType)) {
+        return false;
+      }
+
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        const matchSearch =
+          p.title.toLowerCase().includes(q) ||
+          p.code.toLowerCase().includes(q) ||
+          p.proposer_name.toLowerCase().includes(q) ||
+          p.department.toLowerCase().includes(q);
+        if (!matchSearch) return false;
+      }
+      return true;
+    });
+
+    return [...filtered].sort((a, b) => {
+      if (selectedRegType === "CHO_PHE_DUYET" || selectedRegType === "CHO_DUYET") {
+        const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return dateA - dateB;
+      }
+
+      const rankIdxA = proposalRanksMap[a.id]?.rankIndex;
+      const rankIdxB = proposalRanksMap[b.id]?.rankIndex;
+
+      if (rankIdxA !== undefined && rankIdxB !== undefined) {
+        return rankIdxA - rankIdxB;
+      }
+
+      if (rankIdxA !== undefined && rankIdxB === undefined) return -1;
+      if (rankIdxA === undefined && rankIdxB !== undefined) return 1;
+
+      const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return dateA - dateB;
+    });
+  }, [normalizedProposals, selectedRegion, selectedCategory, selectedRegType, searchQuery, proposalRanksMap]);
+
+  const regTypeCounts = useMemo(() => {
+    let thiDua = 0, choReview = 0, choDanhGia = 0, daDanhGia = 0, luuTru = 0;
+    for (const p of normalizedProposals) {
+      if (matchRegTypeFilter(p, "THI_DUA")) thiDua++;
+      if (matchRegTypeFilter(p, "CHO_PHE_DUYET")) choReview++;
+      if (matchRegTypeFilter(p, "CHO_DANH_GIA")) choDanhGia++;
+      if (matchRegTypeFilter(p, "DA_DANH_GIA")) daDanhGia++;
+      if (matchRegTypeFilter(p, "LUU_TRU")) luuTru++;
+    }
+    return { thiDua, choReview, choDanhGia, daDanhGia, luuTru };
+  }, [normalizedProposals]);
+
+  const countThiDua = regTypeCounts.thiDua;
+  const countChoReview = regTypeCounts.choReview;
+  const countChoDanhGia = regTypeCounts.choDanhGia;
+  const countDaDanhGia = regTypeCounts.daDanhGia;
+  const countLuuTru = regTypeCounts.luuTru;
+
+  const regionCounts = useMemo(() => {
+    const result: Record<string, number> = {};
+    for (const subItem of REGION_SUB_ITEMS) {
+      result[subItem] = normalizedProposals.filter((p) => matchRegionFilter(p, subItem)).length;
+    }
+    return result;
+  }, [normalizedProposals]);
+
+  const categoryCounts = useMemo(() => {
+    const result: Record<string, number> = {};
+    for (const cat of CATEGORIES) {
+      result[cat.id] = normalizedProposals.filter((p) => p.category === cat.id).length;
+    }
+    return result;
+  }, [normalizedProposals]);
 
   return (
     <div className="min-h-screen bg-[#f1f5f9] text-slate-800 font-sans flex flex-col md:flex-row w-full selection:bg-[#006838] selection:text-white">
-      {/* ════════════════════════════════════════════════════════════════
-          FULL-HEIGHT DARK NAVY SIDEBAR (Matching Target Reference Image)
-         ════════════════════════════════════════════════════════════════ */}
+      {/* SIDEBAR */}
       <aside
         className={`bg-[#0b1739] text-slate-200 flex-col flex-shrink-0 transition-all duration-300 select-none z-30 sticky top-0 h-screen overflow-y-auto ${
           isSidebarCollapsed ? "w-20 p-2.5" : "w-64 lg:w-72 p-3.5"
         } flex flex-col justify-between border-r border-slate-800 shadow-xl`}
       >
         <div className="space-y-4">
-          {/* Sidebar Header Brand Logo + Help + Collapse */}
           <div className="flex items-center justify-between gap-2 pb-3 border-b border-slate-800/90">
             {!isSidebarCollapsed ? (
               <div className="flex items-center gap-2">
@@ -794,7 +905,6 @@ export default function CIModule() {
             </div>
           </div>
 
-          {/* Navigation Section 1: MENU */}
           <div className="space-y-1">
             {!isSidebarCollapsed && (
               <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-wider px-2">
@@ -802,8 +912,7 @@ export default function CIModule() {
               </h4>
             )}
             <div className="space-y-1">
-              {/* Nút Quay lại /work */}
-              <Link
+              <NavLink
                 href="/work"
                 className={`w-full text-left rounded-xl transition-all cursor-pointer flex items-center gap-2.5 ${
                   isSidebarCollapsed ? "p-2.5 justify-center" : "px-3.5 py-2"
@@ -812,9 +921,8 @@ export default function CIModule() {
               >
                 <IconArrowLeft size={18} className="shrink-0 text-emerald-400" />
                 {!isSidebarCollapsed && <span className="truncate">Về Trang Chủ</span>}
-              </Link>
+              </NavLink>
 
-              {/* Thư viện */}
               <button
                 type="button"
                 onClick={() => setActiveTab("LIBRARY")}
@@ -830,19 +938,6 @@ export default function CIModule() {
                 {!isSidebarCollapsed && <span className="text-xs truncate">Thư viện</span>}
               </button>
 
-              {/* Đăng tải */}
-              <button
-                type="button"
-                onClick={() => setIsCreateModalOpen(true)}
-                className={`w-full text-left rounded-xl transition-all cursor-pointer flex items-center gap-2.5 ${
-                  isSidebarCollapsed ? "p-2.5 justify-center" : "px-3.5 py-2"
-                } text-slate-300 hover:bg-slate-800/80 hover:text-white font-bold text-xs`}
-              >
-                <IconCloudUpload size={18} className="shrink-0 text-slate-400" />
-                {!isSidebarCollapsed && <span className="truncate">Đăng tải</span>}
-              </button>
-
-              {/* Dashboard */}
               <button
                 type="button"
                 onClick={() => setActiveTab("DASHBOARD")}
@@ -857,18 +952,50 @@ export default function CIModule() {
                 <IconChartBar size={18} className="shrink-0 text-slate-400" />
                 {!isSidebarCollapsed && <span className="truncate">Dashboard</span>}
               </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab("EARLY_WARNING")}
+                className={`w-full text-left rounded-xl transition-all cursor-pointer flex items-center gap-2.5 ${
+                  isSidebarCollapsed ? "p-2.5 justify-center" : "px-3.5 py-2.5"
+                } ${
+                  activeTab === "EARLY_WARNING"
+                    ? "bg-rose-900 text-white font-extrabold shadow-md border border-rose-600"
+                    : "text-rose-300 hover:bg-rose-950/60 font-bold text-xs"
+                }`}
+              >
+                <IconShieldCheck size={18} className="shrink-0 text-rose-400" />
+                {!isSidebarCollapsed && <span className="truncate">Cảnh báo Ban 2.2</span>}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsCreateModalOpen(true)}
+                className={`w-full text-left rounded-xl transition-all cursor-pointer flex items-center gap-2.5 ${
+                  isSidebarCollapsed ? "p-2.5 justify-center" : "px-3.5 py-2"
+                } text-slate-300 hover:bg-slate-800/80 hover:text-white font-bold text-xs`}
+              >
+                <IconCloudUpload size={18} className="shrink-0 text-slate-400" />
+                {!isSidebarCollapsed && <span className="truncate">Đăng tải nhanh</span>}
+              </button>
             </div>
           </div>
 
-          {/* Navigation Section 2: LỌC NHANH (Embedded in Dark Navy Sidebar) */}
           <div className="space-y-2 pt-2 border-t border-slate-800/80">
             {!isSidebarCollapsed && (
-              <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-wider px-2">
-                LỌC NHANH
-              </h4>
+              <div className="flex items-center justify-between px-2">
+                <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
+                  LỌC NHANH
+                </h4>
+                {isCountsLoading && (
+                  <span className="flex h-2 w-2 relative" title="Đang đồng bộ số liệu...">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  </span>
+                )}
+              </div>
             )}
 
-            {/* Filter 1: Loại đăng ký */}
             <div className="space-y-1">
               <button
                 type="button"
@@ -890,11 +1017,16 @@ export default function CIModule() {
 
               {(!isSidebarCollapsed && isRegTypeExpanded) && (
                 <div className="space-y-0.5 pl-2 text-xs font-bold">
-                  {/* Thi đua */}
                   <button
-                    onClick={() => { setSelectedRegType("THI_DUA"); setSelectedSubStatus("ALL"); }}
-                    className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between transition-colors ${
-                      selectedRegType === "THI_DUA" && selectedSubStatus === "ALL"
+                    onClick={() => {
+                      const nextReg = selectedRegType === "THI_DUA" ? "ALL" : "THI_DUA";
+                      setSelectedRegType(nextReg);
+                      setSelectedRegion("ALL");
+                      setSelectedCategory("ALL");
+                      setActiveTab("LIBRARY");
+                    }}
+                    className={`w-full text-left px-2.5 py-1 rounded-lg flex items-center justify-between transition-colors ${
+                      selectedRegType === "THI_DUA"
                         ? "bg-[#006838] text-white font-extrabold"
                         : "text-slate-300 hover:bg-slate-800/80 hover:text-white"
                     }`}
@@ -907,45 +1039,60 @@ export default function CIModule() {
                     </span>
                   </button>
 
-                  {/* Đã đánh giá */}
                   <button
-                    onClick={() => { setSelectedRegType("THI_DUA"); setSelectedSubStatus("DA_DANH_GIA"); }}
+                    onClick={() => {
+                      const nextReg = selectedRegType === "CHO_PHE_DUYET" ? "ALL" : "CHO_PHE_DUYET";
+                      setSelectedRegType(nextReg);
+                      setSelectedRegion("ALL");
+                      setSelectedCategory("ALL");
+                      setActiveTab("LIBRARY");
+                    }}
                     className={`w-full text-left px-3 py-1 rounded-lg flex items-center justify-between text-[11px] transition-colors ${
-                      selectedSubStatus === "DA_DANH_GIA"
+                      selectedRegType === "CHO_PHE_DUYET"
+                        ? "bg-blue-950/80 text-blue-300 font-extrabold"
+                        : "text-blue-400/80 hover:bg-slate-800/60 hover:text-blue-300"
+                    }`}
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <IconUserCheck size={13} className="text-blue-400 shrink-0" />
+                      <span>Chờ phê duyệt</span>
+                    </span>
+                    <span className="px-1.5 py-0.2 rounded-full bg-blue-500/20 text-blue-400 text-[9px] font-extrabold">
+                      {countChoReview}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      const nextReg = selectedRegType === "DA_DANH_GIA" ? "ALL" : "DA_DANH_GIA";
+                      setSelectedRegType(nextReg);
+                      setSelectedRegion("ALL");
+                      setSelectedCategory("ALL");
+                      setActiveTab("LIBRARY");
+                    }}
+                    className={`w-full text-left px-3 py-1 rounded-lg flex items-center justify-between text-[11px] transition-colors ${
+                      selectedRegType === "DA_DANH_GIA"
                         ? "bg-emerald-950/80 text-emerald-300 font-extrabold"
                         : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"
                     }`}
                   >
                     <span className="flex items-center gap-1.5">
                       <IconCircleCheck size={13} className="text-emerald-400 shrink-0" />
-                      <span>Đã đánh giá</span>
+                      <span>Đã duyệt</span>
                     </span>
                     <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-400 text-[9px] font-extrabold">
                       {countDaDanhGia}
                     </span>
                   </button>
 
-                  {/* Chờ đánh giá */}
                   <button
-                    onClick={() => { setSelectedRegType("THI_DUA"); setSelectedSubStatus("CHO_DANH_GIA"); }}
-                    className={`w-full text-left px-3 py-1 rounded-lg flex items-center justify-between text-[11px] transition-colors ${
-                      selectedSubStatus === "CHO_DANH_GIA"
-                        ? "bg-amber-950/80 text-amber-300 font-extrabold"
-                        : "text-amber-400/90 hover:bg-slate-800/60 hover:text-amber-300"
-                    }`}
-                  >
-                    <span className="flex items-center gap-1.5">
-                      <IconClock size={13} className="text-amber-400 shrink-0" />
-                      <span>Chờ đánh giá</span>
-                    </span>
-                    <span className="px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-400 text-[9px] font-extrabold">
-                      {countChoDanhGia}
-                    </span>
-                  </button>
-
-                  {/* Lưu trữ */}
-                  <button
-                    onClick={() => { setSelectedRegType("LUU_TRU"); setSelectedSubStatus("ALL"); }}
+                    onClick={() => {
+                      const nextReg = selectedRegType === "LUU_TRU" ? "ALL" : "LUU_TRU";
+                      setSelectedRegType(nextReg);
+                      setSelectedRegion("ALL");
+                      setSelectedCategory("ALL");
+                      setActiveTab("LIBRARY");
+                    }}
                     className={`w-full text-left px-2.5 py-1 rounded-lg flex items-center justify-between transition-colors ${
                       selectedRegType === "LUU_TRU"
                         ? "bg-slate-800 text-white font-extrabold"
@@ -964,7 +1111,6 @@ export default function CIModule() {
               )}
             </div>
 
-            {/* Filter 2: Khu vực */}
             <div className="space-y-1">
               <button
                 type="button"
@@ -986,83 +1132,36 @@ export default function CIModule() {
 
               {(!isSidebarCollapsed && isRegionExpanded) && (
                 <div className="space-y-0.5 pl-2 text-xs font-bold">
-                  {/* TH-KG */}
-                  <div>
-                    <div
-                      className={`w-full px-2 py-1 rounded-lg flex items-center justify-between transition-colors cursor-pointer ${
-                        selectedRegion === "TH-KG" ? "bg-[#006838] text-white font-extrabold" : "text-slate-300 hover:bg-slate-800/80 hover:text-white"
-                      }`}
-                      onClick={() => setSelectedRegion(selectedRegion === "TH-KG" ? "ALL" : "TH-KG")}
-                    >
-                      <span className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setIsThKgExpanded(!isThKgExpanded);
-                          }}
-                          className="p-0.5 hover:bg-slate-700 rounded transition-colors text-slate-400"
-                        >
-                          {isThKgExpanded ? <IconChevronDown size={13} /> : <IconChevronRight size={13} />}
-                        </button>
-                        <span>TH-KG</span>
-                      </span>
-                      <span className="text-[10px] text-slate-400 font-mono">
-                        ({proposals.filter((p) => matchRegionFilter(p.region, "TH-KG")).length})
-                      </span>
-                    </div>
-
-                    {isThKgExpanded && (
-                      <div className="pl-4 space-y-0.5 border-l border-slate-700/80 ml-2 my-0.5">
-                        {TH_KG_SUB_ITEMS.map((subItem) => {
-                          const cnt = proposals.filter((p) => matchRegionFilter(p.region, subItem)).length;
-                          return (
-                            <button
-                              key={subItem}
-                              onClick={() => setSelectedRegion(selectedRegion === subItem ? "ALL" : subItem)}
-                              className={`w-full text-left px-2 py-0.5 rounded flex items-center justify-between text-[11px] transition-colors ${
-                                selectedRegion === subItem ? "bg-emerald-900/80 text-emerald-200 font-black" : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200 font-medium"
-                              }`}
-                            >
-                              <span>{subItem}</span>
-                              <span className="text-[9px] text-slate-400 font-mono">({cnt})</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
+                  <div className="px-2 py-1 text-slate-400 text-[11px] font-extrabold tracking-wider uppercase">
+                    CÁC ĐƠN VỊ SẢN XUẤT
                   </div>
-
-                  {/* Nhà Máy Miền Đông */}
-                  <button
-                    onClick={() => setSelectedRegion(selectedRegion === "Nhà Máy Miền Đông" ? "ALL" : "Nhà Máy Miền Đông")}
-                    className={`w-full text-left px-2 py-1 rounded-lg flex items-center justify-between transition-colors ${
-                      selectedRegion === "Nhà Máy Miền Đông" ? "bg-[#006838] text-white font-extrabold" : "text-slate-300 hover:bg-slate-800/80 hover:text-white"
-                    }`}
-                  >
-                    <span>Nhà Máy Miền Đông</span>
-                    <span className="text-[10px] text-slate-400 font-mono">
-                      ({proposals.filter((p) => matchRegionFilter(p.region, "Nhà Máy Miền Đông")).length})
-                    </span>
-                  </button>
-
-                  {/* VP Chuỗi (R&D) */}
-                  <button
-                    onClick={() => setSelectedRegion(selectedRegion === "VP Chuỗi (R&D)" ? "ALL" : "VP Chuỗi (R&D)")}
-                    className={`w-full text-left px-2 py-1 rounded-lg flex items-center justify-between transition-colors ${
-                      selectedRegion === "VP Chuỗi (R&D)" ? "bg-[#006838] text-white font-extrabold" : "text-slate-300 hover:bg-slate-800/80 hover:text-white"
-                    }`}
-                  >
-                    <span>VP Chuỗi (R&D)</span>
-                    <span className="text-[10px] text-slate-400 font-mono">
-                      ({proposals.filter((p) => matchRegionFilter(p.region, "VP Chuỗi (R&D)")).length})
-                    </span>
-                  </button>
+                  <div className="pl-4 space-y-0.5 border-l border-slate-700/80 ml-2 mb-1">
+                    {REGION_SUB_ITEMS.map((subItem) => {
+                      const cnt = regionCounts[subItem] ?? 0;
+                      return (
+                        <button
+                          key={subItem}
+                          onClick={() => {
+                            const nextRegion = selectedRegion === subItem ? "ALL" : subItem;
+                            setSelectedRegion(nextRegion);
+                            setSelectedRegType("ALL");
+                            setSelectedCategory("ALL");
+                            setActiveTab("LIBRARY");
+                          }}
+                          className={`w-full text-left px-2 py-0.5 rounded flex items-center justify-between text-[11px] transition-colors ${
+                            selectedRegion === subItem ? "bg-emerald-900/80 text-emerald-200 font-black" : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200 font-medium"
+                          }`}
+                        >
+                          <span className="truncate">{subItem}</span>
+                          <span className="text-[9px] text-slate-400 font-mono">({cnt})</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>
 
-            {/* Filter 3: Phân loại */}
             <div className="space-y-1">
               <button
                 type="button"
@@ -1085,11 +1184,17 @@ export default function CIModule() {
               {(!isSidebarCollapsed && isCategoryExpanded) && (
                 <div className="space-y-0.5 pl-2 text-xs font-bold">
                   {CATEGORIES.map((c) => {
-                    const cnt = proposals.filter((p) => p.category === c.id).length;
+                    const cnt = categoryCounts[c.id] ?? 0;
                     return (
                       <button
                         key={c.id}
-                        onClick={() => setSelectedCategory(selectedCategory === c.id ? "ALL" : c.id)}
+                        onClick={() => {
+                          const nextCat = selectedCategory === c.id ? "ALL" : c.id;
+                          setSelectedCategory(nextCat);
+                          setSelectedRegType("ALL");
+                          setSelectedRegion("ALL");
+                          setActiveTab("LIBRARY");
+                        }}
                         className={`w-full text-left px-2 py-0.5 rounded-lg flex items-center justify-between transition-colors ${
                           selectedCategory === c.id ? "bg-[#006838] text-white font-extrabold" : "text-slate-300 hover:bg-slate-800/80 hover:text-white"
                         }`}
@@ -1107,7 +1212,6 @@ export default function CIModule() {
           </div>
         </div>
 
-        {/* Sidebar Footer User Info Pill (Synchronized with Logged-in Session) */}
         <div className="pt-3 border-t border-slate-800/90 flex items-center justify-between">
           <div className="flex items-center gap-2 min-w-0">
             {currentUser.avatar ? (
@@ -1126,8 +1230,8 @@ export default function CIModule() {
                 <span className="text-xs font-black text-white block truncate" title={currentUser.name}>
                   {currentUser.name}
                 </span>
-                <span className="text-[10px] text-slate-400 block font-medium truncate max-w-[130px]" title={currentUser.title}>
-                  {currentUser.title}
+                <span className="text-[10px] text-slate-400 block font-medium truncate max-w-[130px]" title={formatTitleWithDepartment(currentUser.title, (currentUser as any).department)}>
+                  {formatTitleWithDepartment(currentUser.title, (currentUser as any).department)}
                 </span>
               </div>
             )}
@@ -1140,1687 +1244,535 @@ export default function CIModule() {
         </div>
       </aside>
 
-      {/* ════════════════════════════════════════════════════════════════
-          RIGHT MAIN CONTENT AREA
-         ════════════════════════════════════════════════════════════════ */}
+      {/* RIGHT MAIN CONTENT AREA */}
       <main className="flex-1 p-4 lg:p-6 space-y-4 min-w-0 overflow-x-hidden">
-      {/* Toast Notification */}
-      {toastMessage && (
-        <div className="fixed top-5 right-5 z-50 px-4 py-3 rounded-2xl bg-slate-900 text-white font-extrabold text-xs shadow-2xl flex items-center gap-2 border border-slate-700 animate-in slide-in-from-top-2">
-          <IconSparkles size={16} className="text-amber-400" />
-          <span>{toastMessage}</span>
-        </div>
-      )}
-
-      {activeTab === "DASHBOARD" ? (
-        <KaizenDashboard
-          proposals={proposals}
-          onBackToLibrary={() => setActiveTab("LIBRARY")}
-        />
-      ) : (
-        <>
-      {/* ════════════════════════════════════════════════════════════════
-          ROW 1: TITLE & ACTION BUTTONS BAR (Exact Matching Image 2)
-         ════════════════════════════════════════════════════════════════ */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 py-1">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-slate-800 text-white flex items-center justify-center flex-shrink-0 shadow-2xs">
-            <IconPhoto size={18} />
+        {toastMessage && (
+          <div className="fixed top-5 right-5 z-50 px-4 py-3 rounded-2xl bg-slate-900 text-white font-extrabold text-xs shadow-2xl flex items-center gap-2 border border-slate-700 animate-in slide-in-from-top-2">
+            <IconSparkles size={16} className="text-amber-400" />
+            <span>{toastMessage}</span>
           </div>
-          <h2 className="text-xl font-black text-slate-900 tracking-tight">Thư Viện Cải Tiến</h2>
-        </div>
+        )}
 
-        {/* Action Buttons Bar (Exact Matching Image 2 Buttons) */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={() => setActiveTab("DASHBOARD")}
-            className="px-3.5 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer border border-slate-300 shadow-2xs"
-          >
-            <IconChartBar size={15} />
-            <span>Dashboard</span>
-          </button>
-
-          <button
-            onClick={() => setIsQrModalOpen(true)}
-            className="px-3.5 py-1.5 rounded-xl bg-amber-500 text-slate-950 hover:bg-amber-400 text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-md border border-amber-300"
-          >
-            <IconQrcode size={16} />
-            <span>📱 QR Công Nhân</span>
-          </button>
-          {/* Toggle View Mode (Lưới / Danh sách) */}
-          <div className="flex items-center bg-white p-1 rounded-xl border border-slate-200/90 shadow-2xs">
-            <button
-              onClick={() => setViewMode("GRID")}
-              className={`px-3 py-1 rounded-lg text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer ${
-                viewMode === "GRID"
-                  ? "bg-slate-100 text-slate-900 shadow-2xs"
-                  : "text-slate-500 hover:text-slate-900"
-              }`}
-            >
-              <IconLayoutGrid size={15} />
-              <span>Lưới</span>
-            </button>
-            <button
-              onClick={() => setViewMode("LIST")}
-              className={`px-3 py-1 rounded-lg text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer ${
-                viewMode === "LIST"
-                  ? "bg-slate-100 text-slate-900 shadow-2xs"
-                  : "text-slate-500 hover:text-slate-900"
-              }`}
-            >
-              <IconList size={15} />
-              <span>Danh sách</span>
-            </button>
-          </div>
-
-          {/* Refresh Button */}
-          <button
-            onClick={fetchProposals}
-            className="px-3.5 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer border border-slate-300 shadow-2xs"
-            title="Tải lại dữ liệu"
-          >
-            <IconRefresh size={15} className={loading ? "animate-spin" : ""} />
-            <span>Làm mới</span>
-          </button>
-
-          {/* Create New Proposal Button (Direct Open Modal) */}
-          <button
-            onClick={() => {
-              setCreateForm({ ...createForm, registrationType: "THI_DUA" });
-              setIsCreateModalOpen(true);
-              setIsCreateDropdownOpen(false);
+        {activeTab === "DASHBOARD" ? (
+          <KaizenDashboard
+            proposals={normalizedProposals}
+            onBackToLibrary={() => setActiveTab("LIBRARY")}
+            onSelectProposal={(p) => {
+              setActiveProposal(p);
+              setIsDetailModalOpen(true);
             }}
-            className="px-4 py-1.5 rounded-xl bg-[#11244e] hover:bg-[#0c1a38] text-white text-xs font-extrabold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
-          >
-            <IconPlus size={16} />
-            <span>+ Đăng ký</span>
-          </button>
-
-          {/* Excel Export Button (Emerald Outlined Matching Image 2) */}
-          <button
-            onClick={() => showToast("📊 Đã xuất file Excel dữ liệu cải tiến thành công!")}
-            className="px-3.5 py-1.5 rounded-xl bg-white hover:bg-emerald-50 text-emerald-600 text-xs font-extrabold border border-emerald-500 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
-          >
-            <IconDownload size={15} />
-            <span>Excel</span>
-          </button>
-        </div>
-      </div>
-
-      {/* ════════════════════════════════════════════════════════════════
-          ROW 2: FILTER INPUTS BAR (8 Controls Pill Card Matching Image 2)
-         ════════════════════════════════════════════════════════════════ */}
-      <div className="p-2.5 rounded-2xl bg-white border border-slate-200/90 shadow-2xs">
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-2">
-          {/* Category Filter */}
-          <select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className="w-full px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 text-[11px] font-bold text-slate-700 outline-none focus:border-[#006838]"
-          >
-            <option value="ALL">🏆 Tất cả loại</option>
-            {CATEGORIES.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.label}
-              </option>
-            ))}
-          </select>
-
-          {/* Search Box */}
-          <div className="relative col-span-2 sm:col-span-1 md:col-span-2">
-            <input
-              type="text"
-              placeholder="🔍 Tìm mã hàng, tiêu đề..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-7 pr-2.5 py-1.5 rounded-xl bg-white border border-slate-200 text-[11px] font-bold text-slate-800 outline-none focus:border-[#006838]"
-            />
-            <IconSearch size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-          </div>
-
-          {/* Danh mục */}
-          <select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className="w-full px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 text-[11px] font-bold text-slate-700 outline-none focus:border-[#006838]"
-          >
-            <option value="ALL">📁 Danh mục</option>
-            {CATEGORIES.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.label}
-              </option>
-            ))}
-          </select>
-
-          {/* Khu vực */}
-          <select
-            value={selectedRegion}
-            onChange={(e) => setSelectedRegion(e.target.value)}
-            className="w-full px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 text-[11px] font-bold text-slate-700 outline-none focus:border-[#006838]"
-          >
-            <option value="ALL">🏢 Khu vực</option>
-            <option value="TH-KG">TH-KG</option>
-            <option value="Kiên Giang 1">Kiên Giang 1</option>
-            <option value="Kiên Giang 2">Kiên Giang 2</option>
-            <option value="Kiên Giang 3">Kiên Giang 3</option>
-            <option value="Hoàn Thiện Đế">Hoàn Thiện Đế</option>
-            <option value="Nhà Máy Miền Đông">Nhà Máy Miền Đông</option>
-            <option value="VP Chuỗi (R&D)">VP Chuỗi (R&D)</option>
-          </select>
-
-          {/* Nhóm SP */}
-          <select className="w-full px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 text-[11px] font-bold text-slate-700 outline-none focus:border-[#006838]">
-            <option value="ALL">📦 Nhóm SP</option>
-            <option value="DAN_DE">Dán Đế</option>
-            <option value="MAY_QUAI">May Quai</option>
-            <option value="DE_CAU_TRUC">Đế Cấu Trúc</option>
-          </select>
-
-          {/* Tháng/Năm */}
-          <select className="w-full px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 text-[11px] font-bold text-slate-700 outline-none focus:border-[#006838]">
-            <option value="ALL">📅 Tháng/Năm</option>
-            <option value="8/2026">T8/2026</option>
-            <option value="7/2026">T7/2026</option>
-          </select>
-
-          {/* Reset Filters Button */}
-          <button
-            onClick={() => {
-              setSearchQuery("");
-              setSelectedCategory("ALL");
-              setSelectedRegion("ALL");
-              setSelectedRegType("ALL");
-              setSelectedSubStatus("ALL");
-              setSelectedStatus("ALL");
+          />
+        ) : activeTab === "EARLY_WARNING" ? (
+          <KaizenEarlyWarning
+            proposals={proposals}
+            onSelectProposal={(p) => {
+              setActiveProposal(p);
+              setIsDetailModalOpen(true);
             }}
-            className="w-full px-2.5 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer border border-slate-200"
-          >
-            <IconRotate size={14} />
-            <span>Reset</span>
-          </button>
-        </div>
-      </div>
+          />
+        ) : (
+          <>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 py-1">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-slate-800 text-white flex items-center justify-center flex-shrink-0 shadow-2xs">
+                  <IconPhoto size={18} />
+                </div>
+                <h2 className="text-xl font-black text-slate-900 tracking-tight">Thư Viện Cải Tiến</h2>
+              </div>
 
-      {/* ════════════════════════════════════════════════════════════════
-          ROW 3: COUNTS BAR (Separate Pill Card Matching Image 2)
-         ════════════════════════════════════════════════════════════════ */}
-      <div className="px-4 py-2 rounded-2xl bg-white border border-slate-200/90 shadow-2xs flex items-center gap-6 text-xs font-extrabold text-slate-700">
-        <span className="flex items-center gap-1.5">
-          <span className="text-blue-600 font-bold">📁</span>
-          <span>Tổng: <strong className="font-black text-slate-900">{proposals.length}</strong></span>
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="text-emerald-600 font-bold">🔻</span>
-          <span>Đã lọc: <strong className="font-black text-slate-900">{filteredProposals.length}</strong></span>
-        </span>
-      </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={() => setActiveTab("EARLY_WARNING")}
+                  className="px-3.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                >
+                  <IconShieldCheck size={15} />
+                  <span>🚨 Cảnh Báo Ban 2.2</span>
+                </button>
 
-      {/* ════════════════════════════════════════════════════════════════
-          PROPOSALS CONTENT AREA (FULL WIDTH 5 COLUMNS)
-         ════════════════════════════════════════════════════════════════ */}
-      <div className="w-full space-y-4">
-          {/* GRID VIEW RENDERING (Exact Image 1 Cards) */}
-          {viewMode === "GRID" && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-              {filteredProposals.map((prop) => {
-                const catObj = CATEGORIES.find((c) => c.id === prop.category) || CATEGORIES[7];
-                return (
-                  <div
-                    key={prop.id}
-                    onClick={() => handleRecordView(prop)}
-                    className="rounded-2xl bg-[#ffffff] border border-slate-200/90 shadow-2xs hover:shadow-md hover:border-[#006838]/60 transition-all cursor-pointer overflow-hidden flex flex-col justify-between group"
+                <button
+                  onClick={() => setActiveTab("DASHBOARD")}
+                  className="px-3.5 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer border border-slate-300 shadow-2xs"
+                >
+                  <IconChartBar size={15} />
+                  <span>Dashboard</span>
+                </button>
+
+                <button
+                  onClick={() => setIsQrModalOpen(true)}
+                  className="px-3.5 py-1.5 rounded-xl bg-amber-500 text-slate-950 hover:bg-amber-400 text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-md border border-amber-300"
+                >
+                  <IconQrcode size={16} />
+                  <span>📱 QR Công Nhân</span>
+                </button>
+
+                <div className="flex items-center bg-white p-1 rounded-xl border border-slate-200/90 shadow-2xs">
+                  <button
+                    onClick={() => setViewMode("GRID")}
+                    className={`px-3 py-1 rounded-lg text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer ${
+                      viewMode === "GRID"
+                        ? "bg-slate-100 text-slate-900 shadow-2xs"
+                        : "text-slate-500 hover:text-slate-900"
+                    }`}
                   >
-                    {/* Image / Thumbnail Section with Badges Overlay */}
-                    <div className="relative h-28 bg-slate-100 border-b border-slate-100 overflow-hidden flex items-center justify-center group/img">
-                      {prop.before_image_url ? (
-                        <img
-                          src={prop.before_image_url}
-                          alt={prop.title}
-                          className="w-full h-full object-cover group-hover/img:scale-105 transition-transform duration-500"
-                        />
-                      ) : (
-                        <div className="flex flex-col items-center gap-0.5 text-slate-400">
-                          <IconPhoto size={26} />
-                          <span className="text-[10px] font-bold">Chưa có ảnh</span>
-                        </div>
-                      )}
-
-                      {/* Top Badges Over Image (Matching Screenshot) */}
-                      <div className="absolute top-1.5 inset-x-1.5 flex items-center justify-between pointer-events-none gap-1">
-                        <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider shadow-2xs ${catObj.color}`}>
-                          {prop.category_label || catObj.label}
-                        </span>
-                        <span className="px-1.5 py-0.5 rounded bg-slate-900/80 text-white text-[9px] font-mono font-bold shadow-2xs">
-                          T8/2026
-                        </span>
-                      </div>
-
-                      {/* Proposer Info Bar Overlay at Bottom of Image */}
-                      <div className="absolute bottom-0 inset-x-0 px-2 py-1 bg-gradient-to-t from-slate-950/90 via-slate-950/70 to-transparent text-white flex items-center justify-between text-[10px] font-bold">
-                        <div className="flex items-center gap-1 truncate max-w-[70%]">
-                          <IconUser size={12} className="text-slate-300 shrink-0" />
-                          <span className="truncate">{prop.proposer_name}</span>
-                        </div>
-                        <span className="text-[9px] text-amber-300 font-mono">#{prop.code}</span>
-                      </div>
-                    </div>
-
-                    {/* Body Info */}
-                    <div className="p-3 space-y-2 flex-1 flex flex-col justify-between">
-                      <div className="space-y-1">
-                        <h3 className="font-extrabold text-slate-900 text-xs line-clamp-2 leading-snug group-hover:text-[#006838] transition-colors" title={prop.title}>
-                          {prop.title}
-                        </h3>
-                        <div className="flex items-center justify-between text-[10px] text-slate-500 font-semibold pt-1 border-t border-slate-100">
-                          <span className="flex items-center gap-1 truncate">
-                            <IconMapPin size={12} className="text-slate-400 shrink-0" />
-                            <span className="truncate">{prop.region}</span>
-                          </span>
-                          <span className="flex items-center gap-1 truncate">
-                            <IconBuildingFactory size={12} className="text-slate-400 shrink-0" />
-                            <span className="truncate">{prop.department}</span>
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Card Footer Actions */}
-                      <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500">
-                        <button
-                          type="button"
-                          onClick={(e) => handleVote(e, prop.id)}
-                          className="flex items-center gap-1 hover:text-emerald-600 font-bold transition-colors cursor-pointer"
-                        >
-                          <IconThumbUp size={13} className="text-slate-400 hover:text-emerald-600" />
-                          <span>{prop.vote_count || 0}</span>
-                        </button>
-
-                        <div className="flex items-center gap-1.5 font-bold">
-                          <span className="flex items-center gap-0.5 text-slate-400">
-                            <IconEye size={13} />
-                            <span>{prop.view_count || 0}</span>
-                          </span>
-
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveProposal(prop);
-                              setIsRatingModalOpen(true);
-                            }}
-                            className="px-2 py-0.5 rounded bg-amber-50 text-amber-700 hover:bg-amber-100 text-[10px] font-black border border-amber-200 transition-colors"
-                          >
-                            ⭐ Đánh giá
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveProposal(prop);
-                              setIsEvalModalOpen(true);
-                            }}
-                            className="px-2 py-0.5 rounded bg-[#006838]/10 text-[#006838] hover:bg-[#006838] hover:text-white text-[10px] font-black border border-[#006838]/20 transition-colors"
-                          >
-                            Chấm điểm
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* LIST VIEW RENDERING */}
-          {viewMode === "LIST" && (
-            <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-extrabold text-[10px] uppercase">
-                      <th className="p-3">Mã</th>
-                      <th className="p-3">Tiêu đề đề xuất</th>
-                      <th className="p-3">Phân loại</th>
-                      <th className="p-3">Khu vực</th>
-                      <th className="p-3">Người đề xuất</th>
-                      <th className="p-3 text-center">Trạng thái</th>
-                      <th className="p-3 text-center">Thao tác</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 font-medium">
-                    {filteredProposals.map((prop) => (
-                      <tr key={prop.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="p-3">
-                          <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-[#006838] text-[10px] font-bold border border-emerald-200">
-                            {prop.category_label}
-                          </span>
-                        </td>
-                        <td className="p-3">{prop.proposer_name}</td>
-                        <td className="p-3">{prop.region}</td>
-                        <td className="p-3 font-bold text-amber-700">{prop.award_title || "—"}</td>
-                        <td className="p-3 text-center">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
-                            prop.status === "APPROVED" ? "bg-emerald-100 text-[#006838]" :
-                            prop.status === "IMPLEMENTED" ? "bg-blue-100 text-blue-800" :
-                            "bg-amber-100 text-amber-900"
-                          }`}>
-                            {prop.status}
-                          </span>
-                        </td>
-                        <td className="p-3 text-center">
-                          <button
-                            onClick={() => handleRecordView(prop)}
-                            className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-[#006838] hover:text-white transition-colors cursor-pointer text-[11px] font-bold"
-                          >
-                            Xem
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </div>
-        </>
-      )}
-      </main>
-
-      {/* ════════════════════════════════════════════════════════════════
-          MODAL 1: CREATE NEW PROPOSAL FORM (MATCHING /work/kaizen/register)
-         ════════════════════════════════════════════════════════════════ */}
-      {isCreateModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden text-left animate-in zoom-in-95 duration-200">
-            {/* ─── HEADER BANNER ─── */}
-            <div className="bg-gradient-to-r from-[#006838] via-[#0b1739] to-[#0b1739] p-5 text-white flex items-center justify-between flex-shrink-0 z-10">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-white/10 backdrop-blur-xs flex items-center justify-center border border-white/20">
-                  <IconPlus size={22} className="text-emerald-400 font-black" />
-                </div>
-                <div>
-                  <h3 className="text-base font-black tracking-tight text-white">Đăng Ký Đề Xuất Cải Tiến Mới</h3>
-                  <p className="text-xs text-slate-300 font-medium mt-0.5">
-                    Biểu mẫu chuẩn hóa dành cho Công nhân &amp; Cán bộ nhân viên nhà máy
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsCreateModalOpen(false)}
-                className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors cursor-pointer"
-              >
-                <IconX size={18} />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateSubmit} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 text-xs text-slate-700">
-              {/* SECTION 1: THÔNG TIN CÔNG NHÂN / CÁN BỘ */}
-              <div className="space-y-3 pb-4 border-b border-slate-200">
-                <div className="flex items-center gap-2 text-[#006838]">
-                  <IconUserCheck size={18} />
-                  <h4 className="font-black text-slate-900 text-xs uppercase tracking-wide">
-                    1. THÔNG TIN CÔNG NHÂN / CÁN BỘ
-                  </h4>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="font-black text-slate-900">
-                      Họ và Tên Công Nhân / Cán Bộ <span className="text-rose-600 font-bold ml-0.5">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={createForm.proposerName}
-                      onChange={(e) => setCreateForm({ ...createForm, proposerName: e.target.value })}
-                      placeholder="VD: Trần Văn Nam"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838]"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="font-black text-slate-900">
-                      Mã Số Thẻ / Mã Nhân Viên <span className="text-rose-600 font-bold ml-0.5">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={createForm.proposerEmpCode}
-                      onChange={(e) => setCreateForm({ ...createForm, proposerEmpCode: e.target.value })}
-                      placeholder="VD: CN-88201 hoặc 202608101"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838]"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="font-black text-slate-900">
-                      Vị Trí Công Việc (VTCV) <span className="text-rose-600 font-bold ml-0.5">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={createForm.proposerPosition}
-                      onChange={(e) => setCreateForm({ ...createForm, proposerPosition: e.target.value })}
-                      placeholder="VD: May Mũi, Cắt Mút, Kiểm Chất Lượng"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838]"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="font-black text-slate-900">Khách Hàng:</label>
-                    <input
-                      type="text"
-                      value={createForm.customer}
-                      onChange={(e) => setCreateForm({ ...createForm, customer: e.target.value })}
-                      placeholder="VD: Skechers, Nike, Adidas"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838]"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  <div className="space-y-1">
-                    <label className="font-black text-slate-900">Tháng:</label>
-                    <select
-                      value={createForm.proposerMonth}
-                      onChange={(e) => setCreateForm({ ...createForm, proposerMonth: parseInt(e.target.value, 10) })}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838]"
-                    >
-                      {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
-                        <option key={month} value={month}>
-                          Tháng {month}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="font-black text-slate-900">Năm:</label>
-                    <select
-                      value={createForm.proposerYear}
-                      onChange={(e) => setCreateForm({ ...createForm, proposerYear: parseInt(e.target.value, 10) })}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838]"
-                    >
-                      {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((year) => (
-                        <option key={year} value={year}>
-                          {year}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="font-black text-slate-900">Nhân Sự Đề Xuất:</label>
-                    <input
-                      type="text"
-                      value={createForm.hrSuggestor}
-                      onChange={(e) => setCreateForm({ ...createForm, hrSuggestor: e.target.value })}
-                      placeholder="Họ tên nhân sự"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838]"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="space-y-1">
-                    <label className="font-black text-slate-900">
-                      Nhà Máy / Chi Nhánh <span className="text-rose-600 font-bold ml-0.5">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={createForm.factory}
-                      onChange={(e) => setCreateForm({ ...createForm, factory: e.target.value })}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838]"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="font-black text-slate-900">
-                      Tổ / Xưởng Làm Việc <span className="text-rose-600 font-bold ml-0.5">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={createForm.department}
-                      onChange={(e) => setCreateForm({ ...createForm, department: e.target.value })}
-                      placeholder="VD: Tổ May 3 - Xưởng Quai"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838]"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="font-black text-slate-900">
-                      Khu Vực <span className="text-rose-600 font-bold ml-0.5">*</span>
-                    </label>
-                    <select
-                      required
-                      value={createForm.region}
-                      onChange={(e) => setCreateForm({ ...createForm, region: e.target.value })}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838]"
-                    >
-                      {REGIONS.map((r) => (
-                        <option key={r} value={r}>
-                          {r}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* SECTION 2: NỘI DUNG SÁNG KIẾN */}
-              <div className="space-y-3 pb-4 border-b border-slate-200">
-                <div className="flex items-center gap-2 text-blue-600">
-                  <IconSparkles size={18} />
-                  <h4 className="font-black text-slate-900 text-xs uppercase tracking-wide">
-                    2. NỘI DUNG SÁNG KIẾN CẢI TIẾN
-                  </h4>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="font-black text-slate-900">
-                    Danh Mục Cải Tiến <span className="text-rose-600 font-bold ml-0.5">*</span>
-                  </label>
-                  <select
-                    required
-                    value={createForm.category}
-                    onChange={(e) => {
-                      const found = CATEGORIES.find((c) => c.id === e.target.value);
-                      setCreateForm({
-                        ...createForm,
-                        category: e.target.value,
-                        categoryLabel: found ? found.label : e.target.value,
-                      });
-                    }}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838]"
+                    <IconLayoutGrid size={15} />
+                    <span>Lưới</span>
+                  </button>
+                  <button
+                    onClick={() => setViewMode("LIST")}
+                    className={`px-3 py-1 rounded-lg text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer ${
+                      viewMode === "LIST"
+                        ? "bg-slate-100 text-slate-900 shadow-2xs"
+                        : "text-slate-500 hover:text-slate-900"
+                    }`}
                   >
-                    {CATEGORIES.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.label}
-                      </option>
-                    ))}
-                  </select>
+                    <IconList size={15} />
+                    <span>Danh sách</span>
+                  </button>
                 </div>
 
-                <div className="space-y-1">
-                  <label className="font-black text-slate-900">
-                    Tên Tiêu Đề Cải Tiến <span className="text-rose-600 font-bold ml-0.5">*</span>
-                  </label>
+                <button
+                  onClick={() => fetchProposals(false)}
+                  className="px-3.5 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer border border-slate-300 shadow-2xs"
+                  title="Tải lại dữ liệu"
+                >
+                  <IconRefresh size={15} className={loading ? "animate-spin" : ""} />
+                  <span>Làm mới</span>
+                </button>
+
+                <button
+                  onClick={() => setIsCreateModalOpen(true)}
+                  className="px-4 py-1.5 rounded-xl bg-[#11244e] hover:bg-[#0c1a38] text-white text-xs font-extrabold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <IconPlus size={16} />
+                  <span>Đăng ký</span>
+                </button>
+
+                <button
+                  onClick={() => showToast("📊 Đã xuất file Excel dữ liệu cải tiến thành công!")}
+                  className="px-3.5 py-1.5 rounded-xl bg-white hover:bg-emerald-50 text-emerald-600 text-xs font-extrabold border border-emerald-500 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                >
+                  <IconDownload size={15} />
+                  <span>Excel</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="p-2.5 rounded-2xl bg-white border border-slate-200/90 shadow-2xs">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-2">
+                <select
+                  value={selectedRegType}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setSelectedRegType(val);
+                    if (val !== "ALL") {
+                      setSelectedRegion("ALL");
+                      setSelectedCategory("ALL");
+                    }
+                  }}
+                  className="w-full px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 text-[11px] font-bold text-slate-700 outline-none focus:border-[#006838]"
+                >
+                  <option value="ALL">🏆 Tất cả loại</option>
+                  <option value="THI_DUA">🏆 Thi đua</option>
+                  <option value="CHO_PHE_DUYET">👤 Chờ phê duyệt</option>
+                  <option value="DA_DANH_GIA">✅ Đã duyệt</option>
+                  <option value="LUU_TRU">📦 Lưu trữ</option>
+                </select>
+
+                <div className="relative col-span-2 sm:col-span-1 md:col-span-2">
                   <input
                     type="text"
-                    required
-                    value={createForm.title}
-                    onChange={(e) => setCreateForm({ ...createForm, title: e.target.value })}
-                    placeholder="VD: Tự chế gá kẹp dưỡng may giúp giảm thao tác thừa"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838]"
+                    placeholder="🔍 Tìm mã hàng, tiêu đề..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-7 pr-2.5 py-1.5 rounded-xl bg-white border border-slate-200 text-[11px] font-bold text-slate-800 outline-none focus:border-[#006838]"
                   />
+                  <IconSearch size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="space-y-1">
-                    <label className="font-black text-slate-900">Nhóm SP/DV:</label>
-                    <input
-                      type="text"
-                      value={createForm.productGroup}
-                      onChange={(e) => setCreateForm({ ...createForm, productGroup: e.target.value })}
-                      placeholder="VD: Quai, Mũi, Gót"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838]"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="font-black text-slate-900">Mã Hàng:</label>
-                    <input
-                      type="text"
-                      value={createForm.productCode}
-                      onChange={(e) => setCreateForm({ ...createForm, productCode: e.target.value })}
-                      placeholder="VD: SK-001, SK-002"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838]"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="font-black text-slate-900">Số Lượng Đơn Hàng:</label>
-                    <input
-                      type="number"
-                      value={createForm.quantity}
-                      onChange={(e) => setCreateForm({ ...createForm, quantity: parseInt(e.target.value || "0", 10) })}
-                      placeholder="VD: 1000"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838]"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="font-black text-slate-900">
-                    Mô Tả Hiện Trạng (Khó khăn trước cải tiến) <span className="text-rose-600 font-bold ml-0.5">*</span>
-                  </label>
-                  <textarea
-                    rows={3}
-                    required
-                    value={createForm.beforeDescription}
-                    onChange={(e) => setCreateForm({ ...createForm, beforeDescription: e.target.value })}
-                    placeholder="Ghi rõ tình trạng cũ, khó khăn hoặc điểm lãng phí..."
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-medium outline-none focus:border-[#006838] resize-none"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="font-black text-slate-900">
-                    Giải Pháp &amp; Ý Tưởng Cải Tiến Mới <span className="text-rose-600 font-bold ml-0.5">*</span>
-                  </label>
-                  <textarea
-                    rows={3}
-                    required
-                    value={createForm.afterSolution}
-                    onChange={(e) => setCreateForm({ ...createForm, afterSolution: e.target.value })}
-                    placeholder="Ghi rõ cách thức cải tiến mới và lợi ích mang lại..."
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-medium outline-none focus:border-[#006838] resize-none"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="space-y-1">
-                    <label className="font-black text-slate-900">Thời Gian Tiết Kiệm (Giây/Đôi):</label>
-                    <input
-                      type="number"
-                      value={createForm.savedSeconds}
-                      onChange={(e) => setCreateForm({ ...createForm, savedSeconds: parseInt(e.target.value || "0", 10) })}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838]"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="font-black text-slate-900">
-                      Hướng Đánh Giá <span className="text-rose-600 font-bold ml-0.5">*</span>
-                    </label>
-                    <select
-                      required
-                      value={createForm.pricingDirection}
-                      onChange={(e) => setCreateForm({ ...createForm, pricingDirection: e.target.value })}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838]"
-                    >
-                      <option value="THOI_GIAN">Thời gian</option>
-                      <option value="TRI_GIA">Trị giá</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="font-black text-slate-900">
-                      Hiệu Quả Cải Tiến (VND) <span className="text-rose-600 font-bold ml-0.5">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      value={createForm.efficiencyValueVND}
-                      onChange={(e) => setCreateForm({ ...createForm, efficiencyValueVND: parseInt(e.target.value || "0", 10) })}
-                      placeholder="VD: 5000000"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838]"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* SECTION 3: ẢNH CHỤP MINH HỌA */}
-              <div className="space-y-3 pb-4 border-b border-slate-200">
-                <div className="flex items-center gap-2 text-indigo-600">
-                  <IconPhoto size={18} />
-                  <h4 className="font-black text-slate-900 text-xs uppercase tracking-wide">
-                    3. CHỤP / TẢI ẢNH MINH HỌA (TÙY CHỌN)
-                  </h4>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {/* Before Image */}
-                  <div className="space-y-2 p-3 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50">
-                    <div className="flex items-center justify-between">
-                      <label className="font-black text-slate-900 text-xs">Ảnh Trước Cải Tiến:</label>
-                      {createForm.beforeImageUrl && (
-                        <button
-                          type="button"
-                          onClick={() => setCreateForm({ ...createForm, beforeImageUrl: "" })}
-                          className="text-[11px] text-rose-600 font-bold flex items-center gap-1 cursor-pointer"
-                        >
-                          <IconTrash size={13} />
-                          <span>Xóa</span>
-                        </button>
-                      )}
-                    </div>
-
-                    {createForm.beforeImageUrl ? (
-                      <img src={createForm.beforeImageUrl} alt="Before" className="w-full h-32 object-cover rounded-xl border" />
-                    ) : (
-                      <label className="flex flex-col items-center justify-center p-3 h-32 bg-white rounded-xl border border-slate-200 cursor-pointer text-center hover:bg-emerald-50/50">
-                        <IconUpload size={22} className="text-[#006838] mb-1" />
-                        <span className="text-[11px] font-bold text-slate-900">Bấm chụp hoặc chọn ảnh</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(e) => handleFileUpload(e, "beforeImageUrl")}
-                        />
-                      </label>
-                    )}
-                  </div>
-
-                  {/* After Image */}
-                  <div className="space-y-2 p-3 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50">
-                    <div className="flex items-center justify-between">
-                      <label className="font-black text-slate-900 text-xs">Ảnh Sau Cải Tiến:</label>
-                      {createForm.afterImageUrl && (
-                        <button
-                          type="button"
-                          onClick={() => setCreateForm({ ...createForm, afterImageUrl: "" })}
-                          className="text-[11px] text-rose-600 font-bold flex items-center gap-1 cursor-pointer"
-                        >
-                          <IconTrash size={13} />
-                          <span>Xóa</span>
-                        </button>
-                      )}
-                    </div>
-
-                    {createForm.afterImageUrl ? (
-                      <img src={createForm.afterImageUrl} alt="After" className="w-full h-32 object-cover rounded-xl border" />
-                    ) : (
-                      <label className="flex flex-col items-center justify-center p-3 h-32 bg-white rounded-xl border border-slate-200 cursor-pointer text-center hover:bg-emerald-50/50">
-                        <IconUpload size={22} className="text-[#006838] mb-1" />
-                        <span className="text-[11px] font-bold text-slate-900">Bấm chụp hoặc chọn ảnh</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(e) => handleFileUpload(e, "afterImageUrl")}
-                        />
-                      </label>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* SECTION 4: TẢI VIDEO TRƯỚC / SAU CẢI TIẾN */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 text-purple-600">
-                  <IconVideo size={18} />
-                  <h4 className="font-black text-slate-900 text-xs uppercase tracking-wide">
-                    4. TẢI VIDEO TRƯỚC / SAU CẢI TIẾN (TÙY CHỌN)
-                  </h4>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {/* Before Video */}
-                  <div className="space-y-2 p-3 rounded-2xl border-2 border-dashed border-purple-200 bg-purple-50/30">
-                    <div className="flex items-center justify-between">
-                      <label className="font-black text-slate-900 text-xs">Video Trước Cải Tiến:</label>
-                      {createForm.beforeVideoUrl && (
-                        <button
-                          type="button"
-                          onClick={() => setCreateForm({ ...createForm, beforeVideoUrl: "" })}
-                          className="text-[11px] text-rose-600 font-bold flex items-center gap-1 cursor-pointer"
-                        >
-                          <IconTrash size={13} />
-                          <span>Xóa</span>
-                        </button>
-                      )}
-                    </div>
-
-                    {createForm.beforeVideoUrl ? (
-                      <video controls src={createForm.beforeVideoUrl} className="w-full h-36 object-cover rounded-xl border border-purple-300 bg-black" />
-                    ) : (
-                      <label className="flex flex-col items-center justify-center p-3 h-36 bg-white rounded-xl border border-slate-200 cursor-pointer text-center hover:bg-purple-50">
-                        <IconVideo size={24} className="text-purple-600 mb-1" />
-                        <span className="text-[11px] font-bold text-slate-900">Chụp hoặc chọn video</span>
-                        <span className="text-[9px] text-slate-400 font-medium">MP4, WEBM, MOV (Tối đa 50MB)</span>
-                        <input
-                          type="file"
-                          accept="video/*"
-                          className="hidden"
-                          onChange={(e) => handleVideoUpload(e, "beforeVideoUrl")}
-                        />
-                      </label>
-                    )}
-                  </div>
-
-                  {/* After Video */}
-                  <div className="space-y-2 p-3 rounded-2xl border-2 border-dashed border-purple-200 bg-purple-50/30">
-                    <div className="flex items-center justify-between">
-                      <label className="font-black text-slate-900 text-xs">Video Sau Cải Tiến:</label>
-                      {createForm.afterVideoUrl && (
-                        <button
-                          type="button"
-                          onClick={() => setCreateForm({ ...createForm, afterVideoUrl: "" })}
-                          className="text-[11px] text-rose-600 font-bold flex items-center gap-1 cursor-pointer"
-                        >
-                          <IconTrash size={13} />
-                          <span>Xóa</span>
-                        </button>
-                      )}
-                    </div>
-
-                    {createForm.afterVideoUrl ? (
-                      <video controls src={createForm.afterVideoUrl} className="w-full h-36 object-cover rounded-xl border border-purple-300 bg-black" />
-                    ) : (
-                      <label className="flex flex-col items-center justify-center p-3 h-36 bg-white rounded-xl border border-slate-200 cursor-pointer text-center hover:bg-purple-50">
-                        <IconVideo size={24} className="text-purple-600 mb-1" />
-                        <span className="text-[11px] font-bold text-slate-900">Chụp hoặc chọn video</span>
-                        <span className="text-[9px] text-slate-400 font-medium">MP4, WEBM, MOV (Tối đa 50MB)</span>
-                        <input
-                          type="file"
-                          accept="video/*"
-                          className="hidden"
-                          onChange={(e) => handleVideoUpload(e, "afterVideoUrl")}
-                        />
-                      </label>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* ─── SUBMIT BUTTON ─── */}
-              <div className="pt-4 border-t border-slate-200 flex items-center justify-end gap-3 flex-shrink-0 sticky bottom-0 bg-white z-10 pb-1">
-                <button
-                  type="button"
-                  onClick={() => setIsCreateModalOpen(false)}
-                  className="px-5 py-2.5 rounded-xl border border-slate-300 text-xs font-black text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  className="px-6 py-2.5 rounded-xl bg-[#006838] text-white text-xs font-black hover:bg-[#004d29] shadow-md transition-all flex items-center gap-2 cursor-pointer"
-                >
-                  <IconSend size={16} />
-                  <span>GỬI ĐỀ XUẤT CẢI TIẾN</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ════════════════════════════════════════════════════════════════
-          MODAL 2: DETAIL & EVALUATION MODAL (Cấu trúc 2 cột + 3 Tab)
-         ════════════════════════════════════════════════════════════════ */}
-      {isDetailModalOpen && activeProposal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-5xl max-h-[92vh] flex flex-col md:flex-row overflow-hidden text-left animate-in zoom-in-95 duration-200 relative">
-            
-            {/* Close Button X (Top Right) */}
-            <button
-              type="button"
-              onClick={() => setIsDetailModalOpen(false)}
-              className="absolute top-4 right-4 w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 hover:text-slate-900 transition-colors cursor-pointer z-30"
-              title="Đóng cửa sổ"
-            >
-              <IconX size={18} />
-            </button>
-
-            {/* ════════════════════════════════════════════════════════
-                COL 1: LEFT SIDEBAR (Fixed Width ~320px)
-               ════════════════════════════════════════════════════════ */}
-            <div className="w-full md:w-80 lg:w-96 bg-slate-50/70 border-r border-slate-200/80 p-5 flex flex-col gap-4 overflow-y-auto shrink-0">
-              
-              {/* Cover Image / Thumbnail Card */}
-              <div className="aspect-[4/3] rounded-2xl border border-slate-200 bg-white shadow-2xs overflow-hidden flex flex-col items-center justify-center relative group">
-                {activeProposal.after_image_url || activeProposal.before_image_url ? (
-                  <img
-                    src={activeProposal.after_image_url || activeProposal.before_image_url}
-                    alt="Cover"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                ) : (
-                  <div className="flex flex-col items-center justify-center p-6 text-center text-slate-400">
-                    <IconPhoto size={44} className="stroke-[1.2] text-slate-300 mb-1" />
-                    <span className="text-xs font-bold text-slate-400">Chưa có ảnh</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Sub Category Tag */}
-              <div className="text-[11px] font-black text-slate-500 uppercase tracking-wide">
-                ĐẾ · {activeProposal.category_label || "1.TIẾT KIỆM VẬT TƯ"}
-              </div>
-
-              {/* 2 Metric Overview Cards (ĐIỂM TB & CHUYÊN MÔN) */}
-              <div className="grid grid-cols-2 gap-2.5">
-                <div className="p-3 rounded-2xl bg-white border border-slate-200 shadow-2xs text-center space-y-0.5">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">ĐIỂM TB</span>
-                  <span className="text-xl font-black text-slate-900 block">
-                    {(activeProposal.avg_rating || 0).toFixed(1).replace(".", ",")}
-                  </span>
-                  <span className="text-[10px] font-bold text-slate-500 block">
-                    {activeProposal.rating_count || 0} đánh giá
-                  </span>
-                </div>
-
-                <div className="p-3 rounded-2xl bg-white border border-slate-200 shadow-2xs text-center space-y-0.5">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">CHUYÊN MÔN</span>
-                  <span className="text-xl font-black text-slate-900 block">
-                    {(activeProposal.score_points || activeProposal.average_score || 0).toFixed(2).replace(".", ",")}
-                  </span>
-                  <span className="text-[10px] font-bold text-slate-500 block">
-                    {activeProposal.evaluated_at || activeProposal.award_title ? "1 ban đánh giá" : "0 ban đánh giá"}
-                  </span>
-                </div>
-              </div>
-
-              {/* Key Detail Fields Grid */}
-              <div className="grid grid-cols-2 gap-2.5 text-xs">
-                {/* Người đăng ký */}
-                <div className="col-span-2 p-3 rounded-2xl bg-white border border-slate-200/80 shadow-2xs space-y-0.5">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">NGƯỜI ĐĂNG KÝ</span>
-                  <div className="flex items-center gap-1.5 font-extrabold text-slate-900">
-                    <IconUser size={15} className="text-slate-600 shrink-0" />
-                    <span>{activeProposal.proposer_name}</span>
-                  </div>
-                </div>
-
-                {/* VTCV */}
-                <div className="p-3 rounded-2xl bg-white border border-slate-200/80 shadow-2xs space-y-0.5">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">VTCV</span>
-                  <span className="font-extrabold text-slate-900 block truncate">{activeProposal.dept_code || "NV"}</span>
-                </div>
-
-                {/* Nhóm SP/DV */}
-                <div className="p-3 rounded-2xl bg-white border border-slate-200/80 shadow-2xs space-y-0.5">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">NHÓM SP/DV</span>
-                  <span className="font-extrabold text-slate-900 block truncate">{activeProposal.department || activeProposal.region || "Đế"}</span>
-                </div>
-
-                {/* Phân loại */}
-                <div className="p-3 rounded-2xl bg-white border border-slate-200/80 shadow-2xs space-y-0.5">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">PHÂN LOẠI</span>
-                  <span className="font-extrabold text-slate-900 block truncate">{activeProposal.category_label}</span>
-                </div>
-
-                {/* Ngày đăng */}
-                <div className="p-3 rounded-2xl bg-white border border-slate-200/80 shadow-2xs space-y-0.5">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">NGÀY ĐĂNG</span>
-                  <span className="font-extrabold text-slate-900 block">
-                    {new Date(activeProposal.created_at || Date.now()).toLocaleDateString("vi-VN")}
-                  </span>
-                </div>
-
-                {/* Nhân sự đề xuất */}
-                <div className="p-3 rounded-2xl bg-white border border-slate-200/80 shadow-2xs space-y-0.5">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">NHÂN SỰ ĐỀ XUẤT</span>
-                  <span className="font-extrabold text-slate-900 block truncate">{activeProposal.proposer_name}</span>
-                </div>
-
-                {/* Khách hàng */}
-                <div className="p-3 rounded-2xl bg-white border border-slate-200/80 shadow-2xs space-y-0.5">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">KHÁCH HÀNG</span>
-                  <span className="font-extrabold text-slate-900 block truncate">{activeProposal.factory || "WR"}</span>
-                </div>
-              </div>
-
-              {/* Action Buttons Group (Bottom of Left Column) */}
-              <div className="grid grid-cols-2 gap-2 pt-3 border-t border-slate-200/80 mt-auto">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsDetailModalOpen(false);
-                    setIsEvalModalOpen(true);
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setSelectedCategory(val);
+                    if (val !== "ALL") {
+                      setSelectedRegType("ALL");
+                      setSelectedRegion("ALL");
+                    }
                   }}
-                  className="py-2 px-3 rounded-xl bg-amber-700/90 hover:bg-amber-800 text-white font-black text-xs shadow-2xs flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                  className="w-full px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 text-[11px] font-bold text-slate-700 outline-none focus:border-[#006838]"
                 >
-                  <span>📝 Sửa</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    showToast("🔓 Đã mở cập nhật trạng thái thẻ");
+                  <option value="ALL">📁 Danh mục</option>
+                  {CATEGORIES.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={selectedRegion}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setSelectedRegion(val);
+                    if (val !== "ALL") {
+                      setSelectedRegType("ALL");
+                      setSelectedCategory("ALL");
+                    }
                   }}
-                  className="py-2 px-3 rounded-xl border border-emerald-600 text-emerald-700 hover:bg-emerald-50 font-black text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                  className="w-full px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 text-[11px] font-bold text-slate-700 outline-none focus:border-[#006838]"
                 >
-                  <span>🔓 Mở</span>
-                </button>
+                  <option value="ALL">🏢 Tất cả khu vực</option>
+                  {REGION_SUB_ITEMS.map((r) => (
+                    <option key={r} value={r}>
+                      {r}
+                    </option>
+                  ))}
+                </select>
+
+                <select className="w-full px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 text-[11px] font-bold text-slate-700 outline-none focus:border-[#006838]">
+                  <option value="ALL">📦 Nhóm SP</option>
+                  <option value="DAN_DE">Dán Đế</option>
+                  <option value="MAY_QUAI">May Quai</option>
+                  <option value="DE_CAU_TRUC">Đế Cấu Trúc</option>
+                </select>
+
+                <select className="w-full px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 text-[11px] font-bold text-slate-700 outline-none focus:border-[#006838]">
+                  <option value="ALL">📅 Tháng/Năm</option>
+                  <option value="8/2026">T8/2026</option>
+                  <option value="7/2026">T7/2026</option>
+                </select>
+
                 <button
-                  type="button"
-                  onClick={() => handleDeleteProposal(activeProposal.id)}
-                  className="py-2 px-3 rounded-xl border border-rose-300 text-rose-600 hover:bg-rose-50 font-black text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setSelectedCategory("ALL");
+                    setSelectedRegion("ALL");
+                    setSelectedRegType("ALL");
+                    setSelectedSubStatus("ALL");
+                    setSelectedStatus("ALL");
+                  }}
+                  className="w-full px-2.5 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer border border-slate-200"
                 >
-                  <span>🗑️ Xóa</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsDetailModalOpen(false)}
-                  className="py-2 px-3 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 font-black text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
-                >
-                  <span>✕ Đóng</span>
+                  <IconRotate size={14} />
+                  <span>Reset</span>
                 </button>
               </div>
             </div>
 
-            {/* ════════════════════════════════════════════════════════
-                COL 2: RIGHT MAIN CONTENT (Header + 3 Tabs)
-               ════════════════════════════════════════════════════════ */}
-            <div className="flex-1 flex flex-col p-6 overflow-y-auto pr-12">
-              
-              {/* Header Badges & Title */}
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 flex-wrap text-xs">
-                  <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-800 font-black border border-slate-200 flex items-center gap-1">
-                    📦 {activeProposal.category_label || "1.Tiết kiệm Vật tư"}
-                  </span>
-                  <span className="px-3 py-1 rounded-full bg-amber-50 text-amber-800 font-black border border-amber-200 flex items-center gap-1">
-                    🏆 {activeProposal.registration_type === "THI_DUA" ? "Thi đua" : activeProposal.registration_type === "LUU_TRU" ? "Lưu trữ" : "Thi đua"}
-                  </span>
-                  <span className="px-3 py-1 rounded-full text-xs font-black border flex items-center gap-1 bg-emerald-50 text-emerald-800 border-emerald-300">
-                    ✓ Đã duyệt
-                  </span>
-                </div>
+            <div className="px-4 py-2 rounded-2xl bg-white border border-slate-200/90 shadow-2xs flex items-center gap-6 text-xs font-extrabold text-slate-700">
+              <span className="flex items-center gap-1.5">
+                <span className="text-blue-600 font-bold">📁</span>
+                <span>Tổng: <strong className="font-black text-slate-900">{proposals.length}</strong></span>
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="text-emerald-600 font-bold">🔻</span>
+                <span>Đã lọc: <strong className="font-black text-slate-900">{filteredProposals.length}</strong></span>
+              </span>
+            </div>
 
-                <h2 className="text-xl font-black text-slate-900 tracking-tight leading-snug">
-                  {activeProposal.title}
-                </h2>
-
-                <p className="text-xs font-bold text-slate-400">
-                  MSNV: {activeProposal.proposer_emp_code || "DE0012"} · KV: {activeProposal.region || "ĐẾ"} · Tháng {new Date(activeProposal.created_at || Date.now()).getMonth() + 1}/{new Date(activeProposal.created_at || Date.now()).getFullYear()}
-                </p>
-              </div>
-
-              {/* 3 Navigation Tabs */}
-              <div className="flex items-center gap-2 border-b border-slate-200 pb-3 my-4">
-                <button
-                  type="button"
-                  onClick={() => setDetailActiveTab("INFO")}
-                  className={`px-4 py-2 rounded-xl text-xs font-extrabold flex items-center gap-2 transition-all cursor-pointer ${
-                    detailActiveTab === "INFO"
-                      ? "bg-[#0b1739] text-white shadow-md"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
-                >
-                  <span>ℹ️ Thông tin</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setDetailActiveTab("EVALUATION")}
-                  className={`px-4 py-2 rounded-xl text-xs font-extrabold flex items-center gap-2 transition-all cursor-pointer ${
-                    detailActiveTab === "EVALUATION"
-                      ? "bg-[#0b1739] text-white shadow-md"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
-                >
-                  <span>👑 Đánh giá chuyên môn</span>
-                  <span className="px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-700 text-[10px] font-black">
-                    {activeProposal.evaluated_at || activeProposal.award_title ? "1" : "0"}
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setDetailActiveTab("RATING")}
-                  className={`px-4 py-2 rounded-xl text-xs font-extrabold flex items-center gap-2 transition-all cursor-pointer ${
-                    detailActiveTab === "RATING"
-                      ? "bg-[#0b1739] text-white shadow-md"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
-                >
-                  <span>⭐ Đánh giá thưởng</span>
-                  <span className="px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-700 text-[10px] font-black">
-                    {activeProposal.rating_count || 0}
-                  </span>
-                </button>
-              </div>
-
-              {/* TAB 1: THÔNG TIN */}
-              {detailActiveTab === "INFO" && (
-                <div className="space-y-4 animate-in fade-in duration-200">
-                  {/* 1. TỔNG QUAN CẢI TIẾN */}
-                  <div className="space-y-2">
-                    <h4 className="text-[11px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                      📍 TỔNG QUAN CẢI TIẾN
-                    </h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
-                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">MÃ HÀNG</span>
-                        <span className="text-sm font-black text-slate-900 block mt-0.5">{activeProposal.code || "WR-EVA-07"}</span>
-                      </div>
-                      <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
-                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">SỐ LƯỢNG ĐH / TIẾT KIỆM</span>
-                        <span className="text-sm font-black text-slate-900 block mt-0.5">{activeProposal.saved_seconds || 30}s / đôi</span>
-                      </div>
-                      <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
-                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">HƯỚNG ĐÁNH GIÁ</span>
-                        <span className="text-sm font-black text-slate-900 block mt-0.5">{activeProposal.category_label || "Trị giá"}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 2. NỘI DUNG CHI TIẾT */}
-                  <div className="space-y-3">
-                    <h4 className="text-[11px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                      📋 NỘI DUNG CHI TIẾT
-                    </h4>
-                    
-                    {/* VẤN ĐỀ PHÁT HIỆN (TRƯỚC) */}
-                    <div className="p-4 rounded-2xl bg-rose-50/80 border border-rose-200/80 space-y-1">
-                      <span className="text-[10px] font-black uppercase tracking-wider text-rose-600 block">VẤN ĐỀ PHÁT HIỆN (TRƯỚC)</span>
-                      <p className="text-xs font-semibold text-rose-900 whitespace-pre-wrap leading-relaxed">
-                        {activeProposal.before_description || "Mút EVA thừa sau cắt chặt bị tiêu hủy"}
-                      </p>
-                    </div>
-
-                    {/* GIẢI PHÁP HÀNH ĐỘNG (SAU) */}
-                    <div className="p-4 rounded-2xl bg-emerald-50/80 border border-emerald-200/80 space-y-1">
-                      <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600 block">GIẢI PHÁP HÀNH ĐỘNG (SAU)</span>
-                      <p className="text-xs font-semibold text-emerald-900 whitespace-pre-wrap leading-relaxed">
-                        {activeProposal.after_solution || "Băm nhỏ và ép nhiệt lại thành tấm lót lót gót phụ"}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* 3. HIỆU QUẢ CẢI TIẾN */}
-                  <div className="space-y-2 pt-1">
-                    <h4 className="text-[11px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                      📈 HIỆU QUẢ CẢI TIẾN
-                    </h4>
-                    <div className="p-4.5 rounded-2xl bg-emerald-500 text-white shadow-lg flex items-center justify-between flex-wrap gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg">💰</span>
-                        <span className="text-xs font-black uppercase tracking-wider text-emerald-100">HIỆU QUẢ CẢI TIẾN DỰ KIẾN</span>
-                      </div>
-                      <span className="text-2xl font-black tracking-tight">
-                        {activeProposal.saved_seconds ? (activeProposal.saved_seconds * 1733333).toLocaleString("vi-VN") + " VNĐ" : "52.000.000 VNĐ"}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* 4. Hình ảnh & Video clips trước / sau */}
-                  {(activeProposal.before_image_url || activeProposal.after_image_url || (activeProposal.attachments_json && activeProposal.attachments_json.length > 5)) && (
-                    <div className="space-y-3 pt-3 border-t border-slate-200">
-                      <h4 className="text-[11px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                        🎥 TỆP MINH HỌA (HÌNH ẢNH &amp; VIDEO CLIPS)
-                      </h4>
-
-                      {/* Image attachments */}
-                      {(activeProposal.before_image_url || activeProposal.after_image_url) && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          {activeProposal.before_image_url && (
-                            <div className="space-y-1">
-                              <span className="text-[10px] font-extrabold text-slate-600 flex items-center gap-1">
-                                📷 <span>Ảnh Trước Cải Tiến:</span>
-                              </span>
-                              <img
-                                src={activeProposal.before_image_url}
-                                alt="Before"
-                                className="w-full h-44 object-cover rounded-2xl border border-slate-200 shadow-2xs hover:opacity-95 transition-opacity"
-                              />
+            <div className="w-full space-y-4">
+              {viewMode === "GRID" && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                  {filteredProposals.map((prop) => {
+                    const catObj = CATEGORIES.find((c) => c.id === prop.category) || CATEGORIES[6];
+                    const rankInfo = proposalRanksMap[prop.id];
+                    return (
+                      <div
+                        key={prop.id}
+                        onClick={() => handleRecordView(prop)}
+                        className="rounded-2xl bg-[#ffffff] border border-slate-200/90 shadow-2xs hover:shadow-md hover:border-[#006838]/60 transition-all cursor-pointer overflow-hidden flex flex-col justify-between group"
+                      >
+                        <div className="relative h-28 bg-slate-100 border-b border-slate-100 overflow-hidden flex items-center justify-center group/img">
+                          {prop.before_image_url ? (
+                            <img
+                              src={prop.before_image_url}
+                              alt={prop.title}
+                              className="w-full h-full object-cover group-hover/img:scale-105 transition-transform duration-500"
+                            />
+                          ) : (
+                            <div className="flex flex-col items-center gap-0.5 text-slate-400">
+                              <IconPhoto size={26} />
+                              <span className="text-[10px] font-bold">Chưa có ảnh</span>
                             </div>
                           )}
-                          {activeProposal.after_image_url && (
-                            <div className="space-y-1">
-                              <span className="text-[10px] font-extrabold text-slate-600 flex items-center gap-1">
-                                📷 <span>Ảnh Sau Cải Tiến:</span>
-                              </span>
-                              <img
-                                src={activeProposal.after_image_url}
-                                alt="After"
-                                className="w-full h-44 object-cover rounded-2xl border border-slate-200 shadow-2xs hover:opacity-95 transition-opacity"
-                              />
+
+                          <div className="absolute top-1.5 inset-x-1.5 flex items-center justify-between pointer-events-none gap-1">
+                            <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider shadow-2xs ${catObj.color}`}>
+                              {prop.category_label || catObj.label}
+                            </span>
+                            {renderCardTopRightBadge(prop, rankInfo)}
+                          </div>
+
+                          <div className="absolute bottom-0 inset-x-0 px-2 py-1 bg-gradient-to-t from-slate-950/90 via-slate-950/70 to-transparent text-white flex items-center justify-between text-[10px] font-bold">
+                            <div className="flex items-center gap-1 truncate max-w-[70%]">
+                              <IconUser size={12} className="text-slate-300 shrink-0" />
+                              <span className="truncate">{prop.proposer_name}</span>
                             </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Video clips attachments */}
-                      {activeProposal.attachments_json && (() => {
-                        try {
-                          const atts = typeof activeProposal.attachments_json === "string"
-                            ? JSON.parse(activeProposal.attachments_json)
-                            : activeProposal.attachments_json;
-                          if (!Array.isArray(atts)) return null;
-                          const vids = atts.filter((a: any) => a && (a.type?.startsWith("video_") || a.url?.includes("video") || a.url?.startsWith("data:video/")));
-                          if (!vids || vids.length === 0) return null;
-
-                          return (
-                            <div className="space-y-2 pt-2 border-t border-dashed border-purple-200">
-                              <span className="text-[10px] font-black uppercase text-purple-700 block">
-                                🎬 CLIPS VIDEO THỰC ĐỊA TRƯỚC / SAU CẢI TIẾN ({vids.length} clips):
-                              </span>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                {vids.map((v: any, idx: number) => (
-                                  <div key={idx} className="space-y-1 bg-purple-50/50 p-2 rounded-2xl border border-purple-200/80">
-                                    <span className="text-[10px] font-extrabold text-purple-900 block truncate">
-                                      🎬 {v.title || (v.type === "video_before" ? "Video Trước Cải Tiến" : "Video Sau Cải Tiến")}
-                                    </span>
-                                    <video
-                                      controls
-                                      preload="metadata"
-                                      src={v.url}
-                                      className="w-full h-44 object-cover rounded-xl border border-purple-300 bg-slate-950 shadow-md"
-                                    />
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          );
-                        } catch (e) {
-                          return null;
-                        }
-                      })()}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* TAB 2: ĐÁNH GIÁ CHUYÊN MÔN */}
-              {detailActiveTab === "EVALUATION" && (
-                <div className="space-y-4 animate-in fade-in duration-200">
-                  <div className="p-4 rounded-2xl bg-amber-50/60 border border-amber-200/80 space-y-1">
-                    <h4 className="text-sm font-black text-amber-900 flex items-center gap-2">
-                      <IconAward size={18} className="text-amber-600" />
-                      <span>Chấm Điểm &amp; Phê Duyệt Chuyên Môn</span>
-                    </h4>
-                    <p className="text-xs font-medium text-amber-800">
-                      Khu vực dành cho Ban Giám Khảo &amp; Chuyên gia đánh giá điểm thang 100, trao giải thưởng và ghi nhận ý kiến chỉ đạo.
-                    </p>
-                  </div>
-
-                  {activeProposal.award_title || activeProposal.score_points > 0 || activeProposal.review_comment ? (
-                    <div className="p-5 rounded-3xl bg-white border border-slate-200 shadow-md space-y-4">
-                      <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                        <div>
-                          <span className="text-[10px] font-black uppercase text-slate-400 block">HẠNG GIẢI THƯỞNG</span>
-                          <span className="text-base font-black text-amber-700 flex items-center gap-1.5 mt-0.5">
-                            🥇 {activeProposal.award_title || "Giải Nhất"}
-                          </span>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-[10px] font-black uppercase text-slate-400 block">ĐIỂM CHUYÊN MÔN</span>
-                          <span className="text-2xl font-black text-emerald-600 block">
-                            {activeProposal.score_points || 95} / 100đ
-                          </span>
-                        </div>
-                      </div>
-
-                      {activeProposal.review_comment && (
-                        <div className="space-y-1.5">
-                          <span className="text-[11px] font-black uppercase text-slate-500 block">NHẬN XÉT CỦA HỘI ĐỒNG ĐÁNH GIÁ:</span>
-                          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-800 leading-relaxed whitespace-pre-wrap">
-                            {activeProposal.review_comment}
+                            <span className="text-[9px] text-amber-300 font-mono">#{prop.code}</span>
                           </div>
                         </div>
-                      )}
 
-                      <div className="pt-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsDetailModalOpen(false);
-                            setIsEvalModalOpen(true);
-                          }}
-                          className="w-full py-3 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-black shadow-md flex items-center justify-center gap-2 cursor-pointer transition-colors"
-                        >
-                          <IconAward size={16} />
-                          <span>CHỈNH SỬA / CHẤM ĐIỂM LẠI</span>
-                        </button>
+                        <div className="p-3 space-y-2 flex-1 flex flex-col justify-between">
+                          <div className="space-y-1">
+                            <h3 className="font-extrabold text-slate-900 text-xs line-clamp-2 leading-snug group-hover:text-[#006838] transition-colors" title={prop.title}>
+                              {prop.title}
+                            </h3>
+                            <div className="flex items-center justify-between text-[10px] text-slate-500 font-semibold pt-1 border-t border-slate-100">
+                              <span className="flex items-center gap-1 truncate">
+                                <IconMapPin size={12} className="text-slate-400 shrink-0" />
+                                <span className="truncate">{prop.region || prop.factory || "VP CHUỖI"}</span>
+                              </span>
+                              <span className="flex items-center gap-1 truncate">
+                                <IconBuildingFactory size={12} className="text-slate-400 shrink-0" />
+                                <span className="truncate">{prop.department}</span>
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500 min-h-[32px]">
+                            <button
+                              type="button"
+                              onClick={(e) => handleVote(e, prop.id)}
+                              className="flex items-center gap-1 hover:text-emerald-600 font-bold transition-colors cursor-pointer"
+                            >
+                              <IconThumbUp size={13} className="text-slate-400 hover:text-emerald-600" />
+                              <span>{prop.vote_count || 0}</span>
+                            </button>
+
+                            <div className="flex items-center gap-1.5 font-bold">
+                              <span className="flex items-center gap-0.5 text-slate-400">
+                                <IconEye size={13} />
+                                <span>{prop.view_count || 0}</span>
+                              </span>
+
+                              {isPendingApprovalProposal(prop) && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setApprovalModalProposal(prop);
+                                    setIsApprovalModalOpen(true);
+                                  }}
+                                  className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black shadow-2xs transition-colors flex items-center gap-1 cursor-pointer shrink-0"
+                                  title="Phê duyệt tính khả thi sáng kiến (Bước 3)"
+                                >
+                                  <IconShieldCheck size={13} />
+                                  <span>Phê duyệt</span>
+                                </button>
+                              )}
+
+                              {isApprovedProposal(prop) && (
+                                rankInfo ? (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setEvaluatingProposal(prop);
+                                      setIsEvaluationModalOpen(true);
+                                    }}
+                                    className={`px-2 py-0.5 rounded-lg text-[10px] font-black shadow-xs flex items-center gap-1 transition-transform hover:scale-105 cursor-pointer shrink-0 border ${rankInfo.badgeStyle}`}
+                                    title={`Xếp hạng thi đua: ${rankInfo.rankTitle} - Bấm để xem / chấm điểm`}
+                                  >
+                                    <span>{rankInfo.badgeLabel}</span>
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setEvaluatingProposal(prop);
+                                      setIsEvaluationModalOpen(true);
+                                    }}
+                                    className="px-2 py-0.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-black shadow-2xs transition-colors flex items-center gap-1 cursor-pointer shrink-0"
+                                    title="Chấm điểm chuyên môn 5 tiêu chí QĐ-TBKG"
+                                  >
+                                    <IconTrophy size={13} />
+                                    <span>Chấm điểm</span>
+                                  </button>
+                                )
+                              )}
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="p-8 rounded-3xl border-2 border-dashed border-slate-300 text-center space-y-4 bg-slate-50/50">
-                      <div className="w-14 h-14 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto">
-                        <IconTrophy size={28} />
-                      </div>
-                      <div className="space-y-1">
-                        <h5 className="text-sm font-black text-slate-800">Chưa có kết quả chấm điểm chuyên môn</h5>
-                        <p className="text-xs text-slate-500 font-medium max-w-sm mx-auto">
-                          Đề xuất này chưa được Ban Giám Khảo đánh giá điểm thang 100 hoặc trao giải thưởng thi đua.
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsDetailModalOpen(false);
-                          setIsEvalModalOpen(true);
-                        }}
-                        className="px-6 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-md inline-flex items-center gap-2 cursor-pointer transition-colors"
-                      >
-                        <IconAward size={16} />
-                        <span>TIẾN HÀNH CHẤM ĐIỂM &amp; TRAO GIẢI</span>
-                      </button>
-                    </div>
-                  )}
+                    );
+                  })}
                 </div>
               )}
 
-              {/* TAB 3: ĐÁNH GIÁ SAO (ĐÁNH GIÁ THƯỞNG) */}
-              {detailActiveTab === "RATING" && (
-                <div className="space-y-4 animate-in fade-in duration-200">
-                  <div className="p-4 rounded-2xl bg-sky-50/60 border border-sky-200/80 space-y-1">
-                    <h4 className="text-sm font-black text-sky-900 flex items-center gap-2">
-                      <IconStar size={18} className="text-amber-500 fill-amber-400" />
-                      <span>Đánh Giá Sao Thưởng Từ Đồng Nghiệp</span>
-                    </h4>
-                    <p className="text-xs font-medium text-sky-800">
-                      Xếp hạng bình chọn (0.5 đến 5.0 sao) dành cho toàn thể CBCNV TBS Group.
-                    </p>
-                  </div>
+              {viewMode === "LIST" && (
+                <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-extrabold text-[10px] uppercase">
+                          <th className="p-3">Mã</th>
+                          <th className="p-3">Tiêu đề đề xuất</th>
+                          <th className="p-3">Phân loại</th>
+                          <th className="p-3">Khu vực</th>
+                          <th className="p-3">Người đề xuất</th>
+                          <th className="p-3 text-center">Trạng thái</th>
+                          <th className="p-3 text-center">Thao tác</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-medium">
+                        {filteredProposals.map((prop) => {
+                          const rankInfo = proposalRanksMap[prop.id];
+                          const isRejected =
+                            Boolean(prop.is_archived) ||
+                            prop.approval_status === "TU_CHOI" ||
+                            prop.sub_status === "TU_CHOI_TRIEN_KHAI" ||
+                            prop.sub_status === "TU_CHOI_DUYET" ||
+                            prop.status === "REJECTED";
+                          const isApproved = isApprovedProposal(prop);
+                          const isPending = isPendingApprovalProposal(prop);
 
-                  <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-md text-center space-y-4">
-                    <div className="space-y-1">
-                      <span className="text-3xl font-black text-amber-500 block">
-                        {(activeProposal.avg_rating || 5.0).toFixed(1)} ⭐
-                      </span>
-                      <span className="text-xs font-bold text-slate-400 block">
-                        Dựa trên {activeProposal.rating_count || 2} lượt bình chọn từ nhân sự
-                      </span>
-                    </div>
+                          let badgeText = "Chờ duyệt";
+                          let badgeStyle = "bg-amber-50 text-amber-900 border-amber-200 font-extrabold";
 
-                    <div className="pt-2 border-t border-slate-100 flex justify-center">
-                      <button
-                        type="button"
-                        onClick={() => setIsRatingModalOpen(true)}
-                        className="px-6 py-3 rounded-2xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs shadow-md flex items-center gap-2 cursor-pointer transition-colors"
-                      >
-                        <IconStar size={16} className="fill-slate-950" />
-                        <span>THỰC HIỆN ĐÁNH GIÁ SAO NGAY</span>
-                      </button>
-                    </div>
+                          if (isRejected) {
+                            badgeText = "Từ chối";
+                            badgeStyle = "bg-rose-50 text-rose-800 border-rose-200 font-extrabold";
+                          } else if (isPending) {
+                            badgeText = "Chờ duyệt";
+                            badgeStyle = "bg-amber-50 text-amber-900 border-amber-200 font-extrabold";
+                          } else if (isApproved) {
+                            if (rankInfo) {
+                              badgeText = rankInfo.badgeLabel;
+                              badgeStyle = `${rankInfo.badgeStyle} border font-black`;
+                            } else {
+                              badgeText = "Đã duyệt";
+                              badgeStyle = "bg-emerald-50 text-emerald-800 border-emerald-200 font-extrabold";
+                            }
+                          }
+
+                          return (
+                            <tr key={prop.id} className="hover:bg-slate-50 transition-colors">
+                              <td className="p-3 font-mono font-bold text-amber-700">#{prop.code}</td>
+                              <td className="p-3 font-bold text-slate-900">
+                                <span>{prop.title}</span>
+                                {isApproved && rankInfo && (
+                                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-black inline-flex items-center gap-1 ml-2 ${rankInfo.badgeStyle}`}>
+                                    {rankInfo.badgeLabel}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="p-3">
+                                <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-[#006838] text-[10px] font-bold border border-emerald-200">
+                                  {prop.category_label}
+                                </span>
+                              </td>
+                              <td className="p-3">{prop.region || prop.factory || "VP CHUỖI"}</td>
+                              <td className="p-3">{prop.proposer_name}</td>
+                              <td className="p-3 text-center">
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-black border ${badgeStyle}`}>
+                                  {badgeText}
+                                </span>
+                              </td>
+                              <td className="p-3 text-center">
+                                <div className="flex items-center justify-center gap-1.5">
+                                  <button
+                                    onClick={() => handleRecordView(prop)}
+                                    className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-[#006838] hover:text-white transition-colors cursor-pointer text-[11px] font-bold"
+                                  >
+                                    Xem
+                                  </button>
+                                  {isPending && isExecutiveOrAdmin && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setApprovalModalProposal(prop);
+                                        setIsApprovalModalOpen(true);
+                                      }}
+                                      className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors cursor-pointer text-[11px] font-extrabold flex items-center gap-1"
+                                    >
+                                      <IconShieldCheck size={12} />
+                                      <span>Phê duyệt</span>
+                                    </button>
+                                  )}
+                                  {isApproved && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setEvaluatingProposal(prop);
+                                        setIsEvaluationModalOpen(true);
+                                      }}
+                                      className="w-7 h-7 rounded-lg bg-amber-500 hover:bg-amber-600 text-white transition-colors cursor-pointer flex items-center justify-center"
+                                      title="Chấm điểm chuyên môn 5 tiêu chí QĐ-TBKG"
+                                    >
+                                      <IconTrophy size={14} />
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               )}
-
             </div>
-          </div>
-        </div>
+          </>
+        )}
+      </main>
+
+      {/* CREATE MODAL */}
+      {isCreateModalOpen && (
+        <KaizenPublicSubmitForm
+          isModal={true}
+          onClose={() => setIsCreateModalOpen(false)}
+          onSuccess={() => {
+            fetchProposals();
+          }}
+        />
       )}
 
-      {/* ════════════════════════════════════════════════════════════════
-          MODAL 3: EVALUATE & AWARD MODAL
-         ════════════════════════════════════════════════════════════════ */}
-      {isEvalModalOpen && activeProposal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden text-left animate-in zoom-in-95 duration-200">
-            <div className="p-5 bg-gradient-to-r from-amber-600 to-amber-700 text-white flex items-center justify-between flex-shrink-0 z-10">
-              <div className="flex items-center gap-2.5">
-                <IconTrophy size={22} />
-                <h3 className="text-base font-black tracking-tight">Chấm Điểm Thi Đua Kaizen</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsEvalModalOpen(false)}
-                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white"
-              >
-                <IconX size={18} />
-              </button>
-            </div>
-
-            <form onSubmit={handleEvalSubmit} className="flex-1 overflow-y-auto p-6 space-y-4 text-xs font-bold text-slate-700">
-              {/* Field 1: Hạng Giải Thưởng * */}
-              <div className="space-y-1">
-                <label className="block text-slate-900 font-extrabold">
-                  Hạng Giải Thưởng <span className="text-rose-600 font-bold ml-0.5">*</span>
-                </label>
-                <select
-                  value={evalForm.awardTitle}
-                  onChange={(e) => {
-                    setEvalForm({ ...evalForm, awardTitle: e.target.value });
-                    if (evalErrors.awardTitle) setEvalErrors({ ...evalErrors, awardTitle: undefined });
-                  }}
-                  className={`w-full px-3.5 py-2.5 rounded-xl border text-xs font-bold outline-none transition-colors ${
-                    evalErrors.awardTitle ? "border-rose-500 bg-rose-50/40 text-rose-900" : "border-slate-300 focus:border-amber-600"
-                  }`}
-                >
-                  <option value="Giải Nhất">🥇 Giải Nhất</option>
-                  <option value="Giải Nhì">🥈 Giải Nhì</option>
-                  <option value="Giải Ba">🥉 Giải Ba</option>
-                  <option value="Giải Khuyến Khích">🎗️ Giải Khuyến Khích</option>
-                </select>
-                {evalErrors.awardTitle && (
-                  <p className="text-[11px] font-bold text-rose-600 mt-1">{evalErrors.awardTitle}</p>
-                )}
-              </div>
-
-              {/* Field 2: Điểm Đánh Giá Thang 100 * */}
-              <div className="space-y-1">
-                <label className="block text-slate-900 font-extrabold">
-                  Điểm Đánh Giá Thang 100 <span className="text-rose-600 font-bold ml-0.5">*</span>
-                </label>
-                <input
-                  type="number"
-                  step="0.5"
-                  required
-                  value={evalForm.scorePoints}
-                  onChange={(e) => {
-                    const val = parseFloat(e.target.value || "0");
-                    const autoAward = val >= 90 ? "Giải Nhất" : val >= 80 ? "Giải Nhì" : val >= 70 ? "Giải Ba" : "Giải Khuyến Khích";
-                    setEvalForm({ ...evalForm, scorePoints: val, awardTitle: autoAward });
-                    if (evalErrors.scorePoints) setEvalErrors({ ...evalErrors, scorePoints: undefined });
-                    if (evalErrors.awardTitle) setEvalErrors({ ...evalErrors, awardTitle: undefined });
-                  }}
-                  className={`w-full px-3.5 py-2.5 rounded-xl border text-xs font-bold outline-none transition-colors ${
-                    evalErrors.scorePoints ? "border-rose-500 bg-rose-50/40 text-rose-900" : "border-slate-300 focus:border-amber-600"
-                  }`}
-                />
-                <span className="text-[10px] text-amber-700 font-medium block">
-                  💡 Hạng giải tự động xếp theo điểm ranking: ≥90đ (Nhất), ≥80đ (Nhì), ≥70đ (Ba), &lt;70đ (Khuyến Khích).
-                </span>
-                {evalErrors.scorePoints && (
-                  <p className="text-[11px] font-bold text-rose-600 mt-1">{evalErrors.scorePoints}</p>
-                )}
-              </div>
-
-              {/* Field 3: Nhận xét * (Mới) */}
-              <div className="space-y-1">
-                <label className="block text-slate-900 font-extrabold">
-                  Nhận xét <span className="text-rose-600 font-bold ml-0.5">*</span>
-                </label>
-                <textarea
-                  rows={3}
-                  required
-                  value={evalForm.reviewComment}
-                  onChange={(e) => {
-                    setEvalForm({ ...evalForm, reviewComment: e.target.value });
-                    if (evalErrors.reviewComment) setEvalErrors({ ...evalErrors, reviewComment: undefined });
-                  }}
-                  placeholder="Nhập nhận xét, góp ý về sáng kiến..."
-                  className={`w-full px-3.5 py-2.5 rounded-xl border text-xs font-medium outline-none resize-none transition-colors ${
-                    evalErrors.reviewComment ? "border-rose-500 bg-rose-50/40 text-rose-900 placeholder:text-rose-400" : "border-slate-300 focus:border-amber-600"
-                  }`}
-                />
-                {evalErrors.reviewComment && (
-                  <p className="text-[11px] font-bold text-rose-600 mt-1">{evalErrors.reviewComment}</p>
-                )}
-              </div>
-
-              {/* Modal Buttons */}
-              <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsEvalModalOpen(false);
-                    setEvalErrors({});
-                  }}
-                  className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 rounded-xl bg-amber-600 text-white text-xs font-bold hover:bg-amber-700 shadow-md flex items-center gap-1.5 cursor-pointer"
-                >
-                  <IconAward size={16} />
-                  <span>Xác Nhận Trao Giải</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {/* EDIT MODAL */}
+      {isEditModalOpen && editingProposal && (
+        <KaizenPublicSubmitForm
+          isModal={true}
+          isEdit={true}
+          proposalId={editingProposal.id}
+          initialData={editingProposal}
+          onClose={() => {
+            setIsEditModalOpen(false);
+            setEditingProposal(null);
+          }}
+          onSuccess={() => {
+            setIsEditModalOpen(false);
+            setEditingProposal(null);
+            fetchProposals();
+          }}
+        />
       )}
 
-      {/* ════════════════════════════════════════════════════════════════
-          MODAL 4: STAR RATING MODAL (0.5 to 5.0 Step 0.5)
-         ════════════════════════════════════════════════════════════════ */}
-      {isRatingModalOpen && activeProposal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden text-left animate-in zoom-in-95 duration-200">
-            {/* Modal Header */}
-            <div className="p-4 bg-gradient-to-r from-[#0b1739] to-slate-800 text-white flex items-center justify-between flex-shrink-0">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center font-black">
-                  ⭐
-                </div>
-                <div>
-                  <h3 className="text-sm font-black tracking-tight">Đánh Giá Sao Đề Xuất</h3>
-                  <span className="text-[10px] text-slate-300 font-mono">#{activeProposal.code}</span>
-                </div>
-              </div>
-              <button
-                onClick={() => setIsRatingModalOpen(false)}
-                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white cursor-pointer"
-              >
-                <IconX size={16} />
-              </button>
-            </div>
-
-            <div className="p-5 space-y-4 overflow-y-auto text-xs text-slate-700">
-              {/* Proposal Header Banner */}
-              <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200">
-                <h4 className="font-extrabold text-slate-900 text-xs line-clamp-2">{activeProposal.title}</h4>
-                <div className="flex items-center justify-between text-[11px] text-slate-500 mt-1 font-bold">
-                  <span>Người đăng: {activeProposal.proposer_name}</span>
-                  <span>Khu vực: {activeProposal.region}</span>
-                </div>
-              </div>
-
-              {/* Status Tag Badge & Progress Notice */}
-              {activeProposal.registration_type === "LUU_TRU" ? (
-                <div className="p-3 bg-slate-100 rounded-xl border border-slate-300 text-slate-700 font-bold text-center">
-                  📦 Đề xuất thuộc mục <strong>Lưu Trữ</strong> — Không thuộc luồng thi đua chấm điểm sao.
-                </div>
-              ) : activeProposal.sub_status === "DA_DANH_GIA" ? (
-                <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-emerald-950 font-bold text-center space-y-1">
-                  <div className="flex items-center justify-center gap-1.5 text-emerald-700">
-                    <IconShieldCheck size={18} />
-                    <span>🏆 ĐÃ HOÀN TẤT ĐÁNH GIÁ (Khoá chỉnh sửa)</span>
-                  </div>
-                  <p className="text-[11px] font-normal text-emerald-800">
-                    Tất cả sếp có quyền đã chấm xong. Bài đạt điểm trung bình: <strong>{(activeProposal.average_score || activeProposal.avg_rating || 0).toFixed(1)} ⭐</strong>
-                  </p>
-                </div>
-              ) : (
-                <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-emerald-900 font-bold space-y-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="flex items-center gap-1 text-emerald-700 font-black">
-                      ✓ Đã Duyệt
-                    </span>
-                    <span className="text-[11px] font-black text-amber-800">
-                      Tiến độ: {activeProposal.rating_count || 0}/5 sếp đã chấm
-                    </span>
-                  </div>
-                  {/* Progress bar */}
-                  <div className="w-full bg-amber-200/80 h-2 rounded-full overflow-hidden">
-                    <div
-                      className="bg-amber-600 h-full rounded-full transition-all duration-500"
-                      style={{ width: `${Math.min(((activeProposal.rating_count || 0) / 5) * 100, 100)}%` }}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Half-Star Rating Widget */}
-              {activeProposal.registration_type === "THI_DUA" && (
-                <div className="space-y-2 p-4 bg-white rounded-2xl border border-slate-200 text-center shadow-2xs">
-                  <label className="font-black text-slate-900 block text-xs">
-                    {activeProposal.sub_status === "DA_DANH_GIA"
-                      ? "Điểm Trung Bình Chính Thức:"
-                      : "Bấm Chọn Số Sao (0.5 – 5.0 ⭐, bước 0.5):"}
-                  </label>
-
-                  <div className="flex justify-center py-2">
-                    <HalfStarRating
-                      value={activeProposal.average_score || activeProposal.avg_rating || starRating}
-                      readOnly={activeProposal.sub_status === "DA_DANH_GIA"}
-                      size={28}
-                      onChange={(newScore) => {
-                        setStarRating(newScore);
-                        if (activeProposal.sub_status !== "DA_DANH_GIA") {
-                          handleDirectRating(activeProposal.id, newScore);
-                        }
-                      }}
-                    />
-                  </div>
-
-                  {activeProposal.sub_status !== "DA_DANH_GIA" && (
-                    <p className="text-[10px] text-slate-500 font-semibold italic">
-                      💡 Bấm nửa sao trái (ví dụ 3.5⭐) hoặc nửa sao phải (ví dụ 4.0⭐) để tự động duyệt &amp; ghi nhận điểm ngay lập tức.
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {/* Optional Comment Textarea */}
-              {activeProposal.sub_status !== "DA_DANH_GIA" && activeProposal.registration_type === "THI_DUA" && (
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-800 text-[11px]">Ghi chú / Nhận xét thêm (Không bắt buộc):</label>
-                  <textarea
-                    rows={2}
-                    value={ratingComment}
-                    onChange={(e) => setRatingComment(e.target.value)}
-                    placeholder="Nhập nhận xét về tính sáng tạo, hiệu quả..."
-                    className="w-full p-2.5 rounded-xl border border-slate-200 text-xs font-medium outline-none focus:border-amber-500"
-                  />
-                </div>
-              )}
-
-              {/* Admin Reviewer Exemption Control */}
-              {currentUser.roleCode === "TONG_GIAM_DOC" || currentUser.empCode === "202608001" ? (
-                <div className="pt-3 border-t border-slate-200 space-y-2">
-                  <div className="flex items-center justify-between text-[11px] font-bold text-slate-600">
-                    <span>🛠️ Quyền Admin: Miễn nhiệm sếp chưa chấm</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      placeholder="Mã NV sếp (VD: PTGĐ-002)"
-                      id="exemptReviewerInput"
-                      className="flex-1 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs outline-none font-mono"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const input = document.getElementById("exemptReviewerInput") as HTMLInputElement;
-                        if (input && input.value) {
-                          handleExemptReviewer(activeProposal.id, input.value.trim());
-                        }
-                      }}
-                      className="px-3 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-[11px] font-black border border-rose-200 transition-colors cursor-pointer"
-                    >
-                      Miễn Nhiệm
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-
-              {/* Footer Close */}
-              <div className="pt-2 border-t border-slate-200 flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => setIsRatingModalOpen(false)}
-                  className="px-5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-black transition-colors"
-                >
-                  Đóng
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+      {/* DETAIL MODAL */}
+      {isDetailModalOpen && activeProposal && (
+        <KaizenDetailModal
+          proposal={activeProposal}
+          isOpen={isDetailModalOpen}
+          onClose={() => setIsDetailModalOpen(false)}
+          onEdit={() => {
+            setEditingProposal(activeProposal);
+            setIsDetailModalOpen(false);
+            setIsEditModalOpen(true);
+          }}
+          onDelete={() => handleDeleteProposal(activeProposal.id)}
+          onEvaluate={() => {
+            fetchProposals();
+          }}
+          onRate={() => {
+            fetchProposals();
+          }}
+        />
       )}
-      {/* ════════════════════════════════════════════════════════════════
-          MODAL 5: WORKER QR CODE MODAL FOR PUBLIC SCAN
-         ════════════════════════════════════════════════════════════════ */}
+
+      {/* WORKER QR MODAL */}
       {isQrModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden text-center animate-in zoom-in-95 duration-200">
-            {/* Modal Header */}
             <div className="p-4 bg-gradient-to-r from-[#006838] to-[#0b1739] text-white flex items-center justify-between flex-shrink-0">
               <div className="flex items-center gap-2">
                 <IconQrcode size={22} className="text-amber-400" />
@@ -2839,7 +1791,6 @@ export default function CIModule() {
                 Công nhân chỉ cần dùng camera điện thoại quét mã QR này để trực tiếp nộp đề xuất Kaizen <strong>không cần đăng nhập</strong>:
               </p>
 
-              {/* QR Code Container */}
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col items-center gap-3">
                 <div className="p-3 bg-white rounded-2xl border-2 border-emerald-500 shadow-md">
                   <img
@@ -2853,7 +1804,6 @@ export default function CIModule() {
                 </span>
               </div>
 
-              {/* Action Buttons */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
                 <button
                   type="button"
@@ -2890,6 +1840,110 @@ export default function CIModule() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* EVALUATION MODAL */}
+      <EvaluationModal
+        isOpen={isEvaluationModalOpen}
+        proposal={evaluatingProposal}
+        onClose={() => {
+          setIsEvaluationModalOpen(false);
+          setEvaluatingProposal(null);
+        }}
+        onSuccess={() => {
+          showToast("🎉 Đã lưu kết quả đánh giá hiệu quả sáng kiến!");
+          fetchProposals();
+          refetchStatusCounts();
+        }}
+      />
+
+      {/* FEASIBILITY APPROVAL MODAL */}
+      <FeasibilityApprovalModal
+        isOpen={isApprovalModalOpen}
+        proposal={approvalModalProposal}
+        onClose={() => {
+          setIsApprovalModalOpen(false);
+          setApprovalModalProposal(null);
+        }}
+        onSuccess={() => {
+          showToast("🎉 Đã hoàn tất phê duyệt tính khả thi sáng kiến!");
+          fetchProposals();
+          refetchStatusCounts();
+        }}
+      />
+
+      {/* PRELIMINARY REVIEW MODAL */}
+      {isPreliminaryModalOpen && preliminaryProposal && (
+        <PreliminaryReviewModal
+          proposal={preliminaryProposal}
+          onClose={() => {
+            setIsPreliminaryModalOpen(false);
+            setPreliminaryProposal(null);
+          }}
+          onSuccess={() => {
+            showToast("🎉 Đã hoàn tất sơ duyệt hiện trường!");
+            fetchProposals();
+            refetchStatusCounts();
+          }}
+        />
+      )}
+
+      {/* DUPLICATE COMPARE MODAL */}
+      {isDuplicateModalOpen && duplicateNewSubmission && (
+        <KaizenDuplicateCompareModal
+          newSubmission={duplicateNewSubmission}
+          matchedMatches={duplicateMatches}
+          onConfirmMerge={async (orig) => {
+            try {
+              const res = await fetch("/api/ci-kaizen/merge", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  originalProposalId: orig.id,
+                  newAttachments: duplicateNewSubmission.attachments || [],
+                  proposerName: duplicateNewSubmission.proposerName,
+                }),
+              });
+              const json = await res.json();
+              if (json.success) {
+                showToast(`🎉 ${json.message}`);
+                setIsDuplicateModalOpen(false);
+                setIsCreateModalOpen(false);
+                fetchProposals();
+                refetchStatusCounts();
+              } else {
+                showToast(`❌ ${json.error || "Lỗi khi gộp"}`);
+              }
+            } catch (e) {
+              showToast("❌ Lỗi khi thực hiện gộp!");
+            }
+          }}
+          onProceedAsNew={async () => {
+            try {
+              const res = await fetch("/api/ci-kaizen", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  ...duplicateNewSubmission,
+                  registrationType: "THI_DUA",
+                }),
+              });
+              const json = await res.json();
+              if (json.success) {
+                showToast(`🎉 Đã gửi thành công đề xuất mới ${json.code || ""}!`);
+                setIsDuplicateModalOpen(false);
+                setIsCreateModalOpen(false);
+                fetchProposals();
+                refetchStatusCounts();
+              } else {
+                showToast(`❌ ${json.error || "Lỗi khi gửi đề xuất"}`);
+              }
+            } catch (e) {
+              showToast("❌ Lỗi kết nối!");
+            }
+          }}
+          onClose={() => setIsDuplicateModalOpen(false)}
+        />
       )}
     </div>
   );

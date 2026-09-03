@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
   IconStack,
   IconTrophy,
@@ -16,25 +16,45 @@ import {
   IconArrowUp,
   IconRotate,
   IconPhoto,
+  IconChevronDown,
+  IconCheck,
+  IconFilter,
+  IconX,
 } from "@tabler/icons-react";
 import { KaizenProposal } from "./CIModule";
 
 interface KaizenDashboardProps {
   proposals: KaizenProposal[];
   onBackToLibrary?: () => void;
+  onNavigateToStatus?: (regTypeStatus: string) => void;
+  onSelectProposal?: (p: KaizenProposal) => void;
 }
 
-// Fixed list of Regions matching exact structure requested by user
-const DASHBOARD_REGIONS = [
+import { REAL_FACTORIES } from "./KaizenPublicSubmitForm";
+import CascadingOrgFilter, { CascadingFilterState } from "./CascadingOrgFilter";
+import {
+  getWorkshopsForFactories,
+  getLinesForWorkshops,
+  getChuyensForLines,
+  getTosForChuyens,
+} from "./organizationTree";
+
+export const STANDARD_8_REGIONS = [
   "Kiên Giang 1",
   "Kiên Giang 2",
   "Kiên Giang 3",
-  "Hoàn Thiện Đế",
-  "Nhà Máy Miền Đông",
-  "VP Chuỗi (R&D)",
+  "Hoàn thiện đế",
+  "Phòng kế hoạch",
+  "Phòng CN-CI",
+  "Phòng chất lượng",
+  "Phòng nhân sự",
 ];
 
-// Fixed list of Categories with colors matching reference image
+export const STANDARD_6_REGIONS = STANDARD_8_REGIONS;
+
+const DASHBOARD_REGIONS = STANDARD_8_REGIONS;
+const FACTORY_OPTIONS = REAL_FACTORIES;
+
 const DASHBOARD_CATEGORIES = [
   { id: "PRODUCTIVITY", label: "3.Tăng Năng suất", color: "#3b82f6" },
   { id: "COST_SAVING", label: "2.Tiết kiệm Chi phí", color: "#10b981" },
@@ -46,62 +66,111 @@ const DASHBOARD_CATEGORIES = [
   { id: "OTHER", label: "8.Khác", color: "#64748b" },
 ];
 
-// Customers list matching brandstrip specification
-const DASHBOARD_CUSTOMERS = [
-  "DP (Decathlon)",
-  "WR (Wrangler)",
-  "SK (Skechers)",
-  "RB (Reebok)",
-  "LEFASO",
-  "Khác",
+export const KAIZEN_AWARD_STRUCTURE = [
+  { maxRank: 1, amountVnd: 1000000, valueTr: 1.0, title: "Giải Nhất" },
+  { maxRank: 3, amountVnd: 500000, valueTr: 0.5, title: "Giải Nhì" },
+  { maxRank: 8, amountVnd: 300000, valueTr: 0.3, title: "Giải Ba" },
+  { maxRank: 18, amountVnd: 200000, valueTr: 0.2, title: "Giải Tư" },
+  { maxRank: 38, amountVnd: 100000, valueTr: 0.1, title: "Giải Khuyến Khích" },
 ];
 
-// Helper to format currency in Million VNĐ (Tr)
+export function getAwardValueTrByRank(rank: number): number {
+  if (rank <= 0) return 0;
+  const award = KAIZEN_AWARD_STRUCTURE.find((item) => rank <= item.maxRank);
+  return award ? award.valueTr : 0;
+}
+
 const formatMillion = (val: number): string => {
   const num = isNaN(val) ? 0 : val;
   return `${num.toLocaleString("vi-VN", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} Tr`;
 };
 
-// Helper to extract proposal estimated monetary value (in million VNĐ)
 const getProposalValue = (p: any): number => {
-  if (p.value !== undefined && p.value !== null) return Number(p.value);
-  if (p.estimated_value !== undefined && p.estimated_value !== null) return Number(p.estimated_value);
-  if (p.saved_seconds && p.saved_seconds > 0) {
-    // 1 saved second ~ 0.5M VNĐ estimated value
-    return (p.saved_seconds * 0.5);
+  if (!p) return 0;
+
+  const directTotalVnd = Number(p.total_savings_vnd || (p as any).tong_tien_tiet_kiem || 0);
+  if (directTotalVnd > 0) {
+    return directTotalVnd / 1000000;
   }
+
+  const pairQty = Number(p.pair_quantity || (p as any).so_luong_giay || (p as any).quantity || 0);
+  const savedSecs = Number(p.saved_seconds || 0);
+  if (pairQty > 0 && savedSecs > 0) {
+    const totalVnd = Math.round(savedSecs * 12.5) * pairQty;
+    return totalVnd / 1000000;
+  }
+
+  if (p.value !== undefined && p.value !== null && Number(p.value) > 0) return Number(p.value);
+  if (p.estimated_value !== undefined && p.estimated_value !== null && Number(p.estimated_value) > 0) return Number(p.estimated_value);
+
   return 0;
 };
 
-// Helper to match region string to region bucket
-const normalizeRegion = (regionStr: string): string => {
-  if (!regionStr) return "VP Chuỗi (R&D)";
-  const r = regionStr.toUpperCase();
-  if (r.includes("KIÊN GIANG 1") || r.includes("KIEN GIANG 1") || r === "KG1") return "Kiên Giang 1";
-  if (r.includes("KIÊN GIANG 2") || r.includes("KIEN GIANG 2") || r === "KG2") return "Kiên Giang 2";
-  if (r.includes("KIÊN GIANG 3") || r.includes("KIEN GIANG 3") || r === "KG3") return "Kiên Giang 3";
-  if (r.includes("HOÀN THIỆN ĐẾ") || r.includes("HOAN THIEN DE") || r === "ĐẾ" || r === "DE") return "Hoàn Thiện Đế";
-  if (
-    r.includes("MIỀN ĐÔNG") ||
-    r.includes("MIEN DONG") ||
-    r.includes("LONG XUYÊN") ||
-    r.includes("LONG XUYEN") ||
-    r.includes("ĐÀ NẴNG") ||
-    r.includes("DA NANG") ||
-    r.includes("HỘI AN") ||
-    r.includes("HOI AN") ||
-    r.includes("ĐỒNG XOÀI") ||
-    r.includes("DONG XOAI")
-  ) {
-    return "Nhà Máy Miền Đông";
-  }
-  if (r.includes("VP CHUỖI") || r.includes("VP CHUOI") || r.includes("R&D") || r.includes("SXCN") || r.includes("NGÀNH S")) {
-    return "VP Chuỗi (R&D)";
-  }
-  return "VP Chuỗi (R&D)";
+const normalizeRegion = (p: KaizenProposal | any): string => {
+  if (!p) return "Kiên Giang 1";
+  const regionStr = typeof p === "string" ? p : p.region;
+  const factoryStr = typeof p === "object" ? p.factory : "";
+  const deptStr = typeof p === "object" ? p.department : "";
+
+  const combined = `${regionStr || ""} ${factoryStr || ""} ${deptStr || ""}`.toUpperCase();
+  if (!combined.trim()) return "Kiên Giang 1";
+
+  if (combined.includes("KIÊN GIANG 3") || combined.includes("KIEN GIANG 3") || combined.includes("KG 3") || combined.includes("KG3")) return "Kiên Giang 3";
+  if (combined.includes("KIÊN GIANG 2") || combined.includes("KIEN GIANG 2") || combined.includes("KG 2") || combined.includes("KG2")) return "Kiên Giang 2";
+  if (combined.includes("KIÊN GIANG 1") || combined.includes("KIEN GIANG 1") || combined.includes("KG 1") || combined.includes("KG1")) return "Kiên Giang 1";
+  if (combined.includes("HOÀN THIỆN ĐẾ") || combined.includes("HOAN THIEN DE") || combined.includes("HTĐ") || combined.includes("HTD") || combined.includes("ĐẾ") || combined.includes("DE")) return "Hoàn thiện đế";
+  if (combined.includes("KẾ HOẠCH") || combined.includes("KE HOACH") || combined.includes("PPC")) return "Phòng kế hoạch";
+  if (combined.includes("CN-CI") || combined.includes("CN CI") || combined.includes("CONTINUOUS IMPROVEMENT") || combined.includes("P. CN-CI")) return "Phòng CN-CI";
+  if (combined.includes("CHẤT LƯỢNG") || combined.includes("CHAT LUONG") || combined.includes("QA") || combined.includes("QC")) return "Phòng chất lượng";
+  if (combined.includes("NHÂN SỰ") || combined.includes("NHAN SU") || combined.includes("HR") || combined.includes("HÀNH CHÍNH")) return "Phòng nhân sự";
+
+  return "Kiên Giang 1";
 };
 
-// Helper to match dept/customer code to Brandstrip customer label
+const matchCascadingFilter = (p: KaizenProposal, filter: CascadingFilterState): boolean => {
+  const fRaw = String(p.factory || "").toUpperCase();
+  const rRaw = String(p.region || "").toUpperCase();
+  const dRaw = String(p.department || "").toUpperCase();
+  const combined = `${fRaw} ${rRaw} ${dRaw}`;
+
+  if (filter.factories.length > 0) {
+    const matchedFac = filter.factories.some((fac) => {
+      const target = fac.toUpperCase();
+      if (target === "KG 1") return combined.includes("KG 1") || combined.includes("KG1") || combined.includes("KIÊN GIANG 1") || combined.includes("KIEN GIANG 1");
+      if (target === "KG 2") return combined.includes("KG 2") || combined.includes("KG2") || combined.includes("KIÊN GIANG 2") || combined.includes("KIEN GIANG 2");
+      if (target === "KG 3") return combined.includes("KG 3") || combined.includes("KG3") || combined.includes("KIÊN GIANG 3") || combined.includes("KIEN GIANG 3");
+      if (target === "HTĐ KG") return combined.includes("HTĐ") || combined.includes("HTD") || combined.includes("HOÀN THIỆN ĐẾ") || combined.includes("HOAN THIEN DE");
+      if (target === "VP KV KG") return combined.includes("VP KV") || combined.includes("VP KG") || combined.includes("VĂN PHÒNG KHU VỰC");
+      if (target === "SK MĐ") return combined.includes("SK MĐ") || combined.includes("SK MD") || combined.includes("MIỀN ĐÔNG") || combined.includes("MIEN DONG");
+      if (target === "VP2") return combined.includes("VP2") || combined.includes("VP CHUỖI") || combined.includes("VP CHUOI");
+      return combined.includes(target);
+    });
+    if (!matchedFac) return false;
+  }
+
+  if (filter.workshops.length > 0) {
+    const matchedWs = filter.workshops.some((ws) => combined.includes(ws.toUpperCase()));
+    if (!matchedWs) return false;
+  }
+
+  if (filter.lines.length > 0) {
+    const matchedLn = filter.lines.some((ln) => combined.includes(ln.toUpperCase()));
+    if (!matchedLn) return false;
+  }
+
+  if (filter.chuyens.length > 0) {
+    const matchedCh = filter.chuyens.some((ch) => combined.includes(ch.toUpperCase()));
+    if (!matchedCh) return false;
+  }
+
+  if (filter.tos.length > 0) {
+    const matchedTo = filter.tos.some((to) => combined.includes(to.toUpperCase()));
+    if (!matchedTo) return false;
+  }
+
+  return true;
+};
+
 const getCustomerCode = (p: KaizenProposal): string => {
   const code = (p.customer || p.factory || p.dept_code || p.department || "").toUpperCase();
   if (code.includes("DP") || code.includes("DECATHLON")) return "DP (Decathlon)";
@@ -112,38 +181,100 @@ const getCustomerCode = (p: KaizenProposal): string => {
   return "Khác";
 };
 
-export default function KaizenDashboard({ proposals, onBackToLibrary }: KaizenDashboardProps) {
+export default function KaizenDashboard({ proposals, onBackToLibrary, onNavigateToStatus, onSelectProposal }: KaizenDashboardProps) {
   const [selectedMonth, setSelectedMonth] = useState<string>("ALL");
+  const [statusScope, setStatusScope] = useState<"APPROVED" | "EVALUATED" | "ALL">("APPROVED");
+  const [cascadingFilterState, setCascadingFilterState] = useState<CascadingFilterState>({
+    factories: [],
+    workshops: [],
+    lines: [],
+    chuyens: [],
+    tos: [],
+  });
 
-  // ════════════════════════════════════════════════════════════════
-  // METRIC COMPUTATIONS FROM REAL PROPOSALS DATA
-  // ════════════════════════════════════════════════════════════════
-
-  // Filtered proposals by selected month if filter applied
   const filteredProposals = useMemo(() => {
-    if (selectedMonth === "ALL") return proposals;
     return proposals.filter((p) => {
-      if (!p.created_at) return false;
-      const d = new Date(p.created_at);
-      const mYear = `T${d.getMonth() + 1}/${d.getFullYear()}`;
-      return mYear === selectedMonth;
-    });
-  }, [proposals, selectedMonth]);
+      const subStatus = String(p.sub_status || "").toUpperCase();
+      const appStatus = String(p.approval_status || "").toUpperCase();
+      const mainStatus = String(p.status || "").toUpperCase();
 
-  // Top KPI Card Computations
+      if (appStatus === "TU_CHOI" || mainStatus === "REJECTED" || subStatus === "TU_CHOI_TRIEN_KHAI") {
+        return false;
+      }
+
+      if (statusScope === "APPROVED") {
+        const isApprovedOrAbove =
+          subStatus === "CHO_DANH_GIA" ||
+          subStatus === "DA_DANH_GIA" ||
+          subStatus === "LUU_TRU" ||
+          appStatus === "PHE_DUYET" ||
+          appStatus === "DA_DANH_GIA" ||
+          mainStatus === "APPROVED" ||
+          mainStatus === "IMPLEMENTED" ||
+          mainStatus === "EVALUATED";
+        if (!isApprovedOrAbove) return false;
+      } else if (statusScope === "EVALUATED") {
+        const isEvaluated =
+          subStatus === "DA_DANH_GIA" ||
+          subStatus === "LUU_TRU" ||
+          appStatus === "DA_DANH_GIA" ||
+          Number(p.score_points || (p as any).scorePoints || 0) > 0;
+        if (!isEvaluated) return false;
+      }
+
+      if (selectedMonth !== "ALL") {
+        if (!p.created_at) return false;
+        const d = new Date(p.created_at);
+        const mYear = `T${d.getMonth() + 1}/${d.getFullYear()}`;
+        if (mYear !== selectedMonth) return false;
+      }
+
+      if (!matchCascadingFilter(p, cascadingFilterState)) return false;
+
+      return true;
+    });
+  }, [proposals, statusScope, selectedMonth, cascadingFilterState]);
+
+  const monthOptions = useMemo(() => {
+    const set = new Set<string>();
+    proposals.forEach((p) => {
+      if (p.created_at) {
+        try {
+          const d = new Date(p.created_at);
+          if (!isNaN(d.getTime())) {
+            set.add(`T${d.getMonth() + 1}/${d.getFullYear()}`);
+          }
+        } catch {}
+      }
+    });
+
+    set.add("T8/2026");
+    set.add("T7/2026");
+
+    return Array.from(set).sort((a, b) => {
+      const [mA, yA] = a.replace("T", "").split("/").map(Number);
+      const [mB, yB] = b.replace("T", "").split("/").map(Number);
+      if (yB !== yA) return yB - yA;
+      return mB - mA;
+    });
+  }, [proposals]);
+
   const totalCount = filteredProposals.length;
   const countThiDua = filteredProposals.filter((p) => p.registration_type === "THI_DUA").length;
   const countLuuTru = filteredProposals.filter((p) => p.registration_type === "LUU_TRU").length;
 
-  // Count current month T8/2026
-  const currentMonthCount = useMemo(() => {
-    return proposals.filter((p) => {
+  const activeMonthLabel = selectedMonth !== "ALL" ? `Cải tiến ${selectedMonth}` : `Cải tiến T8/2026`;
+
+  const activeMonthCount = useMemo(() => {
+    if (selectedMonth !== "ALL") {
+      return filteredProposals.length;
+    }
+    return filteredProposals.filter((p) => {
       if (!p.created_at) return false;
       const d = new Date(p.created_at);
-      // Default checking August 2026 or current month
-      return (d.getMonth() === 7 && d.getFullYear() === 2026) || true; // Fallback
+      return !isNaN(d.getTime()) && d.getMonth() === 7 && d.getFullYear() === 2026;
     }).length;
-  }, [proposals]);
+  }, [filteredProposals, selectedMonth]);
 
   const countEvaluated = filteredProposals.filter(
     (p) => p.sub_status === "DA_DANH_GIA" || (p.score_points && p.score_points > 0) || p.rating_count > 0
@@ -153,14 +284,77 @@ export default function KaizenDashboard({ proposals, onBackToLibrary }: KaizenDa
     return filteredProposals.reduce((sum, p) => sum + getProposalValue(p), 0);
   }, [filteredProposals]);
 
-  // ════════════════════════════════════════════════════════════════
-  // CHART DATA COMPUTATIONS
-  // ════════════════════════════════════════════════════════════════
+  const { chartItems, levelName, contextLabel } = useMemo(() => {
+    if (cascadingFilterState.chuyens.length > 0) {
+      const grouped = getTosForChuyens(
+        cascadingFilterState.factories,
+        cascadingFilterState.workshops,
+        cascadingFilterState.lines,
+        cascadingFilterState.chuyens
+      );
+      const items = grouped.flatMap((g) => g.tos);
+      if (items.length > 0) {
+        return {
+          chartItems: Array.from(new Set(items)),
+          levelName: "TỔ",
+          contextLabel: `(${cascadingFilterState.chuyens.join(", ")})`,
+        };
+      }
+    }
 
-  // 1. Data per Region (Count stacked by Category & Total Value)
+    if (cascadingFilterState.lines.length > 0) {
+      const grouped = getLinesForWorkshops(
+        cascadingFilterState.factories,
+        cascadingFilterState.workshops,
+        cascadingFilterState.lines
+      );
+      const items = grouped.flatMap((g) => g.lines);
+      if (items.length > 0) {
+        return {
+          chartItems: Array.from(new Set(items)),
+          levelName: "CHUYỀN",
+          contextLabel: `(${cascadingFilterState.lines.join(", ")})`,
+        };
+      }
+    }
+
+    if (cascadingFilterState.workshops.length > 0) {
+      const grouped = getLinesForWorkshops(
+        cascadingFilterState.factories,
+        cascadingFilterState.workshops
+      );
+      const items = grouped.flatMap((g) => g.lines);
+      if (items.length > 0) {
+        return {
+          chartItems: Array.from(new Set(items)),
+          levelName: "LINE",
+          contextLabel: `(${cascadingFilterState.workshops.join(", ")})`,
+        };
+      }
+    }
+
+    if (cascadingFilterState.factories.length > 0) {
+      const grouped = getWorkshopsForFactories(cascadingFilterState.factories);
+      const items = grouped.flatMap((g) => g.workshops);
+      if (items.length > 0) {
+        return {
+          chartItems: Array.from(new Set(items)),
+          levelName: "XƯỞNG",
+          contextLabel: `(${cascadingFilterState.factories.join(", ")})`,
+        };
+      }
+    }
+
+    return {
+      chartItems: STANDARD_8_REGIONS,
+      levelName: "NHÀ MÁY / KHU VỰC",
+      contextLabel: "",
+    };
+  }, [cascadingFilterState]);
+
   const regionDataMap = useMemo(() => {
     const map: Record<string, { totalCount: number; totalValue: number; categoryCounts: Record<string, number> }> = {};
-    DASHBOARD_REGIONS.forEach((r) => {
+    chartItems.forEach((r) => {
       map[r] = { totalCount: 0, totalValue: 0, categoryCounts: {} };
       DASHBOARD_CATEGORIES.forEach((c) => {
         map[r].categoryCounts[c.id] = 0;
@@ -168,34 +362,40 @@ export default function KaizenDashboard({ proposals, onBackToLibrary }: KaizenDa
     });
 
     filteredProposals.forEach((p) => {
-      const reg = normalizeRegion(p.region);
-      if (map[reg]) {
-        map[reg].totalCount += 1;
-        map[reg].totalValue += getProposalValue(p);
+      let matchedItem = "";
+      const combined = `${p.factory || ""} ${p.region || ""} ${p.department || ""}`.toUpperCase();
+
+      if (levelName === "NHÀ MÁY") {
+        matchedItem = normalizeRegion(p);
+      } else {
+        matchedItem = chartItems.find((item) => combined.includes(item.toUpperCase())) || "";
+      }
+
+      if (matchedItem && map[matchedItem]) {
+        map[matchedItem].totalCount += 1;
+        map[matchedItem].totalValue += getProposalValue(p);
         const catId = p.category || "OTHER";
-        if (map[reg].categoryCounts[catId] !== undefined) {
-          map[reg].categoryCounts[catId] += 1;
+        if (map[matchedItem].categoryCounts[catId] !== undefined) {
+          map[matchedItem].categoryCounts[catId] += 1;
         } else {
-          map[reg].categoryCounts["OTHER"] += 1;
+          map[matchedItem].categoryCounts["OTHER"] += 1;
         }
       }
     });
 
     return map;
-  }, [filteredProposals]);
+  }, [filteredProposals, chartItems, levelName]);
 
-  // Maximum scale for region charts
   const maxRegionCount = useMemo(() => {
-    const max = Math.max(...DASHBOARD_REGIONS.map((r) => regionDataMap[r].totalCount), 0);
+    const max = Math.max(...chartItems.map((r) => regionDataMap[r]?.totalCount || 0), 0);
     return Math.max(max, 6);
-  }, [regionDataMap]);
+  }, [regionDataMap, chartItems]);
 
   const maxRegionValue = useMemo(() => {
-    const max = Math.max(...DASHBOARD_REGIONS.map((r) => regionDataMap[r].totalValue), 0);
+    const max = Math.max(...chartItems.map((r) => regionDataMap[r]?.totalValue || 0), 0);
     return Math.max(max, 250);
-  }, [regionDataMap]);
+  }, [regionDataMap, chartItems]);
 
-  // 2. Data per Category (Count & Value)
   const categoryDataMap = useMemo(() => {
     const map: Record<string, { count: number; value: number }> = {};
     DASHBOARD_CATEGORIES.forEach((c) => {
@@ -226,7 +426,6 @@ export default function KaizenDashboard({ proposals, onBackToLibrary }: KaizenDa
     return Math.max(max, 200);
   }, [categoryDataMap]);
 
-  // 3. Data per Month (Jan - Dec or T1..T12)
   const monthlyDataMap = useMemo(() => {
     const months = ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10", "T11", "T12"];
     const map: Record<string, { count: number; value: number }> = {};
@@ -258,44 +457,147 @@ export default function KaizenDashboard({ proposals, onBackToLibrary }: KaizenDa
     return Math.max(max, 400);
   }, [monthlyDataMap]);
 
-  // 4. Data per Customer (Count & Value)
-  const customerDataMap = useMemo(() => {
-    const map: Record<string, { count: number; value: number }> = {};
-    DASHBOARD_CUSTOMERS.forEach((c) => {
-      map[c] = { count: 0, value: 0 };
-    });
+  const [showTop11Modal, setShowTop11Modal] = useState(false);
 
-    filteredProposals.forEach((p) => {
-      const cust = getCustomerCode(p);
-      if (map[cust]) {
-        map[cust].count += 1;
-        map[cust].value += getProposalValue(p);
-      } else {
-        map["Khác"].count += 1;
-        map["Khác"].value += getProposalValue(p);
+  const ranked11Proposals = useMemo(() => {
+    let thiDuaList = proposals.filter((p) => {
+      if (!p || p.is_archived) return false;
+
+      const appStatus = String(p.approval_status || (p as any).approvalStatus || "").toUpperCase();
+      const subStatus = String(p.sub_status || (p as any).subStatus || p.review_status || "").toUpperCase();
+      const status = String(p.status || "").toUpperCase();
+
+      if (appStatus === "TU_CHOI" || subStatus === "TU_CHOI_TRIEN_KHAI" || status === "REJECTED") {
+        return false;
       }
+
+      if (subStatus === "CHO_REVIEW" || appStatus === "PENDING" || status === "SUBMITTED") {
+        return false;
+      }
+
+      const isApproved =
+        appStatus === "PHE_DUYET" ||
+        subStatus === "CHO_DANH_GIA" ||
+        subStatus === "DA_DANH_GIA" ||
+        status === "UNDER_REVIEW" ||
+        status === "APPROVED" ||
+        status === "COMPLETED";
+
+      if (!isApproved) return false;
+
+      if (selectedMonth !== "ALL") {
+        if (!p.created_at) return false;
+        try {
+          const d = new Date(p.created_at);
+          if (isNaN(d.getTime())) return false;
+          const mYear = `T${d.getMonth() + 1}/${d.getFullYear()}`;
+          if (mYear !== selectedMonth) return false;
+        } catch {
+          return false;
+        }
+      }
+
+      if (!matchCascadingFilter(p, cascadingFilterState)) return false;
+
+      return true;
     });
 
-    return map;
-  }, [filteredProposals]);
+    if (
+      thiDuaList.length === 0 &&
+      proposals.length > 0 &&
+      selectedMonth === "ALL" &&
+      cascadingFilterState.factories.length === 0
+    ) {
+      thiDuaList = proposals;
+    }
 
-  const maxCustomerCount = useMemo(() => {
-    const max = Math.max(...DASHBOARD_CUSTOMERS.map((c) => customerDataMap[c].count), 0);
-    return Math.max(max, 9);
-  }, [customerDataMap]);
+    const sorted = [...thiDuaList]
+      .sort((a, b) => {
+        const valA = getProposalValue(a);
+        const valB = getProposalValue(b);
+        if (valB !== valA) return valB - valA;
 
-  const maxCustomerValue = useMemo(() => {
-    const max = Math.max(...DASHBOARD_CUSTOMERS.map((c) => customerDataMap[c].value), 0);
-    return Math.max(max, 250);
-  }, [customerDataMap]);
+        const scoreA = Number(a.score_points || (a as any).scorePoints || 0);
+        const scoreB = Number(b.score_points || (b as any).scorePoints || 0);
+        if (scoreB !== scoreA) return scoreB - scoreA;
 
-  // 5. Top 5 Thi Đua Proposals
-  const top5Proposals = useMemo(() => {
-    const thiDuaList = proposals.filter((p) => p.registration_type === "THI_DUA");
-    return thiDuaList
-      .sort((a, b) => (b.score_points || 0) - (a.score_points || 0) || (b.avg_rating || 0) - (a.avg_rating || 0))
-      .slice(0, 5);
-  }, [proposals]);
+        const voteA = Number(a.vote_count || 0);
+        const voteB = Number(b.vote_count || 0);
+        if (voteB !== voteA) return voteB - voteA;
+
+        const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return dateB - dateA;
+      })
+      .slice(0, 38);
+
+    return sorted.map((item, index) => {
+      let rank = 1;
+      let rankTitle = "Hạng Nhất";
+      let prizeValueTr = 1.0;
+      let badgeLabel = "🏆 Hạng 1";
+      let badgeStyle = "bg-amber-100 text-amber-900 border-amber-300 font-black";
+
+      if (index === 0) {
+        rank = 1;
+        rankTitle = "Hạng Nhất";
+        prizeValueTr = 1.0;
+        badgeLabel = "🏆 Hạng 1";
+        badgeStyle = "bg-amber-100 text-amber-900 border-amber-300 font-black";
+      } else if (index >= 1 && index <= 2) {
+        rank = 2;
+        rankTitle = "Hạng Nhì";
+        prizeValueTr = 0.5;
+        badgeLabel = "🥈 Hạng 2";
+        badgeStyle = "bg-slate-100 text-slate-800 border-slate-300 font-black";
+      } else if (index >= 3 && index <= 7) {
+        rank = 3;
+        rankTitle = "Hạng Ba";
+        prizeValueTr = 0.3;
+        badgeLabel = "🥉 Hạng 3";
+        badgeStyle = "bg-amber-900/10 text-amber-900 border-amber-800/30 font-black";
+      } else if (index >= 8 && index <= 17) {
+        rank = 4;
+        rankTitle = "Hạng 4";
+        prizeValueTr = 0.2;
+        badgeLabel = "🎖️ Hạng 4";
+        badgeStyle = "bg-blue-50 text-blue-900 border-blue-200 font-black";
+      } else if (index >= 18 && index <= 37) {
+        rank = 5;
+        rankTitle = "Hạng 5";
+        prizeValueTr = 0.1;
+        badgeLabel = "🎗️ Hạng 5";
+        badgeStyle = "bg-emerald-50 text-emerald-900 border-emerald-200 font-black";
+      } else {
+        rank = index + 1;
+        rankTitle = `Hạng ${index + 1}`;
+        prizeValueTr = 0;
+        badgeLabel = `#${index + 1}`;
+        badgeStyle = "bg-slate-100 text-slate-600 border-slate-200 font-bold";
+      }
+
+      const curVal = getProposalValue(item);
+      const curScore = Number(item?.score_points || (item as any)?.scorePoints || 0);
+
+      let isTied = false;
+      if (rank !== 1) {
+        if (index > 0) {
+          const prevItem = sorted[index - 1];
+          if (getProposalValue(prevItem) === curVal && Number(prevItem.score_points || 0) === curScore) {
+            isTied = true;
+          }
+        }
+        if (index < sorted.length - 1) {
+          const nextItem = sorted[index + 1];
+          if (getProposalValue(nextItem) === curVal && Number(nextItem.score_points || 0) === curScore) {
+            isTied = true;
+          }
+        }
+      }
+
+      return { item, rank, rankTitle, prizeValueTr, badgeLabel, badgeStyle, isTied };
+    });
+  }, [proposals, selectedMonth, cascadingFilterState]);
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -303,9 +605,6 @@ export default function KaizenDashboard({ proposals, onBackToLibrary }: KaizenDa
 
   return (
     <div className="w-full space-y-5 pb-10">
-      {/* ════════════════════════════════════════════════════════════════
-          HEADER DASHBOARD TITLE & ACTIONS BAR
-         ════════════════════════════════════════════════════════════════ */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-[#0b1739] text-amber-400 flex items-center justify-center font-black shadow-md">
@@ -321,7 +620,7 @@ export default function KaizenDashboard({ proposals, onBackToLibrary }: KaizenDa
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {onBackToLibrary && (
             <button
               type="button"
@@ -334,6 +633,19 @@ export default function KaizenDashboard({ proposals, onBackToLibrary }: KaizenDa
           )}
 
           <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
+            <span className="text-[11px] font-bold text-slate-600 px-2">Phạm Vi:</span>
+            <select
+              value={statusScope}
+              onChange={(e) => setStatusScope(e.target.value as any)}
+              className="bg-white px-2 py-1 rounded-lg text-xs font-bold text-slate-800 outline-none border border-slate-300 focus:border-[#006838]"
+            >
+              <option value="APPROVED">🟢 Đã phê duyệt (Chính thức)</option>
+              <option value="EVALUATED">⭐ Đã đánh giá / Hoàn thành</option>
+              <option value="ALL">📋 Tất cả (Gồm chờ duyệt)</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
             <span className="text-[11px] font-bold text-slate-600 px-2">Kỳ Báo Cáo:</span>
             <select
               value={selectedMonth}
@@ -341,19 +653,23 @@ export default function KaizenDashboard({ proposals, onBackToLibrary }: KaizenDa
               className="bg-white px-2.5 py-1 rounded-lg text-xs font-bold text-slate-800 outline-none border border-slate-300 focus:border-[#006838]"
             >
               <option value="ALL">Tất cả thời gian</option>
-              <option value="T8/2026">Tháng 8/2026</option>
-              <option value="T7/2026">Tháng 7/2026</option>
+              {monthOptions.map((m) => (
+                <option key={m} value={m}>
+                  Tháng {m.replace("T", "")}
+                </option>
+              ))}
             </select>
           </div>
+
+          <CascadingOrgFilter value={cascadingFilterState} onChange={setCascadingFilterState} />
         </div>
       </div>
 
-      {/* ════════════════════════════════════════════════════════════════
-          ROW 1: TOP 6 KPI CARDS (Matching Image 1)
-         ════════════════════════════════════════════════════════════════ */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
-        {/* Card 1: Tổng cải tiến */}
-        <div className="relative overflow-hidden bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
+        <div
+          onClick={() => setStatusScope('ALL')}
+          className="relative overflow-hidden bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all"
+        >
           <div className="absolute top-0 left-0 bottom-0 w-1.5 bg-[#0b1739]"></div>
           <div className="flex items-center gap-3 pl-1">
             <div className="w-11 h-11 rounded-xl bg-[#0b1739] text-white flex items-center justify-center shrink-0 shadow-sm">
@@ -368,8 +684,10 @@ export default function KaizenDashboard({ proposals, onBackToLibrary }: KaizenDa
           </div>
         </div>
 
-        {/* Card 2: Thi đua */}
-        <div className="relative overflow-hidden bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
+        <div
+          onClick={() => setStatusScope('APPROVED')}
+          className="relative overflow-hidden bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all"
+        >
           <div className="absolute top-0 left-0 bottom-0 w-1.5 bg-[#d97706]"></div>
           <div className="flex items-center gap-3 pl-1">
             <div className="w-11 h-11 rounded-xl bg-[#d97706] text-white flex items-center justify-center shrink-0 shadow-sm">
@@ -384,8 +702,10 @@ export default function KaizenDashboard({ proposals, onBackToLibrary }: KaizenDa
           </div>
         </div>
 
-        {/* Card 3: Lưu trữ */}
-        <div className="relative overflow-hidden bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
+        <div
+          onClick={() => setStatusScope('EVALUATED')}
+          className="relative overflow-hidden bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all"
+        >
           <div className="absolute top-0 left-0 bottom-0 w-1.5 bg-[#b45309]"></div>
           <div className="flex items-center gap-3 pl-1">
             <div className="w-11 h-11 rounded-xl bg-[#b45309] text-white flex items-center justify-center shrink-0 shadow-sm">
@@ -400,8 +720,10 @@ export default function KaizenDashboard({ proposals, onBackToLibrary }: KaizenDa
           </div>
         </div>
 
-        {/* Card 4: Cải tiến T8/2026 */}
-        <div className="relative overflow-hidden bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
+        <div
+          onClick={() => setSelectedMonth('ALL')}
+          className="relative overflow-hidden bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all"
+        >
           <div className="absolute top-0 left-0 bottom-0 w-1.5 bg-[#10b981]"></div>
           <div className="flex items-center gap-3 pl-1">
             <div className="w-11 h-11 rounded-xl bg-[#10b981] text-white flex items-center justify-center shrink-0 shadow-sm">
@@ -409,15 +731,17 @@ export default function KaizenDashboard({ proposals, onBackToLibrary }: KaizenDa
             </div>
             <div>
               <span className="text-2xl font-black text-slate-900 leading-tight block">
-                {currentMonthCount}
+                {activeMonthCount}
               </span>
-              <span className="text-[11px] font-bold text-slate-500">Cải tiến T8/2026</span>
+              <span className="text-[11px] font-bold text-slate-500">{activeMonthLabel}</span>
             </div>
           </div>
         </div>
 
-        {/* Card 5: Đánh giá */}
-        <div className="relative overflow-hidden bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
+        <div
+          onClick={() => setStatusScope('EVALUATED')}
+          className="relative overflow-hidden bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all"
+        >
           <div className="absolute top-0 left-0 bottom-0 w-1.5 bg-[#0284c7]"></div>
           <div className="flex items-center gap-3 pl-1">
             <div className="w-11 h-11 rounded-xl bg-[#0284c7] text-white flex items-center justify-center shrink-0 shadow-sm">
@@ -432,8 +756,10 @@ export default function KaizenDashboard({ proposals, onBackToLibrary }: KaizenDa
           </div>
         </div>
 
-        {/* Card 6: Trị giá */}
-        <div className="relative overflow-hidden bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
+        <div
+          onClick={() => setStatusScope('APPROVED')}
+          className="relative overflow-hidden bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all"
+        >
           <div className="absolute top-0 left-0 bottom-0 w-1.5 bg-[#b98d4b]"></div>
           <div className="flex items-center gap-3 pl-1">
             <div className="w-11 h-11 rounded-xl bg-[#b98d4b] text-white flex items-center justify-center shrink-0 shadow-sm">
@@ -449,23 +775,24 @@ export default function KaizenDashboard({ proposals, onBackToLibrary }: KaizenDa
         </div>
       </div>
 
-      {/* ════════════════════════════════════════════════════════════════
-          ROW 2: TWO MAIN CHARTS SIDE-BY-SIDE (Matching Image 1)
-         ════════════════════════════════════════════════════════════════ */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* CHART 1.1: Số Lượng Cải Tiến Theo Khu Vực (Stacked Bar Chart) */}
         <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden flex flex-col">
-          <div className="bg-[#0b1739] text-white px-4 py-2.5 flex items-center gap-2">
-            <IconBuilding size={18} className="text-blue-400" />
-            <h3 className="text-xs font-black tracking-wide uppercase">
-              Số Lượng Cải Tiến Theo Khu Vực
-            </h3>
+          <div className="bg-[#0b1739] text-white px-4 py-2.5 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <IconBuilding size={18} className="text-blue-400" />
+              <h3 className="text-xs font-black tracking-wide uppercase">
+                Số Lượng Cải Tiến Theo {levelName} {contextLabel}
+              </h3>
+            </div>
+            {contextLabel && (
+              <span className="text-[10px] font-extrabold text-blue-300 bg-blue-950/80 px-2 py-0.5 rounded-full border border-blue-800">
+                Drill-down: {levelName}
+              </span>
+            )}
           </div>
 
           <div className="p-4 flex-1 flex flex-col justify-between min-h-[320px]">
-            {/* Column Chart Grid */}
             <div className="relative flex-1 flex items-end justify-between gap-1 pt-6 pb-12 px-2 border-b border-slate-200">
-              {/* Y-axis Ticks Background Lines */}
               <div className="absolute inset-0 flex flex-col justify-between pointer-events-none pb-12">
                 {[maxRegionCount, Math.round(maxRegionCount * 0.8), Math.round(maxRegionCount * 0.6), Math.round(maxRegionCount * 0.4), Math.round(maxRegionCount * 0.2), 0].map((tick, idx) => (
                   <div key={idx} className="w-full border-b border-slate-100 flex items-center justify-start">
@@ -474,22 +801,19 @@ export default function KaizenDashboard({ proposals, onBackToLibrary }: KaizenDa
                 ))}
               </div>
 
-              {/* Columns for each region */}
-              {DASHBOARD_REGIONS.map((region) => {
-                const regData = regionDataMap[region];
+              {chartItems.map((item) => {
+                const regData = regionDataMap[item];
                 const total = regData ? regData.totalCount : 0;
                 const heightPercent = maxRegionCount > 0 ? (total / maxRegionCount) * 100 : 0;
 
                 return (
-                  <div key={region} className="relative z-10 flex-1 flex flex-col items-center group h-full justify-end">
-                    {/* Number on Top of Bar */}
+                  <div key={item} className="relative z-10 flex-1 flex flex-col items-center group h-full justify-end">
                     <span className="text-[10px] font-black text-slate-700 mb-1">
                       {total}
                     </span>
 
-                    {/* Stacked Bar Pillar */}
                     <div className="w-full max-w-[26px] bg-slate-100 rounded-t-sm overflow-hidden flex flex-col justify-end transition-all duration-300 min-h-[4px]" style={{ height: `${Math.max(heightPercent, 3)}%` }}>
-                      {total > 0 ? (
+                      {total > 0 && regData ? (
                         DASHBOARD_CATEGORIES.map((cat) => {
                           const catCount = regData.categoryCounts[cat.id] || 0;
                           if (catCount === 0) return null;
@@ -508,10 +832,9 @@ export default function KaizenDashboard({ proposals, onBackToLibrary }: KaizenDa
                       )}
                     </div>
 
-                    {/* X-axis Label (Rotated) */}
                     <div className="absolute top-full left-1/2 -translate-x-1/2 pt-2 w-20 text-center pointer-events-none">
-                      <span className="text-[9px] font-bold text-slate-600 leading-tight block transform -rotate-45 origin-top-left whitespace-nowrap overflow-hidden text-ellipsis max-w-[90px]">
-                        {region}
+                      <span className="text-[9px] font-bold text-slate-600 leading-tight block transform -rotate-45 origin-top-left whitespace-nowrap overflow-hidden text-ellipsis max-w-[90px]" title={item}>
+                        {item}
                       </span>
                     </div>
                   </div>
@@ -519,7 +842,6 @@ export default function KaizenDashboard({ proposals, onBackToLibrary }: KaizenDa
               })}
             </div>
 
-            {/* Category Legend at Bottom */}
             <div className="pt-8 flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 text-[10px] font-bold text-slate-700">
               {DASHBOARD_CATEGORIES.map((c) => (
                 <div key={c.id} className="flex items-center gap-1">
@@ -531,21 +853,26 @@ export default function KaizenDashboard({ proposals, onBackToLibrary }: KaizenDa
           </div>
         </div>
 
-        {/* CHART 1.2: Giá Trị Theo Khu Vực (Horizontal Bar Chart) */}
         <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden flex flex-col">
-          <div className="bg-[#0b1739] text-white px-4 py-2.5 flex items-center gap-2">
-            <IconCoins size={18} className="text-amber-400" />
-            <h3 className="text-xs font-black tracking-wide uppercase">
-              Giá Trị Theo Khu Vực
-            </h3>
+          <div className="bg-[#0b1739] text-white px-4 py-2.5 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <IconCoins size={18} className="text-amber-400" />
+              <h3 className="text-xs font-black tracking-wide uppercase">
+                Giá Trị Theo {levelName} {contextLabel}
+              </h3>
+            </div>
+            {contextLabel && (
+              <span className="text-[10px] font-extrabold text-amber-300 bg-amber-950/80 px-2 py-0.5 rounded-full border border-amber-800">
+                Drill-down: {levelName}
+              </span>
+            )}
           </div>
 
           <div className="p-4 flex-1 flex flex-col justify-between min-h-[320px]">
             <div className="space-y-2">
-              {DASHBOARD_REGIONS.map((region, idx) => {
-                const regValue = regionDataMap[region]?.totalValue || 0;
+              {chartItems.map((item, idx) => {
+                const regValue = regionDataMap[item]?.totalValue || 0;
                 const widthPercent = maxRegionValue > 0 ? (regValue / maxRegionValue) * 100 : 0;
-                // Alternate bar colors matching reference image
                 const barColors = [
                   "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6",
                   "#06b6d4", "#ec4899", "#64748b", "#3b82f6", "#10b981", "#f59e0b"
@@ -553,13 +880,11 @@ export default function KaizenDashboard({ proposals, onBackToLibrary }: KaizenDa
                 const color = barColors[idx % barColors.length];
 
                 return (
-                  <div key={region} className="flex items-center gap-3 text-xs">
-                    {/* Region Label */}
-                    <span className="w-36 text-[10px] font-bold text-slate-700 text-right truncate">
-                      {region}
+                  <div key={item} className="flex items-center gap-3 text-xs">
+                    <span className="w-36 text-[10px] font-bold text-slate-700 text-right truncate" title={item}>
+                      {item}
                     </span>
 
-                    {/* Bar Track & Fill */}
                     <div className="flex-1 bg-slate-100 h-5 rounded-r-lg overflow-hidden relative flex items-center">
                       <div
                         className="h-full rounded-r-lg transition-all duration-500"
@@ -567,7 +892,6 @@ export default function KaizenDashboard({ proposals, onBackToLibrary }: KaizenDa
                       />
                     </div>
 
-                    {/* Green Value Label */}
                     <span className="w-16 text-[11px] font-black text-emerald-600 text-left">
                       {formatMillion(regValue)}
                     </span>
@@ -576,7 +900,6 @@ export default function KaizenDashboard({ proposals, onBackToLibrary }: KaizenDa
               })}
             </div>
 
-            {/* X-axis Ticks Footer */}
             <div className="pt-3 border-t border-slate-200 flex justify-between text-[9px] font-bold text-slate-400 pl-36 pr-16">
               <span>0</span>
               <span>50,0 Tr</span>
@@ -589,11 +912,7 @@ export default function KaizenDashboard({ proposals, onBackToLibrary }: KaizenDa
         </div>
       </div>
 
-      {/* ════════════════════════════════════════════════════════════════
-          ROW 3: FOUR CHARTS GRID (2x2) (Matching Image 2)
-         ════════════════════════════════════════════════════════════════ */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* CHART 2.1: Số Lượng Theo Phân Loại Cải Tiến */}
         <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden flex flex-col">
           <div className="bg-[#0b1739] text-white px-4 py-2.5 flex items-center gap-2">
             <IconTag size={18} className="text-blue-400" />
@@ -641,7 +960,6 @@ export default function KaizenDashboard({ proposals, onBackToLibrary }: KaizenDa
           </div>
         </div>
 
-        {/* CHART 2.2: Giá Trị Theo Phân Loại Cải Tiến */}
         <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden flex flex-col">
           <div className="bg-[#0b1739] text-white px-4 py-2.5 flex items-center gap-2">
             <IconChartBar size={18} className="text-emerald-400" />
@@ -687,7 +1005,6 @@ export default function KaizenDashboard({ proposals, onBackToLibrary }: KaizenDa
           </div>
         </div>
 
-        {/* CHART 2.3: Số Lượng Cải Tiến Theo Tháng */}
         <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden flex flex-col">
           <div className="bg-[#0b1739] text-white px-4 py-2.5 flex items-center gap-2">
             <IconCalendar size={18} className="text-sky-400" />
@@ -725,7 +1042,6 @@ export default function KaizenDashboard({ proposals, onBackToLibrary }: KaizenDa
           </div>
         </div>
 
-        {/* CHART 2.4: Giá Trị Cải Tiến Theo Tháng */}
         <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden flex flex-col">
           <div className="bg-[#0b1739] text-white px-4 py-2.5 flex items-center gap-2">
             <IconCoins size={18} className="text-amber-400" />
@@ -764,200 +1080,105 @@ export default function KaizenDashboard({ proposals, onBackToLibrary }: KaizenDa
         </div>
       </div>
 
-      {/* ════════════════════════════════════════════════════════════════
-          ROW 4: CUSTOMER CHARTS & TOP 5 THI ĐUA TABLE (Matching Image 3)
-         ════════════════════════════════════════════════════════════════ */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* CHART 3.1: Số Lượng Theo Khách Hàng */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden flex flex-col">
-          <div className="bg-[#0b1739] text-white px-4 py-2.5 flex items-center gap-2">
-            <IconUsers size={18} className="text-indigo-400" />
-            <h3 className="text-xs font-black tracking-wide uppercase">
-              Số Lượng Theo Khách Hàng
-            </h3>
-          </div>
-
-          <div className="p-4 flex-1 flex flex-col justify-between min-h-[220px]">
-            <div className="space-y-2">
-              {DASHBOARD_CUSTOMERS.map((cust, idx) => {
-                const cnt = customerDataMap[cust]?.count || 0;
-                const widthPercent = maxCustomerCount > 0 ? (cnt / maxCustomerCount) * 100 : 0;
-                const colors = ["#3b82f6", "#2563eb", "#60a5fa", "#93c5fd", "#10b981", "#f59e0b"];
-
-                return (
-                  <div key={cust} className="flex items-center gap-3 text-xs">
-                    <span className="w-28 text-[10px] font-bold text-slate-700 text-right truncate">
-                      {cust}
-                    </span>
-
-                    <div className="flex-1 bg-slate-100 h-5 rounded-r-lg overflow-hidden relative flex items-center">
-                      <div
-                        className="h-full rounded-r-lg transition-all duration-500"
-                        style={{ width: `${Math.max(widthPercent, 0)}%`, backgroundColor: colors[idx % colors.length] }}
-                      />
-                    </div>
-
-                    <span className="w-6 text-[11px] font-black text-slate-800 text-left">
-                      {cnt}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="pt-3 border-t border-slate-200 flex justify-between text-[9px] font-bold text-slate-400 pl-28 pr-6">
-              <span>0</span>
-              <span>1</span>
-              <span>2</span>
-              <span>3</span>
-              <span>4</span>
-              <span>5</span>
-              <span>6</span>
-              <span>7</span>
-              <span>8</span>
-              <span>9</span>
-            </div>
-          </div>
-        </div>
-
-        {/* CHART 3.2: Giá Trị Theo Khách Hàng */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden flex flex-col">
-          <div className="bg-[#0b1739] text-white px-4 py-2.5 flex items-center gap-2">
-            <IconCoins size={18} className="text-amber-400" />
-            <h3 className="text-xs font-black tracking-wide uppercase">
-              Giá Trị Theo Khách Hàng
-            </h3>
-          </div>
-
-          <div className="p-4 flex-1 flex flex-col justify-between min-h-[220px]">
-            <div className="space-y-2">
-              {DASHBOARD_CUSTOMERS.map((cust, idx) => {
-                const val = customerDataMap[cust]?.value || 0;
-                const widthPercent = maxCustomerValue > 0 ? (val / maxCustomerValue) * 100 : 0;
-                const colors = ["#3b82f6", "#2563eb", "#60a5fa", "#93c5fd", "#10b981", "#f59e0b"];
-
-                return (
-                  <div key={cust} className="flex items-center gap-3 text-xs">
-                    <span className="w-28 text-[10px] font-bold text-slate-700 text-right truncate">
-                      {cust}
-                    </span>
-
-                    <div className="flex-1 bg-slate-100 h-5 rounded-r-lg overflow-hidden relative flex items-center">
-                      <div
-                        className="h-full rounded-r-lg transition-all duration-500"
-                        style={{ width: `${Math.max(widthPercent, 0)}%`, backgroundColor: colors[idx % colors.length] }}
-                      />
-                    </div>
-
-                    <span className="w-16 text-[11px] font-black text-emerald-600 text-left">
-                      {formatMillion(val)}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="pt-3 border-t border-slate-200 flex justify-between text-[9px] font-bold text-slate-400 pl-28 pr-16">
-              <span>0</span>
-              <span>50,0 Tr</span>
-              <span>100,0 Tr</span>
-              <span>150,0 Tr</span>
-              <span>200,0 Tr</span>
-              <span>250,0 Tr</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ════════════════════════════════════════════════════════════════
-          ROW 5: TABLE CẢI TIẾN TIÊU BIỂU (TOP 5 THI ĐUA) (Matching Image 3)
-         ════════════════════════════════════════════════════════════════ */}
       <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
-        <div className="bg-[#0b1739] text-white px-4 py-3 flex items-center justify-between">
+        <div className="bg-[#0b1739] text-white px-4 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <IconStar size={18} className="text-amber-400" />
-            <h3 className="text-xs font-black tracking-wide uppercase">
-              Cải Tiến Tiêu Biểu (Top 5 Thi đua)
-            </h3>
+            <IconStar size={18} className="text-amber-400 shrink-0" />
+            <div>
+              <h3 className="text-xs font-black tracking-wide uppercase">
+                Một số cải tiến được khen thưởng (Xếp hạng thi đua)
+              </h3>
+            </div>
           </div>
 
-          {onBackToLibrary && (
+          <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto justify-between sm:justify-end">
+            <div className="flex items-center gap-1.5 bg-slate-800/90 px-2.5 py-1.5 rounded-xl border border-slate-700/80 shadow-2xs">
+              <IconCalendar size={15} className="text-amber-400 shrink-0" />
+              <span className="text-[11px] font-bold text-slate-300 whitespace-nowrap">Lọc tháng:</span>
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="bg-slate-950 text-amber-300 text-xs font-extrabold px-2 py-0.5 rounded-lg border border-slate-700 outline-none focus:border-amber-400 cursor-pointer"
+              >
+                <option value="ALL">Tất cả thời gian</option>
+                {monthOptions.map((m) => (
+                  <option key={m} value={m}>
+                    Tháng {m.replace("T", "")}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <button
-              onClick={onBackToLibrary}
-              className="px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-extrabold transition-all border border-slate-700 cursor-pointer"
+              onClick={() => setShowTop11Modal(true)}
+              className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-black transition-all shadow-md cursor-pointer flex items-center gap-1.5 shrink-0"
             >
-              Xem tất cả
+              <IconTrophy size={15} />
+              <span>Xem tất cả</span>
             </button>
-          )}
+          </div>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-extrabold text-[10px] uppercase tracking-wider">
-                <th className="py-3 px-4 w-12 text-center">#</th>
+                <th className="py-3 px-4 w-32 text-center">HẠNG</th>
+                <th className="py-3 px-4">HỌ VÀ TÊN</th>
+                <th className="py-3 px-4 text-center">MSNV</th>
                 <th className="py-3 px-4">CẢI TIẾN</th>
-                <th className="py-3 px-4">NHÓM SP/DV</th>
-                <th className="py-3 px-4 text-center">CHUYÊN MÔN</th>
-                <th className="py-3 px-4 text-center">ĐIỂM TB</th>
                 <th className="py-3 px-4 text-right">GIÁ TRỊ</th>
               </tr>
             </thead>
 
             <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-              {top5Proposals.length > 0 ? (
-                top5Proposals.map((item, idx) => (
-                  <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3 px-4 text-center">
-                      {idx === 0 ? (
-                        <span className="text-amber-500 font-black text-sm">🏆</span>
-                      ) : idx === 1 ? (
-                        <span className="text-slate-400 font-black text-sm">🥈</span>
-                      ) : idx === 2 ? (
-                        <span className="text-amber-700 font-black text-sm">🥉</span>
-                      ) : (
-                        <span className="text-slate-500 font-bold">{idx + 1}</span>
-                      )}
-                    </td>
+              {ranked11Proposals.length > 0 ? (
+                ranked11Proposals.slice(0, 5).map(({ item, rank, prizeValueTr, badgeLabel, badgeStyle, isTied }) => {
+                  return (
+                    <tr
+                      key={item.id}
+                      onClick={() => onSelectProposal && onSelectProposal(item)}
+                      className="hover:bg-amber-50/60 transition-colors cursor-pointer"
+                    >
+                      <td className="py-3 px-4 text-center font-extrabold">
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs border ${badgeStyle}`}>
+                          {badgeLabel} {isTied && rank !== 1 && <span className="text-[9px] font-bold text-amber-900 bg-amber-200 px-1 rounded">Đồng hạng</span>}
+                        </span>
+                      </td>
 
-                    <td className="py-3 px-4 max-w-md">
-                      <span className="font-extrabold text-slate-900 block text-xs leading-snug">
-                        {item.title}
-                      </span>
-                      <span className="text-[11px] text-slate-400 block pt-0.5">
-                        {item.proposer_name} · {item.region} · {item.created_at ? `T${new Date(item.created_at).getMonth() + 1}/${new Date(item.created_at).getFullYear()}` : "T8/2026"}
-                      </span>
-                    </td>
+                      <td className="py-3 px-4">
+                        <span className="font-extrabold text-slate-900 text-xs block leading-snug truncate max-w-[180px]" title={item.proposer_name || (item as any).proposerName || "Nhân viên"}>
+                          {item.proposer_name || (item as any).proposerName || "Nhân viên"}
+                        </span>
+                        <span className="text-[11px] text-slate-400 block pt-0.5 truncate max-w-[180px]">
+                          {item.department || item.region || "Tổ hợp Kiên Giang"}
+                        </span>
+                      </td>
 
-                    <td className="py-3 px-4">
-                      <span className="inline-block px-2.5 py-0.5 rounded-full bg-blue-600 text-white font-extrabold text-[10px]">
-                        {item.dept_code || "Chặt"}
-                      </span>
-                    </td>
+                      <td className="py-3 px-4 text-center">
+                        <span className="inline-block px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 font-mono font-extrabold text-[11px] border border-slate-200">
+                          {item.proposer_emp_code || (item as any).proposerEmpCode || item.code || "CBCNV"}
+                        </span>
+                      </td>
 
-                    <td className="py-3 px-4 text-center font-extrabold text-slate-800">
-                      <span className="inline-flex items-center gap-1">
-                        <span className="text-amber-500">👑</span>
-                        <span>{(item.score_points || 95.0).toFixed(2)}</span>
-                      </span>
-                    </td>
+                      <td className="py-3 px-4 max-w-md">
+                        <span className="font-extrabold text-slate-900 block text-xs leading-snug truncate" title={item.title}>
+                          {item.title}
+                        </span>
+                        <span className="text-[11px] text-[#006838] font-bold block pt-0.5">
+                          {item.category_label || item.category || "Cải tiến quy trình"}
+                        </span>
+                      </td>
 
-                    <td className="py-3 px-4 text-center font-extrabold text-slate-800">
-                      <span className="inline-flex items-center gap-1">
-                        <span className="text-amber-400">⭐</span>
-                        <span>{(item.avg_rating || 4.5).toFixed(1)}</span>
-                      </span>
-                    </td>
-
-                    <td className="py-3 px-4 text-right font-black text-emerald-600 text-sm">
-                      {formatMillion(getProposalValue(item))}
-                    </td>
-                  </tr>
-                ))
+                      <td className="py-3 px-4 text-right font-black text-emerald-600 text-sm whitespace-nowrap">
+                        {formatMillion(prizeValueTr)}
+                      </td>
+                    </tr>
+                  );
+                })
               ) : (
-                /* Empty state when database has no proposals */
                 <tr>
-                  <td colSpan={6} className="py-10 text-center text-slate-400">
+                  <td colSpan={5} className="py-10 text-center text-slate-400">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center font-bold">
                         0
@@ -977,9 +1198,147 @@ export default function KaizenDashboard({ proposals, onBackToLibrary }: KaizenDa
         </div>
       </div>
 
-      {/* ════════════════════════════════════════════════════════════════
-          FLOATING BACK TO TOP BUTTON
-         ════════════════════════════════════════════════════════════════ */}
+      {showTop11Modal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="bg-gradient-to-r from-[#0b1739] via-[#0b1739] to-[#006838] p-5 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-400/40 flex items-center justify-center shrink-0 shadow-md">
+                  <IconTrophy size={24} />
+                </div>
+                <div>
+                  <h2 className="text-base sm:text-lg font-black tracking-tight flex items-center gap-2">
+                    🏆 BẢNG XẾP HẠNG THI ĐUA KHEN THƯỞNG KAIZEN {selectedMonth !== "ALL" ? `(THÁNG ${selectedMonth.replace("T", "")})` : "(38 GIẢI)"}
+                  </h2>
+                  <p className="text-xs text-slate-300 font-medium mt-0.5">
+                    1 Hạng Nhất &bull; 2 Hạng Nhì &bull; 5 Hạng Ba &bull; 10 Hạng 4 &bull; 20 Hạng 5
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowTop11Modal(false)}
+                className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors cursor-pointer"
+                title="Đóng cửa sổ"
+              >
+                <IconX size={18} />
+              </button>
+            </div>
+
+            <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-4">
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 text-xs font-bold text-amber-900 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">💡</span>
+                  <span>
+                    <strong>Cơ cấu Giải Khen Thưởng:</strong> 1 Hạng Nhất (1,0 Tr), 2 Hạng Nhì (0,5 Tr), 5 Hạng Ba (0,3 Tr), 10 Hạng 4 (0,2 Tr), 20 Hạng 5 (0,1 Tr).
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-xl border border-amber-300 shrink-0">
+                  <IconCalendar size={14} className="text-amber-600 shrink-0" />
+                  <span className="text-[11px] font-bold text-amber-900 whitespace-nowrap">Lọc tháng:</span>
+                  <select
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(e.target.value)}
+                    className="bg-amber-100 text-amber-950 text-xs font-black px-2 py-0.5 rounded-lg border border-amber-400 outline-none cursor-pointer"
+                  >
+                    <option value="ALL">Tất cả thời gian</option>
+                    {monthOptions.map((m) => (
+                      <option key={m} value={m}>
+                        Tháng {m.replace("T", "")}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto border border-slate-200 rounded-2xl shadow-2xs">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-900 text-white font-black text-[10px] uppercase tracking-wider">
+                      <th className="py-3.5 px-4 w-32 text-center">HẠNG</th>
+                      <th className="py-3.5 px-4">NGƯỜI ĐỀ XUẤT</th>
+                      <th className="py-3.5 px-4 text-center">MSNV</th>
+                      <th className="py-3.5 px-4">TÊN CẢI TIẾN</th>
+                      <th className="py-3.5 px-4 text-right">GIÁ TRỊ KHEN THƯỞNG</th>
+                    </tr>
+                  </thead>
+
+                  <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
+                    {ranked11Proposals.length > 0 ? (
+                      ranked11Proposals.map(({ item, rank, badgeLabel, badgeStyle, prizeValueTr, isTied }) => (
+                        <tr
+                          key={item.id}
+                          onClick={() => {
+                            setShowTop11Modal(false);
+                            if (onSelectProposal) onSelectProposal(item);
+                          }}
+                          className="hover:bg-amber-50/70 transition-colors cursor-pointer"
+                        >
+                          <td className="py-3.5 px-4 text-center">
+                            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs shadow-2xs border ${badgeStyle}`}>
+                              {badgeLabel} {isTied && rank !== 1 && <span className="text-[9px] text-amber-900 bg-amber-200/80 px-1 rounded font-bold">Đồng hạng</span>}
+                            </span>
+                          </td>
+
+                          <td className="py-3.5 px-4">
+                            <span className="font-extrabold text-slate-900 block text-xs">
+                              {item.proposer_name || (item as any).proposerName || "Nhân viên"}
+                            </span>
+                            <span className="text-[11px] text-slate-500 block pt-0.5">
+                              {item.department || item.region || "Tổ hợp Kiên Giang"}
+                            </span>
+                          </td>
+
+                          <td className="py-3.5 px-4 text-center">
+                            <span className="inline-block px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 font-mono font-extrabold text-[11px] border border-slate-200">
+                              {item.proposer_emp_code || (item as any).proposerEmpCode || item.code || "CBCNV"}
+                            </span>
+                          </td>
+
+                          <td className="py-3.5 px-4 max-w-sm">
+                            <span className="font-extrabold text-slate-900 block text-xs line-clamp-1" title={item.title}>
+                              {item.title}
+                            </span>
+                            <span className="text-[11px] text-[#006838] font-bold block pt-0.5">
+                              {item.category_label || item.category || "Cải tiến quy trình"}
+                            </span>
+                          </td>
+
+                          <td className="py-3.5 px-4 text-right font-black text-emerald-600 text-sm whitespace-nowrap">
+                            {formatMillion(prizeValueTr)}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={5} className="py-10 text-center text-slate-400 font-bold">
+                          Chưa có dữ liệu sáng kiến được khen thưởng
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
+              <span className="text-xs text-slate-500 font-bold">
+                Hiển thị {ranked11Proposals.length} / 38 sáng kiến khen thưởng thi đua
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowTop11Modal(false)}
+                className="px-6 py-2.5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-black text-xs transition-all cursor-pointer shadow-md"
+              >
+                ĐÓNG CỬA SỔ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <button
         onClick={scrollToTop}
         className="fixed bottom-6 right-6 w-11 h-11 rounded-full bg-[#0b1739] hover:bg-[#11244e] text-white flex items-center justify-center shadow-2xl z-40 transition-transform active:scale-95 border border-slate-700 cursor-pointer"

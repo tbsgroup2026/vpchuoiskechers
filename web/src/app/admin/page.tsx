@@ -95,6 +95,214 @@ interface MediaAsset {
   createdAt: string;
 }
 
+export const ROLE_MAPPING: Record<string, { code: string; shortName: string; fullName: string; aliases: string[] }> = {
+  TONG_GIAM_DOC: {
+    code: "TONG_GIAM_DOC",
+    shortName: "TGĐ",
+    fullName: "Tổng Giám Đốc",
+    aliases: ["TGĐ", "TGD", "CEO", "TONG_GIAM_DOC", "TỔNG GIÁM ĐỐC", "SYSTEM_ADMIN", "SUPER_ADMIN"],
+  },
+  PHO_TONG_GIAM_DOC: {
+    code: "PHO_TONG_GIAM_DOC",
+    shortName: "P.TGĐ",
+    fullName: "Phó Tổng Giám Đốc",
+    aliases: ["P.TGĐ", "PTGĐ", "PTGD", "PHO_TONG_GIAM_DOC", "PHÓ TỔNG GIÁM ĐỐC", "DEPUTY_CEO"],
+  },
+  GIAM_DOC: {
+    code: "GIAM_DOC",
+    shortName: "GĐK",
+    fullName: "Giám Đốc Khối",
+    aliases: ["GĐK", "GĐ", "GD", "GIAM_DOC", "GIÁM ĐỐC KHỐI", "GIÁM ĐỐC", "DIRECTOR"],
+  },
+  PHO_GIAM_DOC: {
+    code: "PHO_GIAM_DOC",
+    shortName: "P.GĐK",
+    fullName: "Phó Giám Đốc Khối",
+    aliases: ["P.GĐK", "PGĐ", "PGD", "PHO_GIAM_DOC", "PHÓ GIÁM ĐỐC KHỐI", "PHÓ GIÁM ĐỐC", "DEPUTY_DIRECTOR"],
+  },
+  TRUONG_PHONG: {
+    code: "TRUONG_PHONG",
+    shortName: "TP",
+    fullName: "Trưởng Phòng",
+    aliases: ["TP", "TRUONG_PHONG", "TRƯỞNG PHÒNG", "TRƯỞNG NHÓM", "MANAGER", "HEAD"],
+  },
+  CBCNV: {
+    code: "CBCNV",
+    shortName: "NV",
+    fullName: "Cán Bộ Công Nhân Viên",
+    aliases: ["NV", "CBCNV", "CAN BO CONG NHAN VIEN", "CÁN BỘ CÔNG NHÂN VIÊN", "NHÂN VIÊN", "EMPLOYEE", "CHUYÊN VIÊN", "KỸ SƯ"],
+  },
+  LE_TAN: {
+    code: "LE_TAN",
+    shortName: "LT",
+    fullName: "Lễ Tân Văn Phòng",
+    aliases: ["LT", "LE_TAN", "LỄ TÂN", "LỄ TÂN VĂN PHÒNG", "RECEPTIONIST"],
+  },
+};
+
+export function getRoleDisplayName(rawVal?: string, roleCode?: string): string {
+  if (!rawVal && !roleCode) return "Cán Bộ Công Nhân Viên";
+  
+  const searchStr = (rawVal || "").trim().toUpperCase();
+  const searchCode = (roleCode || "").trim().toUpperCase();
+
+  for (const key of Object.keys(ROLE_MAPPING)) {
+    const item = ROLE_MAPPING[key];
+    if (
+      searchCode === item.code ||
+      searchStr === item.code ||
+      searchStr === item.shortName.toUpperCase() ||
+      searchStr === item.fullName.toUpperCase() ||
+      item.aliases.some((alias) => searchStr === alias.toUpperCase())
+    ) {
+      return item.fullName;
+    }
+  }
+
+  return rawVal || "Cán Bộ Công Nhân Viên";
+}
+
+export function matchesRoleFilter(emp: EmployeeAccount, filterValue: string): boolean {
+  if (!filterValue || filterValue === "ALL") return true;
+
+  const targetRole = ROLE_MAPPING[filterValue];
+  if (!targetRole) {
+    return (
+      (emp.roleCode || "").toUpperCase() === filterValue.toUpperCase() ||
+      (emp.vtcvHienTai || "").toUpperCase() === filterValue.toUpperCase() ||
+      (emp.title || "").toUpperCase() === filterValue.toUpperCase()
+    );
+  }
+
+  const roleCodeUpper = (emp.roleCode || "").toUpperCase();
+  const vtcvUpper = (emp.vtcvHienTai || "").toUpperCase();
+  const titleUpper = (emp.title || "").toUpperCase();
+  const vtcvSapXepUpper = (emp.vtcvSapXep || "").toUpperCase();
+
+  const checkMatch = (val: string) => {
+    if (!val) return false;
+    return (
+      val === targetRole.code ||
+      val === targetRole.shortName.toUpperCase() ||
+      val === targetRole.fullName.toUpperCase() ||
+      targetRole.aliases.some((alias) => val === alias.toUpperCase() || val.includes(alias.toUpperCase()))
+    );
+  };
+
+  return checkMatch(roleCodeUpper) || checkMatch(vtcvUpper) || checkMatch(titleUpper) || checkMatch(vtcvSapXepUpper);
+}
+
+export const INITIAL_DEFAULT_EMPLOYEES: EmployeeAccount[] = [
+  {
+    id: "emp_1",
+    empCode: "TGĐ-001",
+    name: "Nguyễn Văn Hùng",
+    email: "tgd.nguyenvanhung@tbsgroup.vn",
+    phone: "0903800001",
+    title: "TGĐ",
+    department: "Ban Giám Đốc Tập Đoàn",
+    roleCode: "TONG_GIAM_DOC",
+    status: "ACTIVE",
+    vtcvHienTai: "TGĐ",
+  },
+  {
+    id: "emp_2",
+    empCode: "PTGĐ-002",
+    name: "Lê Hoàng Nam",
+    email: "ptgd.lehoangnam@tbsgroup.vn",
+    phone: "0903800002",
+    title: "P.TGĐ",
+    department: "Ban Giám Đốc Vận Hành",
+    roleCode: "PHO_TONG_GIAM_DOC",
+    status: "ACTIVE",
+    vtcvHienTai: "P.TGĐ",
+  },
+  {
+    id: "emp_3",
+    empCode: "GĐ-003",
+    name: "Đặng Minh Tuấn",
+    email: "gd.dangminhtuan@tbsgroup.vn",
+    phone: "0903800003",
+    title: "GĐK",
+    department: "Khối Sản Xuất & Nhà Máy",
+    roleCode: "GIAM_DOC",
+    status: "ACTIVE",
+    vtcvHienTai: "GĐK",
+  },
+  {
+    id: "emp_4",
+    empCode: "PGĐ-004",
+    name: "Nguyễn Thị Mai",
+    email: "pgd.nguyenthimai@tbsgroup.vn",
+    phone: "0903800004",
+    title: "P.GĐK",
+    department: "Khối Quản Lý Chất Lượng (QC)",
+    roleCode: "PHO_GIAM_DOC",
+    status: "ACTIVE",
+    vtcvHienTai: "P.GĐK",
+  },
+  {
+    id: "emp_5",
+    empCode: "202608001",
+    name: "Phạm Nguyễn Anh Huy",
+    email: "anhy.work.2004@gmail.com",
+    phone: "0522511245",
+    title: "TP",
+    department: "IT - Team Chuyển Đổi Số",
+    roleCode: "TRUONG_PHONG",
+    status: "ACTIVE",
+    vtcvHienTai: "TP",
+  },
+  {
+    id: "emp_6",
+    empCode: "202608002",
+    name: "Trần Ngọc Huy",
+    email: "tranhuy110421@gmail.com",
+    phone: "0522511246",
+    title: "TP",
+    department: "IT - Team Chuyển Đổi Số",
+    roleCode: "TRUONG_PHONG",
+    status: "ACTIVE",
+    vtcvHienTai: "TP",
+  },
+  {
+    id: "emp_7",
+    empCode: "LT-001",
+    name: "Lễ Tân Văn Phòng",
+    email: "letan@tbsgroup.vn",
+    phone: "0522511247",
+    title: "LT",
+    department: "Văn Phòng Chuỗi SKECHERS",
+    roleCode: "LE_TAN",
+    status: "ACTIVE",
+    vtcvHienTai: "LT",
+  },
+  {
+    id: "emp_8",
+    empCode: "SK-2026-101",
+    name: "Nguyễn Văn An",
+    email: "an.nguyen@tbsgroup.vn",
+    phone: "0988 000 101",
+    title: "NV",
+    department: "Khối Sản Xuất SKECHERS",
+    roleCode: "CBCNV",
+    status: "ACTIVE",
+    vtcvHienTai: "NV",
+  },
+  {
+    id: "emp_9",
+    empCode: "SK-2026-102",
+    name: "Trần Thị Bình",
+    email: "binh.tran@tbsgroup.vn",
+    phone: "0988 000 102",
+    title: "NV",
+    department: "Khối Chất Lượng (QC)",
+    roleCode: "CBCNV",
+    status: "ACTIVE",
+    vtcvHienTai: "NV",
+  },
+];
+
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<
     "overview" | "users" | "news" | "media" | "workspace_gallery" | "shoe_lines" | "products" | "landing_cms" | "d1_control"
@@ -312,7 +520,7 @@ export default function AdminPage() {
   };
 
   // 1. Personnel State
-  const [employees, setEmployees] = useState<EmployeeAccount[]>([]);
+  const [employees, setEmployees] = useState<EmployeeAccount[]>(INITIAL_DEFAULT_EMPLOYEES);
 
   const [employeeForm, setEmployeeForm] = useState({
     empCode: "",
@@ -375,8 +583,9 @@ export default function AdminPage() {
       (emp.name || "").toLowerCase().includes(userSearchTerm.toLowerCase()) ||
       (emp.department || "").toLowerCase().includes(userSearchTerm.toLowerCase()) ||
       (emp.vtcvHienTai || "").toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+      (emp.title || "").toLowerCase().includes(userSearchTerm.toLowerCase()) ||
       (emp.boPhoanMoi || "").toLowerCase().includes(userSearchTerm.toLowerCase());
-    const matchesRole = userRoleFilter === "ALL" || emp.roleCode === userRoleFilter;
+    const matchesRole = matchesRoleFilter(emp, userRoleFilter);
     return matchesSearch && matchesRole;
   });
 
@@ -1472,7 +1681,16 @@ export default function AdminPage() {
                         <tr key={emp.id} className="hover:bg-slate-50/80 transition-colors">
                           <td className="py-3 px-4 font-mono font-bold text-[#004029]">{emp.empCode}</td>
                           <td className="py-3 px-4 font-bold text-slate-900">{emp.name}</td>
-                          <td className="py-3 px-4 text-slate-600">{emp.title || emp.vtcvHienTai || "-"}</td>
+                          <td className="py-3 px-4 text-slate-700 font-semibold">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span>{getRoleDisplayName(emp.vtcvHienTai || emp.title, emp.roleCode)}</span>
+                              {(emp.vtcvHienTai || emp.title) && (
+                                <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-mono text-[10px] font-bold border border-slate-200">
+                                  {emp.vtcvHienTai || emp.title}
+                                </span>
+                              )}
+                            </div>
+                          </td>
                           <td className="py-3 px-4 text-slate-600">{emp.department || emp.boPhoanMoi || "-"}</td>
                           <td className="py-3 px-4">
                             <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-mono text-[10.5px] font-bold border border-slate-200">

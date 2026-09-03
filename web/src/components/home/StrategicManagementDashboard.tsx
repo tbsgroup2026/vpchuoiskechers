@@ -15,6 +15,9 @@ import {
   IconDatabase,
   IconTarget,
   IconSearch,
+  IconFileText,
+  IconUsers,
+  IconShoppingBag,
 } from "@tabler/icons-react";
 
 export interface ReportItem {
@@ -24,6 +27,8 @@ export interface ReportItem {
   tag1: string;
   tag2: string;
   link: string;
+  iconComp?: any;
+  iconBg?: string;
 }
 
 const SAMPLE_REPORTS: Record<string, ReportItem[]> = {
@@ -55,12 +60,54 @@ const SAMPLE_REPORTS: Record<string, ReportItem[]> = {
   ],
   DIEU_HANH: [
     {
-      id: "DH-04",
-      title: "Bảng Điều Hành Giao Ban Sản Xuất Tuần 35",
-      subtitle: "Chỉ số OEE, tiến độ đơn hàng và cảnh báo nghẽn chuyền sản xuất.",
+      id: "CH001",
+      title: "01. KH-KQ SL-DS DAILY",
+      subtitle: "KH-KQ SL-DS DAILY",
       tag1: "Điều hành",
       tag2: "N.SXCN",
-      link: "https://docs.google.com/spreadsheets/d/e/2PACX-1vS-skechers-152-master/pubhtml",
+      link: "https://docs.google.com/spreadsheets/d/1ezug4oIP_KQ0gyQQkHYlyFD3BRC5AeZN7hOnh3knKAM/edit?gid=2090980099#gid=2090980099",
+      iconComp: IconFileText,
+      iconBg: "bg-blue-500",
+    },
+    {
+      id: "CH002",
+      title: "02. KQ 4-12. PPH",
+      subtitle: "KQ 4-12. PPH",
+      tag1: "Điều hành",
+      tag2: "N.SXCN",
+      link: "https://docs.google.com/spreadsheets/d/19fifkgic-mVMIPTxno_ykZhjiI7ucdarVWb-trjy5lI/edit?gid=663778037#gid=663778037",
+      iconComp: IconChartBar,
+      iconBg: "bg-blue-500",
+    },
+    {
+      id: "CH003",
+      title: "03. BC QTNNL",
+      subtitle: "BC QTNNL",
+      tag1: "Điều hành",
+      tag2: "N.SXCN",
+      link: "https://docs.google.com/spreadsheets/d/1fh4IND1QUK02m01NUHI-LPttA8ZOtb-AL0FN6ZrWr6w/edit?gid=16751050#gid=16751050",
+      iconComp: IconUsers,
+      iconBg: "bg-blue-500",
+    },
+    {
+      id: "CH004",
+      title: "04. TIẾP NHẬN ĐƠN HÀNG",
+      subtitle: "TIẾP NHẬN ĐƠN HÀNG",
+      tag1: "Điều hành",
+      tag2: "N.SXCN",
+      link: "https://docs.google.com/spreadsheets/d/16DKt47p_eh06X1Wkarfc6EpgmZMai-tmiD4nGm0grVo/edit?gid=1727506745#gid=1727506745",
+      iconComp: IconShoppingBag,
+      iconBg: "bg-blue-500",
+    },
+    {
+      id: "CH005",
+      title: "05. TN_PB ĐƠN HÀNG MÙA. NĂM",
+      subtitle: "TN_PB ĐƠN HÀNG MÙA. NĂM",
+      tag1: "Điều hành",
+      tag2: "N.SXCN",
+      link: "https://docs.google.com/spreadsheets/d/1oD0T0ZEHcUh0llG_dXE9exFbgE3D9mb2-13MYRb8bb8/edit?gid=2054842672#gid=2054842672",
+      iconComp: IconShoppingBag,
+      iconBg: "bg-blue-500",
     },
   ],
   HACH_TOAN: [
@@ -190,7 +237,7 @@ export function StrategicManagementContent() {
               <div className="space-y-2">
                 {[
                   { key: "DINH_HUONG", label: "ĐỊNH HƯỚNG & QUẢN TRỊ NGÂN SÁCH", count: "3 / 3" },
-                  { key: "DIEU_HANH", label: "ĐIỀU HÀNH", count: "3 / 5" },
+                  { key: "DIEU_HANH", label: "ĐIỀU HÀNH", count: "5 / 5" },
                   { key: "HACH_TOAN", label: "HẠCH TOÁN & THANH KHOẢN", count: "2 / 6" },
                 ].map((item) => (
                   <button
@@ -329,7 +376,7 @@ export function StrategicManagementContent() {
       {/* REPORT GROUP MODAL WITH 3 CARDS PER ROW GRID */}
       {activeModalKey && (
         <div className="fixed inset-0 z-50 bg-slate-950/65 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-4xl w-full border border-slate-200/90 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-3xl max-w-5xl w-full border border-slate-200/90 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
             {/* Modal Header */}
             <div className="p-4 sm:p-5 bg-gradient-to-r from-[#004029] to-[#006838] text-white flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -355,7 +402,7 @@ export function StrategicManagementContent() {
                 <IconSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                 <input
                   type="text"
-                  placeholder="Tìm kiếm tài liệu báo cáo..."
+                  placeholder="Tìm trong nhóm này..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all placeholder:text-slate-400 placeholder:font-normal"
@@ -363,7 +410,7 @@ export function StrategicManagementContent() {
               </div>
             </div>
 
-            {/* Modal Reports Grid List (3 CARDS PER ROW) */}
+            {/* Modal Reports Grid List (3 CARDS PER ROW ON DESKTOP) */}
             <div className="p-4 sm:p-6 overflow-y-auto flex-1 bg-slate-50/50">
               {filteredReports.length === 0 ? (
                 <div className="py-12 text-center text-slate-400 space-y-2">
@@ -372,45 +419,51 @@ export function StrategicManagementContent() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredReports.map((report) => (
-                    <a
-                      key={report.id}
-                      href={report.link}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="p-4 rounded-2xl bg-white hover:bg-emerald-50/40 border border-slate-200/90 hover:border-emerald-400 shadow-2xs hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between gap-3 h-full"
-                    >
-                      <div className="space-y-2">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="w-10 h-10 rounded-xl bg-[#004029] text-white flex items-center justify-center shadow-xs flex-shrink-0 group-hover:scale-105 transition-transform">
-                            <IconFileSpreadsheet size={22} className="text-emerald-300" />
+                  {filteredReports.map((report) => {
+                    const IconComp = report.iconComp || IconFileSpreadsheet;
+                    const iconBg = report.iconBg || "bg-[#004029]";
+
+                    return (
+                      <a
+                        key={report.id}
+                        data-id={report.id}
+                        href={report.link}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="p-4 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200/90 hover:border-blue-400 shadow-2xs hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between gap-3.5 h-full"
+                      >
+                        <div className="space-y-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className={`w-11 h-11 rounded-2xl ${iconBg} text-white flex items-center justify-center shadow-xs flex-shrink-0 group-hover:scale-105 transition-transform`}>
+                              <IconComp size={22} className="text-white" />
+                            </div>
+                            <span className="w-7 h-7 rounded-lg bg-slate-50 group-hover:bg-blue-50 group-hover:text-blue-600 text-slate-400 flex items-center justify-center transition-colors flex-shrink-0">
+                              <IconChevronRight size={18} />
+                            </span>
                           </div>
-                          <span className="w-7 h-7 rounded-lg bg-slate-100 group-hover:bg-emerald-500 group-hover:text-white text-slate-500 flex items-center justify-center transition-colors flex-shrink-0">
-                            <IconExternalLink size={15} />
+
+                          <div>
+                            <h4 className="text-sm font-black text-slate-900 group-hover:text-blue-700 transition-colors leading-snug line-clamp-2">
+                              {report.title}
+                            </h4>
+                            <p className="text-xs font-semibold text-slate-400 line-clamp-2 mt-1">
+                              {report.subtitle}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* 2 Tags: tag1 (light gray) & tag2 (light green) */}
+                        <div className="flex items-center gap-2 pt-2.5 border-t border-slate-100 mt-auto">
+                          <span className="px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10.5px] font-extrabold border border-slate-200/80">
+                            {report.tag1}
+                          </span>
+                          <span className="px-2.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[10.5px] font-extrabold border border-emerald-200/80">
+                            {report.tag2}
                           </span>
                         </div>
-
-                        <div>
-                          <h4 className="text-sm font-black text-slate-900 group-hover:text-[#004029] transition-colors leading-snug line-clamp-2">
-                            {report.title}
-                          </h4>
-                          <p className="text-xs font-semibold text-slate-500 line-clamp-2 mt-1">
-                            {report.subtitle}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* 2 Tags: tag1 (light gray) & tag2 (light green) */}
-                      <div className="flex items-center gap-2 pt-2 border-t border-slate-100 mt-auto">
-                        <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10.5px] font-extrabold border border-slate-200/80">
-                          {report.tag1}
-                        </span>
-                        <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[10.5px] font-extrabold border border-emerald-200/80">
-                          {report.tag2}
-                        </span>
-                      </div>
-                    </a>
-                  ))}
+                      </a>
+                    );
+                  })}
                 </div>
               )}
             </div>

@@ -1132,27 +1132,75 @@ export default function WorkDashboardPage() {
           </div>
         </header>
 
-        {/* Mobile & Tablet Horizontal Department Selector Pills (Taste Skill Human Style) */}
-        <div className="lg:hidden px-3.5 sm:px-5 py-2.5 bg-white border-b border-slate-200/80 flex items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth">
-          {visibleDepartments.map((dept) => {
-            const IconComp = dept.icon;
-            const isSelected = selectedDept === dept.id;
-            return (
-              <button
-                key={dept.id}
-                onClick={() => setSelectedDept(dept.id)}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all duration-200 cursor-pointer flex-shrink-0 ${
-                  isSelected
-                    ? "bg-gradient-to-r from-[#006838] to-[#004d29] text-white shadow-md shadow-emerald-900/20 scale-[1.02]"
-                    : "bg-slate-50 text-slate-700 hover:bg-emerald-50/60 border border-slate-200/80"
-                }`}
-              >
-                <IconComp size={16} className={isSelected ? "text-emerald-300" : "text-[#006838]"} />
-                <span>{dept.name}</span>
-              </button>
-            );
-          })}
-        </div>
+        {/* Mobile Off-Canvas Sliding Drawer Navigation (Only active on screens < lg when hamburger is clicked) */}
+        {isMobileMenuOpen && (
+          <div className="fixed inset-0 z-[100] lg:hidden flex">
+            {/* Backdrop Overlay */}
+            <div
+              className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity duration-300"
+              onClick={() => setIsMobileMenuOpen(false)}
+            />
+
+            {/* Off-canvas Sliding Panel */}
+            <div className="relative w-80 max-w-[85vw] bg-white h-full shadow-2xl flex flex-col p-4 z-10 animate-in slide-in-from-left duration-300">
+              {/* Drawer Header */}
+              <div className="flex items-center justify-between pb-3.5 border-b border-slate-200 flex-shrink-0">
+                <Link href="/" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-2">
+                  <img src="/images/tbs-logo.png" alt="TBS Group" className="h-7 w-auto object-contain" />
+                  <div className="h-5 w-[1px] bg-slate-200" />
+                  <img src="/images/skechers-logo.png" alt="SKECHERS" className="h-6 w-auto object-contain" />
+                </Link>
+                <button
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="w-9 h-9 rounded-xl bg-slate-100 text-slate-600 hover:bg-rose-50 hover:text-rose-600 flex items-center justify-center transition-colors cursor-pointer border border-slate-200"
+                >
+                  <IconX size={20} />
+                </button>
+              </div>
+
+              {/* Department Navigation List */}
+              <div className="flex-1 overflow-y-auto space-y-2 py-3">
+                <div className="text-[10px] font-black uppercase tracking-wider text-slate-400 px-2 pb-1">
+                  DANH MỤC PHÂN HỆ VẬN HÀNH
+                </div>
+                {visibleDepartments.map((dept) => {
+                  const IconComp = dept.icon;
+                  const isSelected = selectedDept === dept.id;
+                  return (
+                    <button
+                      key={dept.id}
+                      onClick={() => {
+                        setSelectedDept(dept.id);
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className={`w-full p-3 rounded-2xl flex items-center gap-3 text-left transition-all cursor-pointer ${
+                        isSelected
+                          ? "bg-gradient-to-r from-[#006838] to-[#004d29] text-white shadow-md shadow-emerald-900/20"
+                          : "bg-slate-50 text-slate-800 hover:bg-emerald-50 border border-slate-200/80"
+                      }`}
+                    >
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                        isSelected ? "bg-white/20 text-white" : "bg-emerald-100/60 text-[#006838]"
+                      }`}>
+                        <IconComp size={20} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-extrabold truncate">{dept.name}</div>
+                        <div className={`text-[10px] truncate ${isSelected ? "text-emerald-100" : "text-slate-500"}`}>{dept.sub}</div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Footer */}
+              <div className="pt-3 border-t border-slate-200 text-xs text-slate-500 flex items-center justify-between">
+                <span className="font-bold text-[#006838]">TBS Group System</span>
+                <span className="font-mono text-[10px]">© 2026</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Dashboard Body */}
         <div className="p-4 lg:p-6 space-y-4 pb-12 w-full min-w-0">

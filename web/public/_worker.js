@@ -790,14 +790,109 @@ export default {
       }
     }
 
-    // 0.1 API Route: Users Management (/api/users)
-    if (url.pathname === "/api/users") {
+    // 0.1 API Route: Landing Page CMS Management (/api/landing-cms)
+    if (url.pathname === "/api/landing-cms" || url.pathname.startsWith("/api/landing-cms")) {
       if (request.method === "GET") {
         try {
           if (env.DB) {
+            await env.DB.prepare(`
+              CREATE TABLE IF NOT EXISTS landing_cms (
+                id TEXT PRIMARY KEY,
+                config_json TEXT NOT NULL,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+              );
+            `).run();
+
+            const { results } = await env.DB.prepare("SELECT config_json FROM landing_cms WHERE id = 'main_config'").all();
+            if (results && results.length > 0 && results[0].config_json) {
+              const parsed = JSON.parse(results[0].config_json);
+              return new Response(
+                JSON.stringify({ success: true, data: parsed }),
+                { headers: { "Content-Type": "application/json" } }
+              );
+            }
+          }
+          return new Response(
+            JSON.stringify({ success: true, data: null }),
+            { headers: { "Content-Type": "application/json" } }
+          );
+        } catch (err) {
+          return new Response(
+            JSON.stringify({ success: false, error: err.message }),
+            { status: 500, headers: { "Content-Type": "application/json" } }
+          );
+        }
+      }
+
+      if (request.method === "POST" || request.method === "PUT") {
+        try {
+          const body = await request.json();
+          const configJson = JSON.stringify(body);
+
+          if (env.DB) {
+            await env.DB.prepare(`
+              CREATE TABLE IF NOT EXISTS landing_cms (
+                id TEXT PRIMARY KEY,
+                config_json TEXT NOT NULL,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+              );
+            `).run();
+
+            await env.DB.prepare(`
+              INSERT INTO landing_cms (id, config_json, updated_at)
+              VALUES ('main_config', ?, CURRENT_TIMESTAMP)
+              ON CONFLICT(id) DO UPDATE SET
+                config_json = excluded.config_json,
+                updated_at = CURRENT_TIMESTAMP
+            `).bind(configJson).run();
+          }
+
+          return new Response(
+            JSON.stringify({ success: true, message: "Đã đồng bộ CMS Trang chủ thành công lên Server D1!" }),
+            { headers: { "Content-Type": "application/json" } }
+          );
+        } catch (err) {
+          return new Response(
+            JSON.stringify({ success: false, error: err.message }),
+            { status: 500, headers: { "Content-Type": "application/json" } }
+          );
+        }
+      }
+    }
+
+    // 0.2 API Route: Users Management (/api/users)
+    if (url.pathname === "/api/users" || url.pathname.startsWith("/api/users")) {
+      if (request.method === "GET") {
+        try {
+          if (env.DB) {
+            await env.DB.prepare(`
+              CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                emp_code TEXT UNIQUE,
+                name TEXT NOT NULL,
+                email TEXT,
+                phone TEXT,
+                title TEXT,
+                department TEXT,
+                role_code TEXT DEFAULT 'CBCNV',
+                password_hash TEXT DEFAULT '123456',
+                status TEXT DEFAULT 'ACTIVE',
+                ngay_vao TEXT,
+                vtcv_hien_tai TEXT,
+                phong_ban_hien_tai TEXT,
+                vtcv_sap TEXT,
+                vtcv_sap_xep TEXT,
+                pb_sap_xep TEXT,
+                bo_phan_moi TEXT,
+                phong_ban_moi TEXT,
+                ghi_chu TEXT,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+              );
+            `).run();
+
             const { results } = await env.DB.prepare("SELECT * FROM users ORDER BY id DESC").all();
             return new Response(
-              JSON.stringify({ success: true, data: results }),
+              JSON.stringify({ success: true, data: results || [] }),
               { headers: { "Content-Type": "application/json" } }
             );
           }
@@ -816,27 +911,164 @@ export default {
       if (request.method === "POST" || request.method === "PUT") {
         try {
           const body = await request.json();
-          const { empCode, name, email, phone, title, department, roleCode, password, status } = body;
+          const {
+            empCode, emp_code, name, email, phone, title, department, roleCode, role_code, password, status,
+            ngay_vao, vtcv_hien_tai, phong_ban_hien_tai, vtcv_sap, vtcv_sap_xep, pb_sap_xep, phong_ban_sap_xep, bo_phan_moi, phong_ban_moi, ghi_chu
+          } = body;
+
+          const targetCode = empCode || emp_code;
+          if (!targetCode || !name) {
+            return new Response(
+              JSON.stringify({ success: false, error: "Thiếu empCode hoặc name" }),
+              { status: 400, headers: { "Content-Type": "application/json" } }
+            );
+          }
 
           if (env.DB) {
-            await env.DB.prepare(
-              `INSERT OR REPLACE INTO users (emp_code, name, email, phone, title, department, role_code, password_hash, status, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`
-            ).bind(
-              empCode,
+            await env.DB.prepare(`
+              CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                emp_code TEXT UNIQUE,
+                name TEXT NOT NULL,
+                email TEXT,
+                phone TEXT,
+                title TEXT,
+                department TEXT,
+                role_code TEXT DEFAULT 'CBCNV',
+                password_hash TEXT DEFAULT '123456',
+                status TEXT DEFAULT 'ACTIVE',
+                ngay_vao TEXT,
+                vtcv_hien_tai TEXT,
+                phong_ban_hien_tai TEXT,
+                vtcv_sap TEXT,
+                vtcv_sap_xep TEXT,
+                pb_sap_xep TEXT,
+                bo_phan_moi TEXT,
+                phong_ban_moi TEXT,
+                ghi_chu TEXT,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+              );
+            `).run();
+
+            await env.DB.prepare(`
+              INSERT INTO users (emp_code, name, email, phone, title, department, role_code, password_hash, status, ngay_vao, vtcv_hien_tai, phong_ban_hien_tai, vtcv_sap, vtcv_sap_xep, pb_sap_xep, bo_phan_moi, phong_ban_moi, ghi_chu, updated_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+              ON CONFLICT(emp_code) DO UPDATE SET
+                name = excluded.name,
+                email = excluded.email,
+                phone = excluded.phone,
+                title = excluded.title,
+                department = excluded.department,
+                role_code = excluded.role_code,
+                status = excluded.status,
+                ngay_vao = excluded.ngay_vao,
+                vtcv_hien_tai = excluded.vtcv_hien_tai,
+                phong_ban_hien_tai = excluded.phong_ban_hien_tai,
+                vtcv_sap = excluded.vtcv_sap,
+                vtcv_sap_xep = excluded.vtcv_sap_xep,
+                pb_sap_xep = excluded.pb_sap_xep,
+                bo_phan_moi = excluded.bo_phan_moi,
+                phong_ban_moi = excluded.phong_ban_moi,
+                ghi_chu = excluded.ghi_chu,
+                updated_at = CURRENT_TIMESTAMP
+            `).bind(
+              targetCode,
               name,
-              email || `${empCode}@tbsgroup.vn`,
+              email || `${targetCode.toLowerCase()}@tbsgroup.vn`,
               phone || "0988 000 000",
               title || "Cán Bộ Công Nhân Viên",
-              department || "Văn Phòng Chuỗi SKECHERS",
-              roleCode || "CBCNV",
+              department || bo_phan_moi || "Văn Phòng Chuỗi SKECHERS",
+              roleCode || role_code || "CBCNV",
               password || "123456",
-              status || "ACTIVE"
+              status || "ACTIVE",
+              ngay_vao || "",
+              vtcv_hien_tai || "",
+              phong_ban_hien_tai || "",
+              vtcv_sap || "",
+              vtcv_sap_xep || "",
+              pb_sap_xep || phong_ban_sap_xep || "",
+              bo_phan_moi || "",
+              phong_ban_moi || "",
+              ghi_chu || ""
             ).run();
           }
 
           return new Response(
-            JSON.stringify({ success: true, message: "Đã lưu thông tin nhân sự vào D1 Database!" }),
+            JSON.stringify({ success: true, message: "Đã lưu tài khoản nhân sự vào CSDL D1!" }),
+            { headers: { "Content-Type": "application/json" } }
+          );
+        } catch (err) {
+          return new Response(
+            JSON.stringify({ success: false, error: err.message }),
+            { status: 500, headers: { "Content-Type": "application/json" } }
+          );
+        }
+      }
+
+      if (request.method === "DELETE") {
+        try {
+          const isDeleteAll = url.searchParams.get("all") === "true";
+          const targetId = url.searchParams.get("id");
+          const targetEmpCode = url.searchParams.get("empCode");
+
+          if (env.DB) {
+            if (isDeleteAll) {
+              await env.DB.prepare("DELETE FROM users WHERE role_code NOT IN ('SUPER_ADMIN', 'TONG_GIAM_DOC')").run();
+            } else if (targetId || targetEmpCode) {
+              await env.DB.prepare("DELETE FROM users WHERE id = ? OR emp_code = ?").bind(targetId || "", targetEmpCode || "").run();
+            }
+          }
+
+          return new Response(
+            JSON.stringify({ success: true, message: "Đã xóa dữ liệu tài khoản thành công!" }),
+            { headers: { "Content-Type": "application/json" } }
+          );
+        } catch (err) {
+          return new Response(
+            JSON.stringify({ success: false, error: err.message }),
+            { status: 500, headers: { "Content-Type": "application/json" } }
+          );
+        }
+      }
+    }
+
+    // 0.3 API Route: Meeting Rooms & Bookings (/api/rooms)
+    if (url.pathname === "/api/rooms" || url.pathname.startsWith("/api/rooms")) {
+      if (request.method === "GET") {
+        try {
+          const defaultRooms = [
+            { id: "room_1", name: "Phòng Họp Ban Điều Hành SKECHERS (P.101)", location: "Tầng 1 - Khối Điều Hành", capacity: 25, status: "AVAILABLE" },
+            { id: "room_2", name: "Phòng Họp Chiến Lược 1-5-2 (P.102)", location: "Tầng 1 - Khối Chiến Lược", capacity: 15, status: "AVAILABLE" },
+            { id: "room_3", name: "Phòng Họp Kỹ Thuật & Mẫu R&D (P.201)", location: "Tầng 2 - Khối R&D", capacity: 20, status: "AVAILABLE" },
+            { id: "room_4", name: "Phòng Họp QC & Chất Lượng (P.202)", location: "Tầng 2 - Khối QC", capacity: 12, status: "AVAILABLE" },
+            { id: "room_5", name: "Phòng Hội Thảo Trung Tâm (P.301)", location: "Tầng 3 - Sảnh Trung Tâm", capacity: 60, status: "AVAILABLE" },
+            { id: "room_6", name: "Phòng Tiếp Đón Đối Tác SKECHERS Global", location: "Tầng 1 - Sảnh Tiếp Đón", capacity: 10, status: "AVAILABLE" },
+          ];
+
+          let bookings = [];
+          if (env.DB) {
+            try {
+              await env.DB.prepare(`
+                CREATE TABLE IF NOT EXISTS room_bookings (
+                  id TEXT PRIMARY KEY,
+                  room_id TEXT NOT NULL,
+                  title TEXT NOT NULL,
+                  booked_by TEXT NOT NULL,
+                  date TEXT NOT NULL,
+                  start_time TEXT NOT NULL,
+                  end_time TEXT NOT NULL,
+                  status TEXT DEFAULT 'CONFIRMED',
+                  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                );
+              `).run();
+
+              const { results } = await env.DB.prepare("SELECT * FROM room_bookings ORDER BY created_at DESC").all();
+              bookings = results || [];
+            } catch (e) {}
+          }
+
+          return new Response(
+            JSON.stringify({ success: true, data: { rooms: defaultRooms, bookings, visitors: [] } }),
             { headers: { "Content-Type": "application/json" } }
           );
         } catch (err) {

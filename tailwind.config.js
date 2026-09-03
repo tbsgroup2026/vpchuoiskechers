@@ -8,6 +8,12 @@ module.exports = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['Be Vietnam Pro', 'Outfit', 'system-ui', 'sans-serif'],
+        display: ['Outfit', 'Be Vietnam Pro', 'sans-serif'],
+        mono: ['Space Grotesk', 'monospace'],
+        serif: ['Outfit', 'Be Vietnam Pro', 'sans-serif'],
+      },
       colors: {
         canvas: '#f8f7f5',
         surface: '#ffffff',

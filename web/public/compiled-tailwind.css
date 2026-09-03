@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Be+Vietnam+Pro:wght@400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,600&family=Space+Grotesk:wght@500;600;700&display=swap');
 
 *, ::before, ::after{
   --tw-border-spacing-x: 0;
@@ -156,7 +156,7 @@ html,
   -o-tab-size: 4;
      tab-size: 4;
   /* 3 */
-  font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  font-family: Be Vietnam Pro, Outfit, system-ui, sans-serif;
   /* 4 */
   font-feature-settings: normal;
   /* 5 */
@@ -245,7 +245,7 @@ code,
 kbd,
 samp,
 pre {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-family: Space Grotesk, monospace;
   /* 1 */
   font-feature-settings: normal;
   /* 2 */
@@ -5568,16 +5568,20 @@ video {
   text-align: right;
 }
 
+.font-display{
+  font-family: Outfit, Be Vietnam Pro, sans-serif;
+}
+
 .font-mono{
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-family: Space Grotesk, monospace;
 }
 
 .font-sans{
-  font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  font-family: Be Vietnam Pro, Outfit, system-ui, sans-serif;
 }
 
 .font-serif{
-  font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  font-family: Outfit, Be Vietnam Pro, sans-serif;
 }
 
 .text-2xl{
@@ -6920,9 +6924,10 @@ video {
 }
 
 :root {
-  --font-sans: 'Plus Jakarta Sans', 'Be Vietnam Pro', system-ui, -apple-system, sans-serif;
-  --font-display: 'Plus Jakarta Sans', 'Be Vietnam Pro', system-ui, -apple-system, sans-serif;
-  --font-serif: 'Be Vietnam Pro', 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-sans: 'Be Vietnam Pro', 'Outfit', system-ui, -apple-system, sans-serif;
+  --font-display: 'Outfit', 'Be Vietnam Pro', system-ui, sans-serif;
+  --font-mono: 'Space Grotesk', monospace;
+  --font-serif: 'Outfit', 'Be Vietnam Pro', sans-serif;
   /* TBS Brand Palette — Muted Industrial, Controlled Saturation */
   /* Neutral — warm off-white → cool near-black (no pure black, no pure white) */
   --color-canvas: #f8f7f5;

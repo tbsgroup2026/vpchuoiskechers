@@ -154,7 +154,16 @@ export default function Header() {
         console.warn(`Cloudinary upload with preset ${preset} failed:`, e);
       }
     }
-    throw new Error(lang === "VN" ? "Không thể nạp ảnh lên máy chủ Cloudinary. Vui lòng thử lại!" : "Unable to upload image to Cloudinary server. Please try again!");
+
+    if (fileOrDataUrl instanceof File) {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(fileOrDataUrl);
+      });
+    }
+
+    return typeof fileOrDataUrl === "string" ? fileOrDataUrl : "";
   };
 
   const handleAvatarUpload = async (file: File) => {

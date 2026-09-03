@@ -739,8 +739,9 @@ export default function AdminPage() {
   const fetchD1Employees = async () => {
     try {
       const res = await fetch("/api/users", { cache: "no-store" });
-      const json = await res.json();
-      if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+      if (!res.ok) return;
+      const json = await res.json().catch(() => null);
+      if (json && json.success && Array.isArray(json.data) && json.data.length > 0) {
         const d1List: EmployeeAccount[] = json.data.map((u: any) => ({
           id: u.id ? String(u.id) : `emp_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
           empCode: u.emp_code || u.empCode || "",
@@ -973,8 +974,8 @@ export default function AdminPage() {
   const fetchLiveD1Counts = async () => {
     try {
       const [resR, resB] = await Promise.all([
-        fetch("/api/rooms").then((r) => r.json()).catch(() => null),
-        fetch("/api/business-trips").then((r) => r.json()).catch(() => null),
+        fetch("/api/rooms").then((r) => (r.ok ? r.json() : null)).catch(() => null),
+        fetch("/api/business-trips").then((r) => (r.ok ? r.json() : null)).catch(() => null),
       ]);
       setD1Stats({
         roomsCount: resR?.data?.rooms?.length || 6,

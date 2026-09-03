@@ -16,33 +16,41 @@ import {
   IconPlus,
   IconTrash,
 } from "@tabler/icons-react";
-import { LandingCMSConfig } from "@/lib/landingCMS";
+import { LandingCMSConfig, DEFAULT_LANDING_CMS, parseCMSConfig } from "@/lib/landingCMS";
 
 interface Props {
-  landingCMS: LandingCMSConfig;
-  setLandingCMS: React.Dispatch<React.SetStateAction<LandingCMSConfig>>;
-  onSave: (e: React.FormEvent) => void;
-  onReset: () => void;
-  onUploadImage: (
+  landingCMS?: LandingCMSConfig;
+  cmsConfig?: LandingCMSConfig;
+  setLandingCMS?: React.Dispatch<React.SetStateAction<LandingCMSConfig>>;
+  onChange?: (config: LandingCMSConfig | ((prev: LandingCMSConfig) => LandingCMSConfig)) => void;
+  onSave?: (e?: React.FormEvent) => void;
+  onReset?: () => void;
+  onUploadImage?: (
     file: File,
     section: "heroBg" | "heroHands" | "heroTeam" | "excellence" | "product",
     productIndex?: number
   ) => Promise<void>;
   onBulkUploadProductImages?: (files: FileList) => Promise<void>;
-  isUploading: boolean;
+  isUploading?: boolean;
   initialSubSection?: "hero" | "workspace" | "excellence" | "products";
+  showToast?: (msg: string) => void;
 }
 
-export default function LandingCMSManager({
-  landingCMS,
-  setLandingCMS,
-  onSave,
-  onReset,
-  onUploadImage,
-  onBulkUploadProductImages,
-  isUploading,
-  initialSubSection,
-}: Props) {
+export default function LandingCMSManager(props: Props) {
+  const {
+    landingCMS: propLandingCMS,
+    cmsConfig: propCmsConfig,
+    setLandingCMS: propSetLandingCMS,
+    onChange,
+    onSave,
+    onReset,
+    onUploadImage,
+    onBulkUploadProductImages,
+    isUploading = false,
+    initialSubSection,
+    showToast,
+  } = props;
+
   const [activeSubSection, setActiveSubSection] = useState<
     "hero" | "workspace" | "excellence" | "products"
   >(initialSubSection || "hero");
@@ -54,14 +62,27 @@ export default function LandingCMSManager({
     }
   }, [initialSubSection]);
 
-  const { hero, workspace, excellence, products } = landingCMS;
+  const rawConfig = propLandingCMS || propCmsConfig || DEFAULT_LANDING_CMS;
+  const safeCMS = parseCMSConfig(rawConfig);
+  const { hero, workspace, excellence, products } = safeCMS;
+
+  const handleUpdate = (updater: (prev: LandingCMSConfig) => LandingCMSConfig) => {
+    if (propSetLandingCMS) {
+      propSetLandingCMS(updater);
+    } else if (onChange) {
+      onChange(updater);
+    }
+  };
 
   // Update nested hero field
   const updateHero = (key: keyof typeof hero, value: string) => {
-    setLandingCMS((prev) => ({
-      ...prev,
-      hero: { ...prev.hero, [key]: value },
-    }));
+    handleUpdate((prev) => {
+      const base = parseCMSConfig(prev);
+      return {
+        ...base,
+        hero: { ...base.hero, [key]: value },
+      };
+    });
   };
 
   // Update nested workspace field

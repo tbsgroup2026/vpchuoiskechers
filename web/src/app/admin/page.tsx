@@ -1961,9 +1961,12 @@ export default function AdminPage() {
               </div>
 
               <LandingCMSManager
-                cmsConfig={landingCMS}
+                landingCMS={landingCMS || DEFAULT_LANDING_CMS}
+                cmsConfig={landingCMS || DEFAULT_LANDING_CMS}
+                setLandingCMS={setLandingCMS}
                 onChange={setLandingCMS}
                 onSave={handleSaveLandingCMS}
+                onReset={handleResetLandingCMS}
                 showToast={showToast}
               />
             </div>

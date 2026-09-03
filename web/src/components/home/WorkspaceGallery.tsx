@@ -15,6 +15,7 @@ import {
   IconBuildingWarehouse,
 } from "@tabler/icons-react";
 import SmartImage from "@/components/SmartImage";
+import { useTranslation } from "@/hooks/useTranslation";
 
 export interface WorkspaceItem {
   id: string;

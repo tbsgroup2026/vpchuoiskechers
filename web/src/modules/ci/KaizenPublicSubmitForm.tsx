@@ -724,16 +724,149 @@ export default function KaizenPublicSubmitForm({
               </h3>
             </div>
 
-            <div className="bg-slate-50/80 p-3 rounded-2xl border border-slate-200 space-y-2 mb-3">
-              <div className="flex items-center gap-1.5 text-slate-800 font-extrabold text-[11px] uppercase tracking-wider">
-                <IconBuildingFactory size={15} className="text-[#006838]" />
-                <span>Đơn Vị &amp; Khu Vực Sản Xuất Phân Cấp (Nhà máy → Xưởng → Line)</span>
-              </div>
+            <div className="bg-slate-50/80 p-3.5 rounded-2xl border border-slate-200 space-y-3 mb-3">
+              {/* Hàng 1: MSNV | Họ tên | VTCV */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* 1. MSNV */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="font-black text-slate-900 text-[11px]">
+                      MSNV <span className="text-rose-600 font-bold ml-0.5">*</span>
+                    </label>
+                    {autoFilled && (
+                      <span className="text-[10px] font-black text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full flex items-center gap-1 animate-in fade-in">
+                        <IconCheck size={12} /> Đã khớp dữ liệu
+                      </span>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      required
+                      value={form.proposerEmpCode}
+                      onChange={(e) => setForm({ ...form, proposerEmpCode: e.target.value })}
+                      placeholder="VD: CN-88201 hoặc 202608101"
+                      className={`w-full px-3.5 py-2 pr-9 rounded-xl border text-xs font-bold outline-none transition-all ${
+                        notFoundMsg
+                          ? "border-amber-400 bg-amber-50/20 focus:border-amber-500"
+                          : autoFilled
+                          ? "border-emerald-500 bg-emerald-50/20 focus:border-emerald-600"
+                          : "border-slate-300 focus:border-[#006838] focus:ring-1 focus:ring-[#006838]"
+                      }`}
+                    />
+                    {lookupLoading && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600">
+                        <IconLoader2 size={16} className="animate-spin" />
+                      </div>
+                    )}
+                    {!lookupLoading && autoFilled && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600">
+                        <IconCheck size={16} className="font-black" />
+                      </div>
+                    )}
+                  </div>
+                  {notFoundMsg && (
+                    <p className="text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-2 py-1 flex items-center gap-1 mt-1 animate-in fade-in">
+                      <IconAlertCircle size={13} className="shrink-0 text-amber-600" />
+                      <span>{notFoundMsg}</span>
+                    </p>
+                  )}
+                </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                {/* 2. Họ và tên */}
                 <div className="space-y-1">
                   <label className="font-black text-slate-900 text-[11px]">
-                    1. Nhà Máy <span className="text-rose-600 font-bold ml-0.5">*</span>
+                    Họ và tên <span className="text-rose-600 font-bold ml-0.5">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={form.proposerName}
+                    onChange={(e) => setForm({ ...form, proposerName: e.target.value })}
+                    placeholder="Họ và Tên Công Nhân / Cán Bộ"
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838]"
+                  />
+                </div>
+
+                {/* 3. VTCV */}
+                <div className="space-y-1">
+                  <label className="font-black text-slate-900 text-[11px]">
+                    VTCV <span className="text-rose-600 font-bold ml-0.5">*</span>
+                  </label>
+                  <select
+                    value={form.proposerPosition}
+                    onChange={(e) => setForm({ ...form, proposerPosition: e.target.value })}
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838] bg-white"
+                  >
+                    {VTCV_OPTIONS.map((vt) => (
+                      <option key={vt} value={vt}>
+                        {vt}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Hàng 2: Line | Phân xưởng | Nhà máy */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-200/80">
+                {/* 1. Line */}
+                <div className="space-y-1">
+                  <label className="font-black text-slate-900 text-[11px]">Line / Chuyền</label>
+                  <select
+                    value={selectedFormLine}
+                    onChange={(e) => {
+                      setSelectedFormLine(e.target.value);
+                      setSelectedFormChuyen("");
+                      setSelectedFormTo("");
+                    }}
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838] bg-white"
+                  >
+                    <option value="">-- Chọn Line / Chuyền --</option>
+                    {availableFormLines.length > 0 ? (
+                      availableFormLines.map((ln) => (
+                        <option key={ln} value={ln}>
+                          {ln}
+                        </option>
+                      ))
+                    ) : (
+                      selectedFormLine && <option value={selectedFormLine}>{selectedFormLine}</option>
+                    )}
+                  </select>
+                </div>
+
+                {/* 2. Phân Xưởng */}
+                <div className="space-y-1">
+                  <label className="font-black text-slate-900 text-[11px]">
+                    Phân Xưởng <span className="text-rose-600 font-bold ml-0.5">*</span>
+                  </label>
+                  <select
+                    required
+                    value={selectedFormWorkshop}
+                    onChange={(e) => {
+                      setSelectedFormWorkshop(e.target.value);
+                      setSelectedFormLine("");
+                      setSelectedFormChuyen("");
+                      setSelectedFormTo("");
+                    }}
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838] bg-white"
+                  >
+                    <option value="">-- Chọn Phân Xưởng --</option>
+                    {availableFormWorkshops.length > 0 ? (
+                      availableFormWorkshops.map((ws) => (
+                        <option key={ws} value={ws}>
+                          {ws}
+                        </option>
+                      ))
+                    ) : (
+                      selectedFormWorkshop && <option value={selectedFormWorkshop}>{selectedFormWorkshop}</option>
+                    )}
+                  </select>
+                </div>
+
+                {/* 3. Nhà Máy */}
+                <div className="space-y-1">
+                  <label className="font-black text-slate-900 text-[11px]">
+                    Nhà Máy <span className="text-rose-600 font-bold ml-0.5">*</span>
                   </label>
                   <select
                     required
@@ -745,7 +878,7 @@ export default function KaizenPublicSubmitForm({
                       setSelectedFormChuyen("");
                       setSelectedFormTo("");
                     }}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838] bg-white"
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838] bg-white"
                   >
                     <option value="">-- Chọn Nhà Máy --</option>
                     {REAL_FACTORIES.map((fac) => (
@@ -755,137 +888,6 @@ export default function KaizenPublicSubmitForm({
                     ))}
                   </select>
                 </div>
-
-                <div className="space-y-1">
-                  <label className="font-black text-slate-900 text-[11px]">
-                    2. Xưởng Sản Xuất <span className="text-rose-600 font-bold ml-0.5">*</span>
-                  </label>
-                  <select
-                    required
-                    disabled={!selectedFormFactory || availableFormWorkshops.length === 0}
-                    value={selectedFormWorkshop}
-                    onChange={(e) => {
-                      setSelectedFormWorkshop(e.target.value);
-                      setSelectedFormLine("");
-                      setSelectedFormChuyen("");
-                      setSelectedFormTo("");
-                    }}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838] bg-white disabled:bg-slate-100 disabled:opacity-60"
-                  >
-                    <option value="">
-                      {!selectedFormFactory
-                        ? "-- Chọn Nhà Máy Trước --"
-                        : availableFormWorkshops.length > 0
-                        ? "-- Chọn Xưởng --"
-                        : "Không có Xưởng con"}
-                    </option>
-                    {availableFormWorkshops.map((ws) => (
-                      <option key={ws} value={ws}>
-                        {ws}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {selectedFormWorkshop && availableFormLines.length > 0 && (
-                  <div className="space-y-1 animate-in fade-in duration-200">
-                    <label className="font-black text-slate-900 text-[11px]">3. Line Sản Xuất</label>
-                    <select
-                      value={selectedFormLine}
-                      onChange={(e) => {
-                        setSelectedFormLine(e.target.value);
-                        setSelectedFormChuyen("");
-                        setSelectedFormTo("");
-                      }}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838] bg-white"
-                    >
-                      <option value="">-- Chọn Line (Không bắt buộc) --</option>
-                      {availableFormLines.map((ln) => (
-                        <option key={ln} value={ln}>
-                          {ln}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <label className="font-black text-slate-900">
-                    MSNV <span className="text-rose-600 font-bold ml-0.5">*</span>
-                  </label>
-                  {autoFilled && (
-                    <span className="text-[10px] font-black text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full flex items-center gap-1 animate-in fade-in">
-                      <IconCheck size={12} /> Đã khớp dữ liệu
-                    </span>
-                  )}
-                </div>
-                <div className="relative">
-                  <input
-                    type="text"
-                    required
-                    value={form.proposerEmpCode}
-                    onChange={(e) => setForm({ ...form, proposerEmpCode: e.target.value })}
-                    placeholder="VD: CN-88201 hoặc 202608101"
-                    className={`w-full px-3.5 py-2.5 pr-9 rounded-xl border text-xs font-bold outline-none transition-all ${
-                      notFoundMsg
-                        ? "border-amber-400 bg-amber-50/20 focus:border-amber-500"
-                        : autoFilled
-                        ? "border-emerald-500 bg-emerald-50/20 focus:border-emerald-600"
-                        : "border-slate-300 focus:border-[#006838] focus:ring-1 focus:ring-[#006838]"
-                    }`}
-                  />
-                  {lookupLoading && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600">
-                      <IconLoader2 size={16} className="animate-spin" />
-                    </div>
-                  )}
-                  {!lookupLoading && autoFilled && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600">
-                      <IconCheck size={16} className="font-black" />
-                    </div>
-                  )}
-                </div>
-                {notFoundMsg && (
-                  <p className="text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-2.5 py-1.5 flex items-center gap-1.5 mt-1.5 animate-in fade-in">
-                    <IconAlertCircle size={14} className="shrink-0 text-amber-600" />
-                    <span>{notFoundMsg}</span>
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-1">
-                <label className="font-black text-slate-900">
-                  Người đăng ký <span className="text-rose-600 font-bold ml-0.5">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={form.proposerName}
-                  onChange={(e) => setForm({ ...form, proposerName: e.target.value })}
-                  placeholder="Họ và Tên Công Nhân / Cán Bộ"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838]"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="font-black text-slate-900">
-                  VTCV <span className="text-rose-600 font-bold ml-0.5">*</span>
-                </label>
-                <select
-                  value={form.proposerPosition}
-                  onChange={(e) => setForm({ ...form, proposerPosition: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838]"
-                >
-                  {VTCV_OPTIONS.map((vt) => (
-                    <option key={vt} value={vt}>
-                      {vt}
-                    </option>
-                  ))}
-                </select>
               </div>
             </div>
           </div>

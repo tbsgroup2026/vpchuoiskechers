@@ -1,7 +1,7 @@
 // Service Worker for Văn phòng Chuỗi SKECHERS - TBS Group System
 // Caching Strategy: Cache-First for Cloudinary Media, Stale-While-Revalidate for Static Assets
 
-const CACHE_VERSION = "tbs-sw-v2026.09.03-01";
+const CACHE_VERSION = "tbs-sw-v2026.09.05-05";
 const MEDIA_CACHE = `tbs-media-${CACHE_VERSION}`;
 const STATIC_CACHE = `tbs-static-${CACHE_VERSION}`;
 
@@ -50,8 +50,8 @@ self.addEventListener("fetch", (event) => {
   const req = event.request;
   const url = new URL(req.url);
 
-  // Bypass non-GET requests or API requests completely
-  if (req.method !== "GET" || url.pathname.startsWith("/api/")) {
+  // Bypass non-HTTP/HTTPS or Chrome Extensions, non-GET requests or API requests completely
+  if (!url.protocol.startsWith("http") || req.method !== "GET" || url.pathname.startsWith("/api/")) {
     return;
   }
 

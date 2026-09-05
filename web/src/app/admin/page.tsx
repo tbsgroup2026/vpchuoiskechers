@@ -96,11 +96,17 @@ interface MediaAsset {
 }
 
 export const ROLE_MAPPING: Record<string, { code: string; shortName: string; fullName: string; aliases: string[] }> = {
+  SUPER_ADMIN: {
+    code: "SUPER_ADMIN",
+    shortName: "Admin",
+    fullName: "Quản Trị Viên Tối Cao",
+    aliases: ["SUPER_ADMIN", "SYSTEM_ADMIN", "SUPER ADMIN", "ADMIN", "QUẢN TRỊ VIÊN TỐI CAO"],
+  },
   TONG_GIAM_DOC: {
     code: "TONG_GIAM_DOC",
     shortName: "TGĐ",
     fullName: "Tổng Giám Đốc",
-    aliases: ["TGĐ", "TGD", "CEO", "TONG_GIAM_DOC", "TỔNG GIÁM ĐỐC", "SYSTEM_ADMIN", "SUPER_ADMIN"],
+    aliases: ["TGĐ", "TGD", "CEO", "TONG_GIAM_DOC", "TỔNG GIÁM ĐỐC"],
   },
   PHO_TONG_GIAM_DOC: {
     code: "PHO_TONG_GIAM_DOC",
@@ -162,34 +168,125 @@ export function getRoleDisplayName(rawVal?: string, roleCode?: string): string {
   return rawVal || "Cán Bộ Công Nhân Viên";
 }
 
+export function mapRoleNameToCode(roleStr?: string, titleStr?: string, deptStr?: string, empCode?: string, name?: string): string {
+  const codeNorm = (empCode || "").trim().toUpperCase();
+  const nameNorm = (name || "").trim().toUpperCase();
+
+  if (
+    codeNorm === "202608001" ||
+    codeNorm === "202608002" ||
+    nameNorm.includes("PHẠM NGUYỄN ANH HUY") ||
+    nameNorm.includes("PHAM NGUYEN ANH HUY") ||
+    nameNorm.includes("TRẦN NGỌC HUY") ||
+    nameNorm.includes("TRAN NGOC HUY")
+  ) {
+    return "SUPER_ADMIN";
+  }
+
+  const directCode = (roleStr || "").trim().toUpperCase();
+  if (directCode && ROLE_MAPPING[directCode]) {
+    return directCode;
+  }
+
+  const r = ((roleStr || "") + " " + (titleStr || "") + " " + (deptStr || "")).trim().toUpperCase();
+  if (!r) return "CBCNV";
+
+  if (r.includes("SUPER_ADMIN") || r.includes("SUPER ADMIN") || r.includes("QUẢN TRỊ VIÊN TỐI CAO") || r.includes("SYSTEM ADMIN")) {
+    return "SUPER_ADMIN";
+  }
+
+  // 1. Lễ Tân
+  if (
+    r.includes("LỄ TÂN") ||
+    r.includes("LE_TAN") ||
+    r.includes("LE TAN") ||
+    r.includes("RECEPTIONIST") ||
+    r.includes("HÀNH CHÍNH-LỄ TÂN") ||
+    r.includes("HÀNH CHÍNH LỄ TÂN") ||
+    r.includes("HANH CHINH-LE TAN") ||
+    r.includes("HANH CHINH LE TAN") ||
+    r.includes("HÀNH CHÍNH - LỄ TÂN") ||
+    r.split(/\s+/).includes("LT")
+  ) {
+    return "LE_TAN";
+  }
+
+  // 2. Phó Tổng Giám Đốc (Check BEFORE Tổng Giám Đốc because P.TGĐ contains TGĐ)
+  if (
+    r.includes("PHÓ TỔNG") ||
+    r.includes("P.TGĐ") ||
+    r.includes("P.TGD") ||
+    r.includes("PTGĐ") ||
+    r.includes("PTGD") ||
+    r.includes("PHO_TONG_GIAM_DOC") ||
+    r.includes("PHÓ TỔNG GIÁM ĐỐC")
+  ) {
+    return "PHO_TONG_GIAM_DOC";
+  }
+
+  // 3. Tổng Giám Đốc
+  if (
+    r.includes("TỔNG GIÁM ĐỐC") ||
+    r.includes("TGĐ") ||
+    r.includes("TGD") ||
+    r.includes("TONG_GIAM_DOC") ||
+    r.includes("CEO")
+  ) {
+    return "TONG_GIAM_DOC";
+  }
+
+  // 4. Phó Giám Đốc Khối (Check BEFORE Giám Đốc because P.GĐ contains GĐ)
+  if (
+    r.includes("PHÓ GIÁM ĐỐC") ||
+    r.includes("P.GĐK") ||
+    r.includes("P.GĐ") ||
+    r.includes("P.GD") ||
+    r.includes("PGĐK") ||
+    r.includes("PGĐ") ||
+    r.includes("PGD") ||
+    r.includes("PHO_GIAM_DOC") ||
+    r.includes("PHÓ GIÁM ĐỐC KHỐI") ||
+    r.includes("DEPUTY DIRECTOR") ||
+    r.includes("DEPUTY_DIRECTOR")
+  ) {
+    return "PHO_GIAM_DOC";
+  }
+
+  // 5. Giám Đốc Khối
+  if (
+    r.includes("GIÁM ĐỐC") ||
+    r.includes("GĐK") ||
+    r.includes("GĐ") ||
+    r.includes("GD") ||
+    r.includes("GIAM_DOC") ||
+    r.includes("DIRECTOR")
+  ) {
+    return "GIAM_DOC";
+  }
+
+  // 6. Trưởng Phòng
+  if (
+    r.includes("TRƯỞNG PHÒNG") ||
+    r.includes("TRƯỞNG BAN") ||
+    r.includes("TRƯỞNG NHÓM") ||
+    r.includes("TRUONG_PHONG") ||
+    r.includes("TP")
+  ) {
+    return "TRUONG_PHONG";
+  }
+
+  return "CBCNV";
+}
+
 export function matchesRoleFilter(emp: EmployeeAccount, filterValue: string): boolean {
   if (!filterValue || filterValue === "ALL") return true;
 
-  const targetRole = ROLE_MAPPING[filterValue];
-  if (!targetRole) {
-    return (
-      (emp.roleCode || "").toUpperCase() === filterValue.toUpperCase() ||
-      (emp.vtcvHienTai || "").toUpperCase() === filterValue.toUpperCase() ||
-      (emp.title || "").toUpperCase() === filterValue.toUpperCase()
-    );
-  }
+  const allDepts = [emp.department, emp.phongBanHienTai, emp.phongBanSapXep, emp.boPhoanMoi, emp.phongBanMoi].filter(Boolean).join(" ");
+  const allTitles = [emp.vtcvHienTai, emp.title, emp.vtcvSapXep, emp.vtcvSap].filter(Boolean).join(" ");
 
-  const roleCodeUpper = (emp.roleCode || "").toUpperCase();
-  const vtcvUpper = (emp.vtcvHienTai || "").toUpperCase();
-  const titleUpper = (emp.title || "").toUpperCase();
-  const vtcvSapXepUpper = (emp.vtcvSapXep || "").toUpperCase();
+  const derivedRoleCode = mapRoleNameToCode(emp.roleCode, allTitles, allDepts, emp.empCode, emp.name);
 
-  const checkMatch = (val: string) => {
-    if (!val) return false;
-    return (
-      val === targetRole.code ||
-      val === targetRole.shortName.toUpperCase() ||
-      val === targetRole.fullName.toUpperCase() ||
-      targetRole.aliases.some((alias) => val === alias.toUpperCase() || val.includes(alias.toUpperCase()))
-    );
-  };
-
-  return checkMatch(roleCodeUpper) || checkMatch(vtcvUpper) || checkMatch(titleUpper) || checkMatch(vtcvSapXepUpper);
+  return derivedRoleCode.toUpperCase() === filterValue.toUpperCase();
 }
 
 export const INITIAL_DEFAULT_EMPLOYEES: EmployeeAccount[] = [
@@ -247,11 +344,11 @@ export const INITIAL_DEFAULT_EMPLOYEES: EmployeeAccount[] = [
     name: "Phạm Nguyễn Anh Huy",
     email: "anhy.work.2004@gmail.com",
     phone: "0522511245",
-    title: "TP",
+    title: "Super Admin",
     department: "IT - Team Chuyển Đổi Số",
-    roleCode: "TRUONG_PHONG",
+    roleCode: "SUPER_ADMIN",
     status: "ACTIVE",
-    vtcvHienTai: "TP",
+    vtcvHienTai: "Quản Trị Viên Tối Cao",
   },
   {
     id: "emp_6",
@@ -259,11 +356,11 @@ export const INITIAL_DEFAULT_EMPLOYEES: EmployeeAccount[] = [
     name: "Trần Ngọc Huy",
     email: "tranhuy110421@gmail.com",
     phone: "0522511246",
-    title: "TP",
+    title: "Super Admin",
     department: "IT - Team Chuyển Đổi Số",
-    roleCode: "TRUONG_PHONG",
+    roleCode: "SUPER_ADMIN",
     status: "ACTIVE",
-    vtcvHienTai: "TP",
+    vtcvHienTai: "Quản Trị Viên Tối Cao",
   },
   {
     id: "emp_7",
@@ -633,29 +730,21 @@ export default function AdminPage() {
     return str;
   };
 
-  const mapRoleNameToCode = (roleStr: string): string => {
-    if (!roleStr) return "CBCNV";
-    const r = roleStr.toUpperCase();
-    if (r.includes("TỔNG GIÁM ĐỐC") || r.includes("TGĐ") || r.includes("TONG_GIAM_DOC")) return "TONG_GIAM_DOC";
-    if (r.includes("PHÓ TỔNG") || r.includes("PTGĐ") || r.includes("PHO_TONG_GIAM_DOC")) return "PHO_TONG_GIAM_DOC";
-    if (r.includes("GIÁM ĐỐC") || r.includes("GĐ") || r.includes("GIAM_DOC")) return "GIAM_DOC";
-    if (r.includes("PHÓ GIÁM ĐỐC") || r.includes("PGĐ") || r.includes("PHO_GIAM_DOC")) return "PHO_GIAM_DOC";
-    if (r.includes("TRƯỞNG PHÒNG") || r.includes("TRUONG_PHONG")) return "TRUONG_PHONG";
-    if (r.includes("LỄ TÂN") || r.includes("LE_TAN")) return "LE_TAN";
-    return "CBCNV";
-  };
+
 
   const handleDownloadTemplate = () => {
-    const headers = [
-      ["STT", "MSNV", "Họ & Tên", "Ngày Vào", "VTCV Hiện Tại", "Phòng Ban", "VTCV SAP", "VTCV Sắp Xếp", "PHÒNG BAN", "BỘ PHẬN (NEW)", "Phòng ban (NEW)", "GHI CHÚ"],
-      [1, "SK-2026-101", "Nguyễn Văn An", "2026-08-01", "Kỹ sư sản xuất SKECHERS", "ĐH-QT CHUỖI", "04 N2003", "Trưởng nhóm", "ĐH-QT CHUỖI", "Khối Sản Xuất", "Ban CNTT", "Thành viên xuất sắc"],
-      [2, "SK-2026-102", "Trần Thị Bình", "2026-08-05", "Chuyên viên QC", "QT-KS", "42 N2007", "Phó nhóm", "QT-KS", "Khối Chất Lượng", "Ban QC", ""]
+    const templateData = [
+      ["DANH SÁCH CB-CNV _ VP CHUỖI SK", "", "", "", "", "", "", "", "", "", "8/21/2026"],
+      ["MSNV", "HỌ & TÊN", "NGÀY VÀO", "VTCV HIỆN TẠI", "Phòng Ban", "VTCV SAP", "VTCV SẮP XẾP", "PHÒNG BAN", "BỘ PHẬN (NEW)", "Phòng ban (NEW)", "GHI CHÚ"],
+      ["11950404", "BÙI ĐÌNH TRUNG", "2026-08-01", "P.TGĐ", "KHCB ĐHSX XH", "42 N2007", "P.TGĐ", "KHCB ĐHSX XH", "Khối Vận Hành", "Ban Giám Đốc", "Thành viên xuất sắc"],
+      ["200405004", "PHẠM MINH TÙNG", "2026-08-05", "TGĐ", "ĐH-QT", "04 N2001", "TGĐ", "ĐH-QT", "Ban Giám Đốc", "Ban Điều Hành", ""],
+      ["202609001", "Nguyễn Thị Hoa", "2026-08-10", "Cán bộ lễ tân", "Ban Hành Chính", "04 N2003", "Lễ tân văn phòng", "HÀNH CHÍNH-LỄ TÂN", "Khối Hành Chính", "Phòng Lễ Tân", "Lễ tân văn phòng"]
     ];
-    const ws = XLSX.utils.aoa_to_sheet(headers);
+    const ws = XLSX.utils.aoa_to_sheet(templateData);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Mau_Import_Nhan_Su");
-    XLSX.writeFile(wb, "Mau_Import_Nhan_Su_SKECHERS.xlsx");
-    showToast("📥 Đã tải file Excel mẫu thành công!");
+    XLSX.utils.book_append_sheet(wb, ws, "Danh_Sach_Nhan_Su");
+    XLSX.writeFile(wb, "DANH_SÁCH_CB-CNV_VP_CHUỖI_SK.xlsx");
+    showToast("📥 Đã tải file Excel mẫu chuẩn DANH SÁCH CB-CNV _ VP CHUỖI SK thành công!");
   };
 
   const handleExcelFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -697,7 +786,7 @@ export default function AdminPage() {
           if (!row || !Array.isArray(row)) continue;
 
           const rowStr = row.map((c) => String(c || "").toUpperCase().trim()).join(" ");
-          if (rowStr.includes("MSNV") || rowStr.includes("MÃ NV") || rowStr.includes("HỌ") || rowStr.includes("HỌ & TÊN")) {
+          if (rowStr.includes("MSNV") || rowStr.includes("MÃ NV") || rowStr.includes("MÃ NHÂN VIÊN") || rowStr.includes("HỌ") || rowStr.includes("HỌ & TÊN")) {
             headerRowIdx = i;
             row.forEach((cellVal, colIdx) => {
               const norm = String(cellVal || "")
@@ -706,29 +795,20 @@ export default function AdminPage() {
                 .trim();
               const c = norm.toUpperCase();
 
-              if (c.includes("MSNV") || c.includes("MÃ NV") || c.includes("MA NV")) empCodeCol = colIdx;
-              else if (c.includes("HỌ") || c.includes("TÊN") || c.includes("NAME")) nameCol = colIdx;
+              if (c.includes("MSNV") || c.includes("MÃ NV") || c.includes("MA NV") || c.includes("MÃ NHÂN VIÊN")) empCodeCol = colIdx;
+              else if (c.includes("HỌ & TÊN") || c.includes("HỌ VÀ TÊN") || c.includes("HỌ TÊN") || c.includes("NAME") || c.includes("TÊN")) nameCol = colIdx;
               else if (c.includes("NGÀY VÀO") || c.includes("NGAY VAO")) ngayVaoCol = colIdx;
+              else if (c.includes("VTCV HIỆN TẠI") || (c.includes("VTCV") && c.includes("HIỆN TẠI"))) vtcvHienTaiCol = colIdx;
+              else if (c.includes("BỘ PHẬN (NEW)") || c.includes("BO PHAN (NEW)") || (c.includes("BỘ PHẬN") && c.includes("NEW"))) boPhoanMoiCol = colIdx;
+              else if (c.includes("PHÒNG BAN (NEW)") || c.includes("PHONG BAN (NEW)") || (c.includes("PHÒNG BAN") && c.includes("NEW"))) phongBanMoiCol = colIdx;
+              else if (c.includes("VTCV SAP")) vtcvSapCol = colIdx;
+              else if (c.includes("VTCV SẮP XẾP")) vtcvSapXepCol = colIdx;
+              else if (c === "PHÒNG BAN" || c === "PHONG BAN") phongBanSapXepCol = colIdx;
+              else if (c.includes("PHÒNG BAN") || c.includes("PHONG BAN")) phongBanHienTaiCol = colIdx;
               else if (c.includes("EMAIL")) emailCol = colIdx;
               else if (c.includes("SĐT") || c.includes("PHONE") || c.includes("ĐIỆN THOẠI")) phoneCol = colIdx;
               else if (c.includes("GHI CHÚ") || c.includes("GHI CHU") || c.includes("NOTE")) ghiChuCol = colIdx;
-              else if (c.includes("VAI TRÒ") || c.includes("QUYỀN") || c.includes("ROLE")) roleCodeCol = colIdx;
-              else if (c.includes("NEW")) {
-                if (c.includes("BỘ PHẬN") || c.includes("BO PHAN") || c.includes("KHỐI")) {
-                  boPhoanMoiCol = colIdx;
-                } else {
-                  phongBanMoiCol = colIdx;
-                }
-              }
-              else if (c.includes("HIỆN TẠI") && c.includes("VTCV")) vtcvHienTaiCol = colIdx;
-              else if (c.includes("SẮP XẾP") && c.includes("VTCV")) vtcvSapXepCol = colIdx;
-              else if (c.includes("HIỆN TẠI")) phongBanHienTaiCol = colIdx;
-              else if (c.includes("SẮP XẾP")) phongBanSapXepCol = colIdx;
-              else if (c.includes("SAP") && !c.includes("SẮP XẾP")) vtcvSapCol = colIdx;
-              else if (c.includes("PHÒNG BAN") || c.includes("PHONG BAN") || c.includes("BỘ PHẬN")) {
-                if (phongBanHienTaiCol === -1) phongBanHienTaiCol = colIdx;
-                else if (phongBanSapXepCol === -1) phongBanSapXepCol = colIdx;
-              }
+              else if (c.includes("VAI TRÒ") || c.includes("ROLE") || c.includes("QUYỀN") || c.includes("ROLE_CODE")) roleCodeCol = colIdx;
             });
             break;
           }
@@ -776,7 +856,9 @@ export default function AdminPage() {
           const phongBanMoi = String(phongBanMoiCol >= 0 ? row[phongBanMoiCol] ?? "" : "").trim();
           const ghiChu = String(ghiChuCol >= 0 ? row[ghiChuCol] ?? "" : "").trim();
           const rawRole = String(roleCodeCol >= 0 ? row[roleCodeCol] ?? "" : "").trim();
-          const roleCode = mapRoleNameToCode(rawRole);
+          const allDeptsStr = [boPhoanMoi, phongBanMoi, phongBanHienTai, phongBanSapXep].filter(Boolean).join(" ");
+          const allTitlesStr = [vtcvHienTai, vtcvSapXep, vtcvSap].filter(Boolean).join(" ");
+          const roleCode = mapRoleNameToCode(rawRole, allTitlesStr, allDeptsStr);
 
           const upperEmp = empCode.toUpperCase();
 
@@ -784,6 +866,8 @@ export default function AdminPage() {
             upperEmp === "STT" ||
             upperEmp === "MSNV" ||
             upperEmp === "MÃ NV" ||
+            upperEmp.includes("DANH SÁCH") ||
+            upperEmp.includes("DANH SACH") ||
             upperEmp.includes("TỔNG CỘNG") ||
             upperEmp.includes("TOTAL") ||
             upperEmp.includes("SUM")
@@ -951,25 +1035,31 @@ export default function AdminPage() {
       if (!res.ok) return;
       const json = await res.json().catch(() => null);
       if (json && json.success && Array.isArray(json.data) && json.data.length > 0) {
-        const d1List: EmployeeAccount[] = json.data.map((u: any) => ({
-          id: u.id ? String(u.id) : `emp_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-          empCode: u.emp_code || u.empCode || "",
-          name: u.name || "N/A",
-          email: u.email || `${u.emp_code || "nv"}@tbsgroup.vn`,
-          phone: u.phone || "0988 000 000",
-          title: u.title || "Cán Bộ Công Nhân Viên",
-          department: u.department || "Văn Phòng Chuỗi SKECHERS",
-          roleCode: u.role_code || u.roleCode || "CBCNV",
-          status: u.status === "LOCKED" ? "LOCKED" : "ACTIVE",
-          ngayVao: u.ngay_vao || u.ngayVao || "-",
-          vtcvHienTai: u.vtcv_hien_tai || u.vtcvHienTai || "-",
-          phongBanHienTai: u.phong_ban_hien_tai || u.phongBanHienTai || u.department || "-",
-          vtcvSap: u.vtcv_sap || u.vtcvSap || "-",
-          vtcvSapXep: u.vtcv_sap_xep || u.vtcvSapXep || "-",
-          phongBanSapXep: u.pb_sap_xep || u.pbSapXep || "-",
-          boPhoanMoi: u.bo_phan_moi || u.bo_phan_new || u.boPhoanMoi || u.department || "-",
-          phongBanMoi: u.phong_ban_moi || u.department || "-",
-        }));
+        const d1List: EmployeeAccount[] = json.data.map((u: any) => {
+          const vtcvStr = [u.vtcv_hien_tai, u.vtcvHienTai, u.vtcv_sap_xep, u.title].filter(Boolean).join(" ");
+          const deptStr = [u.bo_phan_moi, u.bo_phan_new, u.phong_ban_moi, u.phong_ban_hien_tai, u.phongBanHienTai, u.department, u.pb_sap_xep, u.phong_ban_sap_xep].filter(Boolean).join(" ");
+          const derivedRole = mapRoleNameToCode(u.role_code || u.roleCode, vtcvStr, deptStr);
+
+          return {
+            id: u.id ? String(u.id) : `emp_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+            empCode: u.emp_code || u.empCode || "",
+            name: u.name || "N/A",
+            email: u.email || `${u.emp_code || "nv"}@tbsgroup.vn`,
+            phone: u.phone || "0988 000 000",
+            title: u.title || "Cán Bộ Công Nhân Viên",
+            department: u.department || u.phong_ban_hien_tai || "Văn Phòng Chuỗi SKECHERS",
+            roleCode: derivedRole,
+            status: u.status === "LOCKED" ? "LOCKED" : "ACTIVE",
+            ngayVao: u.ngay_vao || u.ngayVao || "-",
+            vtcvHienTai: u.vtcv_hien_tai || u.vtcvHienTai || "-",
+            phongBanHienTai: u.phong_ban_hien_tai || u.phongBanHienTai || u.department || "-",
+            vtcvSap: u.vtcv_sap || u.vtcvSap || "-",
+            vtcvSapXep: u.vtcv_sap_xep || u.vtcvSapXep || "-",
+            phongBanSapXep: u.pb_sap_xep || u.pbSapXep || "-",
+            boPhoanMoi: u.bo_phan_moi || u.bo_phan_new || u.boPhoanMoi || u.department || "-",
+            phongBanMoi: u.phong_ban_moi || u.department || "-",
+          };
+        });
         setEmployees(d1List);
       }
     } catch (e) {
@@ -1642,6 +1732,7 @@ export default function AdminPage() {
                     className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 outline-none focus:border-[#004029] cursor-pointer"
                   >
                     <option value="ALL">Tất cả vai trò ({employees.length})</option>
+                    <option value="SUPER_ADMIN">Quản Trị Viên Tối Cao (Super Admin)</option>
                     <option value="TONG_GIAM_DOC">Tổng Giám Đốc</option>
                     <option value="PHO_TONG_GIAM_DOC">Phó Tổng Giám Đốc</option>
                     <option value="GIAM_DOC">Giám Đốc Khối</option>
@@ -1660,11 +1751,12 @@ export default function AdminPage() {
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200/80 text-[11px] font-black text-slate-600 uppercase tracking-wider">
-                      <th className="py-3 px-4">MSNV</th>
-                      <th className="py-3 px-4">Họ & Tên</th>
-                      <th className="py-3 px-4">Vị Trí Công Việc</th>
-                      <th className="py-3 px-4">Phòng Ban / Bộ Phận</th>
-                      <th className="py-3 px-4">Vai Trò Hệ Thống</th>
+                      <th className="py-3 px-4 w-12 text-center">STT</th>
+                      <th className="py-3 px-4">Mã Nhân Viên (MSNV)</th>
+                      <th className="py-3 px-4">Họ và Tên Nhân Viên</th>
+                      <th className="py-3 px-4">Chức Danh (title)</th>
+                      <th className="py-3 px-4">Phòng Ban (department)</th>
+                      <th className="py-3 px-4">Vai Trò Hệ Thống (role_code)</th>
                       <th className="py-3 px-4">Trạng Thái</th>
                       <th className="py-3 px-4 text-right">Thao Tác</th>
                     </tr>
@@ -1672,29 +1764,31 @@ export default function AdminPage() {
                   <tbody className="divide-y divide-slate-100 text-xs font-medium">
                     {paginatedEmployees.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="py-12 text-center text-slate-400 font-bold">
+                        <td colSpan={8} className="py-12 text-center text-slate-400 font-bold">
                           Không tìm thấy nhân sự nào phù hợp với từ khóa!
                         </td>
                       </tr>
                     ) : (
-                      paginatedEmployees.map((emp) => (
+                      paginatedEmployees.map((emp, empIdx) => (
                         <tr key={emp.id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="py-3 px-4 font-mono font-bold text-slate-400 text-center">
+                            {(safeUserPage - 1) * USERS_PER_PAGE + empIdx + 1}
+                          </td>
                           <td className="py-3 px-4 font-mono font-bold text-[#004029]">{emp.empCode}</td>
                           <td className="py-3 px-4 font-bold text-slate-900">{emp.name}</td>
                           <td className="py-3 px-4 text-slate-700 font-semibold">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span>{getRoleDisplayName(emp.vtcvHienTai || emp.title, emp.roleCode)}</span>
-                              {(emp.vtcvHienTai || emp.title) && (
-                                <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-mono text-[10px] font-bold border border-slate-200">
-                                  {emp.vtcvHienTai || emp.title}
-                                </span>
-                              )}
-                            </div>
+                            {emp.vtcvHienTai || emp.title || "---"}
                           </td>
-                          <td className="py-3 px-4 text-slate-600">{emp.department || emp.boPhoanMoi || "-"}</td>
+                          <td className="py-3 px-4 text-slate-600">
+                            {emp.department || emp.phongBanHienTai || emp.boPhoanMoi || emp.phongBanMoi || "---"}
+                          </td>
                           <td className="py-3 px-4">
-                            <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-mono text-[10.5px] font-bold border border-slate-200">
-                              {emp.roleCode}
+                            <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-800 font-mono text-[11px] font-bold border border-slate-300 inline-flex items-center gap-1.5 shadow-2xs">
+                              {mapRoleNameToCode(
+                                emp.roleCode,
+                                [emp.vtcvHienTai, emp.title, emp.vtcvSapXep, emp.vtcvSap].filter(Boolean).join(" "),
+                                [emp.department, emp.phongBanHienTai, emp.boPhoanMoi, emp.phongBanMoi, emp.phongBanSapXep].filter(Boolean).join(" ")
+                              )}
                             </span>
                           </td>
                           <td className="py-3 px-4">
@@ -2200,24 +2294,24 @@ export default function AdminPage() {
             <div className="p-4 overflow-y-auto flex-1">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="bg-slate-100 border-b border-slate-200 font-bold text-slate-700">
-                    <th className="py-2.5 px-3">Dòng</th>
-                    <th className="py-2.5 px-3">MSNV</th>
-                    <th className="py-2.5 px-3">Họ & Tên</th>
-                    <th className="py-2.5 px-3">Phòng Ban / Bộ Phận</th>
-                    <th className="py-2.5 px-3">Vị Trí Công Việc</th>
-                    <th className="py-2.5 px-3">Mã Role</th>
+                  <tr className="bg-slate-100 border-b border-slate-200 font-black text-slate-700 text-[10.5px] uppercase">
+                    <th className="py-2.5 px-3">STT</th>
+                    <th className="py-2.5 px-3">Mã Nhân Viên (MSNV)</th>
+                    <th className="py-2.5 px-3">Họ và Tên Nhân Viên</th>
+                    <th className="py-2.5 px-3">Chức Danh (title)</th>
+                    <th className="py-2.5 px-3">Phòng Ban (department)</th>
+                    <th className="py-2.5 px-3">Vai Trò Hệ Thống (role_code)</th>
                     <th className="py-2.5 px-3">Trạng Thái</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
-                  {importPreviewRows.map((r) => (
+                  {importPreviewRows.map((r, idx) => (
                     <tr key={r.rowNum} className={r.isValid ? "hover:bg-slate-50" : "bg-rose-50/50"}>
-                      <td className="py-2 px-3 font-mono">{r.rowNum}</td>
+                      <td className="py-2 px-3 font-mono text-slate-400 font-bold">{idx + 1}</td>
                       <td className="py-2 px-3 font-mono font-bold text-[#004029]">{r.empCode}</td>
                       <td className="py-2 px-3 font-bold text-slate-900">{r.name}</td>
-                      <td className="py-2 px-3 text-slate-600">{r.boPhoanMoi || r.phongBanHienTai || "-"}</td>
                       <td className="py-2 px-3 text-slate-600">{r.vtcvHienTai || "-"}</td>
+                      <td className="py-2 px-3 text-slate-600">{r.boPhoanMoi || r.phongBanHienTai || "-"}</td>
                       <td className="py-2 px-3 font-mono text-slate-700">{r.roleCode}</td>
                       <td className="py-2 px-3">
                         {r.isValid ? (

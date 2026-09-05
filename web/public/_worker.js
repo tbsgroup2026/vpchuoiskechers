@@ -1760,6 +1760,9 @@ export default {
         try { await env.DB.prepare("ALTER TABLE ci_kaizen_proposals ADD COLUMN time_before_seconds INTEGER").run(); } catch(e) {}
         try { await env.DB.prepare("ALTER TABLE ci_kaizen_proposals ADD COLUMN time_after_seconds INTEGER").run(); } catch(e) {}
         try { await env.DB.prepare("ALTER TABLE ci_kaizen_proposals ADD COLUMN efficiency_value_vnd INTEGER").run(); } catch(e) {}
+        try { await env.DB.prepare("ALTER TABLE ci_kaizen_proposals ADD COLUMN pair_quantity INTEGER DEFAULT 0").run(); } catch(e) {}
+        try { await env.DB.prepare("ALTER TABLE ci_kaizen_proposals ADD COLUMN line TEXT").run(); } catch(e) {}
+        try { await env.DB.prepare("ALTER TABLE ci_kaizen_proposals ADD COLUMN total_savings_vnd INTEGER DEFAULT 0").run(); } catch(e) {}
       };
 
       // Helper to strip undefined values for D1 binding safety
@@ -2238,6 +2241,71 @@ export default {
 
           const body = await request.json();
           const { id, action, awardTitle, scorePoints, reviewComment, comments, status, rejectionReason, afterSolution, savedSeconds, afterImageUrl, version } = body;
+
+          // ✅ INLINE EDIT: Handle direct field updates from KaizenDetailModal inline edit mode
+          // This is triggered when action is undefined/null and body contains title, before_description, etc.
+          if (!action && body.title !== undefined) {
+            const isOwnerOrAdmin = user.isExecutiveOrAdmin || user.roleCode === "SUPER_ADMIN" || user.roleCode === "ADMIN";
+            const proposalRec = await env.DB.prepare("SELECT * FROM ci_kaizen_proposals WHERE id = ?").bind(id).first();
+            if (!proposalRec) {
+              return new Response(JSON.stringify({ success: false, error: "PROPOSAL_NOT_FOUND", message: "Không tìm thấy đề xuất cải tiến" }), { status: 404, headers: SECURE_JSON_HEADERS });
+            }
+            const isOwner = proposalRec.proposer_emp_code && user.empCode &&
+              String(proposalRec.proposer_emp_code).trim().toUpperCase() === String(user.empCode).trim().toUpperCase();
+            if (!isOwner && !isOwnerOrAdmin) {
+              return new Response(JSON.stringify({ success: false, error: "FORBIDDEN", message: "Bạn không có quyền chỉnh sửa đề xuất này!" }), { status: 403, headers: SECURE_JSON_HEADERS });
+            }
+            await env.DB.prepare(`
+              UPDATE ci_kaizen_proposals SET
+                title = ?,
+                before_description = ?,
+                after_solution = ?,
+                region = ?,
+                factory = ?,
+                department = ?,
+                line = ?,
+                customer = ?,
+                category = ?,
+                product_code = ?,
+                quantity = ?,
+                pair_quantity = ?,
+                pricing_direction = ?,
+                time_before_seconds = ?,
+                time_after_seconds = ?,
+                saved_seconds = ?,
+                efficiency_value_vnd = ?,
+                total_savings_vnd = ?,
+                before_image_url = ?,
+                after_image_url = ?,
+                updated_at = CURRENT_TIMESTAMP,
+                version = version + 1
+              WHERE id = ?
+            `).bind(
+              safeVal(body.title, proposalRec.title),
+              safeVal(body.before_description, proposalRec.before_description),
+              safeVal(body.after_solution, proposalRec.after_solution),
+              safeVal(body.region || body.factory, proposalRec.region),
+              safeVal(body.factory || body.region, proposalRec.factory),
+              safeVal(body.department, proposalRec.department),
+              safeVal(body.line, proposalRec.line),
+              safeVal(body.customer, proposalRec.customer),
+              safeVal(body.category, proposalRec.category),
+              safeVal(body.product_code, proposalRec.product_code),
+              parseInt(body.quantity || body.pair_quantity || proposalRec.quantity || 0, 10),
+              parseInt(body.pair_quantity || body.quantity || proposalRec.pair_quantity || 0, 10),
+              safeVal(body.pricing_direction, proposalRec.pricing_direction),
+              parseInt(body.time_before_seconds || proposalRec.time_before_seconds || 0, 10),
+              parseInt(body.time_after_seconds || proposalRec.time_after_seconds || 0, 10),
+              parseInt(body.saved_seconds || proposalRec.saved_seconds || 0, 10),
+              parseInt(body.efficiency_value_vnd || proposalRec.efficiency_value_vnd || 0, 10),
+              parseInt(body.total_savings_vnd || proposalRec.total_savings_vnd || 0, 10),
+              safeVal(body.before_image_url !== undefined ? body.before_image_url : proposalRec.before_image_url, null),
+              safeVal(body.after_image_url !== undefined ? body.after_image_url : proposalRec.after_image_url, null),
+              id
+            ).run();
+            await recordAuditLog(user, "ci_kaizen", "INLINE_EDIT", id, { title: proposalRec.title }, { title: body.title }, request);
+            return new Response(JSON.stringify({ success: true, message: "Đã cập nhật đề xuất cải tiến thành công!", id }), { headers: SECURE_JSON_HEADERS });
+          }
 
           if (!id) {
             return new Response(JSON.stringify({ success: false, error: "Missing proposal ID" }), { status: 400, headers: SECURE_JSON_HEADERS });

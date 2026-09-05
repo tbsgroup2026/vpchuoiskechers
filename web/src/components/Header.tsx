@@ -478,7 +478,7 @@ export default function Header() {
 
               {/* Dropdown popup with hover bridge & smooth transition */}
               <div
-                className={`absolute top-full right-0 pt-2 w-60 z-50 transition-all duration-300 transform origin-top-right ${
+                className={`absolute top-full right-0 pt-2 w-64 z-50 transition-all duration-300 transform origin-top-right ${
                   otherDropdownOpen
                     ? 'opacity-100 scale-100 pointer-events-auto translate-y-0'
                     : 'opacity-0 scale-95 pointer-events-none -translate-y-2'
@@ -486,26 +486,32 @@ export default function Header() {
                 onMouseEnter={handleOtherMouseEnter}
                 onMouseLeave={handleOtherMouseLeave}
               >
-                <div className="rounded-2xl bg-[#041a13]/98 border border-[#2fd39a]/40 p-2 shadow-2xl backdrop-blur-2xl text-left">
+                <div className="rounded-2xl bg-[#062017] border-2 border-[#2fd39a]/60 p-2 shadow-[0_25px_60px_rgba(0,0,0,0.95)] text-left space-y-1">
                   <Link
                     href="/contact"
-                    className="flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-extrabold text-gray-100 hover:text-[#2fd39a] hover:bg-white/10 rounded-xl transition"
+                    className="flex items-center gap-3 px-3.5 py-3 text-xs font-black text-white hover:text-[#2fd39a] bg-[#0a2f23] hover:bg-[#0f4634] border border-[#2fd39a]/20 hover:border-[#2fd39a]/60 rounded-xl transition shadow-xs"
                   >
-                    <IconPhoneCall size={16} className="text-[#2fd39a]" />
+                    <div className="w-7 h-7 rounded-lg bg-[#2fd39a]/20 text-[#2fd39a] flex items-center justify-center flex-shrink-0">
+                      <IconPhoneCall size={16} />
+                    </div>
                     <span>{lang === "VN" ? "1. LIÊN HỆ" : "1. CONTACT"}</span>
                   </Link>
                   <Link
                     href="/faq"
-                    className="flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-extrabold text-gray-100 hover:text-[#2fd39a] hover:bg-white/10 rounded-xl transition"
+                    className="flex items-center gap-3 px-3.5 py-3 text-xs font-black text-white hover:text-[#2fd39a] bg-[#0a2f23] hover:bg-[#0f4634] border border-[#2fd39a]/20 hover:border-[#2fd39a]/60 rounded-xl transition shadow-xs"
                   >
-                    <IconHelpCircle size={16} className="text-[#2fd39a]" />
+                    <div className="w-7 h-7 rounded-lg bg-[#2fd39a]/20 text-[#2fd39a] flex items-center justify-center flex-shrink-0">
+                      <IconHelpCircle size={16} />
+                    </div>
                     <span>{lang === "VN" ? "2. CÂU HỎI THƯỜNG GẶP (FAQ)" : "2. FREQUENTLY ASKED QUESTIONS (FAQ)"}</span>
                   </Link>
                   <Link
                     href="/structure"
-                    className="flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-extrabold text-gray-100 hover:text-[#2fd39a] hover:bg-white/10 rounded-xl transition"
+                    className="flex items-center gap-3 px-3.5 py-3 text-xs font-black text-white hover:text-[#2fd39a] bg-[#0a2f23] hover:bg-[#0f4634] border border-[#2fd39a]/20 hover:border-[#2fd39a]/60 rounded-xl transition shadow-xs"
                   >
-                    <IconHierarchy size={16} className="text-[#2fd39a]" />
+                    <div className="w-7 h-7 rounded-lg bg-[#2fd39a]/20 text-[#2fd39a] flex items-center justify-center flex-shrink-0">
+                      <IconHierarchy size={16} />
+                    </div>
                     <span>{lang === "VN" ? "3. SƠ ĐỒ TỔ CHỨC / CHI NHÁNH" : "3. ORGANIZATION / BRANCHES"}</span>
                   </Link>
                 </div>
@@ -536,8 +542,8 @@ export default function Header() {
 
                 {/* Notification Dropdown */}
                 {notifOpen && (
-                  <div className="absolute top-full right-0 mt-3 w-80 rounded-3xl bg-[#041a13]/98 border border-[#2fd39a]/30 p-4 shadow-2xl backdrop-blur-2xl animate-in fade-in slide-in-from-top-3 duration-200">
-                    <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-2">
+                  <div className="absolute top-full right-0 mt-3 w-80 rounded-3xl bg-[#062017] border-2 border-[#2fd39a]/60 p-4 shadow-[0_25px_60px_rgba(0,0,0,0.95)] animate-in fade-in slide-in-from-top-3 duration-200">
+                    <div className="flex items-center justify-between pb-3 border-b border-white/15 mb-2">
                       <div className="flex items-center gap-2">
                         <IconBell size={16} className="text-[#2fd39a]" />
                         <span className="text-xs font-bold text-white uppercase tracking-wider">{lang === "VN" ? "Thông Báo Vận Hành" : "Operations Notifications"}</span>
@@ -558,15 +564,15 @@ export default function Header() {
                           key={n.id}
                           className={`p-3 rounded-2xl border text-left transition-all ${
                             n.isRead
-                              ? 'bg-white/[0.02] border-white/5 opacity-70'
-                              : 'bg-[#0f4133]/50 border-[#2fd39a]/30'
+                              ? 'bg-[#0a2f23]/60 border-white/10 opacity-80'
+                              : 'bg-[#0f4133] border-[#2fd39a]/50 shadow-xs'
                           }`}
                         >
                           <div className="flex items-center justify-between text-xs font-bold text-white">
                             <span>{n.title}</span>
                             <span className="text-[10px] text-[#f2dc9a] font-normal">{n.time}</span>
                           </div>
-                          <p className="text-[11px] text-gray-300 mt-1 leading-snug">{n.message}</p>
+                          <p className="text-[11px] text-gray-200 mt-1 leading-snug">{n.message}</p>
                         </div>
                       ))}
                     </div>
@@ -587,7 +593,7 @@ export default function Header() {
               >
                 <button
                   onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                  className="flex items-center gap-2 bg-[#0f4133]/90 hover:bg-[#0f4133] px-3.5 py-1.5 rounded-full border border-[#2fd39a]/40 shadow-md text-white transition-all cursor-pointer group"
+                  className="flex items-center gap-2 bg-[#0f4133] hover:bg-[#145341] px-3.5 py-1.5 rounded-full border border-[#2fd39a]/50 shadow-lg text-white transition-all cursor-pointer group"
                 >
                   <div className="relative">
                     <UserAvatar
@@ -618,9 +624,9 @@ export default function Header() {
                   onMouseEnter={handleUserMouseEnter}
                   onMouseLeave={handleUserMouseLeave}
                 >
-                  <div className="rounded-3xl bg-[#041a13]/98 border border-[#2fd39a]/40 p-3.5 shadow-[0_20px_60px_rgba(0,0,0,0.8)] backdrop-blur-2xl text-left animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="rounded-3xl bg-[#062017] border-2 border-[#2fd39a]/60 p-3.5 shadow-[0_25px_70px_rgba(0,0,0,0.95)] text-left animate-in fade-in slide-in-from-top-2 duration-200">
                     {/* User Info Header Banner */}
-                    <div className="p-3.5 rounded-2xl bg-gradient-to-r from-[#0a3528] to-[#041a13] border border-[#2fd39a]/30 mb-2 space-y-2">
+                    <div className="p-3.5 rounded-2xl bg-[#0a2f23] border border-[#2fd39a]/40 mb-3 space-y-2 shadow-inner">
                       <div className="flex items-center gap-3">
                         <UserAvatar
                           src={userInfo?.avatar}
@@ -629,35 +635,35 @@ export default function Header() {
                         />
                         <div className="min-w-0 flex-1">
                           <h4 className="text-sm font-black truncate text-white">{userInfo?.name || 'Phạm Nguyễn Anh Huy'}</h4>
-                          <p className="text-xs text-[#2fd39a] truncate font-medium mt-0.5">{userInfo?.email || 'anhhuy.pham@tbsgroup.vn'}</p>
+                          <p className="text-xs text-[#2fd39a] truncate font-semibold mt-0.5">{userInfo?.email || 'anhhuy.pham@tbsgroup.vn'}</p>
                         </div>
                       </div>
-                      <div className="flex items-center justify-between pt-1 border-t border-white/10">
-                        <span className="inline-block px-2.5 py-0.5 rounded-full bg-[#2fd39a]/20 text-[#2fd39a] text-[10px] font-extrabold uppercase tracking-wider border border-[#2fd39a]/30">
+                      <div className="flex items-center justify-between pt-2 border-t border-white/15">
+                        <span className="inline-block px-2.5 py-0.5 rounded-full bg-[#2fd39a]/25 text-[#2fd39a] text-[10px] font-extrabold uppercase tracking-wider border border-[#2fd39a]/40">
                           {userInfo?.title || 'IT - Team Chuyển Đổi Số'}
                         </span>
-                        <span className="text-[10px] font-mono text-[#f2dc9a]">
+                        <span className="text-[10px] font-mono font-bold text-[#f2dc9a]">
                           Mã NV: {userInfo?.empCode || '202608001'}
                         </span>
                       </div>
                     </div>
 
                     {/* Menu Options List */}
-                    <div className="space-y-1">
+                    <div className="space-y-1.5">
                       {/* Option 1: Thông tin cá nhân / Personal Information */}
                       <button
                         onClick={() => {
                           setUserDropdownOpen(false);
                           setProfileModalOpen(true);
                         }}
-                        className="w-full p-2.5 rounded-xl text-left flex items-center gap-3 text-xs font-bold text-gray-200 hover:bg-[#0f4133] hover:text-[#2fd39a] border border-transparent hover:border-[#2fd39a]/30 transition-all cursor-pointer group"
+                        className="w-full p-2.5 rounded-xl text-left flex items-center gap-3 text-xs font-bold text-white bg-[#0a2f23] hover:bg-[#0f4634] border border-[#2fd39a]/20 hover:border-[#2fd39a]/60 transition-all cursor-pointer group shadow-xs"
                       >
-                        <div className="w-8 h-8 rounded-xl bg-[#2fd39a]/15 text-[#2fd39a] flex items-center justify-center group-hover:bg-[#2fd39a] group-hover:text-[#041a13] transition-colors flex-shrink-0 border border-[#2fd39a]/20">
+                        <div className="w-8 h-8 rounded-xl bg-[#2fd39a]/20 text-[#2fd39a] flex items-center justify-center group-hover:bg-[#2fd39a] group-hover:text-[#041a13] transition-colors flex-shrink-0 border border-[#2fd39a]/30">
                           <IconUser size={16} />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="font-extrabold text-white group-hover:text-[#2fd39a]">{lang === "VN" ? "Thông tin cá nhân" : "Personal Information"}</div>
-                          <div className="text-[10px] text-gray-400 font-normal truncate">{lang === "VN" ? "Họ tên, SĐT, Email & Avatar" : "Name, phone, email & avatar"}</div>
+                          <div className="text-[10px] text-gray-300 font-normal truncate">{lang === "VN" ? "Họ tên, SĐT, Email & Avatar" : "Name, phone, email & avatar"}</div>
                         </div>
                       </button>
 
@@ -667,14 +673,14 @@ export default function Header() {
                           setUserDropdownOpen(false);
                           setChangePasswordModalOpen(true);
                         }}
-                        className="w-full p-2.5 rounded-xl text-left flex items-center gap-3 text-xs font-bold text-gray-200 hover:bg-[#0f4133] hover:text-[#f2dc9a] border border-transparent hover:border-amber-400/30 transition-all cursor-pointer group"
+                        className="w-full p-2.5 rounded-xl text-left flex items-center gap-3 text-xs font-bold text-white bg-[#0a2f23] hover:bg-[#0f4634] border border-amber-400/20 hover:border-amber-400/60 transition-all cursor-pointer group shadow-xs"
                       >
-                        <div className="w-8 h-8 rounded-xl bg-amber-400/15 text-[#f2dc9a] flex items-center justify-center group-hover:bg-[#f2dc9a] group-hover:text-[#041a13] transition-colors flex-shrink-0 border border-amber-400/20">
+                        <div className="w-8 h-8 rounded-xl bg-amber-400/20 text-[#f2dc9a] flex items-center justify-center group-hover:bg-[#f2dc9a] group-hover:text-[#041a13] transition-colors flex-shrink-0 border border-amber-400/30">
                           <IconKey size={16} />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="font-extrabold text-white group-hover:text-[#f2dc9a]">{lang === "VN" ? "Đổi mật khẩu" : "Change Password"}</div>
-                          <div className="text-[10px] text-gray-400 font-normal truncate">{lang === "VN" ? "Cập nhật mật khẩu tài khoản" : "Update account password"}</div>
+                          <div className="text-[10px] text-gray-300 font-normal truncate">{lang === "VN" ? "Cập nhật mật khẩu tài khoản" : "Update account password"}</div>
                         </div>
                       </button>
 
@@ -683,7 +689,7 @@ export default function Header() {
                         <Link
                           href="/admin"
                           onClick={() => setUserDropdownOpen(false)}
-                          className="w-full p-2.5 rounded-xl text-left flex items-center gap-3 text-xs font-bold text-[#2fd39a] bg-[#2fd39a]/10 hover:bg-[#2fd39a]/20 border border-[#2fd39a]/30 hover:border-[#2fd39a] transition-all cursor-pointer group my-1"
+                          className="w-full p-2.5 rounded-xl text-left flex items-center gap-3 text-xs font-bold text-[#2fd39a] bg-[#0e4233] hover:bg-[#145341] border border-[#2fd39a]/50 hover:border-[#2fd39a] transition-all cursor-pointer group my-1 shadow-xs"
                         >
                           <div className="w-8 h-8 rounded-xl bg-[#2fd39a] text-[#041a13] flex items-center justify-center group-hover:scale-105 transition-transform flex-shrink-0 font-extrabold shadow-md shadow-emerald-950/40">
                             <IconShieldCheck size={18} />
@@ -692,14 +698,14 @@ export default function Header() {
                             <div className="font-extrabold text-[#2fd39a] group-hover:text-white flex items-center gap-1">
                               <span>{lang === "VN" ? "Trang Quản Trị (Admin Mode)" : "Admin Panel"}</span>
                             </div>
-                            <div className="text-[10px] text-emerald-300/80 font-normal truncate">
+                            <div className="text-[10px] text-emerald-200/90 font-normal truncate">
                               {lang === "VN" ? "Truy cập hệ thống quản trị /admin" : "Access admin system"}
                             </div>
                           </div>
                         </Link>
                       )}
 
-                      <div className="my-1.5 border-t border-white/10" />
+                      <div className="my-1.5 border-t border-white/15" />
 
                       {/* Option 4: Đăng xuất / Logout */}
                       <button
@@ -707,14 +713,14 @@ export default function Header() {
                           setUserDropdownOpen(false);
                           handleLogout();
                         }}
-                        className="w-full p-2.5 rounded-xl text-left flex items-center gap-3 text-xs font-bold text-red-400 hover:bg-red-500/15 hover:text-red-300 border border-transparent hover:border-red-500/30 transition-all cursor-pointer group"
+                        className="w-full p-2.5 rounded-xl text-left flex items-center gap-3 text-xs font-bold text-red-300 bg-red-950/40 hover:bg-red-900/60 border border-red-500/30 hover:border-red-500/60 transition-all cursor-pointer group shadow-xs"
                       >
-                        <div className="w-8 h-8 rounded-xl bg-red-500/15 text-red-400 flex items-center justify-center group-hover:bg-red-500 group-hover:text-white transition-colors flex-shrink-0 border border-red-500/20">
+                        <div className="w-8 h-8 rounded-xl bg-red-500/20 text-red-400 flex items-center justify-center group-hover:bg-red-500 group-hover:text-white transition-colors flex-shrink-0 border border-red-500/30">
                           <IconLogout size={16} />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="font-extrabold text-red-400 group-hover:text-red-300">{lang === "VN" ? "Đăng xuất" : "Logout"}</div>
-                          <div className="text-[10px] text-red-400/70 font-normal truncate">Thoát tài khoản an toàn</div>
+                          <div className="font-extrabold text-red-300 group-hover:text-white">{lang === "VN" ? "Đăng xuất" : "Logout"}</div>
+                          <div className="text-[10px] text-red-200/80 font-normal truncate">Thoát tài khoản an toàn</div>
                         </div>
                       </button>
                     </div>

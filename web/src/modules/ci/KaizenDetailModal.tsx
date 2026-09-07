@@ -1070,25 +1070,36 @@ function TabInfoContent({
           ? (editForm.pricing_direction === "TRI_GIA" || normCat === "MATERIAL_SAVING" || normCat === "COST_SAVING")
           : (pricingDir === "TRI_GIA" || pricingDir === "Trị giá" || normCat === "MATERIAL_SAVING" || normCat === "COST_SAVING");
 
-        const timeBefore = isEditing ? Number(editForm.time_before_seconds) : Number(proposal.time_before_seconds || (proposal as any).timeBeforeSeconds || 0);
-        const timeAfter = isEditing ? Number(editForm.time_after_seconds) : Number(proposal.time_after_seconds || (proposal as any).timeAfterSeconds || 0);
+        const tBeforeRaw = isEditing ? Number(editForm.time_before_seconds) : Number(proposal.time_before_seconds || (proposal as any).timeBeforeSeconds || 0);
+        const tAfterRaw = isEditing ? Number(editForm.time_after_seconds) : Number(proposal.time_after_seconds || (proposal as any).timeAfterSeconds || 0);
+        const timeBefore = isNaN(tBeforeRaw) ? 0 : tBeforeRaw;
+        const timeAfter = isNaN(tAfterRaw) ? 0 : tAfterRaw;
         const savedSecs = Math.max(0, timeBefore - timeAfter);
-        const efficiencyVnd = isEditing
+
+        const effRaw = isEditing
           ? (Number(editForm.efficiency_value_vnd) || Math.round(savedSecs * 12.5))
           : Number(proposal.efficiency_value_vnd || (proposal as any).efficiencyValueVND || Math.round(savedSecs * 12.5));
-        const pairQty = isEditing ? Number(editForm.pair_quantity) : Number(proposal.pair_quantity || (proposal as any).so_luong_giay || (proposal as any).quantity || 0);
+        const efficiencyVnd = isNaN(effRaw) ? 0 : effRaw;
 
-        const costBefore = isEditing ? Number(editForm.cost_before || 0) : Number((proposal as any).cost_before || (proposal as any).chi_phi_truoc || 0);
-        const costAfter = isEditing ? Number(editForm.cost_after || 0) : Number((proposal as any).cost_after || (proposal as any).chi_phi_sau || 0);
+        const pQtyRaw = isEditing ? Number(editForm.pair_quantity) : Number(proposal.pair_quantity || (proposal as any).so_luong_giay || (proposal as any).quantity || 0);
+        const pairQty = isNaN(pQtyRaw) ? 0 : pQtyRaw;
+
+        const cBeforeRaw = isEditing ? Number(editForm.cost_before || 0) : Number((proposal as any).cost_before || (proposal as any).chi_phi_truoc || 0);
+        const costBefore = isNaN(cBeforeRaw) ? 0 : cBeforeRaw;
+
+        const cAfterRaw = isEditing ? Number(editForm.cost_after || 0) : Number((proposal as any).cost_after || (proposal as any).chi_phi_sau || 0);
+        const costAfter = isNaN(cAfterRaw) ? 0 : cAfterRaw;
 
         let totalSavingsVnd = 0;
         if (isCostMode) {
-          totalSavingsVnd = isEditing
+          const totRaw = isEditing
             ? (Number(editForm.total_savings_vnd) || Math.max(0, costBefore - costAfter))
             : Number(proposal.total_savings_vnd || (proposal as any).tong_tien_tiet_kiem || Math.max(0, costBefore - costAfter));
+          totalSavingsVnd = isNaN(totRaw) ? 0 : totRaw;
         } else {
           totalSavingsVnd = pairQty > 0 ? efficiencyVnd * pairQty : efficiencyVnd;
         }
+        if (isNaN(totalSavingsVnd)) totalSavingsVnd = 0;
 
         const totalSavingsWordsText = totalSavingsVnd > 0 ? convertNumberToWords(totalSavingsVnd) : "";
 

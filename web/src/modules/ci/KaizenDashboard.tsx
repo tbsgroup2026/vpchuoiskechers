@@ -188,7 +188,9 @@ export default function KaizenDashboard({ proposals, onBackToLibrary, onNavigate
   });
 
   const filteredProposals = useMemo(() => {
+    if (!Array.isArray(proposals)) return [];
     return proposals.filter((p) => {
+      if (!p) return false;
       const subStatus = String(p.sub_status || "").toUpperCase();
       const appStatus = String(p.approval_status || "").toUpperCase();
       const mainStatus = String(p.status || "").toUpperCase();
@@ -219,9 +221,14 @@ export default function KaizenDashboard({ proposals, onBackToLibrary, onNavigate
 
       if (selectedMonth !== "ALL") {
         if (!p.created_at) return false;
-        const d = new Date(p.created_at);
-        const mYear = `T${d.getMonth() + 1}/${d.getFullYear()}`;
-        if (mYear !== selectedMonth) return false;
+        try {
+          const d = new Date(p.created_at);
+          if (isNaN(d.getTime())) return false;
+          const mYear = `T${d.getMonth() + 1}/${d.getFullYear()}`;
+          if (mYear !== selectedMonth) return false;
+        } catch {
+          return false;
+        }
       }
 
       if (!matchCascadingFilter(p, cascadingFilterState)) return false;
@@ -232,16 +239,18 @@ export default function KaizenDashboard({ proposals, onBackToLibrary, onNavigate
 
   const monthOptions = useMemo(() => {
     const set = new Set<string>();
-    proposals.forEach((p) => {
-      if (p.created_at) {
-        try {
-          const d = new Date(p.created_at);
-          if (!isNaN(d.getTime())) {
-            set.add(`T${d.getMonth() + 1}/${d.getFullYear()}`);
-          }
-        } catch {}
-      }
-    });
+    if (Array.isArray(proposals)) {
+      proposals.forEach((p) => {
+        if (p && p.created_at) {
+          try {
+            const d = new Date(p.created_at);
+            if (!isNaN(d.getTime())) {
+              set.add(`T${d.getMonth() + 1}/${d.getFullYear()}`);
+            }
+          } catch {}
+        }
+      });
+    }
 
     set.add("T8/2026");
     set.add("T7/2026");
@@ -255,8 +264,8 @@ export default function KaizenDashboard({ proposals, onBackToLibrary, onNavigate
   }, [proposals]);
 
   const totalCount = filteredProposals.length;
-  const countThiDua = filteredProposals.filter((p) => p.registration_type === "THI_DUA").length;
-  const countLuuTru = filteredProposals.filter((p) => p.registration_type === "LUU_TRU").length;
+  const countThiDua = filteredProposals.filter((p) => p && p.registration_type === "THI_DUA").length;
+  const countLuuTru = filteredProposals.filter((p) => p && p.registration_type === "LUU_TRU").length;
 
   const activeMonthLabel = selectedMonth !== "ALL" ? `Cải tiến ${selectedMonth}` : `Cải tiến T8/2026`;
 
@@ -265,18 +274,18 @@ export default function KaizenDashboard({ proposals, onBackToLibrary, onNavigate
       return filteredProposals.length;
     }
     return filteredProposals.filter((p) => {
-      if (!p.created_at) return false;
+      if (!p || !p.created_at) return false;
       const d = new Date(p.created_at);
       return !isNaN(d.getTime()) && d.getMonth() === 7 && d.getFullYear() === 2026;
     }).length;
   }, [filteredProposals, selectedMonth]);
 
   const countEvaluated = filteredProposals.filter(
-    (p) => p.sub_status === "DA_DANH_GIA" || (p.score_points && p.score_points > 0) || p.rating_count > 0
+    (p) => p && (p.sub_status === "DA_DANH_GIA" || (p.score_points && p.score_points > 0) || (p.rating_count && p.rating_count > 0))
   ).length;
 
   const totalValueTr = useMemo(() => {
-    return filteredProposals.reduce((sum, p) => sum + getProposalValue(p), 0);
+    return filteredProposals.reduce((sum, p) => sum + (p ? getProposalValue(p) : 0), 0);
   }, [filteredProposals]);
 
   const { chartItems, levelName, contextLabel } = useMemo(() => {
@@ -455,7 +464,7 @@ export default function KaizenDashboard({ proposals, onBackToLibrary, onNavigate
   const [showTop11Modal, setShowTop11Modal] = useState(false);
 
   const ranked11Proposals = useMemo(() => {
-    let thiDuaList = filteredProposals.filter((p) => !p || !(p as any).is_archived);
+    let thiDuaList = filteredProposals.filter((p) => p && !(p as any).is_archived);
 
     const sorted = [...thiDuaList]
       .sort((a, b) => {

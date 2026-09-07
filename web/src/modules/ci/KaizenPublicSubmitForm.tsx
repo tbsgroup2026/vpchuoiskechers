@@ -60,18 +60,58 @@ export function normalizeCategoryId(catRaw?: string): string {
 }
 
 export const REAL_FACTORIES = [
-  "VP CHUỖI",
-  "VP2 SKECHERS",
-  "Nhà Máy Miền Đông",
   "Kiên Giang 1",
   "Kiên Giang 2",
   "Kiên Giang 3",
+  "Văn Phòng SKECHERS",
   "Hoàn thiện đế",
+  "Nhà Máy Miền Đông",
   "Phòng kế hoạch",
   "Phòng CN-CI",
   "Phòng chất lượng",
   "Phòng nhân sự",
 ];
+
+export function normalizeFactoryName(fac?: string): string {
+  if (!fac) return "Kiên Giang 1";
+  const f = fac.trim().toUpperCase();
+  if (f.includes("VP CHUỖI") || f.includes("VP2") || f.includes("VP CHUOI") || f.includes("SKECHERS") || f === "VP CHUỖI") return "Văn Phòng SKECHERS";
+  if (f === "KG1" || f === "KG 1" || f.includes("KIÊN GIANG 1") || f.includes("KIEN GIANG 1")) return "Kiên Giang 1";
+  if (f === "KG2" || f === "KG 2" || f.includes("KIÊN GIANG 2") || f.includes("KIEN GIANG 2")) return "Kiên Giang 2";
+  if (f === "KG3" || f === "KG 3" || f.includes("KIÊN GIANG 3") || f.includes("KIEN GIANG 3")) return "Kiên Giang 3";
+  if (f.includes("HOÀN THIỆN ĐẾ") || f.includes("HTĐ") || f === "HTD") return "Hoàn thiện đế";
+  if (f.includes("MIỀN ĐÔNG") || f.includes("MIEN DONG") || f === "NMMĐ" || f === "NMMD") return "Nhà Máy Miền Đông";
+  if (f.includes("KẾ HOẠCH") || f.includes("KE HOACH")) return "Phòng kế hoạch";
+  if (f.includes("CN-CI") || f.includes("CI")) return "Phòng CN-CI";
+  if (f.includes("CHẤT LƯỢNG") || f.includes("QA") || f.includes("QC")) return "Phòng chất lượng";
+  if (f.includes("NHÂN SỰ") || f.includes("HR")) return "Phòng nhân sự";
+  return fac;
+}
+
+export function normalizeWorkshopName(facNormalized: string, wsRaw?: string): string {
+  if (!wsRaw) return "";
+  const ws = wsRaw.trim().toUpperCase();
+  
+  if (facNormalized === "Kiên Giang 1") {
+    if (ws.includes("ĐẾ") || ws.includes("ĐẦU VÀO") || ws.includes("CAN EP")) return "Xưởng Đế KG1";
+    if (ws.includes("MŨI") || ws.includes("MAY")) return "Xưởng Mũi KG1";
+    if (ws.includes("GÒ") || ws.includes("GO")) return "Xưởng Gò KG1";
+  }
+  if (facNormalized === "Kiên Giang 2") {
+    if (ws.includes("MŨI") || ws.includes("MAY")) return "Xưởng Mũi KG2";
+    if (ws.includes("GÒ") || ws.includes("GO")) return "Xưởng Gò KG2";
+  }
+  if (facNormalized === "Kiên Giang 3") {
+    return "Xưởng Sản Xuất KG3";
+  }
+  if (facNormalized === "Hoàn thiện đế") {
+    return "Xưởng Hoàn Thiện Đế";
+  }
+  if (facNormalized === "Văn Phòng SKECHERS") {
+    return "Khối Vận Hành SKECHERS";
+  }
+  return wsRaw;
+}
 
 export const REAL_DEPARTMENTS = [
   "VP CHUỖI",
@@ -175,7 +215,7 @@ export default function KaizenPublicSubmitForm({
   const [isReadOnlyAutoFill, setIsReadOnlyAutoFill] = useState(false);
 
   // Single-select cascading org selection for submission form
-  const [selectedFormFactory, setSelectedFormFactory] = useState<string>("KG 1");
+  const [selectedFormFactory, setSelectedFormFactory] = useState<string>("Kiên Giang 1");
   const [selectedFormWorkshop, setSelectedFormWorkshop] = useState<string>("Xưởng Đế KG1");
   const [selectedFormLine, setSelectedFormLine] = useState<string>("");
   const [selectedFormChuyen, setSelectedFormChuyen] = useState<string>("");
@@ -238,14 +278,14 @@ export default function KaizenPublicSubmitForm({
 
   const [form, setForm] = useState({
     // Section A: Thông tin người đăng ký
-    region: "KG 1",
+    region: "Kiên Giang 1",
     proposerEmpCode: "",
     proposerPosition: "Công nhân",
     proposerMonth: new Date().getMonth() + 1,
     proposerYear: new Date().getFullYear(),
     proposerName: "",
     customer: "",
-    factory: "KG 1",
+    factory: "Kiên Giang 1",
     department: "Xưởng Đế KG1",
 
     // Section B: Thông tin cải tiến
@@ -273,10 +313,10 @@ export default function KaizenPublicSubmitForm({
     registrationType: "LUU_TRU",
   });
 
-  // Debounced Employee Auto-Fill Lookup by MSNV (Blur + Debounce ~500ms, >= 4 chars)
+  // Debounced Employee Auto-Fill Lookup by MSNV (Blur + Debounce ~300ms, >= 3 chars)
   React.useEffect(() => {
     const code = form.proposerEmpCode.trim();
-    if (!code || code.length < 4) {
+    if (!code || code.length < 3) {
       setNotFoundMsg(null);
       setLookupLoading(false);
       setAutoFilled(false);
@@ -297,11 +337,13 @@ export default function KaizenPublicSubmitForm({
 
         if (json.success && json.data) {
           const emp = json.data;
-          if (emp.factory_id) setSelectedFormFactory(emp.factory_id);
-          if (emp.workshop_id) setSelectedFormWorkshop(emp.workshop_id);
-          if (emp.line_id) setSelectedFormLine(emp.line_id);
-          if (emp.chuyen_id) setSelectedFormChuyen(emp.chuyen_id);
-          if (emp.to_id) setSelectedFormTo(emp.to_id);
+          const normalizedFac = normalizeFactoryName(emp.factory_id);
+          const normalizedWs = normalizeWorkshopName(normalizedFac, emp.workshop_id);
+          const lineVal = emp.line_id || "";
+
+          setSelectedFormFactory(normalizedFac);
+          setSelectedFormWorkshop(normalizedWs);
+          setSelectedFormLine(lineVal);
 
           let mappedPos = "Công nhân";
           if (emp.vtcv || emp.position) {
@@ -319,16 +361,15 @@ export default function KaizenPublicSubmitForm({
             ...prev,
             proposerName: emp.name || prev.proposerName,
             proposerPosition: mappedPos,
-            region: emp.factory_id || prev.region,
-            factory: emp.factory_id || prev.factory,
-            department: emp.workshop_id || prev.department,
+            region: normalizedFac,
+            factory: normalizedFac,
+            department: normalizedWs,
           }));
           setAutoFilled(true);
           setNotFoundMsg(null);
           showToast("✨ Đã tự động điền thông tin nhân sự và tổ xưởng theo MSNV!");
         } else {
           setNotFoundMsg("Không tìm thấy MSNV, vui lòng chọn thủ công");
-          showToast("⚠️ Không tìm thấy MSNV, vui lòng chọn tổ xưởng thủ công");
           setAutoFilled(false);
         }
       } catch (err) {
@@ -337,7 +378,7 @@ export default function KaizenPublicSubmitForm({
       } finally {
         setLookupLoading(false);
       }
-    }, 400);
+    }, 300);
 
     return () => clearTimeout(timer);
   }, [form.proposerEmpCode, isEdit, initialData]);
@@ -501,6 +542,18 @@ export default function KaizenPublicSubmitForm({
       !form.beforeDescription.trim()
     ) {
       showToast("⚠️ Vui lòng điền mã số nhân viên, họ tên, đơn vị và mô tả hiện trạng trước cải tiến!");
+      return;
+    }
+
+    const hasBeforeMedia = !!(
+      (form.beforeImageUrl && form.beforeImageUrl.trim()) ||
+      (form.beforeImageLink && form.beforeImageLink.trim()) ||
+      (form.beforeVideoUrl && form.beforeVideoUrl.trim()) ||
+      (form.beforeVideoLink && form.beforeVideoLink.trim())
+    );
+
+    if (!hasBeforeMedia) {
+      showToast("⚠️ Vui lòng tải lên hoặc dán link Ảnh/Video TRƯỚC cải tiến (Bắt buộc)!");
       return;
     }
 
@@ -822,14 +875,13 @@ export default function KaizenPublicSubmitForm({
                     className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838] bg-white"
                   >
                     <option value="">-- Chọn Line / Chuyền --</option>
-                    {availableFormLines.length > 0 ? (
-                      availableFormLines.map((ln) => (
-                        <option key={ln} value={ln}>
-                          {ln}
-                        </option>
-                      ))
-                    ) : (
-                      selectedFormLine && <option value={selectedFormLine}>{selectedFormLine}</option>
+                    {availableFormLines.map((ln) => (
+                      <option key={ln} value={ln}>
+                        {ln}
+                      </option>
+                    ))}
+                    {selectedFormLine && !availableFormLines.includes(selectedFormLine) && (
+                      <option value={selectedFormLine}>{selectedFormLine}</option>
                     )}
                   </select>
                 </div>
@@ -851,14 +903,13 @@ export default function KaizenPublicSubmitForm({
                     className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838] bg-white"
                   >
                     <option value="">-- Chọn Phân Xưởng --</option>
-                    {availableFormWorkshops.length > 0 ? (
-                      availableFormWorkshops.map((ws) => (
-                        <option key={ws} value={ws}>
-                          {ws}
-                        </option>
-                      ))
-                    ) : (
-                      selectedFormWorkshop && <option value={selectedFormWorkshop}>{selectedFormWorkshop}</option>
+                    {availableFormWorkshops.map((ws) => (
+                      <option key={ws} value={ws}>
+                        {ws}
+                      </option>
+                    ))}
+                    {selectedFormWorkshop && !availableFormWorkshops.includes(selectedFormWorkshop) && (
+                      <option value={selectedFormWorkshop}>{selectedFormWorkshop}</option>
                     )}
                   </select>
                 </div>
@@ -886,6 +937,9 @@ export default function KaizenPublicSubmitForm({
                         {fac}
                       </option>
                     ))}
+                    {selectedFormFactory && !REAL_FACTORIES.includes(selectedFormFactory) && (
+                      <option value={selectedFormFactory}>{selectedFormFactory}</option>
+                    )}
                   </select>
                 </div>
               </div>
@@ -975,14 +1029,15 @@ export default function KaizenPublicSubmitForm({
           <div className="space-y-3 pb-4 border-b border-slate-200">
             <div className="flex items-center gap-2 text-indigo-600">
               <IconPhoto size={18} />
-              <h3 className="font-black text-slate-900 text-xs uppercase tracking-wide">
-                D. HÌNH ẢNH &amp; VIDEO TRƯỚC CẢI TIẾN (ĐÃ XẢY RA / LÃNG PHÍ)
+              <h3 className="font-black text-slate-900 text-xs uppercase tracking-wide flex items-center gap-1">
+                <span>C. HÌNH ẢNH &amp; VIDEO TRƯỚC CẢI TIẾN (ĐÃ XẢY RA / LÃNG PHÍ)</span>
+                <span className="text-rose-600 font-black text-sm">*</span>
               </h3>
             </div>
 
             <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-2.5 text-[11px] font-bold text-[#006838] flex items-center gap-2">
               <span>📸</span>
-              <span>Bạn chỉ cần chọn tải lên ảnh/video hiện trạng TRƯỚC cải tiến (Có thể chọn nhiều ảnh cùng lúc)</span>
+              <span>Bắt buộc tải lên hoặc dán link Ảnh / Video hiện trạng TRƯỚC cải tiến</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -990,7 +1045,7 @@ export default function KaizenPublicSubmitForm({
                 <div className="flex items-center justify-between">
                   <label className="font-black text-slate-900 text-xs flex items-center gap-1.5">
                     <IconPhoto size={16} className="text-[#006838]" />
-                    <span>Ảnh TRƯỚC Cải Tiến (Chọn nhiều ảnh):</span>
+                    <span>Ảnh TRƯỚC Cải Tiến <span className="text-rose-600 font-bold ml-0.5">*</span>:</span>
                   </label>
                   {form.beforeImageUrl && (
                     <button

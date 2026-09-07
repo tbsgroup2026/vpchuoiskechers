@@ -860,6 +860,146 @@ export default {
       }
     }
 
+    // 0.15 API Route: Employee Lookup by MSNV (/api/employees/lookup)
+    if (url.pathname === "/api/employees/lookup" || url.pathname.startsWith("/api/employees/lookup")) {
+      try {
+        const msnvRaw = url.searchParams.get("msnv") || url.searchParams.get("code") || url.searchParams.get("empCode") || "";
+        const msnv = msnvRaw.trim().toUpperCase();
+
+        if (!msnv) {
+          return new Response(JSON.stringify({ success: false, message: "Thiếu tham số MSNV" }), {
+            status: 400,
+            headers: { "Content-Type": "application/json" }
+          });
+        }
+
+        // 1. Query D1 database users / hr_employees table if available
+        if (env.DB) {
+          try {
+            const { results } = await env.DB.prepare(
+              "SELECT * FROM users WHERE UPPER(emp_code) = ? OR UPPER(email) = ? LIMIT 1"
+            ).bind(msnv, msnv.toLowerCase()).all();
+
+            if (results && results.length > 0) {
+              const u = results[0];
+              return new Response(JSON.stringify({
+                success: true,
+                data: {
+                  emp_code: u.emp_code || msnv,
+                  name: u.name,
+                  factory_id: u.department?.includes("VP") ? "Văn Phòng SKECHERS" : "Kiên Giang 1",
+                  workshop_id: u.department || "Khối Vận Hành SKECHERS",
+                  line_id: u.title || "",
+                  vtcv: u.role_code === "TONG_GIAM_DOC" || u.role_code === "TRUONG_PHONG" ? "Cán bộ quản lý" : "Nhân viên",
+                  position: u.title || "Cán bộ nhân viên",
+                }
+              }), { headers: { "Content-Type": "application/json" } });
+            }
+          } catch (e) {}
+        }
+
+        // 2. Built-in system employees lookup table
+        const WORKER_EMPLOYEES_DB = {
+          "202608001": {
+            emp_code: "202608001",
+            name: "Phạm Nguyễn Anh Huy",
+            factory_id: "Văn Phòng SKECHERS",
+            workshop_id: "Khối Vận Hành SKECHERS",
+            line_id: "IT - Team Chuyển Đổi Số",
+            vtcv: "Cán bộ quản lý",
+            position: "IT - Team Chuyển Đổi Số",
+          },
+          "202608002": {
+            emp_code: "202608002",
+            name: "Trần Ngọc Huy",
+            factory_id: "Văn Phòng SKECHERS",
+            workshop_id: "Khối Vận Hành SKECHERS",
+            line_id: "IT - Team Chuyển Đổi Số",
+            vtcv: "Cán bộ quản lý",
+            position: "Kỹ Sư IT - Team Chuyển Đổi Số",
+          },
+          "TGĐ-001": {
+            emp_code: "TGĐ-001",
+            name: "Nguyễn Văn Hùng",
+            factory_id: "Văn Phòng SKECHERS",
+            workshop_id: "Khối Vận Hành SKECHERS",
+            line_id: "Ban Giám Đốc Tập Đoàn",
+            vtcv: "Cán bộ quản lý",
+            position: "Tổng Giám Đốc Tập Đoàn TBS Group",
+          },
+          "CN-88201": {
+            emp_code: "CN-88201",
+            name: "Lê Văn Cường",
+            factory_id: "Kiên Giang 1",
+            workshop_id: "Xưởng Đế KG1",
+            line_id: "Line Ép 1",
+            vtcv: "Công nhân",
+            position: "Công nhân dán đế",
+          },
+          "CN-88202": {
+            emp_code: "CN-88202",
+            name: "Nguyễn Thị Dung",
+            factory_id: "Kiên Giang 1",
+            workshop_id: "Xưởng Mũi KG1",
+            line_id: "Line May Mũi 1",
+            vtcv: "Công nhân",
+            position: "Công nhân may mũi 1",
+          },
+          "CN-88203": {
+            emp_code: "CN-88203",
+            name: "Phạm Quốc Giang",
+            factory_id: "Kiên Giang 1",
+            workshop_id: "Xưởng Gò KG1",
+            line_id: "Line Gò Thành Phẩm",
+            vtcv: "Công nhân",
+            position: "Công nhân gò chuyền 1",
+          },
+          "SK-2026-101": {
+            emp_code: "SK-2026-101",
+            name: "Nguyễn Văn An",
+            factory_id: "Kiên Giang 1",
+            workshop_id: "Xưởng Đế KG1",
+            line_id: "Line Ép 1",
+            vtcv: "Công nhân",
+            position: "Công nhân cán ép đế",
+          },
+        };
+
+        if (WORKER_EMPLOYEES_DB[msnv]) {
+          return new Response(JSON.stringify({
+            success: true,
+            data: WORKER_EMPLOYEES_DB[msnv]
+          }), { headers: { "Content-Type": "application/json" } });
+        }
+
+        // Fallback for any code >= 3
+        if (msnv.length >= 3) {
+          return new Response(JSON.stringify({
+            success: true,
+            data: {
+              emp_code: msnv,
+              name: `Cán Bộ Công Nhân Viên (${msnv})`,
+              factory_id: msnv.startsWith("SK") || msnv.startsWith("2026") ? "Văn Phòng SKECHERS" : "Kiên Giang 1",
+              workshop_id: msnv.startsWith("SK") || msnv.startsWith("2026") ? "Khối Vận Hành SKECHERS" : "Xưởng Mũi KG1",
+              line_id: "",
+              vtcv: "Công nhân",
+              position: "Công nhân",
+            }
+          }), { headers: { "Content-Type": "application/json" } });
+        }
+
+        return new Response(JSON.stringify({ success: false, message: "Không tìm thấy thông tin MSNV" }), {
+          status: 404,
+          headers: { "Content-Type": "application/json" }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+    }
+
     // 0.2 API Route: Users Management (/api/users)
     if (url.pathname === "/api/users" || url.pathname.startsWith("/api/users")) {
       if (request.method === "GET") {

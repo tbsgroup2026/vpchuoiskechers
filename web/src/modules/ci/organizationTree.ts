@@ -22,6 +22,7 @@ export const KIEN_GIANG_FACTORIES = [
   "Kiên Giang 3",
   "Hoàn thiện đế",
   "Nhà Máy Miền Đông",
+  "Văn phòng Chuỗi",
 ];
 
 export function isKienGiangFactory(factory: string): boolean {
@@ -32,7 +33,9 @@ export function isKienGiangFactory(factory: string): boolean {
     normalized.includes("kg") ||
     normalized.includes("hoàn thiện đế") ||
     normalized.includes("htđ") ||
-    normalized.includes("miền đông")
+    normalized.includes("miền đông") ||
+    normalized.includes("văn phòng chuỗi") ||
+    normalized.includes("vp chuỗi")
   );
 }
 
@@ -60,6 +63,7 @@ export const INITIAL_ORG_TREE: OrgNodeMap = {
   "Kiên Giang 3": STANDARD_WORKSHOPS,
   "Hoàn thiện đế": STANDARD_WORKSHOPS,
   "Nhà Máy Miền Đông": STANDARD_WORKSHOPS,
+  "Văn phòng Chuỗi": STANDARD_WORKSHOPS,
 };
 
 /**

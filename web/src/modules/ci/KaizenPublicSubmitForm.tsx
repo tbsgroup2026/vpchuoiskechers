@@ -65,11 +65,13 @@ export const REAL_FACTORIES = [
   "Kiên Giang 3",
   "Hoàn thiện đế",
   "Nhà Máy Miền Đông",
+  "Văn phòng Chuỗi",
 ];
 
 export function normalizeFactoryName(fac?: string): string {
   if (!fac) return "Kiên Giang 1";
   const f = fac.trim().toUpperCase();
+  if (f.includes("VĂN PHÒNG CHUỖI") || f.includes("VP CHUỖI") || f.includes("VP CHUOI") || f.includes("SKECHERS")) return "Văn phòng Chuỗi";
   if (f === "KG1" || f === "KG 1" || f.includes("KIÊN GIANG 1") || f.includes("KIEN GIANG 1")) return "Kiên Giang 1";
   if (f === "KG2" || f === "KG 2" || f.includes("KIÊN GIANG 2") || f.includes("KIEN GIANG 2")) return "Kiên Giang 2";
   if (f === "KG3" || f === "KG 3" || f.includes("KIÊN GIANG 3") || f.includes("KIEN GIANG 3")) return "Kiên Giang 3";

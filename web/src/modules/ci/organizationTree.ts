@@ -17,12 +17,12 @@ export interface OrgNodeMap {
 }
 
 export const KIEN_GIANG_FACTORIES = [
+  "Nhà Máy Miền Đông",
   "Kiên Giang 1",
   "Kiên Giang 2",
   "Kiên Giang 3",
-  "Hoàn thiện đế",
-  "Nhà Máy Miền Đông",
-  "Văn phòng Chuỗi",
+  "Hoàn Thiện Đế",
+  "Văn Phòng Chuỗi",
 ];
 
 export function isKienGiangFactory(factory: string): boolean {
@@ -34,8 +34,9 @@ export function isKienGiangFactory(factory: string): boolean {
     normalized.includes("hoàn thiện đế") ||
     normalized.includes("htđ") ||
     normalized.includes("miền đông") ||
-    normalized.includes("văn phòng chuỗi") ||
-    normalized.includes("vp chuỗi")
+    normalized.includes("nmmđ") ||
+    normalized.includes("văn phòng") ||
+    normalized.includes("vp")
   );
 }
 
@@ -55,15 +56,44 @@ const STANDARD_WORKSHOPS = {
     "Line 2": ["Tổ 1", "Tổ 2"],
     "Line 3": ["Tổ 1", "Tổ 2"],
   },
+  // Legacy aliases mapping to same structure
+  "Xưởng Đế": {
+    "Line 1": ["Tổ 1", "Tổ 2"],
+    "Line 2": ["Tổ 1", "Tổ 2"],
+    "Line 3": ["Tổ 1", "Tổ 2"],
+  },
+  "Xưởng Mũi": {
+    "Line 1": ["Tổ 1", "Tổ 2"],
+    "Line 2": ["Tổ 1", "Tổ 2"],
+    "Line 3": ["Tổ 1", "Tổ 2"],
+  },
+  "Xưởng Gò": {
+    "Line 1": ["Tổ 1", "Tổ 2"],
+    "Line 2": ["Tổ 1", "Tổ 2"],
+    "Line 3": ["Tổ 1", "Tổ 2"],
+  },
+};
+
+const VP_WORKSHOPS = {
+  "Văn phòng": {
+    "Line 1": ["Tổ 1"],
+  },
+  ...STANDARD_WORKSHOPS,
 };
 
 export const INITIAL_ORG_TREE: OrgNodeMap = {
-  "Kiên Giang 1": STANDARD_WORKSHOPS,
-  "Kiên Giang 2": STANDARD_WORKSHOPS,
-  "Kiên Giang 3": STANDARD_WORKSHOPS,
-  "Hoàn thiện đế": STANDARD_WORKSHOPS,
   "Nhà Máy Miền Đông": STANDARD_WORKSHOPS,
-  "Văn phòng Chuỗi": STANDARD_WORKSHOPS,
+  "NMMĐ": STANDARD_WORKSHOPS,
+  "Kiên Giang 1": STANDARD_WORKSHOPS,
+  "Nhà máy Kiên Giang 1": STANDARD_WORKSHOPS,
+  "Kiên Giang 2": STANDARD_WORKSHOPS,
+  "Nhà máy Kiên Giang 2": STANDARD_WORKSHOPS,
+  "Kiên Giang 3": STANDARD_WORKSHOPS,
+  "Nhà máy Kiên Giang 3": STANDARD_WORKSHOPS,
+  "Hoàn Thiện Đế": STANDARD_WORKSHOPS,
+  "Văn Phòng Chuỗi": VP_WORKSHOPS,
+  "Văn phòng Chuỗi Supply Chain": VP_WORKSHOPS,
+  "VP Chuỗi": VP_WORKSHOPS,
 };
 
 /**

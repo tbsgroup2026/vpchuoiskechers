@@ -972,23 +972,7 @@ export default {
           }), { headers: { "Content-Type": "application/json" } });
         }
 
-        // Fallback for any code >= 3
-        if (msnv.length >= 3) {
-          return new Response(JSON.stringify({
-            success: true,
-            data: {
-              emp_code: msnv,
-              name: `Cán Bộ Công Nhân Viên (${msnv})`,
-              factory_id: "Kiên Giang 1",
-              workshop_id: "Đầu Vào",
-              line_id: "Line 1",
-              vtcv: "Công nhân",
-              position: "Công nhân",
-            }
-          }), { headers: { "Content-Type": "application/json" } });
-        }
-
-        return new Response(JSON.stringify({ success: false, message: "Không tìm thấy thông tin MSNV" }), {
+        return new Response(JSON.stringify({ success: false, message: "Không tìm thấy thông tin MSNV trong hệ thống" }), {
           status: 404,
           headers: { "Content-Type": "application/json" }
         });

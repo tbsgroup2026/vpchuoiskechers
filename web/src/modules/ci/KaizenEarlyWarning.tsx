@@ -33,10 +33,15 @@ const DASHBOARD_REGIONS = REAL_DEPARTMENTS.map((deptName) => ({
 }));
 
 export default function KaizenEarlyWarning({ proposals, onSelectProposal }: KaizenEarlyWarningProps) {
-  // 1. Compute deadline metrics
-  const today = new Date();
-  const currentDay = today.getDate();
-  const daysUntil25th = currentDay <= 25 ? 25 - currentDay : 30 - currentDay + 25;
+  // 1. Compute deadline metrics (moved to useEffect to avoid hydration issues)
+  const [daysUntil25th, setDaysUntil25th] = useState(25);
+
+  useEffect(() => {
+    const today = new Date();
+    const currentDay = today.getDate();
+    const calculated = currentDay <= 25 ? 25 - currentDay : 30 - currentDay + 25;
+    setDaysUntil25th(calculated);
+  }, []);
   const isNearDeadline = daysUntil25th <= 5;
 
   // 2. Filter Unevaluated Thi Đua Proposals

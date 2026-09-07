@@ -364,13 +364,23 @@ export function isApprovedProposal(p: KaizenProposal): boolean {
     return false;
   }
 
+  if (
+    subStatus === "CHO_REVIEW" ||
+    subStatus === "SO_BO" ||
+    appStatus === "PENDING" ||
+    status === "SUBMITTED" ||
+    status === "CHO_DUYET" ||
+    status === "DRAFT"
+  ) {
+    return false;
+  }
+
   return (
     appStatus === "PHE_DUYET" ||
     subStatus === "CHO_DANH_GIA" ||
     subStatus === "DA_DANH_GIA" ||
     subStatus === "DA_DUYET" ||
     status === "APPROVED" ||
-    status === "UNDER_REVIEW" ||
     status === "COMPLETED" ||
     Number(p.avg_rating || p.average_score || 0) > 0
   );
@@ -443,8 +453,8 @@ export function renderCardTopRightBadge(prop: KaizenProposal, rankInfo?: any) {
 
   if (isPending) {
     return (
-      <span className="px-2 py-0.5 rounded bg-amber-500 text-white text-[9px] font-black shadow-2xs flex items-center gap-0.5">
-        ⏳ Chờ duyệt
+      <span className="px-2 py-0.5 rounded bg-blue-600 text-white text-[9px] font-black shadow-2xs flex items-center gap-0.5">
+        ⏳ Chờ phê duyệt
       </span>
     );
   }
@@ -473,19 +483,26 @@ export function renderCardTopRightBadge(prop: KaizenProposal, rankInfo?: any) {
 
 export default function CIModule() {
   const { isExecutiveOrAdmin } = usePermission();
-  const [proposals, setProposals] = useState<KaizenProposal[]>(() => {
+  const [proposals, setProposals] = useState<KaizenProposal[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  // Load cached proposals after hydration
+  useEffect(() => {
+    setIsHydrated(true);
     if (typeof window !== "undefined") {
       try {
         const cached = localStorage.getItem(PROPOSALS_CACHE_KEY);
         if (cached) {
           const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setProposals(parsed);
+            setLoading(false);
+          }
         }
       } catch (e) {}
     }
-    return [];
-  });
-  const [loading, setLoading] = useState(proposals.length === 0);
+  }, []);
   const [viewMode, setViewMode] = useState<"GRID" | "LIST">("GRID");
   const [activeTab, setActiveTab] = useState<"LIBRARY" | "DASHBOARD" | "EARLY_WARNING">("LIBRARY");
   const [isFiveStepModalOpen, setIsFiveStepModalOpen] = useState(false);
@@ -527,9 +544,9 @@ export default function CIModule() {
   useEffect(() => {
     function loadUser() {
       if (typeof window === "undefined") return;
-      const curStr = localStorage.getItem("tbs_current_user");
-      if (curStr) {
-        try {
+      try {
+        const curStr = localStorage.getItem("tbs_current_user");
+        if (curStr) {
           const cur = JSON.parse(curStr);
           if (cur && cur.name) {
             setCurrentUser({
@@ -537,14 +554,19 @@ export default function CIModule() {
               title: cur.title || cur.department || "Cán bộ công nhân viên",
               avatar: cur.avatar || "",
               empCode: cur.empCode || "CBCNV",
+              roleCode: cur.roleCode,
             });
           }
-        } catch (e) {}
+        }
+      } catch (e) {
+        console.error("Failed to load user from localStorage:", e);
       }
     }
     loadUser();
-    window.addEventListener("tbs_profile_updated", loadUser);
-    return () => window.removeEventListener("tbs_profile_updated", loadUser);
+    if (typeof window !== "undefined") {
+      window.addEventListener("tbs_profile_updated", loadUser);
+      return () => window.removeEventListener("tbs_profile_updated", loadUser);
+    }
   }, []);
 
   // Preliminary Review Modal State

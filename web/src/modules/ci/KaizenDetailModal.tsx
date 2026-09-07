@@ -55,7 +55,14 @@ const CATEGORIES = [
   { id: "OTHER", label: "8.Khác", color: "bg-slate-600 text-white" },
 ];
 
-const REGIONS = ["VP Chuỗi", "KG1", "KG2", "KG3", "Hoàn thiện đế", "NMMĐ"];
+const REGIONS = [
+  "Nhà Máy Miền Đông",
+  "Kiên Giang 1",
+  "Kiên Giang 2",
+  "Kiên Giang 3",
+  "Hoàn Thiện Đế",
+  "Văn Phòng Chuỗi",
+];
 const CUSTOMERS = ["Skechers", "Decathlon", "Wrangler", "Reebok", "LEFASO", "Khác"];
 
 export function normalizeCategoryId(catRaw?: string): string {
@@ -135,7 +142,7 @@ export default function KaizenDetailModal({
       title: proposal.title || "",
       product_code: (proposal as any).product_code || proposal.code || "",
       pair_quantity: Number(proposal.pair_quantity || (proposal as any).so_luong_giay || (proposal as any).quantity || 0),
-      region: proposal.region || proposal.factory || "KG1",
+      region: proposal.region || proposal.factory || "Nhà Máy Miền Đông",
       department: proposal.department || "",
       line: proposal.line || "",
       customer: proposal.customer || "Skechers",
@@ -478,7 +485,7 @@ export default function KaizenDetailModal({
           </div>
 
           <div className="text-[11px] font-black uppercase tracking-wide text-slate-500">
-            {(isEditing ? editForm.region : proposal.region) || "KG1"} &bull; {catObj.label.toUpperCase()}
+            {(isEditing ? editForm.region : proposal.region) || "Nhà Máy Miền Đông"} &bull; {catObj.label.toUpperCase()}
           </div>
 
           <div className="grid grid-cols-2 gap-2.5">
@@ -781,7 +788,7 @@ export default function KaizenDetailModal({
             )}
 
             <p className="text-xs font-bold text-slate-400">
-              MSNV: <span className="font-mono text-slate-700">{proposal.proposer_emp_code}</span> &bull; KV: <span className="text-slate-700">{(isEditing ? editForm.region : proposal.region) || "Kiên Giang 1"}</span> &bull; Tháng {pMonth}/{pYear}
+              MSNV: <span className="font-mono text-slate-700">{proposal.proposer_emp_code}</span> &bull; KV: <span className="text-slate-700">{(isEditing ? editForm.region : proposal.region) || "Nhà Máy Miền Đông"}</span> &bull; Tháng {pMonth}/{pYear}
             </p>
 
             {(proposal.sub_status === "CHO_REVIEW" || proposal.approval_status === "PENDING" || proposal.status === "SUBMITTED") && isJudgeOrExecutive && (
@@ -1161,55 +1168,217 @@ function TabInfoContent({
                   </div>
                 </div>
               ) : (
-                <div className="p-4 rounded-2xl bg-amber-50 border border-amber-300 space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-extrabold text-xs text-emerald-900 flex items-center gap-1.5">
+                      <span>⏱️</span>
+                      <span>Nhập thời gian thử nghiệm &amp; đánh giá hiệu quả (3. Tăng Năng suất)</span>
+                    </span>
+                    <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100/90 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+                      12.5đ / giây
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase text-slate-600 block">THỜI GIAN TRƯỚC (GIÂY)</label>
+                      <label className="text-[11px] font-bold text-slate-700 block">
+                        TRƯỚC (giây) <span className="text-rose-600 font-bold">*</span>
+                      </label>
                       <input
                         type="number"
                         min={0}
+                        step="any"
                         value={editForm.time_before_seconds}
-                        onChange={(e) => setEditForm((prev: any) => ({ ...prev, time_before_seconds: Math.max(0, parseFloat(e.target.value) || 0) }))}
-                        className="w-full p-2.5 rounded-xl border border-slate-300 font-bold bg-white text-xs"
+                        onChange={(e) => {
+                          const tb = Math.max(0, parseFloat(e.target.value) || 0);
+                          const ta = Number(editForm.time_after_seconds) || 0;
+                          const sSecs = Math.max(0, tb - ta);
+                          const pq = Number(editForm.pair_quantity) || 0;
+                          const mult = pq > 0 ? pq : 1;
+                          const cb = Math.round(tb * 12.5 * mult);
+                          const ca = Math.round(ta * 12.5 * mult);
+                          const eff = Math.round(sSecs * 12.5);
+                          const tot = Math.max(0, cb - ca);
+                          setEditForm((prev: any) => ({
+                            ...prev,
+                            time_before_seconds: tb,
+                            cost_before: cb,
+                            cost_after: ca,
+                            efficiency_value_vnd: eff,
+                            total_savings_vnd: tot,
+                          }));
+                        }}
+                        className="w-full p-2.5 rounded-xl border border-slate-300 text-xs font-black text-slate-900 bg-white outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 shadow-2xs"
                       />
                     </div>
+
                     <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase text-slate-600 block">THỜI GIAN SAU (GIÂY)</label>
+                      <label className="text-[11px] font-bold text-slate-700 block">
+                        SAU (giây) <span className="text-rose-600 font-bold">*</span>
+                      </label>
                       <input
                         type="number"
                         min={0}
+                        step="any"
                         value={editForm.time_after_seconds}
-                        onChange={(e) => setEditForm((prev: any) => ({ ...prev, time_after_seconds: Math.max(0, parseFloat(e.target.value) || 0) }))}
-                        className="w-full p-2.5 rounded-xl border border-slate-300 font-bold bg-white text-xs"
+                        onChange={(e) => {
+                          const tb = Number(editForm.time_before_seconds) || 0;
+                          const ta = Math.max(0, parseFloat(e.target.value) || 0);
+                          const sSecs = Math.max(0, tb - ta);
+                          const pq = Number(editForm.pair_quantity) || 0;
+                          const mult = pq > 0 ? pq : 1;
+                          const cb = Math.round(tb * 12.5 * mult);
+                          const ca = Math.round(ta * 12.5 * mult);
+                          const eff = Math.round(sSecs * 12.5);
+                          const tot = Math.max(0, cb - ca);
+                          setEditForm((prev: any) => ({
+                            ...prev,
+                            time_after_seconds: ta,
+                            cost_before: cb,
+                            cost_after: ca,
+                            efficiency_value_vnd: eff,
+                            total_savings_vnd: tot,
+                          }));
+                        }}
+                        className="w-full p-2.5 rounded-xl border border-slate-300 text-xs font-black text-slate-900 bg-white outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 shadow-2xs"
                       />
                     </div>
+
                     <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase text-slate-600 block">TIẾT KIỆM (GIÂY TỰ ĐỘNG)</label>
-                      <div className="w-full p-2.5 rounded-xl bg-purple-100 border border-purple-300 font-black text-purple-950 text-xs">
-                        {savedSecs} giây
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase text-slate-600 block">HIỆU QUẢ VNĐ / ĐÔI</label>
+                      <label className="text-[11px] font-bold text-slate-700 block truncate" title="SỐ LƯỢNG GIÀY (ĐÔI) *">
+                        SỐ LƯỢNG GIÀY (ĐÔI) <span className="text-rose-600 font-bold">*</span>
+                      </label>
                       <input
                         type="number"
                         min={0}
-                        value={editForm.efficiency_value_vnd}
-                        onChange={(e) => setEditForm((prev: any) => ({ ...prev, efficiency_value_vnd: Math.max(0, parseFloat(e.target.value) || 0) }))}
-                        placeholder={`${Math.round(savedSecs * 12.5)} VNĐ`}
-                        className="w-full p-2.5 rounded-xl border border-emerald-300 font-bold bg-emerald-50 text-xs"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase text-slate-600 block">SỐ LƯỢNG GIÀY (ĐÔI)</label>
-                      <input
-                        type="number"
-                        min={0}
+                        step="1"
                         value={editForm.pair_quantity}
-                        onChange={(e) => setEditForm((prev: any) => ({ ...prev, pair_quantity: Math.max(0, parseInt(e.target.value) || 0) }))}
-                        placeholder="Số đôi..."
-                        className="w-full p-2.5 rounded-xl border border-blue-300 font-bold bg-blue-50 text-xs"
+                        onChange={(e) => {
+                          const pq = Math.max(0, parseInt(e.target.value) || 0);
+                          const tb = Number(editForm.time_before_seconds) || 0;
+                          const ta = Number(editForm.time_after_seconds) || 0;
+                          const sSecs = Math.max(0, tb - ta);
+                          const mult = pq > 0 ? pq : 1;
+                          const cb = Math.round(tb * 12.5 * mult);
+                          const ca = Math.round(ta * 12.5 * mult);
+                          const eff = Math.round(sSecs * 12.5);
+                          const tot = Math.max(0, cb - ca);
+                          setEditForm((prev: any) => ({
+                            ...prev,
+                            pair_quantity: pq,
+                            cost_before: cb,
+                            cost_after: ca,
+                            efficiency_value_vnd: eff,
+                            total_savings_vnd: tot,
+                          }));
+                        }}
+                        placeholder="Nhập số đôi giày..."
+                        className="w-full p-2.5 rounded-xl border border-slate-300 text-xs font-black text-slate-900 bg-white outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 shadow-2xs"
                       />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-emerald-200/60">
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-700 block">
+                        💵 CHI PHÍ TRƯỚC (VNĐ)
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        step="1000"
+                        value={editForm.cost_before || (timeBefore > 0 ? Math.round(timeBefore * 12.5 * (pairQty > 0 ? pairQty : 1)) : "")}
+                        onChange={(e) => {
+                          const cb = Math.max(0, parseFloat(e.target.value) || 0);
+                          const ca = Number(editForm.cost_after) || 0;
+                          setEditForm((prev: any) => ({
+                            ...prev,
+                            cost_before: cb,
+                            total_savings_vnd: Math.max(0, cb - ca),
+                          }));
+                        }}
+                        placeholder="Tự động tính: TRƯỚC (s) × 12.5đ × Số đôi..."
+                        className="w-full p-2.5 rounded-xl border border-slate-300 text-xs font-black text-slate-900 bg-white outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 shadow-2xs"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-700 block">
+                        💵 CHI PHÍ SAU (VNĐ)
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        step="1000"
+                        value={editForm.cost_after || (timeAfter > 0 ? Math.round(timeAfter * 12.5 * (pairQty > 0 ? pairQty : 1)) : "")}
+                        onChange={(e) => {
+                          const cb = Number(editForm.cost_before) || 0;
+                          const ca = Math.max(0, parseFloat(e.target.value) || 0);
+                          setEditForm((prev: any) => ({
+                            ...prev,
+                            cost_after: ca,
+                            total_savings_vnd: Math.max(0, cb - ca),
+                          }));
+                        }}
+                        placeholder="Tự động tính: SAU (s) × 12.5đ × Số đôi..."
+                        className="w-full p-2.5 rounded-xl border border-slate-300 text-xs font-black text-slate-900 bg-white outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 shadow-2xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-700 block">
+                      💰 TỔNG SỐ TIỀN TIẾT KIỆM ĐƯỢC (VNĐ)
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      step="1000"
+                      value={editForm.total_savings_vnd !== undefined && editForm.total_savings_vnd !== null ? editForm.total_savings_vnd : totalSavingsVnd}
+                      onChange={(e) => {
+                        const tot = Math.max(0, parseFloat(e.target.value) || 0);
+                        setEditForm((prev: any) => ({ ...prev, total_savings_vnd: tot }));
+                      }}
+                      placeholder="Nhập hoặc tính tự động từ thời gian & đôi..."
+                      className="w-full p-2.5 rounded-xl border border-emerald-400 text-sm font-black text-emerald-950 bg-white outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 shadow-2xs"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-1">
+                    <div className="p-2 rounded-xl bg-white border border-slate-200 space-y-0.5 shadow-2xs">
+                      <span className="text-[9px] font-extrabold uppercase text-slate-400 block">TRƯỚC</span>
+                      <span className="text-xs sm:text-sm font-black text-slate-900 block">{timeBefore}</span>
+                      <span className="text-[9px] font-bold text-slate-500 block">giây</span>
+                    </div>
+
+                    <div className="p-2 rounded-xl bg-white border border-slate-200 space-y-0.5 shadow-2xs">
+                      <span className="text-[9px] font-extrabold uppercase text-slate-400 block">SAU</span>
+                      <span className="text-xs sm:text-sm font-black text-slate-900 block">{timeAfter}</span>
+                      <span className="text-[9px] font-bold text-slate-500 block">giây</span>
+                    </div>
+
+                    <div className="p-2 rounded-xl bg-purple-50 border border-purple-200 space-y-0.5 shadow-2xs">
+                      <span className="text-[9px] font-extrabold uppercase text-purple-700 block">TIẾT KIỆM</span>
+                      <span className="text-xs sm:text-sm font-black text-purple-900 block">{savedSecs}s</span>
+                      <span className="text-[8.5px] font-bold text-purple-600 block truncate">
+                        {timeBefore > 0 ? `${Math.round((savedSecs / timeBefore) * 100)}%` : "0%"}
+                      </span>
+                    </div>
+
+                    <div className="p-2 rounded-xl bg-[#006838] text-white space-y-0.5 shadow-xs">
+                      <span className="text-[9px] font-extrabold uppercase text-emerald-200 block">HIỆU QUẢ</span>
+                      <span className="text-xs font-black text-white block truncate" title={`${efficiencyVnd.toLocaleString("vi-VN")} VNĐ`}>
+                        {efficiencyVnd.toLocaleString("vi-VN")}
+                      </span>
+                      <span className="text-[8.5px] font-bold text-emerald-200 block">VNĐ / đôi</span>
+                    </div>
+
+                    <div className="p-2 rounded-xl bg-[#00522c] text-white space-y-0.5 shadow-sm border border-emerald-500/30 col-span-2 sm:col-span-1">
+                      <span className="text-[9px] font-extrabold uppercase text-amber-300 block">TỔNG TIẾT KIỆM</span>
+                      <span className="text-xs font-black text-white block truncate" title={`${totalSavingsVnd.toLocaleString("vi-VN")} VNĐ`}>
+                        {totalSavingsVnd.toLocaleString("vi-VN")}
+                      </span>
+                      <span className="text-[8.5px] font-bold text-emerald-200 block">VNĐ</span>
                     </div>
                   </div>
                 </div>

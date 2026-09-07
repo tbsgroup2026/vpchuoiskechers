@@ -27,7 +27,7 @@ import {
   IconShieldCheck,
   IconBuildingStore,
 } from '@tabler/icons-react';
-import { getCurrentUser, setUserAvatar, logoutUserProfile, isAdminUser } from '@/lib/userProfiles';
+import { getCurrentUser, setUserAvatar, logoutUserProfile, isAdminUser, getUserDisplayBadgeTitle } from '@/lib/userProfiles';
 
 interface NotificationItem {
   id: number;
@@ -292,7 +292,7 @@ export default function Header() {
             departmentCode: currentUser.department || 'Văn Phòng Chuỗi SKECHERS',
             avatar: currentUser.avatar || '/images/tbs-logo.png',
             email: currentUser.email || `${currentUser.empCode}@tbsgroup.vn`,
-            title: currentUser.title || 'Cán Bộ Công Nhân Viên',
+            title: getUserDisplayBadgeTitle(currentUser),
           });
         } else {
           setUserInfo(null);

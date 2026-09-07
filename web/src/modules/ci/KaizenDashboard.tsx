@@ -40,14 +40,12 @@ import {
 } from "./organizationTree";
 
 export const STANDARD_8_REGIONS = [
+  "Nhà Máy Miền Đông",
   "Kiên Giang 1",
   "Kiên Giang 2",
   "Kiên Giang 3",
-  "Hoàn thiện đế",
-  "Phòng kế hoạch",
-  "Phòng CN-CI",
-  "Phòng chất lượng",
-  "Phòng nhân sự",
+  "Hoàn Thiện Đế",
+  "Văn Phòng Chuỗi",
 ];
 
 export const STANDARD_6_REGIONS = STANDARD_8_REGIONS;
@@ -107,24 +105,21 @@ const getProposalValue = (p: any): number => {
 };
 
 const normalizeRegion = (p: KaizenProposal | any): string => {
-  if (!p) return "Kiên Giang 1";
+  if (!p) return "Nhà Máy Miền Đông";
   const regionStr = typeof p === "string" ? p : p.region;
   const factoryStr = typeof p === "object" ? p.factory : "";
   const deptStr = typeof p === "object" ? p.department : "";
 
   const combined = `${regionStr || ""} ${factoryStr || ""} ${deptStr || ""}`.toUpperCase();
-  if (!combined.trim()) return "Kiên Giang 1";
+  if (!combined.trim()) return "Nhà Máy Miền Đông";
 
+  if (combined.includes("MIỀN ĐÔNG") || combined.includes("MIEN DONG") || combined.includes("NMMĐ")) return "Nhà Máy Miền Đông";
+  if (combined.includes("VP") || combined.includes("VĂN PHÒNG") || combined.includes("SUPPLY CHAIN") || combined.includes("SKECHERS")) return "Văn Phòng Chuỗi";
   if (combined.includes("KIÊN GIANG 3") || combined.includes("KIEN GIANG 3") || combined.includes("KG 3") || combined.includes("KG3")) return "Kiên Giang 3";
   if (combined.includes("KIÊN GIANG 2") || combined.includes("KIEN GIANG 2") || combined.includes("KG 2") || combined.includes("KG2")) return "Kiên Giang 2";
   if (combined.includes("KIÊN GIANG 1") || combined.includes("KIEN GIANG 1") || combined.includes("KG 1") || combined.includes("KG1")) return "Kiên Giang 1";
-  if (combined.includes("HOÀN THIỆN ĐẾ") || combined.includes("HOAN THIEN DE") || combined.includes("HTĐ") || combined.includes("HTD") || combined.includes("ĐẾ") || combined.includes("DE")) return "Hoàn thiện đế";
-  if (combined.includes("KẾ HOẠCH") || combined.includes("KE HOACH") || combined.includes("PPC")) return "Phòng kế hoạch";
-  if (combined.includes("CN-CI") || combined.includes("CN CI") || combined.includes("CONTINUOUS IMPROVEMENT") || combined.includes("P. CN-CI")) return "Phòng CN-CI";
-  if (combined.includes("CHẤT LƯỢNG") || combined.includes("CHAT LUONG") || combined.includes("QA") || combined.includes("QC")) return "Phòng chất lượng";
-  if (combined.includes("NHÂN SỰ") || combined.includes("NHAN SU") || combined.includes("HR") || combined.includes("HÀNH CHÍNH")) return "Phòng nhân sự";
 
-  return "Kiên Giang 1";
+  return "Nhà Máy Miền Đông";
 };
 
 const matchCascadingFilter = (p: KaizenProposal, filter: CascadingFilterState): boolean => {
@@ -183,7 +178,7 @@ const getCustomerCode = (p: KaizenProposal): string => {
 
 export default function KaizenDashboard({ proposals, onBackToLibrary, onNavigateToStatus, onSelectProposal }: KaizenDashboardProps) {
   const [selectedMonth, setSelectedMonth] = useState<string>("ALL");
-  const [statusScope, setStatusScope] = useState<"APPROVED" | "EVALUATED" | "ALL">("APPROVED");
+  const [statusScope, setStatusScope] = useState<"APPROVED" | "EVALUATED" | "ALL">("ALL");
   const [cascadingFilterState, setCascadingFilterState] = useState<CascadingFilterState>({
     factories: [],
     workshops: [],
@@ -365,10 +360,10 @@ export default function KaizenDashboard({ proposals, onBackToLibrary, onNavigate
       let matchedItem = "";
       const combined = `${p.factory || ""} ${p.region || ""} ${p.department || ""}`.toUpperCase();
 
-      if (levelName === "NHÀ MÁY") {
+      if (levelName.includes("NHÀ MÁY")) {
         matchedItem = normalizeRegion(p);
       } else {
-        matchedItem = chartItems.find((item) => combined.includes(item.toUpperCase())) || "";
+        matchedItem = chartItems.find((item) => combined.includes(item.toUpperCase())) || normalizeRegion(p);
       }
 
       if (matchedItem && map[matchedItem]) {
@@ -460,56 +455,7 @@ export default function KaizenDashboard({ proposals, onBackToLibrary, onNavigate
   const [showTop11Modal, setShowTop11Modal] = useState(false);
 
   const ranked11Proposals = useMemo(() => {
-    let thiDuaList = proposals.filter((p) => {
-      if (!p || p.is_archived) return false;
-
-      const appStatus = String(p.approval_status || (p as any).approvalStatus || "").toUpperCase();
-      const subStatus = String(p.sub_status || (p as any).subStatus || p.review_status || "").toUpperCase();
-      const status = String(p.status || "").toUpperCase();
-
-      if (appStatus === "TU_CHOI" || subStatus === "TU_CHOI_TRIEN_KHAI" || status === "REJECTED") {
-        return false;
-      }
-
-      if (subStatus === "CHO_REVIEW" || appStatus === "PENDING" || status === "SUBMITTED") {
-        return false;
-      }
-
-      const isApproved =
-        appStatus === "PHE_DUYET" ||
-        subStatus === "CHO_DANH_GIA" ||
-        subStatus === "DA_DANH_GIA" ||
-        status === "UNDER_REVIEW" ||
-        status === "APPROVED" ||
-        status === "COMPLETED";
-
-      if (!isApproved) return false;
-
-      if (selectedMonth !== "ALL") {
-        if (!p.created_at) return false;
-        try {
-          const d = new Date(p.created_at);
-          if (isNaN(d.getTime())) return false;
-          const mYear = `T${d.getMonth() + 1}/${d.getFullYear()}`;
-          if (mYear !== selectedMonth) return false;
-        } catch {
-          return false;
-        }
-      }
-
-      if (!matchCascadingFilter(p, cascadingFilterState)) return false;
-
-      return true;
-    });
-
-    if (
-      thiDuaList.length === 0 &&
-      proposals.length > 0 &&
-      selectedMonth === "ALL" &&
-      cascadingFilterState.factories.length === 0
-    ) {
-      thiDuaList = proposals;
-    }
+    let thiDuaList = filteredProposals.filter((p) => !p || !(p as any).is_archived);
 
     const sorted = [...thiDuaList]
       .sort((a, b) => {
@@ -1127,7 +1073,7 @@ export default function KaizenDashboard({ proposals, onBackToLibrary, onNavigate
                 <th className="py-3 px-4">HỌ VÀ TÊN</th>
                 <th className="py-3 px-4 text-center">MSNV</th>
                 <th className="py-3 px-4">CẢI TIẾN</th>
-                <th className="py-3 px-4 text-right">GIÁ TRỊ</th>
+                <th className="py-3 px-4 text-right">TIỀN THƯỞNG</th>
               </tr>
             </thead>
 

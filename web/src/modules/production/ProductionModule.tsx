@@ -284,7 +284,7 @@ export default function ProductionModule() {
     }
 
     const created: DeviceItem = {
-      id: Date.now().toString(),
+      id: `device-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
       code: newDevice.code.toUpperCase(),
       name: newDevice.name,
       type: newDevice.type,

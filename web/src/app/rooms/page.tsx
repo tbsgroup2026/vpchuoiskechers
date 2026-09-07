@@ -44,7 +44,7 @@ import {
 import Can from "@/components/Can";
 import UserAvatar from "@/components/UserAvatar";
 import { PERMISSIONS } from "@/lib/permissions";
-import { getCurrentUser } from "@/lib/userProfiles";
+import { getCurrentUser, getUserDisplayBadgeTitle } from "@/lib/userProfiles";
 import { broadcastNotification } from "@/lib/browserNotifications";
 
 interface MeetingRoom {
@@ -207,7 +207,7 @@ export default function MeetingRoomsPage() {
       if (cur && cur.name) {
         setCurrentUser({
           ...cur,
-          title: cur.title || "Cán Bộ Công Nhân Viên",
+          title: getUserDisplayBadgeTitle(cur),
           department: cur.department || "Văn Phòng Chuỗi SKECHERS",
           avatar: cur.avatar || "/images/tbs-logo.png",
         });

@@ -167,9 +167,10 @@ export default function FeasibilityApprovalModal({
       reader.onload = (event) => {
         const url = event.target?.result as string;
         if (url) {
+          const fileId = `${isVid ? 'video' : 'image'}-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
           setAfterMediaList((prev) => [
             ...prev,
-            { id: `${Date.now()}-${Math.random()}`, type: isVid ? "video" : "image", url, name: file.name },
+            { id: fileId, type: isVid ? "video" : "image", url, name: file.name },
           ]);
         }
       };
@@ -437,7 +438,7 @@ export default function FeasibilityApprovalModal({
                 </span>
                 <span className="px-2.5 py-1 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs inline-flex items-center gap-1 border border-slate-200/80">
                   <IconBuildingWarehouse size={13} className="text-slate-500" />
-                  <span>{proposal.region || proposal.factory || "Kiên Giang 1"}</span>
+                  <span>{proposal.region || proposal.factory || "Nhà Máy Miền Đông"}</span>
                 </span>
               </div>
 
@@ -716,17 +717,17 @@ export default function FeasibilityApprovalModal({
                         type="number"
                         min={0}
                         step="1000"
-                        value={costBefore}
+                        value={costBefore !== "" ? costBefore : (autoCostBefore > 0 ? autoCostBefore : "")}
                         onChange={(e) => {
                           const val = e.target.value;
                           setCostBefore(val);
-                          const cb = Number(val) || 0;
-                          const ca = Number(costAfter) || 0;
+                          const cb = Number(val) || autoCostBefore;
+                          const ca = Number(costAfter !== "" ? costAfter : autoCostAfter) || 0;
                           if (cb > 0 || ca > 0) {
                             setDirectSavingsVnd(Math.max(0, cb - ca));
                           }
                         }}
-                        placeholder="VD: 10,000,000"
+                        placeholder={autoCostBefore > 0 ? `Tự động: ${autoCostBefore.toLocaleString("vi-VN")} VNĐ` : "VD: 10,000,000"}
                         className="w-full p-2.5 rounded-xl border border-slate-300 text-xs font-black text-slate-900 bg-white outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 shadow-2xs"
                       />
                     </div>
@@ -739,17 +740,17 @@ export default function FeasibilityApprovalModal({
                         type="number"
                         min={0}
                         step="1000"
-                        value={costAfter}
+                        value={costAfter !== "" ? costAfter : (autoCostAfter > 0 ? autoCostAfter : "")}
                         onChange={(e) => {
                           const val = e.target.value;
                           setCostAfter(val);
-                          const cb = Number(costBefore) || 0;
-                          const ca = Number(val) || 0;
+                          const cb = Number(costBefore !== "" ? costBefore : autoCostBefore) || 0;
+                          const ca = Number(val) || autoCostAfter;
                           if (cb > 0 || ca > 0) {
                             setDirectSavingsVnd(Math.max(0, cb - ca));
                           }
                         }}
-                        placeholder="VD: 5,000,000"
+                        placeholder={autoCostAfter > 0 ? `Tự động: ${autoCostAfter.toLocaleString("vi-VN")} VNĐ` : "VD: 5,000,000"}
                         className="w-full p-2.5 rounded-xl border border-slate-300 text-xs font-black text-slate-900 bg-white outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 shadow-2xs"
                       />
                     </div>

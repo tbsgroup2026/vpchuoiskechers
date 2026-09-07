@@ -215,7 +215,7 @@ export default function WorkDashboardPage() {
           phone: curr.phone || "0522511245",
           email: curr.email || "anhy.work.2004@gmail.com",
           avatar: curr.avatar || "https://res.cloudinary.com/dwl2xtbqa/image/upload/v1787117525/nzcft200bebofw7b4uzg.jpg",
-          title: curr.title || "IT - Team Chuyển Đổi Số",
+          title: getUserDisplayBadgeTitle(curr) || "IT - Team Chuyển Đổi Số",
         });
       }
     }

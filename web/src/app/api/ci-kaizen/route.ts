@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 export const dynamic = 'force-static';
 import { verifyToken } from '@/lib/auth';
 import { ensureKaizenSchema } from '@/lib/kaizenDbMigration';
+import { EMPLOYEES_DB } from '../employees/lookup/route';
 
 function getDbBinding(): any {
   return (process.env as any).DB || (globalThis as any).DB || null;
@@ -89,8 +90,44 @@ export async function POST(request: Request) {
       status = 'SUBMITTED',
     } = body;
 
+
     if (!title || !proposerName) {
       return NextResponse.json({ error: 'Tiêu đề và Tên người đề xuất là bắt buộc' }, { status: 400 });
+    }
+
+    if (!proposerEmpCode || !proposerEmpCode.trim()) {
+      return NextResponse.json({ success: false, error: 'MSNV_REQUIRED', message: 'Mã số nhân viên (MSNV) là bắt buộc' }, { status: 400 });
+    }
+
+    const codeUpper = proposerEmpCode.trim().toUpperCase();
+    let isMsnvValid = false;
+
+    if (db) {
+      try {
+        const query = `
+          SELECT emp_code FROM hr_employees WHERE UPPER(emp_code) = ? OR UPPER(msnv) = ?
+          UNION
+          SELECT id FROM users WHERE UPPER(emp_code) = ? OR UPPER(id) = ?
+          LIMIT 1
+        `;
+        const res = await db.prepare(query).bind(codeUpper, codeUpper, codeUpper, codeUpper).first();
+        if (res) isMsnvValid = true;
+      } catch (e) {}
+    }
+
+    if (!isMsnvValid && EMPLOYEES_DB[codeUpper]) {
+      isMsnvValid = true;
+    }
+
+    if (!isMsnvValid && !existingId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'INVALID_MSNV',
+          message: `MSNV "${proposerEmpCode}" không tồn tại trong hệ thống nhân sự — vui lòng kiểm tra lại hoặc liên hệ Admin!`,
+        },
+        { status: 400 }
+      );
     }
 
     const safeFactory = factory || 'VP CHUỖI';

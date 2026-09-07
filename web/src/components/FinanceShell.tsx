@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import UserAvatar from "@/components/UserAvatar";
-import { getCurrentUser } from "@/lib/userProfiles";
+import { getCurrentUser, getUserDisplayBadgeTitle } from "@/lib/userProfiles";
 import { usePermission } from "@/hooks/usePermission";
 import {
   IconHome,
@@ -73,8 +73,8 @@ export default function FinanceShell({
     title: string;
     avatar: string;
   }>({
-    name: "Cán Bộ Nhân Viên",
-    title: "Cán Bộ Công Nhân Viên",
+    name: "Phạm Nguyễn Anh Huy",
+    title: "IT - Team Chuyển Đổi Số",
     avatar: "/images/tbs-logo.png",
   });
 
@@ -84,7 +84,7 @@ export default function FinanceShell({
       if (cur && cur.name) {
         setUserInfo({
           name: cur.name,
-          title: cur.title || "Cán Bộ Công Nhân Viên",
+          title: getUserDisplayBadgeTitle(cur),
           avatar: cur.avatar || "/images/tbs-logo.png",
         });
       }

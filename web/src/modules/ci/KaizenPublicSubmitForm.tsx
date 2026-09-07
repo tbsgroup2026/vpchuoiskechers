@@ -60,11 +60,11 @@ export function normalizeCategoryId(catRaw?: string): string {
 }
 
 export const REAL_FACTORIES = [
+  "Nhà Máy Miền Đông",
   "Kiên Giang 1",
   "Kiên Giang 2",
   "Kiên Giang 3",
   "Hoàn thiện đế",
-  "Nhà Máy Miền Đông",
   "Văn phòng Chuỗi",
 ];
 
@@ -190,6 +190,9 @@ export default function KaizenPublicSubmitForm({
   const [autoFilled, setAutoFilled] = useState(false);
   const [isReadOnlyAutoFill, setIsReadOnlyAutoFill] = useState(false);
 
+  // Request ID để xử lý race condition khi user nhập nhanh
+  const lookupRequestIdRef = React.useRef(0);
+
   // Single-select cascading org selection for submission form
   const [selectedFormFactory, setSelectedFormFactory] = useState<string>("Kiên Giang 1");
   const [selectedFormWorkshop, setSelectedFormWorkshop] = useState<string>("Đầu Vào");
@@ -289,10 +292,11 @@ export default function KaizenPublicSubmitForm({
     registrationType: "LUU_TRU",
   });
 
-  // Debounced Employee Auto-Fill Lookup by MSNV (Blur + Debounce ~300ms, >= 3 chars)
+  // Debounced Employee Auto-Fill Lookup by MSNV (Blur + Debounce ~300ms, >= 8 chars - độ dài MSNV hợp lệ)
   React.useEffect(() => {
     const code = form.proposerEmpCode.trim();
-    if (!code || code.length < 3) {
+    // Chỉ lookup khi MSNV đủ độ dài hợp lệ (8+ ký tự) để giảm API calls không cần thiết
+    if (!code || code.length < 8) {
       setNotFoundMsg(null);
       setLookupLoading(false);
       setAutoFilled(false);
@@ -306,10 +310,19 @@ export default function KaizenPublicSubmitForm({
     setLookupLoading(true);
     setNotFoundMsg(null);
 
+    // Tạo request ID unique để xử lý race condition
+    const currentRequestId = ++lookupRequestIdRef.current;
+
     const timer = setTimeout(async () => {
       try {
         const res = await fetch(`/api/employees/lookup?msnv=${encodeURIComponent(code)}`);
         const json = await res.json();
+
+        // Chỉ xử lý response nếu đây là request mới nhất
+        if (currentRequestId !== lookupRequestIdRef.current) {
+          console.log('[MSNV Lookup] Ignored stale response for:', code);
+          return;
+        }
 
         if (json.success && json.data) {
           const emp = json.data;
@@ -345,14 +358,36 @@ export default function KaizenPublicSubmitForm({
           setNotFoundMsg(null);
           showToast("✨ Đã tự động điền thông tin nhân sự và tổ xưởng theo MSNV!");
         } else {
-          setNotFoundMsg("Không tìm thấy MSNV, vui lòng chọn thủ công");
+          setNotFoundMsg("⚠️ MSNV không tồn tại trong hệ thống — vui lòng kiểm tra lại hoặc liên hệ Admin để được import.");
           setAutoFilled(false);
+          // Reset tất cả trường về rỗng khi MSNV không hợp lệ
+          setForm((prev) => ({
+            ...prev,
+            proposerName: "",
+            proposerPosition: "Công nhân",
+            region: "Kiên Giang 1",
+            factory: "Kiên Giang 1",
+            department: "",
+          }));
+          // Reset org tree selection
+          setSelectedFormFactory("Kiên Giang 1");
+          setSelectedFormWorkshop("");
+          setSelectedFormLine("");
         }
       } catch (err) {
-        setNotFoundMsg("Không tìm thấy MSNV, vui lòng chọn thủ công");
+        // Chỉ xử lý error nếu đây là request mới nhất
+        if (currentRequestId !== lookupRequestIdRef.current) {
+          console.log('[MSNV Lookup] Ignored stale error for:', code);
+          return;
+        }
+        setNotFoundMsg("⚠️ MSNV không tồn tại trong hệ thống — vui lòng kiểm tra lại hoặc liên hệ Admin để được import.");
         setAutoFilled(false);
+        setForm((prev) => ({ ...prev, proposerName: "" }));
       } finally {
-        setLookupLoading(false);
+        // Chỉ clear loading nếu đây là request mới nhất
+        if (currentRequestId === lookupRequestIdRef.current) {
+          setLookupLoading(false);
+        }
       }
     }, 300);
 
@@ -518,6 +553,11 @@ export default function KaizenPublicSubmitForm({
       !form.beforeDescription.trim()
     ) {
       showToast("⚠️ Vui lòng điền mã số nhân viên, họ tên, đơn vị và mô tả hiện trạng trước cải tiến!");
+      return;
+    }
+
+    if (!autoFilled && !isEdit) {
+      showToast("⚠️ MSNV không tồn tại trong hệ thống — vui lòng kiểm tra lại MSNV đã được import!");
       return;
     }
 
@@ -775,6 +815,7 @@ export default function KaizenPublicSubmitForm({
                       value={form.proposerEmpCode}
                       onChange={(e) => setForm({ ...form, proposerEmpCode: e.target.value })}
                       placeholder="VD: CN-88201 hoặc 202608101"
+                      autoComplete="off"
                       className={`w-full px-3.5 py-2 pr-9 rounded-xl border text-xs font-bold outline-none transition-all ${
                         notFoundMsg
                           ? "border-amber-400 bg-amber-50/20 focus:border-amber-500"
@@ -784,13 +825,18 @@ export default function KaizenPublicSubmitForm({
                       }`}
                     />
                     {lookupLoading && (
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600">
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-600">
                         <IconLoader2 size={16} className="animate-spin" />
                       </div>
                     )}
                     {!lookupLoading && autoFilled && (
                       <div className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600">
                         <IconCheck size={16} className="font-black" />
+                      </div>
+                    )}
+                    {!lookupLoading && notFoundMsg && !autoFilled && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 text-rose-600">
+                        <IconX size={16} className="font-black" />
                       </div>
                     )}
                   </div>
@@ -899,11 +945,13 @@ export default function KaizenPublicSubmitForm({
                     required
                     value={selectedFormFactory}
                     onChange={(e) => {
-                      setSelectedFormFactory(e.target.value);
-                      setSelectedFormWorkshop("");
-                      setSelectedFormLine("");
-                      setSelectedFormChuyen("");
-                      setSelectedFormTo("");
+                      const newFac = e.target.value;
+                      setSelectedFormFactory(newFac);
+                      setForm((prev) => ({
+                        ...prev,
+                        factory: newFac,
+                        region: newFac,
+                      }));
                     }}
                     className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838] bg-white"
                   >

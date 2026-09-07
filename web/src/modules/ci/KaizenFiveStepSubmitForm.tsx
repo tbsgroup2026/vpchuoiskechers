@@ -37,7 +37,7 @@ const TOPIC_GROUPS = [
   { id: "EQUIPMENT", label: "7. MMTB CCDC", category: "NĂNG SUẤT", color: "bg-purple-600 text-white", desc: "Bảo trì phòng ngừa, gá kẹp dưỡng may, cải tiến máy" },
 ];
 
-import { REAL_DEPARTMENTS } from "./KaizenPublicSubmitForm";
+import { REAL_DEPARTMENTS, normalizeFactoryName, normalizeWorkshopName } from "./KaizenPublicSubmitForm";
 
 const REGIONS = REAL_DEPARTMENTS;
 
@@ -63,6 +63,9 @@ export default function KaizenFiveStepSubmitForm({ onSuccessClose, onCancel }: K
   const [lookupLoading, setLookupLoading] = useState(false);
   const [notFoundMsg, setNotFoundMsg] = useState<string | null>(null);
   const [autoFilled, setAutoFilled] = useState(false);
+  
+  // Request ID để xử lý race condition
+  const lookupRequestIdRef = React.useRef(0);
 
   // 5-Step Form State
   const [form, setForm] = useState({
@@ -70,9 +73,9 @@ export default function KaizenFiveStepSubmitForm({ onSuccessClose, onCancel }: K
     proposerName: "",
     proposerEmpCode: "",
     proposerPosition: "Công nhân",
-    factory: "KG 1",
-    department: "",
-    region: "KG 1",
+    factory: "Nhà Máy Miền Đông",
+    department: "Đầu Vào",
+    region: "Nhà Máy Miền Đông",
     category: "PRODUCTIVITY",
     categoryLabel: "3. Tăng Năng Suất",
     topicGroup: "NĂNG SUẤT",
@@ -97,8 +100,8 @@ export default function KaizenFiveStepSubmitForm({ onSuccessClose, onCancel }: K
     productCode: "",
     quantity: 0,
     customer: "",
-    proposerMonth: new Date().getMonth() + 1,
-    proposerYear: new Date().getFullYear(),
+    proposerMonth: 1,
+    proposerYear: 2026,
 
     // Step 4: Xác nhận đơn vị
     supervisorName: "",
@@ -108,12 +111,13 @@ export default function KaizenFiveStepSubmitForm({ onSuccessClose, onCancel }: K
     agreedToTerms: true,
   });
 
-  // Debounced Employee Auto-Fill Lookup by MSNV (Blur + Debounce ~500ms, >= 4 chars)
+  // Debounced Employee Auto-Fill Lookup by MSNV (Blur + Debounce ~500ms, >= 8 chars - độ dài MSNV hợp lệ)
   const isInitialMount = React.useRef(true);
 
   React.useEffect(() => {
     const code = form.proposerEmpCode.trim();
-    if (!code || code.length < 4) {
+    // Chỉ lookup khi MSNV đủ độ dài hợp lệ (8+ ký tự) để giảm API calls không cần thiết
+    if (!code || code.length < 8) {
       setNotFoundMsg(null);
       setLookupLoading(false);
       setAutoFilled(false);
@@ -129,34 +133,63 @@ export default function KaizenFiveStepSubmitForm({ onSuccessClose, onCancel }: K
     setLookupLoading(true);
     setNotFoundMsg(null);
 
+    // Tạo request ID unique để xử lý race condition
+    const currentRequestId = ++lookupRequestIdRef.current;
+
     const timer = setTimeout(async () => {
       try {
         const res = await fetch(`/api/employees/lookup?msnv=${encodeURIComponent(code)}`);
         const json = await res.json();
 
+        // Chỉ xử lý response nếu đây là request mới nhất
+        if (currentRequestId !== lookupRequestIdRef.current) {
+          console.log('[MSNV Lookup Five-Step] Ignored stale response for:', code);
+          return;
+        }
+
         if (json.success && json.data) {
           const emp = json.data;
+          const normalizedFac = normalizeFactoryName(emp.factory_id);
+          const normalizedWs = normalizeWorkshopName(normalizedFac, emp.workshop_id);
           setForm((prev) => ({
             ...prev,
             proposerName: emp.name || prev.proposerName,
             proposerPosition: emp.vtcv || emp.position || prev.proposerPosition,
-            factory: emp.factory_id || prev.factory,
-            department: emp.workshop_id || prev.department,
-            region: emp.factory_id || prev.region,
+            factory: normalizedFac,
+            department: normalizedWs,
+            region: normalizedFac,
           }));
           setAutoFilled(true);
           setNotFoundMsg(null);
           showToast("✨ Đã tự động điền thông tin nhân sự và tổ xưởng theo MSNV!");
         } else {
-          setNotFoundMsg("Không tìm thấy MSNV, vui lòng chọn thủ công");
-          showToast("⚠️ Không tìm thấy MSNV, vui lòng chọn tổ xưởng thủ công");
+          setNotFoundMsg("⚠️ MSNV không tồn tại trong hệ thống — vui lòng kiểm tra lại hoặc liên hệ Admin để được import.");
+          showToast("⚠️ MSNV không tồn tại trong hệ thống!");
           setAutoFilled(false);
+          // Reset tất cả trường về rỗng khi MSNV không hợp lệ
+          setForm((prev) => ({
+            ...prev,
+            proposerName: "",
+            proposerPosition: "Công nhân",
+            factory: "Kiên Giang 1",
+            department: "",
+            region: "Kiên Giang 1",
+          }));
         }
       } catch (err) {
-        setNotFoundMsg("Không tìm thấy MSNV, vui lòng chọn thủ công");
+        // Chỉ xử lý error nếu đây là request mới nhất
+        if (currentRequestId !== lookupRequestIdRef.current) {
+          console.log('[MSNV Lookup Five-Step] Ignored stale error for:', code);
+          return;
+        }
+        setNotFoundMsg("⚠️ MSNV không tồn tại trong hệ thống — vui lòng kiểm tra lại hoặc liên hệ Admin để được import.");
         setAutoFilled(false);
+        setForm((prev) => ({ ...prev, proposerName: "" }));
       } finally {
-        setLookupLoading(false);
+        // Chỉ clear loading nếu đây là request mới nhất
+        if (currentRequestId === lookupRequestIdRef.current) {
+          setLookupLoading(false);
+        }
       }
     }, 500);
 
@@ -263,6 +296,10 @@ export default function KaizenFiveStepSubmitForm({ onSuccessClose, onCancel }: K
         showToast("⚠️ Vui lòng điền đầy đủ Thông tin công nhân & Đơn vị làm việc ở Bước 1!");
         return false;
       }
+      if (!autoFilled) {
+        showToast("⚠️ MSNV không tồn tại trong hệ thống — Vui lòng kiểm tra lại mã số nhân viên!");
+        return false;
+      }
     }
     if (step === 2) {
       if (!form.title.trim() || !form.beforeDescription.trim()) {
@@ -335,10 +372,15 @@ export default function KaizenFiveStepSubmitForm({ onSuccessClose, onCancel }: K
     }
   };
 
-  // Calculate days remaining to 25th deadline
-  const today = new Date();
-  const currentDay = today.getDate();
-  const daysLeft = currentDay <= 25 ? 25 - currentDay : 30 - currentDay + 25;
+  // Calculate days remaining to 25th deadline (moved to useEffect to avoid hydration issues)
+  const [daysLeft, setDaysLeft] = useState(25);
+
+  useEffect(() => {
+    const today = new Date();
+    const currentDay = today.getDate();
+    const calculated = currentDay <= 25 ? 25 - currentDay : 30 - currentDay + 25;
+    setDaysLeft(calculated);
+  }, []);
 
   return (
     <div className="w-full max-w-4xl mx-auto bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col">
@@ -813,21 +855,13 @@ export default function KaizenFiveStepSubmitForm({ onSuccessClose, onCancel }: K
                     </div>
                   </div>
 
-                  {form.pricingDirection === "TRI_GIA" && (
                     <div className="space-y-1 pt-2 border-t border-slate-200">
-                      <label className="font-black text-slate-800 text-xs">Giá trị Tiết kiệm quy đổi (VNĐ)</label>
-                      <input
-                        type="number"
-                        value={form.efficiencyValueVND || Math.round(form.savedSeconds * 12.5)}
-                        onChange={(e) => setForm({ ...form, efficiencyValueVND: parseInt(e.target.value || "0", 10) })}
-                        placeholder="5000000"
-                        className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold bg-emerald-50/50 focus:border-emerald-600"
-                      />
-                      <p className="text-[10px] text-emerald-700 font-bold">
-                        Tự động tính: {form.savedSeconds} giây × 12.5đ = {(Math.round(form.savedSeconds * 12.5)).toLocaleString("vi-VN")} VNĐ
-                      </p>
+                      <label className="font-black text-slate-800 text-xs">Giá trị Tiết kiệm quy đổi (VNĐ / Đôi)</label>
+                      <div className="w-full px-3 py-2 rounded-xl border border-emerald-300 text-xs font-black bg-emerald-100/90 text-emerald-950 flex items-center justify-between cursor-not-allowed select-none">
+                        <span>{(form.savedSeconds > 0 ? Math.round(form.savedSeconds * 12.5) : (form.efficiencyValueVND || 0)).toLocaleString("vi-VN")} VNĐ</span>
+                        <span className="text-[10px] text-emerald-800 font-extrabold bg-emerald-200 px-2 py-0.5 rounded-md border border-emerald-300">Tự động khóa (12.5đ/s)</span>
+                      </div>
                     </div>
-                  )}
                 </div>
 
                 {/* UPLOAD MINH CHỨNG ẢNH TRƯỚC / SAU */}

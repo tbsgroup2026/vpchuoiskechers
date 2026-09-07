@@ -527,7 +527,7 @@ export function getCurrentUser(): UserProfile | null {
       ...parsed,
       empCode: normalizedCode,
       name: (baseInfo && (!parsed.name || parsed.name.startsWith("Cán Bộ Nhân Viên"))) ? baseInfo.name : (parsed.name || baseInfo?.name || "User"),
-      title: (baseInfo && (!parsed.title || parsed.title === "Cán Bộ Công Nhân Viên")) ? baseInfo.title : (parsed.title || baseInfo?.title || "Staff"),
+      title: (baseInfo && (!parsed.title || parsed.title === "Cán Bộ Công Nhân Viên" || parsed.title === "NV")) ? baseInfo.title : (getUserDisplayBadgeTitle(parsed) || baseInfo?.title || "IT - Team Chuyển Đổi Số"),
       department: (baseInfo && (!parsed.department || parsed.department === "Văn Phòng Chuỗi SKECHERS")) ? baseInfo.department : (parsed.department || baseInfo?.department || "TBS Group"),
       email: (baseInfo && (!parsed.email || (parsed.email.endsWith("@tbsgroup.vn") && baseInfo.email.includes("@gmail.com")))) ? baseInfo.email : (parsed.email || baseInfo?.email || ""),
       avatar: finalAvatar,
@@ -535,6 +535,75 @@ export function getCurrentUser(): UserProfile | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Lấy tiêu đề / badge hiển thị chuẩn cho tài khoản trên tất cả các tab/màn hình.
+ * Quy tắc ưu tiên:
+ * 1. Định dạng "Department - Team" (ví dụ: "IT - Team Chuyển Đổi Số")
+ * 2. Nếu title/department đã có dạng kết hợp (hoặc có trong SYSTEM_USERS theo empCode), dùng trực tiếp
+ * 3. Nếu khuyết department/team, dùng department hoặc title readable
+ * 4. Nếu có roleCode, ánh xạ sang tên chức danh tiếng Việt thân thiện — tuyệt đối KHÔNG hiển thị mã rút gọn thô như "NV" hay "CBCNV".
+ * 5. Mặc định fallback: "IT - Team Chuyển Đổi Số" cho tài khoản 202608001/202608002 hoặc "Văn Phòng Chuỗi SKECHERS".
+ */
+export function getUserDisplayBadgeTitle(user?: Partial<UserProfile> | null): string {
+  if (!user) return "IT - Team Chuyển Đổi Số";
+
+  const empCode = user.empCode ? normalizeEmpCode(user.empCode) : "";
+  const sysUser = empCode ? SYSTEM_USERS[empCode] : null;
+
+  // 1. Ưu tiên thông tin chuẩn từ SYSTEM_USERS nếu empCode hợp lệ
+  if (sysUser && sysUser.title) {
+    return sysUser.title;
+  }
+
+  // 2. Nếu user object có title hoặc department dạng chuẩn "Department - Team"
+  const rawTitle = user.title || "";
+  const rawDept = user.department || "";
+
+  if (rawTitle && rawTitle.includes(" - ")) {
+    return rawTitle;
+  }
+  if (rawDept && rawDept.includes(" - ")) {
+    return rawDept;
+  }
+
+  // 3. Nếu có cả department và team khác nhau
+  const teamName = (user as any).team || (user as any).teamName || "";
+  if (rawDept && teamName && !rawDept.includes(teamName)) {
+    return `${rawDept} - ${teamName}`;
+  }
+
+  // 4. Nếu có department hoặc title đơn
+  if (rawTitle && rawTitle !== "Cán Bộ Công Nhân Viên" && rawTitle !== "Staff" && rawTitle !== "NV") {
+    return rawTitle;
+  }
+  if (rawDept && rawDept !== "Văn Phòng Chuỗi SKECHERS") {
+    return rawDept;
+  }
+
+  // 5. Ánh xạ roleCode sang tên chức danh thân thiện (không dùng mã "NV" thô)
+  const roleCode = user.roleCode || sysUser?.roleCode || "";
+  const roleTitleMap: Record<string, string> = {
+    "SUPER_ADMIN": "Quản Trị Viên Hệ Thống",
+    "ADMIN": "Quản Trị Viên",
+    "TONG_GIAM_DOC": "Tổng Giám Đốc",
+    "PHO_TONG_GIAM_DOC": "Phó Tổng Giám Đốc",
+    "GIAM_DOC": "Giám Đốc Phân Hệ",
+    "PHO_GIAM_DOC": "Phó Giám Đốc Phân Hệ",
+    "TRUONG_PHONG": "Trưởng Phòng",
+    "LE_TAN": "Lễ Tân Văn Phòng",
+    "QC_MANAGER": "Quản Lý Quality Control",
+    "KY_THUAT_VIEN": "Kỹ Thuật Viên",
+    "CBCNV": "Chuyên Viên Vận Hành",
+    "NV": "Chuyên Viên Vận Hành",
+  };
+
+  if (roleCode && roleTitleMap[roleCode]) {
+    return roleTitleMap[roleCode];
+  }
+
+  return "IT - Team Chuyển Đổi Số";
 }
 
 /**

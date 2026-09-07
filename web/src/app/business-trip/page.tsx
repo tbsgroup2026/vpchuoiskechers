@@ -39,7 +39,7 @@ import Can from "@/components/Can";
 import UserAvatar from "@/components/UserAvatar";
 import { usePermission } from "@/hooks/usePermission";
 import { PERMISSIONS } from "@/lib/permissions";
-import { getCurrentUser } from "@/lib/userProfiles";
+import { getCurrentUser, getUserDisplayBadgeTitle } from "@/lib/userProfiles";
 import { broadcastNotification } from "@/lib/browserNotifications";
 
 export interface TripAttachment {
@@ -208,7 +208,7 @@ export default function BusinessTripRegistrationPage() {
       if (cur && cur.name) {
         setCurrentUser({
           name: cur.name,
-          title: cur.title || "Cán Bộ Công Nhân Viên",
+          title: getUserDisplayBadgeTitle(cur),
           department: cur.department || "Văn Phòng Chuỗi SKECHERS",
           avatar: cur.avatar || "/images/tbs-logo.png",
         });

@@ -21,11 +21,7 @@ export const KIEN_GIANG_FACTORIES = [
   "Kiên Giang 2",
   "Kiên Giang 3",
   "Hoàn thiện đế",
-  "Phòng kế hoạch",
-  "Phòng CN-CI",
-  "Phòng chất lượng",
-  "Phòng nhân sự",
-  "Văn Phòng SKECHERS",
+  "Nhà Máy Miền Đông",
 ];
 
 export function isKienGiangFactory(factory: string): boolean {
@@ -36,101 +32,34 @@ export function isKienGiangFactory(factory: string): boolean {
     normalized.includes("kg") ||
     normalized.includes("hoàn thiện đế") ||
     normalized.includes("htđ") ||
-    normalized.includes("kế hoạch") ||
-    normalized.includes("ci") ||
-    normalized.includes("chất lượng") ||
-    normalized.includes("nhân sự") ||
-    normalized.includes("skechers")
+    normalized.includes("miền đông")
   );
 }
 
+const STANDARD_WORKSHOPS = {
+  "Đầu Vào": {
+    "Line 1": ["Tổ 1", "Tổ 2"],
+    "Line 2": ["Tổ 1", "Tổ 2"],
+    "Line 3": ["Tổ 1", "Tổ 2"],
+  },
+  "May": {
+    "Line 1": ["Tổ 1", "Tổ 2"],
+    "Line 2": ["Tổ 1", "Tổ 2"],
+    "Line 3": ["Tổ 1", "Tổ 2"],
+  },
+  "Gò": {
+    "Line 1": ["Tổ 1", "Tổ 2"],
+    "Line 2": ["Tổ 1", "Tổ 2"],
+    "Line 3": ["Tổ 1", "Tổ 2"],
+  },
+};
+
 export const INITIAL_ORG_TREE: OrgNodeMap = {
-  "Kiên Giang 1": {
-    "Xưởng Đế KG1": {
-      "Line Ép 1": {
-        "Chuyền Cán Ép 1": ["Tổ Cán Ép A", "Tổ Cán Ép B"],
-        "Chuyền Ép Dán 1": ["Tổ Ép Dán 1", "Tổ Ép Dán 2"],
-      },
-      "Line Ép 2": {
-        "Chuyền Cán Ép 2": ["Tổ Cán Ép C"],
-      },
-    },
-    "Xưởng Mũi KG1": {
-      "Line May Mũi 1": {
-        "Chuyền May 1": ["Tổ Chặt Mũi", "Tổ Chuẩn Bị 1", "Tổ May 1A", "Tổ May 1B"],
-        "Chuyền May 2": ["Tổ May 2A", "Tổ May 2B"],
-      },
-      "Line May Mũi 2": {
-        "Chuyền May 3": ["Tổ May 3A", "Tổ May 3B"],
-      },
-    },
-    "Xưởng Gò KG1": {
-      "Line Gò Thành Phẩm": {
-        "Chuyền Gò 1": ["Tổ Gò 1A", "Tổ Gò 1B"],
-        "Chuyền Gò 2": ["Tổ Gò 2A", "Tổ Gò 2B"],
-      },
-    },
-  },
-
-  "Kiên Giang 2": {
-    "Xưởng Mũi KG2": {
-      "Line May 1": {
-        "Chuyền May KG2-1": ["Tổ May 1", "Tổ May 2"],
-      },
-    },
-    "Xưởng Gò KG2": {
-      "Line Gò 1": {
-        "Chuyền Gò KG2-1": ["Tổ Gò 1", "Tổ Gò 2"],
-      },
-    },
-  },
-
-  "Kiên Giang 3": {
-    "Xưởng Sản Xuất KG3": {
-      "Line Sản Xuất 1": {
-        "Chuyền Sản Xuất 1": ["Tổ Sản Xuất A"],
-      },
-    },
-  },
-
-  "Hoàn thiện đế": {
-    "Xưởng Hoàn Thiện Đế": {
-      "Line Sơn & Ép": {
-        "Chuyền Sơn Đế": ["Tổ Phun Sơn 1", "Tổ Phun Sơn 2"],
-        "Chuyền Ép Thành Phẩm": ["Tổ Ép Đế 1"],
-      },
-    },
-  },
-
-  "Phòng kế hoạch": {
-    "Bộ Phận Kế Hoạch Sản Xuất (PPC)": {
-      "Tổ Lập Kế Hoạch": ["Bộ Phận PPC"],
-    },
-  },
-
-  "Phòng CN-CI": {
-    "Bộ Phận Chuyển Đổi Số & Kaizen": {
-      "Tổ Cải Tiến CI": ["Bộ Phận CI"],
-    },
-  },
-
-  "Phòng chất lượng": {
-    "Bộ Phận Quản Lý Chất Lượng (QA/QC)": {
-      "Tổ Kiểm Hàng QC": ["Bộ Phận QA/QC"],
-    },
-  },
-
-  "Phòng nhân sự": {
-    "Bộ Phận Nhân Sự & Hành Chính (HR)": {
-      "Tổ Tuyển Dụng & Đào Tạo": ["Bộ Phận HR"],
-    },
-  },
-
-  "Văn Phòng SKECHERS": {
-    "Khối Vận Hành SKECHERS": {
-      "Bộ Phận Quản Lý Chuỗi Supply Chain": ["Team Quản Trị Sáng Kiến CI"],
-    },
-  },
+  "Kiên Giang 1": STANDARD_WORKSHOPS,
+  "Kiên Giang 2": STANDARD_WORKSHOPS,
+  "Kiên Giang 3": STANDARD_WORKSHOPS,
+  "Hoàn thiện đế": STANDARD_WORKSHOPS,
+  "Nhà Máy Miền Đông": STANDARD_WORKSHOPS,
 };
 
 /**

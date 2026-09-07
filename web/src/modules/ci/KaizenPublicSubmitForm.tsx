@@ -63,54 +63,28 @@ export const REAL_FACTORIES = [
   "Kiên Giang 1",
   "Kiên Giang 2",
   "Kiên Giang 3",
-  "Văn Phòng SKECHERS",
   "Hoàn thiện đế",
   "Nhà Máy Miền Đông",
-  "Phòng kế hoạch",
-  "Phòng CN-CI",
-  "Phòng chất lượng",
-  "Phòng nhân sự",
 ];
 
 export function normalizeFactoryName(fac?: string): string {
   if (!fac) return "Kiên Giang 1";
   const f = fac.trim().toUpperCase();
-  if (f.includes("VP CHUỖI") || f.includes("VP2") || f.includes("VP CHUOI") || f.includes("SKECHERS") || f === "VP CHUỖI") return "Văn Phòng SKECHERS";
   if (f === "KG1" || f === "KG 1" || f.includes("KIÊN GIANG 1") || f.includes("KIEN GIANG 1")) return "Kiên Giang 1";
   if (f === "KG2" || f === "KG 2" || f.includes("KIÊN GIANG 2") || f.includes("KIEN GIANG 2")) return "Kiên Giang 2";
   if (f === "KG3" || f === "KG 3" || f.includes("KIÊN GIANG 3") || f.includes("KIEN GIANG 3")) return "Kiên Giang 3";
   if (f.includes("HOÀN THIỆN ĐẾ") || f.includes("HTĐ") || f === "HTD") return "Hoàn thiện đế";
   if (f.includes("MIỀN ĐÔNG") || f.includes("MIEN DONG") || f === "NMMĐ" || f === "NMMD") return "Nhà Máy Miền Đông";
-  if (f.includes("KẾ HOẠCH") || f.includes("KE HOACH")) return "Phòng kế hoạch";
-  if (f.includes("CN-CI") || f.includes("CI")) return "Phòng CN-CI";
-  if (f.includes("CHẤT LƯỢNG") || f.includes("QA") || f.includes("QC")) return "Phòng chất lượng";
-  if (f.includes("NHÂN SỰ") || f.includes("HR")) return "Phòng nhân sự";
-  return fac;
+  return "Kiên Giang 1";
 }
 
 export function normalizeWorkshopName(facNormalized: string, wsRaw?: string): string {
-  if (!wsRaw) return "";
+  if (!wsRaw) return "Đầu Vào";
   const ws = wsRaw.trim().toUpperCase();
-  
-  if (facNormalized === "Kiên Giang 1") {
-    if (ws.includes("ĐẾ") || ws.includes("ĐẦU VÀO") || ws.includes("CAN EP")) return "Xưởng Đế KG1";
-    if (ws.includes("MŨI") || ws.includes("MAY")) return "Xưởng Mũi KG1";
-    if (ws.includes("GÒ") || ws.includes("GO")) return "Xưởng Gò KG1";
-  }
-  if (facNormalized === "Kiên Giang 2") {
-    if (ws.includes("MŨI") || ws.includes("MAY")) return "Xưởng Mũi KG2";
-    if (ws.includes("GÒ") || ws.includes("GO")) return "Xưởng Gò KG2";
-  }
-  if (facNormalized === "Kiên Giang 3") {
-    return "Xưởng Sản Xuất KG3";
-  }
-  if (facNormalized === "Hoàn thiện đế") {
-    return "Xưởng Hoàn Thiện Đế";
-  }
-  if (facNormalized === "Văn Phòng SKECHERS") {
-    return "Khối Vận Hành SKECHERS";
-  }
-  return wsRaw;
+  if (ws.includes("ĐẾ") || ws.includes("ĐẦU VÀO") || ws.includes("CAN EP") || ws.includes("NHẬP KHO")) return "Đầu Vào";
+  if (ws.includes("MŨI") || ws.includes("MAY") || ws.includes("CHẮT")) return "May";
+  if (ws.includes("GÒ") || ws.includes("GO") || ws.includes("HOÀN THIỆN")) return "Gò";
+  return "Đầu Vào";
 }
 
 export const REAL_DEPARTMENTS = [
@@ -216,7 +190,7 @@ export default function KaizenPublicSubmitForm({
 
   // Single-select cascading org selection for submission form
   const [selectedFormFactory, setSelectedFormFactory] = useState<string>("Kiên Giang 1");
-  const [selectedFormWorkshop, setSelectedFormWorkshop] = useState<string>("Xưởng Đế KG1");
+  const [selectedFormWorkshop, setSelectedFormWorkshop] = useState<string>("Đầu Vào");
   const [selectedFormLine, setSelectedFormLine] = useState<string>("");
   const [selectedFormChuyen, setSelectedFormChuyen] = useState<string>("");
   const [selectedFormTo, setSelectedFormTo] = useState<string>("");

@@ -477,67 +477,6 @@ export function setUserAvatar(empCode: string, avatarUrl: string): void {
 }
 
 /**
- * Lấy thông tin user hiện tại đang đăng nhập từ Session Storage/LocalStorage.
- * Đảm bảo avatar luôn thuộc về đúng empCode của user đó.
- */
-export function getCurrentUser(): UserProfile | null {
-  if (typeof window === "undefined") return null;
-
-  // Dọn dẹp key rác dùng chung nguy hiểm nếu còn sót
-  if (localStorage.getItem("tbs_user_custom_avatar")) {
-    localStorage.removeItem("tbs_user_custom_avatar");
-  }
-
-  // Ưu tiên lấy từ sessionStorage (định danh tab độc lập) để tránh bị đè tài khoản khi mở nhiều tab
-  let stored = sessionStorage.getItem("tbs_current_user");
-  if (!stored) {
-    stored = localStorage.getItem("tbs_current_user");
-    if (stored) {
-      sessionStorage.setItem("tbs_current_user", stored);
-    }
-  }
-  if (!stored) return null;
-
-  try {
-    const parsed: UserProfile = JSON.parse(stored);
-    if (!parsed || !parsed.empCode) return null;
-
-    const normalizedCode = normalizeEmpCode(parsed.empCode);
-    const baseInfo = SYSTEM_USERS[normalizedCode];
-
-    // Lấy avatar riêng biệt theo empCode:
-    const customAvatar = getUserAvatar(normalizedCode);
-
-    // Thứ tự ưu tiên nghiêm ngặt:
-    // 1. Custom Avatar của chính empCode này (nếu hợp lệ)
-    // 2. Base Avatar chuẩn của empCode này trong SYSTEM_USERS
-    // 3. Parsed avatar từ session
-    let finalAvatar = customAvatar;
-    if (!finalAvatar && baseInfo?.avatar) {
-      finalAvatar = baseInfo.avatar;
-    }
-    if (!finalAvatar && parsed.avatar) {
-      finalAvatar = parsed.avatar;
-    }
-    if (!finalAvatar) {
-      finalAvatar = "/images/tbs-logo.png";
-    }
-
-    return {
-      ...parsed,
-      empCode: normalizedCode,
-      name: (baseInfo && (!parsed.name || parsed.name.startsWith("Cán Bộ Nhân Viên"))) ? baseInfo.name : (parsed.name || baseInfo?.name || "User"),
-      title: (baseInfo && (!parsed.title || parsed.title === "Cán Bộ Công Nhân Viên" || parsed.title === "NV")) ? baseInfo.title : (getUserDisplayBadgeTitle(parsed) || baseInfo?.title || "IT - Team Chuyển Đổi Số"),
-      department: (baseInfo && (!parsed.department || parsed.department === "Văn Phòng Chuỗi SKECHERS")) ? baseInfo.department : (parsed.department || baseInfo?.department || "TBS Group"),
-      email: (baseInfo && (!parsed.email || (parsed.email.endsWith("@tbsgroup.vn") && baseInfo.email.includes("@gmail.com")))) ? baseInfo.email : (parsed.email || baseInfo?.email || ""),
-      avatar: finalAvatar,
-    };
-  } catch {
-    return null;
-  }
-}
-
-/**
  * Lấy tiêu đề / badge hiển thị chuẩn cho tài khoản trên tất cả các tab/màn hình.
  * Quy tắc ưu tiên:
  * 1. Định dạng "Department - Team" (ví dụ: "IT - Team Chuyển Đổi Số")

@@ -5,7 +5,7 @@ import Link from "next/link";
 import NotificationCenter from "@/components/NotificationCenter";
 import DonutChartModal from "@/components/DonutChartModal";
 import UserAvatar from "@/components/UserAvatar";
-import { getCurrentUser } from "@/lib/userProfiles";
+import { getCurrentUser, getUserDisplayBadgeTitle } from "@/lib/userProfiles";
 import Can from "@/components/Can";
 import { PERMISSIONS } from "@/lib/permissions";
 import OverviewDashboard from "@/components/work/OverviewDashboard";

@@ -276,7 +276,12 @@ export default {
       const header = { alg: "HS256", typ: "JWT" };
       const base64UrlEncode = (strOrObj) => {
         const jsonStr = typeof strOrObj === "string" ? strOrObj : JSON.stringify(strOrObj);
-        const b64 = typeof btoa === "function" ? btoa(jsonStr) : Buffer.from(jsonStr).toString("base64");
+        const bytes = new TextEncoder().encode(jsonStr);
+        let binString = "";
+        for (let i = 0; i < bytes.length; i++) {
+          binString += String.fromCharCode(bytes[i]);
+        }
+        const b64 = typeof btoa === "function" ? btoa(binString) : Buffer.from(bytes).toString("base64");
         return b64.replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
       };
       const headB64 = base64UrlEncode(header);
@@ -292,7 +297,12 @@ export default {
         ["sign"]
       );
       const sigBuffer = await crypto.subtle.sign("HMAC", key, enc.encode(dataToSign));
-      const sigB64 = (typeof btoa === "function" ? btoa(String.fromCharCode(...new Uint8Array(sigBuffer))) : Buffer.from(sigBuffer).toString("base64"))
+      const sigArray = new Uint8Array(sigBuffer);
+      let binSig = "";
+      for (let i = 0; i < sigArray.length; i++) {
+        binSig += String.fromCharCode(sigArray[i]);
+      }
+      const sigB64 = (typeof btoa === "function" ? btoa(binSig) : Buffer.from(sigBuffer).toString("base64"))
         .replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
       return `${dataToSign}.${sigB64}`;
     }
@@ -327,7 +337,14 @@ export default {
         const payBase64 = payB64.replace(/-/g, "+").replace(/_/g, "/");
         const payPadLen = (4 - (payBase64.length % 4)) % 4;
         const payPadded = payBase64 + "=".repeat(payPadLen);
-        const jsonStr = typeof atob === "function" ? atob(payPadded) : Buffer.from(payPadded, "base64").toString("utf-8");
+        let jsonStr = "";
+        if (typeof atob === "function") {
+          const binString = atob(payPadded);
+          const bytes = Uint8Array.from(binString, (c) => c.charCodeAt(0));
+          jsonStr = new TextDecoder().decode(bytes);
+        } else {
+          jsonStr = Buffer.from(payPadded, "base64").toString("utf-8");
+        }
         const payload = JSON.parse(jsonStr);
 
         if (payload.exp && Date.now() / 1000 > payload.exp) return null;

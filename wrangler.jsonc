@@ -21,7 +21,9 @@
     "JWT_SECRET": "tbs_ii_secure_jwt_secret_key_2026",
     "TBSMAYMOC_API_URL": "https://tbs-may-moc-admin.tbs-quanlymaymoc.workers.dev",
     "MMTB_AUTO_LOGIN_EMP_CODE": "AMDKG",
-    "MMTB_AUTO_LOGIN_PASSWORD": "123456"
+    "MMTB_AUTO_LOGIN_PASSWORD": "123456",
+    "VAPID_PUBLIC_KEY": "BO2jkziEEK_t-ex0cLOzysw45I0mm2_g6iwA1CsdDep9nAoDVYmlqTjep7rHWtC-OHu8JWDQr-Ugh7LQMRGbc44",
+    "VAPID_CONTACT": "mailto:admin@tbsgroup.vn"
   },
   "d1_databases": [
     {

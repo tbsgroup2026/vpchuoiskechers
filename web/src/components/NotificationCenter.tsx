@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import {
   IconBell,
@@ -11,77 +11,159 @@ import {
   IconBulb,
   IconX,
   IconDeviceLaptop,
+  IconRefresh,
+  IconDeviceMobile,
+  IconLoader2,
 } from "@tabler/icons-react";
 import {
   getNotificationPermission,
   requestNotificationPermission,
   sendDesktopNotification,
+  syncPushSubscriptionToServer,
   NotificationPermissionState,
 } from "@/lib/browserNotifications";
 import PWAInstallGuide from "@/components/PWAInstallGuide";
 
 export interface NotificationItem {
-  id: number;
+  id: string;
   title: string;
   message: string;
-  type: "INFO" | "WARNING" | "SUCCESS" | "GEMBA" | "KAIZEN";
+  type: "INFO" | "WARNING" | "SUCCESS" | "GEMBA" | "KAIZEN" | "APPROVAL" | "REMINDER" | "SYSTEM";
+  category?: string;
   is_read: number;
   created_at: string;
+  url?: string;
   link?: string;
   targetUser?: string;
+  priority?: string;
 }
 
 export default function NotificationCenter() {
   const [isOpen, setIsOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [permissionState, setPermissionState] = useState<NotificationPermissionState>("default");
+  const [isSubscribed, setIsSubscribed] = useState(false);
+
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasError, setHasError] = useState(false);
+  const [isEnabling, setIsEnabling] = useState(false);
+
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastFetchRef = useRef<number>(0);
 
   useEffect(() => {
     setIsMounted(true);
-  }, []);
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const unreadCount = notifications.filter((n) => n.is_read === 0).length;
-
-  useEffect(() => {
     setPermissionState(getNotificationPermission());
+  }, []);
 
-    // 1. Load initial notifications from LocalStorage
+  // ── Fetch unread count from backend (lightweight, runs always) ──────────────
+  const fetchUnreadCount = useCallback(async () => {
     try {
-      const stored = localStorage.getItem("tbs_notifications_list");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+      const res = await fetch("/api/notifications/unread-count", { credentials: "include", cache: "no-store" });
+      if (res.ok) {
+        const json = await res.json();
+        setUnreadCount(json.count || 0);
+      }
+    } catch { /* silent */ }
+  }, []);
+
+  // ── Fetch full notification list from backend ─────────────────────────────
+  const fetchNotifications = useCallback(async () => {
+    const now = Date.now();
+    if (now - lastFetchRef.current < 5000) return; // debounce 5s
+    lastFetchRef.current = now;
+
+    setIsLoading(true);
+    setHasError(false);
+    try {
+      const res = await fetch("/api/notifications?limit=50", { credentials: "include", cache: "no-store" });
+      if (!res.ok) {
+        setHasError(true);
+        return;
+      }
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        setNotifications(json.data);
+        setUnreadCount(json.unread || 0);
+      } else {
+        setHasError(true);
+      }
+    } catch {
+      setHasError(true);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // ── Load unread badge on mount (always-on, lightweight) ────────────────────
+  useEffect(() => {
+    fetchUnreadCount();
+    // Refresh badge count every 60 seconds in background
+    const bgInterval = setInterval(fetchUnreadCount, 60_000);
+    return () => clearInterval(bgInterval);
+  }, [fetchUnreadCount]);
+
+  // ── When popup opens: load notifications + start 30s polling ────────────────
+  useEffect(() => {
+    if (isOpen) {
+      fetchNotifications();
+      pollingRef.current = setInterval(fetchNotifications, 30_000);
+    } else {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+    }
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+    };
+  }, [isOpen, fetchNotifications]);
+
+  // ── Listen to Service Worker push messages (realtime badge update) ───────────
+  useEffect(() => {
+    if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
+
+    const handleSwMessage = (event: MessageEvent) => {
+      if (event.data?.type === "PUSH_NOTIFICATION_RECEIVED") {
+        const newNotif = event.data.notification;
+        if (newNotif) {
           setNotifications((prev) => {
-            const combined = [...parsed];
-            prev.forEach((p) => {
-              if (!combined.some((c) => c.id === p.id)) {
-                combined.push(p);
-              }
-            });
-            return combined;
+            const exists = prev.some((n) => n.id === newNotif.id);
+            return exists ? prev : [newNotif, ...prev];
           });
+          setUnreadCount((prev) => prev + 1);
         }
       }
-    } catch (e) {}
-
-    // 2. Listen to realtime custom notification events
-
-    // 3. Listen to realtime custom notification events
-    const handleNewNotif = (e: any) => {
-      if (e.detail) {
-        setNotifications((prev) => [e.detail, ...prev]);
+      // Handle navigation messages from notification click
+      if (event.data?.type === "NAVIGATE_TO" && event.data.url) {
+        window.location.href = event.data.url;
       }
     };
 
-    window.addEventListener("tbs_new_notification", handleNewNotif);
-    return () => {
-      window.removeEventListener("tbs_new_notification", handleNewNotif);
-    };
+    navigator.serviceWorker.addEventListener("message", handleSwMessage);
+    return () => navigator.serviceWorker.removeEventListener("message", handleSwMessage);
   }, []);
 
-  // Close dropdown on outside click
+  // ── Check if this device is already subscribed to push ───────────────────────
+  useEffect(() => {
+    if (!isMounted || typeof window === "undefined" || !("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    const checkSub = async () => {
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        setIsSubscribed(!!sub && getNotificationPermission() === "granted");
+      } catch { /* ignore */ }
+    };
+    checkSub();
+  }, [isMounted]);
+
+  // ── Close dropdown on outside click ──────────────────────────────────────────
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -92,31 +174,55 @@ export default function NotificationCenter() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Lock body scroll on mobile when Bottom Sheet is open
+  // ── Lock body scroll on mobile when Bottom Sheet is open ─────────────────────
   useEffect(() => {
     if (isOpen && typeof window !== "undefined" && window.innerWidth < 768) {
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
     }
-    return () => {
-      document.body.style.overflow = "";
-    };
+    return () => { document.body.style.overflow = ""; };
   }, [isOpen]);
 
+  // ── Actions ────────────────────────────────────────────────────────────────
   const handleToggleDesktopNotif = async () => {
-    const res = await requestNotificationPermission();
-    setPermissionState(res);
+    if (isEnabling) return;
+    setIsEnabling(true);
+    try {
+      const res = await requestNotificationPermission();
+      setPermissionState(res);
+      if (res === "granted") {
+        const synced = await syncPushSubscriptionToServer();
+        setIsSubscribed(synced);
+      }
+    } finally {
+      setIsEnabling(false);
+    }
   };
 
-  const markAllAsRead = () => {
-    setNotifications((prev) => {
-      const updated = prev.map((n) => ({ ...n, is_read: 1 }));
-      try {
-        localStorage.setItem("tbs_notifications_list", JSON.stringify(updated));
-      } catch (e) {}
-      return updated;
-    });
+  const handleSendTestPush = async () => {
+    try {
+      await fetch("/api/push/test", { method: "POST", credentials: "include" });
+      // Notification will arrive via push channel
+    } catch { /* ignore */ }
+  };
+
+  const markAllAsRead = async () => {
+    // Optimistic UI update
+    setNotifications((prev) => prev.map((n) => ({ ...n, is_read: 1 })));
+    setUnreadCount(0);
+    // Persist to backend
+    try {
+      await fetch("/api/notifications/read-all", { method: "PATCH", credentials: "include" });
+    } catch { /* silent fail — optimistic already applied */ }
+  };
+
+  const markOneAsRead = async (id: string) => {
+    setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, is_read: 1 } : n));
+    setUnreadCount((prev) => Math.max(0, prev - 1));
+    try {
+      await fetch(`/api/notifications/${id}/read`, { method: "PATCH", credentials: "include" });
+    } catch { /* silent */ }
   };
 
   const getIcon = (type: string) => {
@@ -127,11 +233,149 @@ export default function NotificationCenter() {
       case "KAIZEN":
         return <IconBulb size={18} className="text-[#006838] flex-shrink-0" />;
       case "SUCCESS":
+      case "APPROVAL":
         return <IconCircleCheck size={18} className="text-emerald-500 flex-shrink-0" />;
       default:
         return <IconInfoCircle size={18} className="text-blue-500 flex-shrink-0" />;
     }
   };
+
+  const formatTime = (ts: string) => {
+    if (!ts) return "";
+    try {
+      const d = new Date(ts);
+      const now = new Date();
+      const diffMs = now.getTime() - d.getTime();
+      const diffMin = Math.floor(diffMs / 60000);
+      if (diffMin < 1) return "Vừa xong";
+      if (diffMin < 60) return `${diffMin} phút trước`;
+      const diffH = Math.floor(diffMin / 60);
+      if (diffH < 24) return `${diffH} giờ trước`;
+      return d.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" });
+    } catch { return ts; }
+  };
+
+  // ── Notification card (shared between mobile/desktop) ────────────────────────
+  const NotifCard = ({ item, compact = false }: { item: NotificationItem; compact?: boolean }) => (
+    <div
+      key={item.id}
+      onClick={() => {
+        markOneAsRead(item.id);
+        setIsOpen(false);
+        const href = item.url || item.link;
+        if (href) window.location.href = href;
+      }}
+      className={`${compact ? "p-3.5" : "p-4"} ${compact ? "flex items-start gap-3 hover:bg-slate-50 transition-colors cursor-pointer" : "rounded-2xl border flex items-start gap-3 transition-all cursor-pointer shadow-2xs active:scale-[0.99]"} ${
+        item.is_read === 0
+          ? compact ? "bg-emerald-50/40" : "bg-emerald-50/70 border-emerald-200"
+          : compact ? "bg-white" : "bg-slate-50/80 border-slate-200/80"
+      }`}
+    >
+      <div className={`${compact ? "w-8 h-8 rounded-xl" : "w-10 h-10 rounded-2xl"} bg-white flex items-center justify-center flex-shrink-0 shadow-xs mt-0.5 border border-slate-100`}>
+        {getIcon(item.type)}
+      </div>
+      <div className="flex-1 min-w-0 space-y-0.5">
+        <div className="flex items-start justify-between gap-2">
+          <h5 className={`${compact ? "text-xs" : "text-sm"} font-extrabold text-slate-900 leading-snug`}>
+            {item.title}
+          </h5>
+          <span className="text-[10px] text-slate-400 font-mono whitespace-nowrap flex-shrink-0">
+            {formatTime(item.created_at)}
+          </span>
+        </div>
+        <p className={`${compact ? "text-xs line-clamp-2" : "text-xs sm:text-sm"} text-slate-600 leading-relaxed break-words font-medium`}>
+          {item.message}
+        </p>
+        {item.targetUser && item.targetUser !== "all" && (
+          <span className={`inline-block mt-1 px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 ${compact ? "text-[9px]" : "text-xs"} font-bold`}>
+            👤 Gửi đến: {item.targetUser}
+          </span>
+        )}
+      </div>
+      {item.is_read === 0 && (
+        <span className={`${compact ? "w-2 h-2" : "w-2.5 h-2.5"} rounded-full bg-[#006838] flex-shrink-0 mt-1.5`} />
+      )}
+    </div>
+  );
+
+  // ── Push/PWA control panel (shared) ──────────────────────────────────────────
+  const PushControlPanel = ({ compact = false }: { compact?: boolean }) => (
+    <div className={`${compact ? "px-3.5 py-2" : "px-4 py-3"} bg-emerald-50/70 border-b border-slate-100 flex flex-col ${compact ? "gap-1.5" : "gap-2"}`}>
+      <div className="flex items-center justify-between">
+        <div className={`flex items-center gap-1.5 ${compact ? "text-xs" : "text-xs"} font-extrabold text-[#006838]`}>
+          <IconDeviceLaptop size={compact ? 15 : 16} />
+          <span>Thông báo ĐT & PC:</span>
+        </div>
+
+        {permissionState === "denied" ? (
+          <span className={`${compact ? "text-[10px]" : "text-xs"} font-black text-rose-600`}>🔕 Đã bị chặn</span>
+        ) : isSubscribed ? (
+          <div className="flex items-center gap-1">
+            <span className={`${compact ? "text-[10px]" : "text-xs"} font-black text-emerald-700`}>✅ Đã bật</span>
+            <button
+              onClick={handleSendTestPush}
+              className={`px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-700 ${compact ? "text-[10px]" : "text-[11px]"} font-bold hover:bg-emerald-200 transition cursor-pointer`}
+            >
+              Gửi thử
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={handleToggleDesktopNotif}
+            disabled={isEnabling}
+            className={`px-2 ${compact ? "py-0.5" : "py-1.5"} rounded-lg bg-[#006838] text-white ${compact ? "text-[10px]" : "text-xs"} font-black hover:bg-[#004d29] transition cursor-pointer shadow-2xs flex items-center gap-1 disabled:opacity-70`}
+          >
+            {isEnabling ? <IconLoader2 size={12} className="animate-spin" /> : null}
+            🔔 Bật thông báo
+          </button>
+        )}
+      </div>
+
+      <div className={`flex items-center justify-between border-t border-emerald-200/50 ${compact ? "pt-1.5" : "pt-2"}`}>
+        <span className={`${compact ? "text-[10px]" : "text-xs"} font-bold text-slate-600`}>Màn hình chính ĐT:</span>
+        <PWAInstallGuide />
+      </div>
+    </div>
+  );
+
+  // ── Loading skeleton ──────────────────────────────────────────────────────────
+  const LoadingSkeleton = ({ compact = false }: { compact?: boolean }) => (
+    <div className={`${compact ? "divide-y divide-slate-100" : "p-4 space-y-3"}`}>
+      {[1, 2, 3].map((i) => (
+        <div key={i} className={`${compact ? "p-3.5" : "p-4 rounded-2xl border border-slate-100"} flex items-start gap-3 animate-pulse`}>
+          <div className={`${compact ? "w-8 h-8 rounded-xl" : "w-10 h-10 rounded-2xl"} bg-slate-200 flex-shrink-0`} />
+          <div className="flex-1 space-y-2">
+            <div className="h-3 bg-slate-200 rounded w-3/4" />
+            <div className="h-2.5 bg-slate-100 rounded w-full" />
+            <div className="h-2.5 bg-slate-100 rounded w-2/3" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  // ── Empty state ───────────────────────────────────────────────────────────────
+  const EmptyState = ({ compact = false }: { compact?: boolean }) => (
+    <div className={`${compact ? "p-8" : "p-10"} text-center`}>
+      <div className="text-3xl mb-2">🔔</div>
+      <p className={`${compact ? "text-xs" : "text-sm"} font-bold text-slate-700`}>Chưa có thông báo mới</p>
+      <p className={`${compact ? "text-[10px]" : "text-xs"} text-slate-400 mt-1`}>Các cập nhật liên quan đến công việc sẽ xuất hiện tại đây.</p>
+    </div>
+  );
+
+  // ── Error state ───────────────────────────────────────────────────────────────
+  const ErrorState = ({ compact = false }: { compact?: boolean }) => (
+    <div className={`${compact ? "p-8" : "p-10"} text-center`}>
+      <p className={`${compact ? "text-xs" : "text-sm"} font-bold text-slate-600 mb-2`}>Không thể tải thông báo.</p>
+      <button
+        onClick={() => { lastFetchRef.current = 0; fetchNotifications(); }}
+        className="flex items-center gap-1 mx-auto text-xs text-[#006838] font-bold hover:underline cursor-pointer"
+      >
+        <IconRefresh size={13} />
+        <span>Thử lại</span>
+      </button>
+    </div>
+  );
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -145,7 +389,7 @@ export default function NotificationCenter() {
         <IconBell size={21} />
         {unreadCount > 0 && (
           <span className="absolute top-0 right-0 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-extrabold flex items-center justify-center ring-2 ring-white animate-pulse">
-            {unreadCount}
+            {unreadCount > 99 ? "99+" : unreadCount}
           </span>
         )}
       </button>
@@ -168,7 +412,7 @@ export default function NotificationCenter() {
                   {/* Drag Handle Top Bar */}
                   <div className="w-12 h-1.5 bg-slate-300 rounded-full mx-auto my-2.5 flex-shrink-0" />
 
-                  {/* Header Bar with Distinct Touch Targets */}
+                  {/* Header Bar */}
                   <div className="px-3.5 py-3 bg-gradient-to-r from-[#006838] to-[#004d29] text-white flex items-center justify-between gap-2 flex-shrink-0 border-b border-emerald-800">
                     <div className="flex items-center gap-2 min-w-0 flex-1">
                       <IconBell size={20} className="text-emerald-300 flex-shrink-0" />
@@ -200,101 +444,23 @@ export default function NotificationCenter() {
                     </div>
                   </div>
 
-                  {/* Push Notification & PWA Banner */}
-                  <div className="px-4 py-3 bg-emerald-50/80 border-b border-slate-200 flex flex-col gap-2 flex-shrink-0">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-xs font-black text-[#006838]">
-                        <IconDeviceLaptop size={16} />
-                        <span>Thông báo ĐT &amp; PC:</span>
-                      </div>
+                  {/* Push + PWA Panel */}
+                  <PushControlPanel compact={false} />
 
-                      {permissionState === "granted" ? (
-                        <button
-                          onClick={() =>
-                            sendDesktopNotification({
-                              title: "🔔 Thông Báo Chuỗi SKECHERS",
-                              message: "Đã kết nối trực tiếp với trung tâm thông báo điện thoại & PC của bạn!",
-                            })
-                          }
-                          className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition cursor-pointer shadow-2xs min-h-[36px]"
-                        >
-                          ✅ Đã bật (Gửi thử)
-                        </button>
-                      ) : permissionState === "denied" ? (
-                        <span className="text-xs font-black text-rose-600">🔕 Đã bị chặn</span>
-                      ) : (
-                        <button
-                          onClick={handleToggleDesktopNotif}
-                          className="px-3 py-1.5 rounded-xl bg-[#006838] text-white text-xs font-bold hover:bg-[#004d29] transition cursor-pointer shadow-2xs min-h-[36px]"
-                        >
-                          🔔 Bật thông báo
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-between border-t border-emerald-200/60 pt-2">
-                      <span className="text-xs font-bold text-slate-700">Thêm vào màn hình chính ĐT:</span>
-                      <PWAInstallGuide />
-                    </div>
-                  </div>
-
-                  {/* List Body on Mobile Bottom Sheet */}
+                  {/* Notification List */}
                   <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-thin">
-                    {notifications.length === 0 ? (
-                      <div className="p-10 text-center text-sm text-slate-500 font-medium">
-                        Không có thông báo mới nào.
-                      </div>
+                    {isLoading ? (
+                      <LoadingSkeleton compact={false} />
+                    ) : hasError ? (
+                      <ErrorState compact={false} />
+                    ) : notifications.length === 0 ? (
+                      <EmptyState compact={false} />
                     ) : (
-                      notifications.map((item) => (
-                        <div
-                          key={item.id}
-                          onClick={() => {
-                            setNotifications((prev) =>
-                              prev.map((n) => (n.id === item.id ? { ...n, is_read: 1 } : n))
-                            );
-                            setIsOpen(false);
-                            if (item.link) {
-                              window.location.href = item.link;
-                            }
-                          }}
-                          className={`p-4 rounded-2xl border flex items-start gap-3 transition.all cursor-pointer shadow-2xs active:scale-[0.99] ${
-                            item.is_read === 0
-                              ? "bg-emerald-50/70 border-emerald-200"
-                              : "bg-slate-50/80 border-slate-200/80"
-                          }`}
-                        >
-                          <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center flex-shrink-0 shadow-xs mt-0.5 border border-slate-100">
-                            {getIcon(item.type)}
-                          </div>
-                          <div className="flex-1 min-w-0 space-y-1">
-                            <div className="flex items-start justify-between gap-2">
-                              <h5 className="text-sm font-extrabold text-slate-900 leading-snug">
-                                {item.title}
-                              </h5>
-                              <span className="text-xs text-slate-500 font-mono font-semibold whitespace-nowrap flex-shrink-0">
-                                {item.created_at}
-                              </span>
-                            </div>
-                            <p className="text-xs sm:text-sm text-slate-700 leading-relaxed break-words font-medium">
-                              {item.message}
-                            </p>
-                            {item.targetUser && item.targetUser !== "all" && (
-                              <div className="pt-1">
-                                <span className="inline-block px-2.5 py-0.5 rounded-lg bg-white border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs">
-                                  👤 Gửi đến: {item.targetUser}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                          {item.is_read === 0 && (
-                            <span className="w-2.5 h-2.5 rounded-full bg-[#006838] flex-shrink-0 mt-1.5" />
-                          )}
-                        </div>
-                      ))
+                      notifications.map((item) => <NotifCard key={item.id} item={item} compact={false} />)
                     )}
                   </div>
 
-                  {/* Bottom Sheet Footer */}
+                  {/* Footer */}
                   <div className="p-3 text-center bg-slate-50 border-t border-slate-200 flex-shrink-0">
                     <span className="text-xs text-slate-500 font-bold">
                       Văn Phòng Chuỗi SKECHERS – TBS Group 24/7
@@ -340,93 +506,19 @@ export default function NotificationCenter() {
               </div>
             </div>
 
-            {/* Desktop Banner Bar */}
-            <div className="px-3.5 py-2 bg-emerald-50/70 border-b border-slate-100 flex flex-col gap-1.5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 text-xs font-extrabold text-[#006838]">
-                  <IconDeviceLaptop size={15} />
-                  <span>Thông báo ĐT &amp; PC:</span>
-                </div>
-
-                {permissionState === "granted" ? (
-                  <button
-                    onClick={() =>
-                      sendDesktopNotification({
-                        title: "🔔 Thông Báo Chuỗi SKECHERS",
-                        message: "Đã kết nối trực tiếp với trung tâm thông báo điện thoại & PC của bạn!",
-                      })
-                    }
-                    className="px-2 py-0.5 rounded-lg bg-emerald-600 text-white text-[10px] font-black hover:bg-emerald-700 transition cursor-pointer shadow-2xs"
-                  >
-                    ✅ Đã bật (Gửi thử)
-                  </button>
-                ) : permissionState === "denied" ? (
-                  <span className="text-[10px] font-black text-rose-600">🔕 Đã bị chặn</span>
-                ) : (
-                  <button
-                    onClick={handleToggleDesktopNotif}
-                    className="px-2 py-0.5 rounded-lg bg-[#006838] text-white text-[10px] font-black hover:bg-[#004d29] transition cursor-pointer shadow-2xs"
-                  >
-                    🔔 Bật thông báo
-                  </button>
-                )}
-              </div>
-
-              <div className="flex items-center justify-between border-t border-emerald-200/50 pt-1.5">
-                <span className="text-[10px] font-bold text-slate-600">Màn hình chính ĐT:</span>
-                <PWAInstallGuide />
-              </div>
-            </div>
+            {/* Push + PWA Panel */}
+            <PushControlPanel compact={true} />
 
             {/* Desktop List Body */}
             <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
-              {notifications.length === 0 ? (
-                <div className="p-8 text-center text-xs text-slate-500 font-medium">
-                  Không có thông báo mới nào.
-                </div>
+              {isLoading ? (
+                <LoadingSkeleton compact={true} />
+              ) : hasError ? (
+                <ErrorState compact={true} />
+              ) : notifications.length === 0 ? (
+                <EmptyState compact={true} />
               ) : (
-                notifications.map((item) => (
-                  <div
-                    key={item.id}
-                    onClick={() => {
-                      setNotifications((prev) =>
-                        prev.map((n) => (n.id === item.id ? { ...n, is_read: 1 } : n))
-                      );
-                      setIsOpen(false);
-                      if (item.link) {
-                        window.location.href = item.link;
-                      }
-                    }}
-                    className={`p-3.5 flex items-start gap-3 hover:bg-slate-50 transition-colors cursor-pointer ${
-                      item.is_read === 0 ? "bg-emerald-50/40" : "bg-white"
-                    }`}
-                  >
-                    <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                      {getIcon(item.type)}
-                    </div>
-                    <div className="flex-1 space-y-0.5 min-w-0">
-                      <div className="flex items-center justify-between gap-1">
-                        <h5 className="text-xs font-bold text-slate-900 leading-snug">
-                          {item.title}
-                        </h5>
-                        <span className="text-[10px] text-slate-400 font-mono whitespace-nowrap">
-                          {item.created_at}
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-600 leading-relaxed line-clamp-2">
-                        {item.message}
-                      </p>
-                      {item.targetUser && item.targetUser !== "all" && (
-                        <span className="inline-block mt-1 px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[9px] font-bold">
-                          👤 Gửi đến: {item.targetUser}
-                        </span>
-                      )}
-                    </div>
-                    {item.is_read === 0 && (
-                      <span className="w-2 h-2 rounded-full bg-[#006838] flex-shrink-0 mt-1.5" />
-                    )}
-                  </div>
-                ))
+                notifications.map((item) => <NotifCard key={item.id} item={item} compact={true} />)
               )}
             </div>
 

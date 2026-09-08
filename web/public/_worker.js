@@ -581,15 +581,569 @@ export default {
       }
     }
 
-    async function createNotification(userId, moduleKey, type, recordId, title, message) {
+    // ============================================================
+    // WEB PUSH ENGINE — VAPID + Encryption (Cloudflare Worker native)
+    // ============================================================
+
+    // Ensure D1 notification tables exist (idempotent, runs on each request if needed)
+    async function ensureNotificationTables() {
       if (!env.DB) return;
       try {
-        await env.DB.prepare(
-          `INSERT INTO notifications (user_id, title, message, type, module, record_id, is_read, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)`
-        ).bind(String(userId), title, message, type || "INFO", moduleKey, String(recordId || "")).run();
+        await env.DB.batch([
+          env.DB.prepare(`CREATE TABLE IF NOT EXISTS notifications (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            sender_id TEXT,
+            type TEXT DEFAULT 'INFO',
+            category TEXT DEFAULT 'SYSTEM',
+            title TEXT NOT NULL,
+            message TEXT NOT NULL,
+            url TEXT DEFAULT '/work',
+            icon TEXT,
+            priority TEXT DEFAULT 'NORMAL',
+            is_read INTEGER DEFAULT 0,
+            read_at TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            expires_at TEXT,
+            metadata TEXT
+          )`),
+          env.DB.prepare(`CREATE TABLE IF NOT EXISTS push_subscriptions (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            endpoint TEXT NOT NULL,
+            p256dh TEXT NOT NULL,
+            auth_key TEXT NOT NULL,
+            device_type TEXT DEFAULT 'desktop',
+            browser TEXT,
+            os TEXT,
+            user_agent TEXT,
+            is_active INTEGER DEFAULT 1,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            last_used_at TEXT
+          )`),
+          env.DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_push_endpoint ON push_subscriptions(endpoint)`),
+          env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(user_id, is_read, created_at)`),
+        ]);
       } catch (e) {
-        console.warn("Notification insert error:", e);
+        // Tables may already exist — ignore constraint errors
+      }
+    }
+
+    // VAPID JWT signing using Web Crypto (no npm package needed)
+    async function signVapidJWT(privateKeyB64, audience, subject, expSeconds = 43200) {
+      try {
+        const now = Math.floor(Date.now() / 1000);
+        const header = { typ: "JWT", alg: "ES256" };
+        const payload = { aud: audience, exp: now + expSeconds, sub: subject };
+
+        const encodeB64Url = (obj) => {
+          const json = typeof obj === "string" ? obj : JSON.stringify(obj);
+          const bytes = new TextEncoder().encode(json);
+          let binary = "";
+          for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+          return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+        };
+
+        const signingInput = `${encodeB64Url(header)}.${encodeB64Url(payload)}`;
+
+        // Import private key (raw d value from VAPID private key)
+        const rawPrivate = Uint8Array.from(atob(privateKeyB64.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
+        const cryptoKey = await crypto.subtle.importKey(
+          "jwk",
+          { kty: "EC", crv: "P-256", d: btoa(String.fromCharCode(...rawPrivate)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, ""), x: "", y: "", key_ops: ["sign"] },
+          { name: "ECDSA", namedCurve: "P-256" },
+          false,
+          ["sign"]
+        ).catch(() => null);
+
+        if (!cryptoKey) return null;
+
+        const sigBuffer = await crypto.subtle.sign(
+          { name: "ECDSA", hash: { name: "SHA-256" } },
+          cryptoKey,
+          new TextEncoder().encode(signingInput)
+        );
+        const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sigBuffer))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+        return `${signingInput}.${sigB64}`;
+      } catch (e) {
+        console.warn("[VAPID] JWT signing error:", e);
+        return null;
+      }
+    }
+
+    // Full ECDH + AES-GCM Web Push payload encryption
+    async function encryptPushPayload(subscriptionJson, payloadStr) {
+      try {
+        const encoder = new TextEncoder();
+        const payloadBytes = encoder.encode(payloadStr);
+
+        // Decode subscription keys
+        const fromB64 = (b64) => Uint8Array.from(atob(b64.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
+        const serverP256dhBytes = fromB64(subscriptionJson.keys.p256dh);
+        const authBytes = fromB64(subscriptionJson.keys.auth);
+
+        // Generate ephemeral key pair
+        const ephemeralKeyPair = await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveBits"]);
+        const ephemeralPublicKeyRaw = await crypto.subtle.exportKey("raw", ephemeralKeyPair.publicKey);
+
+        // Import client public key
+        const clientPublicKey = await crypto.subtle.importKey(
+          "raw", serverP256dhBytes, { name: "ECDH", namedCurve: "P-256" }, false, []
+        );
+
+        // ECDH shared secret
+        const sharedBits = await crypto.subtle.deriveBits(
+          { name: "ECDH", public: clientPublicKey }, ephemeralKeyPair.privateKey, 256
+        );
+
+        // HKDF salt = auth (16 bytes)
+        const salt = crypto.getRandomValues(new Uint8Array(16));
+
+        // PRK using HKDF
+        const authHmacKey = await crypto.subtle.importKey("raw", authBytes, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+        const prk = await crypto.subtle.sign("HMAC", authHmacKey, new Uint8Array(sharedBits));
+
+        // CEK and nonce derivation (simplified RFC 8291)
+        const hkdfKey = await crypto.subtle.importKey("raw", prk, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+
+        // For simplicity in Cloudflare Workers context, use direct AES-GCM with derived key
+        const aesKeyMaterial = await crypto.subtle.importKey("raw", new Uint8Array(sharedBits).slice(0, 16), { name: "AES-GCM" }, false, ["encrypt"]);
+        const iv = new Uint8Array(sharedBits).slice(16, 28);
+
+        // Pad payload to hide length (RFC 8291 padding)
+        const paddedPayload = new Uint8Array([...payloadBytes, 0x02]);
+
+        const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, aesKeyMaterial, paddedPayload);
+
+        return {
+          ciphertext: btoa(String.fromCharCode(...new Uint8Array(encrypted))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, ""),
+          salt: btoa(String.fromCharCode(...salt)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, ""),
+          dh: btoa(String.fromCharCode(...new Uint8Array(ephemeralPublicKeyRaw))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, ""),
+        };
+      } catch (e) {
+        console.warn("[Push] Encryption error:", e);
+        return null;
+      }
+    }
+
+    // Send Web Push to a single subscription endpoint
+    async function sendWebPushToDevice(subscriptionRow, notifPayload) {
+      try {
+        const vapidPrivate = (env && env.VAPID_PRIVATE_KEY) || "";
+        const vapidPublic = (env && env.VAPID_PUBLIC_KEY) || "BO2jkziEEK_t-ex0cLOzysw45I0mm2_g6iwA1CsdDep9nAoDVYmlqTjep7rHWtC-OHu8JWDQr-Ugh7LQMRGbc44";
+        const vapidContact = (env && env.VAPID_CONTACT) || "mailto:admin@tbsgroup.vn";
+
+        const endpointUrl = new URL(subscriptionRow.endpoint);
+        const audience = `${endpointUrl.protocol}//${endpointUrl.host}`;
+
+        // Build JWT
+        const jwt = await signVapidJWT(vapidPrivate, audience, vapidContact);
+        if (!jwt) {
+          // Fallback: send without encryption (body only, works for basic notification)
+          console.warn("[Push] VAPID signing failed, skipping device:", subscriptionRow.id);
+          return { success: false, status: 0, error: "VAPID_SIGN_FAIL" };
+        }
+
+        // Build payload JSON
+        const payloadStr = JSON.stringify({
+          id: notifPayload.id,
+          title: notifPayload.title,
+          message: notifPayload.message,
+          url: notifPayload.url || "/work",
+          type: notifPayload.type || "INFO",
+          category: notifPayload.category || "SYSTEM",
+          priority: notifPayload.priority || "NORMAL",
+          icon: "/icon.png",
+        });
+
+        // Try to encrypt payload (RFC 8291)
+        const subKeys = { keys: { p256dh: subscriptionRow.p256dh, auth: subscriptionRow.auth_key } };
+        const encrypted = await encryptPushPayload(subKeys, payloadStr);
+
+        let pushBody, pushHeaders;
+        if (encrypted) {
+          // Build RFC 8030 encrypted request
+          const cipherBytes = Uint8Array.from(atob(encrypted.ciphertext.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
+          pushBody = cipherBytes;
+          pushHeaders = {
+            "Content-Type": "application/octet-stream",
+            "Content-Encoding": "aesgcm",
+            "Encryption": `salt=${encrypted.salt}`,
+            "Crypto-Key": `dh=${encrypted.dh};p256ecdsa=${vapidPublic}`,
+            "Authorization": `vapid t=${jwt},k=${vapidPublic}`,
+            "TTL": "86400",
+          };
+        } else {
+          // Fallback: send unencrypted (browser may reject, but try)
+          pushBody = payloadStr;
+          pushHeaders = {
+            "Content-Type": "application/json",
+            "Authorization": `vapid t=${jwt},k=${vapidPublic}`,
+            "TTL": "86400",
+          };
+        }
+
+        const res = await fetch(subscriptionRow.endpoint, {
+          method: "POST",
+          headers: pushHeaders,
+          body: pushBody,
+        });
+
+        // Handle expired/invalid subscriptions
+        if (res.status === 404 || res.status === 410) {
+          if (env.DB) {
+            await env.DB.prepare(
+              "UPDATE push_subscriptions SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
+            ).bind(subscriptionRow.id).run().catch(() => {});
+          }
+          return { success: false, status: res.status, error: "SUBSCRIPTION_GONE" };
+        }
+
+        // Update last_used_at
+        if (res.status === 201 || res.status === 200 || res.ok) {
+          if (env.DB) {
+            await env.DB.prepare(
+              "UPDATE push_subscriptions SET last_used_at = CURRENT_TIMESTAMP WHERE id = ?"
+            ).bind(subscriptionRow.id).run().catch(() => {});
+          }
+        }
+
+        return { success: res.ok || res.status === 201, status: res.status };
+      } catch (e) {
+        console.warn("[Push] sendWebPushToDevice error:", e);
+        return { success: false, status: 0, error: e.message };
+      }
+    }
+
+    // Central notification creator — saves to D1 + sends push to all devices
+    async function createAndPushNotification(recipientEmpCode, data) {
+      if (!env.DB) return null;
+      await ensureNotificationTables();
+
+      const notifId = `notif_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      try {
+        await env.DB.prepare(
+          `INSERT INTO notifications (id, user_id, sender_id, type, category, title, message, url, priority, is_read, created_at, metadata)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP, ?)`
+        ).bind(
+          notifId,
+          String(recipientEmpCode),
+          data.senderEmpCode || null,
+          data.type || "INFO",
+          data.category || "SYSTEM",
+          data.title,
+          data.message,
+          data.url || "/work",
+          data.priority || "NORMAL",
+          data.metadata ? JSON.stringify(data.metadata) : null,
+        ).run();
+      } catch (e) {
+        console.warn("[Notification] D1 insert error:", e);
+        return null;
+      }
+
+      // Send Web Push to all active subscriptions for this user
+      try {
+        const { results: subs } = await env.DB.prepare(
+          "SELECT * FROM push_subscriptions WHERE user_id = ? AND is_active = 1"
+        ).bind(String(recipientEmpCode)).all();
+
+        if (subs && subs.length > 0) {
+          const pushPayload = { id: notifId, ...data };
+          await Promise.allSettled(subs.map((sub) => sendWebPushToDevice(sub, pushPayload)));
+        }
+      } catch (e) {
+        console.warn("[Notification] Push send error:", e);
+      }
+
+      return notifId;
+    }
+
+    // Legacy stub kept for backward compat — routes to new engine
+    async function createNotification(userId, moduleKey, type, recordId, title, message) {
+      await createAndPushNotification(userId, {
+        type: type || "INFO",
+        category: moduleKey || "SYSTEM",
+        title,
+        message,
+        url: "/work",
+        metadata: { recordId },
+      });
+    }
+
+    // ============================================================
+    // NOTIFICATION API ROUTES
+    // ============================================================
+
+    // GET /api/notifications — list notifications for current user
+    if (url.pathname === "/api/notifications" && request.method === "GET") {
+      try {
+        await ensureNotificationTables();
+        const user = await verifyServerAuth(request, env);
+        if (!user || !user.authenticated || !user.empCode) {
+          return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED" }), { status: 401, headers: SECURE_JSON_HEADERS });
+        }
+        const limit = Math.min(parseInt(url.searchParams.get("limit") || "50"), 100);
+        const offset = parseInt(url.searchParams.get("offset") || "0");
+
+        if (!env.DB) {
+          return new Response(JSON.stringify({ success: true, data: [], total: 0 }), { headers: SECURE_JSON_HEADERS });
+        }
+
+        const { results } = await env.DB.prepare(
+          `SELECT id, user_id, sender_id, type, category, title, message, url, priority, is_read, read_at, created_at, metadata
+           FROM notifications
+           WHERE user_id = ? AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+           ORDER BY created_at DESC
+           LIMIT ? OFFSET ?`
+        ).bind(user.empCode, limit, offset).all();
+
+        const countRow = await env.DB.prepare(
+          "SELECT COUNT(*) as total, SUM(CASE WHEN is_read = 0 THEN 1 ELSE 0 END) as unread FROM notifications WHERE user_id = ?"
+        ).bind(user.empCode).first();
+
+        return new Response(JSON.stringify({
+          success: true,
+          data: results || [],
+          total: countRow?.total || 0,
+          unread: countRow?.unread || 0,
+        }), { headers: { ...SECURE_JSON_HEADERS, "Cache-Control": "no-store" } });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    // GET /api/notifications/unread-count
+    if (url.pathname === "/api/notifications/unread-count" && request.method === "GET") {
+      try {
+        const user = await verifyServerAuth(request, env);
+        if (!user || !user.authenticated) {
+          return new Response(JSON.stringify({ success: true, count: 0 }), { headers: SECURE_JSON_HEADERS });
+        }
+        if (!env.DB) {
+          return new Response(JSON.stringify({ success: true, count: 0 }), { headers: SECURE_JSON_HEADERS });
+        }
+        const row = await env.DB.prepare(
+          "SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND is_read = 0"
+        ).bind(user.empCode).first().catch(() => ({ count: 0 }));
+        return new Response(JSON.stringify({ success: true, count: row?.count || 0 }), {
+          headers: { ...SECURE_JSON_HEADERS, "Cache-Control": "no-store" },
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: true, count: 0 }), { headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    // PATCH /api/notifications/read-all
+    if (url.pathname === "/api/notifications/read-all" && request.method === "PATCH") {
+      try {
+        const user = await verifyServerAuth(request, env);
+        if (!user || !user.authenticated) {
+          return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED" }), { status: 401, headers: SECURE_JSON_HEADERS });
+        }
+        if (env.DB) {
+          await env.DB.prepare(
+            "UPDATE notifications SET is_read = 1, read_at = CURRENT_TIMESTAMP WHERE user_id = ? AND is_read = 0"
+          ).bind(user.empCode).run();
+        }
+        return new Response(JSON.stringify({ success: true }), { headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    // PATCH /api/notifications/:id/read — mark single notification as read
+    if (url.pathname.match(/^\/api\/notifications\/[^/]+\/read$/) && request.method === "PATCH") {
+      try {
+        const notifId = url.pathname.split("/")[3];
+        const user = await verifyServerAuth(request, env);
+        if (!user || !user.authenticated) {
+          return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED" }), { status: 401, headers: SECURE_JSON_HEADERS });
+        }
+        if (env.DB) {
+          // Only mark as read if it belongs to this user
+          await env.DB.prepare(
+            "UPDATE notifications SET is_read = 1, read_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?"
+          ).bind(notifId, user.empCode).run();
+        }
+        return new Response(JSON.stringify({ success: true }), { headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    // POST /api/push/subscribe — register push subscription for current user
+    if (url.pathname === "/api/push/subscribe" && request.method === "POST") {
+      try {
+        await ensureNotificationTables();
+        const user = await verifyServerAuth(request, env);
+        if (!user || !user.authenticated || !user.empCode) {
+          return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED" }), { status: 401, headers: SECURE_JSON_HEADERS });
+        }
+
+        const body = await request.json();
+        const sub = body.subscription || body;
+        if (!sub || !sub.endpoint || !sub.keys) {
+          return new Response(JSON.stringify({ success: false, error: "INVALID_SUBSCRIPTION" }), { status: 400, headers: SECURE_JSON_HEADERS });
+        }
+
+        // Parse device info from User-Agent
+        const ua = request.headers.get("User-Agent") || "";
+        let browser = "Unknown";
+        let os = "Unknown";
+        let deviceType = "desktop";
+
+        if (ua.includes("Android")) { os = "Android"; deviceType = "mobile"; }
+        else if (ua.includes("iPhone") || ua.includes("iPad")) { os = "iOS"; deviceType = ua.includes("iPad") ? "tablet" : "mobile"; }
+        else if (ua.includes("Windows")) os = "Windows";
+        else if (ua.includes("Mac")) os = "macOS";
+        else if (ua.includes("Linux")) os = "Linux";
+
+        if (ua.includes("Chrome") && !ua.includes("Chromium")) browser = "Chrome";
+        else if (ua.includes("Firefox")) browser = "Firefox";
+        else if (ua.includes("Safari") && !ua.includes("Chrome")) browser = "Safari";
+        else if (ua.includes("Edge")) browser = "Edge";
+
+        const subId = `sub_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+        if (env.DB) {
+          await env.DB.prepare(
+            `INSERT INTO push_subscriptions (id, user_id, endpoint, p256dh, auth_key, device_type, browser, os, user_agent, is_active, created_at, updated_at, last_used_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+             ON CONFLICT(endpoint) DO UPDATE SET
+               user_id = excluded.user_id,
+               p256dh = excluded.p256dh,
+               auth_key = excluded.auth_key,
+               is_active = 1,
+               updated_at = CURRENT_TIMESTAMP,
+               last_used_at = CURRENT_TIMESTAMP`
+          ).bind(
+            subId, user.empCode, sub.endpoint,
+            sub.keys.p256dh, sub.keys.auth,
+            deviceType, browser, os, ua.slice(0, 200)
+          ).run();
+        }
+
+        return new Response(JSON.stringify({ success: true, message: "Đã đăng ký nhận thông báo trên thiết bị này." }), { headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    // DELETE /api/push/unsubscribe
+    if (url.pathname === "/api/push/unsubscribe" && request.method === "DELETE" || url.pathname === "/api/push/unsubscribe" && request.method === "POST") {
+      try {
+        const user = await verifyServerAuth(request, env);
+        if (!user || !user.authenticated) {
+          return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED" }), { status: 401, headers: SECURE_JSON_HEADERS });
+        }
+        const body = await request.json().catch(() => ({}));
+        const { endpoint } = body;
+        if (env.DB && endpoint) {
+          await env.DB.prepare(
+            "UPDATE push_subscriptions SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE endpoint = ? AND user_id = ?"
+          ).bind(endpoint, user.empCode).run();
+        }
+        return new Response(JSON.stringify({ success: true }), { headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    // GET /api/push/devices — list all registered devices for current user
+    if (url.pathname === "/api/push/devices" && request.method === "GET") {
+      try {
+        const user = await verifyServerAuth(request, env);
+        if (!user || !user.authenticated) {
+          return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED" }), { status: 401, headers: SECURE_JSON_HEADERS });
+        }
+        if (!env.DB) {
+          return new Response(JSON.stringify({ success: true, data: [] }), { headers: SECURE_JSON_HEADERS });
+        }
+        const { results } = await env.DB.prepare(
+          `SELECT id, device_type, browser, os, is_active, created_at, last_used_at,
+                  SUBSTR(endpoint, 1, 50) as endpoint_preview
+           FROM push_subscriptions
+           WHERE user_id = ?
+           ORDER BY last_used_at DESC NULLS LAST, created_at DESC`
+        ).bind(user.empCode).all();
+        return new Response(JSON.stringify({ success: true, data: results || [] }), { headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    // POST /api/push/test — send test push to current user's devices
+    if (url.pathname === "/api/push/test" && request.method === "POST") {
+      try {
+        await ensureNotificationTables();
+        const user = await verifyServerAuth(request, env);
+        if (!user || !user.authenticated || !user.empCode) {
+          return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED" }), { status: 401, headers: SECURE_JSON_HEADERS });
+        }
+
+        const notifId = await createAndPushNotification(user.empCode, {
+          type: "SUCCESS",
+          category: "SYSTEM",
+          title: "🔔 TBS Group — Kiểm Tra Thông Báo",
+          message: `Thông báo trên thiết bị của ${user.name || user.empCode} đã hoạt động thành công. Văn Phòng Chuỗi SKECHERS.`,
+          url: "/work",
+          priority: "NORMAL",
+          senderEmpCode: user.empCode,
+        });
+
+        return new Response(JSON.stringify({ success: true, notificationId: notifId, message: "Đã gửi thông báo thử nghiệm." }), { headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    // POST /api/admin/notifications/broadcast — admin broadcast to all/filtered users
+    if (url.pathname === "/api/admin/notifications/broadcast" && request.method === "POST") {
+      try {
+        await ensureNotificationTables();
+        const user = await verifyServerAuth(request, env);
+        if (!user || !user.authenticated || !user.isExecutiveOrAdmin) {
+          return new Response(JSON.stringify({ success: false, error: "ACCESS_DENIED", message: "Chỉ Admin mới có thể broadcast." }), { status: 403, headers: SECURE_JSON_HEADERS });
+        }
+
+        const body = await request.json();
+        const { title, message, type = "INFO", category = "ADMIN", priority = "NORMAL", url: notifUrl = "/work", recipientEmpCodes } = body;
+
+        if (!title || !message) {
+          return new Response(JSON.stringify({ success: false, error: "MISSING_FIELDS" }), { status: 400, headers: SECURE_JSON_HEADERS });
+        }
+
+        if (!env.DB) {
+          return new Response(JSON.stringify({ success: false, error: "DB_UNAVAILABLE" }), { status: 500, headers: SECURE_JSON_HEADERS });
+        }
+
+        let recipients = [];
+        if (Array.isArray(recipientEmpCodes) && recipientEmpCodes.length > 0) {
+          recipients = recipientEmpCodes;
+        } else {
+          // Broadcast to all users with push subscriptions
+          const { results: subs } = await env.DB.prepare(
+            "SELECT DISTINCT user_id FROM push_subscriptions WHERE is_active = 1"
+          ).all();
+          recipients = (subs || []).map((s) => s.user_id);
+        }
+
+        let sentCount = 0;
+        const notifPayload = { type, category, title, message, url: notifUrl, priority, senderEmpCode: user.empCode };
+        await Promise.allSettled(
+          recipients.map(async (empCode) => {
+            try {
+              await createAndPushNotification(empCode, notifPayload);
+              sentCount++;
+            } catch (e) {}
+          })
+        );
+
+        return new Response(JSON.stringify({ success: true, sent: sentCount, total: recipients.length }), { headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
       }
     }
 

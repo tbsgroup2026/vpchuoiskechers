@@ -48,8 +48,8 @@ export async function syncPushSubscriptionToServer(): Promise<boolean> {
     let sub = await reg.pushManager.getSubscription();
 
     if (!sub) {
-      // Create new subscription if none exists (using standard VAPID public key format)
-      const publicVapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "BEl62iUYgUivxIkv69yViEuiBIa3aey30y5Gvw7K8e3F1P9sT3x4F4t16WuP8k5q9w0y12ABCDEF1234567890abcdef";
+      // Create new subscription using real VAPID public key
+      const publicVapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "BO2jkziEEK_t-ex0cLOzysw45I0mm2_g6iwA1CsdDep9nAoDVYmlqTjep7rHWtC-OHu8JWDQr-Ugh7LQMRGbc44";
       
       try {
         sub = await reg.pushManager.subscribe({
@@ -58,7 +58,7 @@ export async function syncPushSubscriptionToServer(): Promise<boolean> {
         });
         console.log("✓ New push subscription created");
       } catch (subErr) {
-        console.info("Push subscription skipped (local browser mode or custom VAPID key required)");
+        console.info("Push subscription skipped (VAPID key mismatch or browser blocked):", subErr);
         return false;
       }
     }
@@ -68,6 +68,7 @@ export async function syncPushSubscriptionToServer(): Promise<boolean> {
       const response = await fetch("/api/push/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           subscription: subJson,
         }),

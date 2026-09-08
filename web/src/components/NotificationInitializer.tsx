@@ -1,67 +1,45 @@
 "use client";
 
 import { useEffect } from "react";
-import { requestNotificationPermission, registerServiceWorker, syncPushSubscriptionToServer } from "@/lib/browserNotifications";
+import { registerServiceWorker, syncPushSubscriptionToServer } from "@/lib/browserNotifications";
 
 /**
- * Auto-initialize notification system when app loads
- * Registers Service Worker and syncs push subscriptions
- * Deferred permission request to avoid popup confusion on first load
+ * Initialize Service Worker silently on app load.
+ * 
+ * IMPORTANT: Does NOT auto-request notification permission.
+ * Permission is only requested when user explicitly clicks "Bật thông báo" in NotificationCenter.
+ * 
+ * Only syncs push subscription if permission was already granted previously.
  */
 export default function NotificationInitializer() {
   useEffect(() => {
-    const initNotifications = async () => {
+    const initSW = async () => {
       try {
-        // 1. Always register Service Worker first (no permission needed)
+        // 1. Always register Service Worker — no permission needed
         const swReg = await registerServiceWorker();
-        if (!swReg) {
-          console.log("Service Worker registration not available (may be in development or incognito)");
-          return;
-        }
-        console.log("✓ Service Worker registered successfully");
+        if (!swReg) return;
 
-        // 2. Wait for service worker to be ready
+        // 2. Wait for SW to be ready
         await navigator.serviceWorker.ready;
-        console.log("✓ Service Worker is ready");
 
-        // 3. Check notification support
-        if (!("Notification" in window)) {
-          console.log("This browser doesn't support Web Notifications");
-          return;
+        // 3. If permission was already granted (user did it before), sync subscription
+        // This keeps push working after browser restart / re-subscription
+        if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+          await syncPushSubscriptionToServer().catch(() => {});
         }
 
-        // 4. Sync push subscription if permission already granted
-        if (Notification.permission === "granted") {
-          const synced = await syncPushSubscriptionToServer();
-          if (synced) {
-            console.log("✓ Push subscription synced to server");
-          }
-        } else if (Notification.permission === "default") {
-          // Permission not yet decided - wait a bit then ask
-          // This prevents popup fatigue on first page load
-          await new Promise(resolve => setTimeout(resolve, 3000));
-          
-          const result = await requestNotificationPermission();
-          if (result === "granted") {
-            // After permission granted, sync subscription
-            await new Promise(resolve => setTimeout(resolve, 500));
-            const synced = await syncPushSubscriptionToServer();
-            if (synced) {
-              console.log("✓ Push subscription synced to server after permission grant");
-            }
-          }
-        }
+        // 4. DO NOT auto-request permission here.
+        // The user must click "Bật thông báo" in NotificationCenter explicitly.
       } catch (err) {
-        console.warn("Notification initialization warning (non-critical):", err);
-        // Don't let notification setup errors break the app
+        // Non-critical — never break the app
+        console.warn("[SW Init] Non-critical warning:", err);
       }
     };
 
-    // Start initialization after a minimal delay to ensure DOM is ready
-    const timer = setTimeout(initNotifications, 500);
+    // Small delay to ensure DOM is ready, then initialize
+    const timer = setTimeout(initSW, 1500);
     return () => clearTimeout(timer);
   }, []);
 
-  // This component doesn't render anything
   return null;
 }

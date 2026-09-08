@@ -11,7 +11,7 @@
 1. [Giới Thiệu Hệ Thống & Sứ Mệnh](#-1-giới-thiệu-hệ-thống--sứ-mệnh)
 2. [Khung Quản Trị Chiến Lược 1-5-2 Chi Tiết](#-2-khung-quản-trị-chiến-lược-1-5-2-chi-tiết)
 3. [Sơ Đồ Kiến Trúc Tổng Thể Hệ Thống (System Architecture)](#-3-sơ-đồ-kiến-trúc-tổng-thể-hệ-thống-system-architecture)
-4. [Tổng Hợp Sơ Đồ Luồng Hoạt Động (Comprehensive Flowcharts)](#-4-tổng-hợp-sơ-đồ-luồng-hoạt-động-comprehensive-flowcharts)
+4. [Tổng Hợp Sơ Đồ Luồng Hoạt Động Chi Tiết (Comprehensive Flowcharts)](#-4-tổng-hợp-sơ-đồ-luồng-hoạt-động-chi-tiết-comprehensive-flowcharts)
    - [4.1. Luồng 5 Bước Đề Xuất & Phê Duyệt Sáng Kiến Kaizen (CI/Kaizen Engine)](#41-luồng-5-bước-đề-xuất--phê-duyệt-sáng-kiến-kaizen-cikaizen-engine)
    - [4.2. Luồng Bảng Điều Hành Quản Trị Chiến Lược 1-5-2 & Báo Cáo Nhanh](#42-luồng-bảng-điều-hành-quản-trị-chiến-lược-1-5-2--báo-cáo-nhanh)
    - [4.3. Luồng Xác Thực JWT, Phân Quyền RBAC & Scoping Dữ Liệu Nhà Máy](#43-luồng-xác-thực-jwt-phân-quyền-rbac--scoping-dữ-liệu-nhà-máy)
@@ -23,7 +23,9 @@
      - [4.7.2. Sơ đồ Luồng Xử Lý Nhu Cầu & Phiếu Sửa Chữa Khẩn Cấp MMTB](#472-sơ-đồ-luồng-xử-lý-nhu-cầu--phiếu-sửa-chữa-khẩn-cấp-mmtb)
      - [4.7.3. Sơ đồ Luồng Lập Kế Hoạch & Bảo Dưỡng Định Kỳ MMTB](#473-sơ-đồ-luồng-lập-kế-hoạch--bảo-dưỡng-định-kỳ-mmtb)
      - [4.7.4. Sơ đồ Luồng Phân Tích Chỉ Số BI & Trực Quan Sơ Đồ Nhà Máy](#474-sơ-đồ-luồng-phân-tích-chỉ-số-bi--trực-quan-sơ-đồ-nhà-máy)
-5. [Cơ Sở Dữ Liệu Cloudflare D1 & Schema SQL](#-5-cơ-sở-dữ-liệu-cloudflare-d1--schema-sql)
+   - [4.8. Luồng Phân Hệ Kế Toán Quản Trị & Tài Chính (Finance Management)](#48-luồng-phân-hệ-kế-toán-quản-trị--tài-chính-finance-management)
+   - [4.9. Luồng Phân Hệ Quản Trị Nhân Sự & Sơ Đồ Tổ Chức (HR Operations)](#49-luồng-phân-hệ-quản-trị-nhân-sự--sơ-đồ-tổ-chức-hr-operations)
+5. [Cơ Sở Dữ Liệu Cloudflare D1 & Schema SQL Chi Tiết](#-5-cơ-sở-dữ-liệu-cloudflare-d1--schema-sql-chi-tiết)
 6. [Danh Mục RESTful API Endpoints Chi Tiết](#-6-danh-mục-restful-api-endpoints-chi-tiết)
 7. [Các Phân Hệ Chức Năng Chi Tiết](#-7-các-phân-hệ-chức-năng-chi-tiết)
 8. [Công Nghệ & Kiến Trúc Kỹ Thuật (Tech Stack)](#-8-công-nghệ--kiến-trúc-kỹ-thuật-tech-stack)
@@ -120,7 +122,7 @@ flowchart TD
 
 ---
 
-## 🔄 4. TỔNG HỢP SƠ ĐỒ LUỒNG HOẠT ĐỘNG (COMPREHENSIVE FLOWCHARTS)
+## 🔄 4. TỔNG HỢP SƠ ĐỒ LUỒNG HOẠT ĐỘNG CHI TIẾT (COMPREHENSIVE FLOWCHARTS)
 
 ### 4.1. Luồng 5 Bước Đề Xuất & Phê Duyệt Sáng Kiến Kaizen (CI/Kaizen Engine)
 ```mermaid
@@ -381,7 +383,47 @@ flowchart TD
 
 ---
 
-## 📊 5. CƠ SỞ DỮ LIỆU CLOUDFLARE D1 & SCHEMA SQL
+### 4.8. Luồng Phân Hệ Kế Toán Quản Trị & Tài Chính (Finance Management)
+```mermaid
+flowchart TD
+    StartFin([Mở Phân Hệ /finance]) --> FinModule{Chọn Phân Hệ Chức Năng}
+
+    FinModule -->|Thu Chi & Tạm Ứng| TransFlow[Tạo Phiếu Thu / Phiếu Chi / Đề Xuất Tạm Ứng]
+    FinModule -->|Ngân Sách & Dự Toán| BudgetFlow[Lập Ngân Sách & Phân Bổ Ngân Sách Phòng Ban]
+    FinModule -->|Công Nợ Độc Lập| DebtFlow[Theo Dõi Công Nợ Phải Thu / Phải Trả Đối Tác]
+    FinModule -->|Tài Sản & Khấu Hao| AssetFlow[Quản Lý Khấu Hao Tài Sản Cố Định Nhà Máy]
+    FinModule -->|Vật Tư & Kho| StoreFlow[Quản Lý Phiếu Nhập Kho / Xuất Kho]
+
+    TransFlow --> ApprovalGate{Trưởng Phòng Tài Chính Duyệt?}
+    ApprovalGate -->|Chấp thuận| ExecPayment[Thực hiện Chi Tiền / Nhập Sổ Quỹ]
+    ApprovalGate -->|Từ chối| RejectFin[Hủy Phiếu & Báo Lý Do]
+
+    ExecPayment --> SyncLedger[(Lưu Sổ Cái Kế Toán & Cập Nhật Báo Cáo Tài Chính Realtime)]
+    BudgetFlow --> SyncLedger
+    DebtFlow --> SyncLedger
+    AssetFlow --> SyncLedger
+    StoreFlow --> SyncLedger
+```
+
+---
+
+### 4.9. Luồng Phân Hệ Quản Trị Nhân Sự & Sơ Đồ Tổ Chức (HR Operations)
+```mermaid
+flowchart TD
+    StartHR([Truy cập Route /hr hoặc /structure]) --> HRAction{Chọn Chức Năng}
+
+    HRAction -->|Tra cứu Nhân sự| SearchEmp[Tìm kiếm theo MSNV, Họ tên, Phòng ban, Nhà máy]
+    HRAction -->|Sơ đồ Tổ chức| ViewTree[Hiển thị Cây Cơ Cấu Tổ Chức Tập Đoàn & Nhà Máy]
+    HRAction -->|Tuyển dụng Tracker| JobTracker[Theo dõi Hồ sơ Ứng viên & Lịch Phỏng vấn]
+
+    SearchEmp --> EmpProfile[Hiển thị Thẻ Hồ Sơ Cán Bộ Công Nhân Viên]
+    ViewTree --> DeptNode[Click Phòng ban -> Danh sách nhân sự phụ trách]
+    JobTracker --> InterviewSchedule[Gửi Xác nhận Lịch phỏng vấn tự động]
+```
+
+---
+
+## 📊 5. CƠ SỞ DỮ LIỆU CLOUDFLARE D1 & SCHEMA SQL CHI TIẾT
 
 Hệ thống sử dụng cơ sở dữ liệu phân tán **Cloudflare D1 SQL Database** (`vpchuoiskechers-db`).
 

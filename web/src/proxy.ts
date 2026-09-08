@@ -18,6 +18,7 @@ const PUBLIC_PATHS = [
  */
 const PROTECTED_PATHS = [
   { path: '/work/kaizen', redirect: true }, // Protect /work/kaizen & all sub-routes
+  { path: '/maintenance', redirect: true }, // Protect /maintenance & all sub-routes
 ];
 
 /**

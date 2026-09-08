@@ -1,0 +1,97 @@
+"use client";
+
+import { useEffect, useRef } from "react";
+import { requestNotificationPermission, registerServiceWorker, syncPushSubscriptionToServer } from "@/lib/browserNotifications";
+
+/**
+ * Auto-initialize notification system when app loads.
+ * Registers Service Worker, syncs push subscriptions, and handles
+ * automatic SW update propagation for all real users via controllerchange.
+ *
+ * When a new SW version (skechers-tbs-v18-no-api-fix) activates via
+ * skipWaiting() + clients.claim(), the `controllerchange` event fires on
+ * every open tab. We then do a single silent reload so the tab runs under
+ * the new SW immediately — no manual cache clearing needed by users.
+ */
+export default function NotificationInitializer() {
+  const didReloadRef = useRef(false);
+
+  // /pph-scan là trang quét QR CÔNG KHAI (không đăng nhập, rất nhiều điện thoại công nhân quét mỗi
+  // ngày) — không có lý do gì cần thông báo đẩy ở đây, và việc TỰ ĐĂNG KÝ Service Worker + xin
+  // quyền Notification (popup xin phép sau 3s) trên trang này vừa gây phiền (công nhân chỉ cần
+  // nhập số liệu rồi rời đi) vừa CHÍNH LÀ NGUYÊN NHÂN facebook gây "kẹt/chập chờn" đã dò ra trước
+  // đây (1 Service Worker đang active chen vào giữa lúc trang tải lần đầu). ServiceWorkerRegister
+  // đã loại trừ /pph-scan tương tự — ở đây làm y hệt để component NÀY cũng không đăng ký gì cả.
+  const isPphScanPage = typeof window !== "undefined" && window.location.pathname.startsWith("/pph-scan");
+
+  useEffect(() => {
+    if (isPphScanPage) return;
+    // Safe Service Worker listener without automatic page reloads
+    if ("serviceWorker" in navigator) {
+      const handleControllerChange = () => {
+        console.log("Service Worker controller updated silently");
+      };
+      navigator.serviceWorker.addEventListener("controllerchange", handleControllerChange);
+      return () => {
+        navigator.serviceWorker.removeEventListener("controllerchange", handleControllerChange);
+      };
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isPphScanPage) return;
+    const initNotifications = async () => {
+      try {
+        // 1. Always register Service Worker first (no permission needed)
+        const swReg = await registerServiceWorker();
+        if (!swReg) {
+          console.log("Service Worker registration not available (may be in development or incognito)");
+          return;
+        }
+        console.log("✓ Service Worker registered successfully");
+
+        // 2. Wait for service worker to be ready
+        await navigator.serviceWorker.ready;
+        console.log("✓ Service Worker is ready");
+
+        // 3. Check notification support
+        if (!("Notification" in window)) {
+          console.log("This browser doesn't support Web Notifications");
+          return;
+        }
+
+        // 4. Sync push subscription if permission already granted
+        if (Notification.permission === "granted") {
+          const synced = await syncPushSubscriptionToServer();
+          if (synced) {
+            console.log("✓ Push subscription synced to server");
+          }
+        } else if (Notification.permission === "default") {
+          // Permission not yet decided - wait a bit then ask
+          // This prevents popup fatigue on first page load
+          await new Promise(resolve => setTimeout(resolve, 3000));
+          
+          const result = await requestNotificationPermission();
+          if (result === "granted") {
+            // After permission granted, sync subscription
+            await new Promise(resolve => setTimeout(resolve, 500));
+            const synced = await syncPushSubscriptionToServer();
+            if (synced) {
+              console.log("✓ Push subscription synced to server after permission grant");
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Notification initialization warning (non-critical):", err);
+        // Don't let notification setup errors break the app
+      }
+    };
+
+    // Start initialization after a minimal delay to ensure DOM is ready
+    const timer = setTimeout(initNotifications, 500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // This component doesn't render anything
+  return null;
+}

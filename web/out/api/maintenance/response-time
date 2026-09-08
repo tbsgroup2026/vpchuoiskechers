@@ -1,0 +1,1 @@
+{"success":true,"incidents":[{"id":"inc_1","isMaintenanceDue":false,"createdAt":"2026-09-08T01:53:44.823Z","acceptedAt":"2026-09-08T02:05:44.825Z","completedAt":"2026-09-08T02:41:44.825Z","assignedTo":{"id":"emp_1","name":"Nguyễn Văn Nam","employeeCode":"TBS-101"},"factoryName":"Nhà Máy Kiên Giang 1","areaName":"Phân Xưởng May A"}],"logs":[]}

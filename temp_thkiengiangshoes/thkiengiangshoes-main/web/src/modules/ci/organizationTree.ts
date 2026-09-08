@@ -1,0 +1,207 @@
+/**
+ * ═══════════════════════════════════════════════════════════════════════════════════
+ * CENTRALIZED ORGANIZATION TREE MAPPING (CẤU TRÚC PHÂN CẤP NHÀ MÁY → XƯỞNG → LINE → CHUYỀN → TỔ)
+ * ═══════════════════════════════════════════════════════════════════════════════════
+ * Single Source of Truth for 5-Level Cascading Organizational Filter.
+ * Easily updateable when PO / User provides full organizational hierarchy.
+ */
+
+export interface OrgNodeMap {
+  [factoryName: string]: {
+    [workshopName: string]: {
+      [lineName: string]: {
+        [chuyenName: string]: string[]; // Array of Tổ names
+      } | string[]; // Fallback array if no further sub-levels
+    } | string[];
+  } | string[];
+}
+
+// "Phòng CN-CI" trước đây là 1 mục gộp chung — tách thành "Phòng CI" (Cải Tiến) và "Phòng CN"
+// (Công Nghệ) riêng biệt theo yêu cầu. Dữ liệu CŨ đã lưu với factory = "Phòng CN-CI" KHÔNG đổi,
+// vẫn hiển thị đúng nhãn cũ ở các nơi thống kê lịch sử (xem TH_KG_SUB_ITEMS/STANDARD_8_REGIONS) —
+// 2 mục mới này chỉ áp dụng cho lựa chọn từ nay về sau.
+export const KIEN_GIANG_FACTORIES = [
+  "Kiên Giang 1",
+  "Kiên Giang 2",
+  "Kiên Giang 3",
+  "Hoàn thiện đế",
+  "Phòng kế hoạch",
+  "Phòng CI",
+  "Phòng CN",
+  "Phòng chất lượng",
+  "Phòng nhân sự",
+];
+
+export function isKienGiangFactory(factory: string): boolean {
+  if (!factory) return true;
+  const normalized = factory.trim().toLowerCase();
+  return (
+    normalized.includes("kiên giang") ||
+    normalized.includes("kg") ||
+    normalized.includes("hoàn thiện đế") ||
+    normalized.includes("htđ") ||
+    normalized.includes("kế hoạch") ||
+    normalized.includes("ci") ||
+    normalized.includes("cn") ||
+    normalized.includes("chất lượng") ||
+    normalized.includes("nhân sự")
+  );
+}
+
+export const INITIAL_ORG_TREE: OrgNodeMap = {
+  // Kiên Giang 1/2/3 — danh sách Xưởng thật theo yêu cầu (không có Line/Chuyền/Tổ con, dropdown
+  // "3. Line Sản Xuất" tự ẩn khi Xưởng là mảng phẳng như dưới đây — xem availableFormLines()).
+  "Kiên Giang 1": ["Đầu vào", "May", "Gò", "Văn Phòng Điều Hành"],
+  "Kiên Giang 2": ["Đầu vào", "May", "Gò", "Văn Phòng Điều Hành"],
+  "Kiên Giang 3": ["Đầu vào", "Phụ trợ in ép", "May", "Gò", "Văn Phòng Điều Hành"],
+
+  "Hoàn thiện đế": {
+    "Xưởng Hoàn Thiện Đế": {
+      "Line Sơn & Ép": {
+        "Chuyền Sơn Đế": ["Tổ Phun Sơn 1", "Tổ Phun Sơn 2"],
+        "Chuyền Ép Thành Phẩm": ["Tổ Ép Đế 1"],
+      },
+    },
+  },
+
+  "Phòng kế hoạch": {
+    "Bộ Phận Kế Hoạch Sản Xuất (PPC)": {
+      "Tổ Lập Kế Hoạch": ["Bộ Phận PPC"],
+    },
+  },
+
+  "Phòng CI": {
+    "Bộ Phận Chuyển Đổi Số & Kaizen": {
+      "Tổ Cải Tiến CI": ["Bộ Phận CI"],
+    },
+  },
+
+  // Cơ cấu tạm thời (placeholder) — cập nhật lại tên Bộ Phận/Tổ chính xác khi có thông tin đầy đủ.
+  "Phòng CN": {
+    "Bộ Phận Công Nghệ": {
+      "Tổ Công Nghệ": ["Bộ Phận CN"],
+    },
+  },
+
+  "Phòng chất lượng": {
+    "Bộ Phận Quản Lý Chất Lượng (QA/QC)": {
+      "Tổ Kiểm Hàng QC": ["Bộ Phận QA/QC"],
+    },
+  },
+
+  "Phòng nhân sự": {
+    "Bộ Phận Nhân Sự & Hành Chính (HR)": {
+      "Tổ Tuyển Dụng & Đào Tạo": ["Bộ Phận HR"],
+    },
+  },
+};
+
+/**
+ * Helper to retrieve grouped workshops for selected factories
+ */
+export function getWorkshopsForFactories(selectedFactories: string[], tree: OrgNodeMap = INITIAL_ORG_TREE) {
+  const result: { factory: string; workshops: string[] }[] = [];
+  selectedFactories.forEach((factory) => {
+    const fNode = tree[factory];
+    if (fNode && typeof fNode === "object" && !Array.isArray(fNode)) {
+      result.push({
+        factory,
+        workshops: Object.keys(fNode),
+      });
+    } else if (Array.isArray(fNode)) {
+      result.push({ factory, workshops: fNode });
+    }
+  });
+  return result;
+}
+
+/**
+ * Helper to retrieve grouped lines for selected workshops
+ */
+export function getLinesForWorkshops(selectedFactories: string[], selectedWorkshops: string[], tree: OrgNodeMap = INITIAL_ORG_TREE) {
+  const result: { workshop: string; lines: string[] }[] = [];
+  selectedFactories.forEach((factory) => {
+    const fNode = tree[factory];
+    if (fNode && typeof fNode === "object" && !Array.isArray(fNode)) {
+      selectedWorkshops.forEach((ws) => {
+        const wsNode = fNode[ws];
+        if (wsNode) {
+          if (typeof wsNode === "object" && !Array.isArray(wsNode)) {
+            result.push({ workshop: ws, lines: Object.keys(wsNode) });
+          } else if (Array.isArray(wsNode)) {
+            result.push({ workshop: ws, lines: wsNode });
+          }
+        }
+      });
+    }
+  });
+  return result;
+}
+
+/**
+ * Helper to retrieve grouped chuyens for selected lines
+ */
+export function getChuyensForLines(
+  selectedFactories: string[],
+  selectedWorkshops: string[],
+  selectedLines: string[],
+  tree: OrgNodeMap = INITIAL_ORG_TREE
+) {
+  const result: { line: string; chuyens: string[] }[] = [];
+  selectedFactories.forEach((factory) => {
+    const fNode = tree[factory];
+    if (fNode && typeof fNode === "object" && !Array.isArray(fNode)) {
+      selectedWorkshops.forEach((ws) => {
+        const wsNode = fNode[ws];
+        if (wsNode && typeof wsNode === "object" && !Array.isArray(wsNode)) {
+          selectedLines.forEach((ln) => {
+            const lineNode = wsNode[ln];
+            if (lineNode) {
+              if (typeof lineNode === "object" && !Array.isArray(lineNode)) {
+                result.push({ line: ln, chuyens: Object.keys(lineNode) });
+              } else if (Array.isArray(lineNode)) {
+                result.push({ line: ln, chuyens: lineNode });
+              }
+            }
+          });
+        }
+      });
+    }
+  });
+  return result;
+}
+
+/**
+ * Helper to retrieve grouped tos for selected chuyens
+ */
+export function getTosForChuyens(
+  selectedFactories: string[],
+  selectedWorkshops: string[],
+  selectedLines: string[],
+  selectedChuyens: string[],
+  tree: OrgNodeMap = INITIAL_ORG_TREE
+) {
+  const result: { chuyen: string; tos: string[] }[] = [];
+  selectedFactories.forEach((factory) => {
+    const fNode = tree[factory];
+    if (fNode && typeof fNode === "object" && !Array.isArray(fNode)) {
+      selectedWorkshops.forEach((ws) => {
+        const wsNode = fNode[ws];
+        if (wsNode && typeof wsNode === "object" && !Array.isArray(wsNode)) {
+          selectedLines.forEach((ln) => {
+            const lineNode = wsNode[ln];
+            if (lineNode && typeof lineNode === "object" && !Array.isArray(lineNode)) {
+              selectedChuyens.forEach((ch) => {
+                const chuyenNode = lineNode[ch];
+                if (chuyenNode && Array.isArray(chuyenNode)) {
+                  result.push({ chuyen: ch, tos: chuyenNode });
+                }
+              });
+            }
+          });
+        }
+      });
+    }
+  });
+  return result;
+}

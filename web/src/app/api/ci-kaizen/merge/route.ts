@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { ensureKaizenSchema } from '@/lib/kaizenDbMigration';
 
-export const dynamic = 'force-static';
+
 
 function getDbBinding(): any {
   return (process.env as any).DB || (globalThis as any).DB || null;
@@ -70,44 +70,46 @@ export async function POST(request: Request) {
 
     const mergedId = `mrg_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
 
-    await db
-      .prepare(`
-        INSERT INTO ci_kaizen_merged_proposals (
-          id, original_proposal_id, merged_proposal_id, attachments_json, created_at
-        ) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
-      `)
-      .bind(
-        mergedId,
-        originalProposalId,
-        newProposalId || mergedId,
-        JSON.stringify(newAttachments)
-      )
-      .run();
-
-    await db
-      .prepare(`
-        UPDATE ci_kaizen_proposals
-        SET attachments_json = ?,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE id = ?
-      `)
-      .bind(JSON.stringify(mergedAttachments), originalProposalId)
-      .run();
-
-    if (newProposalId) {
-      await db
+    const batchStatements = [
+      db
+        .prepare(`
+          INSERT INTO ci_kaizen_merged_proposals (
+            id, original_proposal_id, merged_proposal_id, attachments_json, created_at
+          ) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+        `)
+        .bind(
+          mergedId,
+          originalProposalId,
+          newProposalId || mergedId,
+          JSON.stringify(newAttachments)
+        ),
+      db
         .prepare(`
           UPDATE ci_kaizen_proposals
-          SET trang_thai = 'DA_GOP',
-              status = 'MERGED',
-              registration_type = 'DA_GOP',
-              merged_into_id = ?,
+          SET attachments_json = ?,
               updated_at = CURRENT_TIMESTAMP
           WHERE id = ?
         `)
-        .bind(originalProposalId, newProposalId)
-        .run();
+        .bind(JSON.stringify(mergedAttachments), originalProposalId),
+    ];
+
+    if (newProposalId) {
+      batchStatements.push(
+        db
+          .prepare(`
+            UPDATE ci_kaizen_proposals
+            SET trang_thai = 'DA_GOP',
+                status = 'MERGED',
+                registration_type = 'DA_GOP',
+                merged_into_id = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+          `)
+          .bind(originalProposalId, newProposalId)
+      );
     }
+
+    await db.batch(batchStatements);
 
     return NextResponse.json({
       success: true,

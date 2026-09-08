@@ -13,6 +13,18 @@ import {
   IconSparkles,
   IconAlertCircle,
   IconBuildingFactory,
+  IconBook,
+  IconFileText,
+  IconDeviceMobile,
+  IconSchool,
+  IconEye,
+  IconChartBar,
+  IconUsers,
+  IconTools,
+  IconCalendar,
+  IconStar,
+  IconFolder,
+  IconChevronRight,
 } from "@tabler/icons-react";
 import CIModule from "./CIModule";
 
@@ -71,131 +83,341 @@ export default function CNCIWrapper() {
       )}
 
       {/* ════════════════════════════════════════════════════════════════
-          1. LANDING SELECTION VIEW (3 LARGE CARDS MATCHING IMAGE 2)
+          1. LANDING SELECTION VIEW (NEW 3-COLUMN LIST LAYOUT MATCHING IMAGE 2)
          ════════════════════════════════════════════════════════════════ */}
       {!subView && (
         <div className="space-y-6 animate-in zoom-in-95 duration-200">
           {/* Top Banner Intro */}
-          <div className="p-6 rounded-3xl bg-gradient-to-r from-slate-900 via-[#004d29] to-slate-950 text-white shadow-md relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-[#032b30] via-[#053c44] to-[#0a2744] text-white shadow-md relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-teal-900/40">
             <div className="space-y-1.5 z-10">
-              <span className="px-3 py-1 rounded-full bg-emerald-400/20 text-emerald-300 text-[10px] font-black uppercase tracking-widest border border-emerald-300/30">
-                Phân Hệ CN-CI
-              </span>
-              <h2 className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
-                <span>Cải Tiến Liên Tục &amp; Năng Suất 4.0</span>
+              <div className="flex items-center gap-1.5 text-emerald-400 font-extrabold text-xs tracking-wider">
+                <IconSparkles size={16} />
+                <span>CHÀO MỪNG TRỞ LẠI!</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+                Cải Tiến Liên Tục &amp; Năng Suất 4.0
               </h2>
-              <p className="text-xs text-emerald-100/90 font-medium max-w-xl">
-                Chọn một trong ba trung tâm quản trị nghiệp vụ cải tiến dưới đây để bắt đầu thực hiện.
+              <p className="text-xs sm:text-sm text-slate-300 font-medium max-w-xl leading-relaxed">
+                Chọn phân hệ bên dưới để quản lý, theo dõi và cải tiến hiệu quả công việc mỗi ngày.
               </p>
             </div>
-            <div className="w-12 h-12 rounded-2xl bg-white/10 text-emerald-300 flex items-center justify-center flex-shrink-0 backdrop-blur-xs border border-white/15">
-              <IconSparkles size={28} />
+
+            {/* Gear + Upward Arrow Vector Graphic */}
+            <div className="relative w-28 h-20 sm:w-36 sm:h-24 flex items-center justify-center shrink-0 z-10">
+              <div className="absolute inset-0 bg-emerald-500/10 rounded-full blur-xl pointer-events-none" />
+              <svg
+                viewBox="0 0 100 80"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="w-full h-full text-emerald-400 opacity-90 drop-shadow-md"
+              >
+                {/* Outer Gear */}
+                <circle cx="35" cy="45" r="18" stroke="currentColor" strokeWidth="2.5" strokeDasharray="3 3" />
+                <circle cx="35" cy="45" r="10" stroke="currentColor" strokeWidth="2" />
+                <path d="M35 23v4M35 63v4M13 45h4M53 45h4M20 30l3 3M47 57l3 3M20 60l3-3M47 33l3-3" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+                {/* Ascending Arrow */}
+                <path
+                  d="M25 65L75 15M75 15H45M75 15V45"
+                  stroke="#34d399"
+                  strokeWidth="4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
             </div>
           </div>
 
-          {/* 3 Large Selection Cards Grid (Exact Matching Image 2) */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* CARD 1: KAIZEN */}
-            <Link
-              href="/work/kaizen"
-              className="group rounded-3xl p-6 bg-[#f2faf5] border-2 border-[#d4f2e1] hover:border-[#006838] shadow-2xs hover:shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between min-h-[200px] relative overflow-hidden"
-            >
-              {/* Decorative Subtle Dots Pattern */}
-              <div className="absolute top-0 right-0 w-24 h-24 bg-[radial-gradient(#006838_1px,transparent_1px)] [background-size:8px_8px] opacity-10 pointer-events-none" />
+          {/* 3-Column List Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-              <div className="flex items-start gap-4">
-                {/* Green Icon Circle */}
-                <div className="w-16 h-16 rounded-full bg-[#dcf4e7] text-[#006838] flex items-center justify-center flex-shrink-0 shadow-2xs group-hover:scale-110 transition-transform duration-300">
-                  <IconBulb size={32} />
+            {/* ════════════════════════════════════════════════════════════════
+                COLUMN 1 — THƯ VIỆN CẢI TIẾN (GREEN THEME)
+               ════════════════════════════════════════════════════════════════ */}
+            <div className="bg-white rounded-3xl p-6 border border-slate-200/90 shadow-sm flex flex-col justify-between space-y-6">
+              <div className="space-y-4">
+                {/* Column Header */}
+                <div className="flex items-start gap-3.5">
+                  <div className="w-13 h-13 rounded-2xl bg-[#006838] text-white flex items-center justify-center shrink-0 shadow-md">
+                    <IconBook size={28} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-slate-900 tracking-tight">
+                      Thư Viện Cải Tiến
+                    </h3>
+                    <p className="text-xs text-slate-500 font-medium leading-normal mt-0.5">
+                      Tài liệu, biểu mẫu và kiến thức hỗ trợ cải tiến liên tục
+                    </p>
+                  </div>
                 </div>
 
-                <div className="space-y-1">
-                  <h3 className="text-2xl font-black text-emerald-950 tracking-tight group-hover:text-[#006838] transition-colors">
-                    KAIZEN
-                  </h3>
-                  <p className="text-xs font-semibold text-slate-600 leading-relaxed">
-                    Đề xuất ý tưởng, cải tiến công việc mỗi ngày
-                  </p>
-                </div>
-              </div>
+                {/* List Items */}
+                <div className="space-y-2.5 pt-2">
+                  {/* Item 1: Tổng Quan */}
+                  <Link
+                    href="/work/kaizen"
+                    className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 hover:bg-emerald-50/50 border border-slate-100 hover:border-emerald-200 transition-all duration-200 group cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-emerald-100/80 text-[#006838] flex items-center justify-center shrink-0 font-bold border border-emerald-200/50 group-hover:scale-105 transition-transform">
+                        <IconFileText size={20} />
+                      </div>
+                      <span className="text-xs font-black text-slate-800 group-hover:text-[#006838] transition-colors">
+                        Tổng Quan
+                      </span>
+                    </div>
+                    <IconChevronRight size={18} className="text-slate-400 group-hover:text-[#006838] group-hover:translate-x-0.5 transition-all" />
+                  </Link>
 
-              {/* Bottom Row Arrow Action */}
-              <div className="flex justify-end pt-4">
-                <div className="w-11 h-11 rounded-full bg-[#006838] text-white flex items-center justify-center shadow-md shadow-emerald-900/20 group-hover:translate-x-1 transition-all">
-                  <IconArrowRight size={22} />
-                </div>
-              </div>
-            </Link>
-
-            {/* CARD 2: CI */}
-            <Link
-              href="/work/ci"
-              className="group rounded-3xl p-6 bg-[#f0f5ff] border-2 border-[#d6e4ff] hover:border-[#2f54eb] shadow-2xs hover:shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between min-h-[200px] relative overflow-hidden"
-            >
-              {/* Decorative Subtle Dots Pattern */}
-              <div className="absolute top-0 right-0 w-24 h-24 bg-[radial-gradient(#2f54eb_1px,transparent_1px)] [background-size:8px_8px] opacity-10 pointer-events-none" />
-
-              <div className="flex items-start gap-4">
-                {/* Blue Icon Circle */}
-                <div className="w-16 h-16 rounded-full bg-[#d6e4ff] text-[#2f54eb] flex items-center justify-center flex-shrink-0 shadow-2xs group-hover:scale-110 transition-transform duration-300">
-                  <IconTrendingUp size={32} />
-                </div>
-
-                <div className="space-y-1">
-                  <h3 className="text-2xl font-black text-blue-950 tracking-tight group-hover:text-[#2f54eb] transition-colors flex items-center gap-2">
-                    <span>CI</span>
-                    <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-[10px] font-black uppercase tracking-wider">
-                      Soon
-                    </span>
-                  </h3>
-                  <p className="text-xs font-semibold text-slate-600 leading-relaxed">
-                    Quản lý &amp; theo dõi các hoạt động cải tiến
-                  </p>
+                  {/* Item 2: Biểu Mẫu */}
+                  <Link
+                    href="/work/kaizen/register"
+                    className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 hover:bg-emerald-50/50 border border-slate-100 hover:border-emerald-200 transition-all duration-200 group cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-emerald-100/80 text-[#006838] flex items-center justify-center shrink-0 font-bold border border-emerald-200/50 group-hover:scale-105 transition-transform">
+                        <IconDeviceMobile size={20} />
+                      </div>
+                      <span className="text-xs font-black text-slate-800 group-hover:text-[#006838] transition-colors">
+                        Biểu Mẫu
+                      </span>
+                    </div>
+                    <IconChevronRight size={18} className="text-slate-400 group-hover:text-[#006838] group-hover:translate-x-0.5 transition-all" />
+                  </Link>
                 </div>
               </div>
+            </div>
 
-              {/* Bottom Row Arrow Action */}
-              <div className="flex justify-end pt-4">
-                <div className="w-11 h-11 rounded-full bg-[#2f54eb] text-white flex items-center justify-center shadow-md shadow-blue-900/20 group-hover:translate-x-1 transition-all">
-                  <IconArrowRight size={22} />
+            {/* ════════════════════════════════════════════════════════════════
+                COLUMN 2 — GEMBA | NMMĐ | TỔ HỢP KIÊN GIANG (BLUE THEME)
+               ════════════════════════════════════════════════════════════════ */}
+            <div className="bg-white rounded-3xl p-6 border border-slate-200/90 shadow-sm flex flex-col justify-between space-y-6">
+              <div className="space-y-4">
+                {/* Column Header */}
+                <div className="flex items-start gap-3.5">
+                  <div className="w-13 h-13 rounded-2xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-md">
+                    <IconBuildingFactory size={28} />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-slate-900 tracking-tight leading-snug">
+                      Gemba | Nhà Máy Miền Đông | Tổ Hợp Kiên Giang
+                    </h3>
+                    <p className="text-xs text-slate-500 font-medium leading-normal mt-0.5">
+                      Theo dõi hiện trường, phản ánh và cải tiến tại nhà máy
+                    </p>
+                  </div>
+                </div>
+
+                {/* List Items */}
+                <div className="space-y-2.5 pt-2">
+                  {/* Item 1: Nhà Máy Miền Đông */}
+                  <a
+                    href="https://script.google.com/macros/s/AKfycbwZ0h0Im1bKF5X_Tm7v7-YfcnDATKazw5Sp6oSkLj1Agk1Onzi9UshAchDsccPdt6R6/exec"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 hover:bg-blue-50/50 border border-slate-100 hover:border-blue-200 transition-all duration-200 group cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-blue-100/80 text-blue-600 flex items-center justify-center shrink-0 font-bold border border-blue-200/50 group-hover:scale-105 transition-transform">
+                        <IconBuildingFactory size={20} />
+                      </div>
+                      <span className="text-xs font-black text-slate-800 group-hover:text-blue-600 transition-colors">
+                        Nhà Máy Miền Đông
+                      </span>
+                    </div>
+                    <IconChevronRight size={18} className="text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all" />
+                  </a>
+
+                  {/* Item 3: Tổ Hợp Kiên Giang */}
+                  <a
+                    href="https://script.google.com/macros/s/AKfycbwZ0h0Im1bKF5X_Tm7v7-YfcnDATKazw5Sp6oSkLj1Agk1Onzi9UshAchDsccPdt6R6/exec"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 hover:bg-blue-50/50 border border-slate-100 hover:border-blue-200 transition-all duration-200 group cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-blue-100/80 text-blue-600 flex items-center justify-center shrink-0 font-bold border border-blue-200/50 group-hover:scale-105 transition-transform">
+                        <IconMapPin size={20} />
+                      </div>
+                      <span className="text-xs font-black text-slate-800 group-hover:text-blue-600 transition-colors">
+                        Tổ Hợp Kiên Giang
+                      </span>
+                    </div>
+                    <IconChevronRight size={18} className="text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all" />
+                  </a>
+
+                  {/* Item 4: Half-and-Half Split Row */}
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <Link
+                      href="/work/gemba"
+                      className="flex items-center justify-between p-3 rounded-2xl bg-slate-50/80 hover:bg-blue-50/50 border border-slate-100 hover:border-blue-200 transition-all duration-200 group cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-8 h-8 rounded-xl bg-blue-100/80 text-blue-600 flex items-center justify-center shrink-0 font-bold border border-blue-200/50 group-hover:scale-105 transition-transform">
+                          <IconChartBar size={17} />
+                        </div>
+                        <span className="text-[11px] font-black text-slate-800 group-hover:text-blue-600 transition-colors truncate">
+                          Báo Cáo Sản Xuất
+                        </span>
+                      </div>
+                      <IconChevronRight size={15} className="text-slate-400 group-hover:text-blue-600 shrink-0" />
+                    </Link>
+
+                    <Link
+                      href="/work/gemba"
+                      className="flex items-center justify-between p-3 rounded-2xl bg-slate-50/80 hover:bg-blue-50/50 border border-slate-100 hover:border-blue-200 transition-all duration-200 group cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-8 h-8 rounded-xl bg-blue-100/80 text-blue-600 flex items-center justify-center shrink-0 font-bold border border-blue-200/50 group-hover:scale-105 transition-transform">
+                          <IconUsers size={17} />
+                        </div>
+                        <span className="text-[11px] font-black text-slate-800 group-hover:text-blue-600 transition-colors truncate">
+                          Thông Tin Nhà Máy
+                        </span>
+                      </div>
+                      <IconChevronRight size={15} className="text-slate-400 group-hover:text-blue-600 shrink-0" />
+                    </Link>
+                  </div>
                 </div>
               </div>
-            </Link>
+            </div>
 
-            {/* CARD 3: GEMBA */}
-            <Link
-              href="/work/gemba"
-              className="group rounded-3xl p-6 bg-[#fff7e6] border-2 border-[#ffd591] hover:border-[#fa8c16] shadow-2xs hover:shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between min-h-[200px] relative overflow-hidden"
-            >
-              {/* Decorative Subtle Dots Pattern */}
-              <div className="absolute top-0 right-0 w-24 h-24 bg-[radial-gradient(#fa8c16_1px,transparent_1px)] [background-size:8px_8px] opacity-10 pointer-events-none" />
-
-              <div className="flex items-start gap-4">
-                {/* Orange Icon Circle */}
-                <div className="w-16 h-16 rounded-full bg-[#ffe7ba] text-[#fa8c16] flex items-center justify-center flex-shrink-0 shadow-2xs group-hover:scale-110 transition-transform duration-300">
-                  <IconMapPin size={32} />
+            {/* ════════════════════════════════════════════════════════════════
+                COLUMN 3 — QUẢN LÝ MÁY MÓC THIẾT BỊ (ORANGE THEME)
+               ════════════════════════════════════════════════════════════════ */}
+            <div className="bg-white rounded-3xl p-6 border border-slate-200/90 shadow-sm flex flex-col justify-between space-y-6">
+              <div className="space-y-4">
+                {/* Column Header */}
+                <div className="flex items-start gap-3.5">
+                  <div className="w-13 h-13 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-md">
+                    <IconTools size={28} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-slate-900 tracking-tight">
+                      Quản Lý Máy Móc Thiết Bị
+                    </h3>
+                    <p className="text-xs text-slate-500 font-medium leading-normal mt-0.5">
+                      Quản lý, bảo trì và theo dõi tình trạng thiết bị
+                    </p>
+                  </div>
                 </div>
 
-                <div className="space-y-1">
-                  <h3 className="text-2xl font-black text-amber-950 tracking-tight group-hover:text-[#fa8c16] transition-colors flex items-center gap-2">
-                    <span>GEMBA</span>
-                    <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[10px] font-black uppercase tracking-wider">
-                      Soon
-                    </span>
-                  </h3>
-                  <p className="text-xs font-semibold text-slate-600 leading-relaxed">
-                    Đi hiện trường, quan sát và phát hiện vấn đề
-                  </p>
+                {/* List Items */}
+                <div className="space-y-2.5 pt-2">
+                  {/* Item 1: Bảo Dưỡng MMTB */}
+                  <Link
+                    href="/maintenance"
+                    className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 hover:bg-amber-50/50 border border-slate-100 hover:border-amber-200 transition-all duration-200 group cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-amber-100/80 text-amber-600 flex items-center justify-center shrink-0 font-bold border border-amber-200/50 group-hover:scale-105 transition-transform">
+                        <IconTools size={20} />
+                      </div>
+                      <span className="text-xs font-black text-slate-800 group-hover:text-amber-600 transition-colors">
+                        Bảo Dưỡng MMTB
+                      </span>
+                    </div>
+                    <IconChevronRight size={18} className="text-slate-400 group-hover:text-amber-600 group-hover:translate-x-0.5 transition-all" />
+                  </Link>
+
+                  {/* Item 2: Nhu Cầu Sửa Chữa */}
+                  <Link
+                    href="/maintenance/tickets"
+                    className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 hover:bg-amber-50/50 border border-slate-100 hover:border-amber-200 transition-all duration-200 group cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-amber-100/80 text-amber-600 flex items-center justify-center shrink-0 font-bold border border-amber-200/50 group-hover:scale-105 transition-transform">
+                        <IconCalendar size={20} />
+                      </div>
+                      <span className="text-xs font-black text-slate-800 group-hover:text-amber-600 transition-colors">
+                        Nhu Cầu Sửa Chữa
+                      </span>
+                    </div>
+                    <IconChevronRight size={18} className="text-slate-400 group-hover:text-amber-600 group-hover:translate-x-0.5 transition-all" />
+                  </Link>
+
+                  {/* Item 3: Danh Sách MMTB */}
+                  <Link
+                    href="/maintenance/machines"
+                    className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 hover:bg-amber-50/50 border border-slate-100 hover:border-amber-200 transition-all duration-200 group cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-amber-100/80 text-amber-600 flex items-center justify-center shrink-0 font-bold border border-amber-200/50 group-hover:scale-105 transition-transform">
+                        <IconFileText size={20} />
+                      </div>
+                      <span className="text-xs font-black text-slate-800 group-hover:text-amber-600 transition-colors">
+                        Danh Sách MMTB
+                      </span>
+                    </div>
+                    <IconChevronRight size={18} className="text-slate-400 group-hover:text-amber-600 group-hover:translate-x-0.5 transition-all" />
+                  </Link>
+
+                  {/* Item 4: Đề Xuất Cải Tiến */}
+                  <Link
+                    href="/work/kaizen"
+                    className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 hover:bg-amber-50/50 border border-slate-100 hover:border-amber-200 transition-all duration-200 group cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-amber-100/80 text-amber-600 flex items-center justify-center shrink-0 font-bold border border-amber-200/50 group-hover:scale-105 transition-transform">
+                        <IconClock size={20} />
+                      </div>
+                      <span className="text-xs font-black text-slate-800 group-hover:text-amber-600 transition-colors">
+                        Đề Xuất Cải Tiến
+                      </span>
+                    </div>
+                    <IconChevronRight size={18} className="text-slate-400 group-hover:text-amber-600 group-hover:translate-x-0.5 transition-all" />
+                  </Link>
+
+                  {/* Item 5: Thời Gian Phản Hồi */}
+                  <Link
+                    href="/maintenance"
+                    className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 hover:bg-amber-50/50 border border-slate-100 hover:border-amber-200 transition-all duration-200 group cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-amber-100/80 text-amber-600 flex items-center justify-center shrink-0 font-bold border border-amber-200/50 group-hover:scale-105 transition-transform">
+                        <IconStar size={20} />
+                      </div>
+                      <span className="text-xs font-black text-slate-800 group-hover:text-amber-600 transition-colors">
+                        Thời Gian Phản Hồi
+                      </span>
+                    </div>
+                    <IconChevronRight size={18} className="text-slate-400 group-hover:text-amber-600 group-hover:translate-x-0.5 transition-all" />
+                  </Link>
+
+                  {/* Item 6: Sơ Đồ Nhà Máy */}
+                  <Link
+                    href="/work/gemba"
+                    className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 hover:bg-amber-50/50 border border-slate-100 hover:border-amber-200 transition-all duration-200 group cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-amber-100/80 text-amber-600 flex items-center justify-center shrink-0 font-bold border border-amber-200/50 group-hover:scale-105 transition-transform">
+                        <IconMapPin size={20} />
+                      </div>
+                      <span className="text-xs font-black text-slate-800 group-hover:text-amber-600 transition-colors">
+                        Sơ Đồ Nhà Máy
+                      </span>
+                    </div>
+                    <IconChevronRight size={18} className="text-slate-400 group-hover:text-amber-600 group-hover:translate-x-0.5 transition-all" />
+                  </Link>
+
+                  {/* Item 7: Quản Lý Danh Mục */}
+                  <Link
+                    href="/maintenance"
+                    className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 hover:bg-amber-50/50 border border-slate-100 hover:border-amber-200 transition-all duration-200 group cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-amber-100/80 text-amber-600 flex items-center justify-center shrink-0 font-bold border border-amber-200/50 group-hover:scale-105 transition-transform">
+                        <IconFolder size={20} />
+                      </div>
+                      <span className="text-xs font-black text-slate-800 group-hover:text-amber-600 transition-colors">
+                        Quản Lý Danh Mục
+                      </span>
+                    </div>
+                    <IconChevronRight size={18} className="text-slate-400 group-hover:text-amber-600 group-hover:translate-x-0.5 transition-all" />
+                  </Link>
                 </div>
               </div>
+            </div>
 
-              {/* Bottom Row Arrow Action */}
-              <div className="flex justify-end pt-4">
-                <div className="w-11 h-11 rounded-full bg-[#fa8c16] text-white flex items-center justify-center shadow-md shadow-amber-900/20 group-hover:translate-x-1 transition-all">
-                  <IconArrowRight size={22} />
-                </div>
-              </div>
-            </Link>
           </div>
         </div>
       )}

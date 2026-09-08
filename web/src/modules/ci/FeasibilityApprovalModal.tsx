@@ -287,19 +287,27 @@ export default function FeasibilityApprovalModal({
       const afterImgUrlStr = mediaUrls.length > 0 ? mediaUrls[0] : "";
       const attachmentsJsonStr = JSON.stringify(mediaUrls);
 
-      const tokenCookie = typeof document !== "undefined"
-        ? document.cookie.split("; ").find((row) => row.startsWith("tbs_token="))
-        : null;
-      const token = tokenCookie ? tokenCookie.split("=")[1] : "";
+      let token = "";
+      if (typeof window !== "undefined") {
+        token = localStorage.getItem("tbs_jwt_token") || localStorage.getItem("tbs_token") || sessionStorage.getItem("tbs_jwt_token") || sessionStorage.getItem("tbs_token") || "";
+        if (!token && typeof document !== "undefined") {
+          const tokenCookie = document.cookie.split("; ").find((row) => row.startsWith("tbs_token="));
+          if (tokenCookie) token = tokenCookie.split("=")[1];
+        }
+      }
+
+      const propId = proposal.id || (proposal as any).proposal_id || proposal.code;
 
       const res = await fetch("/api/ci-kaizen/approve", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "X-User-Emp-Code": "202608001",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          proposalId: proposal.id,
+          proposalId: propId,
+          code: proposal.code,
           decision,
           category: editedCategory,
           note: note.trim() || (decision === "APPROVE" ? "Đã phê duyệt tính khả thi (Bước 3)" : "Không đạt tính khả thi"),

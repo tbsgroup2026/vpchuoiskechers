@@ -2,7 +2,11 @@ import { NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import { convertNumberToWords } from '@/lib/numberToWords';
 
-export const dynamic = 'force-static';
+
+
+export async function GET() {
+  return NextResponse.json({ success: true, message: 'Kaizen Approve API Endpoint' });
+}
 
 function getDbBinding(): any {
   return (process.env as any).DB || (globalThis as any).DB || null;

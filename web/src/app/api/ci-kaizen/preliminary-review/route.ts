@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { ensureKaizenSchema } from '@/lib/kaizenDbMigration';
 
-export const dynamic = 'force-static';
+
 
 function getDbBinding(): any {
   return (process.env as any).DB || (globalThis as any).DB || null;

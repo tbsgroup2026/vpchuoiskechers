@@ -61,23 +61,23 @@ export function normalizeCategoryId(catRaw?: string): string {
 
 export const REAL_FACTORIES = [
   "Nhà Máy Miền Đông",
+  "Văn phòng Chuỗi",
   "Kiên Giang 1",
   "Kiên Giang 2",
   "Kiên Giang 3",
-  "Hoàn thiện đế",
-  "Văn phòng Chuỗi",
+  "Hoàn Thiện Đế",
 ];
 
 export function normalizeFactoryName(fac?: string): string {
-  if (!fac) return "Kiên Giang 1";
+  if (!fac) return "Nhà Máy Miền Đông";
   const f = fac.trim().toUpperCase();
+  if (f.includes("MIỀN ĐÔNG") || f.includes("MIEN DONG") || f === "NMMĐ" || f === "NMMD") return "Nhà Máy Miền Đông";
   if (f.includes("VĂN PHÒNG CHUỖI") || f.includes("VP CHUỖI") || f.includes("VP CHUOI") || f.includes("SKECHERS")) return "Văn phòng Chuỗi";
   if (f === "KG1" || f === "KG 1" || f.includes("KIÊN GIANG 1") || f.includes("KIEN GIANG 1")) return "Kiên Giang 1";
   if (f === "KG2" || f === "KG 2" || f.includes("KIÊN GIANG 2") || f.includes("KIEN GIANG 2")) return "Kiên Giang 2";
   if (f === "KG3" || f === "KG 3" || f.includes("KIÊN GIANG 3") || f.includes("KIEN GIANG 3")) return "Kiên Giang 3";
-  if (f.includes("HOÀN THIỆN ĐẾ") || f.includes("HTĐ") || f === "HTD") return "Hoàn thiện đế";
-  if (f.includes("MIỀN ĐÔNG") || f.includes("MIEN DONG") || f === "NMMĐ" || f === "NMMD") return "Nhà Máy Miền Đông";
-  return "Kiên Giang 1";
+  if (f.includes("HOÀN THIỆN ĐẾ") || f.includes("HTĐ") || f === "HTD") return "Hoàn Thiện Đế";
+  return "Nhà Máy Miền Đông";
 }
 
 export function normalizeWorkshopName(facNormalized: string, wsRaw?: string): string {
@@ -90,35 +90,12 @@ export function normalizeWorkshopName(facNormalized: string, wsRaw?: string): st
 }
 
 export const REAL_DEPARTMENTS = [
-  "VP CHUỖI",
-  "VP R&D",
-  "ĐẾ - XƯỞNG SẢN XUẤT ĐẾ",
-  "ĐẾ - TỔ CÁN ÉP",
-  "ĐẾ - TỔ ÉP ĐẾ DÁN",
-  "MŨI - XƯỞNG SẢN XUẤT MŨI",
-  "MŨI - TỔ CHẶT",
-  "MŨI - TỔ CHUẨN BỊ",
-  "MŨI - TỔ MAY 1",
-  "MŨI - TỔ MAY 2",
-  "MŨI - TỔ MAY 3",
-  "GÒ - XƯỞNG SẢN XUẤT GÒ",
-  "GÒ - TỔ GÒ CHUYỀN 1",
-  "GÒ - TỔ GÒ CHUYỀN 2",
-  "GÒ - TỔ GÒ CHUYỀN 3",
-  "BẢO TRÌ - TỔ BẢO TRÌ MMTB",
-  "BẢO TRÌ - TỔ BẢO TRÌ ĐIỆN",
-  "QC - TỔ QC MŨI",
-  "QC - TỔ QC ĐẾ",
-  "QC - TỔ QC GÒ",
-  "KHO - TỔ KHO VẬT TƯ",
-  "KHO - TỔ KHO THÀNH PHẨM",
-  "KHO - TỔ KHO PHỤ LIỆU",
-  "P. CN-CI (CONTINUOUS IMPROVEMENT)",
-  "P. QUẢN LÝ CHẤT LƯỢNG (QA)",
-  "P. KĨ THUẬT CÔNG NGHỆ (IE)",
-  "P. NHÂN SỰ & HÀNH CHÍNH (HR)",
-  "P. KẾ TOÁN & TÀI CHÍNH",
-  "P. KẾ HOẠCH SẢN XUẤT (PPC)",
+  "Văn phòng Chuỗi",
+  "Nhà Máy Miền Đông",
+  "Kiên Giang 1",
+  "Kiên Giang 2",
+  "Kiên Giang 3",
+  "Hoàn Thiện Đế",
 ];
 
 const VTCV_OPTIONS = [
@@ -194,7 +171,7 @@ export default function KaizenPublicSubmitForm({
   const lookupRequestIdRef = React.useRef(0);
 
   // Single-select cascading org selection for submission form
-  const [selectedFormFactory, setSelectedFormFactory] = useState<string>("Kiên Giang 1");
+  const [selectedFormFactory, setSelectedFormFactory] = useState<string>("Nhà Máy Miền Đông");
   const [selectedFormWorkshop, setSelectedFormWorkshop] = useState<string>("Đầu Vào");
   const [selectedFormLine, setSelectedFormLine] = useState<string>("");
   const [selectedFormChuyen, setSelectedFormChuyen] = useState<string>("");
@@ -257,15 +234,15 @@ export default function KaizenPublicSubmitForm({
 
   const [form, setForm] = useState({
     // Section A: Thông tin người đăng ký
-    region: "Kiên Giang 1",
+    region: "Nhà Máy Miền Đông",
     proposerEmpCode: "",
     proposerPosition: "Công nhân",
     proposerMonth: new Date().getMonth() + 1,
     proposerYear: new Date().getFullYear(),
     proposerName: "",
     customer: "",
-    factory: "Kiên Giang 1",
-    department: "Xưởng Đế KG1",
+    factory: "Nhà Máy Miền Đông",
+    department: "Đầu Vào",
 
     // Section B: Thông tin cải tiến
     title: "",
@@ -365,12 +342,12 @@ export default function KaizenPublicSubmitForm({
             ...prev,
             proposerName: "",
             proposerPosition: "Công nhân",
-            region: "Kiên Giang 1",
-            factory: "Kiên Giang 1",
+            region: "Nhà Máy Miền Đông",
+            factory: "Nhà Máy Miền Đông",
             department: "",
           }));
           // Reset org tree selection
-          setSelectedFormFactory("Kiên Giang 1");
+          setSelectedFormFactory("Nhà Máy Miền Đông");
           setSelectedFormWorkshop("");
           setSelectedFormLine("");
         }

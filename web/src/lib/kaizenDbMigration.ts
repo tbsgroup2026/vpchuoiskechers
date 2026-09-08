@@ -34,6 +34,18 @@ export async function ensureKaizenSchema(db: any, force = false) {
       )
     `).run().catch(() => {});
 
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS ci_kaizen_rate_limits (
+        id TEXT PRIMARY KEY,
+        ip_emp_key TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run().catch(() => {});
+
+    await db.prepare(`
+      CREATE INDEX IF NOT EXISTS idx_rate_limit_key_created ON ci_kaizen_rate_limits(ip_emp_key, created_at DESC)
+    `).run().catch(() => {});
+
     const indexes = [
       'CREATE INDEX IF NOT EXISTS idx_kaizen_factory_created ON ci_kaizen_proposals(factory, created_at DESC)',
       'CREATE INDEX IF NOT EXISTS idx_kaizen_status ON ci_kaizen_proposals(status, sub_status, registration_type)',

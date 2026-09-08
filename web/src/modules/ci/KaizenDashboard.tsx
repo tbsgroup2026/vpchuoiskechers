@@ -40,12 +40,12 @@ import {
 } from "./organizationTree";
 
 export const STANDARD_8_REGIONS = [
+  "Văn phòng Chuỗi",
   "Nhà Máy Miền Đông",
   "Kiên Giang 1",
   "Kiên Giang 2",
   "Kiên Giang 3",
   "Hoàn Thiện Đế",
-  "Văn Phòng Chuỗi",
 ];
 
 export const STANDARD_6_REGIONS = STANDARD_8_REGIONS;

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { ensureKaizenSchema } from '@/lib/kaizenDbMigration';
 
-export const dynamic = 'force-static';
+
 
 function getDbBinding(): any {
   return (process.env as any).DB || (globalThis as any).DB || null;
@@ -62,23 +62,26 @@ export async function GET(request: Request) {
 
     rankedList.sort((a: any, b: any) => b.diem_tong_hop - a.diem_tong_hop);
 
+    const batchStatements: any[] = [];
+    const updateStmt = db.prepare(`
+      UPDATE ci_kaizen_proposals
+      SET hang_xep = ?,
+          diem_tong_hop = ?,
+          trang_thai = 'DA_DANH_GIA',
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `);
+
     for (let i = 0; i < rankedList.length; i++) {
       const rank = i + 1;
       const item = rankedList[i];
       item.hang_xep = rank;
 
-      await db
-        .prepare(`
-          UPDATE ci_kaizen_proposals
-          SET hang_xep = ?,
-              diem_tong_hop = ?,
-              trang_thai = 'DA_DANH_GIA',
-              updated_at = CURRENT_TIMESTAMP
-          WHERE id = ?
-        `)
-        .bind(rank, item.diem_tong_hop, item.id)
-        .run()
-        .catch(() => {});
+      batchStatements.push(updateStmt.bind(rank, item.diem_tong_hop, item.id));
+    }
+
+    if (batchStatements.length > 0) {
+      await db.batch(batchStatements);
     }
 
     return NextResponse.json({

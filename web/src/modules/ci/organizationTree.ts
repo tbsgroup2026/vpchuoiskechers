@@ -17,12 +17,12 @@ export interface OrgNodeMap {
 }
 
 export const KIEN_GIANG_FACTORIES = [
+  "Văn phòng Chuỗi",
   "Nhà Máy Miền Đông",
   "Kiên Giang 1",
   "Kiên Giang 2",
   "Kiên Giang 3",
   "Hoàn Thiện Đế",
-  "Văn Phòng Chuỗi",
 ];
 
 export function isKienGiangFactory(factory: string): boolean {

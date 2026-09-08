@@ -1,0 +1,4 @@
+# Ignore API static outputs so Cloudflare Workers Assets forwards all /api/* requests to _worker.js
+api/*
+api/**
+_next/data/*/api/*

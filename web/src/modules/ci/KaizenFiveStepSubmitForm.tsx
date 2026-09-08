@@ -171,9 +171,9 @@ export default function KaizenFiveStepSubmitForm({ onSuccessClose, onCancel }: K
             ...prev,
             proposerName: "",
             proposerPosition: "Công nhân",
-            factory: "Kiên Giang 1",
+            factory: "Nhà Máy Miền Đông",
             department: "",
-            region: "Kiên Giang 1",
+            region: "Nhà Máy Miền Đông",
           }));
         }
       } catch (err) {

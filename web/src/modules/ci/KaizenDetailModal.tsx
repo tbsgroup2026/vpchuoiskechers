@@ -56,12 +56,12 @@ const CATEGORIES = [
 ];
 
 const REGIONS = [
+  "Văn phòng Chuỗi",
   "Nhà Máy Miền Đông",
   "Kiên Giang 1",
   "Kiên Giang 2",
   "Kiên Giang 3",
   "Hoàn Thiện Đế",
-  "Văn Phòng Chuỗi",
 ];
 const CUSTOMERS = ["Skechers", "Decathlon", "Wrangler", "Reebok", "LEFASO", "Khác"];
 
@@ -621,7 +621,7 @@ export default function KaizenDetailModal({
             </div>
 
             <div className="p-3 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-0.5">
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">NHÓM SP/DV</span>
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">PHÂN XƯỞNG</span>
               <span className="text-xs font-extrabold text-slate-900 block truncate" title={prodGroup || proposal.factory || "---"}>
                 {prodGroup || proposal.factory || "---"}
               </span>
@@ -740,25 +740,25 @@ export default function KaizenDetailModal({
 
               <span
                 className={`px-3 py-1 rounded-full border text-xs font-black flex items-center gap-1.5 ${
-                  proposal.sub_status === "CHO_REVIEW" || proposal.approval_status === "PENDING" || proposal.status === "SUBMITTED"
+                  proposal.approval_status === "TU_CHOI" || proposal.sub_status === "TU_CHOI_TRIEN_KHAI" || proposal.status === "REJECTED"
+                    ? "bg-rose-50 text-rose-800 border-rose-300"
+                    : proposal.sub_status === "CHO_REVIEW" || proposal.approval_status === "PENDING" || proposal.status === "SUBMITTED"
                     ? "bg-blue-50 text-blue-800 border-blue-300"
-                    : proposal.sub_status === "CHO_DANH_GIA" || proposal.approval_status === "PHE_DUYET"
-                    ? "bg-amber-50 text-amber-800 border-amber-300"
                     : "bg-emerald-50 text-emerald-800 border-emerald-300"
                 }`}
               >
                 <span>
-                  {proposal.sub_status === "CHO_REVIEW" || proposal.approval_status === "PENDING" || proposal.status === "SUBMITTED"
-                    ? "👤"
-                    : proposal.sub_status === "CHO_DANH_GIA" || proposal.approval_status === "PHE_DUYET"
+                  {proposal.approval_status === "TU_CHOI" || proposal.sub_status === "TU_CHOI_TRIEN_KHAI" || proposal.status === "REJECTED"
+                    ? "❌"
+                    : proposal.sub_status === "CHO_REVIEW" || proposal.approval_status === "PENDING" || proposal.status === "SUBMITTED"
                     ? "⏳"
                     : "✅"}
                 </span>
                 <span>
-                  {proposal.sub_status === "CHO_REVIEW" || proposal.approval_status === "PENDING" || proposal.status === "SUBMITTED"
+                  {proposal.approval_status === "TU_CHOI" || proposal.sub_status === "TU_CHOI_TRIEN_KHAI" || proposal.status === "REJECTED"
+                    ? "Từ chối"
+                    : proposal.sub_status === "CHO_REVIEW" || proposal.approval_status === "PENDING" || proposal.status === "SUBMITTED"
                     ? "Chờ phê duyệt"
-                    : proposal.sub_status === "CHO_DANH_GIA" || proposal.approval_status === "PHE_DUYET"
-                    ? "Chờ duyệt"
                     : "Đã duyệt"}
                 </span>
               </span>

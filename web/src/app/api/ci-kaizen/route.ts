@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-export const dynamic = 'force-static';
+
 import { verifyToken } from '@/lib/auth';
 import { ensureKaizenSchema } from '@/lib/kaizenDbMigration';
 import { EMPLOYEES_DB } from '../employees/lookup/route';
@@ -128,6 +128,38 @@ export async function POST(request: Request) {
         },
         { status: 400 }
       );
+    }
+
+    // Rate Limiting Check (Max 5 submissions per 60 seconds per IP + MSNV pair)
+    const clientIp = request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '127.0.0.1';
+    const rateLimitKey = `${clientIp}_${codeUpper}`;
+
+    if (db && !existingId) {
+      try {
+        const checkRateQuery = `
+          SELECT COUNT(*) as count FROM ci_kaizen_rate_limits
+          WHERE ip_emp_key = ? AND created_at > datetime('now', '-60 seconds')
+        `;
+        const rateRes = await db.prepare(checkRateQuery).bind(rateLimitKey).first();
+        const requestCount = Number(rateRes?.count || 0);
+
+        if (requestCount >= 5) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: 'TOO_MANY_REQUESTS',
+              message: 'Bạn đã gửi quá nhiều đề xuất trong thời gian ngắn, vui lòng thử lại sau ít phút.',
+            },
+            { status: 429 }
+          );
+        }
+
+        // Record submission in rate limit table
+        const rlId = `rl_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+        await db.prepare(`INSERT INTO ci_kaizen_rate_limits (id, ip_emp_key) VALUES (?, ?)`).bind(rlId, rateLimitKey).run().catch(() => {});
+      } catch (rlErr) {
+        console.warn('[RATE LIMIT] Warning checking rate limit:', rlErr);
+      }
     }
 
     const safeFactory = factory || 'VP CHUỖI';

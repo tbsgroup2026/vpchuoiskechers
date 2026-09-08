@@ -219,10 +219,8 @@ export default function MeetingRoomsPage() {
                       cur.title?.includes("Lễ Tân");
         if (isRec) {
           setUserRole("LE_TAN");
-          setActiveTab("APPROVALS");
         } else {
-          setUserRole("CBCNV");
-          setActiveTab("BOOKING");
+          setUserRole("LE_TAN");
         }
       }
     }
@@ -1271,6 +1269,34 @@ export default function MeetingRoomsPage() {
         </div>
 
         <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
+          {/* Quick Role Switcher Toggle */}
+          <div className="hidden sm:flex items-center gap-1 p-1 bg-slate-100 rounded-xl border border-slate-200 text-[11px] font-bold">
+            <button
+              onClick={() => {
+                setUserRole("LE_TAN");
+                showToast("👩‍💼 Đã chuyển sang chế độ Quản lý Bàn Lễ Tân!");
+              }}
+              className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                userRole === "LE_TAN" ? "bg-[#006838] text-white shadow-2xs" : "text-slate-600 hover:text-slate-900"
+              }`}
+              title="Chế độ Quản lý Lễ Tân: Phê duyệt & xếp phòng họp"
+            >
+              👩‍💼 Quản lý Lễ Tân
+            </button>
+            <button
+              onClick={() => {
+                setUserRole("CBCNV");
+                showToast("👤 Đã chuyển sang chế độ Cán bộ CNV!");
+              }}
+              className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                userRole === "CBCNV" ? "bg-[#006838] text-white shadow-2xs" : "text-slate-600 hover:text-slate-900"
+              }`}
+              title="Chế độ Cán bộ CNV: Đặt phòng họp & xem lịch"
+            >
+              👤 Cán bộ CNV
+            </button>
+          </div>
+
           <button className="px-2 py-1 rounded-lg bg-slate-100 text-slate-700 text-[11px] sm:text-xs font-bold flex items-center gap-1 hover:bg-slate-200 transition-colors">
             <span>VN</span>
             <IconChevronDown size={12} />
@@ -1373,7 +1399,11 @@ export default function MeetingRoomsPage() {
           </div>
 
           {/* Card 3: Lịch họp hôm nay */}
-          <div className="p-3 sm:p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs hover:shadow-md transition-all flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3.5 group min-w-0">
+          <div
+            onClick={() => setActiveTab("APPROVALS")}
+            className="p-3 sm:p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs hover:shadow-md hover:border-amber-300 transition-all flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3.5 group min-w-0 cursor-pointer"
+            title="Click để chuyển tới Màn hình Quản lý Bàn Lễ Tân"
+          >
             <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-blue-50 text-blue-700 flex items-center justify-center border border-blue-200 group-hover:scale-105 transition-transform flex-shrink-0">
               <IconCalendar size={18} className="sm:hidden" />
               <IconCalendar size={24} className="hidden sm:block" />
@@ -1413,25 +1443,23 @@ export default function MeetingRoomsPage() {
 
         {/* TOP NAVIGATION TABS */}
         <div className="bg-slate-200/60 p-1.5 rounded-2xl border border-slate-200/90 shadow-inner flex items-center gap-1 overflow-x-auto scrollbar-none flex-nowrap">
-          {/* Tab Bàn Lễ Tân CHỈ HIỂN THỊ VỚI LỄ TÂN, KHÔNG HIỂN THỊ VỚI CBCNV */}
-          {userRole === "LE_TAN" && (
-            <button
-              onClick={() => setActiveTab("APPROVALS")}
-              className={`px-4 py-2.5 rounded-xl font-extrabold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
-                activeTab === "APPROVALS"
-                  ? "bg-[#006838] text-white shadow-md border border-[#004e2a]"
-                  : "text-slate-700 hover:text-[#006838] hover:bg-white/70"
-              }`}
-            >
-              <IconChecklist size={18} />
-              <span>Bàn Lễ Tân (Xác nhận &amp; Xếp lịch)</span>
-              {bookings.filter((b) => b.status === "PENDING").length > 0 && (
-                <span className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[11px] font-black animate-pulse">
-                  {bookings.filter((b) => b.status === "PENDING").length} chờ duyệt
-                </span>
-              )}
-            </button>
-          )}
+          {/* Tab Bàn Lễ Tân - Luôn hiển thị để người dùng/Lễ Tân truy cập màn hình quản lý */}
+          <button
+            onClick={() => setActiveTab("APPROVALS")}
+            className={`px-4 py-2.5 rounded-xl font-extrabold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === "APPROVALS"
+                ? "bg-[#006838] text-white shadow-md border border-[#004e2a]"
+                : "text-slate-700 hover:text-[#006838] hover:bg-white/70"
+            }`}
+          >
+            <IconChecklist size={18} />
+            <span>Bàn Lễ Tân (Xác nhận &amp; Xếp lịch)</span>
+            {bookings.filter((b) => b.status === "PENDING").length > 0 && (
+              <span className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[11px] font-black animate-pulse">
+                {bookings.filter((b) => b.status === "PENDING").length} chờ duyệt
+              </span>
+            )}
+          </button>
 
           <button
             onClick={() => setActiveTab("BOOKING")}
@@ -1490,7 +1518,7 @@ export default function MeetingRoomsPage() {
         {/* ════════════════════════════════════════════════════════════════
             TAB 0: 🛎️ BÀN LỄ TÂN (XÁC NHẬN PHÒNG, ĐỔI PHÒNG, XẾP LỊCH, ĐÓN KHÁCH)
            ════════════════════════════════════════════════════════════════ */}
-        {activeTab === "APPROVALS" && userRole === "LE_TAN" && (
+        {activeTab === "APPROVALS" && (
           <div className="space-y-6 animate-in fade-in duration-200">
             {userRole !== "LE_TAN" &&
               !currentUser.roles?.includes("admin") &&

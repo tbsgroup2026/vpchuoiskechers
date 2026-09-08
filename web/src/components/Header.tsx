@@ -383,10 +383,10 @@ export default function Header() {
         }`}
       >
         <div
-          className={`max-w-[1280px] mx-auto pointer-events-auto transition-all duration-500 rounded-full px-6 py-2.5 flex items-center justify-between border ${
+          className={`max-w-[1280px] mx-auto pointer-events-auto transition-all duration-500 rounded-full px-6 py-2 flex items-center justify-between border ${
             scrolled
-              ? 'bg-[#041a13]/98 border-[#2fd39a]/40 shadow-[0_15px_40px_rgba(0,0,0,0.7)] backdrop-blur-2xl'
-              : 'bg-[#041a13]/90 border-[#2fd39a]/30 backdrop-blur-xl shadow-[0_10px_30px_rgba(0,0,0,0.5)]'
+              ? 'bg-[#041a13] border-[#2fd39a]/50 shadow-[0_20px_50px_rgba(0,0,0,0.9)] backdrop-blur-2xl'
+              : 'bg-[#062017] border-[#2fd39a]/40 shadow-[0_15px_45px_rgba(0,0,0,0.85)] backdrop-blur-2xl'
           }`}
         >
           {/* Brand Logo - TBS Group Logo */}
@@ -398,13 +398,15 @@ export default function Header() {
             />
           </Link>
 
-          {/* Desktop Navigation Links — Exact Image 1 Layout & Navigation Items */}
-          <nav className="hidden xl:flex items-center gap-6 text-[11px] font-extrabold text-white uppercase tracking-wider">
+          {/* Desktop Navigation Links — High Contrast & Readable */}
+          <nav className="hidden xl:flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-wider">
             {/* 1. Trang chủ / Home */}
             <Link
               href="/"
-              className={`transition-colors py-1 ${
-                pathname === '/' ? 'text-[#2fd39a]' : 'hover:text-[#2fd39a]'
+              className={`transition-all px-3 py-1 rounded-full ${
+                pathname === '/'
+                  ? 'text-[#2fd39a] bg-[#2fd39a]/20 border border-[#2fd39a]/40 font-black shadow-xs'
+                  : 'text-slate-100 hover:text-[#2fd39a] hover:bg-white/10 font-bold'
               }`}
             >
               {lang === "VN" ? "Trang Chủ" : "Home"}
@@ -413,8 +415,10 @@ export default function Header() {
             {/* 2. TBS Group */}
             <Link
               href="/ve-tbs"
-              className={`transition-colors py-1 ${
-                pathname === '/ve-tbs' || pathname === '/about' ? 'text-[#2fd39a]' : 'hover:text-[#2fd39a]'
+              className={`transition-all px-3 py-1 rounded-full ${
+                pathname === '/ve-tbs' || pathname === '/about'
+                  ? 'text-[#2fd39a] bg-[#2fd39a]/20 border border-[#2fd39a]/40 font-black shadow-xs'
+                  : 'text-slate-100 hover:text-[#2fd39a] hover:bg-white/10 font-bold'
               }`}
             >
               TBS Group
@@ -423,8 +427,10 @@ export default function Header() {
             {/* 3. Tuyển dụng / Recruitment */}
             <Link
               href="/careers"
-              className={`transition-colors py-1 ${
-                pathname?.startsWith('/careers') ? 'text-[#2fd39a]' : 'hover:text-[#2fd39a]'
+              className={`transition-all px-3 py-1 rounded-full ${
+                pathname?.startsWith('/careers')
+                  ? 'text-[#2fd39a] bg-[#2fd39a]/20 border border-[#2fd39a]/40 font-black shadow-xs'
+                  : 'text-slate-100 hover:text-[#2fd39a] hover:bg-white/10 font-bold'
               }`}
             >
               {lang === "VN" ? "Tuyển Dụng" : "Recruitment"}
@@ -433,8 +439,10 @@ export default function Header() {
             {/* 4. Thư viện mẫu / Template Library */}
             <Link
               href="/documents/templates"
-              className={`transition-colors py-1 ${
-                pathname?.startsWith('/documents/templates') ? 'text-[#2fd39a]' : 'hover:text-[#2fd39a]'
+              className={`transition-all px-3 py-1 rounded-full ${
+                pathname?.startsWith('/documents/templates')
+                  ? 'text-[#2fd39a] bg-[#2fd39a]/20 border border-[#2fd39a]/40 font-black shadow-xs'
+                  : 'text-slate-100 hover:text-[#2fd39a] hover:bg-white/10 font-bold'
               }`}
             >
               {lang === "VN" ? "Thư Viện Mẫu" : "Template Library"}
@@ -444,8 +452,10 @@ export default function Header() {
             {isLoggedIn && (
               <Link
                 href="/work"
-                className={`transition-colors py-1 ${
-                  pathname === '/work' ? 'text-[#2fd39a]' : 'hover:text-[#2fd39a]'
+                className={`transition-all px-3 py-1 rounded-full ${
+                  pathname === '/work'
+                    ? 'text-[#2fd39a] bg-[#2fd39a]/20 border border-[#2fd39a]/40 font-black shadow-xs'
+                    : 'text-slate-100 hover:text-[#2fd39a] hover:bg-white/10 font-bold'
                 }`}
               >
                 {lang === "VN" ? "Hệ Thống Quản Trị" : "Management System"}
@@ -455,8 +465,10 @@ export default function Header() {
             {/* 6. Tin tức / News */}
             <Link
               href="/news"
-              className={`transition-colors py-1 ${
-                pathname?.startsWith('/news') ? 'text-[#2fd39a]' : 'hover:text-[#2fd39a]'
+              className={`transition-all px-3 py-1 rounded-full ${
+                pathname?.startsWith('/news')
+                  ? 'text-[#2fd39a] bg-[#2fd39a]/20 border border-[#2fd39a]/40 font-black shadow-xs'
+                  : 'text-slate-100 hover:text-[#2fd39a] hover:bg-white/10 font-bold'
               }`}
             >
               {lang === "VN" ? "Tin Tức" : "News"}
@@ -464,15 +476,21 @@ export default function Header() {
 
             {/* 7. Khác / Other Dropdown */}
             <div
-              className="relative py-1"
+              className="relative"
               onMouseEnter={handleOtherMouseEnter}
               onMouseLeave={handleOtherMouseLeave}
             >
-              <button className="flex items-center gap-1 hover:text-[#2fd39a] transition-colors py-1 uppercase font-extrabold cursor-pointer">
+              <button
+                className={`flex items-center gap-1.5 transition-all px-3 py-1 rounded-full uppercase font-extrabold cursor-pointer ${
+                  otherDropdownOpen
+                    ? 'text-[#2fd39a] bg-[#2fd39a]/20 border border-[#2fd39a]/40'
+                    : 'text-slate-100 hover:text-[#2fd39a] hover:bg-white/10'
+                }`}
+              >
                 <span>{lang === "VN" ? "Khác" : "Other"}</span>
                 <IconChevronDown
                   size={13}
-                  className={`transition-transform duration-300 ${otherDropdownOpen ? 'rotate-180 text-[#2fd39a]' : ''}`}
+                  className={`transition-transform duration-300 ${otherDropdownOpen ? 'rotate-180 text-[#2fd39a]' : 'text-[#2fd39a]'}`}
                 />
               </button>
 

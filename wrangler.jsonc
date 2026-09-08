@@ -18,7 +18,10 @@
     "SITE_ID": "vpchuoiskechers",
     "CLOUDINARY_FOLDER": "vpchuoiskechers",
     "NEXT_PUBLIC_APP_URL": "https://vpchuoiskechers.tbsgroup2026.workers.dev",
-    "JWT_SECRET": "tbs_ii_secure_jwt_secret_key_2026"
+    "JWT_SECRET": "tbs_ii_secure_jwt_secret_key_2026",
+    "TBSMAYMOC_API_URL": "https://tbs-may-moc-admin.tbs-quanlymaymoc.workers.dev",
+    "MMTB_AUTO_LOGIN_EMP_CODE": "AMDKG",
+    "MMTB_AUTO_LOGIN_PASSWORD": "123456"
   },
   "d1_databases": [
     {

@@ -134,10 +134,10 @@ flowchart TD
     Form5Step --> AICheck[Engine AI tự động chạy kiểm tra trùng lặp]
     FormQR --> AICheck
 
-    AICheck --> ScoreEval{Điểm tương đồng với đề xuất cũ?}
-    ScoreEval -->|> 80%| WarnRed[Cảnh báo ĐỎ: Trùng lặp cao bài KZ-xxxx]
-    ScoreEval -->|50% - 80%| WarnYellow[Cảnh báo VÀNG: Ý tưởng tương tự]
-    ScoreEval -->|< 50%| PassAI[Xác nhận đề xuất mới hợp lệ]
+    AICheck --> CheckScore{Điểm tương đồng với đề xuất cũ?}
+    CheckScore -->|Trên 80%| WarnRed[Cảnh báo ĐỎ: Trùng lặp cao bài KZ-xxxx]
+    CheckScore -->|Từ 50% đến 80%| WarnYellow[Cảnh báo VÀNG: Ý tưởng tương tự]
+    CheckScore -->|Dưới 50%| PassAI[Xác nhận đề xuất mới hợp lệ]
 
     WarnRed -->|Tác giả xác nhận tiếp tục| SaveD1
     WarnYellow --> SaveD1
@@ -215,9 +215,9 @@ flowchart TD
     VectorCalc --> SortMatches[Sắp xếp danh sách kết quả theo phần trăm tương đồng giảm dần]
 
     SortMatches --> CheckThreshold{Độ tương đồng lớn nhất?}
-    CheckThreshold -->|> 80%| HighMatch[Cảnh báo ĐỎ: Trùng lặp cao với đề xuất cũ]
-    CheckThreshold -->|50% - 80%| MedMatch[Cảnh báo VÀNG: Có nét tương đồng, nên tham khảo]
-    CheckThreshold -->|< 50%| LowMatch[Xác nhận sáng kiến mới độc lập]
+    CheckThreshold -->|Trên 80%| HighMatch[Cảnh báo ĐỎ: Trùng lặp cao với đề xuất cũ]
+    CheckThreshold -->|Từ 50% đến 80%| MedMatch[Cảnh báo VÀNG: Có nét tương đồng, nên tham khảo]
+    CheckThreshold -->|Dưới 50%| LowMatch[Xác nhận sáng kiến mới độc lập]
 ```
 
 ---
@@ -325,8 +325,8 @@ flowchart TD
     ScheduleStart([Hệ thống khởi chạy Quét Lịch Bảo Dưỡng]) --> FetchPeriod[Đọc chu kỳ bảo dưỡng: Tuần / 1 Tháng / 3 Tháng / 6 Tháng / 1 Năm]
     FetchPeriod --> CheckDueDate{So sánh Ngày hiện tại & Ngày đến hạn next_due_date?}
 
-    CheckDueDate -->|Quá hạn | StatusOverdue[Đánh dấu 'overdue' - Hiển thị cảnh báo đỏ trên Dashboard]
-    CheckDueDate -->|Sắp đến hạn (trong 7 ngày)| StatusUpcoming[Đánh dấu 'upcoming' - Đưa vào danh sách chờ bảo trì]
+    CheckDueDate -->|Quá hạn| StatusOverdue[Đánh dấu 'overdue' - Hiển thị cảnh báo đỏ trên Dashboard]
+    CheckDueDate -->|Sắp đến hạn trong 7 ngày| StatusUpcoming[Đánh dấu 'upcoming' - Đưa vào danh sách chờ bảo trì]
     CheckDueDate -->|Đã lên lịch| StatusScheduled[Đánh dấu 'scheduled']
 
     StatusOverdue --> PMWorkQueue[Đưa vào Hàng Chờ Công Việc Bảo Dưỡng]

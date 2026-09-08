@@ -125,7 +125,7 @@ export default function Header() {
         phone: storedUser?.phone || '0988 111 222',
         title: storedUser?.title || 'Tổng Giám Đốc Tập Đoàn TBS Group',
         department: storedUser?.department || userInfo?.departmentCode || 'Ban Giám Đốc Tập Đoàn',
-        avatar: storedUser?.avatar || '/images/tbs-logo.png',
+        avatar: storedUser?.avatar || '',
       });
     }
   }, [profileModalOpen, userInfo]);
@@ -207,7 +207,7 @@ export default function Header() {
       setUserInfo({
         empCode: editProfileForm.empCode,
         name: editProfileForm.name,
-        avatar: editProfileForm.avatar || '/images/tbs-logo.png',
+        avatar: editProfileForm.avatar || '',
         roleCode: userInfo?.roleCode || 'TONG_GIAM_DOC',
         departmentCode: editProfileForm.department,
       });
@@ -290,7 +290,7 @@ export default function Header() {
             name: currentUser.name,
             roleCode: currentUser.roleCode || currentUser.roles?.[0] || 'CBCNV',
             departmentCode: currentUser.department || 'Văn Phòng Chuỗi SKECHERS',
-            avatar: currentUser.avatar || '/images/tbs-logo.png',
+            avatar: currentUser.avatar || '',
             email: currentUser.email || `${currentUser.empCode}@tbsgroup.vn`,
             title: getUserDisplayBadgeTitle(currentUser),
           });

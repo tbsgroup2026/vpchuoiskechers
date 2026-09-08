@@ -140,8 +140,14 @@ export default function RDModule({
          ════════════════════════════════════════════════════════════════ */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-stretch">
         {/* Left: Mini Hero Card (Col 4/12) */}
-        <div className="lg:col-span-4 rounded-3xl overflow-hidden shadow-sm bg-gradient-to-br from-[#006838] via-[#005a30] to-[#072419] text-white p-5 border border-emerald-600/30 flex flex-col justify-between relative">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_right_center,rgba(141,198,63,0.15),transparent_65%)] pointer-events-none" />
+        <div className="lg:col-span-4 rounded-3xl overflow-hidden shadow-sm bg-slate-900 text-white p-5 border border-emerald-600/30 flex flex-col justify-between relative group">
+          {/* Background Real Image & Dark Emerald Gradient Overlay */}
+          <img
+            src="/images/KGLV/PHÒNG R&D.png"
+            alt="R&D Phát Triển Sản Phẩm"
+            className="absolute inset-0 w-full h-full object-cover opacity-35 group-hover:scale-105 transition-transform duration-700 pointer-events-none"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#006838]/90 via-[#004d29]/80 to-slate-950/85 pointer-events-none" />
           <div className="relative z-10 space-y-2">
             <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center gap-1.5">
               <span>R&D (Phát triển sản phẩm)</span>

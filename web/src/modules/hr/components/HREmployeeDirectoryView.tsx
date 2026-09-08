@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { HREmployee } from "../types";
+import UserAvatar from "@/components/UserAvatar";
 import {
   IconSearch,
   IconDownload,
@@ -162,7 +163,7 @@ export default function HREmployeeDirectoryView() {
                     <tr key={emp.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <img src={emp.avatar} alt={emp.name} className="w-9 h-9 rounded-full object-cover border border-emerald-600/30 shadow-2xs shrink-0" />
+                          <UserAvatar src={emp.avatar} name={emp.name} size="md" />
                           <div>
                             <div className="font-extrabold text-slate-900 flex items-center gap-1.5">
                               <span>{emp.name}</span>
@@ -340,7 +341,7 @@ export default function HREmployeeDirectoryView() {
           <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-5 text-left">
             <div className="flex justify-between items-center pb-3 border-b border-slate-100">
               <div className="flex items-center gap-3">
-                <img src={selectedEmp.avatar} alt={selectedEmp.name} className="w-12 h-12 rounded-full object-cover border-2 border-[#006838]" />
+                <UserAvatar src={selectedEmp.avatar} name={selectedEmp.name} size="lg" />
                 <div>
                   <h3 className="text-base font-black text-slate-900">{selectedEmp.name}</h3>
                   <span className="text-xs text-slate-500 font-mono">{selectedEmp.id} • {selectedEmp.title}</span>

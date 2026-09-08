@@ -382,11 +382,22 @@ export default function OverviewPage() {
     <MaintenanceShell title="Tổng Quan MMTB" subtitle="Phân tích MTTA/MTTR/MTTD, Pareto sự cố & độ tin cậy thiết bị — SKECHERS / TBS Group II">
       <div className="space-y-6">
         {/* Top Header & Operational Status Ribbon */}
-        <div className="bg-white rounded-xl border border-slate-200/80 p-4 shadow-2xs space-y-4">
-          <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="relative rounded-2xl overflow-hidden bg-slate-900 border border-emerald-800/30 p-5 sm:p-6 text-white shadow-md space-y-4 group">
+          {/* Background Real Image & Dark Emerald Gradient Overlay */}
+          <img
+            src="/images/KGLV/CĐTT 2 LỐI VÀO.png"
+            alt="Quản Lý MMTB / Bảo Trì SKECHERS"
+            className="absolute inset-0 w-full h-full object-cover opacity-35 group-hover:scale-105 transition-transform duration-700 pointer-events-none"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#006838]/90 via-[#004d29]/80 to-slate-950/85 pointer-events-none" />
+
+          <div className="relative z-10 flex items-center justify-between flex-wrap gap-3">
             <div>
-              <h1 className="text-lg font-bold text-slate-900 tracking-tight">Tổng Quan Máy Móc Thiết Bị</h1>
-              <p className="text-xs text-slate-500 font-medium mt-0.5">Báo cáo vận hành thời gian thực & phân tích độ tin cậy MMTB</p>
+              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-200 bg-white/10 backdrop-blur-md px-3 py-0.5 rounded-lg border border-white/15">
+                QUẢN LÝ MÁY MÓC THIẾT BỊ (MMTB)
+              </span>
+              <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight mt-1">Tổng Quan Máy Móc Thiết Bị</h1>
+              <p className="text-xs text-emerald-100/90 font-medium mt-0.5">Báo cáo vận hành thời gian thực & phân tích độ tin cậy MMTB toàn chuỗi SKECHERS</p>
             </div>
             
             {/* Live Status Summary Badges */}

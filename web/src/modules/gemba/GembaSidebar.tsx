@@ -26,6 +26,7 @@ import {
   IconPlane
 } from "@tabler/icons-react";
 import { UserProfile } from "@/lib/userProfiles";
+import UserAvatar from "@/components/UserAvatar";
 import { GembaTreeNode } from "./types";
 
 interface GembaSidebarProps {
@@ -174,20 +175,7 @@ export default function GembaSidebar({
 
       {/* 2. CURRENT USER CARD */}
       <div className={`m-3 p-3 rounded-2xl bg-[#006838] text-white flex items-center shadow-md transition-all ${isOpen ? "gap-3" : "justify-center p-2"}`}>
-        <div className="w-10 h-10 rounded-full bg-white/20 text-white font-black flex items-center justify-center text-base shrink-0 border border-white/30" title={currentUser?.name || "Admin"}>
-          {currentUser?.avatar && currentUser.avatar !== "/images/tbs-logo.png" ? (
-            <img
-              src={currentUser.avatar}
-              alt="Avatar"
-              className="w-full h-full rounded-full object-cover"
-              onError={(e) => {
-                (e.target as HTMLElement).style.display = "none";
-              }}
-            />
-          ) : (
-            userInitials
-          )}
-        </div>
+        <UserAvatar src={currentUser?.avatar} name={currentUser?.name || "Admin"} size="md" />
         {isOpen && (
           <div className="flex flex-col min-w-0">
             <span className="text-sm font-black text-white truncate">

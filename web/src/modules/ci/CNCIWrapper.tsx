@@ -88,7 +88,14 @@ export default function CNCIWrapper() {
       {!subView && (
         <div className="space-y-6 animate-in zoom-in-95 duration-200">
           {/* Top Banner Intro */}
-          <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-[#032b30] via-[#053c44] to-[#0a2744] text-white shadow-md relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-teal-900/40">
+          <div className="p-6 sm:p-8 rounded-3xl bg-slate-900 text-white shadow-md relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-teal-900/40 group">
+            {/* Background Real Image & Dark Emerald Gradient Overlay */}
+            <img
+              src="/images/KGLV/CĐTT 2 GÓC QUI TRÌNH GIÀY.png"
+              alt="CN-CI Cải Tiến Liên Tục"
+              className="absolute inset-0 w-full h-full object-cover opacity-35 group-hover:scale-105 transition-transform duration-700 pointer-events-none"
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-[#006838]/90 via-[#004d29]/80 to-slate-950/85 pointer-events-none" />
             <div className="space-y-1.5 z-10">
               <div className="flex items-center gap-1.5 text-emerald-400 font-extrabold text-xs tracking-wider">
                 <IconSparkles size={16} />

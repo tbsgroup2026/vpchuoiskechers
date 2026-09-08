@@ -69,9 +69,14 @@ export default function HRHanhChanhHubView({
       {/* ════════════════════════════════════════════════════════════════
           1. HERO HEADER BANNER (GREEN GRADIENT SKECHERS SYSTEM BRANDING)
          ════════════════════════════════════════════════════════════════ */}
-      <div className="relative w-full rounded-3xl overflow-hidden shadow-lg border border-emerald-800/20 bg-gradient-to-r from-[#004d29] via-[#006838] to-[#004223] text-white p-6 sm:p-8 lg:p-9">
-        {/* Subtle Decorative Grid Pattern Background */}
-        <div className="absolute inset-0 bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:20px_20px] opacity-10 pointer-events-none" />
+      <div className="relative w-full rounded-3xl overflow-hidden shadow-lg border border-emerald-800/20 bg-slate-900 text-white p-6 sm:p-8 lg:p-9 group">
+        {/* Background Real Image & Dark Emerald Gradient Overlay */}
+        <img
+          src="/images/KGLV/CĐTT 2 GÓC HÌNH VP2.png"
+          alt="Nhân Sự – Hành Chánh"
+          className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:scale-105 transition-transform duration-700 pointer-events-none"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#006838]/90 via-[#004d29]/80 to-slate-950/85 pointer-events-none" />
 
         <div className="relative z-10 space-y-4">
           {/* Top Pill Row */}

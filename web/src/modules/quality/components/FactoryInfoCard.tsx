@@ -17,9 +17,14 @@ interface FactoryInfoCardProps {
 
 export default function FactoryInfoCard({ factory }: FactoryInfoCardProps) {
   return (
-    <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-[#072419] to-[#004d29] border border-emerald-500/30 p-5 sm:p-6 text-white shadow-xl">
-      {/* Background Subtle Tech Pattern */}
-      <div className="absolute inset-0 bg-[radial-gradient(#10b981_1px,transparent_1px)] opacity-10 [background-size:16px_16px] pointer-events-none" />
+    <div className="relative overflow-hidden rounded-3xl bg-slate-900 border border-emerald-500/30 p-5 sm:p-6 text-white shadow-xl group">
+      {/* Background Real Image & Dark Emerald Gradient Overlay */}
+      <img
+        src="/images/KGLV/3 DÒNG GIÀY CHÍNH.png"
+        alt="Quản Lý Chất Lượng SKECHERS"
+        className="absolute inset-0 w-full h-full object-cover opacity-35 group-hover:scale-105 transition-transform duration-700 pointer-events-none"
+      />
+      <div className="absolute inset-0 bg-gradient-to-r from-[#006838]/90 via-[#004d29]/80 to-slate-950/85 pointer-events-none" />
 
       <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-5">
         {/* Left Side: Info & Workshops */}

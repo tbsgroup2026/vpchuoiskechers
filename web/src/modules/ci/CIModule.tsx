@@ -17,6 +17,9 @@ const PreliminaryReviewModal = dynamic(() => import("./PreliminaryReviewModal"),
 const KaizenDuplicateCompareModal = dynamic(() => import("./KaizenDuplicateCompareModal"), { ssr: false });
 const KaizenLeaderboard = dynamic(() => import("./KaizenLeaderboard"), { ssr: false });
 
+import UserAvatar from "@/components/UserAvatar";
+import { getCurrentUser } from "@/lib/userProfiles";
+
 const PROPOSALS_CACHE_KEY = "vpchuoiskechers_kaizen_proposals_cache_v2";
 
 // Resilient Fetch with AbortController Timeout & Exponential Backoff Retry for Weak 3G/4G Networks
@@ -517,28 +520,25 @@ export default function CIModule() {
     title: "IT - Team Chuyển Đổi Số",
     avatar: "https://res.cloudinary.com/dwl2xtbqa/image/upload/v1787117525/nzcft200bebofw7b4uzg.jpg",
     empCode: "202608001",
-    roleCode: "TONG_GIAM_DOC",
+    roleCode: "TRUONG_PHONG",
   });
 
   useEffect(() => {
     function loadUser() {
       if (typeof window === "undefined") return;
       try {
-        const curStr = localStorage.getItem("tbs_current_user");
-        if (curStr) {
-          const cur = JSON.parse(curStr);
-          if (cur && cur.name) {
-            setCurrentUser({
-              name: cur.name,
-              title: cur.title || cur.department || "Cán bộ công nhân viên",
-              avatar: cur.avatar || "",
-              empCode: cur.empCode || "CBCNV",
-              roleCode: cur.roleCode,
-            });
-          }
+        const cur = getCurrentUser();
+        if (cur && cur.name) {
+          setCurrentUser({
+            name: cur.name,
+            title: cur.title || cur.department || "Cán bộ công nhân viên",
+            avatar: cur.avatar || "",
+            empCode: cur.empCode || "CBCNV",
+            roleCode: cur.roleCode,
+          });
         }
       } catch (e) {
-        console.error("Failed to load user from localStorage:", e);
+        console.error("Failed to load user from getCurrentUser():", e);
       }
     }
     loadUser();
@@ -1237,17 +1237,7 @@ export default function CIModule() {
 
         <div className="pt-3 border-t border-slate-800/90 flex items-center justify-between">
           <div className="flex items-center gap-2 min-w-0">
-            {currentUser.avatar ? (
-              <img
-                src={currentUser.avatar}
-                alt={currentUser.name}
-                className="w-8 h-8 rounded-full object-cover shrink-0 border border-emerald-400/40 shadow-2xs"
-              />
-            ) : (
-              <div className="w-8 h-8 rounded-full bg-[#006838] text-white flex items-center justify-center text-xs font-black shrink-0 border border-emerald-400/40 shadow-2xs">
-                {currentUser.name ? currentUser.name.substring(0, 2).toUpperCase() : "SK"}
-              </div>
-            )}
+            <UserAvatar src={currentUser.avatar} name={currentUser.name} size="sm" />
             {!isSidebarCollapsed && (
               <div className="min-w-0 leading-tight">
                 <span className="text-xs font-black text-white block truncate" title={currentUser.name}>

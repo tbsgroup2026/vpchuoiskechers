@@ -1540,8 +1540,15 @@ export default function MeetingRoomsPage() {
             )}
 
             {/* Lễ Tân Executive Dashboard Banner */}
-            <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-r from-[#006838] via-[#043322] to-slate-900 text-white shadow-lg space-y-4">
-              <div className="flex items-start justify-between flex-wrap gap-3">
+            <div className="relative overflow-hidden p-5 sm:p-6 rounded-3xl bg-slate-900 text-white shadow-lg space-y-4 border border-emerald-800/30 group">
+              {/* Background Real Image & Dark Emerald Gradient Overlay */}
+              <img
+                src="/images/KGLV/SẢNH GÓC TỪ TRONG NHÌN RA.png"
+                alt="Quản Lý Phòng Họp & Lễ Tân"
+                className="absolute inset-0 w-full h-full object-cover opacity-35 group-hover:scale-105 transition-transform duration-700 pointer-events-none"
+              />
+              <div className="absolute inset-0 bg-gradient-to-r from-[#006838]/90 via-[#004d29]/80 to-slate-950/85 pointer-events-none" />
+              <div className="relative z-10 flex items-start justify-between flex-wrap gap-3">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center text-2xl border border-white/20">
                     👩‍💼

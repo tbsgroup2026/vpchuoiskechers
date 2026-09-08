@@ -62,7 +62,7 @@ export const SYSTEM_USERS: Record<string, UserProfile> = {
     roleCode: "TRUONG_PHONG",
     roles: ["employee", "department_head", "ci", "admin"],
     roleLevel: 3,
-    avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+    avatar: "",
     redirectUrl: "/work",
     managedDepartmentId: "ci",
   },
@@ -77,7 +77,7 @@ export const SYSTEM_USERS: Record<string, UserProfile> = {
     roleCode: "LE_TAN",
     roles: ["employee", "receptionist"],
     roleLevel: 4,
-    avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80",
+    avatar: "",
     redirectUrl: "/rooms",
     managedDepartmentId: "hr",
   },
@@ -92,7 +92,7 @@ export const SYSTEM_USERS: Record<string, UserProfile> = {
     roleCode: "TONG_GIAM_DOC",
     roles: ["ceo"],
     roleLevel: 1,
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80",
+    avatar: "",
     redirectUrl: "/work",
   },
   "TGĐ-002": {
@@ -106,7 +106,7 @@ export const SYSTEM_USERS: Record<string, UserProfile> = {
     roleCode: "TONG_GIAM_DOC",
     roles: ["ceo"],
     roleLevel: 1,
-    avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80",
+    avatar: "",
     redirectUrl: "/work",
   },
   "PTGĐ-001": {
@@ -120,7 +120,7 @@ export const SYSTEM_USERS: Record<string, UserProfile> = {
     roleCode: "PHO_TONG_GIAM_DOC",
     roles: ["deputy_ceo"],
     roleLevel: 2,
-    avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80",
+    avatar: "",
     redirectUrl: "/work",
   },
   "PTGĐ-002": {
@@ -134,7 +134,7 @@ export const SYSTEM_USERS: Record<string, UserProfile> = {
     roleCode: "PHO_TONG_GIAM_DOC",
     roles: ["deputy_ceo"],
     roleLevel: 2,
-    avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80",
+    avatar: "",
     redirectUrl: "/work",
   },
   "PTGĐ-003": {
@@ -148,7 +148,7 @@ export const SYSTEM_USERS: Record<string, UserProfile> = {
     roleCode: "PHO_TONG_GIAM_DOC",
     roles: ["deputy_ceo"],
     roleLevel: 2,
-    avatar: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150&auto=format&fit=crop&q=80",
+    avatar: "",
     redirectUrl: "/work",
   },
   "GĐ-003": {
@@ -162,7 +162,7 @@ export const SYSTEM_USERS: Record<string, UserProfile> = {
     roleCode: "GIAM_DOC",
     roles: ["director"],
     roleLevel: 2,
-    avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80",
+    avatar: "",
     redirectUrl: "/work",
   },
   "GĐ-004": {
@@ -176,7 +176,7 @@ export const SYSTEM_USERS: Record<string, UserProfile> = {
     roleCode: "GIAM_DOC",
     roles: ["director"],
     roleLevel: 2,
-    avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80",
+    avatar: "",
     redirectUrl: "/work",
   },
   "PGĐ-001": {
@@ -190,7 +190,7 @@ export const SYSTEM_USERS: Record<string, UserProfile> = {
     roleCode: "PHO_GIAM_DOC",
     roles: ["deputy_director"],
     roleLevel: 2,
-    avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+    avatar: "",
     redirectUrl: "/work",
   },
   "PGĐ-004": {
@@ -204,7 +204,7 @@ export const SYSTEM_USERS: Record<string, UserProfile> = {
     roleCode: "PHO_GIAM_DOC",
     roles: ["deputy_director"],
     roleLevel: 2,
-    avatar: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80",
+    avatar: "",
     redirectUrl: "/work",
   },
   "PGĐ-005": {
@@ -218,7 +218,7 @@ export const SYSTEM_USERS: Record<string, UserProfile> = {
     roleCode: "PHO_GIAM_DOC",
     roles: ["deputy_director"],
     roleLevel: 2,
-    avatar: "https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=150&auto=format&fit=crop&q=80",
+    avatar: "",
     redirectUrl: "/work",
   },
   "PGĐ-006": {
@@ -232,7 +232,7 @@ export const SYSTEM_USERS: Record<string, UserProfile> = {
     roleCode: "PHO_GIAM_DOC",
     roles: ["deputy_director"],
     roleLevel: 2,
-    avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80",
+    avatar: "",
     redirectUrl: "/work",
   },
   "ADMIN-2026": {
@@ -246,7 +246,7 @@ export const SYSTEM_USERS: Record<string, UserProfile> = {
     roleCode: "SUPER_ADMIN",
     roles: ["admin"],
     roleLevel: 1,
-    avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80",
+    avatar: "",
     redirectUrl: "/admin",
   },
   "NS-001": {
@@ -260,7 +260,7 @@ export const SYSTEM_USERS: Record<string, UserProfile> = {
     roleCode: "TRUONG_PHONG",
     roles: ["employee", "department_head", "hr"],
     roleLevel: 3,
-    avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80",
+    avatar: "",
     redirectUrl: "/work",
     managedDepartmentId: "hr",
   },
@@ -275,7 +275,7 @@ export const SYSTEM_USERS: Record<string, UserProfile> = {
     roleCode: "TRUONG_PHONG",
     roles: ["employee", "department_head", "accountant"],
     roleLevel: 3,
-    avatar: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80",
+    avatar: "",
     redirectUrl: "/finance",
     managedDepartmentId: "accounting",
   },
@@ -290,7 +290,7 @@ export const SYSTEM_USERS: Record<string, UserProfile> = {
     roleCode: "QC_MANAGER",
     roles: ["employee", "qc"],
     roleLevel: 3,
-    avatar: "https://images.unsplash.com/photo-1567532939604-b6b5b0db2604?w=150&auto=format&fit=crop&q=80",
+    avatar: "",
     redirectUrl: "/work",
     managedDepartmentId: "qc",
   },
@@ -305,7 +305,7 @@ export const SYSTEM_USERS: Record<string, UserProfile> = {
     roleCode: "KY_THUAT_VIEN",
     roles: ["employee", "maintenance"],
     roleLevel: 4,
-    avatar: "https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=150&auto=format&fit=crop&q=80",
+    avatar: "",
     redirectUrl: "/maintenance",
     managedDepartmentId: "factory",
   },
@@ -320,7 +320,7 @@ export const SYSTEM_USERS: Record<string, UserProfile> = {
     roleCode: "TRUONG_PHONG",
     roles: ["employee", "department_head", "logistics"],
     roleLevel: 3,
-    avatar: "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=150&auto=format&fit=crop&q=80",
+    avatar: "",
     redirectUrl: "/work",
     managedDepartmentId: "logistics",
   },
@@ -335,7 +335,7 @@ export const SYSTEM_USERS: Record<string, UserProfile> = {
     roleCode: "TRUONG_PHONG",
     roles: ["employee", "department_head", "rd"],
     roleLevel: 3,
-    avatar: "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=150&auto=format&fit=crop&q=80",
+    avatar: "",
     redirectUrl: "/work",
     managedDepartmentId: "rd",
   },
@@ -420,7 +420,8 @@ export function getUserAvatar(empCode: string): string | null {
   if (
     custom &&
     custom.trim() !== "" &&
-    custom !== "/images/tbs-logo.png"
+    custom !== "/images/tbs-logo.png" &&
+    !custom.includes("unsplash.com")
   ) {
     return custom;
   }
@@ -428,7 +429,8 @@ export function getUserAvatar(empCode: string): string | null {
   if (
     SYSTEM_USERS[cleanCode] &&
     SYSTEM_USERS[cleanCode].avatar &&
-    SYSTEM_USERS[cleanCode].avatar !== "/images/tbs-logo.png"
+    SYSTEM_USERS[cleanCode].avatar !== "/images/tbs-logo.png" &&
+    !SYSTEM_USERS[cleanCode].avatar.includes("unsplash.com")
   ) {
     return SYSTEM_USERS[cleanCode].avatar;
   }
@@ -580,16 +582,10 @@ export function getCurrentUser(): UserProfile | null {
     // Thứ tự ưu tiên nghiêm ngặt:
     // 1. Custom Avatar của chính empCode này (nếu hợp lệ)
     // 2. Base Avatar chuẩn của empCode này trong SYSTEM_USERS
-    // 3. Parsed avatar từ session
-    let finalAvatar = customAvatar;
-    if (!finalAvatar && baseInfo?.avatar) {
-      finalAvatar = baseInfo.avatar;
-    }
-    if (!finalAvatar && parsed.avatar) {
-      finalAvatar = parsed.avatar;
-    }
+    // 3. Parsed avatar từ session (nếu không phải unsplash/logo)
+    let finalAvatar = customAvatar || (baseInfo?.avatar && !baseInfo.avatar.includes("unsplash.com") ? baseInfo.avatar : null) || (parsed.avatar && !parsed.avatar.includes("unsplash.com") && parsed.avatar !== "/images/tbs-logo.png" ? parsed.avatar : "");
     if (!finalAvatar) {
-      finalAvatar = "/images/tbs-logo.png";
+      finalAvatar = "";
     }
 
     return {
@@ -646,7 +642,7 @@ export function loginUserProfile(empCodeOrRole: string, password?: string): User
       roleCode: "CBCNV",
       roles: ["employee"],
       roleLevel: 4,
-      avatar: "/images/tbs-logo.png",
+      avatar: "",
       redirectUrl: "/work",
     };
   }
@@ -655,6 +651,8 @@ export function loginUserProfile(empCodeOrRole: string, password?: string): User
   const customAvatar = getUserAvatar(baseProfile.empCode);
   if (customAvatar) {
     baseProfile.avatar = customAvatar;
+  } else if (baseProfile.avatar && baseProfile.avatar.includes("unsplash.com")) {
+    baseProfile.avatar = "";
   }
 
   // Lưu session riêng biệt cho tab (sessionStorage) & mặc định mới (localStorage)
@@ -702,6 +700,10 @@ export async function loginWithD1Database(
         const mappedCode = normalizeEmpCode(u.empCode || u.emp_code || normalized);
         const sysUser = SYSTEM_USERS[mappedCode];
 
+        const resolvedAvatar = (u.avatar && u.avatar !== "/images/tbs-logo.png" && !u.avatar.includes("unsplash.com") && (mappedCode === "202608001" || !u.avatar.includes("nzcft200bebofw7b4uzg")))
+          ? u.avatar
+          : (getUserAvatar(mappedCode) || (sysUser?.avatar && !sysUser.avatar.includes("unsplash.com") ? sysUser.avatar : ""));
+
         d1Profile = {
           userId: u.userId || u.id || sysUser?.userId || 205,
           empCode: mappedCode,
@@ -713,9 +715,7 @@ export async function loginWithD1Database(
           roleCode: u.roleCode || u.role_code || sysUser?.roleCode || "CBCNV",
           roles: sysUser?.roles || (u.roleCode === "SUPER_ADMIN" ? ["admin"] : ["employee"]),
           roleLevel: u.roleLevel || sysUser?.roleLevel || 3,
-          avatar: (u.avatar && u.avatar !== "/images/tbs-logo.png" && (mappedCode === "202608001" || !u.avatar.includes("nzcft200bebofw7b4uzg")))
-            ? u.avatar
-            : (getUserAvatar(mappedCode) || sysUser?.avatar || "/images/tbs-logo.png"),
+          avatar: resolvedAvatar,
           redirectUrl: u.redirectUrl || sysUser?.redirectUrl || "/work",
         };
       }
@@ -727,7 +727,7 @@ export async function loginWithD1Database(
   const finalProfile = d1Profile || loginUserProfile(normalized, password);
 
   if (typeof window !== "undefined") {
-    if (finalProfile.avatar && finalProfile.avatar !== "/images/tbs-logo.png") {
+    if (finalProfile.avatar && finalProfile.avatar !== "/images/tbs-logo.png" && !finalProfile.avatar.includes("unsplash.com")) {
       localStorage.setItem(`tbs_avatar_${finalProfile.empCode}`, finalProfile.avatar);
     }
     sessionStorage.setItem("tbs_current_user", JSON.stringify(finalProfile));

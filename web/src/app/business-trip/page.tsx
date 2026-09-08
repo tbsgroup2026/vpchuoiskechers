@@ -1090,20 +1090,29 @@ export default function BusinessTripRegistrationPage() {
          ════════════════════════════════════════════════════════════════ */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-3.5 sm:p-6 lg:p-8 space-y-4 sm:space-y-6 min-w-0">
         {/* Back Link & Title Header (Flex Responsive - No Absolute Overlap on Mobile) */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs">
-          <Link
-            href="/work"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold hover:bg-emerald-50 hover:text-[#006838] transition-colors shadow-2xs"
-          >
-            <IconArrowLeft size={16} />
-            <span>Trở về Tổng quan</span>
-          </Link>
+        <div className="relative overflow-hidden flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-900 text-white p-5 rounded-2xl border border-emerald-800/30 shadow-md group">
+          {/* Background Real Image & Dark Emerald Gradient Overlay */}
+          <img
+            src="/images/KGLV/MẶT TIỀN SẢNH.png"
+            alt="Đăng Ký Công Tác SKECHERS"
+            className="absolute inset-0 w-full h-full object-cover opacity-35 group-hover:scale-105 transition-transform duration-700 pointer-events-none"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#006838]/90 via-[#004d29]/80 to-slate-950/85 pointer-events-none" />
+          <div className="relative z-10 flex items-center gap-3">
+            <Link
+              href="/work"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white/10 border border-white/20 text-white text-xs font-bold hover:bg-white/20 transition-colors shadow-2xs backdrop-blur-md"
+            >
+              <IconArrowLeft size={16} />
+              <span>Trở về Tổng quan</span>
+            </Link>
+          </div>
 
-          <div className="text-center sm:text-right">
-            <h1 className="text-base sm:text-2xl font-black text-slate-900 tracking-tight">
+          <div className="relative z-10 text-center sm:text-right">
+            <h1 className="text-base sm:text-2xl font-black text-white tracking-tight drop-shadow-sm">
               ĐĂNG KÝ ĐI CÔNG TÁC
             </h1>
-            <p className="text-[11px] sm:text-xs text-slate-500 font-medium">
+            <p className="text-[11px] sm:text-xs text-emerald-100/90 font-medium">
               Vui lòng cung cấp đầy đủ thông tin để hoàn tất đăng ký công tác
             </p>
           </div>

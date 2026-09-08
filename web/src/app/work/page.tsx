@@ -608,43 +608,55 @@ export default function WorkDashboardPage() {
   // Department Hero Banner Configurations (Screenshot 1 matching)
   const deptBanners: Record<string, { bg: string; title: string; sub: string; appCount: number }> = {
     hr: {
-      bg: "/images/crawled/Da-giay1.jpg",
+      bg: "/images/KGLV/CĐTT 2 GÓC HÌNH VP2.png",
       title: "Nhân Sự - Hành Chánh",
       sub: "Quản lý văn thư, tài sản, phòng họp, tuyển dụng và lịch công tác toàn chuỗi.",
       appCount: 10,
     },
     finance: {
-      bg: "/images/crawled/Vat-tu.jpg",
+      bg: "/images/KGLV/BẢNG LỊCH SỬ & KỈ NIỆM CHƯƠNG.png",
       title: "Hệ Thống Quản Trị 1-5-2",
       sub: "Bảng điều khiển 1 mục đích xuyên suốt, 5 trụ cột vận hành và 2 nền tảng quản trị.",
       appCount: 10,
     },
     rd: {
-      bg: "/images/crawled/De-giay.jpg",
+      bg: "/images/KGLV/PHÒNG R&D.png",
       title: "R&D (Phát Triển Sản Phẩm)",
       sub: "Nghiên cứu công nghệ đế giày SKECHERS, thiết kế mẫu & chuyển giao kỹ thuật.",
       appCount: 6,
     },
     ci: {
-      bg: "/images/crawled/Da-giay2.jpg",
+      bg: "/images/KGLV/CĐTT 2 GÓC QUI TRÌNH GIÀY.png",
       title: "CN-CI (Cải Tiến Liên Tục)",
       sub: "Thúc đẩy phong trào Kaizen, cải tiến Gemba Walk và năng suất tự động hóa 4.0.",
       appCount: 4,
     },
     qc: {
-      bg: "/images/crawled/Muitat.jpg",
+      bg: "/images/KGLV/3 DÒNG GIÀY CHÍNH.png",
       title: "Quản Lý Chất Lượng (QC)",
       sub: "Kiểm soát tiêu chuẩn chất lượng SKECHERS, chỉ số OEE và tỷ lệ lỗi trên chuyền.",
       appCount: 8,
     },
     supply: {
-      bg: "/images/tbs-logistics-hub.png",
+      bg: "/images/KGLV/PHÒNG THƯ VIỆN VẬT TƯ.png",
       title: "Kế Hoạch Chuẩn Bị - TTPP",
       sub: "Điều phối logistics, cung ứng vật tư & chuỗi cung ứng chuỗi nhà máy SKECHERS.",
       appCount: 7,
     },
+    logistics: {
+      bg: "/images/KGLV/PHÒNG THƯ VIỆN VẬT TƯ.png",
+      title: "Kho & Logistics",
+      sub: "Logistics, vật tư & chuỗi cung ứng chuỗi nhà máy SKECHERS.",
+      appCount: 7,
+    },
     factory: {
-      bg: "/images/tbs-factory-plant.png",
+      bg: "/images/KGLV/CĐTT 1 LỐI ĐI XUỐNG KV MẪU.png",
+      title: "Tổ Hợp Nhà Máy",
+      sub: "Quản lý chuỗi xưởng sản xuất, máy móc thiết bị và điều hành ca sản xuất.",
+      appCount: 9,
+    },
+    production: {
+      bg: "/images/KGLV/CĐTT 1 LỐI VÀO.png",
       title: "Tổ Hợp Nhà Máy",
       sub: "Quản lý chuỗi xưởng sản xuất, máy móc thiết bị và điều hành ca sản xuất.",
       appCount: 9,

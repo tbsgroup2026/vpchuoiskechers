@@ -244,6 +244,36 @@ export default function GembaManagementView({ selectedScope, currentUser }: Gemb
 
   return (
     <div className="p-4 lg:p-6 space-y-4 bg-slate-100/70 min-h-screen font-sans text-slate-900">
+      {/* HERO BANNER SECTION */}
+      <div className="relative w-full rounded-3xl overflow-hidden shadow-lg border border-emerald-800/20 bg-slate-900 text-white p-6 sm:p-7 group">
+        {/* Background Real Image & Dark Emerald Gradient Overlay */}
+        <img
+          src="/images/KGLV/CĐTT 1 LỐI ĐI XUỐNG KV MẪU.png"
+          alt="Gemba Walk Hiện Trường"
+          className="absolute inset-0 w-full h-full object-cover opacity-35 group-hover:scale-105 transition-transform duration-700 pointer-events-none"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#006838]/90 via-[#004d29]/80 to-slate-950/85 pointer-events-none" />
+
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-200 bg-white/10 backdrop-blur-md px-3 py-0.5 rounded-lg border border-white/15">
+              QUẢN LÝ HIỆN TRƯỜNG & KHẮC PHỤC SỰ CỐ
+            </span>
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-white tracking-tight">
+              Gemba Walk SKECHERS – Kiểm Trả &amp; Khắc Phục Hiện Trường
+            </h1>
+            <p className="text-xs text-emerald-100/90 font-medium">
+              Số hóa quy trình kiểm tra Gemba, phản ứng nhanh 2H và theo dõi trạng thái khắc phục trực tiếp trên chuyền.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="px-3 py-1 rounded-full bg-emerald-400/20 border border-emerald-300/30 text-emerald-100 text-xs font-black backdrop-blur-md">
+              Dữ liệu Realtime
+            </span>
+          </div>
+        </div>
+      </div>
+
       {/* 3.1 TOP BAR ACTIONS */}
       <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 p-4 rounded-2xl bg-white border border-slate-200/80 shadow-[0_2px_10px_rgba(0,0,0,0.03)]">
         <div className="flex items-center gap-3 flex-wrap">

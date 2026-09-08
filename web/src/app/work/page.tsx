@@ -466,19 +466,19 @@ export default function WorkDashboardPage() {
             if (res.ok) {
               const json = await res.json();
               if (json.url) {
-                setEditProfileForm((prev) => ({ ...prev, avatar: json.url }));
-                setUserInfo((prev) => ({ ...prev, avatar: json.url }));
-                if (typeof window !== "undefined") {
-                  sessionStorage.setItem("tbs_current_user", JSON.stringify({
-                    ...userInfo,
-                    avatar: json.url
-                  }));
-                  localStorage.setItem("tbs_current_user", JSON.stringify({
-                    ...userInfo,
-                    avatar: json.url
-                  }));
-                  window.dispatchEvent(new Event("tbs_profile_updated"));
-                }
+                // FIX: Use uploadedAvatarUrl local variable — NOT stale userInfo closure
+                const uploadedAvatarUrl: string = json.url;
+                setEditProfileForm((prev) => ({ ...prev, avatar: uploadedAvatarUrl }));
+                setUserInfo((prev) => {
+                  // FIX: Build updated object inside setter to access fresh prev state
+                  const updated = { ...prev, avatar: uploadedAvatarUrl };
+                  // FIX: Persist fresh object (not stale userInfo closure) to storage
+                  if (typeof window !== "undefined") {
+                    sessionStorage.setItem("tbs_current_user", JSON.stringify(updated));
+                    localStorage.setItem("tbs_current_user", JSON.stringify(updated));
+                  }
+                  return updated;
+                });
                 showToast(json.isCloudinary ? "Đã tải avatar lên Cloudinary." : "Đã cập nhật ảnh đại diện.");
               }
             }
@@ -491,9 +491,8 @@ export default function WorkDashboardPage() {
     }
   };
 
-  // Fetch initial profile data from D1 Database & Local Storage
+  // Fetch initial profile data from D1 Database & Local Storage (runs ONCE on mount only)
   useEffect(() => {
-    let localCustomAvatar: string | null = null;
     const isValidAvatar = (str: any) => typeof str === "string" && str.trim().length > 4 && str !== "undefined" && str !== "null";
 
     if (typeof window !== "undefined") {
@@ -503,14 +502,12 @@ export default function WorkDashboardPage() {
         setSelectedDept(deptParam);
       }
 
+      // Load from localStorage/sessionStorage immediately (fast, no network)
       const storedUser = sessionStorage.getItem("tbs_current_user") || localStorage.getItem("tbs_current_user");
       if (storedUser) {
         try {
           const parsed = JSON.parse(storedUser);
           if (parsed?.name) {
-            if (isValidAvatar(parsed.avatar)) {
-              localCustomAvatar = parsed.avatar;
-            }
             const loaded = {
               empCode: parsed.empCode || "202608001",
               name: parsed.name,
@@ -526,15 +523,33 @@ export default function WorkDashboardPage() {
       }
     }
 
+    // FIX: loadD1Profile only runs ONCE on mount.
+    // It NEVER runs again via event listener (that caused the race condition).
+    // Avatar priority: localStorage (freshest, includes just-uploaded avatar) > D1 database
     async function loadD1Profile() {
       try {
-        const res = await fetch("/api/profile");
+        const res = await fetch("/api/profile", { cache: "no-store" });
         if (!res.ok) return;
         const json = await res.json();
         if (json.success && json.data) {
+          // FIX: Always read fresh from localStorage INSIDE the async function
+          // (not from stale closure variable set at mount time)
+          const freshStoredUser = typeof window !== "undefined"
+            ? (sessionStorage.getItem("tbs_current_user") || localStorage.getItem("tbs_current_user"))
+            : null;
+          let localAvatar: string | null = null;
+          if (freshStoredUser) {
+            try {
+              const parsed = JSON.parse(freshStoredUser);
+              if (isValidAvatar(parsed?.avatar)) localAvatar = parsed.avatar;
+            } catch (e) { }
+          }
+
           const d1Avatar = json.data.avatar || json.data.avatar_url;
-          const finalAvatar = isValidAvatar(localCustomAvatar)
-            ? localCustomAvatar
+          // FIX: localStorage avatar wins over D1 — it contains the most recently uploaded avatar.
+          // D1 may lag behind due to async write timing.
+          const finalAvatar = isValidAvatar(localAvatar)
+            ? localAvatar
             : (isValidAvatar(d1Avatar) ? d1Avatar : "/images/tbs-logo.png");
 
           const loaded = {
@@ -556,23 +571,22 @@ export default function WorkDashboardPage() {
         console.log("Using default profile state:", err);
       }
     }
+    // FIX: Only call once. No event listener re-triggering loadD1Profile.
     loadD1Profile();
-
-    if (typeof window !== "undefined") {
-      window.addEventListener("tbs_profile_updated", loadD1Profile);
-      return () => {
-        window.removeEventListener("tbs_profile_updated", loadD1Profile);
-      };
-    }
   }, []);
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    setUserInfo({ ...editProfileForm });
+    // FIX: Capture the form snapshot at this exact moment (not a closure that may be stale)
+    const profileSnapshot = { ...editProfileForm };
+    // Update local state immediately (optimistic UI)
+    setUserInfo(profileSnapshot);
     if (typeof window !== "undefined") {
-      sessionStorage.setItem("tbs_current_user", JSON.stringify(editProfileForm));
-      localStorage.setItem("tbs_current_user", JSON.stringify(editProfileForm));
-      window.dispatchEvent(new Event("tbs_profile_updated"));
+      sessionStorage.setItem("tbs_current_user", JSON.stringify(profileSnapshot));
+      localStorage.setItem("tbs_current_user", JSON.stringify(profileSnapshot));
+      // FIX: Do NOT dispatch tbs_profile_updated — that event listener has been removed.
+      // Dispatching it would retrigger loadD1Profile before D1 write completes,
+      // causing loadD1Profile to return the OLD avatar and overwrite the new one.
     }
     setIsProfileModalOpen(false);
 
@@ -581,7 +595,7 @@ export default function WorkDashboardPage() {
       const res = await fetch("/api/profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(editProfileForm),
+        body: JSON.stringify(profileSnapshot),
       });
       const json = await res.json();
       if (json.success) {

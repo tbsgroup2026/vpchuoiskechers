@@ -25,6 +25,7 @@ import {
   IconStar,
   IconFolder,
   IconChevronRight,
+  IconBuilding,
 } from "@tabler/icons-react";
 import CIModule from "./CIModule";
 
@@ -206,7 +207,7 @@ export default function CNCIWrapper() {
                   </div>
                   <div>
                     <h3 className="text-base font-black text-slate-900 tracking-tight leading-snug">
-                      Gemba | Nhà Máy Miền Đông | Tổ Hợp Kiên Giang
+                      GEMBA
                     </h3>
                     <p className="text-xs text-slate-500 font-medium leading-normal mt-0.5">
                       Theo dõi hiện trường, phản ánh và cải tiến tại nhà máy
@@ -216,7 +217,41 @@ export default function CNCIWrapper() {
 
                 {/* List Items */}
                 <div className="space-y-2.5 pt-2">
-                  {/* Item 1: Nhà Máy Miền Đông */}
+                  {/* Item 1: Tổng Quan */}
+                  <Link
+                    href="/work/gemba"
+                    className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 hover:bg-blue-50/50 border border-slate-100 hover:border-blue-200 transition-all duration-200 group cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-blue-100/80 text-blue-600 flex items-center justify-center shrink-0 font-bold border border-blue-200/50 group-hover:scale-105 transition-transform">
+                        <IconChartBar size={20} />
+                      </div>
+                      <span className="text-xs font-black text-slate-800 group-hover:text-blue-600 transition-colors">
+                        Tổng Quan
+                      </span>
+                    </div>
+                    <IconChevronRight size={18} className="text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all" />
+                  </Link>
+
+                  {/* Item 2: Văn phòng Chuỗi */}
+                  <a
+                    href="https://script.google.com/macros/s/AKfycbwZ0h0Im1bKF5X_Tm7v7-YfcnDATKazw5Sp6oSkLj1Agk1Onzi9UshAchDsccPdt6R6/exec"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 hover:bg-blue-50/50 border border-slate-100 hover:border-blue-200 transition-all duration-200 group cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-blue-100/80 text-blue-600 flex items-center justify-center shrink-0 font-bold border border-blue-200/50 group-hover:scale-105 transition-transform">
+                        <IconBuilding size={20} />
+                      </div>
+                      <span className="text-xs font-black text-slate-800 group-hover:text-blue-600 transition-colors">
+                        Văn phòng Chuỗi
+                      </span>
+                    </div>
+                    <IconChevronRight size={18} className="text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all" />
+                  </a>
+
+                  {/* Item 3: Nhà Máy Miền Đông */}
                   <a
                     href="https://script.google.com/macros/s/AKfycbwZ0h0Im1bKF5X_Tm7v7-YfcnDATKazw5Sp6oSkLj1Agk1Onzi9UshAchDsccPdt6R6/exec"
                     target="_blank"
@@ -234,7 +269,7 @@ export default function CNCIWrapper() {
                     <IconChevronRight size={18} className="text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all" />
                   </a>
 
-                  {/* Item 3: Tổ Hợp Kiên Giang */}
+                  {/* Item 4: Tổ Hợp Kiên Giang */}
                   <a
                     href="https://script.google.com/macros/s/AKfycbwZ0h0Im1bKF5X_Tm7v7-YfcnDATKazw5Sp6oSkLj1Agk1Onzi9UshAchDsccPdt6R6/exec"
                     target="_blank"
@@ -251,39 +286,6 @@ export default function CNCIWrapper() {
                     </div>
                     <IconChevronRight size={18} className="text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all" />
                   </a>
-
-                  {/* Item 4: Half-and-Half Split Row */}
-                  <div className="grid grid-cols-2 gap-2.5">
-                    <Link
-                      href="/work/gemba"
-                      className="flex items-center justify-between p-3 rounded-2xl bg-slate-50/80 hover:bg-blue-50/50 border border-slate-100 hover:border-blue-200 transition-all duration-200 group cursor-pointer"
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className="w-8 h-8 rounded-xl bg-blue-100/80 text-blue-600 flex items-center justify-center shrink-0 font-bold border border-blue-200/50 group-hover:scale-105 transition-transform">
-                          <IconChartBar size={17} />
-                        </div>
-                        <span className="text-[11px] font-black text-slate-800 group-hover:text-blue-600 transition-colors truncate">
-                          Báo Cáo Sản Xuất
-                        </span>
-                      </div>
-                      <IconChevronRight size={15} className="text-slate-400 group-hover:text-blue-600 shrink-0" />
-                    </Link>
-
-                    <Link
-                      href="/work/gemba"
-                      className="flex items-center justify-between p-3 rounded-2xl bg-slate-50/80 hover:bg-blue-50/50 border border-slate-100 hover:border-blue-200 transition-all duration-200 group cursor-pointer"
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className="w-8 h-8 rounded-xl bg-blue-100/80 text-blue-600 flex items-center justify-center shrink-0 font-bold border border-blue-200/50 group-hover:scale-105 transition-transform">
-                          <IconUsers size={17} />
-                        </div>
-                        <span className="text-[11px] font-black text-slate-800 group-hover:text-blue-600 transition-colors truncate">
-                          Thông Tin Nhà Máy
-                        </span>
-                      </div>
-                      <IconChevronRight size={15} className="text-slate-400 group-hover:text-blue-600 shrink-0" />
-                    </Link>
-                  </div>
                 </div>
               </div>
             </div>

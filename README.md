@@ -80,28 +80,28 @@ Hệ thống điều hành theo khung quản trị chiến lược **1-5-2**:
 
 ```mermaid
 flowchart TD
-    subgraph CLIENT_LAYER ["📱 Client Layer (Desktop / Mobile PWA / Browser)"]
-        UserPC["Desktop Web Browser\n(Chrome/Edge/Firefox)"]
-        UserMobile["Mobile Browser / PWA\n(iOS Safari / Android Chrome)"]
-        UserQR["Public QR Code Scanner\n(Quét QR Thiết Bị MMTB & Kaizen)"]
+    subgraph CLIENT_LAYER ["Client Layer (Desktop / Mobile PWA / Browser)"]
+        UserPC["Desktop Web Browser (Chrome/Edge/Firefox)"]
+        UserMobile["Mobile Browser / PWA (iOS Safari / Android Chrome)"]
+        UserQR["Public QR Code Scanner (Quét QR Thiết Bị MMTB & Kaizen)"]
     end
 
-    subgraph CDN_EDGE ["☁️ Cloudflare Global Edge Network"]
-        WorkerEngine["Cloudflare Workers API Runtime\n(V8 Isolation Engine)"]
-        AssetsCDN["Cloudflare Static Assets CDN\n(HTML5 / CSS3 / JS Chunks)"]
+    subgraph CDN_EDGE ["Cloudflare Global Edge Network"]
+        WorkerEngine["Cloudflare Workers API Runtime (V8 Isolation Engine)"]
+        AssetsCDN["Cloudflare Static Assets CDN (HTML5 / CSS3 / JS Chunks)"]
     end
 
-    subgraph BACKEND_SERVICES ["🔌 Application Backend & REST APIs (/api/*)"]
-        API_MMTB["/api/maintenance/*\n(CRUD Máy Móc, Phiếu Sửa Chữa & Lịch Bảo Trì)"]
-        API_Kaizen["/api/ci-kaizen\n(CRUD Sáng Kiến & Workflow 5 Bước)"]
-        API_AI["/api/ai/compare-kaizen\n(Engine AI So Sánh Trùng Lặp)"]
-        API_Auth["/api/auth/login\n(Xác Thực Session JWT & RBAC)"]
+    subgraph BACKEND_SERVICES ["Application Backend & REST APIs (/api/*)"]
+        API_MMTB["/api/maintenance/* (CRUD Máy Móc, Phiếu Sửa Chữa & Lịch Bảo Trì)"]
+        API_Kaizen["/api/ci-kaizen (CRUD Sáng Kiến & Workflow 5 Bước)"]
+        API_AI["/api/ai/compare-kaizen (Engine AI So Sánh Trùng Lặp)"]
+        API_Auth["/api/auth/login (Xác Thực Session JWT & RBAC)"]
     end
 
-    subgraph DATA_STORAGE ["💾 Cloud Database & File Storage"]
-        D1_DB[("Cloudflare D1 SQL Database\n(vpchuoiskechers-db)")]
-        CloudinaryCDN["Cloudinary Storage CDN\n(Hình ảnh Máy Móc, Kaizen & Chứng từ)"]
-        GDriveDocs["Google Drive Workspace\n(PDF Hạ tầng & Biểu mẫu)"]
+    subgraph DATA_STORAGE ["Cloud Database & File Storage"]
+        D1_DB[("Cloudflare D1 SQL Database - vpchuoiskechers-db")]
+        CloudinaryCDN["Cloudinary Storage CDN (Hình ảnh Máy Móc, Kaizen & Chứng từ)"]
+        GDriveDocs["Google Drive Workspace (PDF Hạ tầng & Biểu mẫu)"]
     end
 
     UserPC -->|HTTPS| WorkerEngine
@@ -127,33 +127,33 @@ flowchart TD
 ### 4.1. Luồng 5 Bước Đề Xuất & Phê Duyệt Sáng Kiến Kaizen (CI/Kaizen Engine)
 ```mermaid
 flowchart TD
-    Start([Tác giả gửi ý tưởng Kaizen mới]) --> FormChoice{Hình thức đăng ký?}
-    FormChoice -->|Nội bộ Cán bộ| Form5Step[Form 5 Bước chuẩn CI / Kaizen]
-    FormChoice -->|Công nhân / Public| FormQR[Form Public QR Code nhanh]
+    Start(["Tác giả gửi ý tưởng Kaizen mới"]) --> FormChoice{"Hình thức đăng ký?"}
+    FormChoice -->|Nội bộ Cán bộ| Form5Step["Form 5 Bước chuẩn CI / Kaizen"]
+    FormChoice -->|Công nhân / Public| FormQR["Form Public QR Code nhanh"]
 
-    Form5Step --> AICheck[Engine AI tự động chạy kiểm tra trùng lặp]
+    Form5Step --> AICheck["Engine AI tự động chạy kiểm tra trùng lặp"]
     FormQR --> AICheck
 
-    AICheck --> CheckScore{Điểm tương đồng với đề xuất cũ?}
-    CheckScore -->|Trên 80%| WarnRed[Cảnh báo ĐỎ: Trùng lặp cao bài KZ-xxxx]
-    CheckScore -->|Từ 50% đến 80%| WarnYellow[Cảnh báo VÀNG: Ý tưởng tương tự]
-    CheckScore -->|Dưới 50%| PassAI[Xác nhận đề xuất mới hợp lệ]
+    AICheck --> CheckScore{"Điểm tương đồng với đề xuất cũ?"}
+    CheckScore -->|Trên 80%| WarnRed["Cảnh báo ĐỎ: Trùng lặp cao bài KZ-xxxx"]
+    CheckScore -->|Từ 50% đến 80%| WarnYellow["Cảnh báo VÀNG: Ý tưởng tương tự"]
+    CheckScore -->|Dưới 50%| PassAI["Xác nhận đề xuất mới hợp lệ"]
 
     WarnRed -->|Tác giả xác nhận tiếp tục| SaveD1
     WarnYellow --> SaveD1
-    PassAI --> SaveD1[(Lưu đề xuất vào D1 Database)]
+    PassAI --> SaveD1[("Lưu đề xuất vào D1 Database")]
 
-    SaveD1 --> Step1[1. Sơ Duyệt - Trưởng Ban / Thư ký CI]
-    Step1 -->|Không đạt| StateRejected[Trạng thái: Từ chối / Trả về sửa]
-    Step1 -->|Đạt yêu cầu| Step2[2. Duyệt Tính Khả Thi - Giám Đốc Nhà Máy]
+    SaveD1 --> Step1["1. Sơ Duyệt - Trưởng Ban / Thư ký CI"]
+    Step1 -->|Không đạt| StateRejected["Trạng thái: Từ chối / Trả về sửa"]
+    Step1 -->|Đạt yêu cầu| Step2["2. Duyệt Tính Khả Thi - Giám Đốc Nhà Máy"]
 
     Step2 -->|Không khả thi| StateRejected
-    Step2 -->|Phê duyệt| Step3[3. Triển Khai Thực Hiện Gemba tại Chuyền]
+    Step2 -->|Phê duyệt| Step3["3. Triển Khai Thực Hiện Gemba tại Chuyền"]
 
-    Step3 --> Step4[4. Đánh Giá Kết Quả & Chấm Điểm - Hội Đồng Chuyên Gia]
-    Step4 --> Step5[5. Vinh Danh Leaderboard & Khen Thưởng Kaizen]
+    Step3 --> Step4["4. Đánh Giá Kết Quả & Chấm Điểm - Hội Đồng Chuyên Gia"]
+    Step4 --> Step5["5. Vinh Danh Leaderboard & Khen Thưởng Kaizen"]
 
-    StateRejected --> End([Kết thúc luồng])
+    StateRejected --> End(["Kết thúc luồng"])
     Step5 --> End
 ```
 
@@ -162,25 +162,25 @@ flowchart TD
 ### 4.2. Luồng Bảng Điều Hành Quản Trị Chiến Lược 1-5-2 & Báo Cáo Nhanh
 ```mermaid
 flowchart TD
-    UserNav[Truy cập Route /1-5-2 hoặc Click Thẻ Kế toán & Quản trị] --> LoadDash[Tải Bảng Quản Trị 1-5-2]
+    UserNav["Truy cập Route /1-5-2 hoặc Click Thẻ Kế toán & Quản trị"] --> LoadDash["Tải Bảng Quản Trị 1-5-2"]
 
-    LoadDash --> ColLeft[Cột Trái: BÁO CÁO NHANH & MISC]
-    LoadDash --> ColRight[Cột Phải: 1 MỤC ĐÍCH + 5 TRỤ CỘT + 2 NỀN TẢNG]
+    LoadDash --> ColLeft["Cột Trái: BÁO CÁO NHANH & MISC"]
+    LoadDash --> ColRight["Cột Phải: 1 MỤC ĐÍCH + 5 TRỤ CỘT + 2 NỀN TẢNG"]
 
-    ColLeft -->|Click Định Hướng| ModalDinhHuong[Modal Báo Cáo Định Hướng & Ngân Sách - 3 Card Grid]
-    ColLeft -->|Click Điều Hành| ModalDieuHanh[Modal Báo Cáo Điều Hành CH001-CH005 - 5 Card Grid]
-    ColLeft -->|Click Thư Viện| ModalThuVien[Modal Thư Viện Biểu Mẫu]
+    ColLeft -->|Click Định Hướng| ModalDinhHuong["Modal Báo Cáo Định Hướng & Ngân Sách - 3 Card Grid"]
+    ColLeft -->|Click Điều Hành| ModalDieuHanh["Modal Báo Cáo Điều Hành CH001-CH005 - 5 Card Grid"]
+    ColLeft -->|Click Thư Viện| ModalThuVien["Modal Thư Viện Biểu Mẫu"]
 
-    ColRight -->|Click CHIẾN LƯỢC| ModalChienLuoc[Danh Mục Tài Liệu Chiến Lược]
-    ColRight -->|Click TC-CN-HTS| ModalTCCNHTS[Tài Liệu Tổ Chức - Công Nghệ - Hạ Tầng]
-    ColRight -->|Click TỔ CHỨC - HẠ TẦNG| ModalInfra[Popup Cây Folder Hạ Tầng]
+    ColRight -->|Click CHIẾN LƯỢC| ModalChienLuoc["Danh Mục Tài Liệu Chiến Lược"]
+    ColRight -->|Click TC-CN-HTS| ModalTCCNHTS["Tài Liệu Tổ Chức - Công Nghệ - Hạ Tầng"]
+    ColRight -->|Click TỔ CHỨC - HẠ TẦNG| ModalInfra["Popup Cây Folder Hạ Tầng"]
 
-    ModalInfra --> TreeSelect{Chọn Folder}
-    TreeSelect -->|1. TH KG| ListKG[8 File PDF & Danh sách MMTB TH KG]
-    TreeSelect -->|2. NM_SKMĐ| ListSKMD[3 File Quy Trình NM Skechers Miền Đông]
+    ModalInfra --> TreeSelect{"Chọn Folder"}
+    TreeSelect -->|1. TH KG| ListKG["8 File PDF & Danh sách MMTB TH KG"]
+    TreeSelect -->|2. NM_SKMĐ| ListSKMD["3 File Quy Trình NM Skechers Miền Đông"]
 
-    ListKG -->|Click Xem File| GDrive1[Mở File PDF trực tiếp trên Google Drive]
-    ListSKMD -->|Click Xem File| GDrive2[Mở File Quy trình trực tiếp trên Google Drive]
+    ListKG -->|Click Xem File| GDrive1["Mở File PDF trực tiếp trên Google Drive"]
+    ListSKMD -->|Click Xem File| GDrive2["Mở File Quy trình trực tiếp trên Google Drive"]
 ```
 
 ---
@@ -188,18 +188,18 @@ flowchart TD
 ### 4.3. Luồng Xác Thực JWT, Phân Quyền RBAC & Scoping Dữ Liệu Nhà Máy
 ```mermaid
 flowchart TD
-    LoginScreen[Truy cập /login] --> InputCreds[Nhập Mã NV & Mật Khẩu / OTP]
-    InputCreds --> VerifyUser{Kiểm tra thông tin với SYSTEM_USERS}
+    LoginScreen["Truy cập /login"] --> InputCreds["Nhập Mã NV & Mật Khẩu / OTP"]
+    InputCreds --> VerifyUser{"Kiểm tra thông tin với SYSTEM_USERS"}
 
-    VerifyUser -->|Sai thông tin| AuthErr[Báo lỗi đăng nhập]
-    VerifyUser -->|Đúng thông tin| IssueJWT[Tạo JWT Session Token & Lưu LocalStorage]
+    VerifyUser -->|Sai thông tin| AuthErr["Báo lỗi đăng nhập"]
+    VerifyUser -->|Đúng thông tin| IssueJWT["Tạo JWT Session Token & Lưu LocalStorage"]
 
-    IssueJWT --> GetRole{Đọc Role của Tài khoản}
-    GetRole -->|SUPER_ADMIN / ADMIN| RoleAdmin[Role Admin: Quản trị User, Full Cấu hình, Truy cập /admin]
-    GetRole -->|GIAM_DOC / LEADER| RoleManager[Role Quản lý: Duyệt Kaizen, Xem báo cáo nhà máy]
-    GetRole -->|CBCNV| RoleEmp[Role Nhân viên: Tạo đề xuất, xem dữ liệu công khai]
+    IssueJWT --> GetRole{"Đọc Role của Tài khoản"}
+    GetRole -->|SUPER_ADMIN / ADMIN| RoleAdmin["Role Admin: Quản trị User, Full Cấu hình, Truy cập /admin"]
+    GetRole -->|GIAM_DOC / LEADER| RoleManager["Role Quản lý: Duyệt Kaizen, Xem báo cáo nhà máy"]
+    GetRole -->|CBCNV| RoleEmp["Role Nhân viên: Tạo đề xuất, xem dữ liệu công khai"]
 
-    RoleManager --> ScopeSQL[SQL Scoping: REAL_FACTORIES = VP CHUỖI, VP2 SKECHERS, NM MIỀN ĐÔNG]
+    RoleManager --> ScopeSQL["SQL Scoping: REAL_FACTORIES = VP CHUỖI, VP2 SKECHERS, NM MIỀN ĐÔNG"]
     RoleEmp --> ScopeSQL
 ```
 
@@ -208,16 +208,16 @@ flowchart TD
 ### 4.4. Luồng Thuật Toán AI Kiểm Tra & So Sánh Trùng Lặp Sáng Kiến
 ```mermaid
 flowchart TD
-    InputData[Tác giả nhập Tiêu đề & Nội dung sáng kiến] --> TriggerAPI[Gọi API POST /api/ci-kaizen/check-duplicate]
-    TriggerAPI --> QueryD1[Lấy tất cả các đề xuất Kaizen hiện có trong D1 Database]
-    QueryD1 --> NlpProcess[Chuẩn hóa văn bản: Chuyển chữ thường, xóa dấu, lọc Stopwords]
-    NlpProcess --> VectorCalc[Tính toán độ tương đồng N-Gram & Cosine Similarity]
-    VectorCalc --> SortMatches[Sắp xếp danh sách kết quả theo phần trăm tương đồng giảm dần]
+    InputData["Tác giả nhập Tiêu đề & Nội dung sáng kiến"] --> TriggerAPI["Gọi API POST /api/ci-kaizen/check-duplicate"]
+    TriggerAPI --> QueryD1["Lấy tất cả các đề xuất Kaizen hiện có trong D1 Database"]
+    QueryD1 --> NlpProcess["Chuẩn hóa văn bản: Chuyển chữ thường, xóa dấu, lọc Stopwords"]
+    NlpProcess --> VectorCalc["Tính toán độ tương đồng N-Gram & Cosine Similarity"]
+    VectorCalc --> SortMatches["Sắp xếp danh sách kết quả theo phần trăm tương đồng giảm dần"]
 
-    SortMatches --> CheckThreshold{Độ tương đồng lớn nhất?}
-    CheckThreshold -->|Trên 80%| HighMatch[Cảnh báo ĐỎ: Trùng lặp cao với đề xuất cũ]
-    CheckThreshold -->|Từ 50% đến 80%| MedMatch[Cảnh báo VÀNG: Có nét tương đồng, nên tham khảo]
-    CheckThreshold -->|Dưới 50%| LowMatch[Xác nhận sáng kiến mới độc lập]
+    SortMatches --> CheckThreshold{"Độ tương đồng lớn nhất?"}
+    CheckThreshold -->|Trên 80%| HighMatch["Cảnh báo ĐỎ: Trùng lặp cao với đề xuất cũ"]
+    CheckThreshold -->|Từ 50% đến 80%| MedMatch["Cảnh báo VÀNG: Có nét tương đồng, nên tham khảo"]
+    CheckThreshold -->|Dưới 50%| LowMatch["Xác nhận sáng kiến mới độc lập"]
 ```
 
 ---
@@ -225,17 +225,17 @@ flowchart TD
 ### 4.5. Luồng Nghiệp Vụ Đăng Ký & Phê Duyệt Công Tác (Business Trip)
 ```mermaid
 flowchart TD
-    StartTrip([Truy cập Route /business-trip]) --> CreateTrip[Tạo Đăng Ký Lịch Công Tác Mới]
-    CreateTrip --> InputTripInfo[Nhập địa điểm, mục đích, thời gian & danh sách nhân sự đi cùng]
-    InputTripInfo --> SubmitTrip[Gửi phiếu đăng ký]
+    StartTrip(["Truy cập Route /business-trip"]) --> CreateTrip["Tạo Đăng Ký Lịch Công Tác Mới"]
+    CreateTrip --> InputTripInfo["Nhập địa điểm, mục đích, thời gian & danh sách nhân sự đi cùng"]
+    InputTripInfo --> SubmitTrip["Gửi phiếu đăng ký"]
 
-    SubmitTrip --> TripState1[Trạng thái: Chờ Trưởng Phòng / Giám Đốc Duyệt]
-    TripState1 --> ApproveTrip{Giám đốc duyệt?}
-    ApproveTrip -->|Từ chối| TripRejected[Trạng thái: Không phê duyệt]
-    ApproveTrip -->|Đồng ý| TripState2[Trạng thái: Đã duyệt - Sẵn sàng đi công tác]
+    SubmitTrip --> TripState1["Trạng thái: Chờ Trưởng Phòng / Giám Đốc Duyệt"]
+    TripState1 --> ApproveTrip{"Giám đốc duyệt?"}
+    ApproveTrip -->|Từ chối| TripRejected["Trạng thái: Không phê duyệt"]
+    ApproveTrip -->|Đồng ý| TripState2["Trạng thái: Đã duyệt - Sẵn sàng đi công tác"]
 
-    TripState2 --> CompleteTrip[Kết thúc công tác & Nộp báo cáo / Chứng từ hoàn ứng]
-    CompleteTrip --> TripEnd([Lưu hồ sơ công tác hoàn tất])
+    TripState2 --> CompleteTrip["Kết thúc công tác & Nộp báo cáo / Chứng từ hoàn ứng"]
+    CompleteTrip --> TripEnd(["Lưu hồ sơ công tác hoàn tất"])
 ```
 
 ---
@@ -243,16 +243,16 @@ flowchart TD
 ### 4.6. Luồng Quản Lý & Đặt Phòng Họp Thông Minh (Room Booking)
 ```mermaid
 flowchart TD
-    StartRoom([Truy cập Route /rooms]) --> ViewCal[Xem Lịch Đặt Phòng Họp Real-time]
-    ViewCal --> SelectTimeSlot[Chọn Phòng họp, Ngày & Khung giờ cần sử dụng]
-    SelectTimeSlot --> CheckConflict{Khung giờ có bị trùng lịch?}
+    StartRoom(["Truy cập Route /rooms"]) --> ViewCal["Xem Lịch Đặt Phòng Họp Real-time"]
+    ViewCal --> SelectTimeSlot["Chọn Phòng họp, Ngày & Khung giờ cần sử dụng"]
+    SelectTimeSlot --> CheckConflict{"Khung giờ có bị trùng lịch?"}
 
-    CheckConflict -->|Bị trùng| SlotError[Báo trùng lịch - Yêu cầu chọn khung giờ khác]
-    CheckConflict -->|Trống lịch| InputBooking[Nhập Chủ đề cuộc họp, Số lượng người & Thiết bị cần dùng]
+    CheckConflict -->|Bị trùng| SlotError["Báo trùng lịch - Yêu cầu chọn khung giờ khác"]
+    CheckConflict -->|Trống lịch| InputBooking["Nhập Chủ đề cuộc họp, Số lượng người & Thiết bị cần dùng"]
 
-    InputBooking --> ConfirmBooking[Xác nhận đặt phòng]
-    ConfirmBooking --> SaveRoomDB[(Lưu lịch vào D1 Database & Gửi thông báo đến Lễ tân)]
-    SaveRoomDB --> SlotSuccess[Đặt phòng thành công - Hiển thị lên Bảng Điện Tử Lễ Tân]
+    InputBooking --> ConfirmBooking["Xác nhận đặt phòng"]
+    ConfirmBooking --> SaveRoomDB[("Lưu lịch vào D1 Database & Gửi thông báo đến Lễ tân")]
+    SaveRoomDB --> SlotSuccess["Đặt phòng thành công - Hiển thị lên Bảng Điện Tử Lễ Tân"]
 ```
 
 ---
@@ -262,26 +262,26 @@ flowchart TD
 #### 4.7.1. Sơ đồ Luồng Đăng Ký, Quản Lý & Tra Cứu QR Code Thiết Bị MMTB
 ```mermaid
 flowchart TD
-    StartReg([Bắt đầu: Quản lý thiết bị MMTB]) --> MethodSelect{Phương thức nhập dữ liệu?}
+    StartReg(["Bắt đầu: Quản lý thiết bị MMTB"]) --> MethodSelect{"Phương thức nhập dữ liệu?"}
 
-    MethodSelect -->|Thêm thủ công| FormSingle[Nhập Form: Mã TS, Tên máy, Vị trí, Chuyền/Tổ, Loại máy]
-    MethodSelect -->|Excel Hàng Loạt| UploadExcel[Tải file .xlsx theo Template chuẩn 10 cột]
+    MethodSelect -->|Thêm thủ công| FormSingle["Nhập Form: Mã TS, Tên máy, Vị trí, Chuyền/Tổ, Loại máy"]
+    MethodSelect -->|Excel Hàng Loạt| UploadExcel["Tải file .xlsx theo Template chuẩn 10 cột"]
 
-    UploadExcel --> ProcessExcel[Hệ thống tự động tra cứu ID Nhà máy / Khu vực / Chuyền / Loại máy theo tên]
-    ProcessExcel --> ValidateRow{Kiểm tra dữ liệu dòng?}
-    ValidateRow -->|Hợp lệ| BulkSave[(Lưu vào D1 Database: maintenance_machines)]
-    ValidateRow -->|Lỗi dòng| LogError[Báo lỗi dòng riêng - Tiếp tục các dòng khác]
+    UploadExcel --> ProcessExcel["Hệ thống tự động tra cứu ID Nhà máy / Khu vực / Chuyền / Loại máy theo tên"]
+    ProcessExcel --> ValidateRow{"Kiểm tra dữ liệu dòng?"}
+    ValidateRow -->|Hợp lệ| BulkSave[("Lưu vào D1 Database: maintenance_machines")]
+    ValidateRow -->|Lỗi dòng| LogError["Báo lỗi dòng riêng - Tiếp tục các dòng khác"]
 
-    FormSingle --> SaveSingle[(Lưu thiết bị vào D1 Database)]
+    FormSingle --> SaveSingle[("Lưu thiết bị vào D1 Database")]
 
-    BulkSave --> GenQR[Tạo Mã QR payload JSON thật: type='machine', code='MMTB-xxxx']
+    BulkSave --> GenQR["Tạo Mã QR payload JSON thật: type=machine, code=MMTB-xxxx"]
     SaveSingle --> GenQR
 
-    GenQR --> PrintLabel[In Tem Mã QR dán lên thân máy thật]
+    GenQR --> PrintLabel["In Tem Mã QR dán lên thân máy thật"]
 
-    PrintLabel --> MobileAction[Kỹ thuật viên / Quản lý xưởng dùng Di Động quét mã]
-    MobileAction --> ScanPayload[App/Web đọc payload {type:'machine', code}]
-    ScanPayload --> OpenDrawer[Trực tiếp mở Slide-Over Technical Profile Drawer trên Web/App]
+    PrintLabel --> MobileAction["Kỹ thuật viên / Quản lý xưởng dùng Di Động quét mã"]
+    MobileAction --> ScanPayload["App/Web đọc payload JSON Mã máy"]
+    ScanPayload --> OpenDrawer["Trực tiếp mở Slide-Over Technical Profile Drawer trên Web/App"]
 ```
 
 ---
@@ -289,32 +289,32 @@ flowchart TD
 #### 4.7.2. Sơ đồ Luồng Xử Lý Nhu Cầu & Phiếu Sửa Chữa Khẩn Cấp MMTB
 ```mermaid
 flowchart TD
-    ReportIncident([Máy hỏng tại chuyền sản xuất]) --> FormTicket[Công nhân / Quản lý Chuyền gửi Yêu cầu Sửa chữa]
-    FormTicket --> PriorityCheck{Mức độ ưu tiên?}
+    ReportIncident(["Máy hỏng tại chuyền sản xuất"]) --> FormTicket["Công nhân / Quản lý Chuyền gửi Yêu cầu Sửa chữa"]
+    FormTicket --> PriorityCheck{"Mức độ ưu tiên?"}
 
-    PriorityCheck -->|Gấp / Sự cố dừng chuyền| TicketRed[Đánh dấu ĐỎ: Khẩn cấp - Cảnh báo dừng sản xuất]
-    PriorityCheck -->|Cao / Trung bình / Thấp| TicketNormal[Đánh dấu VÀNG/XANH: Xử lý theo thứ tự]
+    PriorityCheck -->|Gấp / Dừng chuyền| TicketRed["Đánh dấu ĐỎ: Khẩn cấp - Cảnh báo dừng sản xuất"]
+    PriorityCheck -->|Cao / Trung bình / Thấp| TicketNormal["Đánh dấu VÀNG hoặc XANH: Xử lý theo thứ tự"]
 
-    TicketRed --> SaveTicket[(Tạo Phiếu Status = 'pending' trong D1 Database)]
+    TicketRed --> SaveTicket[("Tạo Phiếu Status pending trong D1 Database")]
     TicketNormal --> SaveTicket
 
-    SaveTicket --> AssignTech[Trưởng bộ phận Bảo trì phân công Kỹ thuật viên]
-    AssignTech --> TechStatus1[Chuyển trạng thái: 'assigned']
+    SaveTicket --> AssignTech["Trưởng bộ phận Bảo trì phân công Kỹ thuật viên"]
+    AssignTech --> TechStatus1["Chuyển trạng thái assigned"]
 
-    TechStatus1 --> TechAccept[Kỹ thuật viên có mặt tại Gemba, nhấn Nhận Việc]
-    TechAccept --> TechStatus2[Chuyển trạng thái: 'in_progress' - Ghi nhận thời điểm nhận việc acceptedAt]
+    TechStatus1 --> TechAccept["Kỹ thuật viên có mặt tại Gemba, nhấn Nhận Việc"]
+    TechAccept --> TechStatus2["Chuyển trạng thái in_progress - Ghi nhận thời điểm acceptedAt"]
 
-    TechStatus2 --> FixProcess[KTV tiến hành sửa chữa máy]
-    FixProcess --> NeedParts{Có thay thế phụ tùng?}
-    NeedParts -->|Có| RecordParts[Ghi nhận Mã phụ tùng & Số lượng thay thế]
-    NeedParts -->|Không| FinishFix[Khắc phục xong sự cố máy]
+    TechStatus2 --> FixProcess["KTV tiến hành sửa chữa máy"]
+    FixProcess --> NeedParts{"Có thay thế phụ tùng?"}
+    NeedParts -->|Có| RecordParts["Ghi nhận Mã phụ tùng & Số lượng thay thế"]
+    NeedParts -->|Không| FinishFix["Khắc phục xong sự cố máy"]
 
     RecordParts --> FinishFix
-    FinishFix --> CompleteTicket[Xác nhận Hoàn thành - Ghi nhận thời điểm completedAt]
-    CompleteTicket --> StatusCompleted[Chuyển trạng thái: 'completed']
+    FinishFix --> CompleteTicket["Xác nhận Hoàn thành - Ghi nhận thời điểm completedAt"]
+    CompleteTicket --> StatusCompleted["Chuyển trạng thái completed"]
 
-    StatusCompleted --> AutoCalcDowntime[Hệ thống tự động tính Downtime = completedAt - createdAt]
-    AutoCalcDowntime --> UpdateMetrics[Cập nhật dữ liệu thời gian thực cho BI Report: MTTA, MTTR, MTTD]
+    StatusCompleted --> AutoCalcDowntime["Hệ thống tự động tính Downtime = completedAt - createdAt"]
+    AutoCalcDowntime --> UpdateMetrics["Cập nhật dữ liệu thời gian thực cho BI Report: MTTA, MTTR, MTTD"]
 ```
 
 ---
@@ -322,28 +322,28 @@ flowchart TD
 #### 4.7.3. Sơ đồ Luồng Lập Kế Hoạch & Bảo Dưỡng Định Kỳ MMTB
 ```mermaid
 flowchart TD
-    ScheduleStart([Hệ thống khởi chạy Quét Lịch Bảo Dưỡng]) --> FetchPeriod[Đọc chu kỳ bảo dưỡng: Tuần / 1 Tháng / 3 Tháng / 6 Tháng / 1 Năm]
-    FetchPeriod --> CheckDueDate{So sánh Ngày hiện tại & Ngày đến hạn next_due_date?}
+    ScheduleStart(["Hệ thống khởi chạy Quét Lịch Bảo Dưỡng"]) --> FetchPeriod["Đọc chu kỳ bảo dưỡng: Tuần / 1 Tháng / 3 Tháng / 6 Tháng / 1 Năm"]
+    FetchPeriod --> CheckDueDate{"So sánh Ngày hiện tại & Ngày đến hạn next_due_date?"}
 
-    CheckDueDate -->|Quá hạn| StatusOverdue[Đánh dấu 'overdue' - Hiển thị cảnh báo đỏ trên Dashboard]
-    CheckDueDate -->|Sắp đến hạn trong 7 ngày| StatusUpcoming[Đánh dấu 'upcoming' - Đưa vào danh sách chờ bảo trì]
-    CheckDueDate -->|Đã lên lịch| StatusScheduled[Đánh dấu 'scheduled']
+    CheckDueDate -->|Quá hạn| StatusOverdue["Đánh dấu overdue - Hiển thị cảnh báo đỏ trên Dashboard"]
+    CheckDueDate -->|Sắp đến hạn trong 7 ngày| StatusUpcoming["Đánh dấu upcoming - Đưa vào danh sách chờ bảo trì"]
+    CheckDueDate -->|Đã lên lịch| StatusScheduled["Đánh dấu scheduled"]
 
-    StatusOverdue --> PMWorkQueue[Đưa vào Hàng Chờ Công Việc Bảo Dưỡng]
+    StatusOverdue --> PMWorkQueue["Đưa vào Hàng Chờ Công Việc Bảo Dưỡng"]
     StatusUpcoming --> PMWorkQueue
     StatusScheduled --> PMWorkQueue
 
-    PMWorkQueue --> AssignPM[Phân công Kỹ thuật viên phụ trách]
-    AssignPM --> PerformPM[KTV thực hiện kiểm tra định kỳ Gemba tại chuyền]
+    PMWorkQueue --> AssignPM["Phân công Kỹ thuật viên phụ trách"]
+    AssignPM --> PerformPM["KTV thực hiện kiểm tra định kỳ Gemba tại chuyền"]
 
-    PerformPM --> Checklist{Đạt các hạng mục Kiểm tra / Tra dầu / Vệ sinh?}
-    Checklist -->|Chưa đạt / Phát hiện hư hỏng| GenRepairTicket[Tự động tạo Phiếu Sửa Chữa MMTB khẩn cấp]
-    Checklist -->|Đạt tiêu chuẩn| ApprovePM[Xác nhận nghiệm thu bảo trì]
+    PerformPM --> Checklist{"Đạt các hạng mục Kiểm tra / Tra dầu / Vệ sinh?"}
+    Checklist -->|Chưa đạt / Hư hỏng| GenRepairTicket["Tự động tạo Phiếu Sửa Chữa MMTB khẩn cấp"]
+    Checklist -->|Đạt tiêu chuẩn| ApprovePM["Xác nhận nghiệm thu bảo trì"]
 
-    GenRepairTicket --> UpdateSchedule[Cập nhật Ngày bảo trì gần nhất last_maintenance_date]
+    GenRepairTicket --> UpdateSchedule["Cập nhật Ngày bảo trì gần nhất last_maintenance_date"]
     ApprovePM --> UpdateSchedule
-    UpdateSchedule --> CalcNextDueDate[Tự động tính Ngày đến hạn tiếp theo next_due_date = Today + Chu Kỳ]
-    CalcNextDueDate --> SaveScheduleD1[(Lưu cập nhật vào D1 Database)]
+    UpdateSchedule --> CalcNextDueDate["Tự động tính Ngày đến hạn tiếp theo next_due_date = Today + Chu Kỳ"]
+    CalcNextDueDate --> SaveScheduleD1[("Lưu cập nhật vào D1 Database")]
 ```
 
 ---
@@ -351,32 +351,32 @@ flowchart TD
 #### 4.7.4. Sơ đồ Luồng Phân Tích Chỉ Số BI & Trực Quan Sơ Đồ Nhà Máy
 ```mermaid
 flowchart TD
-    UserAccess([Người dùng mở Route /maintenance]) --> CheckData{Có dữ liệu sự cố trong khoảng thời gian chọn?}
+    UserAccess(["Người dùng mở Route /maintenance"]) --> CheckData{"Có dữ liệu sự cố trong khoảng thời gian chọn?"}
 
-    CheckData -->|Không có dữ liệu| CompactEmpty[Hiển thị Empty State gọn gàng 240px: Không có dữ liệu sự cố]
-    CheckData -->|Có dữ liệu| RenderBI[Render Analytics Workspace]
+    CheckData -->|Không có dữ liệu| CompactEmpty["Hiển thị Empty State gọn gàng 240px: Không có dữ liệu sự cố"]
+    CheckData -->|Có dữ liệu| RenderBI["Render Analytics Workspace"]
 
-    RenderBI --> CalcMTTA[1. MTTA = Avg(acceptedAt - createdAt) - Thời gian phản hồi]
-    RenderBI --> CalcMTTR[2. MTTR = Avg(completedAt - acceptedAt) - Thời gian sửa chữa]
-    RenderBI --> CalcMTTD[3. MTTD = Avg(completedAt - createdAt) - Thời gian phát hiện & xử lý]
-    RenderBI --> CalcAvailability[4. Availability Rate = (Tổng TG Vận Hành - Downtime) / Tổng TG * 100%]
+    RenderBI --> CalcMTTA["1. MTTA = Avg(acceptedAt - createdAt) - Thời gian phản hồi"]
+    RenderBI --> CalcMTTR["2. MTTR = Avg(completedAt - acceptedAt) - Thời gian sửa chữa"]
+    RenderBI --> CalcMTTD["3. MTTD = Avg(completedAt - createdAt) - Thời gian phát hiện & xử lý"]
+    RenderBI --> CalcAvailability["4. Availability Rate = (Tổng TG Vận Hành - Downtime) / Tổng TG * 100%"]
 
-    CalcMTTA --> OperationsStrip[Hiển thị Operations Metric Strip dạng Monospace Tabular Numerals]
+    CalcMTTA --> OperationsStrip["Hiển thị Operations Metric Strip dạng Monospace Tabular Numerals"]
     CalcMTTR --> OperationsStrip
     CalcMTTD --> OperationsStrip
     CalcAvailability --> OperationsStrip
 
-    RenderBI --> RenderPareto[Render Biểu đồ Pareto 80/20 Nguyên nhân sự cố hàng đầu]
-    RenderBI --> RenderTrend[Render Biểu đồ Xu hướng Downtime theo Tuần]
+    RenderBI --> RenderPareto["Render Biểu đồ Pareto 80/20 Nguyên nhân sự cố hàng đầu"]
+    RenderBI --> RenderTrend["Render Biểu đồ Xu hướng Downtime theo Tuần"]
 
-    RenderBI --> RenderFloorPlan[Render Interactive Spatial Floor Plan Sơ Đồ Nhà Máy]
-    RenderFloorPlan --> MapNodes[Hiển thị các Node Thiết bị theo Vị trí Chuyền/Khu vực]
-    MapNodes --> NodeStatus{Trạng thái máy?}
-    NodeStatus -->|Green Dot| StatusActive[● Đang hoạt động]
-    NodeStatus -->|Yellow Dot| StatusMaint[● Đang bảo trì]
-    NodeStatus -->|Red Dot| StatusBroken[● Sự cố dừng máy]
+    RenderBI --> RenderFloorPlan["Render Interactive Spatial Floor Plan Sơ Đồ Nhà Máy"]
+    RenderFloorPlan --> MapNodes["Hiển thị các Node Thiết bị theo Vị trí Chuyền / Khu vực"]
+    MapNodes --> NodeStatus{"Trạng thái máy?"}
+    NodeStatus -->|Green Dot| StatusActive["Đang hoạt động"]
+    NodeStatus -->|Yellow Dot| StatusMaint["Đang bảo trì"]
+    NodeStatus -->|Red Dot| StatusBroken["Sự cố dừng máy"]
 
-    StatusActive --> ClickNode[Click Marker -> Mở Hồ sơ chi tiết thiết bị MMTB Drawer]
+    StatusActive --> ClickNode["Click Marker mở Hồ sơ chi tiết thiết bị MMTB Drawer"]
     StatusMaint --> ClickNode
     StatusBroken --> ClickNode
 ```
@@ -386,19 +386,19 @@ flowchart TD
 ### 4.8. Luồng Phân Hệ Kế Toán Quản Trị & Tài Chính (Finance Management)
 ```mermaid
 flowchart TD
-    StartFin([Mở Phân Hệ /finance]) --> FinModule{Chọn Phân Hệ Chức Năng}
+    StartFin(["Mở Phân Hệ /finance"]) --> FinModule{"Chọn Phân Hệ Chức Năng"}
 
-    FinModule -->|Thu Chi & Tạm Ứng| TransFlow[Tạo Phiếu Thu / Phiếu Chi / Đề Xuất Tạm Ứng]
-    FinModule -->|Ngân Sách & Dự Toán| BudgetFlow[Lập Ngân Sách & Phân Bổ Ngân Sách Phòng Ban]
-    FinModule -->|Công Nợ Độc Lập| DebtFlow[Theo Dõi Công Nợ Phải Thu / Phải Trả Đối Tác]
-    FinModule -->|Tài Sản & Khấu Hao| AssetFlow[Quản Lý Khấu Hao Tài Sản Cố Định Nhà Máy]
-    FinModule -->|Vật Tư & Kho| StoreFlow[Quản Lý Phiếu Nhập Kho / Xuất Kho]
+    FinModule -->|Thu Chi & Tạm Ứng| TransFlow["Tạo Phiếu Thu / Phiếu Chi / Đề Xuất Tạm Ứng"]
+    FinModule -->|Ngân Sách & Dự Toán| BudgetFlow["Lập Ngân Sách & Phân Bổ Ngân Sách Phòng Ban"]
+    FinModule -->|Công Nợ Độc Lập| DebtFlow["Theo Dõi Công Nợ Phải Thu / Phải Trả Đối Tác"]
+    FinModule -->|Tài Sản & Khấu Hao| AssetFlow["Quản Lý Khấu Hao Tài Sản Cố Định Nhà Máy"]
+    FinModule -->|Vật Tư & Kho| StoreFlow["Quản Lý Phiếu Nhập Kho / Xuất Kho"]
 
-    TransFlow --> ApprovalGate{Trưởng Phòng Tài Chính Duyệt?}
-    ApprovalGate -->|Chấp thuận| ExecPayment[Thực hiện Chi Tiền / Nhập Sổ Quỹ]
-    ApprovalGate -->|Từ chối| RejectFin[Hủy Phiếu & Báo Lý Do]
+    TransFlow --> ApprovalGate{"Trưởng Phòng Tài Chính Duyệt?"}
+    ApprovalGate -->|Chấp thuận| ExecPayment["Thực hiện Chi Tiền / Nhập Sổ Quỹ"]
+    ApprovalGate -->|Từ chối| RejectFin["Hủy Phiếu & Báo Lý Do"]
 
-    ExecPayment --> SyncLedger[(Lưu Sổ Cái Kế Toán & Cập Nhật Báo Cáo Tài Chính Realtime)]
+    ExecPayment --> SyncLedger[("Lưu Sổ Cái Kế Toán & Cập Nhật Báo Cáo Tài Chính Realtime")]
     BudgetFlow --> SyncLedger
     DebtFlow --> SyncLedger
     AssetFlow --> SyncLedger
@@ -410,15 +410,15 @@ flowchart TD
 ### 4.9. Luồng Phân Hệ Quản Trị Nhân Sự & Sơ Đồ Tổ Chức (HR Operations)
 ```mermaid
 flowchart TD
-    StartHR([Truy cập Route /hr hoặc /structure]) --> HRAction{Chọn Chức Năng}
+    StartHR(["Truy cập Route /hr hoặc /structure"]) --> HRAction{"Chọn Chức Năng"}
 
-    HRAction -->|Tra cứu Nhân sự| SearchEmp[Tìm kiếm theo MSNV, Họ tên, Phòng ban, Nhà máy]
-    HRAction -->|Sơ đồ Tổ chức| ViewTree[Hiển thị Cây Cơ Cấu Tổ Chức Tập Đoàn & Nhà Máy]
-    HRAction -->|Tuyển dụng Tracker| JobTracker[Theo dõi Hồ sơ Ứng viên & Lịch Phỏng vấn]
+    HRAction -->|Tra cứu Nhân sự| SearchEmp["Tìm kiếm theo MSNV, Họ tên, Phòng ban, Nhà máy"]
+    HRAction -->|Sơ đồ Tổ chức| ViewTree["Hiển thị Cây Cơ Cấu Tổ Chức Tập Đoàn & Nhà Máy"]
+    HRAction -->|Tuyển dụng Tracker| JobTracker["Theo dõi Hồ sơ Ứng viên & Lịch Phỏng vấn"]
 
-    SearchEmp --> EmpProfile[Hiển thị Thẻ Hồ Sơ Cán Bộ Công Nhân Viên]
-    ViewTree --> DeptNode[Click Phòng ban -> Danh sách nhân sự phụ trách]
-    JobTracker --> InterviewSchedule[Gửi Xác nhận Lịch phỏng vấn tự động]
+    SearchEmp --> EmpProfile["Hiển thị Thẻ Hồ Sơ Cán Bộ Công Nhân Viên"]
+    ViewTree --> DeptNode["Click Phòng ban xem Danh sách nhân sự phụ trách"]
+    JobTracker --> InterviewSchedule["Gửi Xác nhận Lịch phỏng vấn tự động"]
 ```
 
 ---

@@ -1207,10 +1207,10 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
         const matchSearch =
-          p.title.toLowerCase().includes(q) ||
-          p.code.toLowerCase().includes(q) ||
-          p.proposer_name.toLowerCase().includes(q) ||
-          p.department.toLowerCase().includes(q);
+          (p.title || p.before_description || "").toLowerCase().includes(q) ||
+          (p.code || "").toLowerCase().includes(q) ||
+          (p.proposer_name || "").toLowerCase().includes(q) ||
+          (p.department || "").toLowerCase().includes(q);
         if (!matchSearch) return false;
       }
       return true;
@@ -2115,8 +2115,8 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
                               <IconTag size={10} className="text-emerald-600 shrink-0" />
                               <span className="truncate text-emerald-700">{prop.category_label || catObj.label}</span>
                             </div>
-                            <h3 className="font-extrabold text-slate-900 text-xs line-clamp-2 leading-snug group-hover:text-[#006838] transition-colors" title={prop.title}>
-                              {prop.title}
+                            <h3 className="font-extrabold text-slate-900 text-xs line-clamp-2 leading-snug group-hover:text-[#006838] transition-colors" title={prop.title || prop.before_description || "Sáng kiến cải tiến Kaizen"}>
+                              {(prop.title && String(prop.title).trim()) || (prop as any).tieu_de || (prop as any).name || (prop.before_description ? `Cải tiến: ${String(prop.before_description).trim().substring(0, 50)}` : "Sáng kiến cải tiến Kaizen")}
                             </h3>
                             <div className="flex items-center justify-between text-[10px] text-slate-500 font-semibold pt-1 border-t border-slate-100">
                               <span className="flex items-center gap-1 truncate">
@@ -2250,7 +2250,7 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
                             <tr key={prop.id} className="hover:bg-slate-50 transition-colors">
                               <td className="p-3 font-mono font-bold text-amber-700">#{prop.code}</td>
                               <td className="p-3 font-bold text-slate-900">
-                                <span>{prop.title}</span>
+                                <span>{(prop.title && String(prop.title).trim()) || (prop as any).tieu_de || (prop as any).name || (prop.before_description ? `Cải tiến: ${String(prop.before_description).trim().substring(0, 50)}` : "Sáng kiến cải tiến Kaizen")}</span>
                                 {isApproved && rankInfo && (
                                   <span className={`px-2 py-0.5 rounded-full text-[9px] font-black inline-flex items-center gap-1 ml-2 ${rankInfo.badgeStyle}`}>
                                     {rankInfo.badgeLabel}

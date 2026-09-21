@@ -616,7 +616,7 @@ export default function KaizenPublicSubmitForm({
 
         const currentMonth = new Date().getMonth() + 1;
         const currentYear = new Date().getFullYear();
-        const finalTitle = form.title.trim() || "Ý tưởng đề xuất cải tiến Kaizen";
+        const finalTitle = form.title.trim() || (form.beforeDescription.trim() ? `Cải tiến: ${form.beforeDescription.trim().substring(0, 50)}` : "Ý tưởng đề xuất cải tiến Kaizen");
 
         const method = isEdit ? "PUT" : "POST";
         const payload = {

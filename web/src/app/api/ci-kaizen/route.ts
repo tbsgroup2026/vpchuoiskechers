@@ -161,6 +161,7 @@ export async function GET(request: Request) {
 
       const cleanedResults = (results || []).map((p: any) => ({
         ...p,
+        title: (p.title && String(p.title).trim()) || p.tieu_de || p.name || (p.before_description ? `Cải tiến: ${String(p.before_description).trim().substring(0, 50)}` : 'Sáng kiến cải tiến Kaizen'),
         before_image_url: getValidKaizenImageUrl(p.before_image_url, p.attachments_json) || p.before_image_url || '',
         after_image_url: getValidKaizenImageUrl(p.after_image_url) || p.after_image_url || '',
       }));
@@ -267,8 +268,10 @@ export async function POST(request: Request) {
     const rawBeforeImg = before_image_url || beforeImageUrl || '';
     const rawAfterImg = after_image_url || afterImageUrl || '';
 
-    if (!title || !proposerName) {
-      return NextResponse.json({ error: 'Tiêu đề và Tên người đề xuất là bắt buộc' }, { status: 400 });
+    const finalTitle = (title && String(title).trim()) || (finalBeforeDesc ? `Cải tiến: ${finalBeforeDesc.substring(0, 50)}` : 'Sáng kiến cải tiến Kaizen');
+
+    if (!proposerName) {
+      return NextResponse.json({ error: 'Tên người đề xuất là bắt buộc' }, { status: 400 });
     }
 
     if (!proposerEmpCode || !proposerEmpCode.trim()) {
@@ -396,7 +399,7 @@ export async function POST(request: Request) {
         await db
           .prepare(updateQuery)
           .bind(
-            title,
+            finalTitle,
             category,
             categoryLabel,
             safeFactory,
@@ -451,7 +454,7 @@ export async function POST(request: Request) {
           .bind(
             id,
             code,
-            title,
+            finalTitle,
             category,
             categoryLabel,
             registrationType || 'THI_DUA',

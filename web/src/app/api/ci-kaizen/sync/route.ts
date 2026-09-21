@@ -112,8 +112,9 @@ async function upsertProposals(db: any, sourceProposals: any[], defaultSiteCode 
   let skippedCount = 0;
 
   for (const item of sourceProposals) {
-    if (!item || (!item.id && !item.external_id) || !item.title) continue;
+    if (!item || (!item.id && !item.external_id)) continue;
 
+    const itemTitle = (item.title && String(item.title).trim()) || (item.before_description ? `Cải tiến: ${String(item.before_description).trim().substring(0, 50)}` : 'Sáng kiến cải tiến Kaizen');
     const siteCode = item.site_code || defaultSiteCode;
     const externalId = item.external_id || item.id;
     // Prefix ID with 'tkg_' for records from thkiengiangshoes to prevent ID collision
@@ -200,7 +201,7 @@ async function upsertProposals(db: any, sourceProposals: any[], defaultSiteCode 
         .prepare(updateSql)
         .bind(
           item.code,
-          item.title,
+          itemTitle,
           item.category,
           item.category_label,
           item.registration_type,
@@ -268,7 +269,7 @@ async function upsertProposals(db: any, sourceProposals: any[], defaultSiteCode 
         .bind(
           localId,
           item.code,
-          item.title,
+          itemTitle,
           item.category || 'PRODUCTIVITY',
           item.category_label || '3.Tăng Năng suất',
           item.registration_type || 'THI_DUA',

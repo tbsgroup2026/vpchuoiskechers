@@ -176,7 +176,7 @@ export default function KaizenDetailModal({
     const initialPricingDir = (proposal as any).pricing_direction || (isCostCat ? "TRI_GIA" : "THOI_GIAN");
 
     setEditForm({
-      title: proposal.title || "",
+      title: (proposal.title && String(proposal.title).trim()) || (proposal.before_description ? `Cải tiến: ${String(proposal.before_description).trim().substring(0, 60)}` : "Sáng kiến cải tiến Kaizen"),
       product_code: (proposal as any).product_code || proposal.code || "",
       pair_quantity: Number(proposal.pair_quantity || (proposal as any).so_luong_giay || (proposal as any).quantity || 0),
       region: proposal.region || proposal.factory || "Nhà Máy Miền Đông",
@@ -870,7 +870,7 @@ export default function KaizenDetailModal({
               </div>
             ) : (
               <h2 className="text-xl md:text-2xl font-black text-slate-900 leading-snug mb-1">
-                {proposal.title}
+                {(proposal.title && String(proposal.title).trim()) || (proposal as any).tieu_de || (proposal as any).name || (proposal.before_description ? `Cải tiến: ${String(proposal.before_description).trim().substring(0, 60)}...` : "Sáng kiến cải tiến Kaizen")}
               </h2>
             )}
 

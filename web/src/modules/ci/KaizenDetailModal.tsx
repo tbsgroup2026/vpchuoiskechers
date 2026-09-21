@@ -465,123 +465,127 @@ export default function KaizenDetailModal({
     <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-5 md:p-6 animate-in fade-in duration-200">
       <div className="bg-white rounded-3xl shadow-2xl border border-slate-200/90 w-full max-w-[95vw] lg:max-w-6xl xl:max-w-7xl 2xl:max-w-[1440px] max-h-[92vh] md:max-h-[90vh] flex flex-col md:flex-row overflow-y-auto md:overflow-hidden text-left animate-in zoom-in-95 duration-200">
         
-        {/* 1. SIDEBAR TRÁI */}
-        <div className="w-full md:w-80 lg:w-96 md:max-h-[90vh] md:overflow-y-auto bg-slate-50 border-b md:border-b-0 md:border-r border-slate-200 p-4 md:p-5 flex flex-col gap-4 shrink-0 order-2 md:order-1">
+        {/* 1. SIDEBAR TRÁI (300-340px CỐ ĐỊNH, SCROLL RIÊNG VỚI NÚT GHIM ĐÁY) */}
+        <div className="w-full md:w-[320px] md:shrink-0 flex flex-col md:max-h-[90vh] bg-slate-50 border-b md:border-b-0 md:border-r border-slate-200 order-2 md:order-1">
           
-          {editError && (
-            <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold animate-in fade-in">
-              {editError}
+          {/* PHẦN SCROLL THÔNG TIN */}
+          <div className="p-4 flex-1 overflow-y-auto space-y-3">
+            {editError && (
+              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold animate-in fade-in">
+                {editError}
+              </div>
+            )}
+
+            {/* KHOẢNG ẢNH BẢO ĐẢM ASPECT 16/9, MAX HEIGHT 180PX & PLACEHOLDER XÁM NHẠT */}
+            <div className="space-y-2">
+              <div className="relative w-full aspect-video max-h-[180px] bg-slate-100 rounded-xl overflow-hidden border border-slate-200 shadow-2xs flex items-center justify-center">
+                {selectedMedia?.type === "image" && selectedMedia.url ? (
+                  <img
+                    src={selectedMedia.url}
+                    alt="Selected"
+                    className="w-full h-full object-cover"
+                  />
+                ) : selectedMedia?.type === "video" && selectedMedia.url ? (
+                  <video
+                    src={selectedMedia.url}
+                    controls
+                    className="w-full h-full object-cover bg-black"
+                  />
+                ) : (
+                  <div className="text-center text-slate-400 text-xs font-medium flex flex-col items-center gap-1.5">
+                    <IconPhoto size={28} className="opacity-50 text-slate-400" />
+                    <span>Không có ảnh</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-2">
+                {getValidKaizenImageUrl(isEditing ? editForm.before_image_url : proposal.before_image_url, proposal.attachments_json) ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const url = getValidKaizenImageUrl(isEditing ? editForm.before_image_url : proposal.before_image_url, proposal.attachments_json);
+                      if (url) setSelectedMedia({ type: "image", url });
+                    }}
+                    className={`w-12 h-12 rounded-lg overflow-hidden border-2 transition-all cursor-pointer bg-slate-100 ${
+                      selectedMedia?.url === getValidKaizenImageUrl(isEditing ? editForm.before_image_url : proposal.before_image_url, proposal.attachments_json) && selectedMedia?.type === "image"
+                        ? "border-[#006838] ring-2 ring-[#006838]/30"
+                        : "border-slate-200 hover:border-slate-300 opacity-80 hover:opacity-100"
+                    }`}
+                    title="Ảnh Trước"
+                  >
+                    <img src={getValidKaizenImageUrl(isEditing ? editForm.before_image_url : proposal.before_image_url, proposal.attachments_json)} alt="" className="w-full h-full object-cover" />
+                  </button>
+                ) : null}
+
+                {getValidKaizenImageUrl(isEditing ? editForm.after_image_url : proposal.after_image_url) ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const url = getValidKaizenImageUrl(isEditing ? editForm.after_image_url : proposal.after_image_url);
+                      if (url) setSelectedMedia({ type: "image", url });
+                    }}
+                    className={`w-12 h-12 rounded-lg overflow-hidden border-2 transition-all cursor-pointer bg-slate-100 ${
+                      selectedMedia?.url === getValidKaizenImageUrl(isEditing ? editForm.after_image_url : proposal.after_image_url) && selectedMedia?.type === "image"
+                        ? "border-[#006838] ring-2 ring-[#006838]/30"
+                        : "border-slate-200 hover:border-slate-300 opacity-80 hover:opacity-100"
+                    }`}
+                    title="Ảnh Sau"
+                  >
+                    <img src={getValidKaizenImageUrl(isEditing ? editForm.after_image_url : proposal.after_image_url)} alt="" className="w-full h-full object-cover" />
+                  </button>
+                ) : null}
+              </div>
             </div>
-          )}
 
-          <div className="space-y-2">
-            <div className="relative w-full aspect-[4/3] bg-slate-900 rounded-2xl overflow-hidden border border-slate-300 shadow-xs flex items-center justify-center">
-              {selectedMedia?.type === "image" && selectedMedia.url ? (
-                <img
-                  src={selectedMedia.url}
-                  alt="Selected"
-                  className="w-full h-full object-cover"
-                />
-              ) : selectedMedia?.type === "video" && selectedMedia.url ? (
-                <video
-                  src={selectedMedia.url}
-                  controls
-                  className="w-full h-full object-cover bg-black"
-                />
-              ) : (
-                <div className="text-center text-slate-400 text-xs font-bold flex flex-col items-center gap-1">
-                  <IconPhoto size={28} className="opacity-40" />
-                  <span>Không có ảnh</span>
-                </div>
-              )}
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              {(isEditing ? editForm.region : proposal.region) || "Nhà Máy Miền Đông"} &bull; {catObj.label.toUpperCase()}
             </div>
 
-            <div className="flex gap-2">
-              {getValidKaizenImageUrl(isEditing ? editForm.before_image_url : proposal.before_image_url, proposal.attachments_json) ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const url = getValidKaizenImageUrl(isEditing ? editForm.before_image_url : proposal.before_image_url, proposal.attachments_json);
-                    if (url) setSelectedMedia({ type: "image", url });
-                  }}
-                  className={`w-14 h-14 rounded-lg overflow-hidden border-2 transition-all cursor-pointer bg-slate-900 ${
-                    selectedMedia?.url === getValidKaizenImageUrl(isEditing ? editForm.before_image_url : proposal.before_image_url, proposal.attachments_json) && selectedMedia?.type === "image"
-                      ? "border-[#006838] ring-2 ring-[#006838]/40"
-                      : "border-slate-300 hover:border-slate-400 opacity-80 hover:opacity-100"
-                  }`}
-                  title="Ảnh Trước"
-                >
-                  <img src={getValidKaizenImageUrl(isEditing ? editForm.before_image_url : proposal.before_image_url, proposal.attachments_json)} alt="" className="w-full h-full object-cover" />
-                </button>
-              ) : null}
+            {/* ĐIỂM TB & CHUYÊN MÔN (2 CỘT) */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs text-center space-y-0.5">
+                <span className="text-[11px] font-semibold uppercase text-slate-500 block">ĐIỂM TB</span>
+                <span className="text-sm font-semibold text-amber-600 block">
+                  {(proposal.avg_rating || 0).toFixed(1)} ⭐
+                </span>
+                <span className="text-[10px] text-slate-400 block">
+                  {proposal.rating_count || 0} lượt đánh giá
+                </span>
+              </div>
 
-              {getValidKaizenImageUrl(isEditing ? editForm.after_image_url : proposal.after_image_url) ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const url = getValidKaizenImageUrl(isEditing ? editForm.after_image_url : proposal.after_image_url);
-                    if (url) setSelectedMedia({ type: "image", url });
-                  }}
-                  className={`w-14 h-14 rounded-lg overflow-hidden border-2 transition-all cursor-pointer bg-slate-900 ${
-                    selectedMedia?.url === getValidKaizenImageUrl(isEditing ? editForm.after_image_url : proposal.after_image_url) && selectedMedia?.type === "image"
-                      ? "border-[#006838] ring-2 ring-[#006838]/40"
-                      : "border-slate-300 hover:border-slate-400 opacity-80 hover:opacity-100"
-                  }`}
-                  title="Ảnh Sau"
-                >
-                  <img src={getValidKaizenImageUrl(isEditing ? editForm.after_image_url : proposal.after_image_url)} alt="" className="w-full h-full object-cover" />
-                </button>
-              ) : null}
+              <div className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs text-center space-y-0.5">
+                <span className="text-[11px] font-semibold uppercase text-slate-500 block">CHUYÊN MÔN</span>
+                <span className="text-sm font-semibold text-emerald-600 block">
+                  {proposal.score_points || proposal.average_score ? `${proposal.score_points || proposal.average_score}/100` : "---"}
+                </span>
+                <span className="text-[10px] text-slate-400 block">
+                  {proposal.sub_status === "DA_DANH_GIA" ? "Đã tổng hợp" : "Chờ tổng hợp"}
+                </span>
+              </div>
             </div>
-          </div>
 
-          <div className="text-[11px] font-black uppercase tracking-wide text-slate-500">
-            {(isEditing ? editForm.region : proposal.region) || "Nhà Máy Miền Đông"} &bull; {catObj.label.toUpperCase()}
-          </div>
-
-          <div className="grid grid-cols-2 gap-2.5">
-            <div className="p-3 rounded-2xl bg-white border border-slate-200 shadow-2xs text-center space-y-0.5">
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">ĐIỂM TB</span>
-              <span className="text-xl font-black text-amber-600 block">
-                {(proposal.avg_rating || 0).toFixed(1)} ⭐
+            {/* NGƯỜI ĐĂNG KÝ (FULL WIDTH 1 HÀNG) */}
+            <div className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-1">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 block">
+                NGƯỜI ĐĂNG KÝ
               </span>
-              <span className="text-[10px] font-bold text-slate-500 block">
-                {proposal.rating_count || 0} lượt đánh giá
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs">👤</span>
+                <span className="text-sm font-semibold text-slate-900 truncate">
+                  {proposal.proposer_name || proposal.proposer_emp_code || "---"}
+                </span>
+              </div>
             </div>
 
-            <div className="p-3 rounded-2xl bg-white border border-slate-200 shadow-2xs text-center space-y-0.5">
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">CHUYÊN MÔN</span>
-              <span className="text-xl font-black text-emerald-600 block">
-                {proposal.score_points || proposal.average_score ? `${proposal.score_points || proposal.average_score}/100` : "---"}
-              </span>
-              <span className="text-[10px] font-bold text-slate-500 block">
-                {proposal.sub_status === "DA_DANH_GIA" ? "Đã tổng hợp" : "Chờ tổng hợp"}
-              </span>
-            </div>
-          </div>
-
-          {/* EDITABLE / VIEWABLE METADATA FIELDS */}
-          <div className="p-3 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-1">
-            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
-              NGƯỜI ĐĂNG KÝ
-            </span>
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs">👤</span>
-              <span className="text-xs font-extrabold text-slate-900">
-                {proposal.proposer_name || proposal.proposer_emp_code || "---"}
-              </span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2.5">
-            <div className="p-3 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-0.5">
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">KHU VỰC</span>
+            {/* KHU VỰC (FULL WIDTH 1 HÀNG) */}
+            <div className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-0.5">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 block">KHU VỰC</span>
               {isEditing ? (
                 <select
                   value={editForm.region}
                   onChange={(e) => setEditForm((prev) => ({ ...prev, region: e.target.value }))}
-                  className="w-full text-xs font-extrabold text-slate-900 bg-amber-50 border border-amber-300 rounded-lg p-1"
+                  className="w-full text-sm font-semibold text-slate-900 bg-amber-50 border border-amber-300 rounded-lg p-1"
                 >
                   {REGIONS.map((r) => (
                     <option key={r} value={r}>
@@ -590,121 +594,116 @@ export default function KaizenDetailModal({
                   ))}
                 </select>
               ) : (
-                <span className="text-xs font-extrabold text-slate-900 block truncate" title={proposal.region || proposal.factory || "---"}>
+                <span className="text-sm font-semibold text-slate-900 block truncate" title={proposal.region || proposal.factory || "---"}>
                   {proposal.region || proposal.factory || "---"}
                 </span>
               )}
             </div>
 
-            <div className="p-3 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-0.5">
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">PHÂN LOẠI</span>
-              {isEditing ? (
-                <select
-                  value={editForm.category}
-                  onChange={(e) => {
-                    const newCat = e.target.value;
-                    const normCat = normalizeCategoryId(newCat);
-                    setEditForm((prev: any) => {
-                      let newPricingDir = prev.pricing_direction;
-                      if (normCat === "MATERIAL_SAVING" || normCat === "COST_SAVING") {
-                        newPricingDir = "TRI_GIA";
-                      } else if (normCat === "PRODUCTIVITY" || normCat === "AUTOMATION" || normCat === "EQUIPMENT") {
-                        newPricingDir = "THOI_GIAN";
-                      }
-                      return {
-                        ...prev,
-                        category: normCat,
-                        pricing_direction: newPricingDir,
-                      };
-                    });
-                  }}
-                  className="w-full text-xs font-extrabold text-slate-900 bg-amber-50 border border-amber-300 rounded-lg p-1"
-                >
-                  {CATEGORIES.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.label}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <span className="text-xs font-extrabold text-slate-900 block truncate" title={catObj.label}>
-                  {catObj.label}
+            {/* CÁC Ô CÒN LẠI (LƯỚI 2 CỘT) */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-0.5">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 block">PHÂN LOẠI</span>
+                {isEditing ? (
+                  <select
+                    value={editForm.category}
+                    onChange={(e) => {
+                      const newCat = e.target.value;
+                      const normCat = normalizeCategoryId(newCat);
+                      setEditForm((prev: any) => {
+                        let newPricingDir = prev.pricing_direction;
+                        if (normCat === "MATERIAL_SAVING" || normCat === "COST_SAVING") {
+                          newPricingDir = "TRI_GIA";
+                        } else if (normCat === "PRODUCTIVITY" || normCat === "AUTOMATION" || normCat === "EQUIPMENT") {
+                          newPricingDir = "THOI_GIAN";
+                        }
+                        return {
+                          ...prev,
+                          category: normCat,
+                          pricing_direction: newPricingDir,
+                        };
+                      });
+                    }}
+                    className="w-full text-xs font-semibold text-slate-900 bg-amber-50 border border-amber-300 rounded-lg p-1"
+                  >
+                    {CATEGORIES.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <span className="text-sm font-semibold text-slate-900 block truncate" title={catObj.label}>
+                    {catObj.label}
+                  </span>
+                )}
+              </div>
+
+              <div className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-0.5">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 block">KHÁCH HÀNG</span>
+                {isEditing ? (
+                  <select
+                    value={editForm.customer}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, customer: e.target.value }))}
+                    className="w-full text-xs font-semibold text-slate-900 bg-amber-50 border border-amber-300 rounded-lg p-1"
+                  >
+                    {CUSTOMERS.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <span className="text-sm font-semibold text-slate-900 block truncate">
+                    {cust || "---"}
+                  </span>
+                )}
+              </div>
+
+              <div className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-0.5">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 block">NGÀY ĐĂNG</span>
+                <span className="text-sm font-semibold text-slate-900 block truncate">
+                  {proposal.created_at ? new Date(proposal.created_at).toLocaleDateString("vi-VN") : "---"}
                 </span>
-              )}
-            </div>
+              </div>
 
-            <div className="p-3 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-0.5">
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">KHÁCH HÀNG</span>
-              {isEditing ? (
-                <select
-                  value={editForm.customer}
-                  onChange={(e) => setEditForm((prev) => ({ ...prev, customer: e.target.value }))}
-                  className="w-full text-xs font-extrabold text-slate-900 bg-amber-50 border border-amber-300 rounded-lg p-1"
-                >
-                  {CUSTOMERS.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <span className="text-xs font-extrabold text-slate-900 block">
-                  {cust || "---"}
+              <div className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-0.5">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 block">VTCV</span>
+                <span className="text-sm font-semibold text-slate-900 block truncate" title={vtcv}>
+                  {vtcv}
                 </span>
-              )}
-            </div>
+              </div>
 
-            <div className="p-3 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-0.5">
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">NGÀY ĐĂNG</span>
-              <span className="text-xs font-extrabold text-slate-900 block">
-                {proposal.created_at ? new Date(proposal.created_at).toLocaleDateString("vi-VN") : "---"}
-              </span>
-            </div>
-          </div>
+              <div className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-0.5">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 block">PHÂN XƯỞNG</span>
+                <span className="text-sm font-semibold text-slate-900 block truncate" title={prodGroup || proposal.factory || "---"}>
+                  {prodGroup || proposal.factory || "---"}
+                </span>
+              </div>
 
-          {/* VTCV + Nhóm SP/DV + Nhân sự đề xuất */}
-          <div className="grid grid-cols-2 gap-2.5">
-            <div className="p-3 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-0.5">
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">VTCV</span>
-              <span className="text-xs font-extrabold text-slate-900 block truncate" title={vtcv}>
-                {vtcv}
-              </span>
-            </div>
-
-            <div className="p-3 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-0.5">
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">PHÂN XƯỞNG</span>
-              <span className="text-xs font-extrabold text-slate-900 block truncate" title={prodGroup || proposal.factory || "---"}>
-                {prodGroup || proposal.factory || "---"}
-              </span>
+              <div className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-0.5">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 block">NHÂN SỰ ĐỀ XUẤT</span>
+                <span className="text-sm font-mono font-semibold text-slate-900 block truncate">
+                  {proposal.proposer_emp_code || "---"}
+                </span>
+              </div>
             </div>
           </div>
 
-          <div className="p-3 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-1">
-            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
-              NHÂN SỰ ĐỀ XUẤT
-            </span>
-            <span className="text-xs font-mono font-extrabold text-slate-700">
-              {proposal.proposer_emp_code || "---"}
-            </span>
-          </div>
-
-          {/* ACTION BUTTONS (INLINE EDIT MODE CONTROLS) */}
-
-          <div className="space-y-2 pt-2 mt-auto border-t border-slate-200">
+          {/* CỤM NÚT SỬA / XÓA / ĐÓNG GHIM Ở ĐÁY PANEL TRÁI */}
+          <div className="p-4 shrink-0 border-t border-slate-200 bg-slate-50 space-y-2">
             {thiDuaMsg && (
               <div className="p-2 rounded-xl bg-amber-100 border border-amber-300 text-amber-900 text-[11px] font-bold text-center animate-in fade-in">
                 {thiDuaMsg}
               </div>
             )}
 
-
-
             {!isEditing && (proposal.status === "ARCHIVED" || proposal.sub_status === "LUU_TRU" || proposal.registration_type === "LUU_TRU") && isJudgeOrExecutive && (
               <button
                 type="button"
                 disabled={markingThiDua}
                 onClick={handleToggleThiDua}
-                className={`w-full py-2 px-3 rounded-xl font-black text-xs shadow-2xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                className={`w-full h-10 px-3 rounded-xl font-semibold text-xs shadow-2xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                   Number(proposal.is_thi_dua) === 1
                     ? "bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300"
                     : "bg-amber-500 hover:bg-amber-600 text-white shadow-md"
@@ -727,7 +726,7 @@ export default function KaizenDetailModal({
                   type="button"
                   disabled={saving}
                   onClick={handleSaveInlineEdit}
-                  className="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs shadow-md flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                  className="h-10 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
                 >
                   {saving ? <IconLoader2 size={16} className="animate-spin" /> : <IconDeviceFloppy size={16} />}
                   <span>{saving ? "Lưu..." : "Lưu"}</span>
@@ -739,7 +738,7 @@ export default function KaizenDetailModal({
                     initEditForm();
                     setIsEditing(false);
                   }}
-                  className="py-2.5 px-3 rounded-xl border border-slate-300 bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs flex items-center justify-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
+                  className="h-10 px-3 rounded-xl border border-slate-300 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs flex items-center justify-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
                 >
                   <IconX size={15} />
                   <span>Hủy</span>
@@ -750,7 +749,7 @@ export default function KaizenDetailModal({
                 <button
                   type="button"
                   onClick={() => setIsEditing(true)}
-                  className="py-2.5 px-3 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-black text-xs shadow-xs flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                  className="h-10 px-3 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs shadow-xs flex items-center justify-center gap-1 transition-colors cursor-pointer"
                 >
                   <IconEditCircle size={15} />
                   <span>Sửa</span>
@@ -758,7 +757,7 @@ export default function KaizenDetailModal({
                 <button
                   type="button"
                   onClick={onDelete}
-                  className="py-2.5 px-3 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 font-black text-xs flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                  className="h-10 px-3 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 font-semibold text-xs flex items-center justify-center gap-1 transition-colors cursor-pointer"
                 >
                   <IconTrash size={15} />
                   <span>Xóa</span>
@@ -769,7 +768,7 @@ export default function KaizenDetailModal({
             <button
               type="button"
               onClick={onClose}
-              className="w-full py-2.5 px-4 rounded-xl border border-slate-300 hover:bg-slate-200 text-slate-700 font-extrabold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
+              className="w-full h-10 px-4 rounded-xl border border-slate-300 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
             >
               <span>✕ Đóng</span>
             </button>
@@ -779,20 +778,21 @@ export default function KaizenDetailModal({
         {/* 2. HEADER PHẢI & TAB CONTENTS */}
         <div className="w-full md:flex-1 flex flex-col min-h-0 overflow-visible md:overflow-hidden bg-white md:max-h-[90vh] order-1 md:order-2">
           
-          <div className="flex-shrink-0 p-5 md:p-6 border-b border-slate-200 bg-white">
-            <div className="flex items-center gap-2 flex-wrap mb-3">
-              <span className="px-3 py-1 rounded-full bg-slate-100 border border-slate-300 text-slate-800 text-xs font-black flex items-center gap-1">
+          <div className="flex-shrink-0 p-5 md:p-6 space-y-4 border-b border-slate-200 bg-white">
+            {/* HÀNG BADGES TRÊN */}
+            <div className="flex items-center gap-2 flex-wrap min-h-[28px] md:min-h-[30px]">
+              <span className="h-7 px-3 rounded-full bg-slate-100 border border-slate-300 text-slate-800 text-[13px] font-semibold inline-flex items-center gap-1.5 whitespace-nowrap">
                 <span>📈</span>
                 <span>{catObj.label}</span>
               </span>
 
-              <span className="px-3 py-1 rounded-full bg-amber-50 border border-amber-300 text-amber-900 text-xs font-black flex items-center gap-1">
+              <span className="h-7 px-3 rounded-full bg-amber-50 border border-amber-300 text-amber-900 text-[13px] font-semibold inline-flex items-center gap-1.5 whitespace-nowrap">
                 <span>🏆</span>
                 <span>{proposal.registration_type === "THI_DUA" ? "Thi đua" : "Lưu trữ"}</span>
               </span>
 
               <span
-                className={`px-3 py-1 rounded-full border text-xs font-black flex items-center gap-1.5 ${
+                className={`h-7 px-3 rounded-full border text-[13px] font-semibold inline-flex items-center gap-1.5 whitespace-nowrap ${
                   proposal.approval_status === "TU_CHOI" || proposal.sub_status === "TU_CHOI_TRIEN_KHAI" || proposal.status === "REJECTED"
                     ? "bg-rose-50 text-rose-800 border-rose-300"
                     : proposal.sub_status === "CHO_REVIEW" || proposal.approval_status === "PENDING" || proposal.status === "SUBMITTED"
@@ -817,54 +817,55 @@ export default function KaizenDetailModal({
               </span>
 
               {isEditing && (
-                <span className="px-3 py-1 rounded-full bg-amber-400 text-amber-950 font-black text-xs border border-amber-500 animate-pulse">
+                <span className="h-7 px-3 rounded-full bg-amber-400 text-amber-950 font-semibold text-[13px] border border-amber-500 inline-flex items-center gap-1 animate-pulse whitespace-nowrap">
                   ✏️ Chế độ Sửa trực tiếp (Inline Edit)
                 </span>
               )}
             </div>
 
+            {/* TIÊU ĐỀ SÁNG KIẾN & DÒNG MSNV SUBTITLE */}
             {isEditing ? (
-              <div className="space-y-1 mb-2">
-                <label className="text-[10.5px] font-black uppercase text-amber-800 block">Tiêu đề sáng kiến:</label>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-amber-800 block">Tiêu đề sáng kiến:</label>
                 <input
                   type="text"
                   value={editForm.title}
                   onChange={(e) => setEditForm((prev) => ({ ...prev, title: e.target.value }))}
                   placeholder="Nhập tiêu đề đề xuất sáng kiến..."
-                  className="w-full text-lg font-black p-2.5 rounded-xl border border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-500 bg-amber-50/60 text-slate-900"
+                  className="w-full text-xl font-bold p-2.5 rounded-xl border border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-500 bg-amber-50/60 text-slate-900"
                 />
               </div>
             ) : (
-              <h2 className="text-xl md:text-2xl font-black text-slate-900 leading-snug mb-1">
+              <h2 className="text-2xl md:text-3xl font-extrabold text-slate-900 leading-snug tracking-tight">
                 {(proposal.title && String(proposal.title).trim()) || (proposal as any).tieu_de || (proposal as any).name || (proposal.before_description ? `Cải tiến: ${String(proposal.before_description).trim().substring(0, 60)}...` : "Sáng kiến cải tiến Kaizen")}
               </h2>
             )}
 
-            <p className="text-xs font-bold text-slate-400">
-              MSNV: <span className="font-mono text-slate-700">{proposal.proposer_emp_code}</span> &bull; KV: <span className="text-slate-700">{(isEditing ? editForm.region : proposal.region) || "Nhà Máy Miền Đông"}</span> &bull; Tháng {pMonth}/{pYear}
+            <p className="text-[13px] text-slate-500 font-medium">
+              MSNV: <span className="font-mono text-slate-700 font-semibold">{proposal.proposer_emp_code}</span> &bull; KV: <span className="text-slate-700 font-semibold">{(isEditing ? editForm.region : proposal.region) || "Nhà Máy Miền Đông"}</span> &bull; Tháng {pMonth}/{pYear}
             </p>
 
-            {/* THÔNG BÁO / PHÊ DUYỆT TÍNH KHẢ THI (BƯỚC 3 - QĐ-TBKG) BANNER TOP */}
+            {/* BANNER PHÊ DUYỆT TÍNH KHẢ THI (BƯỚC 3 - QĐ-TBKG) BANNER TOP */}
             {!isEditing && isJudgeOrExecutive && (
-              <div className="mt-3.5 p-3.5 md:p-4 rounded-2xl bg-sky-50/90 border border-sky-200 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 shadow-2xs">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-1.5 font-extrabold text-sky-950 text-xs md:text-sm">
-                    <span className="text-sky-600 text-base">💭</span>
-                    <span>Xem xét tính khả thi sáng kiến (Bước 3 – QĐ-TBKG)</span>
+              <div className="mt-4 p-3 md:p-4 rounded-xl bg-sky-50 border border-sky-200 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="flex-1 min-w-0 space-y-0.5">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-sky-950">
+                    <span className="text-sky-600 shrink-0">💭</span>
+                    <span className="truncate">Xem xét tính khả thi sáng kiến (Bước 3 – QĐ-TBKG)</span>
                   </div>
-                  <p className="text-[11.5px] font-medium text-slate-600 leading-normal">
-                    Đề xuất đang ở trạng thái <strong className="text-sky-800 font-bold">{proposal.approval_status === "TU_CHOI" || proposal.sub_status === "TU_CHOI_TRIEN_KHAI" || proposal.status === "REJECTED" ? "Từ chối" : proposal.approval_status === "PHE_DUYET" ? "Đã duyệt" : "Chờ phê duyệt"}</strong>. Bạn có muốn phê duyệt tính khả thi để cho phép thử nghiệm và đánh giá?
+                  <p className="text-[13px] text-slate-600 leading-normal line-clamp-2">
+                    Đề xuất đang ở trạng thái <strong className="text-sky-800 font-semibold">{proposal.approval_status === "TU_CHOI" || proposal.sub_status === "TU_CHOI_TRIEN_KHAI" || proposal.status === "REJECTED" ? "Từ chối" : proposal.approval_status === "PHE_DUYET" ? "Đã duyệt" : "Chờ phê duyệt"}</strong>. Bạn có muốn phê duyệt tính khả thi để cho phép thử nghiệm và đánh giá?
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0 flex-wrap w-full lg:w-auto pt-1 lg:pt-0">
+                <div className="flex-initial shrink-0 flex items-center gap-2 flex-wrap md:flex-nowrap">
                   <button
                     type="button"
                     onClick={() => {
                       setFeasibilityInitialDecision("APPROVE");
                       setIsFeasibilityModalOpen(true);
                     }}
-                    className="flex-1 lg:flex-none px-4 py-2.5 rounded-xl bg-[#009b55] hover:bg-[#008247] text-white font-extrabold text-xs shadow-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                    className="h-9 md:h-10 px-3.5 rounded-lg bg-[#009b55] hover:bg-[#008247] text-white font-semibold text-[13px] md:text-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer whitespace-nowrap"
                   >
                     <IconCheck size={16} />
                     <span>Phê Duyệt Triển Khai</span>
@@ -876,7 +877,7 @@ export default function KaizenDetailModal({
                       setFeasibilityInitialDecision("REJECT");
                       setIsFeasibilityModalOpen(true);
                     }}
-                    className="flex-1 lg:flex-none px-4 py-2.5 rounded-xl bg-[#e11d48] hover:bg-[#be123c] text-white font-extrabold text-xs shadow-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                    className="h-9 md:h-10 px-3.5 rounded-lg bg-[#e11d48] hover:bg-[#be123c] text-white font-semibold text-[13px] md:text-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer whitespace-nowrap"
                   >
                     <IconX size={16} />
                     <span>Từ Chối Triển Khai</span>
@@ -888,7 +889,7 @@ export default function KaizenDetailModal({
                       setFeasibilityInitialDecision("APPROVE");
                       setIsFeasibilityModalOpen(true);
                     }}
-                    className="flex-1 lg:flex-none px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-xs shadow-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                    className="h-9 md:h-10 px-3.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-semibold text-[13px] md:text-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer whitespace-nowrap"
                   >
                     <IconAward size={16} />
                     <span>Khuyến Khích</span>
@@ -898,11 +899,11 @@ export default function KaizenDetailModal({
             )}
           </div>
 
-          <div className="flex-shrink-0 px-5 md:px-6 py-3 border-b border-slate-200 bg-slate-50/50 flex items-center gap-2 overflow-x-auto">
+          <div className="flex-shrink-0 px-5 md:px-6 h-[40px] border-b border-slate-200 bg-slate-50/50 flex items-center gap-2 overflow-x-auto">
             <button
               type="button"
               onClick={() => setActiveTab("info")}
-              className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+              className={`h-8 px-4 rounded-lg text-[13px] font-semibold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
                 activeTab === "info"
                   ? "bg-[#0b1739] text-white shadow-xs"
                   : "bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900"
@@ -915,7 +916,7 @@ export default function KaizenDetailModal({
               <button
                 type="button"
                 onClick={() => setActiveTab("expert_review")}
-                className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+                className={`h-8 px-4 rounded-lg text-[13px] font-semibold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
                   activeTab === "expert_review"
                     ? "bg-[#0b1739] text-white shadow-xs"
                     : "bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900"
@@ -929,7 +930,7 @@ export default function KaizenDetailModal({
               <button
                 type="button"
                 onClick={() => setActiveTab("star_review")}
-                className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+                className={`h-8 px-4 rounded-lg text-[13px] font-semibold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
                   activeTab === "star_review"
                     ? "bg-[#0b1739] text-white shadow-xs"
                     : "bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900"

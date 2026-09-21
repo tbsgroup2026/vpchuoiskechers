@@ -237,7 +237,7 @@ export default function KaizenDetailModal({
     const uRoles = Array.isArray((user as any)?.roles) ? (user as any).roles : [];
     
     const isExplicitApprover =
-      ["202608001", "202608010", "222102020", "210602002", "2026080001"].includes(uEmp) ||
+      ["202608001", "202608010", "222102020", "210602002", "201711002", "2026080001"].includes(uEmp) ||
       uName.includes("anh huy") || uName.includes("lê khải") || uName.includes("le khai") ||
       uName.includes("thanh tình") || uName.includes("thanh tinh") ||
       uName.includes("trần thị ngoan") || uName.includes("ngoan") ||
@@ -848,25 +848,25 @@ export default function KaizenDetailModal({
 
             {/* BANNER PHÊ DUYỆT TÍNH KHẢ THI (BƯỚC 3 - QĐ-TBKG) BANNER TOP */}
             {!isEditing && isJudgeOrExecutive && (
-              <div className="mt-4 p-3 md:p-4 rounded-xl bg-sky-50 border border-sky-200 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                <div className="flex-1 min-w-0 space-y-0.5">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-sky-950">
+              <div className="mt-4 p-3.5 md:p-4 rounded-xl bg-sky-50 border border-sky-200 flex flex-col xl:flex-row items-start xl:items-center justify-between gap-3.5 shadow-2xs">
+                <div className="flex-1 min-w-[240px] space-y-1">
+                  <div className="flex items-center gap-1.5 text-xs md:text-sm font-bold text-sky-950">
                     <span className="text-sky-600 shrink-0">💭</span>
-                    <span className="truncate">Xem xét tính khả thi sáng kiến (Bước 3 – QĐ-TBKG)</span>
+                    <span className="font-bold text-sky-950">Xem xét tính khả thi sáng kiến (Bước 3 – QĐ-TBKG)</span>
                   </div>
-                  <p className="text-[13px] text-slate-600 leading-normal line-clamp-2">
-                    Đề xuất đang ở trạng thái <strong className="text-sky-800 font-semibold">{proposal.approval_status === "TU_CHOI" || proposal.sub_status === "TU_CHOI_TRIEN_KHAI" || proposal.status === "REJECTED" ? "Từ chối" : proposal.approval_status === "PHE_DUYET" ? "Đã duyệt" : "Chờ phê duyệt"}</strong>. Bạn có muốn phê duyệt tính khả thi để cho phép thử nghiệm và đánh giá?
+                  <p className="text-[12px] md:text-[13px] text-slate-600 leading-normal">
+                    Đề xuất đang ở trạng thái <strong className="text-sky-800 font-bold">{proposal.approval_status === "TU_CHOI" || proposal.sub_status === "TU_CHOI_TRIEN_KHAI" || proposal.status === "REJECTED" ? "Từ chối" : proposal.approval_status === "PHE_DUYET" ? "Đã duyệt" : "Chờ phê duyệt"}</strong>. Bạn có muốn phê duyệt tính khả thi để cho phép thử nghiệm và đánh giá?
                   </p>
                 </div>
 
-                <div className="flex-initial shrink-0 flex items-center gap-2 flex-wrap md:flex-nowrap">
+                <div className="flex items-center gap-2 shrink-0 flex-wrap w-full xl:w-auto pt-1 xl:pt-0">
                   <button
                     type="button"
                     onClick={() => {
                       setFeasibilityInitialDecision("APPROVE");
                       setIsFeasibilityModalOpen(true);
                     }}
-                    className="h-9 md:h-10 px-3.5 rounded-lg bg-[#009b55] hover:bg-[#008247] text-white font-semibold text-[13px] md:text-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer whitespace-nowrap"
+                    className="h-8 md:h-9 px-3 rounded-lg bg-[#009b55] hover:bg-[#008247] text-white font-bold text-xs md:text-[13px] shadow-2xs flex items-center justify-center gap-1.5 transition-all cursor-pointer whitespace-nowrap"
                   >
                     <IconCheck size={16} />
                     <span>Phê Duyệt Triển Khai</span>
@@ -878,7 +878,7 @@ export default function KaizenDetailModal({
                       setFeasibilityInitialDecision("REJECT");
                       setIsFeasibilityModalOpen(true);
                     }}
-                    className="h-9 md:h-10 px-3.5 rounded-lg bg-[#e11d48] hover:bg-[#be123c] text-white font-semibold text-[13px] md:text-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer whitespace-nowrap"
+                    className="h-8 md:h-9 px-3 rounded-lg bg-[#e11d48] hover:bg-[#be123c] text-white font-bold text-xs md:text-[13px] shadow-2xs flex items-center justify-center gap-1.5 transition-all cursor-pointer whitespace-nowrap"
                   >
                     <IconX size={16} />
                     <span>Từ Chối Triển Khai</span>
@@ -890,7 +890,7 @@ export default function KaizenDetailModal({
                       setFeasibilityInitialDecision("APPROVE");
                       setIsFeasibilityModalOpen(true);
                     }}
-                    className="h-9 md:h-10 px-3.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-semibold text-[13px] md:text-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer whitespace-nowrap"
+                    className="h-8 md:h-9 px-3 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs md:text-[13px] shadow-2xs flex items-center justify-center gap-1.5 transition-all cursor-pointer whitespace-nowrap"
                   >
                     <IconAward size={16} />
                     <span>Khuyến Khích</span>

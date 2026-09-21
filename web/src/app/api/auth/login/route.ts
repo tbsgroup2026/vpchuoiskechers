@@ -267,6 +267,23 @@ export async function POST(request: Request) {
         redirectUrl: '/work',
         validPasswords: ['123456', '21032004', 'Admin@123456'],
       },
+      '201711002': {
+        userId: 302,
+        empCode: '201711002',
+        name: 'Cán Bộ IE (201711002)',
+        title: 'Chuyên Viên IE & Phê Duyệt Sáng Kiến Kaizen',
+        email: '201711002@tbsgroup.vn',
+        phone: '0901234568',
+        roleId: 6,
+        roleCode: 'IE',
+        roles: ['employee', 'ie', 'ci', 'ci_lead', 'approver'],
+        roleLevel: 2,
+        departmentId: 12,
+        departmentCode: 'KY_THUAT_IE',
+        departmentName: 'Kỹ Thuật Công Nghiệp (IE)',
+        redirectUrl: '/work',
+        validPasswords: ['123456', '21032004', 'Admin@123456'],
+      },
     };
 
     const cleanEmpCode = (empCode || role || '').trim();

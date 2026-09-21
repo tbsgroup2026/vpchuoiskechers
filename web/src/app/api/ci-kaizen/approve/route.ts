@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     const userRoles = Array.isArray((session as any)?.roles) ? (session as any).roles : [];
     
     const isExplicitApprover = 
-      ['202608001', '202608010', '222102020', '210602002', '2026080001'].includes(userEmpCode) ||
+      ['202608001', '202608010', '222102020', '210602002', '201711002', '2026080001'].includes(userEmpCode) ||
       userName.includes('anh huy') || userName.includes('lê khải') || userName.includes('le khai') ||
       userName.includes('thanh tình') || userName.includes('thanh tinh') || userName.includes('trần thị ngoan') || userName.includes('ngoan');
 

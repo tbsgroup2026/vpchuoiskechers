@@ -52,7 +52,7 @@ export function usePermission() {
     "TONG_GIAM_DOC", "PHO_TONG_GIAM_DOC", "GIAM_DOC", "PHO_GIAM_DOC",
     "SUPER_ADMIN", "SYSTEM_ADMIN", "ADMIN-2026", "admin", "ceo",
     "deputy_ceo", "director", "deputy_director", "202608001", "2026080001",
-    "202608010", "222102020", "210602002", "LEKHAI", "DUTHITHANHTINH", "TRANTHINGOAN", "NGOAN", "CI_LEAD", "ci_lead", "ci", "IE", "ie"
+    "202608010", "222102020", "210602002", "201711002", "LEKHAI", "DUTHITHANHTINH", "TRANTHINGOAN", "NGOAN", "CI_LEAD", "ci_lead", "ci", "IE", "ie"
   ];
 
   const isExecutiveOrAdmin = EXECS.includes(roleCode) || EXECS.includes(empCode) || roles.some(r => EXECS.includes(r.toLowerCase()));

@@ -204,7 +204,10 @@ export default function GembaDashboardView({ onNavigateToManagement }: GembaDash
             { id: "TODAY", label: "Hôm nay" },
             { id: "WEEK", label: "Tuần này" },
             { id: "MONTH", label: "Tháng này" },
-            { id: "QUARTER", label: "Quý" },
+            { id: "Q1", label: "Quý 1" },
+            { id: "Q2", label: "Quý 2" },
+            { id: "Q3", label: "Quý 3" },
+            { id: "Q4", label: "Quý 4" },
             { id: "YEAR", label: "Năm" },
             { id: "ALL", label: "Tất cả" },
           ].map((tab) => (

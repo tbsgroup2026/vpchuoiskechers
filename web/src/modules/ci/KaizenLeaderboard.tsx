@@ -16,11 +16,13 @@ import { KaizenProposal } from "./CIModule";
 interface KaizenLeaderboardProps {
   proposals?: KaizenProposal[];
   onSelectProposal?: (p: KaizenProposal) => void;
+  selectedRegion?: string;
 }
 
 export default function KaizenLeaderboard({
   proposals = [],
   onSelectProposal,
+  selectedRegion = "ALL",
 }: KaizenLeaderboardProps) {
   const [leaderboardData, setLeaderboardData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -28,7 +30,10 @@ export default function KaizenLeaderboard({
   const fetchLeaderboard = async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/ci-kaizen/ranking");
+      const url = selectedRegion && selectedRegion !== "ALL"
+        ? `/api/ci-kaizen/ranking?region=${encodeURIComponent(selectedRegion)}`
+        : "/api/ci-kaizen/ranking";
+      const res = await fetch(url);
       const json = await res.json();
       if (json.success && Array.isArray(json.leaderboard)) {
         setLeaderboardData(json.leaderboard);
@@ -41,24 +46,82 @@ export default function KaizenLeaderboard({
 
   useEffect(() => {
     fetchLeaderboard();
-  }, []);
+  }, [selectedRegion]);
 
   const displayList = leaderboardData.length > 0
     ? leaderboardData
     : proposals
-        .filter(
-          (p) =>
-            p.trang_thai === "DA_DANH_GIA" ||
-            p.sub_status === "DA_DANH_GIA" ||
-            (p.score_points && p.score_points > 0)
-        )
-        .map((p, idx) => ({
-          ...p,
-          hang_xep: idx + 1,
-          so_giay_tiet_kiem: p.so_giay_tiet_kiem || p.saved_seconds || 30,
-          diem_hieu_qua: p.diem_hieu_qua || p.score_points || 85,
-          diem_tong_hop: (p.so_giay_tiet_kiem || p.saved_seconds || 30) + (p.diem_hieu_qua || p.score_points || 85),
-        }))
+        .filter((p) => {
+          if (!p || (p as any).is_archived || (p as any).is_deleted) return false;
+
+          const appStatus = String(p.approval_status || "").toUpperCase();
+          const subStatus = String(p.sub_status || p.review_status || "").toUpperCase();
+          const mainStatus = String(p.status || "").toUpperCase();
+
+          // Exclude rejected
+          if (appStatus === "TU_CHOI" || subStatus === "TU_CHOI_TRIEN_KHAI" || subStatus === "TU_CHOI_DUYET" || mainStatus === "REJECTED") return false;
+
+          // Exclude pending approval
+          if (
+            subStatus === "CHO_REVIEW" ||
+            subStatus === "SO_BO" ||
+            subStatus === "SO_DUYET" ||
+            subStatus === "CHO_DUYET" ||
+            subStatus === "CHO_PHE_DUYET" ||
+            subStatus === "CAN_CHINH_SUA" ||
+            appStatus === "PENDING" ||
+            appStatus === "CHO_DUYET" ||
+            appStatus === "CHO_PHE_DUYET" ||
+            mainStatus === "SUBMITTED" ||
+            mainStatus === "PENDING" ||
+            mainStatus === "CHO_DUYET" ||
+            mainStatus === "DRAFT"
+          ) {
+            return false;
+          }
+
+          const isApproved =
+            appStatus === "PHE_DUYET" ||
+            appStatus === "APPROVED" ||
+            subStatus === "CHO_DANH_GIA" ||
+            subStatus === "DA_DANH_GIA" ||
+            subStatus === "DA_DUYET" ||
+            subStatus === "DA_XEP_HANG" ||
+            mainStatus === "APPROVED" ||
+            mainStatus === "COMPLETED" ||
+            mainStatus === "IMPLEMENTED";
+
+          if (!isApproved) return false;
+
+          // Exclude if region filter is set and does not match
+          if (selectedRegion && selectedRegion !== "ALL") {
+            const siteCode = (p as any).site_code || "vpchuoiskechers";
+            const pRegion = (p.region || "").toUpperCase();
+            const uRegion = selectedRegion.toUpperCase();
+            if (uRegion.includes("VĂN PHÒNG CHUỖI") || uRegion.includes("VP CHUỖI")) {
+              if (siteCode === "thkiengiangshoes" || pRegion.includes("KIÊN GIANG")) return false;
+            } else if (uRegion.includes("KIÊN GIANG")) {
+              if (siteCode !== "thkiengiangshoes" && !pRegion.includes("KIÊN GIANG")) return false;
+            }
+          }
+
+          const savingsSecs = Number(p.so_giay_tiet_kiem || p.saved_seconds || 0);
+          const totalSavingsVnd = Number(p.total_savings_vnd || (p as any).tong_tien_tiet_kiem || 0);
+          const score = Number(p.diem_hieu_qua || p.score_points || 0);
+
+          return savingsSecs > 0 || totalSavingsVnd > 0 || score > 0;
+        })
+        .map((p, idx) => {
+          const savingsSecs = Number(p.so_giay_tiet_kiem || p.saved_seconds || 0);
+          const score = Number(p.diem_hieu_qua || p.score_points || 0);
+          return {
+            ...p,
+            hang_xep: idx + 1,
+            so_giay_tiet_kiem: savingsSecs,
+            diem_hieu_qua: score,
+            diem_tong_hop: savingsSecs + score,
+          };
+        })
         .sort((a, b) => b.diem_tong_hop - a.diem_tong_hop);
 
   return (

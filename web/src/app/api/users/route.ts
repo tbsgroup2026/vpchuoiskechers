@@ -1,12 +1,11 @@
 import { NextResponse } from 'next/server';
 
-export const dynamic = 'force-static';
 
 function getDbBinding(): any {
   return (process.env as any).DB || (globalThis as any).DB || null;
 }
 
-export const OFFICIAL_SYSTEM_USERS = [
+const OFFICIAL_SYSTEM_USERS = [
   {
     id: "emp_1",
     empCode: "202608001",
@@ -70,26 +69,100 @@ export const OFFICIAL_SYSTEM_USERS = [
   {
     id: "emp_6",
     empCode: "200405004",
-    name: "Trần Văn Quản Trị",
-    email: "admin.200405004@tbsgroup.vn",
+    name: "Phạm Minh Tùng",
+    email: "200405004@tbsgroup.vn",
     phone: "0903800000",
-    title: "Lãnh Đạo Quản Trị Hệ Thống",
-    department: "Khối Quản Trị Hệ Thống",
-    roleCode: "SUPER_ADMIN",
+    title: "TGĐ",
+    department: "Ban Điều Hành",
+    roleCode: "TONG_GIAM_DOC",
     status: "ACTIVE",
-    vtcvHienTai: "ADMIN",
+    vtcvHienTai: "TGĐ",
+    vtcvSapXep: "TGĐ",
   },
   {
     id: "emp_7",
-    empCode: "222102020",
-    name: "Phụ Trách Quản Trị Hệ Thống",
-    email: "admin.222102020@tbsgroup.vn",
+    empCode: "210608003",
+    name: "Vũ Thành Lê",
+    email: "210608003@tbsgroup.vn",
     phone: "0903800001",
-    title: "Chuyên Viên Quản Trị Hệ Thống",
-    department: "Khối Quản Trị Hệ Thống",
-    roleCode: "SUPER_ADMIN",
+    title: "GĐ",
+    department: "Ban Giám Đốc",
+    roleCode: "GIAM_DOC",
     status: "ACTIVE",
-    vtcvHienTai: "ADMIN",
+    vtcvHienTai: "PGĐ",
+    vtcvSapXep: "GĐ",
+  },
+  {
+    id: "emp_8",
+    empCode: "210602002",
+    name: "Trần Thị Ngoan",
+    email: "210602002@tbsgroup.vn",
+    phone: "",
+    title: "Chuyên Viên Nhân Sự & Hành Chánh",
+    department: "Nhân Sự - Hành Chính",
+    roleCode: "CBCNV",
+    status: "ACTIVE",
+    vtcvHienTai: "NV",
+  },
+  {
+    id: "emp_9",
+    empCode: "201506009",
+    name: "Lê Thúy Diễm",
+    email: "201506009@tbsgroup.vn",
+    phone: "",
+    title: "Chuyên Viên Nhân Sự & Hành Chánh",
+    department: "Nhân Sự - Hành Chính",
+    roleCode: "CBCNV",
+    status: "ACTIVE",
+    vtcvHienTai: "NV",
+  },
+  {
+    id: "emp_10",
+    empCode: "201607010",
+    name: "Nguyễn Thị Đào",
+    email: "201607010@tbsgroup.vn",
+    phone: "",
+    title: "Chuyên Viên Nhân Sự & Hành Chánh",
+    department: "Nhân Sự - Hành Chính",
+    roleCode: "CBCNV",
+    status: "ACTIVE",
+    vtcvHienTai: "NV",
+  },
+  {
+    id: "emp_11",
+    empCode: "201507009",
+    name: "Hồ Thị Thảo",
+    email: "201507009@tbsgroup.vn",
+    phone: "",
+    title: "Chuyên Viên Nhân Sự & Hành Chánh",
+    department: "Nhân Sự - Hành Chính",
+    roleCode: "CBCNV",
+    status: "ACTIVE",
+    vtcvHienTai: "NV",
+  },
+  {
+    id: "emp_12",
+    empCode: "201507015",
+    name: "Đoàn Thị Trinh",
+    email: "201507015@tbsgroup.vn",
+    phone: "",
+    title: "Chuyên Viên Nhân Sự & Hành Chánh",
+    department: "Nhân Sự - Hành Chính",
+    roleCode: "CBCNV",
+    status: "ACTIVE",
+    vtcvHienTai: "NV",
+  },
+  {
+    id: "emp_13",
+    empCode: "212103096",
+    name: "Nguyễn Văn Nguyện",
+    email: "212103096@tbsgroup.vn",
+    phone: "",
+    title: "Chuyên Viên Nhân Sự & Hành Chánh",
+    department: "Nhân Sự - Hành Chính",
+    roleCode: "CBCNV",
+    status: "ACTIVE",
+    vtcvHienTai: "NV",
   },
 ];
 
@@ -100,25 +173,25 @@ export async function GET() {
       try {
         const query = `SELECT * FROM sys_users ORDER BY id ASC`;
         const { results } = await db.prepare(query).all();
-        if (results && results.length > 0) {
+        if (results) {
           return NextResponse.json({
             success: true,
             data: results,
           });
         }
       } catch (e) {
-        // Table sys_users might not exist yet, fallback to official list
+        // Table sys_users might not exist yet
       }
     }
 
     return NextResponse.json({
       success: true,
-      data: OFFICIAL_SYSTEM_USERS,
+      data: [],
     });
   } catch (error: any) {
     return NextResponse.json({
       success: true,
-      data: OFFICIAL_SYSTEM_USERS,
+      data: [],
     });
   }
 }
@@ -141,31 +214,66 @@ export async function POST(request: Request) {
             department TEXT,
             role_code TEXT,
             status TEXT DEFAULT 'ACTIVE',
+            ngay_vao TEXT,
+            vtcv_hien_tai TEXT,
+            phong_ban_hien_tai TEXT,
+            vtcv_sap TEXT,
+            vtcv_sap_xep TEXT,
+            pb_sap_xep TEXT,
+            bo_phan_moi TEXT,
+            phong_ban_moi TEXT,
+            ghi_chu TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
           )
         `).run().catch(() => {});
 
+        const cols = ["ngay_vao", "vtcv_hien_tai", "phong_ban_hien_tai", "vtcv_sap", "vtcv_sap_xep", "pb_sap_xep", "bo_phan_moi", "phong_ban_moi", "ghi_chu"];
+        for (const col of cols) {
+          await db.prepare(`ALTER TABLE sys_users ADD COLUMN ${col} TEXT`).run().catch(() => {});
+        }
+
         await db.prepare(`
-          INSERT INTO sys_users (id, emp_code, name, email, phone, title, department, role_code, status)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO sys_users (
+            id, emp_code, name, email, phone, title, department, role_code, status,
+            ngay_vao, vtcv_hien_tai, phong_ban_hien_tai, vtcv_sap, vtcv_sap_xep,
+            pb_sap_xep, bo_phan_moi, phong_ban_moi, ghi_chu
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(emp_code) DO UPDATE SET
-            name=excluded.name,
-            email=excluded.email,
-            phone=excluded.phone,
-            title=excluded.title,
-            department=excluded.department,
-            role_code=excluded.role_code,
-            status=excluded.status
+            name = excluded.name,
+            email = excluded.email,
+            phone = excluded.phone,
+            title = excluded.title,
+            department = excluded.department,
+            role_code = excluded.role_code,
+            status = excluded.status,
+            ngay_vao = excluded.ngay_vao,
+            vtcv_hien_tai = excluded.vtcv_hien_tai,
+            phong_ban_hien_tai = excluded.phong_ban_hien_tai,
+            vtcv_sap = excluded.vtcv_sap,
+            vtcv_sap_xep = excluded.vtcv_sap_xep,
+            pb_sap_xep = excluded.pb_sap_xep,
+            bo_phan_moi = excluded.bo_phan_moi,
+            phong_ban_moi = excluded.phong_ban_moi,
+            ghi_chu = excluded.ghi_chu
         `).bind(
           body.id || `emp_${Date.now()}`,
           body.empCode,
-          body.name,
+          body.name || '',
           body.email || '',
           body.phone || '',
           body.title || '',
           body.department || '',
           body.roleCode || 'CBCNV',
-          body.status || 'ACTIVE'
+          body.status || 'ACTIVE',
+          body.ngay_vao || body.ngayVao || '',
+          body.vtcv_hien_tai || body.vtcvHienTai || '',
+          body.phong_ban_hien_tai || body.phongBanHienTai || '',
+          body.vtcv_sap || body.vtcvSap || '',
+          body.vtcv_sap_xep || body.vtcvSapXep || '',
+          body.pb_sap_xep || body.phongBanSapXep || '',
+          body.bo_phan_moi || body.boPhoanMoi || '',
+          body.phong_ban_moi || body.phongBanMoi || '',
+          body.ghi_chu || body.ghiChu || ''
         ).run().catch(() => {});
       } catch (e) {}
     }

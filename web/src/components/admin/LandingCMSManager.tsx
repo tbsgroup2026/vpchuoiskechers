@@ -87,7 +87,7 @@ export default function LandingCMSManager(props: Props) {
 
   // Update nested workspace field
   const updateWorkspace = (key: "headline" | "description", value: string) => {
-    setLandingCMS((prev) => ({
+    handleUpdate((prev) => ({
       ...prev,
       workspace: { ...prev.workspace, [key]: value },
     }));
@@ -95,7 +95,7 @@ export default function LandingCMSManager(props: Props) {
 
   // Update workspace pillar
   const updatePillar = (index: number, key: "title" | "desc", value: string) => {
-    setLandingCMS((prev) => {
+    handleUpdate((prev) => {
       const newPillars = [...prev.workspace.pillars];
       newPillars[index] = { ...newPillars[index], [key]: value };
       return {
@@ -107,7 +107,7 @@ export default function LandingCMSManager(props: Props) {
 
   // Update excellence field
   const updateExcellence = (key: "title" | "description" | "image", value: string) => {
-    setLandingCMS((prev) => ({
+    handleUpdate((prev) => ({
       ...prev,
       excellence: { ...prev.excellence, [key]: value },
     }));
@@ -115,7 +115,7 @@ export default function LandingCMSManager(props: Props) {
 
   // Update excellence point
   const updateExcellencePoint = (index: number, key: "title" | "desc", value: string) => {
-    setLandingCMS((prev) => {
+    handleUpdate((prev) => {
       const newPoints = [...prev.excellence.points];
       newPoints[index] = { ...newPoints[index], [key]: value };
       return {
@@ -127,7 +127,7 @@ export default function LandingCMSManager(props: Props) {
 
   // Update products field
   const updateProductsMeta = (key: "title" | "description", value: string) => {
-    setLandingCMS((prev) => ({
+    handleUpdate((prev) => ({
       ...prev,
       products: { ...prev.products, [key]: value },
     }));
@@ -135,7 +135,7 @@ export default function LandingCMSManager(props: Props) {
 
   // Update single product item
   const updateProductItem = (index: number, key: "name" | "code" | "image", value: string) => {
-    setLandingCMS((prev) => {
+    handleUpdate((prev) => {
       const newItems = [...prev.products.items];
       newItems[index] = { ...newItems[index], [key]: value };
       return {
@@ -149,7 +149,7 @@ export default function LandingCMSManager(props: Props) {
   const handleProductUpload = async (file: File, index: number) => {
     try {
       setUploadingProdIdx(index);
-      await onUploadImage(file, "product", index);
+      await onUploadImage?.(file, "product", index);
     } finally {
       setUploadingProdIdx(null);
     }
@@ -157,7 +157,7 @@ export default function LandingCMSManager(props: Props) {
 
   // Add product item
   const handleAddProduct = () => {
-    setLandingCMS((prev) => ({
+    handleUpdate((prev) => ({
       ...prev,
       products: {
         ...prev.products,
@@ -175,7 +175,7 @@ export default function LandingCMSManager(props: Props) {
 
   // Remove product item
   const handleRemoveProduct = (index: number) => {
-    setLandingCMS((prev) => ({
+    handleUpdate((prev) => ({
       ...prev,
       products: {
         ...prev.products,

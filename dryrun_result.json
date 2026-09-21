@@ -1,0 +1,349 @@
+{
+  "sourceCount": 38,
+  "targetCount": 0,
+  "newCardsCount": 38,
+  "sourceCardsPreview": [
+    {
+      "id": "ci_1789618331956_wq5e3",
+      "code": "KZ-2026-KG1-MAY-0010",
+      "title": "Phun keo gấp mép tt thân",
+      "category": "PRODUCTIVITY",
+      "proposer_name": "Nguyễn thị bích",
+      "created_at": "2026-09-17 04:12:12",
+      "status": "SUBMITTED"
+    },
+    {
+      "id": "ci_1789381483636_wtuhf",
+      "code": "KZ-2026-PHNG-BPHN-0023",
+      "title": "Cải tiến MLT chắn bùn mã 195001",
+      "category": "PRODUCTIVITY",
+      "proposer_name": "ĐẶNG THỊ HỒNG ĐÀO",
+      "created_at": "2026-09-14 10:24:43",
+      "status": "SUBMITTED"
+    },
+    {
+      "id": "ci_1789365491336_v35qv",
+      "code": "KZ-2026-KG1-MAY-0008",
+      "title": "Cán keo 9055 các chi tiết chịu lực cb ôze c mũi sân mũi",
+      "category": "PRODUCTIVITY",
+      "proposer_name": "Nguyễn thị bích",
+      "created_at": "2026-09-14 05:58:11",
+      "status": "APPROVED"
+    },
+    {
+      "id": "ci_1789207329439_a3w5s",
+      "code": "KZ-2026-KG3-UVO-0001",
+      "title": "Chuyển từ chặt sang cắt máy LAZE",
+      "category": "PRODUCTIVITY",
+      "proposer_name": "PHẠM THÀNH NHANH",
+      "created_at": "2026-09-12 10:02:09",
+      "status": "APPROVED"
+    },
+    {
+      "id": "ci_1789205869469_vawpy",
+      "code": "KZ-2026-KG1-MAY-0007",
+      "title": "Bỏ quét keo dán-chuyển may sống.",
+      "category": "PRODUCTIVITY",
+      "proposer_name": "Nguyễn thế anh",
+      "created_at": "2026-09-12 09:37:49",
+      "status": "APPROVED"
+    },
+    {
+      "id": "ci_1789186524420_en7x5",
+      "code": "KZ-2026-KG2-GO-0002",
+      "title": "Tự chế. Bánh mài chân viền đế bộ phận gò ( UV gò 2)",
+      "category": "EQUIPMENT",
+      "proposer_name": "Danh Quốc Huy",
+      "created_at": "2026-09-12 04:15:24",
+      "status": "APPROVED"
+    },
+    {
+      "id": "ci_1789119261483_ss6w2",
+      "code": "KZ-2026-PHNG-BPHN-0022",
+      "title": "Làm rập mika gắn dao chặt lần 2 sân mũi mã giày John Deere gia công Quân Chí (195001, 195000, 195002, 195005, 256270, 256201, 256026, 256026W, 256002, 256002W,,)",
+      "category": "PRODUCTIVITY",
+      "proposer_name": "TRẦN THANH LONG",
+      "created_at": "2026-09-11 09:34:21",
+      "status": "APPROVED"
+    },
+    {
+      "id": "ci_1789095102196_toql0",
+      "code": "KZ-2026-PHNG-BPHN-0021",
+      "title": "Đề xuất MLT công đoạn may tem dệt mã giày 256253",
+      "category": "PRODUCTIVITY",
+      "proposer_name": "ĐẶNG THỊ HỒNG ĐÀO",
+      "created_at": "2026-09-11 02:51:42",
+      "status": "SUBMITTED"
+    },
+    {
+      "id": "ci_1789036438022_k6hwe",
+      "code": "KZ-2026-KG2-GO-0001",
+      "title": "Cải tiến ghép công đoạn, giảm thao tác thừa,tăng năng suất, tiết kiệm đinh mức,",
+      "category": "PRODUCTIVITY",
+      "proposer_name": "NGUYỄN THANH ÂU",
+      "created_at": "2026-09-10 10:33:58",
+      "status": "APPROVED"
+    },
+    {
+      "id": "ci_1789015978698_lj7iz",
+      "code": "KZ-2026-HTD-HT-0002",
+      "title": "Tận dụng can nhựa làm hộp đựng dây thun ở máy Mài đế",
+      "category": "5S",
+      "proposer_name": "Văn Ngọc Tính",
+      "created_at": "2026-09-10 04:52:58",
+      "status": "APPROVED"
+    },
+    {
+      "id": "ci_1789012510798_w1is6",
+      "code": "KZ-2026-KG1-MAY-0006",
+      "title": "May lập trình thay thế may zx",
+      "category": "PRODUCTIVITY",
+      "proposer_name": "Danh thuận",
+      "created_at": "2026-09-10 03:55:10",
+      "status": "APPROVED"
+    },
+    {
+      "id": "ci_1788951305393_bptnw",
+      "code": "KZ-2026-PHNG-BPHN-0020",
+      "title": "CẢI TIẾN MAY LẬP TRÌNH GÓT",
+      "category": "PRODUCTIVITY",
+      "proposer_name": "DANH TIÊN",
+      "created_at": "2026-09-09 10:55:05",
+      "status": "SUBMITTED"
+    },
+    {
+      "id": "ci_1788945207359_u9ree",
+      "code": "KZ-2026-PHNG-BPHN-0019",
+      "title": "CẢI TIẾN LĂN KEO DÁN GÓT-Ô DÊ",
+      "category": "PRODUCTIVITY",
+      "proposer_name": "DANH TIÊN",
+      "created_at": "2026-09-09 09:13:27",
+      "status": "APPROVED"
+    },
+    {
+      "id": "ci_1788934889253_7abm7",
+      "code": "KZ-2026-PHNG-BPHN-0018",
+      "title": "MAY LẬP TRÌNH",
+      "category": "PRODUCTIVITY",
+      "proposer_name": "LÂM VĂN PHÚ",
+      "created_at": "2026-09-09 06:21:29",
+      "status": "APPROVED"
+    },
+    {
+      "id": "ci_1788932054340_if3pj",
+      "code": "KZ-2026-PHNG-BPHN-0017",
+      "title": "MAY LẬP TRÌNH Ô DÊ",
+      "category": "PRODUCTIVITY",
+      "proposer_name": "DANH TIÊN",
+      "created_at": "2026-09-09 05:34:14",
+      "status": "SUBMITTED"
+    },
+    {
+      "id": "ci_1788927598689_flk5e",
+      "code": "KZ-2026-PHNG-BPHN-0016",
+      "title": "CẢI TIẾN MAY LẬP TRÌNH GÓT",
+      "category": "PRODUCTIVITY",
+      "proposer_name": "NGUYỄN THỊ BÍCH",
+      "created_at": "2026-09-09 04:19:58",
+      "status": "APPROVED"
+    },
+    {
+      "id": "ci_1788923255042_gfm02",
+      "code": "KZ-2026-PHNG-BPHN-0015",
+      "title": "CẢI TIẾN MAY LẬP TRÌNH DÂY WB TRANG TRÍ VÀ LT LOGO NGOÀI MG77013EC",
+      "category": "PRODUCTIVITY",
+      "proposer_name": "HUỲNH THÚY DƯƠNG",
+      "created_at": "2026-09-09 03:07:35",
+      "status": "APPROVED"
+    },
+    {
+      "id": "ci_1788922838659_8aj9a",
+      "code": "KZ-2026-KG2-MAY-0007",
+      "title": "CẢI TIẾN MAY LẬP TRÌNH 211182 LOGO LGA VÀ LOGO GÓT",
+      "category": "PRODUCTIVITY",
+      "proposer_name": "HUỲNH THỊ HIẾU",
+      "created_at": "2026-09-09 03:00:38",
+      "status": "APPROVED"
+    },
+    {
+      "id": "ci_1788922537960_5655j",
+      "code": "KZ-2026-PHNG-BPHN-0012",
+      "title": "LĂN KEO CHI TIẾT SÂN MŨI TRÊN 77013EC",
+      "category": "PRODUCTIVITY",
+      "proposer_name": "ĐẶNG THỊ HỒNG ĐÀO",
+      "created_at": "2026-09-09 02:55:38",
+      "status": "APPROVED"
+    },
+    {
+      "id": "ci_1788921614708_a2ypa",
+      "code": "KZ-2026-KG2-MAY-0006",
+      "title": "CẢI TIẾN LĂN KEO Ô DÊ SAU,Ô DÊ TRÊN TRƯỚC, O DÊ DƯỚI TRONG NGOÀI",
+      "category": "PRODUCTIVITY",
+      "proposer_name": "NGUYỄN TẤN ĐẠT",
+      "created_at": "2026-09-09 02:40:14",
+      "status": "APPROVED"
+    },
+    {
+      "id": "ci_1788920943572_2h913",
+      "code": "KZ-2026-KG2-MAY-0005",
+      "title": "CẢI TIẾN MAY WB GÓT, WB LGA MÃ GIÀY 211182",
+      "category": "PRODUCTIVITY",
+      "proposer_name": "NGUYỄN MINH KIỆT",
+      "created_at": "2026-09-09 02:29:03",
+      "status": "APPROVED"
+    },
+    {
+      "id": "ci_1788768083435_p990v",
+      "code": "KZ-2026-PHNG-BPHN-0010",
+      "title": "Cải tiến công đoạn cắt logo trang trí mã 4442 bằng kéo",
+      "category": "PRODUCTIVITY",
+      "proposer_name": "ĐẶNG THỊ HỒNG ĐÀO",
+      "created_at": "2026-09-07 08:01:23",
+      "status": "SUBMITTED"
+    },
+    {
+      "id": "ci_1788748940475_wbg5x",
+      "code": "KZ-2026-PHNG-BPHN-0009",
+      "title": "Làm cửa lùa khi chạy xe chở hàng ko bị hư hỏng và đổ hàng.",
+      "category": "SAFETY",
+      "proposer_name": "NGÔ QUÝ QUỲNH",
+      "created_at": "2026-09-07 02:42:20",
+      "status": "SUBMITTED"
+    },
+    {
+      "id": "ci_1788746753205_zv403",
+      "code": "KZ-2026-PHNG-BPHN-0008",
+      "title": "Cải tiến may lập trình web lưỡi gà và logo trang trí lưỡi gà",
+      "category": "PRODUCTIVITY",
+      "proposer_name": "Huỳnh Thúy Dương ",
+      "created_at": "2026-09-07 02:05:53",
+      "status": "APPROVED"
+    },
+    {
+      "id": "ci_1788742708239_5lskn",
+      "code": "KZ-2026-PHNG-BPHN-0007",
+      "title": "Cải tiến may sống dây TT thân trước trong ngoài và dây viền TT gót ở các mã giày 256002,256026,256133,195005",
+      "category": "PRODUCTIVITY",
+      "proposer_name": "ĐẶNG THỊ HỒNG ĐÀO",
+      "created_at": "2026-09-07 00:58:28",
+      "status": "APPROVED"
+    },
+    {
+      "id": "ci_1788740379877_k1uys",
+      "code": "KZ-2026-KG1-MAY-0004",
+      "title": "Làm lỗ đinh trên chịu lực thun bỏ công đoạn hoạ định vị thun",
+      "category": "PRODUCTIVITY",
+      "proposer_name": "Nguyễn Thế Anh ",
+      "created_at": "2026-09-07 00:19:39",
+      "status": "APPROVED"
+    },
+    {
+      "id": "ci_1788665617640_xyh4m",
+      "code": "KZ-2026-KG2-MAY-0004",
+      "title": "Giải quyến vấn đề công nhân đang cần",
+      "category": "EQUIPMENT",
+      "proposer_name": "Nguyễn Minh Hương",
+      "created_at": "2026-09-06 03:33:37",
+      "status": "APPROVED"
+    },
+    {
+      "id": "ci_1788607219469_2amk3",
+      "code": "KZ-2026-KG1-MAY-0003",
+      "title": "Sử dụng viết dạ quang thay viết bạc xài đèn tím để giảm lồi định vị giảm  công chà vệ sinh",
+      "category": "PRODUCTIVITY",
+      "proposer_name": "Bùi thị Mỹ sen ",
+      "created_at": "2026-09-05 11:20:19",
+      "status": "REJECTED"
+    },
+    {
+      "id": "ci_1788600234504_b261i",
+      "code": "KZ-2026-KG3-VNPH-0001",
+      "title": "Đổi bàn chải quét keo",
+      "category": "COST_SAVING",
+      "proposer_name": "Trần Thị Lý ",
+      "created_at": "2026-09-05 09:23:54",
+      "status": "SUBMITTED"
+    },
+    {
+      "id": "ci_1788594899412_bpo8l",
+      "code": "KZ-2026-KG2-MAY-0002",
+      "title": "Cải tiến may sống chân bùn , gót ngoài , chóp mũi mã 205848",
+      "category": "PRODUCTIVITY",
+      "proposer_name": "Cao mộng sương ",
+      "created_at": "2026-09-05 07:54:59",
+      "status": "APPROVED"
+    },
+    {
+      "id": "ci_1788513960547_90g2q",
+      "code": "KZ-2026-KG2-UVO-0001",
+      "title": "Cải tiến dùng Vitule phun keo  SN 256133+w (tăng năng suất + giảm định mức keo)",
+      "category": "PRODUCTIVITY",
+      "proposer_name": "LÊ MINH NHẪN",
+      "created_at": "2026-09-04 09:26:00",
+      "status": "APPROVED"
+    },
+    {
+      "id": "ci_1788512798555_dn8ah",
+      "code": "KZ-2026-PHNG-BPHN-0006",
+      "title": "Thiết kế rập may lập trình",
+      "category": "PRODUCTIVITY",
+      "proposer_name": "Trần Thanh Long",
+      "created_at": "2026-09-04 09:06:38",
+      "status": "APPROVED"
+    },
+    {
+      "id": "ci_1788493664231_57n3a",
+      "code": "KZ-2026-HTD-HT-0001",
+      "title": "Sử dụng rập nhựa uốn cong thay thế rập sắt gia công ngoài (sản xuất đế phun nhung)",
+      "category": "COST_SAVING",
+      "proposer_name": "Văn Ngọc Tính",
+      "created_at": "2026-09-04 03:47:44",
+      "status": "APPROVED"
+    },
+    {
+      "id": "ci_1788493379259_sip7v",
+      "code": "KZ-2026-PHNG-BPHN-0005",
+      "title": "CẢI THIỆN NHIỆT ĐỔ MÁY NÉN KHÍ, NĂNG CAO HIỆU SUẤT CHO MÁY",
+      "category": "EQUIPMENT",
+      "proposer_name": "NGÔ TẤT THẮNG",
+      "created_at": "2026-09-04 03:42:59",
+      "status": "APPROVED"
+    },
+    {
+      "id": "ci_1787969165960_yuohw",
+      "code": "KZ-2026-KG3-XNGS-0001",
+      "title": "Cải tiến sử dụng giấy cách nhiệt qua sử dụng vật tư tận dụng để lót ép",
+      "category": "MATERIAL_SAVING",
+      "proposer_name": "Nguyễn văn khanh ",
+      "created_at": "2026-08-29 02:06:05",
+      "status": "APPROVED"
+    },
+    {
+      "id": "ci_1787881064265_b5fzq",
+      "code": "KZ-2026-PHNG-BPHN-0002",
+      "title": "MAY LẬP TRÌNH DÂY WEB GÓT",
+      "category": "PRODUCTIVITY",
+      "proposer_name": "Lâm Văn Phú",
+      "created_at": "2026-08-28 01:37:44",
+      "status": "APPROVED"
+    },
+    {
+      "id": "ci_1787880375454_zg8rl",
+      "code": "KZ-2026-PHNG-BPHN-0001",
+      "title": "MAY LÂPJ TRÌNH",
+      "category": "PRODUCTIVITY",
+      "proposer_name": "Lâm Văn Phú",
+      "created_at": "2026-08-28 01:26:15",
+      "status": "APPROVED"
+    },
+    {
+      "id": "ci_1787879230192_nvrxg",
+      "code": "KZ-2026-KG2-MUI-0001",
+      "title": "MAY SỐNG CÔNG ĐOẠN MAY DĂN DÂY VIỀN, SOP THỂ HIỆN QUÉT KEO DÁN TRƯỚC KHI MAY",
+      "category": "PRODUCTIVITY",
+      "proposer_name": "ĐẶNG THỊ HỒNG ĐÀO",
+      "created_at": "2026-08-28 01:07:10",
+      "status": "APPROVED"
+    }
+  ]
+}

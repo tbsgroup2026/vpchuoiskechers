@@ -323,10 +323,18 @@ export default function RDModule({
             <h3 className="text-xs sm:text-sm font-black text-slate-900">
               Xu hướng tiến độ phát triển mẫu
             </h3>
-            <div className="flex items-center gap-1 text-[11px] font-bold text-slate-600 bg-slate-50 border border-slate-200 px-2 py-1 rounded-lg">
-              <span>{trendRange}</span>
-              <IconChevronDown size={12} className="text-slate-400" />
-            </div>
+            <select
+              value={trendRange}
+              onChange={(e) => setTrendRange(e.target.value)}
+              className="text-[11px] font-bold text-slate-700 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-lg outline-none cursor-pointer"
+            >
+              <option value="6 tháng gần đây">6 tháng gần đây</option>
+              <option value="Quý 1 / 2026">Quý 1 / 2026</option>
+              <option value="Quý 2 / 2026">Quý 2 / 2026</option>
+              <option value="Quý 3 / 2026">Quý 3 / 2026</option>
+              <option value="Quý 4 / 2026">Quý 4 / 2026</option>
+              <option value="Cả Năm 2026">Cả Năm 2026</option>
+            </select>
           </div>
 
           {/* Line Chart Legends */}

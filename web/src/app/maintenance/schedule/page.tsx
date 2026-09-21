@@ -378,7 +378,6 @@ function AssignTab({
               <tr><td className="p-4 text-gray-400" colSpan={7}>Không có máy phù hợp</td></tr>
             )}
             {filtered.map((m) => {
-              const meta = STATUS_META[m.status];
               return (
                 <tr key={m.id} className={`hover:bg-slate-50/90 transition-colors ${selected.has(m.id) ? 'bg-emerald-50/50' : ''}`}>
                   <td className="p-3"><input type="checkbox" checked={selected.has(m.id)} onChange={() => toggle(m.id)} className="w-4 h-4 rounded text-[#006838]" /></td>
@@ -531,7 +530,6 @@ function TrackTab({
                 <tr><td className="p-4 text-gray-400" colSpan={7}>Không có máy nào cần xử lý — mọi thứ đều trong hạn 🎉</td></tr>
               )}
               {needsAction.map((m) => {
-                const meta = STATUS_META[m.status];
                 return (
                   <tr key={m.id} className="hover:bg-slate-50/90 transition-colors">
                     <td className="p-3 font-mono font-bold text-[#006838]">{m.code}</td>

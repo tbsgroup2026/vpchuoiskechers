@@ -1,0 +1,714 @@
+P0 [Normal]: UBND TP HỒ CHÍ MINH
+P1 [Normal]: TRƯỜNG ĐẠI HỌC THỦ DẦU MỘT
+P2 [Normal]: VIỆN CÔNG NGHỆ SỐ
+P6 [Normal]: BÁO CÁO THỰC TẬP
+P7 [Normal]: XÂY DỰNG HỆ THỐNG BACKEND KÉP (DUAL BACKEND) ĐỒNG BỘ API SURFACE TRÊN EXPRESS VÀ CLOUDFLARE WORKERS CHO NỀN TẢNG VIỆC LÀM XANH
+P13 [Normal]: Người hướng dẫn tại đơn vị: PGĐ. Nguyễn Quốc Trung
+P14 [Normal]: Giảng viên hướng dẫn: ThS. Ngô Hồng Minh
+P15 [Normal]: Sinh viên thực hiện: Phạm Nguyễn Anh Huy Mã số sinh viên: 2224802010738
+P16 [Normal]: Chuyên ngành: Công Nghệ Thông Tin	Lớp: D22CNTT02
+P17 [Normal]: Niên Khóa: 2022 - 2027
+P22 [11]: Thành phố Hồ Chí Minh – 07/2026
+P23 [Normal]: UBND TP HỒ CHÍ MINH
+P24 [Normal]: TRƯỜNG ĐẠI HỌC THỦ DẦU MỘT
+P25 [Normal]: VIỆN CÔNG NGHỆ SỐ
+P29 [Normal]: BÁO CÁO THỰC TẬP
+P30 [Normal]: XÂY DỰNG HỆ THỐNG BACKEND KÉP (DUAL BACKEND) ĐỒNG BỘ API SURFACE TRÊN EXPRESS VÀ CLOUDFLARE WORKERS CHO NỀN TẢNG VIỆC LÀM XANH
+P36 [Normal]: Người hướng dẫn tại đơn vị: PGĐ. Nguyễn Quốc Trung
+P37 [Normal]: Giảng viên hướng dẫn: ThS. Ngô Hồng Minh
+P38 [Normal]: Sinh viên thực hiện: Phạm Nguyễn Anh Huy Mã số sinh viên: 2224802010738
+P39 [Normal]: Chuyên ngành: Công Nghệ Thông Tin	Lớp: D22CNTT02
+P40 [Normal]: Niên Khóa: 2022 - 2027
+P45 [11]: Thành phố Hồ Chí Minh – 07/2026
+P49 [Normal]: GIẤY TIẾP NHẬN SINH VIÊN THỰC TẬP 
+P52 [Normal]: Cơ quan/Đơn vị tiếp nhận thực tập: Công Ty TNHH Cung Ứng Nhân Lực Nhân Kiệt
+P53 [Normal]: Địa chỉ : 779 Huỳnh Văn Lũy, phường Bình Dương, thành phố Hồ Chí Minh.
+P54 [Normal]: Điện thoại :  (028) 3505 4224 hoặc (028) 3821 3955; 		Fax : 028 3821 3954
+P55 [Normal]: Đồng ý tiếp nhận anh/chị :  Phạm Nguyễn Anh Huy, Ngày sinh :  21 / 3 / 2004
+P56 [Normal]: Mã số sinh viên: 2224802010738
+P57 [Normal]: Là sinh viên Trường Đại học Thủ Dầu Một thuộc Viện Công nghệ số
+P58 [Normal]: Chuyên ngành :  Công Nghệ Thông Tin.
+P59 [Normal]: Thực tập tại bộ phận : IT của Cơ quan/Đơn vị  chúng tôi trong thời gian  2 tháng . 
+P60 [Normal]: Với nhiệm vụ :  IT Support
+P61 [Normal]: Anh /chị sinh viên thực tập chấp hành đúng nội quy kỷ luật và phân công của Cơ quan/Đơn vị .                                        
+P62 [Normal]: 	Xác nhận của Cơ quan/Doanh nghiệp                                                               
+P63 [Normal]:                                                             ( Ký & ghi rõ Họ - Tên, chức vụ, đóng dấu )
+P67 [Normal]: NHẬT KÝ THỰC TẬP
+P68 [Normal]: 1. Tên đề tài: Xây dựng hệ thống Backend kép (Dual Backend) đồng bộ API Surface trên Express và Cloudflare Workers cho nên tảng Việc Làm Xanh
+P69 [Normal]: 2. Giảng viên hướng dẫn: Ngô Hồng Minh
+P70 [Normal]: 3. Sinh viên thực hiện: Phạm Nguyễn Anh Huy
+P71 [Normal]:     MSSV: 2224802010738 - Lớp: D22CNTT02
+P74 [Normal]: CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM
+P75 [Normal]: Độc lập – Tự do – Hạnh phúc
+P79 [Normal]: NHẬN XÉT CỦA ĐƠN VỊ THỰC TẬP
+P82 [Normal]: Họ và tên sinh viên: Phạm Nguyễn Anh Huy           Năm sinh: 21 / 3 / 2004
+P83 [Normal]: Thời gian thực tập: 2 tháng, từ 18 / 05 / 2026 đến 26 / 07 / 2026	
+P84 [Normal]: 1. Đon vị thực tập – Bộ phận thực tập
+P85 [Normal]: 	Công ty TNHH Cung Ứng Nhân Lực Nhân Kiệt – IT
+P86 [Normal]: 2. Ý thức chấp hành nội quy, quy chế
+P87 [Normal]: 3. Tinh thần trách nhiệm với công việc và hiệu quả công việc được giao
+P88 [Normal]: 4. Kết quả thực tập
+P90 [Normal]: 5. Nhận xét chung
+P94 [Normal]: NHẬN XÉT VÀ CHẤM ĐIỂM BÁO CÁO THỰC TẬP CỦA 
+P95 [Normal]: GIẢNG VIÊN HƯỚNG DẪN
+P98 [Normal]: Họ và tên sinh viên: Phạm Nguyễn Anh Huy
+P99 [Normal]: MSSV: 	2224802010738
+P100 [Normal]: Khóa:	D22CNTT02
+P101 [Normal]: 1. Thời gian thực tập
+P106 [Normal]: 2. Nhận xét chung
+P113 [Normal]: 4. Điểm Báo cáo thực tập
+P118 [Normal]: Giảng viên hướng dẫn
+P120 [Normal]: NHẬN XÉT CỦA  GIẢNG VIÊN HƯỚNG DẪN
+P121 [Normal]: 1. Về hình thức và kỹ năng trình bày báo cáo thực tập
+P122 [Normal]: ……………………………………………………………………………….............................................................................................................................................................
+P123 [Normal]: .........................................................................................................................................
+P124 [Normal]: .........................................................................................................................................
+P125 [Normal]: .........................................................................................................................................
+P126 [Normal]: 2. Nội dung báo cáo 
+P127 [Normal]: 2.1. Kết quả đợt thực tập
+P128 [Normal]: .........................................................................................................................................
+P129 [Normal]: .........................................................................................................................................
+P130 [Normal]: .........................................................................................................................................
+P131 [Normal]: 2.2.Tính sáng tạo của chuyên đề thực tập:
+P132 [Normal]: .........................................................................................................................................
+P133 [Normal]: .........................................................................................................................................
+P134 [Normal]: .........................................................................................................................................
+P135 [Normal]: 2.3. Tính thực tiễn của chuyên đề thực tập:
+P136 [Normal]: .........................................................................................................................................
+P137 [Normal]: .........................................................................................................................................
+P138 [Normal]: .........................................................................................................................................
+P140 [Normal]: 3. Điểm đạt: Điểm số 			Điểm chữ:......................................................
+P143 [Normal]: Tp. Hồ Chí Minh, ngày….tháng….năm……
+P144 [Normal]: Giảng viên hướng dẫn
+P145 [Normal]:   							  ( Ký và ghi rõ họ tên)
+P149 [11]: LỜI CẢM ƠN
+P150 [Normal]: 	Trong quá trình học tập và nghiên cứu các học phần chuyên ngành Công nghệ thông tin tại Trường Đại học Thủ Dầu Một, em đã nhận được sự hỗ trợ quý báu từ những tài liệu chuyên môn, cùng sự hướng dẫn tận tâm của các giảng viên. Nhờ đó, em đã hoàn thành bài thực tập doanh nghiệp một cách tốt nhất có thể.
+P151 [Normal]: 	Em xin gửi lời cảm ơn chân thành và lòng biết ơn sâu sắc đến quý Thầy Cô thuộc Viện Công Nghệ Số, những người đã truyền đạt kiến thức và định hướng em trong suốt quá trình học tập. Đặc biệt, em xin cảm ơn ThS. Ngô Hồng Minh người đã trực tiếp hướng dẫn, tận tình chỉ bảo và đồng hành cùng em trong quá trình thực hiện đề tài thực tập. Những góp ý quý giá và sự động viên của cô đã giúp em vượt qua khó khăn và hoàn thiện đồ án này. 
+P152 [Normal]: Em xin trân trọng cảm ơn Ban Lãnh đạo Công ty TNHH Cung Ứng Nhân Lực Nhân Kiệt đã tạo điều kiện thuận lợi để em có cơ hội thực tập tại đơn vị. Em cũng xin gửi lời cảm ơn chân thành đến các anh chị trong công ty, những người đã dành thời gian hướng dẫn, chia sẻ kinh nghiệm thực tế, từ việc làm quen với môi trường làm việc đến hỗ trợ em hoàn thành các nhiệm vụ được giao, đặc biệt là trong việc xây dựng hệ thống Backend kép (Dual Backend) đồng bộ API Surface trên Express và Cloudflare Workers cho nền tảng Việc Làm Xanh.Hồng Minh, người đã trực tiếp hướng dẫn, tận tình chỉ bảo và đồng hành cùng em trong quá trình thực hiện đề tài thực tập. Những góp ý quý giá và sự động viên của cô giúp em vượt qua khó khăn và hoàn thiện đồ án này.
+P153 [Normal]: Do thời gian thực hiện có hạn và kinh nghiệm của bản thân còn chưa nhiều, báo cáo của em khó tránh khỏi những thiếu sót. Em kính mong nhận được những ý kiến đóng góp quý báu từ quý Thầy Cô và các anh chị để em có thể hoàn thiện hơn. Em xin chân thành cảm ơn!
+P156 [11]: LỜI CAM ĐOAN 
+P157 [Normal]: Tôi tên: Phạm Nguyễn Anh Huy - MSSV: 2224802010738
+P158 [Normal]: Tôi xin cam đoan các số liệu, thông tin sử dụng trong bài Báo cáo thực tập này được thu thập từ nguồn thực tế tại Đơn vị thực tập, trên các sách báo khoa học chuyên ngành (có trích dẫn đầy đủ và theo đúng qui định); 
+P159 [Normal]: Nội dung trong báo cáo này do kinh nghiệm của bản thân được rút ra từ quá trình nghiên cứu và thực tế tại Công ty TNHH Cung Ứng Nhân Lực Nhân Kiệt. KHÔNG SAO CHÉP từ các nguồn tài liệu, báo cáo khác. 
+P160 [Normal]: Nếu sai sót tôi xin hoàn toàn chịu trách nhiệm theo qui định của nhà trường và pháp luật.
+P161 [Normal]: Sinh viên
+P162 [Normal]: (ký tên, ghi đầy đủ họ tên)
+P167 [11]: DANH MỤC HÌNH
+P168 [table of figures]: Hình 1.2. Sơ đồ tổ chức Công ty TNHH Cung Ứng Nhân Lực Nhân Kiệt	7
+P169 [table of figures]: Hình 2.1. Giao diện bắt đầu	12
+P170 [table of figures]: Hình 2.2. Giao diện tìm kiếm việc làm với bộ lọc danh mục ngành nghề và khu vực	14
+P171 [table of figures]: Hình 2.3. Giao diện ứng tuyển của NLĐ	16
+P172 [table of figures]: Hình 2.4. Giao diện đăng tin tuyển dạng thủ công.	17
+P173 [table of figures]: Hình 2.5. Bảng đồ tương tác	18
+P174 [table of figures]: Hình 2.6. Trí tuệ nhân tạo AI hỗ trợ NTD và NLĐ	21
+P175 [table of figures]: Hình 2.7.Giao diện đăng tin tuyển dạng AI tự động đọc và đăng tin.	22
+P178 [11]: DANH MỤC BẢNG
+P179 [table of figures]: Bảng 2.1. Danh sách các API endpoint chính của hệ thống	11
+P180 [table of figures]: Bảng 2.2. Bảng giá các gói thuê bao dành cho NTD	19
+P181 [table of figures]: Bảng 2.3. Bảng phí dịch vụ theo lượt	19
+P182 [table of figures]: Bảng 3.1. So sánh hai runtime: Express (VPS) và Clooudflare Workers (Serverless)25
+P183 [table of figures]: Bảng 3.2. Các bảng dữ liệu chính trong cơ sở dữ liệu	29
+P184 [table of figures]: Bảng 3.3. Danh sách công nghệ sử dụng trong hệ thống	32
+P185 [table of figures]: Bảng 5.1. Kết quả kiểm thử chức năng	45
+P186 [table of figures]: Bảng 5.2. Kết quả kiếm thử hiệu năng	46
+P187 [table of figures]: Bảng 5.3. Kết quả kiểm thử bảo mật	47
+P193 [11]: DANH SÁCH CÁC KÝ TỰ, CHỮ VIẾT TẮT
+P195 [1]: PHẦN MỞ ĐẦU
+P196 [Heading 2]: 1. Lí do chọn đề tài
+P197 [Normal]: Trong bối cảnh cuộc Cách mạng công nghiệp lần thứ tư và quá trình chuyển đổi số đang diễn ra mạnh mẽ, công nghệ thông tin ngày càng giữ vai trò quan trọng trong việc tối ưu hóa quy trình quản lý và vận hành của các doanh nghiệp. Đặc biệt, lĩnh vực tuyển dụng và kết nối việc làm đang có xu hướng chuyển dịch từ các phương thức truyền thống sang các nền tảng trực tuyến nhằm nâng cao hiệu quả tìm kiếm, tuyển dụng và quản lý nguồn nhân lực.
+P198 [Normal]: Cùng với xu hướng phát triển kinh tế xanh và phát triển bền vững tại Việt Nam, nhu cầu xây dựng một nền tảng tuyển dụng chuyên biệt dành cho người lao động và doanh nghiệp trong các khu công nghiệp ngày càng trở nên cần thiết. Xuất phát từ nhu cầu thực tiễn đó, Công ty TNHH Cung Ứng Nhân Lực Nhân Kiệt đã triển khai dự án Việc Làm Xanh, hướng đến việc xây dựng một hệ thống tuyển dụng trực tuyến hiện đại, hỗ trợ kết nối hiệu quả giữa người lao động và nhà tuyển dụng.
+P199 [Normal]: Trong thời gian thực tập tại công ty, em được tham gia trực tiếp vào quá trình phát triển hệ thống với đề tài “Xây dựng hệ thống Backend kép (Dual Backend) đồng bộ API Surface trên Express và Cloudflare Workers cho nền tảng Việc Làm Xanh”. Đề tài tập trung nghiên cứu và triển khai mô hình backend kép nhằm đảm bảo tính đồng nhất của API giữa môi trường phát triển và môi trường triển khai thực tế, góp phần nâng cao khả năng mở rộng, hiệu năng và tính ổn định của hệ thống.
+P200 [Normal]: Việc thực hiện đề tài không chỉ giúp em vận dụng những kiến thức đã học về lập trình web, cơ sở dữ liệu, kiến trúc phần mềm và điện toán đám mây vào môi trường làm việc thực tế mà còn tạo cơ hội tiếp cận quy trình phát triển phần mềm chuyên nghiệp, từ đó tích lũy kinh nghiệm và nâng cao năng lực chuyên môn trước khi tốt nghiệp.
+P201 [Heading 2]: 2. Mục tiêu của báo cáo thực tập
+P202 [Normal]: Báo cáo thực tập được thực hiện nhằm tổng kết quá trình học tập và làm việc của em tại Công ty TNHH Cung Ứng Nhân Lực Nhân Kiệt, đồng thời phản ánh việc vận dụng các kiến thức chuyên ngành Công nghệ thông tin vào thực tiễn doanh nghiệp.
+P203 [Normal]: Các mục tiêu cụ thể gồm:
+P204 [Normal]: - Tìm hiểu cơ cấu tổ chức, quy trình làm việc và môi trường phát triển phần mềm tại doanh nghiệp.
+P205 [Normal]: - Vận dụng kiến thức về lập trình web, cơ sở dữ liệu, API, điện toán đám mây và triển khai hệ thống để tham gia phát triển nền tảng Việc Làm Xanh.
+P206 [Normal]: - Nghiên cứu và triển khai kiến trúc Backend kép (Dual Backend) sử dụng Express.js và Cloudflare Workers nhằm đồng bộ API Surface giữa hai môi trường.
+P207 [Normal]: - Rèn luyện các kỹ năng nghề nghiệp như làm việc nhóm, quản lý tiến độ công việc, đọc hiểu tài liệu kỹ thuật, giải quyết vấn đề và báo cáo kết quả thực hiện.
+P208 [Heading 2]: 3. Phạm vi và cách thức thực tập
+P209 [Normal]: Đợt thực tập được thực hiện tại Công ty TNHH Cung Ứng Nhân Lực Nhân Kiệt, bộ phận Công nghệ thông tin (IT), trong thời gian từ 18/05/2026 đến 26/07/2026.
+P210 [Normal]: Trong quá trình thực tập, em tham gia phát triển hệ thống Việc Làm Xanh, tập trung vào các nội dung chính như nghiên cứu kiến trúc hệ thống, xây dựng và đồng bộ API giữa Express.js và Cloudflare Workers, phát triển các chức năng backend, cấu hình cơ sở dữ liệu, triển khai hệ thống trên nền tảng Cloudflare, thiết lập quy trình CI/CD, kiểm thử, tối ưu hiệu năng và hỗ trợ vận hành hệ thống.
+P211 [Normal]: Quá trình thực tập được thực hiện theo hình thức trực tiếp tại doanh nghiệp dưới sự hướng dẫn của cán bộ hướng dẫn. Các công việc được triển khai theo kế hoạch từng tuần, kết hợp giữa nghiên cứu tài liệu kỹ thuật, trao đổi với người hướng dẫn, tham gia phát triển sản phẩm, kiểm thử và đánh giá kết quả trước khi đưa vào môi trường vận hành.
+P212 [Heading 2]: 4. Kết quả đạt được
+P213 [Normal]: Sau thời gian thực tập, em đã hoàn thành các mục tiêu đề ra và đạt được nhiều kết quả tích cực. Về chuyên môn, em đã tham gia xây dựng và triển khai thành công hệ thống Backend kép (Dual Backend), đồng bộ API Surface giữa Express.js và Cloudflare Workers, góp phần hoàn thiện nền tảng Việc Làm Xanh. Đồng thời, em cũng tham gia cấu hình hạ tầng triển khai, thiết lập quy trình CI/CD, tích hợp các dịch vụ Cloudflare và hỗ trợ kiểm thử, tối ưu hiệu năng của hệ thống.
+P214 [Normal]: Bên cạnh kết quả về mặt kỹ thuật, quá trình thực tập còn giúp em nâng cao kỹ năng làm việc nhóm, quản lý thời gian, nghiên cứu công nghệ mới, đọc hiểu tài liệu chuyên ngành bằng tiếng Anh và làm quen với quy trình phát triển phần mềm trong môi trường doanh nghiệp. Những kiến thức và kinh nghiệm tích lũy được trong thời gian thực tập là nền tảng quan trọng giúp em hoàn thiện năng lực chuyên môn và chuẩn bị tốt hơn cho công việc sau khi tốt nghiệp.
+P215 [Normal]: Báo cáo này trình bày toàn bộ quá trình thực tập, những công việc đã thực hiện, kết quả đạt được, đồng thời đánh giá các bài học kinh nghiệm và đề xuất một số kiến nghị nhằm nâng cao hiệu quả hoạt động của đơn vị thực tập cũng như chất lượng đào tạo của Nhà trường.
+P217 [Normal]: TÓM TẮT ĐỒ ÁN
+P218 [Normal]: Đề tài "Xây dựng hệ thống Backend kép (Dual Backend) đồng bộ API Surface trên Express và Cloudflare Workers cho nền tảng Việc Làm Xanh" hướng đến việc thiết kế và triển khai một nền tảng tuyển dụng trực tuyến phục vụ người lao động và nhà tuyển dụng tại các khu công nghiệp thuộc địa bàn Bình Dương và Đồng Nai.
+P219 [Normal]: Hệ thống được xây dựng theo mô hình monorepo với ba thành phần chính: giao diện người dùng Next.js 15 (PWA), backend Express.js (VPS) cho môi trường phát triển và backend Cloudflare Workers + Hono (Serverless) cho môi trường production. Cả hai backend chia sẻ cùng một bề mặt API thông qua gói @vieclamxanh/shared, đảm bảo tính nhất quán và khả năng chuyển đổi linh hoạt giữa hai môi trường.
+P220 [Normal]: Hệ thống cung cấp đầy đủ chức năng của một nền tảng tuyển dụng: đăng ký/xác thực đa kênh, đăng tin và tìm kiếm việc làm, quy trình ứng tuyển và tuyển dụng, nhắn tin thời gian thực, bản đồ tương tác, thanh toán qua PayOS, cùng các tính năng AI như chatbot tư vấn, phân tích CV, huấn luyện phỏng vấn và chân dung nghề nghiệp.
+P221 [Normal]: Kết quả đạt được là một hệ thống hoàn chỉnh, vận hành ổn định trên hạ tầng Cloudflare toàn cầu, với hơn 485 commits, khoảng 64.000 dòng code, 30+ bảng dữ liệu và 50+ API endpoints, sẵn sàng phục vụ nhu cầu tuyển dụng thực tế.
+P223 [1]: TỔNG QUAN VỀ CÔNG TY TNHH CUNG ỨNG NHÂN LỰC NHÂN KIỆT (CHI NHÁNH BÌNH DƯƠNG CŨ)
+P224 [2]: Thông tin đơn vị
+P225 [Normal]: Công ty TNHH Cung Ứng Nhân Lực Nhân Kiệt là doanh nghiệp hoạt động trong lĩnh vực cung ứng và quản lý nhân lực, chuyên cung cấp nguồn lao động chất lượng cho các doanh nghiệp sản xuất, thương mại và dịch vụ tại khu vực Đông Nam Bộ. Chi nhánh Bình Dương được thành lập nhằm đáp ứng nhu cầu ngày càng tăng cao về nguồn nhân lực phục vụ các khu công nghiệp trên địa bàn tỉnh Bình Dương.
+P226 [Normal]: Thông tin cơ bản của đơn vị:
+P227 [Normal]: - Tên đơn vị: Công ty TNHH Cung Ứng Nhân Lực Nhân Kiệt.
+P228 [Normal]: - Mã số thuế: 0308022768.
+P229 [Normal]: - Địa chỉ: Số 779 Huỳnh Văn Lũy, Phường Bình Dương, Thành phố Hồ Chí Minh. (địa chỉ trước sáp nhập: Số 779 Huỳnh Văn Lũy, phường Phú Mỹ, thành phố Thủ Dầu Một, tỉnh Bình Dương),
+P230 [Normal]: - Điện thoại văn phòng: 0283 505 4224.
+P231 [Normal]: - Ngày thành lập: 15 - 4 - 2009.
+P232 [Normal]: - Website: https://www.nhankiet.vn/ [1]
+P233 [2]: Quá trình thành lập
+P234 [Normal]: Công ty TNHH Cung Ứng Nhân Lực Nhân Kiệt được thành lập và bắt đầu hoạt động từ tháng 4 năm 2009, với Giấy chứng nhận đăng ký kinh doanh số 0308022768 cấp ngày 02/4/2009. Trụ sở chính của công ty đặt tại Phòng 202, Tòa nhà 57, số 57 Lê Thị Hồng Gấm, Phường Bến Thành, Thành phố Hồ Chí Minh — một vị trí thuận lợi ngay tại trung tâm kinh tế lớn nhất cả nước. nhankiet
+P235 [Normal]: Ra đời trong giai đoạn nền kinh tế Việt Nam đang trên đà hội nhập mạnh mẽ, đặc biệt là sự phát triển bùng nổ của các khu công nghiệp tại vùng kinh tế trọng điểm phía Nam, Nhân Kiệt được thành lập với định hướng trở thành đơn vị chuyên nghiệp trong lĩnh vực cung ứng và quản lý nguồn nhân lực, đáp ứng nhu cầu lao động ngày càng lớn từ phía các doanh nghiệp sản xuất trong và ngoài nước.
+P236 [Normal]: Trải qua hơn 15 năm hình thành và phát triển, công ty đã ghi nhận nhiều mốc quan trọng:
+P237 [Normal]: - Năm 2013, công ty được trao tặng danh hiệu Chứng nhận Nhà Cung Cấp Chất Lượng (Trusted Quality Supplier) — một sự ghi nhận quan trọng từ cộng đồng doanh nghiệp về chất lượng dịch vụ. nhankiet
+P238 [Normal]: - Năm 2014, công ty được vinh danh trong Top 10 Thương hiệu uy tín, Sản phẩm chất lượng, Dịch vụ tin dùng, đồng thời nhận Giấy khen và Cúp Tuyên dương của Cục Thuế TP.HCM — khẳng định uy tín trong việc thực hiện nghĩa vụ thuế và đóng góp cho ngân sách nhà nước. nhankiet
+P239 [Normal]: - Tháng 1 năm 2015, công ty được cấp phép hoạt động cho thuê lại lao động (Giấy phép số 029/LĐTBXH-GP), và giấy phép này đã được gia hạn và vẫn còn hiệu lực đến nay. nhankiet
+P240 [Normal]: - Tháng 10 năm 2020, công ty tiếp tục được cấp phép hoạt động trong lĩnh vực giới thiệu việc làm, mở rộng thêm phạm vi dịch vụ phục vụ cả người lao động lẫn doanh nghiệp đối tác. nhankiet
+P241 [Normal]: Từ một đơn vị ban đầu hoạt động tại TP.HCM, công ty đã mở rộng mạng lưới với nhiều chi nhánh trải dài từ Nam ra Bắc, bao gồm các chi nhánh tại Bình Dương (VSIP 1, VSIP 2, VSIP 2A, Bàu Bàng), TP.HCM (Tân Bình), Hà Nội, Hải Phòng, Bắc Ninh, Đà Nẵng, Quảng Ngãi và Đồng Nai — phủ rộng khắp các khu công nghiệp trọng điểm trên cả nước. nhankiet
+P242 [Normal]: Để phục vụ các đối tác quốc tế, công ty còn xây dựng hệ thống website đa ngôn ngữ, bao gồm tiếng Anh, tiếng Nhật, tiếng Hàn, tiếng Pháp, tiếng Nga và tiếng Hoa, thể hiện tầm nhìn hướng đến thị trường lao động toàn cầu.
+P243 [Normal]: Với hành trình phát triển bền vững đó, Công ty TNHH Cung Ứng Nhân Lực Nhân Kiệt ngày nay đã khẳng định được vị thế là một trong những đơn vị cung ứng nhân lực uy tín hàng đầu tại khu vực phía Nam, đặc biệt trong lĩnh vực phục vụ các khu công nghiệp và khu chế xuất tại Bình Dương và các tỉnh lân cận.
+P244 [2]: Chức năng nhiệm vụ
+P245 [Heading 3]: 1.3.1. Chức năng
+P246 [Normal]: Công ty TNHH Cung Ứng Nhân Lực Nhân Kiệt thực hiện các chức năng chính trong lĩnh vực cung ứng và quản lý nguồn nhân lực, bao gồm:
+P247 [Normal]: Dịch vụ cung ứng lao động (Outsourcing Services): Tuyển dụng, sàng lọc và bố trí lao động phổ thông lẫn nhân sự có tay nghề đến làm việc tại các doanh nghiệp đối tác theo đúng số lượng, tiêu chuẩn và thời gian yêu cầu. Công ty đóng vai trò là đơn vị sử dụng lao động về mặt pháp lý, chịu toàn bộ trách nhiệm liên quan đến hợp đồng và chế độ đãi ngộ cho người lao động.
+P248 [Normal]: Dịch vụ hợp thức hóa lao động (Staffing Services): Hỗ trợ doanh nghiệp chuẩn hóa toàn bộ hồ sơ và thủ tục pháp lý liên quan đến lực lượng lao động hiện có, đảm bảo tuân thủ đúng quy định của Bộ luật Lao động Việt Nam.
+P249 [Normal]: Dịch vụ quản trị nhân sự và tính lương (Payroll Services): Xây dựng và vận hành hệ thống chấm công, tính lương, phát hành phiếu lương; quản lý toàn bộ hồ sơ nhân sự cho doanh nghiệp có nhu cầu thuê ngoài mảng nhân sự – tiền lương.
+P250 [Normal]: Dịch vụ bảo hiểm xã hội (Insurance Services): Thực hiện đăng ký, kê khai và đóng đầy đủ bảo hiểm xã hội, bảo hiểm y tế, bảo hiểm thất nghiệp cho người lao động theo đúng quy định pháp luật; hỗ trợ giải quyết các chế độ ốm đau, thai sản, tai nạn lao động khi phát sinh.
+P251 [Normal]: Dịch vụ thuế thu nhập cá nhân (Personal Income Tax Services): Tư vấn, kê khai và quyết toán thuế thu nhập cá nhân cho người lao động và doanh nghiệp, đảm bảo thực hiện đúng nghĩa vụ thuế theo quy định hiện hành.
+P252 [Normal]: Dịch vụ hỗ trợ hành chính (Back Office Services): Cung cấp các giải pháp hỗ trợ vận hành hành chính cho doanh nghiệp đối tác, giúp tinh gọn bộ máy và tối ưu chi phí quản lý nội bộ.
+P253 [Normal]: Dịch vụ hỗ trợ bán hàng (Fieldforce Services): Cung cấp nhân sự hỗ trợ kinh doanh tại thị trường, bao gồm chăm sóc đại lý, giám sát điểm bán và các hoạt động field marketing theo yêu cầu của đối tác.
+P254 [Heading 3]: 1.3.2. Nhiệm vụ
+P255 [Normal]: Trên cơ sở các chức năng được giao, Công ty TNHH Cung Ứng Nhân Lực Nhân Kiệt thực hiện các nhiệm vụ cụ thể như sau:
+P256 [Normal]: Về tuyển dụng và cung ứng lao động: Tổ chức tuyển dụng lao động phổ thông, nhân sự cấp trung và cấp cao theo đơn hàng của từng doanh nghiệp đối tác; duy trì và cập nhật thường xuyên cơ sở dữ liệu nguồn lao động để đảm bảo đáp ứng nhanh các nhu cầu phát sinh.
+P257 [Normal]: Về quản lý và hỗ trợ người lao động: Theo dõi, giám sát quá trình làm việc của người lao động tại doanh nghiệp sử dụng; giải quyết kịp thời các vấn đề phát sinh trong quan hệ lao động; đảm bảo đầy đủ quyền lợi hợp pháp cho người lao động trong suốt thời gian thực hiện hợp đồng.
+P258 [Normal]: Về thực hiện nghĩa vụ pháp lý: Ký kết và quản lý hợp đồng lao động đúng quy định; thực hiện đầy đủ các nghĩa vụ về bảo hiểm và thuế; phối hợp với cơ quan chức năng giải quyết tranh chấp lao động khi có yêu cầu.
+P259 [Normal]: Về phát triển thị trường và dịch vụ: Mở rộng mạng lưới chi nhánh tại các khu công nghiệp trọng điểm; nghiên cứu và phát triển các gói dịch vụ phù hợp với nhu cầu thực tiễn của từng doanh nghiệp đối tác và từng địa bàn hoạt động.
+P260 [Normal]: Về trách nhiệm xã hội: Tích cực tham gia các ngày hội việc làm, chương trình đào tạo hướng nghiệp và các hoạt động hỗ trợ cộng đồng tại địa phương, góp phần giải quyết việc làm và nâng cao chất lượng cuộc sống cho người lao động.
+P261 [2]: Sơ đồ tổ chức
+P263 [Normal]: SƠ ĐỒ TỔ CHỨC
+P264 [Normal]: CÔNG TY TNHH CUNG ỨNG NHÂN LỰC NHÂN KIỆT
+P265 [Normal]: CẤP LÃNH ĐẠO VÀ KHU VỰC
+P266 [Normal]: CƠ CẤU DỊCH VỤ & HỆ THỐNG CHI NHÁNH
+P268 [Normal]: Trụ sở chính: P.202, Tòa nhà 57, Số 57 Lê Thị Hồng Gấm, Phường Bến Thành, TP.HCM  |  ĐT: 028 3505 4224  |  www.nhankiet.vn
+P270 [Caption]: Hình 1.2. Sơ đồ tổ chức Công ty TNHH Cung Ứng Nhân Lực Nhân Kiệt
+P271 [2]: Nhiệm vụ được giao
+P272 [Normal]: Trong thời gian thực tập tại công ty, em được phân công đảm nhận vai trò phát triển hệ thống Việc Làm Xanh — một nền tảng trực tuyến kết nối người lao động với nhà tuyển dụng tại các khu công nghiệp thuộc địa bàn Bình Dương và Đồng Nai (cũ). Hệ thống hướng đến việc số hóa quy trình tìm việc và tuyển dụng, giúp người lao động dễ dàng tiếp cận các cơ hội việc làm phù hợp, đồng thời hỗ trợ doanh nghiệp tiếp cận nguồn nhân lực tại địa phương một cách nhanh chóng và minh bạch.
+P273 [Normal]: Về phát triển phần mềm, nhiệm vụ của em bao quát toàn bộ quy trình từ thiết kế kiến trúc đến triển khai sản phẩm hoàn chỉnh. Hệ thống được tổ chức theo mô hình monorepo với ba thành phần chính. Ở phía giao diện người dùng, em xây dựng một ứng dụng web Progressive Web App bằng Next.js, cung cấp đầy đủ các chức năng cốt lõi như đăng nhập và đăng ký tài khoản qua số điện thoại, Google và Zalo, tìm kiếm và lọc việc làm theo danh mục ngành nghề và vị trí địa lý, đăng tin tuyển dụng dành cho nhà tuyển dụng, quản lý hồ sơ cá nhân và CV, nhắn tin thời gian thực giữa hai bên, xem bản đồ hiển thị việc làm và lao động lân cận, thanh toán và nạp tiền qua cổng PayOS, cùng trang quản trị dành cho ban điều hành hệ thống. Ở phía máy chủ, em phát triển đồng thời hai phiên bản backend chia sẻ cùng một bề mặt API: phiên bản thứ nhất chạy trên VPS sử dụng Express.js kết hợp SQLite và Socket.io dành cho môi trường phát triển nội bộ, phiên bản thứ hai triển khai trên nền tảng serverless Cloudflare Workers với Hono framework, D1 database và R2 storage dành cho môi trường production — đảm bảo tính linh hoạt và khả năng mở rộng khi lượng người dùng tăng cao.
+P274 [Normal]: Bên cạnh các chức năng nền tảng, em còn được giao nghiên cứu và tích hợp một số tính năng nâng cao ứng dụng trí tuệ nhân tạo nhằm nâng cao trải nghiệm người dùng. Cụ thể, hệ thống được trang bị chatbot AI hỗ trợ trò chuyện và tư vấn việc làm tự động, công cụ phân tích CV trích xuất thông tin và đánh giá mức độ phù hợp với vị trí ứng tuyển, mô-đun huấn luyện phỏng vấn (interview coach) giúp người lao động chuẩn bị kỹ năng trả lời câu hỏi, tính năng đánh giá chân dung nghề nghiệp (Career DNA) phân tích điểm mạnh và định hướng phát triển, cùng công cụ tư vấn pháp luật lao động cơ bản. Ngoài ra, em cũng xây dựng hệ thống thu thập tin tuyển dụng tự động từ các trang web tuyển dụng phổ biến như VietnamWorks, CareerBuilder, TopCV và Vieclam24h, qua đó làm giàu cơ sở dữ liệu việc làm cho nền tảng. Song song với đó là hệ thống chấm điểm uy tín người dùng dựa trên lịch sử hoạt động, góp phần xây dựng một môi trường giao dịch an toàn và đáng tin cậy giữa các bên tham gia.
+P275 [Normal]: Nhiệm vụ thứ hai em được giao là cấu hình và triển khai hạ tầng máy chủ phục vụ vận hành hệ thống. Công việc bao gồm thiết lập toàn bộ hạ tầng trên nền tảng Cloudflare: Cloudflare Pages để lưu trữ và phân phối giao diện người dùng, Cloudflare Workers để vận hành API theo kiến trúc serverless, D1 làm cơ sở dữ liệu chính và R2 làm dịch vụ lưu trữ tệp tin. Em cũng thiết lập pipeline CI/CD thông qua GitHub Actions, đảm bảo mỗi khi mã nguồn trên nhánh chính được cập nhật, hệ thống sẽ tự động build và deploy lên môi trường production mà không cần can thiệp thủ công. Ở khía cạnh bảo mật, em triển khai các lớp bảo vệ gồm security headers như Content Security Policy, HSTS, X-Frame-Options; cơ chế giới hạn tốc độ truy cập nhằm chống tấn công từ chối dịch vụ, xác thực người dùng qua JWT với cặp access token và refresh token, mã hóa mật khẩu, cùng cơ chế tự động ẩn số điện thoại trong tin nhắn để bảo vệ quyền riêng tư của người lao động. Em còn thực hiện cấu hình và tích hợp các dịch vụ bên thứ ba cần thiết cho hoạt động của hệ thống: Firebase phục vụ xác thực Google và gửi thông báo đẩy, Mapbox cho chức năng bản đồ và mã hóa địa chỉ, PayOS làm cổng thanh toán trực tuyến hỗ trợ cả luồng thu hộ và chi hộ, cùng Zalo OAuth và Zalo ZNS cho việc đăng nhập và gửi tin nhắn xác thực. Cuối cùng, em quản lý cấu hình tên miền nhankiet.org, thiết lập bản ghi DNS và chứng chỉ SSL/TLS để đảm bảo toàn bộ hệ thống vận hành an toàn trên môi trường Internet.
+P276 [2]: Mục tiêu và kế hoạch thực tập
+P277 [Normal]: Mục tiêu thực tập của em được xác định ngay từ đầu đợt thực tập, bám sát định hướng chuyên ngành Công nghệ thông tin và yêu cầu của học phần thực tập doanh nghiệp. Về mục tiêu tổng quát, em mong muốn được tiếp cận môi trường làm việc thực tế tại doanh nghiệp, vận dụng những kiến thức đã học về lập trình web, cơ sở dữ liệu và kiến trúc hệ thống vào một dự án cụ thể, đồng thời rèn luyện các kỹ năng nghề nghiệp cần thiết cho công việc lập trình sau khi tốt nghiệp. Về mục tiêu cụ thể, em đặt ra ba nội dung chính: (1) nghiên cứu và triển khai thành công kiến trúc Backend kép cho nền tảng Việc Làm Xanh, đảm bảo đồng bộ API Surface giữa hai môi trường Express và Cloudflare Workers; (2) tham gia cấu hình, triển khai và bảo trì hạ tầng máy chủ phục vụ vận hành hệ thống; (3) hoàn thành báo cáo thực tập đúng tiến độ, phản ánh trung thực quá trình làm việc và kết quả đạt được.
+P278 [Normal]: Kế hoạch thực tập được xây dựng theo từng tuần trong suốt 10 tuần (từ 18/5 đến 26/7/2026), cụ thể: tuần 1 dành cho tìm hiểu và phân tích tổng quan dự án; tuần 2-3 xây dựng và phát triển các chức năng cốt lõi của hệ thống, đồng thời triển khai các mô-đun AI Automation và Analytics; tuần 4 tái cấu trúc hệ thống, hoàn thiện Design System và mở rộng tính năng cho nhà tuyển dụng; tuần 5 tập trung ổn định hệ thống, sửa lỗi và kiểm thử toàn diện; tuần 6 chuẩn bị hạ tầng phần cứng, cài đặt hệ điều hành và cấu hình máy chủ; tuần 7 hoàn thiện pipeline CI/CD, cấu hình tên miền DNS và chứng chỉ SSL/TLS; tuần 8 tối ưu hiệu năng và kiểm thử tải; tuần 9 viết tài liệu kỹ thuật và hướng dẫn sử dụng; tuần 10 tổng kết, bàn giao hệ thống và hoàn thiện báo cáo thực tập. Kế hoạch này được bám sát trong suốt quá trình thực tập, có điều chỉnh nhỏ về tiến độ giữa các tuần tùy theo yêu cầu thực tế phát sinh tại đơn vị.
+P279 [2]: Kiến thức và kỹ năng đã áp dụng
+P280 [Normal]: Kiến thức chuyên ngành: Trong quá trình thực tập, em đã vận dụng nhiều kiến thức đã học tại trường vào công việc thực tế, bao gồm kiến thức về lập trình web (HTML/CSS/JavaScript, TypeScript, Next.js, Express.js), thiết kế và quản trị cơ sở dữ liệu quan hệ, nguyên lý kiến trúc phần mềm và hệ thống phân tán, các khái niệm về bảo mật ứng dụng web (xác thực JWT, mã hóa mật khẩu, phòng chống SQL Injection, XSS, CSRF), cùng kiến thức nền tảng về mạng máy tính và quản trị hệ điều hành phục vụ việc cấu hình máy chủ.
+P281 [Normal]: Kỹ năng nghề nghiệp: Bên cạnh kiến thức chuyên môn, em cũng rèn luyện được nhiều kỹ năng nghề nghiệp quan trọng: kỹ năng tự nghiên cứu và học công nghệ mới trong thời gian ngắn (Cloudflare Workers, Hono, D1); kỹ năng làm việc nhóm và phối hợp với các anh chị trong công ty qua các buổi review code và thảo luận kiến trúc; kỹ năng quản lý thời gian và tự lập kế hoạch công việc theo tuần; kỹ năng đọc hiểu tài liệu kỹ thuật bằng tiếng Anh; và kỹ năng trình bày, báo cáo tiến độ công việc một cách rõ ràng, súc tích với người hướng dẫn.
+P283 [1]: TỔNG QUAN VỀ HỆ THỐNG VIỆC LÀM XANH
+P284 [2]: Giới thiệu chung
+P285 [Normal]: Việc Làm Xanh là một nền tảng trực tuyến kết nối người lao động với nhà tuyển dụng tại các khu công nghiệp trên địa bàn hai tỉnh Bình Dương và Đồng Nai. Hệ thống được xây dựng nhằm số hóa quy trình tìm việc và tuyển dụng truyền thống, vốn phụ thuộc nhiều vào môi giới trung gian, bảng tin giấy và các kênh thông tin phân mảnh. Bằng việc đưa toàn bộ quy trình lên một nền tảng duy nhất, Việc Làm Xanh giúp người lao động dễ dàng tiếp cận cơ hội việc làm phù hợp với kỹ năng và vị trí địa lý của họ, đồng thời hỗ trợ doanh nghiệp tiếp cận nguồn nhân lực địa phương một cách nhanh chóng, minh bạch và tiết kiệm chi phí.
+P286 [Normal]: Bảng 2.1. Danh sách các API endpoint chính của hệ thống
+P287 [Normal]: Hệ thống phục vụ ba nhóm đối tượng người dùng chính. Nhóm thứ nhất là người lao động (NLĐ) — những công nhân, lao động phổ thông, thực tập sinh và nhân viên đang tìm kiếm việc làm tại các khu công nghiệp. NLĐ có thể tạo hồ sơ cá nhân, tải lên CV, tìm kiếm việc làm theo danh mục ngành nghề và khu vực địa lý, ứng tuyển trực tiếp, nhắn tin với nhà tuyển dụng và nhận các gợi ý việc làm thông minh từ hệ thống. Nhóm thứ hai là nhà tuyển dụng (NTD) — các doanh nghiệp, công ty đang hoạt động trong các khu công nghiệp có nhu cầu tuyển dụng lao động. NTD có thể đăng tin tuyển dụng, tìm kiếm hồ sơ người lao động trên bản đồ, trò chuyện trực tiếp với ứng viên, quản lý quy trình phỏng vấn và tuyển dụng, thanh toán lương qua nền tảng, cũng như sử dụng các gói đăng ký và đẩy tin để tăng hiệu quả tuyển dụng. Nhóm thứ ba là ban quản trị (Admin) với vai trò giám sát và điều hành toàn bộ nền tảng, bao gồm phê duyệt tin đăng, xử lý báo cáo vi phạm, quản lý người dùng và giao dịch, cùng các công cụ thống kê và phân tích thị trường lao động.
+P288 [Normal]: Phạm vi địa lý của hệ thống tập trung vào các khu công nghiệp trọng điểm tại Bình Dương và Đồng Nai — hai địa phương có mật độ khu công nghiệp và lực lượng lao động lớn hàng đầu cả nước. Hệ thống tích hợp danh sách hơn 40 khu công nghiệp thuộc hai tỉnh này như VSIP 1, VSIP 2, Mỹ Phước 1-2-3, Sóng Thần 1-2, Đồng An, Amata, Biên Hòa 1-2, Nhơn Trạch 1-2-3-4-5-6, Long Thành, cùng nhiều khu công nghiệp khác, giúp người dùng dễ dàng lọc và tìm việc theo từng khu vực cụ thể.
+P290 [Normal]: Hình 2.1. Giao diện bắt đầu
+P291 [Normal]: Trong suốt 10 tuần thực tập tại Công ty TNHH Cung Ứng Nhân Lực Nhân Kiệt, kể từ ngày 18/5/2026 đến ngày 26/7/2026, em đã thực hiện công việc bám sát kế hoạch đã đề ra ở Chương 1, dưới sự theo dõi và xác nhận của cán bộ hướng dẫn tại đơn vị. Nội dung công việc cụ thể của từng tuần được trình bày chi tiết như sau.
+P292 [2]: Quy trình thực hiện
+P293 [Heading 3]: 2.2.1. Tuần 1 (18/05 – 22/05/2026): Tìm hiểu tổng quan dự án và lên kế hoạch thực tập
+P294 [Normal]: a) Giới thiệu tổng quan về đơn vị thực tập và dự án
+P295 [.nd1]: Trong tuần đầu tiên, em được đơn vị thực tập giới thiệu tổng quan về cơ cấu tổ chức, bộ phận IT và dự án Việc Làm Xanh nền tảng kết nối người lao động và nhà tuyển dụng mà em sẽ tham gia phát triển trong suốt kỳ thực tập. Em được cung cấp tài liệu nghiệp vụ, sơ đồ hệ thống hiện có cùng danh sách các yêu cầu chức năng chính của nền tảng để làm cơ sở nghiên cứu.
+P296 [Normal]: b) Nghiên cứu kiến trúc mã nguồn hiện có
+P298 [.nd1]: Em tìm hiểu mô hình monorepo và cấu trúc mã nguồn đã được triển khai trước đó, bao gồm ứng dụng frontend viết bằng Next.js, backend Express.js và backend Cloudflare Workers. Việc nắm được cách tổ chức thư mục, quy ước đặt tên và luồng dữ liệu giữa các thành phần là bước nền tảng để em có thể tiếp cận và đóng góp vào mã nguồn ở các tuần tiếp theo.
+P299 [Normal]: c) Xác định phạm vi công việc và lập kế hoạch
+P300 [.nd1]: Trên cơ sở tìm hiểu ban đầu, em xác định phạm vi công việc được giao trong đợt thực tập, đồng thời lập kế hoạch chi tiết cho các tuần kế tiếp, ưu tiên các tính năng cốt lõi trước khi chuyển sang các hạng mục về hạ tầng và tối ưu hệ thống ở giai đoạn cuối.
+P301 [.m5_Bang]: Bảng 2.2. Tóm tắt kết quả Tuần 1
+P302 [Heading 3]: 2.2.2. Tuần 2 (25/05 – 29/05/2026): Xây dựng và phát triển các chức năng hệ thống
+P303 [Normal]: a) Phát triển các chức năng cốt lõi
+P304 [.nd1]: Quá trình triển khai tập trung vào việc hoàn thiện các chức năng cốt lõi của nền tảng, bao gồm: luồng đăng ký/đăng nhập đa kênh, hệ thống đăng tin - tìm kiếm việc làm và quy trình ứng tuyển dành cho người lao động. Đây là nhóm tính năng nền tảng, đóng vai trò quyết định đến trải nghiệm sử dụng xuyên suốt của cả người lao động lẫn nhà tuyển dụng.
+P305 [Normal]: b) Đồng bộ API Surface trên hai backend
+P306 [.nd1]: Song song với việc phát triển chức năng, em xây dựng các endpoint tương ứng trên cả hai backend Express.js và Cloudflare Workers, nhằm đảm bảo API Surface được đồng bộ ngay từ giai đoạn đầu. Việc đồng bộ sớm giúp hạn chế tình trạng lệch pha dữ liệu và hành vi phản hồi giữa hai môi trường vận hành ở các giai đoạn phát triển sau này.
+P307 [Normal]: Bảng 2.3. Tóm tắt kết quả Tuần 2
+P308 [Normal]: c) Đồng bộ màu sắc thương hiệu
+P309 [Normal]: Theo yêu cầu của công ty, toàn bộ giao diện cần thể hiện màu xanh lá đặc trưng (#0A8043) gam màu gắn liền với tên thương hiệu Vieclamxanh. nhóm cập nhật hệ thống màu trong Tailwind config và CSS variables, áp dụng lại cho toàn bộ các component chính. Footer được thu gọn, loại bỏ các phần thừa. Widget Google Translate bị loại bỏ do gây lỗi JavaScript trên môi trường production.
+P311 [Heading 3]: 2.2.3. Tuần 3 (01/06 – 05/06/2026): AI Automation và ổn định hệ thống
+P312 [Normal]: a) Tích hợp mô-đun trí tuệ nhân tạo
+P313 [.nd1]: Đây là tính năng phức tạp nhất nhóm thực hiện trong giai đoạn đầu. Hệ thống AI Chat Automation cho phép nhà tuyển dụng bật chế độ AI đại diện khi đó mọi tin nhắn từ người lao động gửi đến sẽ được AI tự động trả lời thay mặt cho nhà tuyển dụng, dựa trên thông tin công ty đã được nạp vào system prompt.
+P314 [.nd1]: Luồng hoạt động: khi NLĐ gửi tin nhắn, Worker nhận request, kiểm tra cờ ai_enabled của NTD trong D1 Database, nếu bật thì tổng hợp toàn bộ thông tin công ty (tên, địa chỉ, ngành nghề, vị trí đang tuyển, người đại diện) thành system prompt và gọi DeepSeek API để tạo câu trả lời, sau đó lưu tin nhắn AI vào database và trả về cho frontend. Một vấn đề kỹ thuật quan trọng được xử lý là chuyển từ xử lý bất đồng bộ (waitUntil) sang đồng bộ, vì Cloudflare Workers có thể kill các tiến trình async chưa hoàn thành khi response đã được gửi đi.
+P315 [.nd1]: Đây là một trong những tính năng có độ phức tạp cao nhất được triển khai trong giai đoạn đầu của dự án. Hệ thống tự động hóa phản hồi (AI Chat Automation) cho phép nhà tuyển dụng kích hoạt chế độ AI đại diện, tự động trả lời toàn bộ tin nhắn từ người lao động dựa trên dữ liệu doanh nghiệp được cấu hình sẵn trong system prompt.
+P316 [.nd1]: * Luồng hoạt động của hệ thống
+P317 [.nd1]: - Bước 1 (Tiếp nhận yêu cầu): Khi người lao động gửi tin nhắn, tiến trình Worker sẽ tiếp nhận request.
+P318 [.nd1]: - Bước 2 (Kiểm tra trạng thái): Hệ thống truy vấn cờ ai_enabled của nhà tuyển dụng trong cơ sở dữ liệu D1 Database.
+P319 [.nd1]: - Bước 3 (Khởi tạo dữ liệu): Nếu tính năng được kích hoạt, hệ thống tự động tổng hợp toàn bộ thông tin doanh nghiệp (tên, địa chỉ, ngành nghề, các vị trí đang tuyển dụng, thông tin người đại diện) để cấu hình thành system prompt.
+P320 [.nd1]: - Bước 4 (Xử lý AI & Phản hồi): Gọi DeepSeek API để tạo nội dung trả lời, lưu bản ghi tin nhắn AI vào cơ sở dữ liệu và trả kết quả về giao diện người dùng (Frontend).
+P321 [.nd1]: * Xử lý và tối ưu hóa kỹ thuật
+P322 [.nd1]: - Thách thức: Phương thức xử lý bất đồng bộ (waitUntil) ban đầu gặp rủi ro do môi trường Cloudflare Workers có thể tự động ngắt (kill) các tiến trình async chưa hoàn thành ngay sau khi kết quả response được gửi đi.
+P323 [.nd1]: - Giải pháp: Chuyển đổi toàn bộ cơ chế xử lý sang dạng đồng bộ, đảm bảo luồng khởi tạo dữ liệu, gọi API và lưu cơ sở dữ liệu được thực thi hoàn tất và ổn định trước khi trả phản hồi về phía Frontend.
+P324 [Normal]: b) Xây dựng bảng thống kê phân tích
+P325 [.nd1]: Hệ thống bảng thống kê phân tích được xây dựng nhằm phục vụ trang quản trị (Admin Dashboard), cung cấp cho quản trị viên góc nhìn tổng quan, trực quan và chính xác về toàn bộ hoạt động trên nền tảng.
+P326 [.nd1]: * Nội dung triển khai
+P327 [.nd1]: - Trực quan hóa dữ liệu người dùng: Thống kê số lượng tài khoản đăng ký mới, phân loại người lao động và nhà tuyển dụng theo thời gian.
+P328 [.nd1]: - Theo dõi chỉ số tương tác: Thống kê lượng tin tuyển dụng được khởi tạo, lượt tìm kiếm và lưu lượng ứng tuyển trên hệ thống.
+P329 [.nd1]: - Báo cáo hiệu suất vận hành: Bảng tổng hợp các chỉ số hoạt động chính (KPIs) hỗ trợ quản trị viên đưa ra quyết định vận hành kịp thời.
+P330 [.nd1]: * Mức độ hoàn thiện và giá trị mang lại
+P331 [.nd1]: - Tính nhất quán: Tự động tổng hợp dữ liệu từ cơ sở dữ liệu để hiển thị biểu đồ theo thời gian thực.
+P332 [.nd1]: - Tối ưu trải nghiệm quản trị: Giảm thiểu thời gian truy vấn thủ công, nâng cao năng lực giám sát và kiểm soát hệ thống của quản trị viên.
+P333 [Normal]: c) Rà soát và ổn định hệ thống
+P334 [.nd1]: Song song với việc phát triển các tính năng mới, công tác kiểm thử và tối ưu hóa hệ thống được thực hiện nhằm đảm bảo các chức năng đã triển khai ở tuần trước vận hành chính xác theo đúng thiết kế kiến trúc ban đầu.
+P335 [.nd1]: * Nội dung thực hiện
+P336 [.nd1]: - Kiểm tra và vá lỗi (Bug Fixing): Rà soát toàn bộ các luồng nghiệp vụ nền tảng (đăng ký/đăng nhập đa kênh, đăng tin tuyển dụng, quy trình ứng tuyển) để phát hiện và xử lý triệt để các lỗi phát sinh.
+P337 [.nd1]: - Tối ưu hóa hiệu năng: Đánh giá lại tốc độ xử lý dữ liệu, chuẩn hóa các câu lệnh truy vấn cơ sở dữ liệu và tối ưu thời gian phản hồi (latency) của API.
+P338 [.nd1]: - Đánh giá tính sẵn sàng: Kiểm tra độ tương thích giữa các mô-đun cũ và các mô-đun AI mới tích hợp.
+P339 [.nd1]: * Kết quả đạt được
+P340 [.nd1]: - Hệ thống đạt trạng thái vận hành ổn định, không phát sinh lỗi xung đột giữa các tính năng.
+P341 [.nd1]: - Tạo tiền đề kỹ thuật vững chắc, sẵn sàng cho việc nâng cấp và mở rộng các giai đoạn tiếp theo.
+P342 [.m2]: Sơ đồ luồng hoạt động các tính năng chính
+P343 [Heading 3]: 2.3.1. Luồng xử lý AI Chat Automation
+P344 [Normal]: Sơ đồ dưới đây mô tả luồng xử lý khi người lao động gửi tin nhắn đến nhà tuyển dụng có bật chế độ AI:
+P345 [.m4_Hinh]: Sơ đồ luồng xử lý AI Chat Automation
+P346 [Heading 3]: 2.3.2. Sơ đồ phễu tuyển dụng 6 bước
+P347 [Normal]: Mô hình phễu tuyển dụng là cốt lõi của hệ thống Analytics. Mỗi bước trong phễu tương ứng với một trạng thái trong vòng đời ứng tuyển, được theo dõi và lưu trữ trong database:
+P348 [.m4_Hinh]: Sơ đồ phễu tuyển dụng 6 bước trên nền tảng Vieclamxanh
+P349 [Heading 3]: 2.3.3. Tuần 4 (08/06 – 12/06/2026): Đại tu giao diện và xác thực nâng cao
+P350 [Normal]: a) Design System Overhaul Hệ thống giao diện thống nhất
+P351 [.nd1]: Sau ba tuần phát triển tính năng, nhóm nhận thấy codebase giao diện đang có nhiều vấn đề về tính nhất quán: mỗi component sử dụng inline SVG riêng với kích thước và màu sắc khác nhau, nhiều nơi dùng emoji thay vì icon thực sự, khiến giao diện trông thiếu chuyên nghiệp và khó bảo trì. Giải pháp được thực hiện là cài đặt thư viện Phosphor Icons và xây dựng component Icon dùng chung.
+P352 [.nd1]: Nhóm thực hiện refactor hơn 13 file component lớn như BottomNav, DesktopSidebar, JobCard, WorkerCard, Toast và EmptyState xóa toàn bộ inline SVG và emoji, thay thế bằng component Icon nhất quán. Kết quả đo lường cho thấy trang Profile giảm 4.5 kB bundle size sau khi loại bỏ SVG. Hệ thống Dark Mode cũng được chuẩn bị sẵn thông qua CSS custom properties và cấu hình darkMode: 'class' trong Tailwind, tuy nhiên việc kích hoạt Dark Mode cho người dùng cuối được để lại cho giai đoạn sau.
+P353 [Normal]: b) Đăng nhập bằng Mã Số Thuế và Commute Map
+P354 [.nd1]: Tính năng xác thực doanh nghiệp qua MST giúp tăng độ tin cậy: khi đăng ký tài khoản nhà tuyển dụng, hệ thống kết nối API tra cứu MST thực tế để xác minh doanh nghiệp tồn tại và đang hoạt động. Tính năng Commute Map tích hợp Mapbox GL để tính toán và hiển thị lộ trình đi làm từ địa chỉ NLĐ đến nơi làm việc, kèm thời gian ước tính, giúp NLĐ đưa ra quyết định ứng tuyển dựa trên khoảng cách thực tế.
+P355 [Heading 3]: 2.3.4. Tuần 5–6 (15/06 – 26/06/2026): Retention Features và tuyển dụng thông minh
+P356 [Normal]: Hai tuần liên tiếp này tập trung vào việc tăng sự gắn kết của người dùng với nền tảng một yếu tố quan trọng để đảm bảo người lao động quay lại sử dụng ứng dụng thường xuyên thay vì chỉ dùng một lần.
+P357 [Normal]: a) Bộ 6 tính năng giữ chân người lao động
+P358 [.nd1]: Job Alert Cho phép NLĐ đăng ký nhận thông báo tự động khi có tin tuyển dụng mới phù hợp với tiêu chí đã lưu (ngành nghề, địa điểm, mức lương). Thông báo được gửi qua email hoặc push notification.
+P359 [.nd1]: Urgency Badge Nhãn dán màu đỏ 'TUYỂN GẤP' hoặc 'ĐI LÀM NGAY' hiển thị nổi bật trên card tin tuyển dụng để tạo cảm giác cấp bách, khuyến khích NLĐ ứng tuyển sớm.
+P360 [.nd1]: Daily Challenge Hệ thống nhiệm vụ hàng ngày (cập nhật CV, điểm danh, xem 3 tin tuyển dụng...) giúp NLĐ tích lũy điểm thưởng, tạo thói quen mở ứng dụng mỗi ngày.
+P361 [.nd1]: Social Proof Hiển thị số người đang xem tin hoặc số ứng viên đã ứng tuyển thành công gần đây, tạo hiệu ứng FOMO (Fear Of Missing Out) thúc đẩy hành động.
+P362 [Normal]: b) Video Recruitment và Assessment Tests
+P363 [.nd1]: Hệ thống Video Recruitment cho phép người tuyển dụng quay hoặc tải lên video giới thiệu công việc ngắn (dưới 3 phút) trực tiếp từ điện thoại. Video được lưu trữ trên Cloudflare R2 và nhúng vào trang đăng tin ứng tuyển, giúp nhà người lao động có thêm thông tin đánh giá xem bản thân có phù hợp không trước khi apply vị trí đặc biệt hữu ích trong tuyển dụng lao động phổ thông.
+P364 [.nd1]: Module Assessment Tests cho phép NTD tạo bài kiểm tra năng lực kèm theo tin tuyển dụng. Bài test có thể gồm câu hỏi trắc nghiệm (được chấm điểm tự động) hoặc tự luận (NTD chấm thủ công). Điểm đặc biệt là tính năng PDF Parser: NTD tải lên file PDF đề thi, hệ thống dùng PDF.js để đọc nội dung và thuật toán phân tích cú pháp tự động nhận diện và trích xuất câu hỏi cùng các đáp án, chuyển về dạng JSON có thể chỉnh sửa, tiết kiệm đáng kể thời gian nhập liệu.
+P365 [.m3]: 2.3.5. Tuần 7–8 (29/06 – 10/07/2026): Edge Computing và bảo mật hệ thống
+P366 [Normal]: a) Đồng bộ hóa toàn diện lên Cloudflare Workers
+P367 [.nd1]: Đây là giai đoạn kỹ thuật phức tạp nhất của toàn bộ dự án. nhóm thực hiện đánh giá kỹ thuật toàn diện (Technical Audit) và lập danh sách 5 tính năng AI nâng cao chỉ tồn tại trên Express backend chưa được đưa lên Worker. Việc viết lại logic cho môi trường Cloudflare D1 đòi hỏi nắm vững sự khác biệt giữa SQLite truyền thống và D1 API đặc biệt là cách binding parameters và xử lý kết quả query.
+P368 [.nd1]: Thuật toán đề xuất việc làm bằng Cosine Similarity là thách thức kỹ thuật lớn nhất: hệ thống Career DNA xây dựng vector hành vi của NLĐ dựa trên lịch sử tìm kiếm, lưu tin và ứng tuyển; mỗi kỹ năng trong hệ thống được biểu diễn là một chiều của vector; thuật toán tính độ tương đồng cosine giữa vector Career DNA của NLĐ và vector kỹ năng yêu cầu của từng vị trí tuyển dụng để xếp hạng và đề xuất. Toàn bộ tính toán này được thực hiện trực tiếp trên Cloudflare Worker mà không cần máy chủ riêng.
+P369 [Normal]: b) Content Security Policy và hệ thống thông báo
+P370 [.nd1]: CSP (Content Security Policy) là cơ chế bảo mật web quan trọng, cho phép trình duyệt chặn việc tải tài nguyên từ các nguồn không được phép, giúp ngăn chặn tấn công XSS (Cross-Site Scripting). nhóm cấu hình CSP headers đồng bộ trên cả ba môi trường, đảm bảo chỉ cho phép tải tài nguyên từ các domain tin cậy. Vấn đề nảy sinh khi CSP chặn PDF.js CDN được giải quyết bằng cách tải thư viện về và đặt cục bộ trong thư mục public/vendor/.
+P371 [.m3]: 2.3.6. Tuần 9–10 (13/07 – 26/07/2026): Tối ưu hóa, kiểm thử và bàn giao
+P372 [Normal]: a) Analytics Drill-down và API Proxy CV
+P373 [.nd1]: Tính năng Analytics Drill-down nâng cấp trải nghiệm trang phân tích: thay vì chỉ xem số liệu tổng hợp, NTD có thể click vào bất kỳ thẻ số liệu nào để mở modal chi tiết hiển thị danh sách cụ thể các ứng viên ở bước đó, xem nhanh thông tin và CV mà không cần rời trang Analytics. Cơ chế API Proxy CV được triển khai để thay thế R2 public URL: thay vì trả về link trực tiếp đến file CV, server trả về link proxy nội bộ, chỉ cho phép NTD đã trả phí liên hệ mới có thể truy cập, bảo vệ quyền riêng tư thông tin ứng viên.
+P374 [Normal]: b) Kiểm thử Unit Test và E2E
+P375 [.nd1]: Nhóm viết và cập nhật các kịch bản kiểm thử trong file fee.test.ts sử dụng Vitest framework kiểm thử hiện đại tương thích với Vite. Các trường hợp kiểm thử bao phủ: tính phí đăng tin nổi bật theo thời hạn, tính phí reveal số điện thoại, nâng cấp gói subscription và hoa hồng tuyển dụng thành công. Kiểm thử E2E được thực hiện thủ công trên môi trường production với ba kịch bản đầy đủ từ đăng ký đến hoàn thành quy trình tuyển dụng cho cả NLĐ, NTD và Admin.
+P376 [.m5_Bang]: Tổng hợp kết quả toàn bộ 10 tuần dự án Vieclamxanh
+P378 [2]: Hệ thống chức năng
+P379 [Normal]: Hệ thống Việc Làm Xanh cung cấp một tập hợp các chức năng toàn diện, phục vụ toàn bộ hành trình từ tìm việc, ứng tuyển, đến tuyển dụng và giữ chân lao động.
+P380 [3]: Đăng ký xác thực người dùng
+P381 [Normal]: Hệ thống hỗ trợ nhiều phương thức đăng ký và đăng nhập nhằm tối ưu trải nghiệm cho cả hai nhóm đối tượng người lao động và nhà tuyển dụng. Người dùng có thể đăng ký tài khoản bằng số điện thoại kết hợp mật khẩu — đây là phương thức chính được thiết kế đặc biệt phù hợp với đối tượng lao động phổ thông vốn quen thuộc với điện thoại hơn là email. Ngoài ra, hệ thống còn hỗ trợ đăng nhập qua Google (sử dụng Firebase Authentication) và đăng nhập qua Zalo OAuth — nền tảng mạng xã hội phổ biến nhất tại Việt Nam, đặc biệt trong nhóm lao động phổ thông. Việc xác thực số điện thoại được thực hiện qua Zalo ZNS (Zalo Notification Service) với mã OTP gửi trực tiếp đến tài khoản Zalo của người dùng, loại bỏ chi phí SMS truyền thống. Hệ thống sử dụng cơ chế JWT (JSON Web Token) với cặp access token có thời hạn 15 phút và refresh token có thời hạn 7 ngày, kết hợp với cơ chế refresh token versioning để thu hồi token khi cần thiết, đảm bảo an toàn cho phiên làm việc của người dùng.
+P382 [3]: Quản lý hồ sơ cá nhân
+P383 [Đoạn]: Sau khi đăng ký, người dùng được yêu cầu hoàn thiện hồ sơ cá nhân theo từng vai trò. Đối với người lao động, hồ sơ bao gồm các thông tin cơ bản như họ tên, ngày sinh, giới tính, trình độ học vấn, kinh nghiệm làm việc, kỹ năng chuyên môn, vị trí mong muốn và mức lương kỳ vọng. NLĐ cũng có thể tải lên CV dưới dạng tệp tin, và hệ thống tự động trích xuất thông tin từ CV để điền vào hồ sơ thông qua công cụ phân tích CV bằng AI. Địa chỉ của NLĐ được lưu trữ với ba cấp độ: tọa độ GPS (lat/lng), tỉnh thành và phường xã, cho phép hệ thống gợi ý việc làm theo khoảng cách địa lý. Vì mục đích bảo vệ quyền riêng tư, vị trí của NLĐ trên bản đồ công khai được làm mờ trong phạm vi ±300 mét. Đối với nhà tuyển dụng, hồ sơ bao gồm thông tin công ty như tên công ty, mã số thuế, địa chỉ, giới thiệu doanh nghiệp, logo, video giới thiệu, văn hóa doanh nghiệp và chế độ phúc lợi. NTD cũng có thể xây dựng cơ sở kiến thức doanh nghiệp để hệ thống AI sử dụng khi trả lời tự động các câu hỏi của ứng viên.
+P384 [3]: Đăng tin và tìm kiếm việc làm
+P385 [Đoạn]: Đây là chức năng cốt lõi của nền tảng. Nhà tuyển dụng có thể đăng tin tuyển dụng với đầy đủ thông tin bao gồm: tiêu đề, mô tả công việc, danh mục ngành nghề (hơn 45 danh mục từ lao động phổ thông đến kỹ sư, kế toán, marketing), mức lương, ca làm việc, số lượng cần tuyển, địa chỉ chi tiết kèm tọa độ, yêu cầu công việc và chế độ phúc lợi. Tin đăng có thể được gán nhãn trạng thái như "Tuyển gấp", "Mới" hoặc "Nổi bật" để thu hút ứng viên. NTD cũng có thể đính kèm video giới thiệu công việc, tạo bộ câu hỏi sàng lọc để ứng viên trả lời khi nộp đơn, và sử dụng các gói đẩy tin (1 ngày, 3 ngày, 7 ngày) hoặc gia hạn tin (7 ngày, 20 ngày) để tăng khả năng tiếp cận.
+P386 [Đoạn]: Người lao động có thể tìm kiếm việc làm thông qua nhiều tiêu chí: từ khóa, danh mục ngành nghề, tỉnh thành, khu công nghiệp cụ thể, mức lương, ca làm việc. Kết quả tìm kiếm hiển thị khoảng cách từ vị trí của NLĐ đến địa điểm làm việc, giúp họ đánh giá mức độ thuận tiện trong việc di chuyển. NLĐ có thể lưu tin tuyển dụng yêu thích để xem lại sau, và hệ thống tự động ghi nhận hành vi tìm kiếm, xem tin, lưu tin để xây dựng mô hình sở thích cá nhân, từ đó đưa ra các gợi ý việc làm phù hợp.
+P388 [Caption]: Hình 2.2. Giao diện tìm kiếm việc làm với bộ lọc danh mục ngành nghề và khu vực
+P389 [3]: Quy trình ứng tuyển và phỏng vấn
+P392 [Caption]: Hình 2.3. Giao diện ứng tuyển của NLĐ
+P393 [Đoạn]: Khi NLĐ ứng tuyển vào một vị trí, hệ thống tạo ra một đơn ứng tuyển theo dõi toàn bộ quy trình từ lúc nộp đơn đến khi được tuyển dụng. Quy trình trải qua nhiều trạng thái: "Đã ứng tuyển", "Đang xem xét", "Đã lên lịch phỏng vấn", "Xác nhận phỏng vấn", "Đã tuyển dụng", "Vắng mặt phỏng vấn" hoặc "Từ chối". NTD có thể sắp xếp lịch phỏng vấn trực tiếp trên hệ thống, bao gồm thời gian, địa chỉ phỏng vấn và ghi chú. NLĐ nhận thông báo và có thể xác nhận tham gia hoặc yêu cầu đổi lịch. Hệ thống cũng ghi nhận trạng thái vắng mặt không thông báo (no-show) của NLĐ, ảnh hưởng đến điểm uy tín của họ. Khi NLĐ được tuyển dụng, hệ thống hỗ trợ NTD thanh toán lương trực tiếp qua nền tảng, ghi nhận các mốc kiểm tra tại 30 ngày và 90 ngày để đánh giá mức độ gắn bó của lao động.
+P394 [Đoạn]: Một tính năng đặc biệt trong quy trình tuyển dụng là hệ thống đánh giá năng lực qua bài kiểm tra. NTD có thể tạo bài đánh giá cho từng vị trí tuyển dụng, bao gồm các câu hỏi trắc nghiệm một đáp án, nhiều đáp án hoặc câu hỏi tự luận, kèm thời gian làm bài và điểm đỗ tối thiểu. NLĐ thực hiện bài đánh giá trực tiếp trên nền tảng và kết quả được ghi nhận vào hồ sơ ứng tuyển, giúp NTD sàng lọc ứng viên một cách khách quan và hiệu quả.
+P396 [Caption]: Hình 2.4. Giao diện đăng tin tuyển dạng thủ công.
+P398 [3]: Nhắn tin và giao tiếp thời gian thực
+P399 [Đoạn]: Hệ thống tích hợp chức năng nhắn tin thời gian thực giữa NLĐ và NTD, được xây dựng trên nền tảng Socket.io (bản VPS) và WebSocket (bản Cloudflare Workers). Cuộc trò chuyện được khởi tạo khi NTD hoặc NLĐ bày tỏ sự quan tâm đến một tin tuyển dụng cụ thể. Để bảo vệ quyền riêng tư, số điện thoại trong nội dung tin nhắn được tự động ẩn bởi máy chủ. NTD chỉ có thể xem thông tin liên hệ thực của NLĐ sau khi thanh toán phí tiết lộ liên hệ. Ngược lại, NLĐ cũng có thể mua quyền xem thông tin liên hệ của NTD thông qua các gói lợi ích.
+P400 [Đoạn]: Hệ thống nhắn tin còn được trang bị nhiều tính năng hỗ trợ. NTD có thể thiết lập tin nhắn trả lời tự động và câu trả lời nhanh để tối ưu thời gian phản hồi. Chatbot AI tích hợp trong cửa sổ trò chuyện có thể tự động trả lời các câu hỏi thường gặp của NLĐ dựa trên cơ sở kiến thức doanh nghiệp và danh sách tất cả tin tuyển dụng đang hoạt động của NTD đó — với hệ thống prompt nghiêm ngặt chỉ trả lời từ dữ liệu được cung cấp, từ chối chia sẻ thông tin liên hệ. NLĐ có thể gửi tin nhắn thoại thông qua tính năng ghi âm trực tiếp trong ứng dụng sử dụng MediaRecorder API. Hệ thống cũng hỗ trợ leo thang (escalation) — khi NLĐ yêu cầu nói chuyện trực tiếp với người thật, hệ thống tự động phát hiện ý định, dừng AI và thông báo cho NTD cùng đội ngũ chăm sóc khách hàng.
+P401 [3]: Bảng đồ tương tác
+P402 [Đoạn]: Tính năng bản đồ là một trong những điểm khác biệt của Việc Làm Xanh, tận dụng vị trí địa lý để kết nối lao động và việc làm một cách trực quan. Hệ thống sử dụng Mapbox GL để hiển thị bản đồ với hai chế độ xem: bản đồ việc làm gần đây dành cho NLĐ tìm việc và bản đồ lao động lân cận dành cho NTD tìm ứng viên. Các vị trí được hiển thị dưới dạng điểm đánh dấu trên bản đồ kèm thông tin tóm tắt, giúp người dùng dễ dàng định hình khoảng cách và vị trí tương đối. Hệ thống cung cấp API tìm kiếm theo bán kính sử dụng công thức Haversine để tính khoảng cách chính xác dựa trên tọa độ GPS, cho phép lọc kết quả trong phạm vi khoảng cách mong muốn. Đối với NLĐ, vị trí hiển thị trên bản đồ công khai được làm mờ trong phạm vi ±300 mét nhằm bảo vệ danh tính và quyền riêng tư. Tính năng mã hóa địa chỉ (geocoding) được thực hiện thông qua Mapbox API, cho phép chuyển đổi qua lại giữa địa chỉ văn bản và tọa độ GPS, hỗ trợ cả NTD khi đăng tin và NLĐ khi cập nhật vị trí. Ngoài ra, hệ thống còn cung cấp ước tính thời gian di chuyển và chi phí xăng dựa trên khoảng cách và vận tốc trung bình xe máy (30 km/h), hiển thị trực quan trên từng tin tuyển dụng để NLĐ đánh giá mức độ thuận tiện.
+P404 [Caption]: Hình 2.5. Bảng đồ tương tác
+P405 [3]: Thanh toán và hệ thống phí
+P406 [Đoạn]: Hệ thống tài chính của Việc Làm Xanh vận hành dựa trên ví điểm (points) nội bộ, nơi 1 điểm tương đương 1 đồng Việt Nam. Mỗi NTD được cấp một ví điện tử để nạp tiền, thanh toán các dịch vụ và nhận hoàn tiền khi cần. Người lao động cũng có ví để nhận thanh toán lương và mua các gói lợi ích. Hệ thống tích hợp cổng thanh toán PayOS với hai kênh riêng biệt: kênh thu hộ dành cho nạp tiền vào ví và thanh toán dịch vụ, kênh chi hộ dành cho chi trả lương và hoàn tiền. Toàn bộ giao dịch được ghi nhận chi tiết trong bảng lịch sử giao dịch, phân loại theo loại (nạp tiền, thu phí, hoàn tiền) và gắn với đối tượng tham chiếu.
+P407 [Đoạn]: Hệ thống phí được thiết kế theo mô hình lũy tiến nhiều bậc. Đối với phí liên hệ — chi phí NTD trả khi bắt đầu trò chuyện với NLĐ — mức phí được tính theo số lượng NLĐ mà NTD đã liên hệ trước đó: từ 1 đến 10 liên hệ đầu tiên được miễn phí, từ 11 đến 20 có phí 20.000 đồng mỗi liên hệ, từ 21 đến 40 là 50.000 đồng, từ 41 đến 60 là 80.000 đồng và từ 61 trở lên là 120.000 đồng. Ngoài ra, NTD có thể sử dụng các dịch vụ giá trị gia tăng như đẩy tin tuyển dụng lên đầu danh sách (50.000 đồng cho 1 ngày, 120.000 đồng cho 3 ngày, 250.000 đồng cho 7 ngày), gia hạn tin đăng (50.000 đồng cho 7 ngày, 100.000 đồng cho 20 ngày), và gán nhãn "Tuyển gấp" (30.000 đồng cho 7 ngày). Phí tuyển dụng thành công là 100.000 đồng, và người dùng được thưởng 50.000 đồng cho mỗi báo cáo vi phạm được xác nhận.
+P408 [Đoạn]: Đối với NLĐ, hệ thống cung cấp ba gói lợi ích: gói Cơ bản (50.000 đồng) với tính năng nổi bật hồ sơ và xem thông tin NTD trong 7 ngày; gói Nâng cao (150.000 đồng) bổ sung quyền ưu tiên ứng tuyển trong 15 ngày; và gói Chuyên nghiệp (300.000 đồng) với đầy đủ quyền lợi trong 30 ngày và huy hiệu Pro.
+P409 [Đoạn]: Song song với phí theo lượt, NTD có thể đăng ký các gói thuê bao định kỳ: gói Starter miễn phí (1 tin đăng, 15 ngày), gói VIP 500.000 đồng mỗi tháng (3 tin đăng, 15 liên hệ và 15 tin nhắn miễn phí, 2 lượt đẩy tin, 1 lượt gia hạn), gói Pro 1.000.000 đồng mỗi tháng (7 tin đăng, 40 liên hệ và 40 tin nhắn miễn phí, 5 lượt đẩy tin, 3 lượt gia hạn) và gói Premium 2.000.000 đồng mỗi tháng (99 tin đăng, 100 liên hệ và 100 tin nhắn miễn phí cùng toàn bộ đặc quyền cao cấp nhất).
+P410 [Đoạn]: Bảng 2.4. Bảng giá các gói thuê bao dành cho NTD
+P411 [Đoạn]: Bảng 2.5. Bảng phí dịch vụ theo lượt
+P412 [3]: Trí tuệ nhân tạo tích hợp
+P413 [Đoạn]: Hệ thống tích hợp nhiều mô-đun AI nhằm nâng cao trải nghiệm người dùng và tự động hóa các tác vụ phức tạp, sử dụng cả Claude API (Anthropic) và DeepSeek API.
+P414 [Đoạn]: Chatbot tư vấn việc làm (AI Chat Widget) là trợ lý ảo thường trực trên giao diện, sẵn sàng trả lời các câu hỏi của người dùng về việc làm, luật lao động, cách viết CV, chuẩn bị phỏng vấn và các vấn đề liên quan. Chatbot có khả năng duy trì ngữ cảnh hội thoại và cá nhân hóa câu trả lời dựa trên vai trò của người dùng.
+P415 [Đoạn]: Công cụ phân tích CV (CV Analyzer) tự động trích xuất thông tin từ CV tải lên, bao gồm họ tên, kinh nghiệm, kỹ năng, học vấn và vị trí mong muốn. Công cụ cũng đối chiếu CV với yêu cầu của tin tuyển dụng để tính điểm phù hợp, giúp NTD nhanh chóng sàng lọc ứng viên tiềm năng. NLĐ có thể sử dụng công cụ tạo CV (CV AI Generator) để tự động sinh một CV chuyên nghiệp dựa trên thông tin hồ sơ và mẫu CV có sẵn.
+P416 [Đoạn]: Mô-đun Huấn luyện phỏng vấn (Interview Coach) mô phỏng một buổi phỏng vấn thực tế, tạo ra các câu hỏi phù hợp với vị trí ứng tuyển, ghi nhận câu trả lời của NLĐ và chấm điểm dựa trên các tiêu chí như mức độ phù hợp, kỹ năng giao tiếp và tính thuyết phục. Kết quả được tổng hợp kèm nhận xét chi tiết giúp NLĐ cải thiện kỹ năng phỏng vấn.
+P417 [Đoạn]: Mô-đun Chân dung nghề nghiệp (Career DNA) phân tích hành vi người dùng — bao gồm các sự kiện tìm kiếm, xem tin, lưu tin, ứng tuyển và thời gian tương tác — để xây dựng hồ sơ sở thích nghề nghiệp. Hồ sơ này bao gồm các chỉ số như xu hướng làm việc từ xa hay tại văn phòng, mức độ ưa thích doanh nghiệp nhỏ hay tập đoàn lớn, khoảng lương ưa thích và trọng số ngành nghề. Hệ thống sử dụng hồ sơ Career DNA để đề xuất việc làm phù hợp và phân tích khoảng cách kỹ năng (skill gap), từ đó gợi ý các khóa học và tài nguyên học tập giúp NLĐ nâng cao năng lực cạnh tranh.
+P418 [Đoạn]: Mô-đun tư vấn pháp luật lao động (Law Advisor) cung cấp câu trả lời cho các thắc mắc về Luật Lao động Việt Nam, bao gồm quyền và nghĩa vụ của người lao động, chế độ bảo hiểm, hợp đồng lao động, tiền lương và các vấn đề pháp lý phổ biến khác.
+P419 [Đoạn]: Ngoài ra, hệ thống còn có AI tự động phân tích và phân loại tin tuyển dụng thu thập từ các trang web bên ngoài (Job Parser), trích xuất các trường thông tin có cấu trúc như tiêu đề, danh mục, mức lương, địa điểm, ca làm việc từ văn bản thô, với độ tin cậy được đánh giá theo từng trường.
+P420 [Đoạn]: Hình 2.6. Trí tuệ nhân tạo AI hỗ trợ NTD và NLĐ
+P421 [3]: Thu thập tin tuyển dụng tự động
+P422 [Đoạn]: Hệ thống tích hợp công cụ thu thập (crawler) tự động thu thập tin tuyển dụng từ bốn trang web tuyển dụng lớn tại Việt Nam: VietnamWorks, CareerBuilder, TopCV và Vieclam24h. Mỗi trang web có một bộ trích xuất (extractor) riêng biệt, được thiết kế để xử lý cấu trúc HTML đặc thù của từng trang, trích xuất nội dung thô và lưu vào bảng dữ liệu trung gian. Sau đó, AI Job Parser sẽ phân tích nội dung thô, trích xuất các trường có cấu trúc và ánh xạ sang danh mục ngành nghề, địa điểm và ca làm việc tương ứng của hệ thống. Tin tuyển dụng sau khi được phân tích sẽ chuyển qua các trạng thái: chờ xử lý, đã phân tích, đã nhập vào hệ thống, thất bại hoặc trùng lặp. Cơ chế phát hiện trùng lặp đảm bảo cùng một tin không bị nhập nhiều lần từ các nguồn khác nhau, giữ cho cơ sở dữ liệu việc làm luôn sạch và chất lượng. 
+P424 [Caption]: Hình 2.7.Giao diện đăng tin tuyển dạng AI tự động đọc và đăng tin.
+P425 [3]: Hệ thống uy tín và báo cáo
+P426 [Đoạn]: Để xây dựng một môi trường giao dịch an toàn và đáng tin cậy, hệ thống triển khai cơ chế chấm điểm uy tín (trust score) cho người dùng. Sau mỗi giao dịch tuyển dụng hoàn tất, cả NLĐ và NTD có thể đánh giá lẫn nhau trên thang điểm từ 1 đến 5 kèm nhận xét. Điểm đánh giá được tổng hợp thành điểm trung bình hiển thị công khai trên hồ sơ, giúp các bên có thêm cơ sở để quyết định hợp tác. Ngoài ra, hệ thống còn theo dõi số lần NLĐ vắng mặt không thông báo trong các buổi phỏng vấn, ảnh hưởng tiêu cực đến điểm uy tín của họ.
+P427 [Đoạn]: Người dùng có thể báo cáo hành vi vi phạm của đối phương — như quấy rối, lừa đảo, cung cấp thông tin sai lệch — thông qua hệ thống báo cáo tích hợp trong cửa sổ trò chuyện. Mỗi báo cáo bao gồm lý do, bằng chứng kèm theo và được đội ngũ quản trị xem xét. Báo cáo được xác nhận sẽ dẫn đến các biện pháp xử lý đối với người vi phạm, đồng thời người báo cáo được thưởng điểm như một cơ chế khuyến khích cộng đồng tự giám sát.
+P428 [3]: Quản trị hệ thống
+P429 [Đoạn]: Trang quản trị cung cấp giao diện tổng quan cho đội ngũ vận hành với hệ thống phân quyền chi tiết theo bốn vai trò nhân viên: Super Admin có toàn quyền trên toàn bộ hệ thống; CSKH (Chăm sóc khách hàng) có quyền xem bảng điều khiển, người dùng, tin đăng và đơn ứng tuyển; Moderator (Quản lý tin đăng) có thêm quyền quản lý tin đăng và xử lý báo cáo; Kế toán có quyền xem bảng điều khiển và giao dịch.
+P430 [Đoạn]: Bảng điều khiển (Dashboard) hiển thị các chỉ số tổng quan như số lượng người dùng, tin đăng đang hoạt động, đơn ứng tuyển theo trạng thái, giao dịch gần đây và tỷ lệ chuyển đổi tuyển dụng. Trang quản lý người dùng cho phép xem danh sách NLĐ và NTD, tìm kiếm, khóa tài khoản vi phạm và xem chi tiết hồ sơ. Trang quản lý tin đăng hỗ trợ phê duyệt tin mới, đánh dấu tin nổi bật, gỡ tin vi phạm và theo dõi hiệu suất tin đăng. Trang quản lý đơn ứng tuyển cung cấp cái nhìn toàn diện về quy trình tuyển dụng đang diễn ra. Trang giao dịch liệt kê toàn bộ lịch sử nạp tiền, thanh toán, hoàn tiền với khả năng lọc và xuất dữ liệu. Trang phân tích thị trường lao động (Labor Market) cung cấp số liệu thống kê về cung-cầu lao động theo ngành nghề và khu vực. Ngoài ra còn có các trang quản lý gói thuê bao, quản lý nhân viên và cấu hình hệ thống.
+P431 [3]: Các tính năng bổ trợ
+P432 [Đoạn]: Hệ thống còn cung cấp một số tính năng bổ trợ nhằm nâng cao trải nghiệm và khả năng tiếp cận. Hệ thống thông báo đa kênh gửi thông báo đến người dùng qua Firebase Cloud Messaging (FCM) cho nền tảng di động và qua giao diện web, bao gồm các sự kiện như có tin nhắn mới, cập nhật trạng thái ứng tuyển, lịch phỏng vấn và các nhắc nhở quan trọng. Ứng dụng được xây dựng dưới dạng Progressive Web App (PWA), cho phép người dùng cài đặt lên màn hình chính của điện thoại và sử dụng như một ứng dụng gốc, với khả năng hoạt động ngoại tuyến cơ bản, đồng bộ badge số thông báo chưa đọc lên icon ứng dụng, và tự động cập nhật khi có phiên bản mới thông qua service worker. Hệ thống còn hỗ trợ chuyển đổi ngôn ngữ qua Google Translate tích hợp, giúp người lao động từ các vùng miền khác nhau dễ dàng tiếp cận thông tin. Ngoài ra, nền tảng còn có hệ thống giới thiệu (referral) — người dùng có thể chia sẻ liên kết giới thiệu và nhận hoa hồng khi người được giới thiệu đăng ký và sử dụng dịch vụ, cùng cơ chế điểm danh hàng ngày (daily check-in) với chuỗi điểm thưởng tăng dần từ 2 đến 15 điểm, và hệ thống gamification với các cấp độ và huy hiệu dựa trên mức độ hoạt động của người dùng.
+P434 [1]: THIẾT KẾ HỆ THỐNG
+P435 [2]: Kiến trúc tổng thể của hệ thống
+P436 [Đoạn]: Hệ thống Việc Làm Xanh được thiết kế theo kiến trúc monorepo, tổ chức mã nguồn trong một kho lưu trữ duy nhất với bốn gói thành phần chính, được quản lý bởi Turborepo và npm workspaces.
+P437 [Đoạn]: Gói thứ nhất là ứng dụng giao diện người dùng (Frontend) được xây dựng bằng Next.js 15, một framework React hiện đại hỗ trợ cả kết xuất phía máy chủ (SSR) và tạo trang tĩnh (SSG). Giao diện sử dụng Tailwind CSS cho việc định kiểu và Zustand cho việc quản lý trạng thái toàn cục. Ứng dụng được triển khai lên Cloudflare Pages dưới dạng trang web tĩnh sau khi đã được build, đảm bảo tốc độ tải nhanh và khả năng mở rộng cao.
+P438 [Đoạn]: Gói thứ hai là máy chủ Express (Backend VPS) được xây dựng bằng Express.js 4, sử dụng SQLite (thông qua thư viện sql.js biên dịch sang WebAssembly) làm cơ sở dữ liệu và Socket.io cho giao tiếp thời gian thực. Phiên bản này chạy trên máy chủ VPS, chủ yếu phục vụ môi trường phát triển và thử nghiệm nội bộ.
+P439 [Đoạn]: Gói thứ ba là máy chủ Cloudflare Workers (Backend Cloud) được xây dựng bằng Hono — một framework web nhẹ và nhanh, được thiết kế đặc biệt cho môi trường serverless. Phiên bản này sử dụng Cloudflare D1 (cơ sở dữ liệu SQLite phân tán) làm cơ sở dữ liệu chính, Cloudflare R2 để lưu trữ tệp tin và WebSocket gốc cho giao tiếp thời gian thực. Đây là phiên bản chính phục vụ môi trường production, tận dụng mạng lưới toàn cầu của Cloudflare để đảm bảo độ trễ thấp và khả năng mở rộng linh hoạt theo lượng người dùng.
+P440 [Đoạn]: Gói thứ tư là các gói dùng chung (Shared Packages) bao gồm các kiểu dữ liệu TypeScript, hằng số và tiện ích được chia sẻ giữa frontend và cả hai backend, đảm bảo tính nhất quán và giảm trùng lặp mã nguồn. Ngoài ra còn có gói cơ sở dữ liệu chứa các script di trú và dữ liệu mẫu.
+P441 [Đoạn]: Cả hai phiên bản backend triển khai cùng một bề mặt API, cho phép frontend hoạt động nhất quán bất kể đang kết nối với backend nào. Kiến trúc này mang lại sự linh hoạt cao: có thể phát triển và thử nghiệm trên VPS, sau đó triển khai lên Cloudflare để tận dụng khả năng mở rộng toàn cầu.
+P442 [2]: Kiến trúc Dual Backend (Express + Cloudflare Workers)
+P443 [Đoạn]: Một trong những quyết định kiến trúc quan trọng nhất của hệ thống là áp dụng mô hình Dual Backend — phát triển đồng thời hai phiên bản máy chủ chia sẻ cùng một bề mặt API nhưng vận hành trên hai nền tảng khác nhau. Đây là giải pháp được lựa chọn sau quá trình cân nhắc kỹ lưỡng giữa nhu cầu phát triển nhanh và yêu cầu vận hành ổn định, chi phí thấp trong dài hạn.
+P444 [Đoạn]: 3.2.1. Lý do lựa chọn Dual Backend
+P446 [Đoạn]: Trong giai đoạn phát triển ban đầu, việc sử dụng Express.js trên VPS mang lại nhiều lợi thế: môi trường local quen thuộc, dễ dàng debug với đầy đủ log và breakpoint, không phụ thuộc vào kết nối Internet, và có thể nhanh chóng thử nghiệm các ý tưởng mới. Tuy nhiên, khi bước vào giai đoạn production, mô hình VPS bộc lộ nhiều hạn chế: chi phí cố định cao, khả năng mở rộng bị giới hạn bởi tài nguyên phần cứng, độ trễ không đồng đều giữa các khu vực địa lý, và yêu cầu bảo trì máy chủ thường xuyên.
+P447 [Đoạn]: Ngược lại, Cloudflare Workers cung cấp một môi trường serverless phân tán toàn cầu với hơn 330 điểm hiện diện (Points of Presence), cho phép mã nguồn được thực thi tại edge — gần với vị trí của người dùng nhất. Kết hợp với D1 (cơ sở dữ liệu SQLite phân tán) và R2 (lưu trữ đối tượng không tính phí truy xuất), nền tảng này mang lại hiệu năng cao, chi phí thấp (trả theo lượt sử dụng) và khả năng mở rộng gần như không giới hạn. Tuy nhiên, môi trường serverless cũng đặt ra những thách thức riêng: thời gian cold start, giới hạn thời gian thực thi (CPU time), hạn chế về kích thước response và không thể sử dụng các thư viện Node.js native.
+P448 [Đoạn]: Thay vì chọn một trong hai, hệ thống áp dụng chiến lược "phát triển trên Express, triển khai trên Workers" — tận dụng ưu điểm của cả hai nền tảng. Express được giữ lại làm môi trường phát triển và thử nghiệm nội bộ, nơi các tính năng mới được xây dựng và kiểm thử trước khi chuyển sang Workers cho production. Cách tiếp cận này đảm bảo tốc độ phát triển nhanh trong khi vẫn duy trì được chất lượng và độ ổn định của sản phẩm trên môi trường thực tế.
+P449 [Đoạn]: Bảng 3.1. So sánh hai runtime: Express (VPS) và Clooudflare Workers (Serverless)
+P450 [Đoạn]: 3.2.2. Chiến lược đồng bộ API Surface
+P451 [Đoạn]: Để đảm bảo frontend hoạt động nhất quán bất kể đang kết nối với backend nào, hệ thống sử dụng chiến lược "Shared Contract" thông qua gói @vieclamxanh/shared.
+P452 [Đoạn]: Gói shared đóng vai trò là nguồn chân lý duy nhất (Single Source of Truth) cho:
+P453 [Đoạn]: - TypeScript interfaces: định nghĩa cấu trúc User, Job, Application, Message, Wallet, Transaction và tất cả các entity khác trong hệ thống.
+P454 [Đoạn]: - Constants: danh mục ngành nghề (45+), danh sách tỉnh thành và khu công nghiệp (40+), hằng số phí và gói dịch vụ, bảng phân quyền admin.
+P455 [Đoạn]: - Utility functions: định dạng tiền tệ VND, xử lý ngày giờ múi giờ UTC+7, validate số điện thoại Việt Nam, làm sạch dữ liệu đầu ra.
+P456 [Đoạn]: Cả hai backend đều import trực tiếp từ @vieclamxanh/shared, đảm bảo:
+P457 [Đoạn]: - Cấu trúc request/response JSON đồng nhất 100% giữa hai backend.
+P458 [Đoạn]: - Công thức tính phí, hoa hồng, thuế giống hệt nhau — không thể sai lệch.
+P459 [Đoạn]: - Khi cập nhật một type hay constant, cả hai backend cùng nhận thay đổi.
+P460 [Đoạn]: Quy trình phát triển một tính năng mới theo mô hình Dual Backend:
+P461 [Đoạn]: 1. Cập nhật shared types/constants nếu cần.
+P462 [Đoạn]: 2. Phát triển trên Express: viết route + service + middleware.
+P463 [Đoạn]: 3. Kiểm thử đầy đủ trên môi trường local Express.
+P464 [Đoạn]: 4. Chuyển sang Workers: viết route tương ứng trên Hono, tận dụng D1 binding.
+P465 [Đoạn]: 5. Điều chỉnh nhỏ cho phù hợp với runtime serverless (WebSocket thay Socket.io, D1 thay sql.js, R2 thay local storage).
+P466 [Đoạn]: 6. Deploy lên Cloudflare Workers và kiểm thử trên production. Với chiến lược này, mặc dù phải viết code hai lần cho mỗi endpoint, nhưng bù lại hệ thống đạt được sự linh hoạt tối đa: có thể chuyển đổi hoàn toàn giữa hai môi trường mà không ảnh hưởng đến frontend hay người dùng cuối.
+P468 [Đoạn]: > **Chèn Hình 3.2 (Sơ đồ kiến trúc Dual Backend) vào đây**
+P470 [Đoạn]: ---
+P472 [2]: Kiến trúc bảo mật
+P473 [Normal]: Bảo mật được thiết kế thành nhiều lớp bảo vệ xuyên suốt hệ thống. Ở lớp truyền tải, toàn bộ giao tiếp giữa client và server được mã hóa qua HTTPS với chứng chỉ SSL/TLS, kết hợp với HTTP Strict Transport Security (HSTS) để ngăn chặn tấn công hạ cấp giao thức. Ở lớp ứng dụng, hệ thống triển khai Content Security Policy (CSP) nghiêm ngặt để ngăn chặn tấn công XSS, X-Frame-Options để chống clickjacking, X-Content-Type-Options để ngăn MIME sniffing, Referrer-Policy để kiểm soát thông tin nguồn giới thiệu và Permissions-Policy để giới hạn quyền truy cập vào các API nhạy cảm của trình duyệt.
+P474 [Normal]: Ở lớp xác thực và phân quyền, JWT được sử dụng với cặp access token ngắn hạn và refresh token dài hạn, kết hợp với cơ chế phiên bản hóa refresh token để thu hồi hàng loạt khi phát hiện xâm phạm. Mật khẩu được băm bằng PBKDF2 với salt ngẫu nhiên. Hệ thống phân quyền chi tiết theo vai trò (NLĐ, NTD, Admin) và phân quyền nhân viên quản trị (Super Admin, CSKH, Moderator, Kế toán) với các quyền hạn cụ thể cho từng tác vụ.
+P475 [Normal]: Ở lớp dữ liệu, hệ thống tự động ẩn số điện thoại trong nội dung tin nhắn phía máy chủ, ngăn chặn việc trao đổi thông tin liên hệ ngoài nền tảng trước khi thanh toán phí tiết lộ. Vị trí của người lao động trên bản đồ công khai được làm mờ trong phạm vi ±300 mét. Các truy vấn cơ sở dữ liệu sử dụng tham số hóa để chống SQL injection, và dữ liệu đầu vào được kiểm tra qua schema Zod ở tầng middleware.
+P476 [Normal]: Ở lớp hạ tầng, hệ thống giới hạn tần suất truy cập (rate limiting) ở mức 100 yêu cầu mỗi phút cho mỗi địa chỉ IP, kết hợp với giới hạn kích thước tải lên (1MB cho body JSON) để ngăn chặn tấn công từ chối dịch vụ. Hệ thống cũng giới hạn số lượng tin nhắn NTD có thể gửi mỗi ngày để chống spam. Các khóa bí mật (JWT secret, API key) được lưu trữ trong biến môi trường và Cloudflare Secrets, không bao giờ xuất hiện trong mã nguồn.
+P477 [2]: Kiến trúc triển khai
+P478 [Normal]: Quy trình triển khai được tự động hóa hoàn toàn thông qua GitHub Actions. Khi mã nguồn trên nhánh chính được cập nhật, pipeline CI/CD sẽ kích hoạt hai luồng triển khai song song. Luồng thứ nhất build ứng dụng Next.js thành các tệp tĩnh và triển khai lên Cloudflare Pages thông qua Wrangler CLI. Luồng thứ hai triển khai mã nguồn Cloudflare Workers lên hạ tầng serverless toàn cầu của Cloudflare. Cơ sở dữ liệu D1 được di trú tự động qua cơ chế migration tích hợp trong chính ứng dụng Worker — khi nhận được yêu cầu đầu tiên, Worker tự động kiểm tra và áp dụng các thay đổi lược đồ chưa được thực thi. Bên cạnh đó, hệ thống còn vận hành một bộ lập lịch (cron) chạy định kỳ mỗi giờ để thực hiện tám tác vụ nền: nhắc nhở NLĐ về lịch phỏng vấn (trước 1 ngày và trước 2 giờ), tự động đánh dấu vắng mặt cho các buổi phỏng vấn đã qua 24 giờ không có hành động, tự động hoàn tất tuyển dụng cho các buổi phỏng vấn đã xác nhận quá 48 giờ, đóng các tin đăng đã hết hạn, thu hồi các quyền lợi NLĐ đã hết thời hạn, gửi thông báo việc làm mới phù hợp cho NLĐ đã đăng ký nhận tin, cảnh báo tin tuyển dụng sắp hết hạn mà NLĐ đã ứng tuyển hoặc lưu, và nhắc nhở NLĐ không hoạt động quay lại nền tảng. Tên miền vieclamxanh.nhankiet.org được quản lý qua Cloudflare DNS với chứng chỉ SSL tự động, đảm bảo toàn bộ hệ thống vận hành an toàn và ổn định.
+P479 [2]: Thiết kế cơ sở dữ liệu
+P480 [Normal]: Hệ thống sử dụng cơ sở dữ liệu quan hệ SQLite, với phiên bản D1 của Cloudflare cho môi trường production và sql.js (biên dịch sang WebAssembly) cho môi trường VPS. Lược đồ cơ sở dữ liệu được thiết kế chuẩn hóa với gần 30 bảng dữ liệu và hơn 25 chỉ mục để tối ưu hiệu năng truy vấn. Việc sử dụng SQLite — một hệ quản trị cơ sở dữ liệu nhúng không cần máy chủ riêng — là một lựa chọn có chủ đích, đặc biệt phù hợp với mô hình triển khai serverless trên Cloudflare D1, nơi cơ sở dữ liệu được nhân bản toàn cầu và truy vấn với độ trễ thấp tại Edge. Toàn bộ timestamp trong hệ thống sử dụng múi giờ Việt Nam (UTC+7) thông qua hàm `datetime('now', '+7 hours')`.
+P481 [Normal]: Bảng `users` là trung tâm của hệ thống, lưu trữ thông tin của tất cả người dùng với ba vai trò: NLĐ, NTD và Admin. Mỗi người dùng có số điện thoại duy nhất, tọa độ vị trí, địa chỉ phân cấp ba cấp (tỉnh thành và phường xã), cùng các trường mở rộng cho hồ sơ NLĐ như email, ngày sinh, giới tính, trình độ học vấn, kinh nghiệm, kỹ năng, vị trí mong muốn, mức lương kỳ vọng, CV và điểm uy tín. Bảng cũng lưu các trường phục vụ bảo mật như password_hash (được băm bằng PBKDF2), refresh_token_version và fcm_token cho thông báo đẩy.
+P482 [Normal]: Bảng `jobs` lưu trữ tin tuyển dụng với đầy đủ thông tin: tiêu đề, mô tả, danh mục ngành nghề (một trong 45 danh mục), khoảng lương, ca làm việc, số lượng cần tuyển, tọa độ địa lý, địa chỉ, tỉnh thành, khu công nghiệp, yêu cầu, phúc lợi, kỹ năng yêu cầu, câu hỏi sàng lọc, trạng thái và các trường cho tính năng đẩy tin.
+P483 [Normal]: Bảng `applications` theo dõi toàn bộ vòng đời của một đơn ứng tuyển, từ khi nộp đến khi hoàn tất tuyển dụng, với các trạng thái chi tiết bao gồm cả lịch phỏng vấn, xác nhận tham gia, vắng mặt và các mốc kiểm tra sau tuyển dụng.
+P484 [Normal]: Bảng `conversations` và `messages` quản lý hệ thống nhắn tin, với mỗi cuộc trò chuyện gắn với một cặp NTD-NLĐ và một tin tuyển dụng cụ thể. Tin nhắn có thể được gửi bởi NLĐ, NTD hoặc AI, với cơ chế ẩn số điện thoại tự động và đánh dấu đã xóa.
+P485 [Normal]: Bảng `wallets` và `wallet_transactions` vận hành hệ thống tài chính, với mỗi ví gắn với một NTD hoặc NLĐ, ghi nhận số dư, điểm thưởng, tổng nạp và tổng chi tiêu. Mỗi giao dịch được phân loại theo loại (nạp tiền, thu phí, hoàn tiền) và gắn với đối tượng tham chiếu để truy xuất nguồn gốc.
+P486 [Normal]: Các bảng hỗ trợ khác bao gồm: `companies` (thông tin công ty của NTD kèm logo, video, văn hóa, phúc lợi, quy mô), `company_galleries` (bộ sưu tập hình ảnh doanh nghiệp), `company_knowledge` (cơ sở kiến thức cho AI trả lời tự động), `contact_reveals` (ghi nhận NTD đã trả phí xem liên hệ NLĐ), `saved_jobs` (tin đăng được NLĐ lưu), `ratings` (đánh giá sau giao dịch), `reports` (báo cáo vi phạm), `subscriptions` (gói thuê bao của NTD), `notifications` (thông báo người dùng), `otp_codes` (mã xác thực), `crawled_jobs` (tin thu thập từ web ngoài), `ai_chat_history` (lịch sử trò chuyện AI), `assessments`, `assessment_questions` và `assessment_attempts` (hệ thống bài kiểm tra năng lực), `user_behavior_logs` và `career_dna_profiles` (hệ thống phân tích hành vi và chân dung nghề nghiệp), `learning_resources` (tài nguyên học tập cho phân tích khoảng cách kỹ năng), `interview_sessions` (lịch sử luyện phỏng vấn) và `rate_limits` (giới hạn tần suất).
+P487 [Normal]: Bảng 3.2. Các bảng dữ liệu chính trong cơ sở dữ liệu
+P488 [Normal]: Hệ thống được thiết lập hơn 25 chỉ mục (index) bao phủ các trường thường xuyên được truy vấn như vai trò người dùng, tỉnh thành, trạng thái tin đăng, danh mục ngành nghề, tọa độ địa lý, thời gian tin nhắn và các khóa ngoại, đảm bảo hiệu năng truy vấn ổn định ngay cả khi lượng dữ liệu tăng trưởng.
+P489 [2]: Công nghệ sử dụng
+P490 [Normal]: Hệ thống được xây dựng dựa trên một tập hợp công nghệ hiện đại, được lựa chọn kỹ lưỡng để phù hợp với yêu cầu về hiệu năng, khả năng mở rộng và chi phí vận hành.
+P491 [Normal]: Về ngôn ngữ lập trình, toàn bộ dự án sử dụng TypeScript — một siêu tập của JavaScript với kiểu dữ liệu tĩnh — xuyên suốt từ frontend đến backend và các gói dùng chung, đảm bảo tính an toàn về kiểu và khả năng tái sử dụng mã nguồn. Việc sử dụng cùng một ngôn ngữ trên toàn bộ hệ thống giúp giảm chi phí chuyển đổi ngữ cảnh và cho phép chia sẻ kiểu dữ liệu, hằng số và tiện ích giữa các thành phần.
+P492 [Normal]: Về giao diện người dùng, Next.js 15 được chọn làm framework chính nhờ khả năng hybrid rendering, tối ưu hình ảnh tự động, hỗ trợ PWA gốc và hệ sinh thái plugin phong phú. Tailwind CSS cung cấp một hệ thống thiết kế nhất quán với các lớp tiện ích nguyên tử, giúp tăng tốc phát triển giao diện và đảm bảo tính đồng bộ về mặt thị giác. Zustand được dùng để quản lý trạng thái toàn cục với API tối giản, phù hợp với quy mô ứng dụng vừa và nhỏ. Socket.io Client kết nối với máy chủ WebSocket để nhận tin nhắn và thông báo thời gian thực.
+P493 [Normal]: Về máy chủ, Express.js là framework web phổ biến và ổn định cho môi trường Node.js, phù hợp với phiên bản chạy trên VPS. Hono được chọn cho phiên bản Cloudflare Workers nhờ hiệu năng vượt trội, dung lượng nhẹ và khả năng tương thích hoàn toàn với môi trường serverless. SQLite được chọn làm cơ sở dữ liệu cho cả hai phiên bản nhờ tính đơn giản, không cần máy chủ riêng và khả năng nhúng trực tiếp vào ứng dụng — rất phù hợp với mô hình triển khai serverless của Cloudflare D1.
+P494 [Normal]: Về hạ tầng đám mây, Cloudflare Workers cung cấp môi trường thực thi serverless phân tán toàn cầu với độ trễ thấp. Cloudflare D1 là cơ sở dữ liệu SQLite phân tán đầu tiên trên thế giới, cho phép truy vấn SQL đầy đủ với khả năng nhân bản toàn cầu. Cloudflare R2 là dịch vụ lưu trữ đối tượng tương thích S3 nhưng không tính phí truy xuất dữ liệu, lý tưởng cho việc lưu trữ CV, hình ảnh và tệp tin của người dùng. Cloudflare Pages cung cấp nền tảng lưu trữ web tĩnh với mạng lưới CDN toàn cầu và chứng chỉ SSL tự động.
+P495 [Normal]: Về các dịch vụ bên thứ ba, Firebase Authentication được sử dụng cho đăng nhập Google, Firebase Cloud Messaging cho thông báo đẩy. Mapbox GL cung cấp bản đồ tương tác và API mã hóa địa chỉ. PayOS là cổng thanh toán nội địa Việt Nam với đầy đủ API cho cả luồng thu hộ và chi hộ. Zalo OAuth cho phép đăng nhập bằng tài khoản Zalo, và Zalo ZNS được dùng để gửi mã OTP xác thực số điện thoại. Cuối cùng, Claude API (Anthropic) và DeepSeek API cung cấp năng lực xử lý ngôn ngữ tự nhiên cho các tính năng AI của hệ thống.
+P496 [Normal]: Bảng 3.3. Danh sách công nghệ sử dụng trong hệ thống
+P498 [1]: TRIỂN KHAI HỆ THỐNG 
+P499 [2]: Giao diện người dùng (Next.js PWA)
+P500 [Normal]: Giao diện người dùng của hệ thống Việc Làm Xanh được xây dựng bằng Next.js 15 – một framework React hiện đại với khả năng hybrid rendering (SSR + SSG). Giao diện sử dụng Tailwind CSS cho việc định kiểu theo hướng utility-first, giúp đảm bảo tính nhất quán về mặt thị giác trên toàn bộ hệ thống. Quản lý trạng thái toàn cục được thực hiện qua Zustand với API tối giản, phù hợp với quy mô hệ thống.
+P501 [Normal]: Trang chủ (Home) là điểm vào chính của ứng dụng, hiển thị thanh tìm kiếm việc làm nổi bật với các bộ lọc theo danh mục ngành nghề (hơn 45 danh mục), tỉnh thành và khu công nghiệp. Kết quả tìm kiếm hiển thị dưới dạng danh sách thẻ (card) với thông tin tóm tắt: tiêu đề, tên công ty, mức lương, địa điểm, khoảng cách và các nhãn trạng thái như “Tuyển gấp”, “Mới”, “Nổi bật”. Người dùng có thể lưu tin yêu thích và hệ thống tự động ghi nhận hành vi để cá nhân hóa gợi ý việc làm.
+P502 [Normal]: Trang đăng nhập (/login) hỗ trợ ba phương thức xác thực: Số điện thoại + mật khẩu (phương thức chính dành cho lao động phổ thông), đăng nhập qua Google (Firebase Authentication) và đăng nhập qua Zalo Oath. Giao diện được thiết kế đơn giản, thân thiện với người dùng ít kinh nghiệm công nghệ.
+P503 [Normal]: Trang hồ sơ cá nhân (/profile) chia thành hai phiên bản tương ứng với vai trò người dùng. Đối với NLĐ, trang hiển thị thông tin cá nhân, CV, kỹ năng, kinh nghiệm, trình độ học vấn, điểm uy tín và lịch sử ứng tuyển. NLĐ có thể tải lên CV để hệ thống tự động phân tích và trích xuất thông tin qua AI CV Analyzer. Đối với NTD, trang hiển thị thông tin công ty, logo, video giới thiệu, bộ sưu tập hình ảnh và cơ sở kiến thức doanh nghiệp.
+P504 [Normal]: Trang đăng tin tuyển dụng (/jobs/post) cung cấp form toàn diện cho NTD với các trường: tiêu đề, danh mục ngành nghề, mô tả  công việc, mức lương, ca làm việc, số lượng cần tuyển, địa chỉ (tích hợp Mapbox geocoding), yêu cầu phúc lợi, video giới thiệu và bộ câu hỏi sàng lọc. NTD có thể lưu tin nháp hoặc đăng ngay, và sử dụng các gói đẩy tin để tăng khả năng tiếp cận.
+P505 [Normal]: Trang chi tiết việc làm (/jobs/detail) hiển thị đầy đủ thông tin về một tin tuyển dụng, kèm khoảng cách và thời gian di chuyển ước tính từ vị trí của NLĐ, nút ứng tuyển và lưu tin. NLĐ có thể xem thông tin công ty,các tin đăng khác cùng NTD và đánh giá từ NLĐ khác.
+P506 [Normal]: Trang bản đồ (/map) sử dụng Mapbox GL để hiển thị bản đồ tương tác với hai chế độ: Bản đồ việc làm gần đây và bản đồ lao động lân cận. Người dùng có thể lọc theo bán kính khoảng cách và xem thông tin tóm tắt khi nhấn vào điểm đánh dấu. Vị trí NLĐ được làm mờ ±300 mét để bảo vệ quyền riêng tư.
+P507 [Normal]: Trang chat (/chat) hiển thị danh sách hội thoại bên trái và cửa sổ chat bên phải. Hệ thống hỗ trợ nhắn tin thời gian thực qua Socket.io/WebSocket, với typing indicator, trạng thái đã xem, tin nhắn thoại (ghi âm trực tiếp qua MediaRecorder API) và tích hợp AI chatbot trong cửa sổ trò chuyện trả lời câu hỏi của ứng viên.
+P508 [Normal]: Trang quản trị (/admin) cung cấp giao diện quản lý toàn diện với các tab: Dashboard (thống kê tổng quan), Quản lý người dùng, Quản lý tin đăng, Quản lý đơn ứng tuyển, Quản lý giao dịch, Phân tích thị trường lao động, Quản lý gói thuê bao và Cấu hình hệ thống. Hệ thống phân quyền chi tiết theo 4 vai trò: Super Admin, CSKH, Moderator, Kế toán.
+P509 [Normal]: Các trang phụ trợ khác bao gồm: /pricing (bảng giá và gói dịch vụ), /topup (nạp tiền qua PayOS), /notifications (trung tâm thông báo), /saved-jobs (tin đã lưu), /company/[id] (trang công ty công khai), /career-dna (chân dung nghề nghiệp), /interview-coach (luyện phỏng vấn AI), /analytics (phân tích thị trường lao động), /support, /privacy, /terms.
+P510 [Normal]: Ứng dụng được cấu hình dưới dạng Progressive Web App (PWA) với service worker, cho phép người dùng cài đặt lên màn hình chính điện thoại, sử dụng ngoại tuyến cơ bản và nhận thông báo đẩy qua Firebase Cloud Messaging.
+P511 [2]: Backend Express (VPS)
+P512 [Normal]: Phiên bản backend chạy trên VPS được xây dựng bằng Express.js 4, phục vụ chủ yếu cho môi trường phát triển và thử nghiệm nội bộ. Ứng dụng Express khởi tạo một HTTP server kết hợp với Socket.io để hỗ trợ giao tiếp thời gian thực cho tính năng chat.
+P513 [Normal]: Cấu trúc thư mục backend Express được tổ chức như sau:
+P514 [Normal]: src/
+P515 [Normal]: ├── app.ts                  # Khởi tạo Express app, HTTP server, Socket.io
+P516 [Normal]: ├── config/
+P517 [Normal]: │   ├── database.ts         # Khởi tạo SQLite (sql.js/WASM), connection pool
+P518 [Normal]: │   └── env.ts              # Biến môi trường (validate bằng Zod)
+P519 [Normal]: ├── middleware/
+P520 [Normal]: │   ├── auth.ts             # JWT verify, role-based authorization (NLĐ/NTD/Admin)
+P521 [Normal]: │   ├── phoneGuard.ts       # Tự động ẩn số điện thoại trong tin nhắn
+P522 [Normal]: │   ├── rateLimit.ts        # Giới hạn 100 req/phút/IP
+P523 [Normal]: │   ├── requestLogger.ts    # Ghi log request
+P524 [Normal]: │   └── validate.ts         # Validate request body bằng Zod schema
+P525 [Normal]: ├── routes/
+P526 [Normal]: │   ├── auth.routes.ts      # Đăng ký, đăng nhập, refresh token
+P527 [Normal]: │   ├── jobs.routes.ts      # CRUD tin tuyển dụng, tìm kiếm, ứng tuyển
+P528 [Normal]: │   ├── map.routes.ts       # Tìm kiếm theo bán kính (Haversine)
+P529 [Normal]: │   ├── chat.routes.ts      # Hội thoại + Socket.io handlers
+P530 [Normal]: │   ├── billing.routes.ts   # Ví, nạp tiền, thanh toán PayOS
+P531 [Normal]: │   ├── applications.routes.ts  # Quy trình ứng tuyển, phỏng vấn
+P532 [Normal]: │   ├── admin.routes.ts     # Dashboard, quản lý users/jobs/giao dịch
+P533 [Normal]: │   ├── ai.routes.ts        # Chatbot AI, CV Analyzer, Interview Coach, Career DNA, Law Advisor
+P534 [Normal]: │   ├── job-parser.routes.ts    # AI phân tích tin tuyển dụng thô
+P535 [Normal]: │   ├── crawler.routes.ts   # Thu thập tin từ web ngoài
+P536 [Normal]: │   ├── ntd.routes.ts       # API dành riêng cho NTD
+P537 [Normal]: │   ├── assessments.routes.ts   # Bài kiểm tra năng lực
+P538 [Normal]: │   └── behavior.routes.ts  # Theo dõi hành vi người dùng
+P539 [Normal]: ├── services/
+P540 [Normal]: │   ├── db.service.ts       # Database helper (query, run, uuid)
+P541 [Normal]: │   ├── auth.service.ts     # Logic xác thực (hash password PBKDF2, JWT)
+P542 [Normal]: │   ├── billing.service.ts  # Xử lý giao dịch, trừ điểm
+P543 [Normal]: │   ├── chat.service.ts     # Logic hội thoại, ẩn số điện thoại
+P544 [Normal]: │   ├── ai.service.ts       # Gọi Claude API, DeepSeek API
+P545 [Normal]: │   ├── ai/career-dna.service.ts   # Phân tích chân dung nghề nghiệp
+P546 [Normal]: │   ├── ai/cv-analyzer.service.ts  # Phân tích CV bằng AI
+P547 [Normal]: │   ├── ai/interview-coach.service.ts  # Huấn luyện phỏng vấn
+P548 [Normal]: │   ├── ai/chat-ai.service.ts      # Chatbot AI tư vấn
+P549 [Normal]: │   ├── ai/job-matcher.service.ts  # Ghép nối việc làm
+P550 [Normal]: │   ├── ai/law-advisor.service.ts  # Tư vấn pháp luật
+P551 [Normal]: │   ├── crawler.service.ts         # Crawler engine
+P552 [Normal]: │   ├── crawlers/*.extractor.ts    # Bộ trích xuất cho từng trang web
+P553 [Normal]: │   ├── job-parser.service.ts      # AI Job Parser
+P554 [Normal]: │   ├── payos.service.ts           # Tích hợp PayOS
+P555 [Normal]: │   ├── zalo.service.ts            # Zalo OAuth + ZNS
+P556 [Normal]: │   ├── trust-score.service.ts     # Chấm điểm uy tín
+P557 [Normal]: │   ├── firebase.ts                # Firebase Auth + FCM
+P558 [Normal]: │   └── excel-import.service.ts    # Import dữ liệu từ Excel
+P559 [Normal]: ├── socket/
+P560 [Normal]: │   └── chatHandler.ts      # Xử lý Socket.io events (chat realtime)
+P561 [Normal]: └── utils/
+P562 [Normal]:     ├── errors.ts           # AppError class, error handler middleware
+P563 [Normal]:     └── sanitize.ts         # Làm sạch dữ liệu đầu ra
+P564 [Normal]: Cơ sở dữ liệu SQLite được vận hành thông qua thư viện sql.js — một bản biên dịch của SQLite sang WebAssembly. Điều này cho phép cơ sở dữ liệu chạy nhúng trực tiếp trong tiến trình Node.js mà không cần cài đặt driver riêng, đồng thời đảm bảo tính tương thích cao với phiên bản Cloudflare D1 (cũng là SQLite). Dữ liệu được lưu trong file data/sqlite.db và được định kỳ sao lưu.
+P565 [Normal]: Middleware auth kiểm tra JWT access token từ header Authorization, giải mã và gắn thông tin người dùng vào request object. Middleware role đảm bảo chỉ người dùng có vai trò phù hợp mới truy cập được các endpoint tương ứng (ví dụ: chỉ NTD mới được đăng tin, chỉ Admin mới vào được trang quản trị). Mật khẩu được băm bằng PBKDF2 với salt ngẫu nhiên 16 bytes và 100,000 vòng lặp.
+P566 [Normal]: Socket.io được cấu hình để xử lý các sự kiện chat thời gian thực: gửi tin nhắn, nhận tin nhắn, typing indicator, đánh dấu đã đọc. Các middleware phoneGuard tự động quét nội dung tin nhắn trước khi lưu và broadcast để ẩn số điện thoại (regex pattern: 0[35789]\d{8}) nhằm ngăn chặn trao đổi liên hệ ngoài nền tảng.
+P567 [2]: Backend Cloudflare Workers (Production)
+P568 [Normal]: Phiên bản backend production được triển khai trên nền tảng serverless Cloudflare Workers, sử dụng Hono 4 — một web framework nhẹ, nhanh, được thiết kế đặc biệt cho môi trường edge runtime. Hono cung cấp API tương tự Express nhưng tối ưu cho mô hình request/response của Web Standard, hỗ trợ đầy đủ routing, middleware, validation và WebSocket.
+P569 [Normal]: Cấu trúc mã nguồn được tổ chức trong một file index.ts duy nhất, định nghĩa Hono app và mount tất cả các route module. Mỗi route module xử lý một nhóm endpoint liên quan, tuân theo cấu trúc REST. Dữ liệu được lưu trữ trong Cloudflare D1 — cơ sở dữ liệu SQLite phân tán được nhân bản toàn cầu trên mạng lưới edge của Cloudflare, cho phép truy vấn với độ trễ thấp tại mọi khu vực địa lý. Tệp tin (CV, hình ảnh, logo) được lưu trong Cloudflare R2 — dịch vụ lưu trữ đối tượng tương thích S3, không tính phí truy xuất dữ liệu.
+P570 [Normal]: Cấu trúc thư mục backend Worker:
+P571 [Normal]: src/
+P572 [Normal]: ├── index.ts                # Khởi tạo Hono app, mount routes, middleware chain
+P573 [Normal]: ├── types.ts                # TypeScript types: Bindings (D1, R2, Secrets), Variables
+P574 [Normal]: ├── scheduled.ts            # Cron job handler (chạy định kỳ mỗi giờ)
+P575 [Normal]: ├── lib/
+P576 [Normal]: │   ├── jwt.ts              # JWT sign/verify
+P577 [Normal]: │   ├── rate-limit.ts       # Rate limiting với D1
+P578 [Normal]: │   ├── chat-ws.ts          # WebSocket chat handler (native)
+P579 [Normal]: │   ├── payos.ts            # PayOS API client
+P580 [Normal]: │   ├── ai-cv.ts            # AI CV Analyzer
+P581 [Normal]: │   ├── ai-helpers.ts       # Shared AI utilities
+P582 [Normal]: │   ├── ai-law.ts           # Law Advisor AI
+P583 [Normal]: │   ├── job-parser.ts       # Job Parser AI
+P584 [Normal]: │   └── zalo-auth.ts        # Zalo OAuth
+P585 [Normal]: ├── middleware/
+P586 [Normal]: │   ├── auth.ts             # JWT middleware (Hono)
+P587 [Normal]: │   ├── body-limit.ts       # Giới hạn kích thước body (1MB)
+P588 [Normal]: │   ├── cors.ts             # CORS config
+P589 [Normal]: │   ├── rate-limit.ts       # Rate limiting middleware
+P590 [Normal]: │   └── security-headers.ts # CSP, HSTS, X-Frame-Options, etc.
+P591 [Normal]: ├── routes/
+P592 [Normal]: │   ├── auth.ts             # Đăng ký, đăng nhập, refresh token
+P593 [Normal]: │   ├── jobs.ts             # Tin tuyển dụng
+P594 [Normal]: │   ├── applications.ts     # Đơn ứng tuyển
+P595 [Normal]: │   ├── chat.ts             # Chat + WebSocket upgrade
+P596 [Normal]: │   ├── billing.ts          # Thanh toán, ví, giao dịch
+P597 [Normal]: │   ├── admin.ts            # Admin dashboard
+P598 [Normal]: │   ├── ai.ts               # AI endpoints
+P599 [Normal]: │   ├── assessments.ts      # Bài kiểm tra
+P600 [Normal]: │   ├── company.ts          # Thông tin công ty
+P601 [Normal]: │   ├── crawler.ts          # Crawler management
+P602 [Normal]: │   ├── cron.ts             # Cron trigger endpoints
+P603 [Normal]: │   ├── geo.ts              # Geocoding proxy (Mapbox)
+P604 [Normal]: │   ├── health.ts           # Health check
+P605 [Normal]: │   ├── map.ts              # Map API
+P606 [Normal]: │   ├── misc.ts             # Notifications, saved jobs
+P607 [Normal]: │   ├── ntd.ts              # NTD-specific APIs
+P608 [Normal]: │   ├── profile.ts          # User profile
+P609 [Normal]: │   ├── ratings.ts          # Đánh giá
+P610 [Normal]: │   ├── seed.ts             # Seed data
+P611 [Normal]: │   └── webhooks.ts         # PayOS webhook
+P612 [Normal]: ├── helpers/
+P613 [Normal]: │   ├── ai-reply.ts         # AI auto-reply
+P614 [Normal]: │   ├── email.ts            # Email sending
+P615 [Normal]: │   ├── fcm.ts              # Push notifications
+P616 [Normal]: │   ├── password.ts         # Password hashing
+P617 [Normal]: │   ├── phone.ts            # Phone validation
+P618 [Normal]: │   ├── sanitize.ts         # Data sanitization
+P619 [Normal]: │   ├── schema-migration.ts # Auto D1 migration
+P620 [Normal]: │   ├── uuid.ts             # UUID generation
+P621 [Normal]: │   └── ward.ts             # Ward data management
+P622 [Normal]: └── services/
+P623 [Normal]:     └── ai-learning.ts      # AI learning/training
+P624 [Normal]: Hệ thống Cron jobs được triển khai thông qua Cloudflare Workers Cron Triggers, chạy định kỳ mỗi giờ và thực hiện 8 tác vụ nền chính:
+P625 [Normal]: 1. Nhắc nhở NLĐ về lịch phỏng vấn trước 1 ngày (D-1).
+P626 [Normal]: 2. Nhắc nhở NLĐ về lịch phỏng vấn trước 2 giờ (H-2).
+P627 [Normal]: 3. Tự động đánh dấu "vắng mặt" cho các buổi phỏng vấn đã qua 24 giờ không có hành động.
+P628 [Normal]: 4. Tự động hoàn tất tuyển dụng cho các buổi phỏng vấn đã xác nhận quá 48 giờ.
+P629 [Normal]: 5. Đóng các tin đăng đã hết hạn.
+P630 [Normal]: 6. Thu hồi quyền lợi NLĐ đã hết thời hạn.
+P631 [Normal]: 7. Gửi thông báo việc làm mới phù hợp cho NLĐ.
+P632 [Normal]: 8. Nhắc nhở NLĐ không hoạt động quay lại nền tảng.
+P634 [Normal]: Middleware được tổ chức thành chuỗi xử lý tuần tự. Đầu tiên, security-headers middleware thêm các header bảo mật vào mọi response (CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy). Tiếp theo, rate-limit middleware kiểm tra tần suất truy cập: 100 req/phút cho API thông thường, 5 req/phút cho auth endpoints. Body-limit middleware giới hạn kích thước request body ở mức 1MB để ngăn chặn tấn công tiêu tốn tài nguyên. Cuối cùng, auth middleware xác thực JWT và gắn thông tin người dùng vào context.
+P636 [Normal]: WebSocket chat được xử lý qua WebSocket gốc (native) của Cloudflare Workers, không dùng thư viện bên thứ ba. Khi client gửi upgrade request đến /api/chat/ws, Worker nâng cấp kết nối lên WebSocket và duy trì kết nối hai chiều để truyền tin nhắn, typing indicator và trạng thái đã đọc.
+P637 [2]:  Đồng bộ API Surface giữa hai backend
+P638 [Normal]: Một trong những yêu cầu kỹ thuật quan trọng nhất của hệ thống là đảm bảo cả hai phiên bản backend triển khai cùng một bề mặt API (API Surface), cho phép frontend hoạt động nhất quán bất kể đang kết nối với backend nào. Để đạt được điều này, hệ thống sử dụng chiến lược "Shared Contract" — định nghĩa hợp đồng API dùng chung và triển khai song song trên cả hai nền tảng.
+P639 [Normal]: Gói @vieclamxanh/shared đóng vai trò trung tâm trong chiến lược này, chứa các thành phần dùng chung:
+P641 [Normal]: src/
+P642 [Normal]: ├── index.ts                # Re-export tất cả
+P643 [Normal]: ├── types/
+P644 [Normal]: │   └── index.ts            # TypeScript interfaces chung: User, Job, Application, Message, Wallet, v.v.
+P645 [Normal]: ├── constants/
+P646 [Normal]: │   ├── fee.constants.ts    # Hằng số phí, gói thuê bao, gói lợi ích
+P647 [Normal]: │   ├── geo.constants.ts    # Danh sách tỉnh thành, khu công nghiệp
+P648 [Normal]: │   ├── job.constants.ts    # Danh mục ngành nghề, ca làm việc
+P649 [Normal]: │   ├── permissions.ts      # Phân quyền admin
+P650 [Normal]: │   └── roles.ts            # Vai trò người dùng
+P651 [Normal]: └── utils/
+P652 [Normal]:     ├── currency.ts         # Định dạng tiền tệ VND
+P653 [Normal]:     ├── date.ts             # Xử lý ngày giờ (múi giờ UTC+7)
+P654 [Normal]:     ├── phone.ts            # Validate số điện thoại Việt Nam
+P655 [Normal]:     ├── sanitize.ts         # Làm sạch dữ liệu
+P656 [Normal]:     └── tax-code.ts         # Validate mã số thuế
+P657 [Normal]: Cả hai backend đều import và sử dụng cùng một bộ types và constants từ @vieclamxanh/shared. Điều này đảm bảo:
+P658 [Normal]: - Cấu trúc request/response đồng nhất (ví dụ: response của GET /api/jobs luôn có cùng format dù gọi Express hay Worker).
+P659 [Normal]: - Danh mục ngành nghề, tỉnh thành, ca làm việc nhất quán trên cả hai backend.
+P660 [Normal]: - Công thức tính phí, thuế và hoa hồng giống hệt nhau.
+P661 [Normal]: - Logic kiểm tra số điện thoại, mã số thuế thống nhất.
+P662 [Normal]: Tuy nhiên, do sự khác biệt về runtime giữa hai nền tảng, một số điểm cần được xử lý riêng:
+P663 [Normal]: Về cơ sở dữ liệu: Express sử dụng sql.js (SQLite WASM) trong khi Worker sử dụng Cloudflare D1. Cả hai đều là SQLite nên SQL syntax tương thích hoàn toàn, nhưng cách thức kết nối khác nhau. Express dùng connection trực tiếp thông qua db object, trong khi Worker dùng D1 binding được inject qua context. Các câu lệnh SQL được viết giống hệt nhau trên cả hai nền tảng.
+P664 [Normal]: Về realtime: Express sử dụng Socket.io với mô hình event-driven, trong khi Worker sử dụng WebSocket gốc của Web Standard. Cả hai triển khai cùng một tập event: send_message, receive_message, typing, read_receipt. Client sử dụng Socket.io Client cho Express và WebSocket API cho Worker, nhưng interface lập trình được abstract hóa để code frontend không cần biết đang dùng backend nào.
+P665 [Normal]: Về file storage: Express lưu tệp tin vào thư mục local trên VPS, trong khi Worker sử dụng Cloudflare R2. Cả hai backend cùng expose API upload và download với URL pattern giống hệt nhau.
+P666 [Normal]: Về xác thực: Cả hai backend cùng sử dụng JWT với HS256, secret key giống nhau, thời hạn access token 15 phút và refresh token 7 ngày. Cơ chế refresh token versioning cũng được triển khai đồng bộ để đảm bảo token bị thu hồi trên backend này cũng không thể dùng trên backend kia.
+P667 [Normal]: Việc phát triển và kiểm thử được thực hiện trên Express trước do môi trường local dễ debug và không phụ thuộc Internet. Sau khi xác nhận chức năng hoạt động đúng, mã nguồn được chuyển sang Worker với các điều chỉnh nhỏ cho phù hợp với runtime serverless.
+P668 [2]: CI/CD và triển khai tự động
+P669 [Normal]: Quy trình CI/CD được tự động hóa thông qua GitHub Actions, kích hoạt khi có push lên nhánh main. Pipeline bao gồm hai job chạy song song:
+P670 [Normal]: Job Frontend Deploy:
+P671 [Normal]: 1. Checkout mã nguồn.
+P672 [Normal]: 2. Cài đặt Node.js và dependencies.
+P673 [Normal]: 3. Build ứng dụng Next.js với lệnh npm run build (sinh các tệp tĩnh trong thư mục out/).
+P674 [Normal]: 4. Triển khai lên Cloudflare Pages qua Wrangler CLI: npx wrangler pages deploy out/ --project-name=vieclamxanh-web.
+P675 [Normal]: 5. Kết quả: ứng dụng web được phục vụ qua CDN toàn cầu của Cloudflare với chứng chỉ SSL tự động.
+P676 [Normal]: Job Backend Deploy:
+P677 [Normal]: 1. Checkout mã nguồn.
+P678 [Normal]: 2. Cài đặt Node.js và dependencies.
+P679 [Normal]: 3. Triển khai Worker script lên Cloudflare qua Wrangler CLI: npx wrangler deploy.
+P680 [Normal]: 4. Kết quả: mã nguồn Worker được phân phối đến toàn bộ mạng lưới edge của Cloudflare (hơn 330 điểm hiện diện toàn cầu).
+P681 [Normal]: Cơ sở dữ liệu D1 được di trú tự động trong chính ứng dụng Worker. Khi Worker khởi động (cold start), helper schema-migration.ts kiểm tra bảng _migrations trong D1, so sánh với danh sách migration đã định nghĩa và tự động áp dụng các thay đổi chưa được thực thi. Cơ chế này loại bỏ nhu cầu chạy migration thủ công và đảm bảo schema luôn đồng bộ với mã nguồn mới nhất.
+P682 [Normal]: Ngoài ra, hệ thống cron jobs được cấu hình trong wrangler.toml với trigger chạy mỗi giờ, tự động thực hiện các tác vụ nền mà không cần máy chủ riêng hay cron truyền thống.
+P683 [Normal]: Tên miền vieclamxanh.nhankiet.org được quản lý qua Cloudflare DNS với các bản ghi:
+P684 [Normal]: - A record trỏ đến Cloudflare Pages (frontend).
+P685 [Normal]: - CNAME record cho API subdomain trỏ đến Cloudflare Workers.
+P686 [Normal]: - Chứng chỉ SSL/TLS tự động qua Cloudflare Universal SSL.
+P690 [1]: KIỂM THỬ VÀ ĐÁNH GIÁ HỆ THỐNG
+P691 [2]: Mục tiêu kiểm thử
+P692 [Normal]: Mục tiêu của quá trình kiểm thử là đảm bảo hệ thống Việc Làm Xanh hoạt động ổn định, đúng chức năng, an toàn và mang lại trải nghiệm tốt cho cả hai nhóm đối tượng người lao động và nhà tuyển dụng. Việc kiểm thử tập trung vào bốn khía cạnh chính: tính chính xác của các chức năng nghiệp vụ, tính đồng nhất của API giữa hai backend, hiệu năng và khả năng chịu tải, và mức độ an toàn trước các mối đe dọa bảo mật phổ biến.
+P693 [2]: Kiểm thử chức năng (Functional Testing)
+P694 [Normal]: Kiểm thử chức năng được thực hiện trên cả hai phiên bản backend (Express và Cloudflare Workers) để đảm bảo tính đồng nhất. Các test case được thiết kế bao phủ toàn bộ quy trình nghiệp vụ chính:
+P695 [Normal]: Đăng ký và xác thực:
+P696 [Normal]: - Đăng ký tài khoản mới bằng số điện thoại + mật khẩu → Thành công, trả về JWT token.
+P697 [Normal]: - Đăng ký với số điện thoại đã tồn tại → Báo lỗi "Số điện thoại đã được đăng ký".
+P698 [Normal]: - Đăng ký với số điện thoại không hợp lệ (ít hơn 10 chữ số, không đúng đầu số VN) → Báo lỗi validation.
+P699 [Normal]: - Đăng nhập bằng số điện thoại + mật khẩu đúng → Thành công, trả về access + refresh token.
+P700 [Normal]: - Đăng nhập sai mật khẩu → Báo lỗi "Sai mật khẩu".
+P701 [Normal]: - Đăng nhập Google (Firebase Auth) → Thành công với tài khoản Google hợp lệ.
+P702 [Normal]: - Refresh token hết hạn hoặc sai version → Báo lỗi 401.
+P703 [Normal]: - Kết quả: Tất cả test case đều hoạt động đúng trên cả Express và Worker.
+P704 [Normal]: Đăng tin và tìm kiếm việc làm:
+P705 [Normal]: - NTD đăng tin mới với đầy đủ thông tin → Tin được tạo, trạng thái "active".
+P706 [Normal]: - NTD đăng tin khi chưa đăng nhập → Báo lỗi 401.
+P707 [Normal]: - NLĐ cố gắng đăng tin → Báo lỗi 403 (chỉ NTD được đăng tin).
+P708 [Normal]: - Tìm kiếm việc làm theo từ khóa → Trả về danh sách tin phù hợp.
+P709 [Normal]: - Lọc theo danh mục ngành nghề → Kết quả đúng danh mục.
+P710 [Normal]: - Lọc theo tỉnh thành/khu công nghiệp → Kết quả đúng khu vực.
+P711 [Normal]: - Sắp xếp theo khoảng cách → Thứ tự đúng (gần nhất trước).
+P712 [Normal]: - Kết quả: Chức năng tìm kiếm và lọc hoạt động chính xác.
+P713 [Normal]: Quy trình ứng tuyển:
+P714 [Normal]: - NLĐ ứng tuyển vào một tin → Tạo application với trạng thái "applied".
+P715 [Normal]: - NTD xem danh sách ứng viên → Hiển thị đúng danh sách.
+P716 [Normal]: - NTD cập nhật trạng thái: "reviewing" → "interview_scheduled" → "hired" → Đúng luồng.
+P717 [Normal]: - NTD gửi lịch phỏng vấn → NLĐ nhận thông báo và xác nhận.
+P718 [Normal]: - NLĐ không xác nhận phỏng vấn sau 24h → Hệ thống tự động đánh dấu "no_show".
+P719 [Normal]: - Kết quả: Quy trình ứng tuyển hoạt động đúng qua tất cả trạng thái.
+P720 [Normal]: Chat thời gian thực:
+P721 [Normal]: - NTD gửi tin nhắn → NLĐ nhận được ngay lập tức qua WebSocket.
+P722 [Normal]: - Số điện thoại trong nội dung tin nhắn → Bị ẩn (thay bằng ***).
+P723 [Normal]: - AI chatbot trả lời tự động → Phản hồi dựa trên cơ sở kiến thức NTD.
+P724 [Normal]: - NLĐ yêu cầu nói chuyện với người thật → Hệ thống phát hiện và thông báo escalation.
+P725 [Normal]: - Kết quả: Chat hoạt động ổn định, độ trễ thấp, phone masking đúng.
+P726 [Normal]: Thanh toán:
+P727 [Normal]: - Nạp tiền qua PayOS → Tạo payment link, sau khi thanh toán webhook cập nhật số dư.
+P728 [Normal]: - NTD bắt đầu chat với NLĐ → Kiểm tra phí liên hệ (miễn phí 10 lần đầu, sau đó 20k).
+P729 [Normal]: - NTD mua gói đẩy tin → Trừ điểm trong ví, tin được boost.
+P730 [Normal]: - NTD đăng ký gói thuê bao → Kích hoạt subscription với quota tương ứng.
+P731 [Normal]: - Kết quả: Hệ thống tài chính hoạt động chính xác, giao dịch được ghi nhận đầy đủ.
+P732 [Normal]: Bảng 5.1. Kết quả kiểm thử chức năng
+P733 [2]: Kiểm thử api
+P734 [Normal]: Kiểm thử API được thực hiện thông qua Postman và script kiểm thử tự động, kiểm tra từng endpoint trên cả hai backend:
+P735 [Normal]: - GET /api/jobs → Cả Express và Worker trả về format JSON giống hệt nhau.
+P736 [Normal]: - POST /api/auth/login-password → Response structure đồng nhất.
+P737 [Normal]: - Xác thực JWT: Request không có token → 401. Token hết hạn → 401. Token hợp lệ → 200.
+P738 [Normal]: - Rate limiting: Gửi >100 request trong 1 phút → Nhận 429 "Quá nhiều yêu cầu".
+P739 [Normal]: - Validation: Gửi thiếu trường bắt buộc → 400 với thông báo lỗi cụ thể.
+P740 [Normal]: - SQL Injection: Gửi input '; DROP TABLE users;-- → Bị Zod schema chặn, không ảnh hưởng CSDL.
+P741 [Normal]: - Kết quả: API hoạt động đồng nhất giữa hai backend, validation hoạt động đúng.
+P742 [2]: Kiểm thử hiệu năng (Performance Testing)
+P743 [Normal]: - Thời gian phản hồi API (Express/SQLite local): trung bình 15-50ms.
+P744 [Normal]: - Thời gian phản hồi API (Worker/D1 edge): trung bình 30-120ms tùy vị trí địa lý.
+P745 [Normal]: - Tìm kiếm việc làm với 1000+ tin: <100ms nhờ index trên category, province.
+P746 [Normal]: - Chat realtime: độ trễ <200ms trong mạng nội địa Việt Nam.
+P747 [Normal]: - Tải trang Next.js (static): <2s trên mạng 3G nhờ CDN và tối ưu hình ảnh.
+P748 [Normal]: - PWA cài đặt: <3s first load, <1s các lần sau nhờ service worker cache.
+P749 [Normal]: - Đánh giá: Hệ thống đáp ứng tốt trong điều kiện sử dụng thực tế.
+P750 [Normal]: Bảng 5.2. Kết quả kiếm thử hiệu năng
+P751 [2]: Kiểm thử bảo mật (Security Testing)
+P752 [Normal]: - JWT security: Token được ký bằng HS256, không thể giả mạo nếu không có secret.
+P753 [Normal]: - Password storage: Mật khẩu được băm PBKDF2 (100,000 vòng, salt 16 bytes), không thể khôi phục.
+P754 [Normal]: - Phone masking: Tất cả số điện thoại dạng 0[35789]xxxxxx trong tin nhắn bị ẩn trước khi lưu DB.
+P755 [Normal]: - Rate limiting: Tấn công brute-force login bị chặn (5 req/phút cho auth endpoints).
+P756 [Normal]: - XSS protection: CSP header ngăn chặn inline script, chỉ cho phép script từ same-origin.
+P757 [Normal]: - Clickjacking protection: X-Frame-Options: DENY trên tất cả response.
+P758 [Normal]: - SQL injection: Tất cả truy vấn dùng parameterized queries, không nối chuỗi SQL.
+P759 [Normal]: - File upload: Giới hạn kích thước 5MB, chỉ chấp nhận các định dạng an toàn.
+P760 [Normal]: - Kết quả: Hệ thống vượt qua các bài kiểm thử bảo mật cơ bản.
+P761 [Normal]: Bảng 5.3. Kết quả kiểm thử bảo mật
+P762 [2]: Đánh giá kết quả
+P763 [Normal]: Sau quá trình kiểm thử toàn diện, hệ thống Việc Làm Xanh được đánh giá đạt các tiêu chí đề ra:
+P764 [Normal]: - Hoạt động ổn định trên cả hai môi trường backend.
+P765 [Normal]: - API Surface đồng nhất, frontend hoạt động nhất quán bất kể backend nào.
+P766 [Normal]: - Các chức năng nghiệp vụ chính (đăng tin, tìm kiếm, ứng tuyển, chat, thanh toán) hoạt động đúng.
+P767 [Normal]: - Hệ thống bảo mật nhiều lớp, chống được các tấn công phổ biến.
+P768 [Normal]: - Hiệu năng đáp ứng tốt trong điều kiện sử dụng thực tế.
+P770 [1]: KẾT LUẬN VÀ HƯỚNG PHÁT TRIỂN
+P771 [2]: 6.1. Kết luận
+P772 [Normal]: Sau thời gian thực tập tại Công ty TNHH Cung Ứng Nhân Lực Nhân Kiệt, em đã hoàn thành đề tài "Xây dựng hệ thống Backend kép (Dual Backend) đồng bộ API Surface trên Express và Cloudflare Workers cho nền tảng Việc Làm Xanh". Đề tài đã đạt được các mục tiêu đề ra ban đầu:
+P773 [Normal]: Về mặt kiến trúc, em đã thiết kế và triển khai thành công mô hình Dual Backend — hai phiên bản máy chủ chia sẻ cùng một bề mặt API nhưng chạy trên hai nền tảng khác nhau: Express.js trên VPS (môi trường phát triển) và Cloudflare Workers trên edge (môi trường production). Việc sử dụng gói @vieclamxanh/shared làm "hợp đồng API" trung tâm đã đảm bảo tính nhất quán giữa hai backend, cho phép frontend hoạt động mà không cần biết đang kết nối với backend nào.
+P774 [Normal]: Về mặt chức năng, hệ thống đã cung cấp đầy đủ các tính năng cần thiết cho một nền tảng tuyển dụng trực tuyến: đăng ký và xác thực đa kênh (số điện thoại, Google, Zalo), đăng tin và tìm kiếm việc làm với bộ lọc đa chiều, quy trình ứng tuyển và tuyển dụng từ nộp đơn đến phỏng vấn và nhận việc, nhắn tin thời gian thực với bảo vệ quyền riêng tư, bản đồ tương tác hiển thị việc làm và lao động theo vị trí địa lý, hệ thống thanh toán và quản lý tài chính qua PayOS, cùng nhiều tính năng nâng cao ứng dụng trí tuệ nhân tạo.
+P775 [Normal]: Về mặt kỹ thuật, em đã áp dụng nhiều công nghệ hiện đại: Next.js 15 cho giao diện PWA, Hono framework cho môi trường serverless, SQLite/D1 cho cơ sở dữ liệu phân tán, WebSocket cho giao tiếp thời gian thực, JWT cho xác thực phi trạng thái, Claude API và DeepSeek API cho các tính năng AI. Hệ thống được triển khai tự động qua GitHub Actions CI/CD và vận hành ổn định trên hạ tầng Cloudflare.
+P776 [Normal]: Quá trình thực hiện đề tài đã giúp em có cơ hội áp dụng những kiến thức đã học tại trường vào một dự án thực tế, đồng thời học hỏi thêm nhiều công nghệ và kỹ năng mới: kiến trúc serverless, mô hình edge computing, thiết kế hệ thống phân tán, bảo mật ứng dụng web, tự động hóa triển khai và đặc biệt là tư duy giải quyết vấn đề trong môi trường sản xuất thực tế.
+P777 [2]: 6.2. Định hướng mở rộng và nâng cấp nền tảng
+P778 [Normal]: Sau khi hoàn thành đợt thực tập, em nhận thấy bản thân đã trưởng thành hơn nhiều về tư duy kỹ thuật, kỹ năng giải quyết vấn đề và thái độ làm việc chuyên nghiệp — những điều mà chỉ có thể học được qua trải nghiệm thực tế chứ không thể có được nếu chỉ học trên giảng đường. Em nguyện vọng sẽ tiếp tục trau dồi thêm kiến thức và kỹ năng lập trình, đặc biệt trong các lĩnh vực kiến trúc hệ thống phân tán và ứng dụng AI, để có thể tự tin bước vào môi trường làm việc chính thức sau khi tốt nghiệp; đồng thời em cũng mong muốn có cơ hội tiếp tục hợp tác hoặc quay lại đơn vị thực tập nếu điều kiện phù hợp trong tương lai.
+P779 [2]: 6.3. Hướng phát triển
+P780 [Normal]: Hệ thống Việc Làm Xanh còn nhiều tiềm năng để phát triển và mở rộng trong tương lai:
+P781 [Normal]: Phát triển ứng dụng di động native: Mặc dù ứng dụng hiện tại đã hỗ trợ PWA, việc xây dựng ứng dụng di động native (Flutter hoặc React Native) sẽ mang lại trải nghiệm tốt hơn, đặc biệt cho nhóm lao động phổ thông sử dụng điện thoại là thiết bị chính. Ứng dụng native có thể tận dụng các API thiết bị như GPS chính xác hơn, thông báo đẩy native và hoạt động ngoại tuyến tốt hơn.
+P782 [Normal]: Cải thiện hệ thống AI matching: Hiện tại hệ thống đã có Career DNA tracking và job matching cơ bản. Trong tương lai, có thể phát triển thuật toán matching sử dụng machine learning, phân tích sâu hơn về kỹ năng, kinh nghiệm và sở thích để đưa ra gợi ý việc làm chính xác hơn. Đồng thời có thể xây dựng hệ thống dự đoán xu hướng thị trường lao động dựa trên dữ liệu lịch sử.
+P783 [Normal]: Mở rộng phạm vi địa lý: Hệ thống hiện tập trung vào Bình Dương và Đồng Nai. Có thể mở rộng ra các tỉnh thành khác có nhiều khu công nghiệp như Bắc Ninh, Hải Phòng, Đà Nẵng, Long An... đồng thời hỗ trợ đa ngôn ngữ (tiếng Anh, tiếng Hàn, tiếng Nhật) để phục vụ lao động nước ngoài và doanh nghiệp FDI.
+P784 [Normal]: Tích hợp blockchain cho hợp đồng lao động: Sử dụng công nghệ blockchain để lưu trữ hợp đồng lao động, xác minh kinh nghiệm làm việc và chứng chỉ kỹ năng, tạo ra một hệ thống hồ sơ lao động minh bạch, không thể giả mạo.
+P785 [Normal]: Phát triển hệ thống đào tạo trực tuyến: Tích hợp các khóa học ngắn hạn, video hướng dẫn kỹ năng nghề nghiệp, cho phép NLĐ nâng cao tay nghề trực tiếp trên nền tảng. Kết hợp với tính năng phân tích khoảng cách kỹ năng (skill gap analysis) đã có để gợi ý khóa học phù hợp.
+P786 [Normal]: Xây dựng hệ thống chấm công và bảng lương: Tích hợp với hệ thống quản lý nhân sự của NTD, cho phép chấm công, tính lương và thanh toán lương tự động qua nền tảng, tạo thành một hệ sinh thái khép kín từ tuyển dụng đến quản lý lao động.
+P787 [2]: 6.3. Đóng góp của đề tài
+P788 [Normal]: Đề tài đóng góp vào việc số hóa quy trình tuyển dụng và tìm việc tại các khu công nghiệp — một lĩnh vực còn nhiều bất cập và phụ thuộc vào môi giới trung gian tại Việt Nam. Hệ thống không chỉ giúp người lao động dễ dàng tiếp cận cơ hội việc làm mà còn giúp doanh nghiệp tiết kiệm chi phí và thời gian trong quá trình tuyển dụng.
+P789 [Normal]: Về mặt kỹ thuật, đề tài cung cấp một mô hình kiến trúc Dual Backend có thể áp dụng cho nhiều dự án khác có nhu cầu tương tự: phát triển và thử nghiệm trên môi trường truyền thống, triển khai production trên nền tảng serverless để tận dụng khả năng mở rộng toàn cầu với chi phí thấp. Việc chia sẻ types và constants qua gói dùng chung là một pattern hiệu quả, dễ áp dụng cho các dự án monorepo khác.
+P790 [Normal]: Đối với bản thân em, đề tài là cơ hội quý giá để trưởng thành về mặt chuyên môn và kỹ năng làm việc. Từ việc được giao một bài toán kỹ thuật không đơn giản, em đã học được cách nghiên cứu, thử nghiệm, thất bại và cải tiến — những bài học không thể có được nếu chỉ học trên giảng đường. Em tin rằng những kiến thức và kinh nghiệm tích lũy được trong quá trình thực hiện đề tài sẽ là nền tảng vững chắc cho sự nghiệp phát triển phần mềm của em trong tương lai
+P792 [1]: ĐÁNH GIÁ THỰC TIỄN VÀ MỘT SỐ KIẾN NGHỊ
+P793 [2]: Một số đánh giá về hoạt động của đơn vị
+P794 [Normal]: Đánh giá hoạt động của đơn vị (liên quan chuyên ngành CNTT): Bộ phận IT của Công ty TNHH Cung Ứng Nhân Lực Nhân Kiệt tuy có quy mô nhân sự không lớn nhưng được giao vai trò quan trọng trong việc số hóa hoạt động của công ty, cụ thể là xây dựng và vận hành nền tảng Việc Làm Xanh. Đơn vị đã đầu tư hạ tầng máy chủ, các dịch vụ đám mây (Cloudflare) và công cụ AI vào dự án, thể hiện định hướng ứng dụng công nghệ hiện đại vào hoạt động cung ứng nhân lực truyền thống. Quy trình làm việc trong đội ngũ kỹ thuật khá linh hoạt, tạo điều kiện cho sinh viên thực tập được tham gia trực tiếp vào các công việc thực tế thay vì chỉ quan sát.
+P795 [Normal]: Những điểm mạnh của đơn vị: (1) Đơn vị có bề dày hoạt động hơn 15 năm trong lĩnh vực cung ứng nhân lực, mạng lưới chi nhánh rộng khắp, tạo nguồn dữ liệu và bài toán nghiệp vụ thực tế phong phú cho dự án phần mềm; (2) Đội ngũ hướng dẫn tại đơn vị tận tâm, sẵn sàng chia sẻ kinh nghiệm và trực tiếp review công việc của sinh viên; (3) Sinh viên được giao nhiệm vụ với mức độ trách nhiệm cao, được chủ động quyết định về mặt kỹ thuật trong phạm vi dự án được giao, giúp phát huy tối đa năng lực và sự chủ động.
+P796 [Normal]: Những hạn chế hoặc vấn đề còn tồn tại: (1) Quy mô đội ngũ IT còn khá nhỏ so với khối lượng công việc cần triển khai, dẫn đến một số hạng mục phải do một mình sinh viên đảm nhận từ đầu đến cuối mà chưa có nhiều sự hỗ trợ chuyên sâu; (2) Một số quy trình nội bộ (bàn giao công việc, tài liệu hóa hệ thống cũ) chưa được chuẩn hóa đầy đủ, gây mất thời gian tìm hiểu ở giai đoạn đầu; (3) Hạ tầng phần cứng tại đơn vị trước khi thực tập còn phụ thuộc vào một máy tính cá nhân làm gateway, tiềm ẩn rủi ro về tính sẵn sàng của hệ thống.
+P797 [2]: Bài học kinh nghiệm về kiến thức, kỹ năng trong quá trình thực tập
+P798 [Normal]: Qua quá trình thực tập, em rút ra một số bài học kinh nghiệm quan trọng cho bản thân. Về kiến thức chuyên môn, em nhận ra rằng kiến thức lý thuyết học tại trường là nền tảng cần thiết nhưng chưa đủ; phần lớn kỹ năng giải quyết vấn đề thực tế (như lựa chọn kiến trúc phù hợp với ràng buộc về chi phí và hạ tầng, xử lý sự cố production) chỉ có thể tích lũy qua trải nghiệm thực tế và va chạm với các tình huống cụ thể. Về kỹ năng làm việc, em học được cách chủ động trao đổi khi gặp vướng mắc thay vì tự loay hoay một mình, cách tổ chức công việc theo mốc thời gian rõ ràng để đảm bảo tiến độ, và cách viết tài liệu kỹ thuật sao cho người khác có thể tiếp cận và bảo trì hệ thống dễ dàng về sau. Về thái độ làm việc, em nhận thấy tinh thần trách nhiệm và sự cẩn trọng khi thao tác trên môi trường production là yếu tố quyết định, vì bất kỳ sai sót nhỏ nào cũng có thể ảnh hưởng đến người dùng thật của hệ thống.
+P799 [2]: Một số kiến nghị
+P800 [Normal]: Kiến nghị đối với đơn vị thực tập: Đơn vị nên xây dựng và duy trì tài liệu kỹ thuật cho hệ thống một cách có hệ thống ngay từ giai đoạn phát triển, giúp việc bàn giao và bảo trì về sau thuận lợi hơn; đồng thời nên cân nhắc bổ sung nhân sự IT hoặc hợp tác với sinh viên thực tập theo lộ trình dài hạn hơn để đảm bảo tính liên tục cho các dự án công nghệ đang triển khai. Đơn vị cũng nên xây dựng quy trình code review và kiểm thử chuẩn hóa để nâng cao chất lượng phần mềm khi có nhiều người cùng tham gia phát triển.
+P801 [Normal]: Kiến nghị đối với chương trình đào tạo của Nhà trường: Chương trình nên tăng thời lượng thực hành với các dự án có quy mô gần với thực tế doanh nghiệp, cập nhật thêm nội dung về các công nghệ đang được doanh nghiệp sử dụng rộng rãi như kiến trúc serverless, edge computing và tích hợp AI vào sản phẩm phần mềm. Ngoài ra, Nhà trường và Viện Công nghệ số nên tăng cường kết nối với doanh nghiệp để sinh viên có nhiều cơ hội thực tập tại các vị trí sát với chuyên ngành ngay từ những học kỳ giữa khóa, thay vì chỉ tập trung vào học kỳ thực tập cuối khóa.
+P802 [2]: Đề xuất giải pháp đổi mới nội dung chương trình học
+P803 [Normal]: Trên cơ sở trải nghiệm thực tế, em đề xuất một số giải pháp đổi mới cho chương trình đào tạo: (1) lồng ghép các học phần chuyên ngành với những buổi workshop hoặc case study do doanh nghiệp trực tiếp chia sẻ, giúp sinh viên hình dung được bài toán thực tế trước khi bước vào kỳ thực tập; (2) tổ chức thêm các đồ án môn học theo mô hình nhóm nhỏ mô phỏng quy trình phát triển phần mềm trong doanh nghiệp, bao gồm cả giai đoạn triển khai và vận hành chứ không chỉ dừng ở giai đoạn viết code; (3) khuyến khích sinh viên tiếp cận sớm với các nền tảng đám mây (Cloudflare, AWS, GCP) và các công cụ AI hỗ trợ lập trình ngay trong chương trình học, vì đây là xu hướng công nghệ mà hầu hết doanh nghiệp hiện nay đều áp dụng.
+P805 [1]: KẾT LUẬN
+P806 [Normal]: Sau hai tháng thực tập tại Công ty TNHH Cung Ứng Nhân Lực Nhân Kiệt, em đã có cơ hội quý báu để vận dụng những kiến thức được học tại Trường Đại học Thủ Dầu Một vào một dự án phần mềm thực tế — nền tảng tuyển dụng Việc Làm Xanh. Trong suốt quá trình thực tập, em đã vận dụng kiến thức về lập trình web, cơ sở dữ liệu, kiến trúc hệ thống phân tán và bảo mật ứng dụng để trực tiếp tham gia thiết kế, xây dựng và triển khai kiến trúc Backend kép đồng bộ API Surface trên Express và Cloudflare Workers, đồng thời cấu hình và vận hành hạ tầng máy chủ phục vụ hệ thống. Kết quả đạt được là một hệ thống hoàn chỉnh, vận hành ổn định trên hạ tầng Cloudflare toàn cầu.
+P807 [Normal]: Về điểm mạnh, đợt thực tập đã giúp em được làm việc trong môi trường thực tế với sự hướng dẫn tận tình từ đội ngũ kỹ thuật của đơn vị, được giao nhiệm vụ với mức độ trách nhiệm cao và chủ động quyết định kỹ thuật, qua đó phát huy được năng lực và sự chủ động của bản thân. Bên cạnh đó, hạn chế lớn nhất là quy mô đội ngũ IT của đơn vị còn nhỏ nên một số công việc em phải tự mình tìm hiểu và triển khai mà chưa có nhiều sự hỗ trợ chuyên sâu.
+P808 [Normal]: Sau khi hoàn thành đợt thực tập, em nhận thấy bản thân đã trưởng thành hơn nhiều về tư duy kỹ thuật, kỹ năng giải quyết vấn đề và thái độ làm việc chuyên nghiệp — những điều mà chỉ có thể học được qua trải nghiệm thực tế chứ không thể có được nếu chỉ học trên giảng đường. Em nguyện vọng sẽ tiếp tục trau dồi thêm kiến thức và kỹ năng lập trình, đặc biệt trong các lĩnh vực kiến trúc hệ thống phân tán và ứng dụng AI, để có thể tự tin bước vào môi trường làm việc chính thức sau khi tốt nghiệp; đồng thời em cũng mong muốn có cơ hội tiếp tục hợp tác hoặc quay lại đơn vị thực tập nếu điều kiện phù hợp trong tương lai.
+P810 [1]: TÀI LIỆU THAM KHẢO
+P811 [Default]: [1] Cloudflare Inc., Cloudflare Workers Documentation, 2024–2026. [Trực tuyến]. Có tại: https://developers.cloudflare.com/workers/. [Truy cập: 15-07-2026].
+P812 [Default]: [2] Cloudflare Inc., Cloudflare D1 Documentation, 2024–2026. [Trực tuyến]. Có tại: https://developers.cloudflare.com/d1/. [Truy cập: 15-07-2026].
+P813 [Default]: [3] Cloudflare Inc., Cloudflare R2 Documentation, 2024–2026. [Trực tuyến]. Có tại: https://developers.cloudflare.com/r2/. [Truy cập: 15-07-2026].
+P814 [Default]: [4] Hono Contributors, Hono Framework Documentation v4, 2024–2026. [Trực tuyến]. Có tại: https://hono.dev/docs/. [Truy cập: 15-07-2026].
+P815 [Default]: [5] Vercel Inc., Next.js Documentation v15, 2024–2026. [Trực tuyến]. Có tại: https://nextjs.org/docs. [Truy cập: 15-07-2026].
+P816 [Default]: [6] OpenJS Foundation, Express.js Documentation v4, 2024. [Trực tuyến]. Có tại: https://expressjs.com/. [Truy cập: 15-07-2026].
+P817 [Default]: [7] Tailwind CSS Contributors, Tailwind CSS Documentation v3, 2024–2026. [Trực tuyến]. Có tại: https://tailwindcss.com/docs. [Truy cập: 15-07-2026].
+P818 [Default]: [8] Socket.io Contributors, Socket.io Documentation v4, 2024. [Trực tuyến]. Có tại: https://socket.io/docs/v4/. [Truy cập: 15-07-2026].
+P819 [Default]: [9] Anthropic PBC, Claude API Documentation, 2024–2026. [Trực tuyến]. Có tại: https://docs.anthropic.com/. [Truy cập: 15-07-2026].
+P820 [Default]: [10] DeepSeek AI, DeepSeek API Documentation, 2025–2026. [Trực tuyến]. Có tại: https://platform.deepseek.com/api-docs/. [Truy cập: 15-07-2026].
+P821 [Default]: [11] PayOS JSC, PayOS API Documentation, 2024–2026. [Trực tuyến]. Có tại: https://payos.vn/docs/. [Truy cập: 15-07-2026].
+P822 [Default]: [12] Mapbox Inc., Mapbox GL JS Documentation, 2024–2026. [Trực tuyến]. Có tại: https://docs.mapbox.com/mapbox-gl-js/. [Truy cập: 15-07-2026].
+P823 [Default]: [13] Google LLC, Firebase Authentication Documentation, 2024. [Trực tuyến]. Có tại: https://firebase.google.com/docs/auth. [Truy cập: 15-07-2026].
+P824 [Default]: [14] Google LLC, Firebase Cloud Messaging Documentation, 2024. [Trực tuyến]. Có tại: https://firebase.google.com/docs/cloud-messaging. [Truy cập: 15-07-2026].
+P825 [Default]: [15] Zalo Developer Platform, Zalo API Documentation, 2024–2026. [Trực tuyến]. Có tại: https://developers.zalo.me/docs. [Truy cập: 15-07-2026].
+P826 [Default]: [16] Công ty TNHH Cung Ứng Nhân Lực Nhân Kiệt, Website chính thức, 2026. [Trực tuyến]. Có tại: https://www.nhankiet.vn/. [Truy cập: 15-07-2026].

@@ -1,8 +1,4 @@
-/**
- * TBS Group - Hệ Thống Quản Lý User Profile & Phân Quyền Đăng Nhập Độc Lập
- * Đảm bảo mỗi tài khoản (202608001, 202608002, TGĐ-001, NS-001, KT-001...) có Profile & Avatar RIÊNG BIỆT.
- * Tuyệt đối không dùng chung avatar hay fallback sai lệch giữa các session.
- */
+import { EquipmentScope } from './equipmentScope';
 
 export interface UserProfile {
   userId: number;
@@ -10,6 +6,9 @@ export interface UserProfile {
   name: string;
   title: string;
   department: string;
+  departmentCode?: string;
+  managementLevel?: number;
+  projectIds?: string[];
   email: string;
   phone?: string;
   roleCode: string;
@@ -18,6 +17,7 @@ export interface UserProfile {
   avatar: string;
   redirectUrl: string;
   managedDepartmentId?: string;
+  allowedScopes?: EquipmentScope[];
 }
 
 export const SYSTEM_USERS: Record<string, UserProfile> = {
@@ -25,8 +25,8 @@ export const SYSTEM_USERS: Record<string, UserProfile> = {
     userId: 205,
     empCode: "202608001",
     name: "Phạm Nguyễn Anh Huy",
-    title: "IT - Team Chuyển Đổi Số",
-    department: "IT - Team Chuyển Đổi Số",
+    title: "NV — LẬP TRÌNH",
+    department: "NHÂN SỰ",
     email: "anhy.work.2004@gmail.com",
     phone: "0522511245",
     roleCode: "TRUONG_PHONG",
@@ -40,8 +40,8 @@ export const SYSTEM_USERS: Record<string, UserProfile> = {
     userId: 205,
     empCode: "202608001",
     name: "Phạm Nguyễn Anh Huy",
-    title: "IT - Team Chuyển Đổi Số",
-    department: "IT - Team Chuyển Đổi Số",
+    title: "NV — LẬP TRÌNH",
+    department: "NHÂN SỰ",
     email: "anhy.work.2004@gmail.com",
     phone: "0522511245",
     roleCode: "TRUONG_PHONG",
@@ -55,8 +55,8 @@ export const SYSTEM_USERS: Record<string, UserProfile> = {
     userId: 206,
     empCode: "202608002",
     name: "Trần Ngọc Huy",
-    title: "Kỹ Sư IT - Team Chuyển Đổi Số",
-    department: "IT - Team Chuyển Đổi Số",
+    title: "NV — LẬP TRÌNH",
+    department: "NHÂN SỰ",
     email: "tranhuy110421@gmail.com",
     phone: "0522511246",
     roleCode: "TRUONG_PHONG",
@@ -65,6 +65,105 @@ export const SYSTEM_USERS: Record<string, UserProfile> = {
     avatar: "",
     redirectUrl: "/work",
     managedDepartmentId: "ci",
+  },
+  "202608003": {
+    userId: 207,
+    empCode: "202608003",
+    name: "Ngô Hà Thanh An",
+    title: "Chuyên Viên Nhân Sự & Hành Chánh",
+    department: "Nhân Sự - Hành Chính",
+    email: "ngohathanhan@tbsgroup.vn",
+    phone: "0903800003",
+    roleCode: "NHAN_VIEN",
+    roles: ["employee", "hr"],
+    roleLevel: 4,
+    avatar: "",
+    redirectUrl: "/work",
+    managedDepartmentId: "hr",
+  },
+  "210602002": {
+    userId: 301,
+    empCode: "210602002",
+    name: "Trần Thị Ngoan",
+    title: "Chuyên Viên Nhân Sự & Hành Chánh",
+    department: "Nhân Sự - Hành Chính",
+    email: "210602002@tbsgroup.vn",
+    phone: "",
+    roleCode: "NHAN_VIEN",
+    roles: ["employee", "hr"],
+    roleLevel: 4,
+    avatar: "",
+    redirectUrl: "/work",
+  },
+  "201506009": {
+    userId: 302,
+    empCode: "201506009",
+    name: "Lê Thúy Diễm",
+    title: "Chuyên Viên Nhân Sự & Hành Chánh",
+    department: "Nhân Sự - Hành Chính",
+    email: "201506009@tbsgroup.vn",
+    phone: "",
+    roleCode: "NHAN_VIEN",
+    roles: ["employee", "hr"],
+    roleLevel: 4,
+    avatar: "",
+    redirectUrl: "/work",
+  },
+  "201607010": {
+    userId: 303,
+    empCode: "201607010",
+    name: "Nguyễn Thị Đào",
+    title: "Chuyên Viên Nhân Sự & Hành Chánh",
+    department: "Nhân Sự - Hành Chính",
+    email: "201607010@tbsgroup.vn",
+    phone: "",
+    roleCode: "NHAN_VIEN",
+    roles: ["employee", "hr"],
+    roleLevel: 4,
+    avatar: "",
+    redirectUrl: "/work",
+  },
+  "201507009": {
+    userId: 304,
+    empCode: "201507009",
+    name: "Hồ Thị Thảo",
+    title: "Chuyên Viên Nhân Sự & Hành Chánh",
+    department: "Nhân Sự - Hành Chính",
+    email: "201507009@tbsgroup.vn",
+    phone: "",
+    roleCode: "NHAN_VIEN",
+    roles: ["employee", "hr"],
+    roleLevel: 4,
+    avatar: "",
+    redirectUrl: "/work",
+  },
+  "201507015": {
+    userId: 305,
+    empCode: "201507015",
+    name: "Đoàn Thị Trinh",
+    title: "Chuyên Viên Nhân Sự & Hành Chánh",
+    department: "Nhân Sự - Hành Chính",
+    email: "201507015@tbsgroup.vn",
+    phone: "",
+    roleCode: "NHAN_VIEN",
+    roles: ["employee", "hr"],
+    roleLevel: 4,
+    avatar: "",
+    redirectUrl: "/work",
+  },
+  "212103096": {
+    userId: 306,
+    empCode: "212103096",
+    name: "Nguyễn Văn Nguyện",
+    title: "Chuyên Viên Nhân Sự & Hành Chánh",
+    department: "Nhân Sự - Hành Chính",
+    email: "212103096@tbsgroup.vn",
+    phone: "",
+    roleCode: "NHAN_VIEN",
+    roles: ["employee", "hr"],
+    roleLevel: 4,
+    avatar: "",
+    redirectUrl: "/work",
   },
   "LT-001": {
     userId: 215,
@@ -81,282 +180,69 @@ export const SYSTEM_USERS: Record<string, UserProfile> = {
     redirectUrl: "/rooms",
     managedDepartmentId: "hr",
   },
-  "TGĐ-001": {
-    userId: 201,
-    empCode: "TGĐ-001",
-    name: "Nguyễn Đức Thuấn",
-    title: "Chủ Tịch HĐQT & Tổng Giám Đốc Tập Đoàn TBS Group",
-    department: "Ban Giám Đốc Tập Đoàn",
-    email: "tgd.nguyenducthuan@tbsgroup.vn",
-    phone: "0903800001",
-    roleCode: "TONG_GIAM_DOC",
-    roles: ["ceo"],
-    roleLevel: 1,
-    avatar: "",
-    redirectUrl: "/work",
-  },
-  "TGĐ-002": {
-    userId: 2012,
-    empCode: "TGĐ-002",
-    name: "Nguyễn Thị Vui",
-    title: "Tổng Giám Đốc Vận Hành SKECHERS",
-    department: "Ban Giám Đốc Tập Đoàn",
-    email: "tgd.nguyenthivui@tbsgroup.vn",
-    phone: "0903800012",
-    roleCode: "TONG_GIAM_DOC",
-    roles: ["ceo"],
-    roleLevel: 1,
-    avatar: "",
-    redirectUrl: "/work",
-  },
-  "PTGĐ-001": {
-    userId: 2021,
-    empCode: "PTGĐ-001",
-    name: "Bùi Đình Trung",
-    title: "Phó Tổng Giám Đốc KHCB & TTPP",
-    department: "Ban Giám Đốc Kế Hoạch & TTPP",
-    email: "ptgd.buidinhtrung@tbsgroup.vn",
-    phone: "0903800021",
-    roleCode: "PHO_TONG_GIAM_DOC",
-    roles: ["deputy_ceo"],
-    roleLevel: 2,
-    avatar: "",
-    redirectUrl: "/work",
-  },
-  "PTGĐ-002": {
-    userId: 202,
-    empCode: "PTGĐ-002",
-    name: "Lê Hoàng Nam",
-    title: "Phó Tổng Giám Đốc Vận Hành & Chuỗi Cung Ứng",
-    department: "Ban Giám Đốc Vận Hành",
-    email: "ptgd.lehoangnam@tbsgroup.vn",
-    phone: "0903800002",
-    roleCode: "PHO_TONG_GIAM_DOC",
-    roles: ["deputy_ceo"],
-    roleLevel: 2,
-    avatar: "",
-    redirectUrl: "/work",
-  },
-  "PTGĐ-003": {
-    userId: 2023,
-    empCode: "PTGĐ-003",
-    name: "Trịnh Văn Thành",
-    title: "Phó Tổng Giám Đốc Kỹ Thuật & R&D",
-    department: "Ban Giám Đốc Kỹ Thuật",
-    email: "ptgd.trinhvanthanh@tbsgroup.vn",
-    phone: "0903800023",
-    roleCode: "PHO_TONG_GIAM_DOC",
-    roles: ["deputy_ceo"],
-    roleLevel: 2,
-    avatar: "",
-    redirectUrl: "/work",
-  },
-  "GĐ-003": {
-    userId: 203,
-    empCode: "GĐ-003",
-    name: "Đặng Minh Tuấn",
-    title: "Giám Đốc Khối Sản Xuất & Tổ Hợp Nhà Máy",
-    department: "Khối Sản Xuất & Nhà Máy",
-    email: "gd.dangminhtuan@tbsgroup.vn",
-    phone: "0903800003",
-    roleCode: "GIAM_DOC",
-    roles: ["director"],
-    roleLevel: 2,
-    avatar: "",
-    redirectUrl: "/work",
-  },
-  "GĐ-004": {
-    userId: 2034,
-    empCode: "GĐ-004",
-    name: "Vũ Thị Thanh",
-    title: "Giám Đốc Khối Chuỗi Cung Ứng SKECHERS",
-    department: "Khối Chuỗi Cung Ứng",
-    email: "gd.vuthithanh@tbsgroup.vn",
-    phone: "0903800034",
-    roleCode: "GIAM_DOC",
-    roles: ["director"],
-    roleLevel: 2,
-    avatar: "",
-    redirectUrl: "/work",
-  },
-  "PGĐ-001": {
-    userId: 2041,
-    empCode: "PGĐ-001",
-    name: "Kiều Thanh Vũ",
-    title: "Phó Giám Đốc Phân Hệ CN CI PPH (PGĐ)",
-    department: "Phân Hệ CN CI PPH",
-    email: "pgd.kieuthanhvu@tbsgroup.vn",
-    phone: "0903800041",
-    roleCode: "PHO_GIAM_DOC",
-    roles: ["deputy_director"],
-    roleLevel: 2,
-    avatar: "",
-    redirectUrl: "/work",
-  },
-  "PGĐ-004": {
-    userId: 204,
-    empCode: "PGĐ-004",
-    name: "Nguyễn Thị Mai",
-    title: "Phó Giám Đốc Quản Lý Chất Lượng (QC) & Gemba",
-    department: "Khối Quản Lý Chất Lượng (QC)",
-    email: "pgd.nguyenthimai@tbsgroup.vn",
-    phone: "0903800004",
-    roleCode: "PHO_GIAM_DOC",
-    roles: ["deputy_director"],
-    roleLevel: 2,
-    avatar: "",
-    redirectUrl: "/work",
-  },
-  "PGĐ-005": {
-    userId: 2045,
-    empCode: "PGĐ-005",
-    name: "Bùi Văn Hùng",
-    title: "Phó Giám Đốc Sản Xuất Nhà Máy KG1",
-    department: "Khối Sản Xuất & Nhà Máy",
-    email: "pgd.buivanhung@tbsgroup.vn",
-    phone: "0903800045",
-    roleCode: "PHO_GIAM_DOC",
-    roles: ["deputy_director"],
-    roleLevel: 2,
-    avatar: "",
-    redirectUrl: "/work",
-  },
-  "PGĐ-006": {
-    userId: 2046,
-    empCode: "PGĐ-006",
-    name: "Đỗ Thị Thu",
-    title: "Phó Giám Đốc Nhân Sự & Hành Chánh",
-    department: "Khối Nhân Sự & Hành Chánh",
-    email: "pgd.dothithu@tbsgroup.vn",
-    phone: "0903800046",
-    roleCode: "PHO_GIAM_DOC",
-    roles: ["deputy_director"],
-    roleLevel: 2,
-    avatar: "",
-    redirectUrl: "/work",
-  },
-  "ADMIN-2026": {
-    userId: 200,
-    empCode: "ADMIN-2026",
-    name: "Trần Văn Quản Trị",
-    title: "Quản Trị Viên Hệ Thống TBS Group",
-    department: "Khối Quản Trị Hệ Thống",
-    email: "admin@tbsgroup.vn",
-    phone: "0903800000",
-    roleCode: "SUPER_ADMIN",
-    roles: ["admin"],
-    roleLevel: 1,
-    avatar: "",
-    redirectUrl: "/admin",
-  },
-  "NS-001": {
-    userId: 208,
-    empCode: "NS-001",
-    name: "Nguyễn Thị Lan Anh",
-    title: "Trưởng Phòng Nhân Sự",
-    department: "Nhân Sự - Hành Chánh",
-    email: "ns001@tbsgroup.vn",
-    phone: "0988100001",
-    roleCode: "TRUONG_PHONG",
-    roles: ["employee", "department_head", "hr"],
-    roleLevel: 3,
-    avatar: "",
-    redirectUrl: "/work",
-    managedDepartmentId: "hr",
-  },
-  "KT-001": {
-    userId: 210,
-    empCode: "KT-001",
-    name: "Trần Thị Thu Hương",
-    title: "Trưởng Phòng Kế Toán",
-    department: "Kế Toán & Quản Trị Tài Chính",
-    email: "kt001@tbsgroup.vn",
-    phone: "0988200001",
-    roleCode: "TRUONG_PHONG",
-    roles: ["employee", "department_head", "accountant"],
-    roleLevel: 3,
-    avatar: "",
-    redirectUrl: "/finance",
-    managedDepartmentId: "accounting",
-  },
-  "QC-001": {
-    userId: 214,
-    empCode: "QC-001",
-    name: "Bùi Thị Hằng",
-    title: "Quản Lý QC & Kiểm Soát Chất Lượng",
-    department: "Khối Quản Lý Chất Lượng (QC)",
-    email: "qc001@tbsgroup.vn",
-    phone: "0988400001",
-    roleCode: "QC_MANAGER",
-    roles: ["employee", "qc"],
-    roleLevel: 3,
-    avatar: "",
-    redirectUrl: "/work",
-    managedDepartmentId: "qc",
-  },
-  "BT-001": {
+  "202409009": {
     userId: 216,
-    empCode: "BT-001",
-    name: "Phạm Văn Bảo",
-    title: "Kỹ Thuật Viên Bảo Trì Trưởng",
-    department: "Tổ Hợp Nhà Máy & Sản Xuất",
-    email: "bt001@tbsgroup.vn",
-    phone: "0988500001",
-    roleCode: "KY_THUAT_VIEN",
-    roles: ["employee", "maintenance"],
+    empCode: "202409009",
+    name: "Nguyễn Kim Nguyên",
+    title: "Nhân Viên Hành Chính - Lễ Tân",
+    department: "NHÂN SỰ-HC",
+    email: "202409009@tbsgroup.vn",
+    phone: "",
+    roleCode: "LE_TAN",
+    roles: ["employee", "receptionist"],
     roleLevel: 4,
     avatar: "",
-    redirectUrl: "/maintenance",
-    managedDepartmentId: "factory",
+    redirectUrl: "/rooms",
+    managedDepartmentId: "hr",
   },
-  "LG-001": {
-    userId: 219,
-    empCode: "LG-001",
-    name: "Nguyễn Văn Minh",
-    title: "Trưởng Phòng Logistics",
-    department: "Logistics - KH Chuẩn Bị TTPP",
-    email: "lg001@tbsgroup.vn",
-    phone: "0988600001",
-    roleCode: "TRUONG_PHONG",
-    roles: ["employee", "department_head", "logistics"],
-    roleLevel: 3,
+  "202010004": {
+    userId: 217,
+    empCode: "202010004",
+    name: "Nguyễn Minh Hùng",
+    title: "Nhân Viên Hành Chính - Lễ Tân",
+    department: "NHÂN SỰ-HC",
+    email: "202010004@tbsgroup.vn",
+    phone: "",
+    roleCode: "LE_TAN",
+    roles: ["employee", "receptionist"],
+    roleLevel: 4,
     avatar: "",
-    redirectUrl: "/work",
-    managedDepartmentId: "logistics",
+    redirectUrl: "/rooms",
+    managedDepartmentId: "hr",
   },
-  "RD-001": {
-    userId: 212,
-    empCode: "RD-001",
-    name: "Võ Thị Kim Loan",
-    title: "Trưởng Phòng R&D",
-    department: "R&D - Phát Triển Sản Phẩm",
-    email: "rd001@tbsgroup.vn",
-    phone: "0988300001",
-    roleCode: "TRUONG_PHONG",
-    roles: ["employee", "department_head", "rd"],
-    roleLevel: 3,
+  "202206011": {
+    userId: 215,
+    empCode: "202206011",
+    name: "Lễ Tân (Trưởng Team LT)",
+    title: "Trưởng Team Lễ Tân",
+    department: "Văn Phòng Chuỗi SKECHERS",
+    email: "letan.teamlead@tbsgroup.vn",
+    phone: "0522511247",
+    roleCode: "LE_TAN",
+    roles: ["employee", "receptionist"],
+    roleLevel: 4,
     avatar: "",
-    redirectUrl: "/work",
-    managedDepartmentId: "rd",
+    redirectUrl: "/rooms",
+    managedDepartmentId: "hr",
   },
 };
 
 export const ROLE_ALIAS_MAP: Record<string, string> = {
-  ceo: "TGĐ-001",
-  deputy_ceo: "PTGĐ-002",
-  director: "GĐ-003",
-  deputy_director: "PGĐ-004",
-  admin: "ADMIN-2026",
-  receptionist: "LT-001",
-  letan: "LT-001",
-  "lt-001": "LT-001",
+  ceo: "202608001",
+  deputy_ceo: "202608001",
+  director: "202608001",
+  deputy_director: "202608001",
+  admin: "202608001",
+  receptionist: "202206011",
+  letan: "202206011",
+  "lt-001": "202206011",
   ci: "202608001",
-  hr: "NS-001",
-  accountant: "KT-001",
-  qc: "QC-001",
-  maintenance: "BT-001",
-  logistics: "LG-001",
-  rd: "RD-001",
+  hr: "202608003",
+  accountant: "210602002",
+  qc: "202608003",
+  maintenance: "202112003",
+  logistics: "202112003",
+  rd: "202608001",
   "2026080001": "202608001",
   "20260800001": "202608001",
   "20260801": "202608001",
@@ -369,18 +255,25 @@ export const ROLE_ALIAS_MAP: Record<string, string> = {
   "anhhuy": "202608001",
   "huy": "202608001",
   "tranhuy110421@gmail.com": "202608002",
+  "2026080003": "202608003",
+  "20260800003": "202608003",
+  "20260803": "202608003",
+  "ngohathanhan@tbsgroup.vn": "202608003",
+  "ngohathanhan": "202608003",
 };
 
-export function normalizeEmpCode(input: string): string {
-  if (!input) return "202608001";
-  const trimmed = input.trim().toLowerCase();
+export function normalizeEmpCode(input: any): string {
+  if (input === null || input === undefined || input === "") return "";
+  const strInput = String(input).trim();
+  if (!strInput) return "";
+  const trimmed = strInput.toLowerCase();
   if (
     trimmed === "lt-001" ||
     trimmed === "lt001" ||
     trimmed === "letan" ||
     trimmed === "le_tan"
   ) {
-    return "LT-001";
+    return "202206011";
   }
   if (
     trimmed === "202608001" ||
@@ -405,7 +298,34 @@ export function normalizeEmpCode(input: string): string {
   ) {
     return "202608002";
   }
-  return ROLE_ALIAS_MAP[trimmed] || input.trim();
+  if (
+    trimmed === "202608003" ||
+    trimmed === "2026080003" ||
+    trimmed === "20260803" ||
+    trimmed === "20260800003" ||
+    trimmed === "ngohathanhan@tbsgroup.vn" ||
+    trimmed === "ngohathanhan"
+  ) {
+    return "202608003";
+  }
+  return ROLE_ALIAS_MAP[trimmed] || strInput;
+}
+
+/**
+ * Lấy thông tin user trong SYSTEM_USERS một cách an toàn (tránh ReferenceError)
+ */
+export function getSystemUser(empCode: any): UserProfile | null {
+  if (!empCode) return null;
+  const normalized = normalizeEmpCode(empCode);
+  if (!normalized) return null;
+  return SYSTEM_USERS[normalized] || null;
+}
+
+/**
+ * Lấy danh sách tất cả các UserProfile trong hệ thống
+ */
+export function getAllSystemUsers(): UserProfile[] {
+  return Object.values(SYSTEM_USERS);
 }
 
 /**
@@ -423,7 +343,11 @@ export function getUserAvatar(empCode: string): string | null {
     custom !== "/images/tbs-logo.png" &&
     !custom.includes("unsplash.com")
   ) {
-    return custom;
+    if (cleanCode !== "202608001" && custom.includes("nzcft200bebofw7b4uzg")) {
+      localStorage.removeItem(`tbs_avatar_${cleanCode}`);
+    } else {
+      return custom;
+    }
   }
 
   if (
@@ -432,6 +356,9 @@ export function getUserAvatar(empCode: string): string | null {
     SYSTEM_USERS[cleanCode].avatar !== "/images/tbs-logo.png" &&
     !SYSTEM_USERS[cleanCode].avatar.includes("unsplash.com")
   ) {
+    if (cleanCode !== "202608001" && SYSTEM_USERS[cleanCode].avatar.includes("nzcft200bebofw7b4uzg")) {
+      return null;
+    }
     return SYSTEM_USERS[cleanCode].avatar;
   }
 
@@ -479,13 +406,67 @@ export function setUserAvatar(empCode: string, avatarUrl: string): void {
 }
 
 /**
+ * Lưu thông tin cá nhân tùy chỉnh RIÊNG BIỆT theo đúng mã nhân viên (empCode).
+ * Khóa chặt dữ liệu theo key tbs_profile_info_${cleanCode} để tránh rò rỉ thông tin sang người khác.
+ */
+export function setUserProfileInfo(empCode: string, info: Partial<UserProfile>): void {
+  if (typeof window === "undefined" || !empCode) return;
+  const cleanCode = normalizeEmpCode(empCode);
+  const key = `tbs_profile_info_${cleanCode}`;
+
+  let existing: Record<string, any> = {};
+  const stored = localStorage.getItem(key);
+  if (stored) {
+    try {
+      existing = JSON.parse(stored);
+    } catch {}
+  }
+
+  const updated = {
+    ...existing,
+    ...info,
+    empCode: cleanCode,
+  };
+
+  localStorage.setItem(key, JSON.stringify(updated));
+
+  if (info.avatar && typeof info.avatar === "string") {
+    setUserAvatar(cleanCode, info.avatar);
+  }
+
+  const storedSession = sessionStorage.getItem("tbs_current_user");
+  if (storedSession) {
+    try {
+      const parsed = JSON.parse(storedSession);
+      if (normalizeEmpCode(parsed.empCode) === cleanCode) {
+        const merged = { ...parsed, ...updated };
+        sessionStorage.setItem("tbs_current_user", JSON.stringify(merged));
+      }
+    } catch {}
+  }
+
+  window.dispatchEvent(new Event("tbs_profile_updated"));
+}
+
+/**
+ * Lấy thông tin cá nhân tùy chỉnh RIÊNG BIỆT theo đúng mã nhân viên (empCode).
+ */
+export function getUserProfileInfo(empCode: string): Partial<UserProfile> | null {
+  if (typeof window === "undefined" || !empCode) return null;
+  const cleanCode = normalizeEmpCode(empCode);
+  const key = `tbs_profile_info_${cleanCode}`;
+
+  const stored = localStorage.getItem(key);
+  if (stored) {
+    try {
+      return JSON.parse(stored);
+    } catch {}
+  }
+  return null;
+}
+
+/**
  * Lấy tiêu đề / badge hiển thị chuẩn cho tài khoản trên tất cả các tab/màn hình.
- * Quy tắc ưu tiên:
- * 1. Định dạng "Department - Team" (ví dụ: "IT - Team Chuyển Đổi Số")
- * 2. Nếu title/department đã có dạng kết hợp (hoặc có trong SYSTEM_USERS theo empCode), dùng trực tiếp
- * 3. Nếu khuyết department/team, dùng department hoặc title readable
- * 4. Nếu có roleCode, ánh xạ sang tên chức danh tiếng Việt thân thiện — tuyệt đối KHÔNG hiển thị mã rút gọn thô như "NV" hay "CBCNV".
- * 5. Mặc định fallback: "IT - Team Chuyển Đổi Số" cho tài khoản 202608001/202608002 hoặc "Văn Phòng Chuỗi SKECHERS".
  */
 export function getUserDisplayBadgeTitle(user?: Partial<UserProfile> | null): string {
   if (!user) return "IT - Team Chuyển Đổi Số";
@@ -533,6 +514,7 @@ export function getUserDisplayBadgeTitle(user?: Partial<UserProfile> | null): st
     "GIAM_DOC": "Giám Đốc Phân Hệ",
     "PHO_GIAM_DOC": "Phó Giám Đốc Phân Hệ",
     "TRUONG_PHONG": "Trưởng Phòng",
+    "IE": "Kỹ Sư IE (Industrial Engineering)",
     "LE_TAN": "Lễ Tân Văn Phòng",
     "QC_MANAGER": "Quản Lý Quality Control",
     "KY_THUAT_VIEN": "Kỹ Thuật Viên",
@@ -549,7 +531,7 @@ export function getUserDisplayBadgeTitle(user?: Partial<UserProfile> | null): st
 
 /**
  * Lấy thông tin user hiện tại đang đăng nhập từ Session Storage/LocalStorage.
- * Đảm bảo avatar luôn thuộc về đúng empCode của user đó.
+ * Đảm bảo avatar & thông tin luôn thuộc về đúng empCode của user đó.
  */
 export function getCurrentUser(): UserProfile | null {
   if (typeof window === "undefined") return null;
@@ -559,12 +541,46 @@ export function getCurrentUser(): UserProfile | null {
     localStorage.removeItem("tbs_user_custom_avatar");
   }
 
-  // Ưu tiên lấy từ sessionStorage (định danh tab độc lập) để tránh bị đè tài khoản khi mở nhiều tab
+  // Ưu tiên lấy từ sessionStorage (định danh tab độc lập) và đối chiếu với cookie tbs_token
+  let cookieEmpCode: string | null = null;
+  if (typeof document !== "undefined") {
+    const cookieMatch = document.cookie.match(/tbs_token=tbs_token_([^_]+)_/);
+    if (cookieMatch && cookieMatch[1]) {
+      cookieEmpCode = normalizeEmpCode(cookieMatch[1]);
+    }
+  }
+
   let stored = sessionStorage.getItem("tbs_current_user");
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored);
+      if (cookieEmpCode && normalizeEmpCode(parsed?.empCode) !== cookieEmpCode) {
+        stored = null; // Session cũ từ tab khác không khớp cookie
+      }
+    } catch {
+      stored = null;
+    }
+  }
+
+  if (!stored && cookieEmpCode && SYSTEM_USERS[cookieEmpCode]) {
+    const sysProfile = { ...SYSTEM_USERS[cookieEmpCode] };
+    stored = JSON.stringify(sysProfile);
+    sessionStorage.setItem("tbs_current_user", stored);
+  }
+
   if (!stored) {
     stored = localStorage.getItem("tbs_current_user");
     if (stored) {
-      sessionStorage.setItem("tbs_current_user", stored);
+      try {
+        const parsed = JSON.parse(stored);
+        if (cookieEmpCode && normalizeEmpCode(parsed?.empCode) !== cookieEmpCode) {
+          stored = null;
+        } else {
+          sessionStorage.setItem("tbs_current_user", stored);
+        }
+      } catch {
+        stored = null;
+      }
     }
   }
   if (!stored) return null;
@@ -573,29 +589,59 @@ export function getCurrentUser(): UserProfile | null {
     const parsed: UserProfile = JSON.parse(stored);
     if (!parsed || !parsed.empCode) return null;
 
+    // Auto-heal tbs_token cookie if missing to ensure persistent login across page refreshes
+    if (typeof document !== "undefined") {
+      const hasTokenCookie = document.cookie.split("; ").some((row) => row.startsWith("tbs_token="));
+      if (!hasTokenCookie) {
+        const token = `tbs_token_${parsed.empCode}_${Date.now()}`;
+        document.cookie = `tbs_token=${token}; path=/; max-age=31536000; SameSite=Lax`;
+      }
+    }
+
     const normalizedCode = normalizeEmpCode(parsed.empCode);
     const baseInfo = SYSTEM_USERS[normalizedCode];
-
-    // Lấy avatar riêng biệt theo empCode:
+    const customInfo = getUserProfileInfo(normalizedCode);
     const customAvatar = getUserAvatar(normalizedCode);
 
-    // Thứ tự ưu tiên nghiêm ngặt:
-    // 1. Custom Avatar của chính empCode này (nếu hợp lệ)
-    // 2. Base Avatar chuẩn của empCode này trong SYSTEM_USERS
-    // 3. Parsed avatar từ session (nếu không phải unsplash/logo)
-    let finalAvatar = customAvatar || (baseInfo?.avatar && !baseInfo.avatar.includes("unsplash.com") ? baseInfo.avatar : null) || (parsed.avatar && !parsed.avatar.includes("unsplash.com") && parsed.avatar !== "/images/tbs-logo.png" ? parsed.avatar : "");
+    let finalAvatar =
+      customAvatar ||
+      (customInfo?.avatar && !customInfo.avatar.includes("unsplash.com") ? customInfo.avatar : null) ||
+      (baseInfo?.avatar && !baseInfo.avatar.includes("unsplash.com") ? baseInfo.avatar : null) ||
+      (parsed.avatar && !parsed.avatar.includes("unsplash.com") && parsed.avatar !== "/images/tbs-logo.png" ? parsed.avatar : "");
+
+    if (normalizedCode !== "202608001" && finalAvatar && finalAvatar.includes("nzcft200bebofw7b4uzg")) {
+      finalAvatar = "";
+    }
     if (!finalAvatar) {
       finalAvatar = "";
     }
 
+    const defaultAllowedScopes: EquipmentScope[] = baseInfo?.allowedScopes || parsed.allowedScopes || ['ALL', 'OFFICE', 'EAST', 'KIEN_GIANG'];
+
+    const isValidParsed = normalizeEmpCode(parsed.empCode) === normalizedCode;
+
+    const fallbackName = baseInfo?.name || (normalizedCode === "202608001" ? "Phạm Nguyễn Anh Huy" : `Nhân Viên (${normalizedCode})`);
+    const fallbackTitle = baseInfo?.title || (normalizedCode === "202608001" ? "IT - Team Chuyển Đổi Số" : "Chuyên Viên Vận Hành");
+    const fallbackDept = baseInfo?.department || "Văn Phòng Chuỗi SKECHERS";
+    const fallbackEmail = baseInfo?.email || `${normalizedCode.toLowerCase()}@tbsgroup.vn`;
+    const fallbackPhone = baseInfo?.phone || "";
+
+    const name = customInfo?.name || (baseInfo?.name ? baseInfo.name : (isValidParsed && parsed.name && !parsed.name.startsWith("Cán Bộ") ? parsed.name : fallbackName));
+    const title = customInfo?.title || (baseInfo?.title ? baseInfo.title : (isValidParsed && parsed.title && parsed.title !== "NV" ? parsed.title : fallbackTitle));
+    const department = customInfo?.department || (baseInfo?.department ? baseInfo.department : (isValidParsed && parsed.department ? parsed.department : fallbackDept));
+    const email = customInfo?.email || (baseInfo?.email ? baseInfo.email : (isValidParsed && parsed.email ? parsed.email : fallbackEmail));
+    const phone = customInfo?.phone || (baseInfo?.phone ? baseInfo.phone : (isValidParsed && parsed.phone ? parsed.phone : fallbackPhone));
+
     return {
       ...parsed,
       empCode: normalizedCode,
-      name: (baseInfo && (!parsed.name || parsed.name.startsWith("Cán Bộ Nhân Viên"))) ? baseInfo.name : (parsed.name || baseInfo?.name || "User"),
-      title: (baseInfo && (!parsed.title || parsed.title === "Cán Bộ Công Nhân Viên" || parsed.title === "NV")) ? baseInfo.title : (getUserDisplayBadgeTitle(parsed) || baseInfo?.title || "IT - Team Chuyển Đổi Số"),
-      department: (baseInfo && (!parsed.department || parsed.department === "Văn Phòng Chuỗi SKECHERS")) ? baseInfo.department : (parsed.department || baseInfo?.department || "TBS Group"),
-      email: (baseInfo && (!parsed.email || (parsed.email.endsWith("@tbsgroup.vn") && baseInfo.email.includes("@gmail.com")))) ? baseInfo.email : (parsed.email || baseInfo?.email || ""),
+      name,
+      title,
+      department,
+      email,
+      phone,
       avatar: finalAvatar,
+      allowedScopes: defaultAllowedScopes,
     };
   } catch {
     return null;
@@ -632,16 +678,17 @@ export function loginUserProfile(empCodeOrRole: string, password?: string): User
   if (SYSTEM_USERS[targetEmpCode]) {
     baseProfile = { ...SYSTEM_USERS[targetEmpCode] };
   } else {
+    const isMgmt = targetEmpCode.length > 0;
     baseProfile = {
       userId: 888,
       empCode: targetEmpCode || "202608001",
-      name: `Cán Bộ Nhân Viên (${targetEmpCode})`,
-      title: "Cán Bộ Công Nhân Viên",
+      name: `Cán Bộ Quản Lý (${targetEmpCode})`,
+      title: "Trưởng Phòng / Cán Bộ Quản Lý",
       department: "Văn Phòng Chuỗi SKECHERS",
       email: `${targetEmpCode.toLowerCase()}@tbsgroup.vn`,
-      roleCode: "CBCNV",
-      roles: ["employee"],
-      roleLevel: 4,
+      roleCode: isMgmt ? "TRUONG_PHONG" : "CBCNV",
+      roles: isMgmt ? ["employee", "department_head", "ci", "admin"] : ["employee"],
+      roleLevel: isMgmt ? 3 : 4,
       avatar: "",
       redirectUrl: "/work",
     };
@@ -659,9 +706,9 @@ export function loginUserProfile(empCodeOrRole: string, password?: string): User
   sessionStorage.setItem("tbs_current_user", JSON.stringify(baseProfile));
   localStorage.setItem("tbs_current_user", JSON.stringify(baseProfile));
 
-  // Thiết lập cookie token
+  // Thiết lập cookie token (max-age 365 ngày cho duy trì đăng nhập)
   const token = `tbs_token_${baseProfile.empCode}_${Date.now()}`;
-  document.cookie = `tbs_token=${token}; path=/; max-age=86400`;
+  document.cookie = `tbs_token=${token}; path=/; max-age=31536000; SameSite=Lax`;
 
   // Bắn event cập nhật toàn bộ components
   window.dispatchEvent(new Event("tbs_profile_updated"));
@@ -733,7 +780,7 @@ export async function loginWithD1Database(
     sessionStorage.setItem("tbs_current_user", JSON.stringify(finalProfile));
     localStorage.setItem("tbs_current_user", JSON.stringify(finalProfile));
     const token = `tbs_token_${finalProfile.empCode}_${Date.now()}`;
-    document.cookie = `tbs_token=${token}; path=/; max-age=86400`;
+    document.cookie = `tbs_token=${token}; path=/; max-age=31536000; SameSite=Lax`;
     window.dispatchEvent(new Event("tbs_profile_updated"));
   }
 
@@ -746,18 +793,27 @@ export async function loginWithD1Database(
 export function logoutUserProfile(): void {
   if (typeof window === "undefined") return;
 
-  // Xóa cookie xác thực
-  document.cookie = "tbs_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+  try {
+    // 1. Expire cookies across all paths
+    document.cookie = "tbs_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+    document.cookie = "tbs_token=; path=/; max-age=0; SameSite=Lax";
+    document.cookie = "tbs_user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
 
-  // Xóa session user ở cả sessionStorage (tab hiện tại) và localStorage (toàn cục)
-  sessionStorage.removeItem("tbs_current_user");
-  localStorage.removeItem("tbs_current_user");
+    // 2. Clear Session and Local Storage completely
+    sessionStorage.removeItem("tbs_current_user");
+    localStorage.removeItem("tbs_current_user");
+    sessionStorage.removeItem("tbs_token");
+    localStorage.removeItem("tbs_token");
+    localStorage.removeItem("tbs_user_custom_avatar");
 
-  // Dọn dẹp key rác dùng chung
-  localStorage.removeItem("tbs_user_custom_avatar");
+    sessionStorage.clear();
+    localStorage.clear();
 
-  // Bắn event để tất cả các page/component tự động reset về trạng thái chưa đăng nhập
-  window.dispatchEvent(new Event("tbs_profile_updated"));
+    // 3. Dispatch global profile updated event
+    window.dispatchEvent(new Event("tbs_profile_updated"));
+  } catch (e) {
+    console.warn("[logoutUserProfile] Cleanup error:", e);
+  }
 }
 
 /**
@@ -768,8 +824,8 @@ export function logoutUserProfile(): void {
 export function isAdminUser(user: any): boolean {
   if (!user) return false;
 
-  const empCode = (user.empCode || user.emp_code || "").toString().trim().toUpperCase();
   const roleCode = (user.roleCode || user.role_code || "").toString().trim().toUpperCase();
+  const roleLevel = user.roleLevel || user.role_level || 4;
   const roles: string[] = Array.isArray(user.roles)
     ? user.roles.map((r: any) => r.toString().toLowerCase())
     : [];
@@ -779,7 +835,8 @@ export function isAdminUser(user: any): boolean {
     roleCode === "SUPER_ADMIN" ||
     roleCode === "ADMIN" ||
     roleCode === "SYSTEM_ADMIN" ||
-    roleCode === "ADMIN-2026"
+    roleCode === "ADMIN-2026" ||
+    roleLevel === 1
   ) {
     return true;
   }
@@ -793,16 +850,6 @@ export function isAdminUser(user: any): boolean {
     return true;
   }
 
-  // 3. Kiểm tra mã nhân viên quản trị đặc biệt
-  if (
-    empCode === "ADMIN-2026" ||
-    empCode === "202608001" ||
-    empCode === "2026080001" ||
-    empCode === "202608002"
-  ) {
-    return true;
-  }
-
   return false;
 }
 
@@ -811,4 +858,66 @@ export function formatTitleWithDepartment(title?: string, department?: string): 
   if (!department || title.includes(department)) return title;
   return `${title} - ${department}`;
 }
+
+/**
+ * Tra cứu tên thật chính xác của nhân viên theo Mã NV (empCode).
+ * Quy tắc ưu tiên:
+ * 1. Nếu mã là SYSTEM hoặc rỗng: trả về "Hệ thống".
+ * 2. Tra trong danh mục SYSTEM_USERS (ví dụ 202608001 -> "Phạm Nguyễn Anh Huy").
+ * 3. Nếu không có trong danh mục, dùng tên đã lưu (nếu có) ngoại trừ chuỗi mặc định "Cán Bộ Công Nhân Viên".
+ * 4. Ngược lại trả về "Không xác định". Tuyệt đối KHÔNG dùng chuỗi cứng "Cán Bộ Công Nhân Viên".
+ */
+export function resolveEmployeeName(empCode?: string | null, storedName?: string | null): string {
+  if (!empCode || String(empCode).trim().toUpperCase() === "SYSTEM") {
+    return "Hệ thống";
+  }
+
+  const normalized = normalizeEmpCode(empCode);
+  if (normalized && SYSTEM_USERS[normalized] && SYSTEM_USERS[normalized].name) {
+    return SYSTEM_USERS[normalized].name;
+  }
+
+  if (storedName && typeof storedName === "string") {
+    const clean = storedName.trim();
+    if (
+      clean !== "" &&
+      clean !== "Cán Bộ Công Nhân Viên" &&
+      clean !== "Cán Bộ Nhân Viên" &&
+      clean !== "CBCNV" &&
+      !clean.startsWith("Cán Bộ Nhân Viên (")
+    ) {
+      return clean;
+    }
+  }
+
+  return "Không xác định";
+}
+
+/**
+ * Tra cứu tên nhân viên theo LÔ (Batch Lookup) cho danh sách mã NV.
+ * Trả về Map (empCode -> Tên thật) để xử lý tập trung trong bộ nhớ, tối ưu hiệu năng.
+ */
+export function buildEmpCodeNameMap(empCodes: (string | null | undefined)[]): Record<string, string> {
+  const map: Record<string, string> = {
+    SYSTEM: "Hệ thống",
+    system: "Hệ thống",
+  };
+
+  const uniqueCodes = Array.from(new Set(empCodes.filter((c): c is string => Boolean(c))));
+
+  for (const rawCode of uniqueCodes) {
+    const normalized = normalizeEmpCode(rawCode);
+    if (normalized && SYSTEM_USERS[normalized]) {
+      map[rawCode] = SYSTEM_USERS[normalized].name;
+      map[normalized] = SYSTEM_USERS[normalized].name;
+    } else if (String(rawCode).toUpperCase() === "SYSTEM") {
+      map[rawCode] = "Hệ thống";
+    } else {
+      map[rawCode] = resolveEmployeeName(rawCode);
+    }
+  }
+
+  return map;
+}
+
 

@@ -208,7 +208,7 @@ export default function ShoeLinesManager({ shoeLines, onChange, showToast }: Pro
               Quản Lý Dòng Giày SKECHERS Tiêu Biểu (Featured Shoe Lines)
             </h3>
             <p className="text-xs text-slate-500 font-medium mt-1">
-              Quản lý các khối nhóm dòng sản phẩm giày (Performance Running, Lifestyle Casual, Work & Safety...)
+              Quản lý các khối nhóm dòng sản phẩm giày (WATER PROOF, MEN'S SPORT, MEN USA, WORK SHOES, PERFORMANCE...)
             </p>
           </div>
 
@@ -296,7 +296,7 @@ export default function ShoeLinesManager({ shoeLines, onChange, showToast }: Pro
                     type="text"
                     value={group.title}
                     onChange={(e) => handleGroupTitleChange(group.id, e.target.value)}
-                    placeholder="Tên Nhóm (Ví dụ: PERFORMANCE RUNNING)"
+                    placeholder="Tên Nhóm (Ví dụ: WATER PROOF)"
                     className="px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs font-black uppercase tracking-wider outline-none focus:border-[#004029] focus:bg-white max-w-xs"
                   />
                 </div>

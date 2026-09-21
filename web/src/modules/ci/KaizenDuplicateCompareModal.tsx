@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { getValidKaizenImageUrl } from "@/lib/kaizenImageHelper";
 import {
   IconAlertTriangle,
   IconCheck,
@@ -173,24 +174,24 @@ export default function KaizenDuplicateCompareModal({
                 </div>
 
                 {/* Attachments preview */}
-                {(newSubmission.beforeImageUrl || newSubmission.afterImageUrl) && (
+                {(getValidKaizenImageUrl(newSubmission.beforeImageUrl) || getValidKaizenImageUrl(newSubmission.afterImageUrl)) && (
                   <div className="grid grid-cols-2 gap-2 pt-1">
-                    {newSubmission.beforeImageUrl && (
+                    {getValidKaizenImageUrl(newSubmission.beforeImageUrl) && (
                       <div>
                         <span className="text-[10px] font-bold text-slate-500 block mb-1">Ảnh TRƯỚC:</span>
                         <img
-                          src={newSubmission.beforeImageUrl}
-                          alt="Before"
+                          src={getValidKaizenImageUrl(newSubmission.beforeImageUrl)}
+                          alt=""
                           className="w-full h-24 object-cover rounded-xl border border-slate-300"
                         />
                       </div>
                     )}
-                    {newSubmission.afterImageUrl && (
+                    {getValidKaizenImageUrl(newSubmission.afterImageUrl) && (
                       <div>
                         <span className="text-[10px] font-bold text-slate-500 block mb-1">Ảnh SAU:</span>
                         <img
-                          src={newSubmission.afterImageUrl}
-                          alt="After"
+                          src={getValidKaizenImageUrl(newSubmission.afterImageUrl)}
+                          alt=""
                           className="w-full h-24 object-cover rounded-xl border border-slate-300"
                         />
                       </div>
@@ -248,24 +249,24 @@ export default function KaizenDuplicateCompareModal({
                 </div>
 
                 {/* Attachments preview */}
-                {(orig?.before_image_url || orig?.after_image_url) && (
+                {(getValidKaizenImageUrl(orig?.before_image_url, orig?.attachments_json) || getValidKaizenImageUrl(orig?.after_image_url)) && (
                   <div className="grid grid-cols-2 gap-2 pt-1">
-                    {orig?.before_image_url && (
+                    {getValidKaizenImageUrl(orig?.before_image_url, orig?.attachments_json) && (
                       <div>
                         <span className="text-[10px] font-bold text-slate-500 block mb-1">Ảnh TRƯỚC gốc:</span>
                         <img
-                          src={orig.before_image_url}
-                          alt="Original Before"
+                          src={getValidKaizenImageUrl(orig?.before_image_url, orig?.attachments_json)}
+                          alt=""
                           className="w-full h-24 object-cover rounded-xl border border-amber-300"
                         />
                       </div>
                     )}
-                    {orig?.after_image_url && (
+                    {getValidKaizenImageUrl(orig?.after_image_url) && (
                       <div>
                         <span className="text-[10px] font-bold text-slate-500 block mb-1">Ảnh SAU gốc:</span>
                         <img
-                          src={orig.after_image_url}
-                          alt="Original After"
+                          src={getValidKaizenImageUrl(orig?.after_image_url)}
+                          alt=""
                           className="w-full h-24 object-cover rounded-xl border border-amber-300"
                         />
                       </div>

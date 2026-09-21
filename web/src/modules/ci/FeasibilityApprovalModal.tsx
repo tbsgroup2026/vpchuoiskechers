@@ -16,6 +16,7 @@ import {
 } from "@tabler/icons-react";
 import { convertNumberToWords } from "@/lib/numberToWords";
 import { KaizenProposal, CATEGORIES } from "./CIModule";
+import { getValidKaizenImageUrl } from "@/lib/kaizenImageHelper";
 
 interface FeasibilityApprovalModalProps {
   isOpen: boolean;
@@ -36,6 +37,32 @@ interface FeasibilityApprovalModalProps {
     total_savings_words?: string;
     after_image_url?: string;
   }) => void;
+}
+
+function UserAvatar({ name, size = "md" }: { name: string; size?: "xs" | "sm" | "md" | "lg" }) {
+  const getInitials = (n: string) => {
+    if (!n) return "PH";
+    const parts = n.trim().split(" ");
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return n.substring(0, 2).toUpperCase();
+  };
+
+  const sizeClasses = {
+    xs: "w-6 h-6 text-[10px]",
+    sm: "w-7 h-7 text-xs",
+    md: "w-9 h-9 text-xs font-black",
+    lg: "w-11 h-11 text-sm font-black",
+  };
+
+  return (
+    <div
+      className={`${sizeClasses[size]} rounded-full bg-[#006838] text-white flex items-center justify-center font-extrabold shadow-2xs shrink-0 ring-2 ring-emerald-100`}
+    >
+      {getInitials(name)}
+    </div>
+  );
 }
 
 export default function FeasibilityApprovalModal({
@@ -422,13 +449,7 @@ export default function FeasibilityApprovalModal({
                   Người đăng ký
                 </span>
                 <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-full bg-slate-200 overflow-hidden shrink-0 flex items-center justify-center text-slate-600 font-bold text-xs">
-                    {(proposal as any).avatar_url ? (
-                      <img src={(proposal as any).avatar_url} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      (proposal.proposer_name || "U").substring(0, 1)
-                    )}
-                  </div>
+                  <UserAvatar name={proposal.proposer_name || proposal.proposer_emp_code} size="xs" />
                   <div className="min-w-0">
                     <div className="font-bold text-slate-800 text-xs truncate">
                       {proposal.proposer_name || proposal.proposer_emp_code}
@@ -492,7 +513,7 @@ export default function FeasibilityApprovalModal({
             </p>
           </div>
 
-          {proposal.before_image_url && (
+          {getValidKaizenImageUrl(proposal.before_image_url, proposal.attachments_json) && (
             <div className="space-y-1.5 pt-1 border-t border-slate-100">
               <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
                 <IconPhoto size={14} className="text-slate-500" />
@@ -500,10 +521,10 @@ export default function FeasibilityApprovalModal({
               </span>
               <div className="flex gap-2">
                 <div className="relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-900 w-24 h-24 shadow-2xs">
-                  {proposal.before_image_url.endsWith(".mp4") || proposal.before_image_url.endsWith(".mov") || proposal.before_image_url.startsWith("data:video") ? (
-                    <video src={proposal.before_image_url} className="w-full h-full object-cover" />
+                  {getValidKaizenImageUrl(proposal.before_image_url, proposal.attachments_json).endsWith(".mp4") || getValidKaizenImageUrl(proposal.before_image_url, proposal.attachments_json).endsWith(".mov") || getValidKaizenImageUrl(proposal.before_image_url, proposal.attachments_json).startsWith("data:video") ? (
+                    <video src={getValidKaizenImageUrl(proposal.before_image_url, proposal.attachments_json)} className="w-full h-full object-cover" />
                   ) : (
-                    <img src={proposal.before_image_url} alt="Trước Cải Tiến" className="w-full h-full object-cover" />
+                    <img src={getValidKaizenImageUrl(proposal.before_image_url, proposal.attachments_json)} alt="" className="w-full h-full object-cover" />
                   )}
                   <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-black/70 text-white text-[9px] font-mono font-bold backdrop-blur-xs">
                     🔒 Trước Cải Tiến

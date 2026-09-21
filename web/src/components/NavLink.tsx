@@ -9,6 +9,7 @@ interface NavLinkProps extends LinkProps {
   className?: string;
   activeClassName?: string;
   exact?: boolean;
+  title?: string;
 }
 
 export default function NavLink({

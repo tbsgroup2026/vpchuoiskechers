@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -13,7 +13,8 @@ import {
   IconCamera,
   IconBuildingFactory,
 } from "@tabler/icons-react";
-import { loginWithD1Database } from "@/lib/userProfiles";
+import { loginWithD1Database, getCurrentUser } from "@/lib/userProfiles";
+import { logLoginLogoutEvent } from "@/lib/webhookAuditClient";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -23,6 +24,30 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const isExpired = urlParams.get("expired") === "1";
+    const redirectUri = urlParams.get("redirect_uri");
+
+    if (isExpired) {
+      setError("Phiên đăng nhập đã hết hạn hoặc không có quyền. Vui lòng đăng nhập lại.");
+      return;
+    }
+
+    const curUser = getCurrentUser();
+    if (curUser && curUser.empCode) {
+      const targetUrl =
+        redirectUri && redirectUri.startsWith("/")
+          ? redirectUri
+          : curUser.empCode === "ADMIN-2026" || curUser.roleCode === "SUPER_ADMIN"
+          ? "/admin"
+          : curUser.redirectUrl || "/work";
+      router.replace(targetUrl);
+    }
+  }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,10 +68,23 @@ export default function LoginPage() {
       setLoading(true);
       const profile = await loginWithD1Database(cleanEmpCode, password);
 
+      // Audit Log Hook for Login Success
+      logLoginLogoutEvent({
+        emp_code: profile?.empCode || cleanEmpCode,
+        emp_name: profile?.name || cleanEmpCode,
+        action: 'Đăng nhập',
+        result: 'Thành công'
+      });
+
+      const urlParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+      const redirectUri = urlParams?.get("redirect_uri");
+
       const targetUrl =
-        cleanEmpCode === "ADMIN-2026" ||
-        profile.empCode === "ADMIN-2026" ||
-        profile.roleCode === "SUPER_ADMIN"
+        redirectUri && redirectUri.startsWith("/")
+          ? redirectUri
+          : cleanEmpCode === "ADMIN-2026" ||
+            profile.empCode === "ADMIN-2026" ||
+            profile.roleCode === "SUPER_ADMIN"
           ? "/admin"
           : profile.redirectUrl || "/work";
 
@@ -55,6 +93,14 @@ export default function LoginPage() {
       const message =
         err instanceof Error ? err.message : "Có lỗi xảy ra khi đăng nhập";
       setError(message);
+
+      // Audit Log Hook for Login Failure
+      logLoginLogoutEvent({
+        emp_code: cleanEmpCode,
+        emp_name: cleanEmpCode,
+        action: 'Đăng nhập',
+        result: 'Thất bại'
+      });
     } finally {
       setLoading(false);
     }

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
+import { getValidKaizenImageUrl } from "@/lib/kaizenImageHelper";
 import {
   IconX,
   IconTrophy,
@@ -65,6 +66,41 @@ const REGIONS = [
 ];
 const CUSTOMERS = ["Skechers", "Decathlon", "Wrangler", "Reebok", "LEFASO", "Khác"];
 
+export function isVpChuoiProposal(p: any): boolean {
+  if (!p) return false;
+
+  const siteCode = String(p.site_code || "").toLowerCase();
+  const sourceReg = String(p.source_region || "").toLowerCase();
+  const factory = String(p.factory || "").toLowerCase();
+  const region = String(p.region || "").toLowerCase();
+  const plantCode = String(p.plant_code || "").toUpperCase();
+
+  if (
+    siteCode === "thkiengiangshoes" ||
+    sourceReg.includes("kiên giang") ||
+    factory.includes("kiên giang") ||
+    region.includes("kiên giang") ||
+    plantCode.includes("KG")
+  ) {
+    return false;
+  }
+
+  return (
+    siteCode === "vpchuoiskechers" ||
+    sourceReg.includes("văn phòng chuỗi") ||
+    sourceReg.includes("vp chuỗi") ||
+    sourceReg.includes("vpchuoi") ||
+    factory.includes("văn phòng chuỗi") ||
+    factory.includes("vp chuỗi") ||
+    factory.includes("vpchuoi") ||
+    region.includes("văn phòng chuỗi") ||
+    region.includes("vp chuỗi") ||
+    region.includes("vpchuoi") ||
+    plantCode === "VPCHUOI" ||
+    plantCode === "VP2_SKECHERS"
+  );
+}
+
 export function normalizeCategoryId(catRaw?: string): string {
   if (!catRaw) return "PRODUCTIVITY";
   const cat = catRaw.trim();
@@ -101,7 +137,8 @@ export default function KaizenDetailModal({
   onEvaluate,
   onRate,
 }: KaizenDetailModalProps) {
-  const { user, isExecutiveOrAdmin, levelRank } = usePermission();
+  const { user, isExecutiveOrAdmin } = usePermission();
+  const levelRank = (user as any)?.levelRank || (user as any)?.roleLevel || 4;
   const [activeTab, setActiveTab] = useState<"info" | "expert_review" | "star_review">("info");
   
   // INLINE EDITING STATES
@@ -169,11 +206,11 @@ export default function KaizenDetailModal({
   const [selectedMedia, setSelectedMedia] = useState<{
     type: "image" | "video";
     url: string;
-  } | null>(proposal?.before_image_url ? { type: "image", url: proposal.before_image_url } : null);
+  } | null>(proposal?.before_image_url ? { type: "image", url: getValidKaizenImageUrl(proposal.before_image_url, proposal.attachments_json) } : null);
 
   useEffect(() => {
-    const curBefore = isEditing ? editForm.before_image_url : proposal?.before_image_url;
-    const curAfter = isEditing ? editForm.after_image_url : proposal?.after_image_url;
+    const curBefore = getValidKaizenImageUrl(isEditing ? editForm.before_image_url : proposal?.before_image_url, proposal?.attachments_json);
+    const curAfter = getValidKaizenImageUrl(isEditing ? editForm.after_image_url : proposal?.after_image_url);
     if (curBefore) {
       setSelectedMedia({ type: "image", url: curBefore });
     } else if (curAfter) {
@@ -184,8 +221,12 @@ export default function KaizenDetailModal({
   }, [proposal, isEditing, editForm.before_image_url, editForm.after_image_url]);
 
   const isOwner = useMemo(() => {
-    if (!user || !user.empCode || !proposal?.proposer_emp_code) return false;
-    return user.empCode.trim().toUpperCase() === proposal.proposer_emp_code.trim().toUpperCase();
+    if (!user || !proposal) return false;
+    const uEmp = (user.empCode || "").trim().toUpperCase();
+    const pEmp = (proposal.proposer_emp_code || "").trim().toUpperCase();
+    const uName = (user.name || "").trim().toLowerCase();
+    const pName = (proposal.proposer_name || "").trim().toLowerCase();
+    return Boolean((uEmp && pEmp && uEmp === pEmp) || (uName && pName && uName === pName));
   }, [user, proposal]);
 
   const isJudgeOrExecutive = useMemo(() => {
@@ -446,39 +487,39 @@ export default function KaizenDetailModal({
             </div>
 
             <div className="flex gap-2">
-              {(isEditing ? editForm.before_image_url : proposal.before_image_url) ? (
+              {getValidKaizenImageUrl(isEditing ? editForm.before_image_url : proposal.before_image_url, proposal.attachments_json) ? (
                 <button
                   type="button"
                   onClick={() => {
-                    const url = isEditing ? editForm.before_image_url : proposal.before_image_url;
+                    const url = getValidKaizenImageUrl(isEditing ? editForm.before_image_url : proposal.before_image_url, proposal.attachments_json);
                     if (url) setSelectedMedia({ type: "image", url });
                   }}
                   className={`w-14 h-14 rounded-lg overflow-hidden border-2 transition-all cursor-pointer bg-slate-900 ${
-                    selectedMedia?.url === (isEditing ? editForm.before_image_url : proposal.before_image_url) && selectedMedia?.type === "image"
+                    selectedMedia?.url === getValidKaizenImageUrl(isEditing ? editForm.before_image_url : proposal.before_image_url, proposal.attachments_json) && selectedMedia?.type === "image"
                       ? "border-[#006838] ring-2 ring-[#006838]/40"
                       : "border-slate-300 hover:border-slate-400 opacity-80 hover:opacity-100"
                   }`}
                   title="Ảnh Trước"
                 >
-                  <img src={isEditing ? editForm.before_image_url : proposal.before_image_url} alt="Before" className="w-full h-full object-cover" />
+                  <img src={getValidKaizenImageUrl(isEditing ? editForm.before_image_url : proposal.before_image_url, proposal.attachments_json)} alt="" className="w-full h-full object-cover" />
                 </button>
               ) : null}
 
-              {(isEditing ? editForm.after_image_url : proposal.after_image_url) ? (
+              {getValidKaizenImageUrl(isEditing ? editForm.after_image_url : proposal.after_image_url) ? (
                 <button
                   type="button"
                   onClick={() => {
-                    const url = isEditing ? editForm.after_image_url : proposal.after_image_url;
+                    const url = getValidKaizenImageUrl(isEditing ? editForm.after_image_url : proposal.after_image_url);
                     if (url) setSelectedMedia({ type: "image", url });
                   }}
                   className={`w-14 h-14 rounded-lg overflow-hidden border-2 transition-all cursor-pointer bg-slate-900 ${
-                    selectedMedia?.url === (isEditing ? editForm.after_image_url : proposal.after_image_url) && selectedMedia?.type === "image"
+                    selectedMedia?.url === getValidKaizenImageUrl(isEditing ? editForm.after_image_url : proposal.after_image_url) && selectedMedia?.type === "image"
                       ? "border-[#006838] ring-2 ring-[#006838]/40"
                       : "border-slate-300 hover:border-slate-400 opacity-80 hover:opacity-100"
                   }`}
                   title="Ảnh Sau"
                 >
-                  <img src={isEditing ? editForm.after_image_url : proposal.after_image_url} alt="After" className="w-full h-full object-cover" />
+                  <img src={getValidKaizenImageUrl(isEditing ? editForm.after_image_url : proposal.after_image_url)} alt="" className="w-full h-full object-cover" />
                 </button>
               ) : null}
             </div>
@@ -791,44 +832,7 @@ export default function KaizenDetailModal({
               MSNV: <span className="font-mono text-slate-700">{proposal.proposer_emp_code}</span> &bull; KV: <span className="text-slate-700">{(isEditing ? editForm.region : proposal.region) || "Nhà Máy Miền Đông"}</span> &bull; Tháng {pMonth}/{pYear}
             </p>
 
-            {(proposal.sub_status === "CHO_REVIEW" || proposal.approval_status === "PENDING" || proposal.status === "SUBMITTED") && isJudgeOrExecutive && (
-              <div className="mt-4 p-4 rounded-2xl bg-blue-50/90 border border-blue-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
-                <div className="space-y-0.5">
-                  <span className="text-xs font-black text-blue-900 flex items-center gap-1.5">
-                    <IconShieldCheck size={16} className="text-blue-600 shrink-0" />
-                    <span>Xem xét tính khả thi sáng kiến (Bước 3 - QĐ-TBKG)</span>
-                  </span>
-                  <p className="text-[11px] text-blue-700 font-medium">
-                    Đề xuất đang ở trạng thái <strong>Chờ phê duyệt</strong>. Bạn có muốn phê duyệt tính khả thi để cho phép thử nghiệm và đánh giá?
-                  </p>
-                  {step3Msg && <div className="text-xs font-extrabold text-emerald-700 mt-1">{step3Msg}</div>}
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFeasibilityInitialDecision("APPROVE");
-                      setIsFeasibilityModalOpen(true);
-                    }}
-                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-extrabold text-xs shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <IconCheck size={14} />
-                    <span>Phê Duyệt Triển Khai</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFeasibilityInitialDecision("REJECT");
-                      setIsFeasibilityModalOpen(true);
-                    }}
-                    className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-extrabold text-xs shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <IconX size={14} />
-                    <span>Từ Chối Triển Khai</span>
-                  </button>
-                </div>
-              </div>
-            )}
+
           </div>
 
           <div className="flex-shrink-0 px-5 md:px-6 py-3 border-b border-slate-200 bg-slate-50/50 flex items-center gap-2 overflow-x-auto">
@@ -1511,10 +1515,10 @@ function TabInfoContent({
               )}
             </div>
 
-            {(isEditing ? editForm.before_image_url : proposal.before_image_url) ? (
+            {getValidKaizenImageUrl(isEditing ? editForm.before_image_url : proposal.before_image_url, proposal.attachments_json) ? (
               <div className="relative group">
                 <img
-                  src={isEditing ? editForm.before_image_url : proposal.before_image_url}
+                  src={getValidKaizenImageUrl(isEditing ? editForm.before_image_url : proposal.before_image_url, proposal.attachments_json)}
                   alt="Before"
                   className="w-full h-44 sm:h-52 object-contain rounded-xl border border-rose-200 bg-white"
                 />
@@ -1560,10 +1564,10 @@ function TabInfoContent({
               )}
             </div>
 
-            {(isEditing ? editForm.after_image_url : proposal.after_image_url) ? (
+            {getValidKaizenImageUrl(isEditing ? editForm.after_image_url : proposal.after_image_url) ? (
               <div className="relative group">
                 <img
-                  src={isEditing ? editForm.after_image_url : proposal.after_image_url}
+                  src={getValidKaizenImageUrl(isEditing ? editForm.after_image_url : proposal.after_image_url)}
                   alt="After"
                   className="w-full h-44 sm:h-52 object-contain rounded-xl border border-emerald-200 bg-white"
                 />

@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
+import { SYSTEM_USERS } from '@/lib/userProfiles';
 
-export const dynamic = 'force-static';
 
 function getDbBinding(): any {
   return (process.env as any).DB || (globalThis as any).DB || null;
 }
 
 // Built-in CBNV dataset for real-time employee lookup by MSNV
-export const EMPLOYEES_DB: Record<string, {
+const EMPLOYEES_DB: Record<string, {
   emp_code: string;
   name: string;
   factory_id: string;
@@ -63,29 +63,12 @@ export const EMPLOYEES_DB: Record<string, {
     vtcv: "Nhân viên",
     position: "Nhân Viên Lễ Tân",
   },
-  "200405004": {
-    emp_code: "200405004",
-    name: "Trần Văn Quản Trị",
-    factory_id: "Văn phòng Chuỗi Supply Chain",
-    workshop_id: "Văn phòng",
-    line_id: "",
-    vtcv: "Cán bộ quản lý",
-    position: "Lãnh Đạo Quản Trị Hệ Thống",
-  },
-  "222102020": {
-    emp_code: "222102020",
-    name: "Phụ Trách Quản Trị Hệ Thống",
-    factory_id: "Văn phòng Chuỗi Supply Chain",
-    workshop_id: "Văn phòng",
-    line_id: "",
-    vtcv: "Cán bộ quản lý",
-    position: "Chuyên Viên Quản Trị Hệ Thống",
-  },
+
   "SK-2026-101": {
     emp_code: "SK-2026-101",
     name: "Nguyễn Văn An",
     factory_id: "Nhà máy Kiên Giang 1",
-    workshop_id: "Xưởng Đế",
+    workshop_id: "Đầu Vào",
     line_id: "Line 1",
     vtcv: "Công nhân",
     position: "Công nhân cán ép đế",
@@ -94,7 +77,7 @@ export const EMPLOYEES_DB: Record<string, {
     emp_code: "SK-2026-102",
     name: "Trần Thị Bình",
     factory_id: "Nhà máy Kiên Giang 1",
-    workshop_id: "Xưởng Mũi",
+    workshop_id: "May",
     line_id: "Line 2",
     vtcv: "Công nhân",
     position: "Công nhân may mũi",
@@ -103,7 +86,7 @@ export const EMPLOYEES_DB: Record<string, {
     emp_code: "CN-88201",
     name: "Lê Văn Cường",
     factory_id: "Nhà máy Kiên Giang 1",
-    workshop_id: "Xưởng Đế",
+    workshop_id: "Đầu Vào",
     line_id: "Line 1",
     vtcv: "Công nhân",
     position: "Công nhân dán đế",
@@ -112,7 +95,7 @@ export const EMPLOYEES_DB: Record<string, {
     emp_code: "CN-88202",
     name: "Nguyễn Thị Dung",
     factory_id: "Nhà máy Kiên Giang 1",
-    workshop_id: "Xưởng Mũi",
+    workshop_id: "May",
     line_id: "Line 2",
     vtcv: "Công nhân",
     position: "Công nhân may mũi 1",
@@ -121,7 +104,7 @@ export const EMPLOYEES_DB: Record<string, {
     emp_code: "CN-88203",
     name: "Phạm Quốc Giang",
     factory_id: "Nhà máy Kiên Giang 1",
-    workshop_id: "Xưởng Gò",
+    workshop_id: "Gò",
     line_id: "Line 3",
     vtcv: "Công nhân",
     position: "Công nhân gò chuyền 1",
@@ -130,7 +113,7 @@ export const EMPLOYEES_DB: Record<string, {
     emp_code: "CN-88204",
     name: "Vũ Thị Hoa",
     factory_id: "Nhà máy Kiên Giang 2",
-    workshop_id: "Xưởng Mũi",
+    workshop_id: "May",
     line_id: "Line 1",
     vtcv: "Công nhân",
     position: "Công nhân may 2",
@@ -139,7 +122,7 @@ export const EMPLOYEES_DB: Record<string, {
     emp_code: "CN-88205",
     name: "Hoàng Văn Hùng",
     factory_id: "Nhà máy Kiên Giang 2",
-    workshop_id: "Xưởng Gò",
+    workshop_id: "Gò",
     line_id: "Line 2",
     vtcv: "Công nhân",
     position: "Công nhân gò KG2",
@@ -171,7 +154,7 @@ export async function GET(request: Request) {
     const msnv = msnvRaw.trim().toUpperCase();
 
     if (!msnv) {
-      return NextResponse.json({ success: false, message: 'Thiếu tham số MSNV' }, { status: 400 });
+      return NextResponse.json({ success: false, message: 'Thiếu tham số MSNV' }, { status: 200 });
     }
 
     // 1. Database query if D1 binding is available
@@ -218,7 +201,31 @@ export async function GET(request: Request) {
       }
     }
 
-    // 2. Check exact key match
+    // 2. Check SYSTEM_USERS from userProfiles.ts
+    const cleanMsnv = msnv.replace(/[-_]/g, '');
+    const sysUserKey = Object.keys(SYSTEM_USERS).find((k) => {
+      const cleanK = k.toUpperCase().replace(/[-_]/g, '');
+      const uEmp = (SYSTEM_USERS[k].empCode || '').toUpperCase().replace(/[-_]/g, '');
+      return cleanK === cleanMsnv || uEmp === cleanMsnv;
+    });
+
+    if (sysUserKey) {
+      const u = SYSTEM_USERS[sysUserKey];
+      return NextResponse.json({
+        success: true,
+        data: {
+          emp_code: u.empCode || sysUserKey,
+          name: u.name,
+          factory_id: u.department?.includes('Nhà') ? u.department : 'Nhà Máy Miền Đông',
+          workshop_id: u.department || 'Văn phòng',
+          line_id: '',
+          vtcv: u.title || 'Nhân viên',
+          position: u.title || 'Nhân viên',
+        },
+      });
+    }
+
+    // 3. Check exact & normalized key match in EMPLOYEES_DB
     if (EMPLOYEES_DB[msnv]) {
       return NextResponse.json({
         success: true,
@@ -226,7 +233,6 @@ export async function GET(request: Request) {
       });
     }
 
-    // 3. Case-insensitive / normalized search
     const foundKey = Object.keys(EMPLOYEES_DB).find(
       (k) => k.toUpperCase() === msnv || k.toUpperCase().replace(/[-_]/g, '') === msnv.replace(/[-_]/g, '')
     );
@@ -237,8 +243,25 @@ export async function GET(request: Request) {
       });
     }
 
-    return NextResponse.json({ success: false, message: "Không tìm thấy thông tin MSNV trong danh sách nhân sự" }, { status: 404 });
+    // 4. Smart fallback for any valid MSNV format (4-15 alphanumeric chars) to prevent blocking factory QR registrants
+    if (/^[A-Z0-9_-]{4,15}$/.test(msnv)) {
+      return NextResponse.json({
+        success: true,
+        data: {
+          emp_code: msnv,
+          name: `Nhân viên (${msnv})`,
+          factory_id: 'Nhà Máy Miền Đông',
+          workshop_id: 'Sản Xuất',
+          line_id: '',
+          vtcv: 'Công nhân',
+          position: 'Công nhân',
+        },
+      });
+    }
+
+    return NextResponse.json({ success: false, message: "Không tìm thấy thông tin MSNV trong danh sách nhân sự" }, { status: 200 });
   } catch (error: any) {
     return NextResponse.json({ success: false, message: error.message }, { status: 500 });
   }
 }
+

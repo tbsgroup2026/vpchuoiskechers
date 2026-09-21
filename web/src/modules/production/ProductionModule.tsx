@@ -247,6 +247,7 @@ const INITIAL_DEVICES: DeviceItem[] = [
 
 export default function ProductionModule() {
   const [selectedComplexId, setSelectedComplexId] = useState<string>("kg1");
+  const [selectedQuarter, setSelectedQuarter] = useState<string>("all");
   const [activeTabFunction, setActiveTabFunction] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -350,6 +351,17 @@ export default function ProductionModule() {
           </div>
 
           <div className="flex items-center gap-2">
+            <select
+              value={selectedQuarter}
+              onChange={(e) => setSelectedQuarter(e.target.value)}
+              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 cursor-pointer outline-none"
+            >
+              <option value="all">🗓️ Tất cả các quý</option>
+              <option value="q1">Quý 1 / 2026</option>
+              <option value="q2">Quý 2 / 2026</option>
+              <option value="q3">Quý 3 / 2026</option>
+              <option value="q4">Quý 4 / 2026</option>
+            </select>
             <span className="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200">
               📅 19/05/2026
             </span>

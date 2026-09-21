@@ -217,9 +217,18 @@ export default function AdminLayout({
 
         <div className="pt-6 border-t border-white/10 flex items-center justify-between text-xs text-emerald-200/50">
           <span>TBS Group v1.0</span>
-          <Link href="/login" className="text-rose-300 hover:underline font-bold">
+          <button
+            onClick={() => {
+              if (typeof window !== "undefined") {
+                const { logoutUserProfile } = require("@/lib/userProfiles");
+                logoutUserProfile();
+                window.location.href = "/login";
+              }
+            }}
+            className="text-rose-300 hover:underline font-bold cursor-pointer"
+          >
             Đăng xuất
-          </Link>
+          </button>
         </div>
       </aside>
 

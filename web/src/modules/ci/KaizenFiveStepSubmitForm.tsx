@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   IconCheck,
   IconSparkles,
@@ -26,6 +26,7 @@ import {
   IconLock,
   IconLockOpen,
 } from "@tabler/icons-react";
+import { getValidKaizenImageUrl } from "@/lib/kaizenImageHelper";
 
 const TOPIC_GROUPS = [
   { id: "PRODUCTIVITY", label: "3. Tăng Năng Suất", category: "NĂNG SUẤT", color: "bg-blue-600 text-white", desc: "Tối ưu thao tác, tăng sản lượng, giảm thời gian sản xuất" },
@@ -116,8 +117,8 @@ export default function KaizenFiveStepSubmitForm({ onSuccessClose, onCancel }: K
 
   React.useEffect(() => {
     const code = form.proposerEmpCode.trim();
-    // Chỉ lookup khi MSNV đủ độ dài hợp lệ (8+ ký tự) để giảm API calls không cần thiết
-    if (!code || code.length < 8) {
+    // Chỉ lookup khi MSNV đủ độ dài hợp lệ (4+ ký tự) để giảm API calls không cần thiết
+    if (!code || code.length < 4) {
       setNotFoundMsg(null);
       setLookupLoading(false);
       setAutoFilled(false);
@@ -881,7 +882,7 @@ export default function KaizenFiveStepSubmitForm({ onSuccessClose, onCancel }: K
                       )}
                     </div>
                     {form.beforeImageUrl ? (
-                      <img src={form.beforeImageUrl} alt="Before" className="w-full h-32 object-cover rounded-xl border" />
+                      <img src={getValidKaizenImageUrl(form.beforeImageUrl)} alt="Before" className="w-full h-32 object-cover rounded-xl border" />
                     ) : (
                       <label className="flex flex-col items-center justify-center h-32 bg-white rounded-xl border border-slate-200 cursor-pointer text-center hover:bg-blue-50/40">
                         <IconUpload size={22} className="text-blue-600 mb-1" />
@@ -911,7 +912,7 @@ export default function KaizenFiveStepSubmitForm({ onSuccessClose, onCancel }: K
                       )}
                     </div>
                     {form.afterImageUrl ? (
-                      <img src={form.afterImageUrl} alt="After" className="w-full h-32 object-cover rounded-xl border" />
+                      <img src={getValidKaizenImageUrl(form.afterImageUrl)} alt="After" className="w-full h-32 object-cover rounded-xl border" />
                     ) : (
                       <label className="flex flex-col items-center justify-center h-32 bg-white rounded-xl border border-slate-200 cursor-pointer text-center hover:bg-emerald-50/40">
                         <IconUpload size={22} className="text-emerald-600 mb-1" />

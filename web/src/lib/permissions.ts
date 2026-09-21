@@ -22,6 +22,8 @@ export const PERMISSIONS = {
   MAINT_CREATE_TICKET: "maintenance:create_ticket",
   MAINT_MANAGE: "maintenance:manage",
   MAINT_VIEW_MACHINES: "maintenance:view_machines",
+  MAINT_VIEW_ALL_SCOPES: "maintenance:view_all_scopes",
+  MAINT_MANAGE_GLOBAL_CATEGORIES: "maintenance:manage_global_categories",
 
   // Documents /documents
   DOC_CREATE: "documents:create",
@@ -112,6 +114,7 @@ export const ROLES: Record<string, Permission[]> = {
 
   qc: [PERMISSIONS.QC_MANAGE],
   ci: [PERMISSIONS.CI_MANAGE],
+  ie: [PERMISSIONS.CI_MANAGE, PERMISSIONS.WORK_MANAGE_DEPT, PERMISSIONS.DOC_CREATE],
 
   // TODO: Các phòng ban R&D, Kế hoạch TTPP, Tổ hợp Nhà máy tạm thời dùng employee (xem) + department_head/admin (quản lý).
   // Bổ sung role riêng (ví dụ rd, logistics, factory_manager...) khi có yêu cầu chuyên sâu.
@@ -131,6 +134,7 @@ export const LOGIN_ROLE_OPTIONS = [
   { value: "director", label: "🏢 Giám Đốc Khối (GĐ)", icon: "🏢", loginMethod: "password_only" },
   { value: "deputy_director", label: "💼 Phó Giám Đốc Khối (PGĐ)", icon: "💼", loginMethod: "password_only" },
   { value: "department_head", label: "👔 Trưởng Phòng / Quản Lý", icon: "👔", loginMethod: "msnv_password" },
+  { value: "ie", label: "⚙️ Kỹ Sư IE (Industrial Engineering)", icon: "⚙️", loginMethod: "msnv_password" },
   { value: "admin", label: "🔧 Quản Trị Viên Hệ Thống (Admin)", icon: "🔧", loginMethod: "msnv_password" },
   { value: "employee", label: "👤 Cán Bộ Công Nhân Viên (CBCNV)", icon: "👤", loginMethod: "msnv_password", defaultEmpCode: "" },
 ] as const;

@@ -28,7 +28,7 @@ describe('TBS Group Security & Concurrency Test Suite (Full Suite V3.4)', () => 
     const action = 'WRITE';
     const isExecutiveOrAdmin = false;
 
-    const isAllowed = isExecutiveOrAdmin || (receptionistRole === 'KE_TOAN');
+    const isAllowed = isExecutiveOrAdmin || ((receptionistRole as string) === 'KE_TOAN');
     expect(isAllowed).toBe(false);
   });
 
@@ -36,7 +36,7 @@ describe('TBS Group Security & Concurrency Test Suite (Full Suite V3.4)', () => 
     const recordVersionInDb = 2;
     const clientIncomingVersion = 1;
 
-    const isConflict = recordVersionInDb !== clientIncomingVersion;
+    const isConflict = (recordVersionInDb as number) !== (clientIncomingVersion as number);
     expect(isConflict).toBe(true);
   });
 
@@ -77,7 +77,7 @@ describe('TBS Group Security & Concurrency Test Suite (Full Suite V3.4)', () => 
     const maintenanceRole = 'KY_THUAT';
 
     const canCreate = true; // All roles can CREATE
-    const canProcessEmployee = employeeRole === 'KY_THUAT';
+    const canProcessEmployee = (employeeRole as string) === 'KY_THUAT';
     const canProcessMechanic = maintenanceRole === 'KY_THUAT';
 
     expect(canCreate).toBe(true);
@@ -137,7 +137,7 @@ describe('TBS Group Security & Concurrency Test Suite (Full Suite V3.4)', () => 
     const currentStatus = 'DRAFT'; // Not yet PENDING_L2
     const attemptedAction = 'APPROVE_L2';
 
-    const isValidTransition = currentStatus === 'PENDING_L2' && attemptedAction === 'APPROVE_L2';
+    const isValidTransition = (currentStatus as string) === 'PENDING_L2' && attemptedAction === 'APPROVE_L2';
     expect(isValidTransition).toBe(false);
   });
 
@@ -189,4 +189,30 @@ describe('TBS Group Security & Concurrency Test Suite (Full Suite V3.4)', () => 
 
     expect(notificationsGenerated.length).toBe(3);
   });
+
+  it('17. Should restrict Bàn Lễ Tân tab access and APIs to LE_TAN and ADMIN/SUPER_ADMIN only', () => {
+    const isReceptionistOrAdmin = (user: { roleCode?: string; empCode?: string; title?: string }) => {
+      const roleUpper = (user.roleCode || '').toUpperCase();
+      const empCode = user.empCode || '';
+      const title = (user.title || '').toLowerCase();
+
+      if (['LE_TAN', 'RECEPTIONIST', 'ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN'].includes(roleUpper)) return true;
+      if (['LT-001', '202206011', '202409009', '202010004', '202608001'].includes(empCode)) return true;
+      if (title.includes('lễ tân') || title.includes('receptionist')) return true;
+      return false;
+    };
+
+    const leTanUser = { roleCode: 'LE_TAN', empCode: '202206011', title: 'Trưởng Nhóm HC & Lễ Tân' };
+    const adminUser = { roleCode: 'ADMIN', empCode: '202608001', title: 'Quản trị hệ thống' };
+    const truongPhongUser = { roleCode: 'TRUONG_PHONG', empCode: '222102020', title: 'TP. NHÂN SỰ-HC' };
+    const bgdUser = { roleCode: 'PHO_TONG_GIAM_DOC', empCode: '200405004', title: 'Phó Tổng Giám Đốc' };
+    const cbcnvUser = { roleCode: 'CBCNV', empCode: '202608003', title: 'Chuyên Viên IT' };
+
+    expect(isReceptionistOrAdmin(leTanUser)).toBe(true);
+    expect(isReceptionistOrAdmin(adminUser)).toBe(true);
+    expect(isReceptionistOrAdmin(truongPhongUser)).toBe(false);
+    expect(isReceptionistOrAdmin(bgdUser)).toBe(false);
+    expect(isReceptionistOrAdmin(cbcnvUser)).toBe(false);
+  });
 });
+

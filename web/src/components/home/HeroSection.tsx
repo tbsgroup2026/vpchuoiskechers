@@ -4,30 +4,33 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { IconArrowRight, IconArrowDown } from "@tabler/icons-react";
 import { useTranslation } from "@/hooks/useTranslation";
-import { getLandingCMS, DEFAULT_LANDING_CMS } from "@/lib/landingCMS";
+import { getLandingCMS, DEFAULT_LANDING_CMS, DEFAULT_SHOE_GROUPS, ShoeGroup, isGroupValid } from "@/lib/landingCMS";
 
-const BRAND_PARTNERS = [
-  { name: "Decathlon", logo: "/images/brands/decathlon.svg" },
-  { name: "Wolverine", logo: "/images/brands/wolverine.svg" },
-  { name: "ECCO", logo: "/images/brands/ecco.svg" },
-  { name: "Cole Haan", logo: "/images/brands/cole-haan.svg" },
-  { name: "Rockport", logo: "/images/brands/rockport.svg" },
-  { name: "Skechers", logo: "/images/brands/skechers.svg" },
-  { name: "Coach", logo: "/images/brands/coach.svg" },
-  { name: "Osprey", logo: "/images/brands/osprey.svg" },
-  { name: "Kate Spade", logo: "/images/brands/kate-spade.svg" },
-  { name: "Vera Bradley", logo: "/images/brands/vera-bradley.svg" },
-];
+const formatImgUrl = (url?: string) => {
+  if (!url) return "/images/tbs-logo.png";
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("/")) {
+    return url;
+  }
+  return "/" + url;
+};
 
 export default function HeroSection() {
   const { t, lang } = useTranslation();
   const [cmsHero, setCmsHero] = useState(DEFAULT_LANDING_CMS.hero);
+  const [shoeGroups, setShoeGroups] = useState<ShoeGroup[]>(DEFAULT_SHOE_GROUPS);
+  const [activeGroupIndex, setActiveGroupIndex] = useState<number>(0);
 
   useEffect(() => {
     const loadCMS = () => {
       const config = getLandingCMS();
       if (config?.hero) {
         setCmsHero(config.hero);
+      }
+      if (config?.shoeLines?.groups && config.shoeLines.groups.length > 0) {
+        const validGroups = config.shoeLines.groups.filter(isGroupValid);
+        setShoeGroups(validGroups.length > 0 ? validGroups : DEFAULT_SHOE_GROUPS);
+      } else {
+        setShoeGroups(DEFAULT_SHOE_GROUPS);
       }
     };
     loadCMS();
@@ -37,6 +40,15 @@ export default function HeroSection() {
       return () => window.removeEventListener("tbs_landing_cms_updated", loadCMS);
     }
   }, []);
+
+  // Auto cycle active group every 7 seconds
+  useEffect(() => {
+    if (!shoeGroups.length) return;
+    const timer = setInterval(() => {
+      setActiveGroupIndex((prev) => (prev + 1) % shoeGroups.length);
+    }, 7000);
+    return () => clearInterval(timer);
+  }, [shoeGroups.length]);
 
   return (
     <>
@@ -167,38 +179,78 @@ export default function HeroSection() {
       </section>
 
       {/* ════════════════════════════════════════════════════════════════
-          MODULE 2 — BRAND-STRIP (#brand-strip)
-          Full-width dark green background strip with white stadium pills
+          MODULE 2 — DÒNG GIÀY TIÊU BIỂU (#brand-strip)
+      {/* ════════════════════════════════════════════════════════════════
+          MODULE 2 — DÒNG GIÀY TIÊU BIỂU (#brand-strip)
+          Compact full-width horizontal shoe carousel matching Image 1
          ════════════════════════════════════════════════════════════════ */}
       <section
         id="brand-strip"
-        className="relative z-30 -mt-[74px] py-7 bg-[#0b3226]/95 backdrop-blur-md border-y border-[#2fd39a]/25 shadow-2xl overflow-hidden"
+        className="relative z-30 -mt-[74px] py-4 sm:py-5 bg-[#072419] border-y border-[#2fd39a]/20 shadow-2xl overflow-hidden select-none"
       >
-        {/* Gradient side fades */}
-        <div className="absolute left-0 top-0 bottom-0 w-[140px] bg-gradient-to-r from-[#0b3226] via-[#0b3226]/90 to-transparent z-10 pointer-events-none" />
-        <div className="absolute right-0 top-0 bottom-0 w-[140px] bg-gradient-to-l from-[#0b3226] via-[#0b3226]/90 to-transparent z-10 pointer-events-none" />
+        {/* Gradient side overlays for viewport edge fade */}
+        <div className="absolute left-0 top-0 bottom-0 w-[70px] sm:w-[130px] bg-gradient-to-r from-[#072419] via-[#072419]/90 to-transparent z-20 pointer-events-none" />
+        <div className="absolute right-0 top-0 bottom-0 w-[70px] sm:w-[130px] bg-gradient-to-l from-[#072419] via-[#072419]/90 to-transparent z-20 pointer-events-none" />
 
-        <div className="w-full text-center space-y-4">
-          <h3 className="text-[11px] font-bold uppercase tracking-[3.5px] text-[#f2dc9a]">
-            {t("hero.brand_partners")}
-          </h3>
+        <div className="w-full space-y-3 text-center">
+          {/* HEADER: ────── DÒNG GIÀY TIÊU BIỂU ────── */}
+          <div className="flex items-center justify-center gap-3 sm:gap-6 px-4">
+            <div className="h-[1px] w-16 sm:w-36 bg-gradient-to-r from-transparent to-[#f2dc9a]/80" />
+            <h3 className="text-xs sm:text-sm font-black uppercase tracking-[3px] sm:tracking-[4px] text-[#f2dc9a] font-display whitespace-nowrap">
+              DÒNG GIÀY TIÊU BIỂU
+            </h3>
+            <div className="h-[1px] w-16 sm:w-36 bg-gradient-to-l from-transparent to-[#f2dc9a]/80" />
+          </div>
 
-          {/* Continuous Marquee Row of White Stadium Pills */}
+          {/* CONTINUOUS HORIZONTAL MARQUEE CAROUSEL OF ALL SHOE GROUPS */}
           <div className="overflow-hidden w-full flex items-center py-1">
-            <div className="animate-marquee-left flex items-center gap-5 sm:gap-6">
-              {[...BRAND_PARTNERS, ...BRAND_PARTNERS].map((brand, idx) => (
-                <div
-                  key={`${brand.name}-${idx}`}
-                  className="flex-shrink-0 flex items-center justify-center w-[160px] h-[68px] rounded-[18px] px-5 py-2 bg-white shadow-lg border border-white/30 hover:-translate-y-1 hover:shadow-xl hover:scale-105 transition-all duration-300 select-none cursor-pointer group"
-                  title={brand.name}
-                >
-                  <img
-                    src={brand.logo}
-                    alt={`${brand.name} Logo`}
-                    className="max-h-[38px] max-w-[124px] w-auto h-auto object-contain transition-transform duration-300 group-hover:scale-105"
-                  />
-                </div>
-              ))}
+            <div className="animate-marquee-left flex items-center gap-6 sm:gap-8 shrink-0">
+              {(() => {
+                const sortedGroups = [...shoeGroups].sort((a, b) => a.order - b.order);
+                return [...sortedGroups, ...sortedGroups].map((group, groupIdx) => {
+                  const sortedItems = [...(group.items || [])].sort((a, b) => a.order - b.order);
+                  return (
+                    <div key={`${group.id || groupIdx}-${groupIdx}`} className="flex flex-col items-center shrink-0 space-y-2.5">
+                      {/* Horizontal Product Cards Row for this Group */}
+                      <div className="flex items-center gap-3.5 sm:gap-4">
+                        {sortedItems.map((item, itemIdx) => (
+                          <div
+                            key={`${item.id}-${itemIdx}`}
+                            className="flex-shrink-0 flex items-center justify-center w-[150px] sm:w-[165px] h-[86px] sm:h-[94px] rounded-[18px] sm:rounded-[22px] bg-white p-2.5 shadow-md hover:-translate-y-1 hover:shadow-xl transition-all duration-300 cursor-pointer group"
+                            title={item.name}
+                          >
+                            <img
+                              src={formatImgUrl(item.url)}
+                              alt={item.name || group.title}
+                              className="w-full h-full object-contain p-0.5 transition-transform duration-300 group-hover:scale-105"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                if (!target.dataset.triedFallback) {
+                                  target.dataset.triedFallback = "true";
+                                  if (target.src.endsWith(".png")) {
+                                    target.src = target.src.replace(/\.png$/, ".jpg");
+                                  } else if (target.src.endsWith(".jpg")) {
+                                    target.src = target.src.replace(/\.jpg$/, ".png");
+                                  }
+                                }
+                              }}
+                            />
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Group Label Underneath Card Row */}
+                      <div className="flex items-center justify-center gap-3 w-full">
+                        <div className="h-[1px] w-12 sm:w-20 bg-gradient-to-r from-transparent to-[#f2dc9a]/70" />
+                        <span className="text-[11px] sm:text-xs font-black uppercase tracking-[2.5px] sm:tracking-[3px] text-[#f2dc9a] font-display whitespace-nowrap">
+                          {group.title}
+                        </span>
+                        <div className="h-[1px] w-12 sm:w-20 bg-gradient-to-l from-transparent to-[#f2dc9a]/70" />
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
             </div>
           </div>
         </div>

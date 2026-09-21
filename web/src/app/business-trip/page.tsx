@@ -874,17 +874,97 @@ export default function BusinessTripRegistrationPage() {
     }
   };
 
-  // Calculate End Date when Start Date or Days Count changes
+  // Helper to parse YYYY-MM-DD safely into Date object
+  const parseIsoDate = (str: string): Date | null => {
+    if (!str) return null;
+    const parts = str.split("-");
+    if (parts.length !== 3) return null;
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10) - 1;
+    const d = parseInt(parts[2], 10);
+    const date = new Date(y, m, d);
+    return isNaN(date.getTime()) ? null : date;
+  };
+
+  // Helper to format Date object to YYYY-MM-DD
+  const formatIsoDate = (date: Date): string => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  };
+
+  // 1. Calculate when Start Date changes
+  const handleStartDateChange = (newStartStr: string) => {
+    setProposalForm((prev) => {
+      const start = parseIsoDate(newStartStr);
+      if (!start) return { ...prev, startDate: newStartStr };
+
+      const end = parseIsoDate(prev.endDate);
+
+      // If we have an existing end date on/after new start date, auto-calculate daysCount
+      if (end && end.getTime() >= start.getTime()) {
+        const diffDays = Math.round((end.getTime() - start.getTime()) / (1000 * 3600 * 24)) + 1;
+        return {
+          ...prev,
+          startDate: newStartStr,
+          daysCount: diffDays,
+        };
+      }
+
+      // Otherwise, calculate new endDate based on current daysCount
+      const newEnd = new Date(start);
+      newEnd.setDate(newEnd.getDate() + (prev.daysCount - 1));
+      return {
+        ...prev,
+        startDate: newStartStr,
+        endDate: formatIsoDate(newEnd),
+      };
+    });
+  };
+
+  // 2. Calculate when Days Count changes
   const handleDaysChange = (days: number) => {
     const d = Math.max(1, days);
     setProposalForm((prev) => {
-      const start = new Date(prev.startDate);
-      if (!isNaN(start.getTime())) {
-        start.setDate(start.getDate() + (d - 1));
-        const endStr = start.toISOString().split("T")[0];
-        return { ...prev, daysCount: d, endDate: endStr };
+      const start = parseIsoDate(prev.startDate);
+      if (start) {
+        const newEnd = new Date(start);
+        newEnd.setDate(newEnd.getDate() + (d - 1));
+        return { ...prev, daysCount: d, endDate: formatIsoDate(newEnd) };
       }
       return { ...prev, daysCount: d };
+    });
+  };
+
+  // 3. Calculate when End Date changes
+  const handleEndDateChange = (newEndStr: string) => {
+    setProposalForm((prev) => {
+      const end = parseIsoDate(newEndStr);
+      if (!end) return { ...prev, endDate: newEndStr };
+
+      const start = parseIsoDate(prev.startDate);
+      if (start) {
+        if (end.getTime() < start.getTime()) {
+          // If user picked an end date earlier than start date, auto-sync start date = end date, days = 1
+          return {
+            ...prev,
+            startDate: newEndStr,
+            endDate: newEndStr,
+            daysCount: 1,
+          };
+        }
+
+        // Auto-calculate daysCount: (end - start) + 1
+        const diffDays = Math.round((end.getTime() - start.getTime()) / (1000 * 3600 * 24)) + 1;
+        return {
+          ...prev,
+          endDate: newEndStr,
+          daysCount: diffDays,
+        };
+      }
+
+      return { ...prev, endDate: newEndStr };
     });
   };
 
@@ -1322,10 +1402,7 @@ export default function BusinessTripRegistrationPage() {
                     <input
                       type="date"
                       value={proposalForm.startDate}
-                      onChange={(e) => {
-                        setProposalForm({ ...proposalForm, startDate: e.target.value });
-                        handleDaysChange(proposalForm.daysCount);
-                      }}
+                      onChange={(e) => handleStartDateChange(e.target.value)}
                       className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838] focus:ring-1 focus:ring-[#006838] bg-white cursor-pointer"
                     />
                     <IconCalendar size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -1354,7 +1431,7 @@ export default function BusinessTripRegistrationPage() {
                     <input
                       type="date"
                       value={proposalForm.endDate}
-                      onChange={(e) => setProposalForm({ ...proposalForm, endDate: e.target.value })}
+                      onChange={(e) => handleEndDateChange(e.target.value)}
                       className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838] focus:ring-1 focus:ring-[#006838] bg-white cursor-pointer"
                     />
                     <IconCalendar size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />

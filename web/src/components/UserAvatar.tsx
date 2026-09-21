@@ -27,9 +27,9 @@ export function getInitials(strName?: string): string {
   if (!clean || clean.toLowerCase() === "user") return "U";
   const parts = clean.split(/\s+/).filter(Boolean);
   if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
-  if (parts.length === 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  if (parts.length === 3) return (parts[0][0] + parts[1][0] + parts[2][0]).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 2][0] + parts[parts.length - 1][0]).toUpperCase();
+  const first = parts[0][0];
+  const last = parts[parts.length - 1][0];
+  return (first + last).toUpperCase();
 }
 
 export default function UserAvatar({
@@ -43,12 +43,6 @@ export default function UserAvatar({
   offsetY = 0,
   showOnlineBadge = false,
 }: UserAvatarProps) {
-  const [imgError, setImgError] = useState(false);
-
-  useEffect(() => {
-    setImgError(false);
-  }, [src]);
-
   const sizeClasses: Record<string, string> = {
     xs: "w-6 h-6 text-[9px]",
     sm: "w-8 h-8 text-[11px]",
@@ -63,36 +57,10 @@ export default function UserAvatar({
 
   const initials = getInitials(name);
 
-  const hasValidSrc =
-    !imgError &&
-    Boolean(src) &&
-    typeof src === "string" &&
-    src.trim().length > 4 &&
-    src !== "undefined" &&
-    src !== "null" &&
-    src !== "/images/tbs-logo.png" &&
-    !src.includes("unsplash.com");
-
   return (
     <div className={`relative inline-block flex-shrink-0 ${currentSizeClass} ${className}`}>
       <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center select-none shadow-2xs border border-emerald-500/40 bg-gradient-to-br from-[#006838] via-[#04331d] to-[#011a11] text-[#f2dc9a] font-black tracking-wider uppercase">
-        {hasValidSrc ? (
-          <SmartImage
-            src={src!}
-            alt={name || "User Avatar"}
-            onError={() => setImgError(true)}
-            fallbackInitials={initials}
-            priority={true}
-            style={{
-              transform: `scale(${zoom}) translate(${offsetX}px, ${offsetY}px)`,
-              transformOrigin: "center center",
-              ...style,
-            }}
-            className="w-full h-full object-cover transition-transform duration-100"
-          />
-        ) : (
-          <span className="leading-none select-none font-display font-extrabold">{initials}</span>
-        )}
+        <span className="leading-none select-none font-display font-extrabold">{initials}</span>
       </div>
 
       {showOnlineBadge && (

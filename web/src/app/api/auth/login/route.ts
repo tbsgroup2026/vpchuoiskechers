@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 import { signToken } from '@/lib/auth';
 import { getRedirectRouteForUser } from '@/lib/rbac';
+import { logAudit } from '@/lib/auditLogger';
+import { resolveEmployeeName } from '@/lib/userProfiles';
+
+function getDbBinding(): any {
+  return (process.env as any).DB || (globalThis as any).DB || null;
+}
 
 export async function POST(request: Request) {
   try {
@@ -90,22 +96,7 @@ export async function POST(request: Request) {
         redirectUrl: '/work',
         validPasswords: ['123456', '21032004', 'Admin@123456'],
       },
-      'ADMIN-2026': {
-        userId: 200,
-        empCode: 'ADMIN-2026',
-        name: 'Quản Trị Viên Hệ Thống',
-        title: 'Quản Trị Viên Hệ Thống TBS Group',
-        email: 'admin@tbsgroup.vn',
-        roleId: 1,
-        roleCode: 'SUPER_ADMIN',
-        roles: ['admin'],
-        roleLevel: 1,
-        departmentId: 5,
-        departmentCode: 'IT_DIGITAL',
-        departmentName: 'IT - Team Chuyển Đổi Số',
-        redirectUrl: '/admin/roles',
-        validPasswords: ['123456', '21032004', 'Admin@123456'],
-      },
+
       '202608001': {
         userId: 205,
         empCode: '202608001',
@@ -265,21 +256,21 @@ export async function POST(request: Request) {
 
     // Map role alias if role code provided instead of MSNV
     const ROLE_ALIAS_MAP: Record<string, string> = {
-      ceo: 'TGĐ-001',
-      deputy_ceo: 'PTGĐ-002',
-      director: 'GĐ-003',
-      deputy_director: 'PGĐ-004',
-      receptionist: 'LT-001',
-      letan: 'LT-001',
-      'lt-001': 'LT-001',
+      ceo: '202608001',
+      deputy_ceo: '202608001',
+      director: '202608001',
+      deputy_director: '202608001',
+      receptionist: '202206011',
+      letan: '202206011',
+      'lt-001': '202206011',
       department_head_ci: '202608001',
-      department_head_hr: 'NS-001',
-      department_head_kt: 'KT-001',
-      qc_manager: 'QC-001',
-      maintenance_lead: 'BT-001',
-      logistics_head: 'LG-001',
-      rd_head: 'RD-001',
-      admin: 'ADMIN-2026',
+      department_head_hr: '202608003',
+      department_head_kt: '210602002',
+      qc_manager: '202608003',
+      maintenance_lead: '202112003',
+      logistics_head: '202112003',
+      rd_head: '202608001',
+      admin: '202608001',
     };
 
     const targetEmpCode = ROLE_ALIAS_MAP[cleanEmpCode] || cleanEmpCode;
@@ -310,6 +301,17 @@ export async function POST(request: Request) {
 
         const token = await signToken(payload);
 
+        // Record Central Audit Event for successful login
+        await logAudit(request, {
+          empCode: demoUser.empCode,
+          empName: demoUser.name,
+          roleCode: demoUser.roleCode,
+          module: 'AUTH',
+          action: 'LOGIN_SUCCESS',
+          status: 'SUCCESS',
+          changesJson: { status: 'SUCCESS', name: demoUser.name, empCode: demoUser.empCode }
+        }).catch(() => {});
+
         return NextResponse.json({
           success: true,
           token,
@@ -317,6 +319,17 @@ export async function POST(request: Request) {
           redirectUrl: demoUser.redirectUrl,
         });
       } else {
+        // Record Central Audit Event for failed login
+        await logAudit(request, {
+          empCode: demoUser.empCode,
+          empName: demoUser.name,
+          roleCode: demoUser.roleCode,
+          module: 'AUTH',
+          action: 'LOGIN_FAILED',
+          status: 'FAILED',
+          changesJson: { status: 'FAILED', reason: 'Mật khẩu không chính xác' }
+        }).catch(() => {});
+
         return NextResponse.json({ error: 'Mật khẩu không chính xác' }, { status: 401 });
       }
     }
@@ -326,11 +339,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Vui lòng nhập mật khẩu' }, { status: 400 });
     }
 
+    const resolvedName = resolveEmployeeName(cleanEmpCode);
     const payload = {
       userId: 888,
       empCode: cleanEmpCode,
-      name: `Cán Bộ Nhân Viên (${cleanEmpCode})`,
-      title: 'Cán Bộ Công Nhân Viên',
+      name: resolvedName !== "Không xác định" ? resolvedName : `Nhân Viên (${cleanEmpCode})`,
+      title: 'Chuyên Viên Vận Hành',
       email: `${cleanEmpCode}@tbsgroup.vn`,
       roleId: 7,
       roleCode: 'NHAN_VIEN',
@@ -344,6 +358,17 @@ export async function POST(request: Request) {
 
     const token = await signToken(payload);
 
+    // Record Central Audit Event for fallback login
+    await logAudit(request, {
+      empCode: cleanEmpCode,
+      empName: resolvedName,
+      roleCode: 'NHAN_VIEN',
+      module: 'AUTH',
+      action: 'LOGIN_SUCCESS',
+      status: 'SUCCESS',
+      changesJson: { status: 'SUCCESS', empCode: cleanEmpCode }
+    }).catch(() => {});
+
     return NextResponse.json({
       success: true,
       token,
@@ -355,4 +380,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
 

@@ -23,6 +23,7 @@ import {
   NotificationPermissionState,
 } from "@/lib/browserNotifications";
 import PWAInstallGuide from "@/components/PWAInstallGuide";
+import { apiFetch, registerPoller, unregisterPoller } from "@/lib/apiClient";
 
 export interface NotificationItem {
   id: string;
@@ -61,8 +62,9 @@ export default function NotificationCenter() {
 
   // ── Fetch unread count from backend (lightweight, runs always) ──────────────
   const fetchUnreadCount = useCallback(async () => {
+    if (typeof navigator !== "undefined" && !navigator.onLine) return;
     try {
-      const res = await fetch("/api/notifications/unread-count", { credentials: "include", cache: "no-store" });
+      const res = await apiFetch("/api/notifications/unread-count", { cache: "no-store", timeoutMs: 8000 });
       if (res.ok) {
         const json = await res.json();
         setUnreadCount(json.count || 0);
@@ -79,7 +81,7 @@ export default function NotificationCenter() {
     setIsLoading(true);
     setHasError(false);
     try {
-      const res = await fetch("/api/notifications?limit=50", { credentials: "include", cache: "no-store" });
+      const res = await apiFetch("/api/notifications?limit=50", { cache: "no-store" });
       if (!res.ok) {
         setHasError(true);
         return;
@@ -102,24 +104,24 @@ export default function NotificationCenter() {
   useEffect(() => {
     fetchUnreadCount();
     // Refresh badge count every 60 seconds in background
-    const bgInterval = setInterval(fetchUnreadCount, 60_000);
-    return () => clearInterval(bgInterval);
+    const bgInterval = registerPoller(setInterval(fetchUnreadCount, 60_000));
+    return () => unregisterPoller(bgInterval);
   }, [fetchUnreadCount]);
 
   // ── When popup opens: load notifications + start 30s polling ────────────────
   useEffect(() => {
     if (isOpen) {
       fetchNotifications();
-      pollingRef.current = setInterval(fetchNotifications, 30_000);
+      pollingRef.current = registerPoller(setInterval(fetchNotifications, 30_000));
     } else {
       if (pollingRef.current) {
-        clearInterval(pollingRef.current);
+        unregisterPoller(pollingRef.current);
         pollingRef.current = null;
       }
     }
     return () => {
       if (pollingRef.current) {
-        clearInterval(pollingRef.current);
+        unregisterPoller(pollingRef.current);
         pollingRef.current = null;
       }
     };

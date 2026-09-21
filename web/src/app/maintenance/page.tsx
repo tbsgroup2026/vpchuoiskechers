@@ -27,6 +27,7 @@ import { generateMockOverviewData } from '@/lib/mmtbMockOverview';
 type Machine = {
   id: string;
   statusName: string;
+  status?: string;
   code: string;
   name: string;
   machineTypeName: string | null;

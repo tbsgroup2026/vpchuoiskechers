@@ -17,10 +17,10 @@ export interface HREmployee {
   department: string;
   branch: string;
   email: string;
-  phone: string;
+  phone?: string;
   status: "Active" | "Probation" | "Onboarding" | "Resigned";
-  contractType: "Chính thức (Không XĐTH)" | "Chính thức (2 năm)" | "Thử việc" | "Hợp đồng mùa vụ";
-  joinDate: string;
+  contractType: "Chính thức" | "Chính thức (Không XĐTH)" | "Chính thức (2 năm)" | "Thử việc" | "Hợp đồng mùa vụ";
+  joinDate?: string;
   probationEndDate?: string;
   contractEndDate?: string;
   avatar: string;

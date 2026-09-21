@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import { getValidKaizenImageUrl } from "@/lib/kaizenImageHelper";
 import {
   IconAlertTriangle,
   IconCalendar,
@@ -33,15 +34,15 @@ const DASHBOARD_REGIONS = REAL_DEPARTMENTS.map((deptName) => ({
 }));
 
 export default function KaizenEarlyWarning({ proposals, onSelectProposal }: KaizenEarlyWarningProps) {
-  // 1. Compute deadline metrics (moved to useEffect to avoid hydration issues)
+  // 1. Compute deadline metrics
   const [daysUntil25th, setDaysUntil25th] = useState(25);
+  const today = useMemo(() => new Date(), []);
 
   useEffect(() => {
-    const today = new Date();
     const currentDay = today.getDate();
     const calculated = currentDay <= 25 ? 25 - currentDay : 30 - currentDay + 25;
     setDaysUntil25th(calculated);
-  }, []);
+  }, [today]);
   const isNearDeadline = daysUntil25th <= 5;
 
   // 2. Filter Unevaluated Thi Đua Proposals
@@ -53,7 +54,7 @@ export default function KaizenEarlyWarning({ proposals, onSelectProposal }: Kaiz
 
   // 3. Filter Proposals Missing Evidence (no before or after image/video)
   const missingEvidenceProposals = useMemo(() => {
-    return proposals.filter((p) => !p.before_image_url || !p.after_image_url);
+    return proposals.filter((p) => !getValidKaizenImageUrl(p.before_image_url, p.attachments_json) || !getValidKaizenImageUrl(p.after_image_url));
   }, [proposals]);
 
   // 4. Compute Regional KPI Progress vs Targets

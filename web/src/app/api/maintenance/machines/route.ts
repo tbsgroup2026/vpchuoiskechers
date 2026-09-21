@@ -1,75 +1,114 @@
 import { NextResponse } from 'next/server';
+import { validateScopeAuthorization } from '@/lib/scopeAuth';
+import { EquipmentScope } from '@/lib/equipmentScope';
 
-const MOCK_MACHINES = [
+// In-memory machine list với trường data_scope
+let MACHINES_STORE = [
   {
     id: 'mc_1',
-    code: 'MC-MAY-01',
-    name: 'Máy May Tự Động 1 kim A1',
-    serial: 'SN-99812',
+    code: 'MC-OFFICE-01',
+    name: 'Máy May Tự Động 1 Kim VP-01',
+    serial: 'SN-OFF-99812',
     statusName: 'Đang sử dụng',
     status: 'OPERATING',
-    factoryId: 'fac_1',
+    factoryId: 'fac_office',
     areaId: 'area_1',
-    areaName: 'Phân Xưởng May A',
+    areaName: 'Phân Xưởng May Mẫu VP',
     lineId: 'line_1',
-    lineName: 'Chuyền May 01',
+    lineName: 'Chuyền May 01 VP',
     machineTypeName: 'Máy May 1 Kim',
-    qrData: 'TBS_MC_MAY_01',
+    qrData: 'TBS_MC_OFFICE_01',
+    data_scope: 'OFFICE' as EquipmentScope,
   },
   {
     id: 'mc_2',
-    code: 'MC-MAY-04',
-    name: 'Máy May Tự Động 1 kim A4',
-    serial: 'SN-99815',
-    statusName: 'Không sử dụng',
-    status: 'DOWN',
-    factoryId: 'fac_1',
-    areaId: 'area_1',
-    areaName: 'Phân Xưởng May A',
-    lineId: 'line_2',
-    lineName: 'Chuyền May 02',
-    machineTypeName: 'Máy May 1 Kim',
-    qrData: 'TBS_MC_MAY_04',
+    code: 'MC-EAST-01',
+    name: 'Máy Cắt Laser Công Nghiệp EAST-01',
+    serial: 'SN-EAST-44310',
+    statusName: 'Đang sử dụng',
+    status: 'OPERATING',
+    factoryId: 'fac_east',
+    areaId: 'area_east_3',
+    areaName: 'Phân Xưởng Cắt Miền Đông',
+    lineId: 'line_east_4',
+    lineName: 'Chuyền Cắt 01 NM Miền Đông',
+    machineTypeName: 'Máy Cắt Laser',
+    qrData: 'TBS_MC_EAST_01',
+    data_scope: 'EAST' as EquipmentScope,
   },
   {
     id: 'mc_3',
-    code: 'MC-CAT-02',
-    name: 'Máy Cắt Laser Công Nghiệp B2',
-    serial: 'SN-44310',
+    code: 'MC-KG-01',
+    name: 'Máy Ép Keo Nhiệt Kiên Giang KG-01',
+    serial: 'SN-KG-77219',
     statusName: 'Đang sử dụng',
     status: 'OPERATING',
-    factoryId: 'fac_2',
-    areaId: 'area_3',
-    areaName: 'Phân Xưởng Cắt C',
-    lineId: 'line_4',
-    lineName: 'Chuyền Cắt 01',
-    machineTypeName: 'Máy Cắt Laser',
-    qrData: 'TBS_MC_CAT_02',
+    factoryId: 'fac_kg',
+    areaId: 'area_kg_2',
+    areaName: 'Phân Xưởng Gò KG',
+    lineId: 'line_kg_3',
+    lineName: 'Chuyền Gò 01 TH Kiên Giang',
+    machineTypeName: 'Máy Ép Keo',
+    qrData: 'TBS_MC_KG_01',
+    data_scope: 'KIEN_GIANG' as EquipmentScope,
   },
   {
     id: 'mc_4',
-    code: 'MC-EP-05',
-    name: 'Máy Ép Keo Nhiệt E5',
-    serial: 'SN-77219',
+    code: 'MC-KG-02',
+    name: 'Máy Gò Mũi Tự Động KG-02',
+    serial: 'SN-KG-88123',
     statusName: 'Sửa chữa / Bảo trì',
     status: 'WARNING',
-    factoryId: 'fac_1',
-    areaId: 'area_2',
-    areaName: 'Phân Xưởng Gò B',
-    lineId: 'line_3',
-    lineName: 'Chuyền Gò 01',
-    machineTypeName: 'Máy Ép Keo',
-    qrData: 'TBS_MC_EP_05',
+    factoryId: 'fac_kg',
+    areaId: 'area_kg_2',
+    areaName: 'Phân Xưởng Gò KG',
+    lineId: 'line_kg_3',
+    lineName: 'Chuyền Gò 02 TH Kiên Giang',
+    machineTypeName: 'Máy Gò Mũi',
+    qrData: 'TBS_MC_KG_02',
+    data_scope: 'KIEN_GIANG' as EquipmentScope,
   },
 ];
 
-export async function GET() {
-  return NextResponse.json({ success: true, data: MOCK_MACHINES });
+export async function GET(request: Request) {
+  // 1. Validate Scope Authorization
+  const auth = validateScopeAuthorization(request);
+  if (!auth.authorized || auth.response) {
+    return auth.response;
+  }
+
+  const { scope } = auth;
+
+  // 2. Filter machines per scope
+  let data = MACHINES_STORE;
+  if (scope !== 'ALL') {
+    data = MACHINES_STORE.filter((m) => m.data_scope === scope);
+  }
+
+  return NextResponse.json({
+    success: true,
+    scope,
+    total: data.length,
+    data,
+  });
 }
 
 export async function POST(request: Request) {
+  // 1. Validate Scope Authorization
+  const auth = validateScopeAuthorization(request);
+  if (!auth.authorized || auth.response) {
+    return auth.response;
+  }
+
   try {
     const body = await request.json();
+
+    // 2. Scope cho thiết bị mới (Mục 8: ALL không bao giờ được lưu trong DB)
+    let assignedScope: EquipmentScope = body.data_scope || auth.scope;
+    if (assignedScope === 'ALL') {
+      assignedScope = 'OFFICE'; // Fallback nếu client truyền ALL
+    }
+
     const newMachine = {
       id: body.id || `mc_${Date.now()}`,
       code: body.code || `MC-NEW-${Math.floor(100 + Math.random() * 900)}`,
@@ -79,13 +118,21 @@ export async function POST(request: Request) {
       status: body.status || 'OPERATING',
       factoryId: body.factoryId || 'fac_1',
       areaId: body.areaId || 'area_1',
-      areaName: body.areaName || 'Phân Xưởng May A',
+      areaName: body.areaName || 'Phân Xưởng Vận Hành',
       lineId: body.lineId || 'line_1',
-      lineName: body.lineName || 'Chuyền May 01',
+      lineName: body.lineName || 'Chuyền Vận Hành 01',
       machineTypeName: body.machineTypeName || 'Máy May 1 Kim',
       qrData: body.qrData || body.code,
+      data_scope: assignedScope,
     };
-    return NextResponse.json({ success: true, data: newMachine });
+
+    MACHINES_STORE.push(newMachine);
+
+    return NextResponse.json({
+      success: true,
+      scope: assignedScope,
+      data: newMachine,
+    });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Error';
     return NextResponse.json({ success: false, error: msg }, { status: 500 });

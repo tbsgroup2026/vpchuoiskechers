@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { Suspense } from "react";
 import Link from "next/link";
 import { IconArrowLeft } from "@tabler/icons-react";
 import CNCIWrapper from "@/modules/ci/CNCIWrapper";
@@ -32,7 +32,10 @@ export default function CNCIDedicatedPage() {
       </div>
 
       {/* Landing Wrapper rendering the 3 Large Cards */}
-      <CNCIWrapper />
+      <Suspense fallback={<div className="p-8 text-center font-bold text-slate-500">Đang tải CN-CI...</div>}>
+        <CNCIWrapper />
+      </Suspense>
     </div>
   );
 }
+

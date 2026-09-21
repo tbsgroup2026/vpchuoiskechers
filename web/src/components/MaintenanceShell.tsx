@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   IconTools,
   IconClipboardList,
@@ -28,8 +28,16 @@ import {
 import { MMTB_NAV, MmtbNavEntry } from '@/lib/mmtbNav';
 import { getCurrentUser, getUserDisplayBadgeTitle, logoutUserProfile, UserProfile } from '@/lib/userProfiles';
 import UserAvatar from '@/components/UserAvatar';
+import {
+  EquipmentScope,
+  EQUIPMENT_SCOPES,
+  getEffectiveScope,
+  SCOPE_KEYS,
+  STORAGE_KEY_SCOPE,
+} from '@/lib/equipmentScope';
+import { usePermission } from '@/hooks/usePermission';
 
-const ICONS: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
+const ICONS: Record<string, any> = {
   IconTools,
   IconClipboardList,
   IconDeviceLaptop,
@@ -46,7 +54,7 @@ const ICONS: Record<string, React.ComponentType<{ size?: number; className?: str
   IconSpeakerphone,
 };
 
-export default function MaintenanceShell({
+function MaintenanceShellInner({
   children,
   title,
   subtitle,
@@ -57,10 +65,18 @@ export default function MaintenanceShell({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const { allowedScopes, canAccessScope } = usePermission();
+
   const [collapsed, setCollapsed] = useState(false);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({ categories: true });
   const [authChecked, setAuthChecked] = useState(false);
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+
+  // Active Scope State
+  const rawUrlScope = searchParams?.get('scope');
+  const [activeScope, setActiveScope] = useState<EquipmentScope>('ALL');
 
   useEffect(() => {
     const user = getCurrentUser();
@@ -72,6 +88,18 @@ export default function MaintenanceShell({
     setAuthChecked(true);
   }, [router]);
 
+  // Sync Scope State with URL priority over localStorage (Mục 12.1)
+  useEffect(() => {
+    if (!authChecked) return;
+    const effective = getEffectiveScope(rawUrlScope, allowedScopes);
+    setActiveScope(effective);
+
+    // Lưu localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(STORAGE_KEY_SCOPE, effective);
+    }
+  }, [rawUrlScope, allowedScopes, authChecked]);
+
   const handleLogout = () => {
     logoutUserProfile();
     router.replace('/login');
@@ -79,6 +107,24 @@ export default function MaintenanceShell({
 
   const toggleGroup = (id: string) => {
     setOpenGroups((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const handleSelectScope = (scopeKey: EquipmentScope) => {
+    if (!canAccessScope(scopeKey)) return;
+    setActiveScope(scopeKey);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(STORAGE_KEY_SCOPE, scopeKey);
+    }
+    const params = new URLSearchParams(searchParams?.toString() || '');
+    params.set('scope', scopeKey);
+    router.push(`${pathname}?${params.toString()}`);
+  };
+
+  const getScopedHref = (baseHref: string) => {
+    if (activeScope && activeScope !== 'ALL') {
+      return `${baseHref}?scope=${activeScope}`;
+    }
+    return baseHref;
   };
 
   if (!authChecked || !currentUser) {
@@ -100,6 +146,8 @@ export default function MaintenanceShell({
       </div>
     );
   }
+
+  const currentScopeMeta = EQUIPMENT_SCOPES[activeScope] || EQUIPMENT_SCOPES.ALL;
 
   return (
     <div className="min-h-screen bg-[#f8fafc] flex text-slate-800 font-sans antialiased">
@@ -177,7 +225,7 @@ export default function MaintenanceShell({
                         return (
                           <Link
                             key={child.id}
-                            href={child.href}
+                            href={getScopedHref(child.href)}
                             className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[11px] font-medium transition-all duration-150 border-l-2 ${
                               isChildActive
                                 ? 'bg-[#006838]/30 text-emerald-300 font-bold border-emerald-400'
@@ -199,7 +247,7 @@ export default function MaintenanceShell({
             return (
               <Link
                 key={entry.id}
-                href={entry.href}
+                href={getScopedHref(entry.href)}
                 className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-150 border-l-2 ${
                   isActive
                     ? 'bg-[#006838]/30 text-emerald-300 font-bold border-emerald-400'
@@ -234,34 +282,75 @@ export default function MaintenanceShell({
       {/* MAIN CONTENT WRAPPER */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Header Bar */}
-        <header className="bg-white border-b border-slate-200/80 px-4 sm:px-6 py-3 sticky top-0 z-20 flex items-center justify-between gap-3 shadow-2xs">
-          <div className="flex items-center gap-3">
-            <Link href="/work" className="lg:hidden flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-[#006838]">
-              <IconArrowLeft size={16} />
-              <span>Tổng quan</span>
-            </Link>
-            <div className="hidden lg:block">
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">MMTB Management</span>
-                <span className="text-slate-300">•</span>
-                <h1 className="text-sm font-bold text-slate-900 leading-none">{title}</h1>
+        <header className="bg-white border-b border-slate-200/80 px-4 sm:px-6 py-3 sticky top-0 z-20 flex flex-col gap-3 shadow-2xs">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <Link href="/work" className="lg:hidden flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-[#006838]">
+                <IconArrowLeft size={16} />
+                <span>Tổng quan</span>
+              </Link>
+              <div className="hidden lg:block">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">MMTB Management</span>
+                  <span className="text-slate-300">•</span>
+                  <h1 className="text-sm font-bold text-slate-900 leading-none">{title}</h1>
+                </div>
+                {subtitle && <p className="text-xs text-slate-500 font-medium mt-1">{subtitle}</p>}
               </div>
-              {subtitle && <p className="text-xs text-slate-500 font-medium mt-1">{subtitle}</p>}
+            </div>
+
+            <div className="flex items-center gap-3">
+              <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-50 text-slate-700 border border-slate-200 text-xs font-medium">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span>Hệ thống vận hành bình thường</span>
+              </span>
+
+              <div className="flex items-center gap-2 border-l border-slate-200 pl-3">
+                <UserAvatar src={currentUser.avatar} name={currentUser.name} size="sm" />
+                <div className="hidden md:block text-left">
+                  <div className="text-xs font-bold text-slate-900 leading-none">{currentUser.name}</div>
+                  <div className="text-[10px] text-slate-500 font-medium mt-0.5">{getUserDisplayBadgeTitle(currentUser)}</div>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-50 text-slate-700 border border-slate-200 text-xs font-medium">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>Hệ thống vận hành bình thường</span>
-            </span>
+          {/* SCOPE TAB BAR / SEGMENTED CONTROL (Mục 3 Yêu Cầu UI) */}
+          <div className="pt-2 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none max-w-full">
+              {SCOPE_KEYS.map((scopeKey) => {
+                const scopeMeta = EQUIPMENT_SCOPES[scopeKey];
+                const isAllowed = canAccessScope(scopeKey);
+                const isActive = activeScope === scopeKey;
 
-            <div className="flex items-center gap-2 border-l border-slate-200 pl-3">
-              <UserAvatar src={currentUser.avatar} name={currentUser.name} size="sm" />
-              <div className="hidden md:block text-left">
-                <div className="text-xs font-bold text-slate-900 leading-none">{currentUser.name}</div>
-                <div className="text-[10px] text-slate-500 font-medium mt-0.5">{getUserDisplayBadgeTitle(currentUser)}</div>
-              </div>
+                if (!isAllowed) {
+                  return null; // Không hiển thị tab user không có quyền (Mục 3)
+                }
+
+                return (
+                  <button
+                    key={scopeKey}
+                    onClick={() => handleSelectScope(scopeKey)}
+                    className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 border flex-shrink-0 cursor-pointer ${
+                      isActive
+                        ? 'bg-[#006838] text-white border-[#006838] shadow-md shadow-emerald-950/10 scale-[1.02]'
+                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-900'
+                    }`}
+                  >
+                    <span>{scopeMeta.icon}</span>
+                    <span>{scopeMeta.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Active Scope Status Indicator */}
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200/80 self-start sm:self-auto flex-shrink-0">
+              <span className="text-[11px] uppercase tracking-wider text-slate-400 font-bold">Đang xem:</span>
+              <span className="flex items-center gap-1.5 text-slate-900 font-extrabold">
+                <span>{currentScopeMeta.icon}</span>
+                <span>{currentScopeMeta.label.toUpperCase()}</span>
+              </span>
             </div>
           </div>
         </header>
@@ -270,5 +359,23 @@ export default function MaintenanceShell({
         <main className="flex-1 p-4 sm:p-6 lg:p-7 space-y-6 max-w-7xl w-full mx-auto">{children}</main>
       </div>
     </div>
+  );
+}
+
+export default function MaintenanceShell(props: {
+  children: React.ReactNode;
+  title: string;
+  subtitle?: string;
+}) {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#071612] flex items-center justify-center p-4">
+          <div className="w-5 h-5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+        </div>
+      }
+    >
+      <MaintenanceShellInner {...props} />
+    </Suspense>
   );
 }

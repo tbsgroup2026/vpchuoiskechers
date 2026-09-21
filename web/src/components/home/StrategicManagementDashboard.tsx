@@ -421,6 +421,7 @@ export function StrategicManagementContent() {
   const [activeModalKey, setActiveModalKey] = useState<string | null>(null);
   const [activeLibraryCategoryId, setActiveLibraryCategoryId] = useState<string | null>(null);
   const [activeInfraFolderId, setActiveInfraFolderId] = useState<string | null>(null);
+  const [activeQuarter, setActiveQuarter] = useState<string>("ALL");
   const [modalTitle, setModalTitle] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState<string>("");
 
@@ -549,11 +550,26 @@ export function StrategicManagementContent() {
 
         {/* RIGHT COLUMN: MAIN TITLE + 1-5-2 DASHBOARD GRID */}
         <div className="flex-1 min-w-0 space-y-3.5 sm:space-y-4">
-          {/* TOP CENTER: MAIN TITLE */}
-          <div className="h-[42px] flex items-center justify-center border-b border-slate-100">
-            <h2 className="text-base sm:text-xl lg:text-2xl font-black text-slate-900 uppercase tracking-wide font-serif text-center w-full break-words leading-tight px-1">
+          {/* TOP CENTER: MAIN TITLE & QUARTER FILTER */}
+          <div className="h-auto py-1 sm:h-[42px] flex flex-col sm:flex-row items-center justify-between border-b border-slate-100 gap-2">
+            <h2 className="text-base sm:text-lg lg:text-xl font-black text-slate-900 uppercase tracking-wide font-serif text-center sm:text-left break-words leading-tight px-1">
               HỆ THỐNG QUẢN TRỊ CHIẾN LƯỢC 1-5-2
             </h2>
+
+            <div className="flex items-center gap-1.5 bg-emerald-50 px-2 py-1 rounded-xl border border-emerald-200/80">
+              <span className="text-[11px] font-bold text-emerald-900 whitespace-nowrap">Lọc Quý:</span>
+              <select
+                value={activeQuarter}
+                onChange={(e) => setActiveQuarter(e.target.value)}
+                className="bg-white px-2 py-0.5 rounded-lg text-xs font-bold text-emerald-800 border border-emerald-300 outline-none cursor-pointer"
+              >
+                <option value="ALL">Cả Năm 2026</option>
+                <option value="Q1">Quý 1 / 2026</option>
+                <option value="Q2">Quý 2 / 2026</option>
+                <option value="Q3">Quý 3 / 2026</option>
+                <option value="Q4">Quý 4 / 2026</option>
+              </select>
+            </div>
           </div>
 
           {/* SECTION 1: MỤC ĐÍCH XUYÊN SUỐT BANNER */}

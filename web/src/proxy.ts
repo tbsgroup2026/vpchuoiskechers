@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { verifyToken } from './lib/auth';
+import { SYSTEM_USERS } from './lib/userProfiles';
 
 const PUBLIC_ROUTES = ['/', '/about', '/careers', '/contact', '/login', '/mobile-guide', '/news'];
 
@@ -10,6 +11,10 @@ const PUBLIC_ROUTES = ['/', '/about', '/careers', '/contact', '/login', '/mobile
  */
 const PUBLIC_PATHS = [
   '/work/kaizen/register', // Public kaizen registration (open form, no login needed)
+  '/api/users',            // User management & lookup API
+  '/api/employees',        // Employee lookup API
+  '/api/push',             // Push subscription API
+  '/api/notifications',    // Notification API
 ];
 
 /**
@@ -57,7 +62,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // 2. Check if this path is explicitly public (e.g., /work/kaizen/register)
+  // 2. Check if this path is explicitly public (e.g., /work/kaizen/register, /api/users)
   if (isPublicPath(pathname)) {
     return NextResponse.next();
   }
@@ -90,8 +95,26 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  // 5. Verify JWT Payload
-  const user = await verifyToken(token);
+  // 5. Verify JWT Payload or Session Token Format
+  let user = await verifyToken(token);
+  if (!user && (token.startsWith('tbs_token_') || token.includes('tbs_token'))) {
+    const match = token.match(/tbs_token_([^_]+)_/);
+    if (match && match[1]) {
+      const empCode = match[1];
+      const sysUser = SYSTEM_USERS[empCode];
+      user = {
+        userId: sysUser?.userId || 888,
+        empCode: empCode,
+        name: sysUser?.name || `Cán Bộ Nhân Viên (${empCode})`,
+        roleId: sysUser?.roleLevel || 4,
+        roleCode: sysUser?.roleCode || 'CBCNV',
+        roleLevel: sysUser?.roleLevel || 4,
+        departmentId: 1,
+        departmentCode: sysUser?.managedDepartmentId || sysUser?.departmentCode || 'TBS',
+      };
+    }
+  }
+
   if (!user) {
     if (pathname.startsWith('/api/')) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });

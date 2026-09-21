@@ -19,6 +19,7 @@ interface HRStaffDashboardProps {
 }
 
 export default function HRStaffDashboard({ onNavigateTab }: HRStaffDashboardProps) {
+  const [filterQuarter, setFilterQuarter] = useState("q3");
   const [todoItems, setTodoItems] = useState([
     { id: 1, text: "Kiểm tra bằng cấp & KSK gốc của 4 nhân viên mới khối Logistics", done: true, tag: "Hồ sơ" },
     { id: 2, text: "Gửi email xác nhận Onboarding & tạo tài khoản cho Lê Hoàng Yến", done: true, tag: "Onboarding" },
@@ -46,13 +47,27 @@ export default function HRStaffDashboard({ onNavigateTab }: HRStaffDashboardProp
           </p>
         </div>
 
-        <button
-          onClick={() => onNavigateTab("directory")}
-          className="px-4 py-2 rounded-xl bg-[#006838] hover:bg-[#00522c] text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-2xs"
-        >
-          <IconPlus size={16} />
-          <span>+ Tiếp Nhận Nhân Viên Mới</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <select
+            value={filterQuarter}
+            onChange={(e) => setFilterQuarter(e.target.value)}
+            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 cursor-pointer"
+          >
+            <option value="all">Tất cả các quý</option>
+            <option value="q1">Quý 1 / 2026</option>
+            <option value="q2">Quý 2 / 2026</option>
+            <option value="q3">Quý 3 / 2026</option>
+            <option value="q4">Quý 4 / 2026</option>
+          </select>
+
+          <button
+            onClick={() => onNavigateTab("directory")}
+            className="px-4 py-2 rounded-xl bg-[#006838] hover:bg-[#00522c] text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-2xs"
+          >
+            <IconPlus size={16} />
+            <span>+ Tiếp Nhận Nhân Viên Mới</span>
+          </button>
+        </div>
       </div>
 
       {/* Operations Quick Counters */}

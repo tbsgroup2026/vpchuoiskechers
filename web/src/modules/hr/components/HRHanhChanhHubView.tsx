@@ -19,6 +19,8 @@ import {
   IconWallet,
   IconUserPlus,
   IconFileSpreadsheet,
+  IconFileText,
+  IconSend,
   IconChartPie,
   IconSparkles,
 } from "@tabler/icons-react";
@@ -239,10 +241,10 @@ export default function HRHanhChanhHubView({
           </div>
           <div>
             <h2 className="text-sm font-black text-slate-900 uppercase tracking-wide">
-              NHÂN SỰ
+              NHÂN SỰ 
             </h2>
             <p className="text-xs text-slate-500 font-semibold">
-              Quản lý thông tin và phát triển nguồn nhân lực
+              Tra cứu thông tin và quá trình làm việc của bạn
             </p>
           </div>
         </div>
@@ -251,59 +253,67 @@ export default function HRHanhChanhHubView({
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             {
-              id: "directory",
-              title: "Hồ sơ nhân sự",
-              desc: "Quản lý thông tin hồ sơ và quá trình công tác của nhân viên.",
+              id: "profile",
+              directUrl: "/hr/me/profile",
+              title: "Hồ sơ cá nhân",
+              desc: "Thông tin cá nhân và quá trình công tác của bạn.",
               icon: IconAddressBook,
             },
             {
-              id: "attendance_payroll",
-              title: "Quản lý nghỉ phép",
-              desc: "Đăng ký, theo dõi và phê duyệt các đơn nghỉ phép.",
+              id: "leave",
+              directUrl: "/hr/me/leave",
+              title: "Nghỉ phép",
+              desc: "Số ngày phép còn lại, tạo đơn và theo dõi trạng thái phê duyệt.",
               icon: IconCalendarOff,
             },
             {
-              id: "attendance_payroll",
+              id: "attendance",
+              directUrl: "/hr/me/attendance",
               title: "Chấm công",
-              desc: "Theo dõi, quản lý và tổng hợp dữ liệu chấm công.",
+              desc: "Dữ liệu chấm công, đi muộn, về sớm và giải trình.",
               icon: IconClock,
             },
             {
-              id: "talent_performance",
-              title: "Đánh giá nhân viên",
-              desc: "Đánh giá hiệu suất làm việc và năng lực nhân viên.",
+              id: "evaluation",
+              directUrl: "/hr/me/evaluation",
+              title: "Đánh giá",
+              desc: "Kết quả đánh giá hiệu suất và năng lực theo từng kỳ.",
               icon: IconTrendingUp,
             },
             {
-              id: "talent_performance",
+              id: "training",
+              directUrl: "/hr/me/training",
               title: "Đào tạo & phát triển",
-              desc: "Quản lý kế hoạch đào tạo và phát triển kỹ năng nhân viên.",
+              desc: "Khóa học đã tham gia, chứng chỉ và kế hoạch phát triển.",
               icon: IconSchool,
             },
             {
-              id: "attendance_payroll",
+              id: "payroll",
+              directUrl: "/hr/me/payroll",
               title: "Lương & phúc lợi",
-              desc: "Quản lý thông tin lương, thưởng và phúc lợi nhân viên.",
+              desc: "Phiếu lương, thưởng và các chế độ phúc lợi.",
               icon: IconWallet,
             },
             {
-              id: "recruitment",
-              title: "Tuyển dụng",
-              desc: "Quản lý quy trình tuyển dụng và theo dõi ứng viên.",
-              icon: IconUserPlus,
+              id: "documents",
+              directUrl: "/hr/me/documents",
+              title: "Hợp đồng & giấy tờ",
+              desc: "Hợp đồng lao động, quyết định và giấy tờ cá nhân.",
+              icon: IconFileText,
             },
             {
-              id: "reports",
-              title: "Báo cáo nhân sự",
-              desc: "Hệ thống báo cáo tổng hợp về nhân sự và thống kê.",
-              icon: IconFileSpreadsheet,
+              id: "requests",
+              directUrl: "/hr/me/requests",
+              title: "Đơn từ & yêu cầu",
+              desc: "Gửi và theo dõi các đơn từ, yêu cầu hành chính.",
+              icon: IconSend,
             },
           ].map((item, idx) => {
             const IconComp = item.icon;
             return (
               <div
                 key={idx}
-                onClick={() => handleCardClick(item.id, undefined, item.title)}
+                onClick={() => handleCardClick(item.id, item.directUrl, item.title)}
                 className="group relative bg-white border border-slate-200/90 rounded-2xl p-5 shadow-2xs hover:shadow-md hover:border-[#006838]/60 transition-all duration-200 cursor-pointer flex flex-col justify-between h-full min-h-[160px]"
               >
                 <div className="space-y-3">

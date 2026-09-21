@@ -14,6 +14,7 @@ import {
 } from "@tabler/icons-react";
 import { GembaUserScope } from "./types";
 import { UserProfile } from "@/lib/userProfiles";
+import { apiFetch } from "@/lib/apiClient";
 
 interface GembaUserManagementViewProps {
   currentUser: UserProfile | null;
@@ -29,7 +30,7 @@ export default function GembaUserManagementView({ currentUser }: GembaUserManage
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/gemba/users");
+      const res = await apiFetch("/api/gemba/users");
       if (res.ok) {
         const json = await res.json();
         if (json.success) {
@@ -60,7 +61,7 @@ export default function GembaUserManagementView({ currentUser }: GembaUserManage
     if (!editingUser) return;
 
     try {
-      const res = await fetch("/api/gemba/users", {
+      const res = await apiFetch("/api/gemba/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -250,6 +251,7 @@ export default function GembaUserManagementView({ currentUser }: GembaUserManage
                   <option value="ADMIN">Admin Chuỗi</option>
                   <option value="GD_NHAMAY">Giám Đốc Nhà Máy</option>
                   <option value="CN_CI_KHU_VUC">CN-CI Khu vực</option>
+                  <option value="IE">Kỹ Sư IE (Industrial Engineering)</option>
                   <option value="QLCL_KHU_VUC">QLCL Khu vực</option>
                   <option value="MMTB_KHU_VUC">MMTB Khu vực</option>
                   <option value="DOC_CONG">Đốc công / ĐH phân xưởng</option>

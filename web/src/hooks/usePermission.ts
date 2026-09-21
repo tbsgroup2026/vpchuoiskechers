@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { PERMISSIONS, ROLES, Permission } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/userProfiles";
+import { EquipmentScope, isScopeAllowed } from "@/lib/equipmentScope";
 
 /**
  * SECURITY NOTE / BẢO MẬT:
@@ -20,6 +21,7 @@ export interface UserSession {
   managedDepartmentId?: string; // Ví dụ: "hr", "ci", "qc", "rd" cho Trưởng phòng
   roles?: string[]; // Mảng các role mà user có (Multi-role support: union permissions)
   avatar?: string;
+  allowedScopes?: EquipmentScope[];
 }
 
 export function usePermission() {
@@ -105,11 +107,27 @@ export function usePermission() {
     return !canEditModule(moduleKey);
   };
 
+  const allowedScopes: EquipmentScope[] = user?.allowedScopes || (isExecutiveOrAdmin ? ['ALL', 'OFFICE', 'EAST', 'KIEN_GIANG'] : ['OFFICE', 'EAST', 'KIEN_GIANG']);
+
+  const canAccessScope = (scope: EquipmentScope): boolean => {
+    if (scope === 'ALL') {
+      return isExecutiveOrAdmin || can(PERMISSIONS.MAINT_VIEW_ALL_SCOPES) || allowedScopes.includes('ALL');
+    }
+    return isExecutiveOrAdmin || isScopeAllowed(scope, allowedScopes);
+  };
+
+  const canCreateGlobalCategory = (): boolean => {
+    return isExecutiveOrAdmin || can(PERMISSIONS.MAINT_MANAGE_GLOBAL_CATEGORIES);
+  };
+
   return {
     user,
     roles,
     managedDepartmentId: user?.managedDepartmentId,
     isExecutiveOrAdmin,
+    allowedScopes,
+    canAccessScope,
+    canCreateGlobalCategory,
     canEditModule,
     isReadOnlyModule,
     can,

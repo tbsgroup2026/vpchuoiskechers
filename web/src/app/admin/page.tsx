@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { apiFetch } from "@/lib/apiClient";
 import {
   IconUsers,
   IconSettings,
@@ -34,6 +35,13 @@ import {
   IconChevronLeft,
   IconChevronRight,
   IconBuildingStore,
+  IconCrown,
+  IconUserCheck,
+  IconLayoutGrid,
+  IconListCheck,
+  IconChevronDown,
+  IconChevronUp,
+  IconUser,
 } from "@tabler/icons-react";
 import {
   LandingCMSConfig,
@@ -50,6 +58,7 @@ import ShoeLinesManager from "@/components/admin/ShoeLinesManager";
 import WorkspaceCMSManager from "@/components/admin/WorkspaceCMSManager";
 import * as XLSX from "xlsx";
 import { uploadCloudinaryFile, formatCloudinaryUrl } from "@/lib/cloudinary";
+import { isOfficeStaff } from "@/lib/officeStaffFilter";
 
 interface EmployeeAccount {
   id: string;
@@ -95,7 +104,7 @@ interface MediaAsset {
   createdAt: string;
 }
 
-export const ROLE_MAPPING: Record<string, { code: string; shortName: string; fullName: string; aliases: string[] }> = {
+const ROLE_MAPPING: Record<string, { code: string; shortName: string; fullName: string; aliases: string[] }> = {
   SUPER_ADMIN: {
     code: "SUPER_ADMIN",
     shortName: "Admin",
@@ -123,20 +132,32 @@ export const ROLE_MAPPING: Record<string, { code: string; shortName: string; ful
   PHO_GIAM_DOC: {
     code: "PHO_GIAM_DOC",
     shortName: "P.GĐK",
-    fullName: "Phó Giám Đốc Khối",
-    aliases: ["P.GĐK", "PGĐ", "PGD", "PHO_GIAM_DOC", "PHÓ GIÁM ĐỐC KHỐI", "PHÓ GIÁM ĐỐC", "DEPUTY_DIRECTOR"],
+    fullName: "Phó Giám Đốc Khối / CVP",
+    aliases: ["P.GĐK", "PGĐ", "PGD", "CVP", "CHÁNH VĂN PHÒNG", "PHO_GIAM_DOC", "PHÓ GIÁM ĐỐC KHỐI", "PHÓ GIÁM ĐỐC", "DEPUTY_DIRECTOR"],
   },
   TRUONG_PHONG: {
     code: "TRUONG_PHONG",
     shortName: "TP",
-    fullName: "Trưởng Phòng",
-    aliases: ["TP", "TRUONG_PHONG", "TRƯỞNG PHÒNG", "TRƯỞNG NHÓM", "MANAGER", "HEAD"],
+    fullName: "Trưởng Phòng / Team Lead",
+    aliases: ["TP", "T.TEAM", "TL", "TEAM LEAD", "TRUONG_PHONG", "TRƯỞNG PHÒNG", "TRƯỞNG BAN", "TRƯỞNG NHÓM", "MANAGER", "HEAD"],
+  },
+  TO_TRUONG: {
+    code: "TO_TRUONG",
+    shortName: "TT",
+    fullName: "Tổ Trưởng",
+    aliases: ["TT", "TO_TRUONG", "TỔ TRƯỞNG", "LEADER", "SUPERVISOR"],
   },
   CBCNV: {
     code: "CBCNV",
     shortName: "NV",
     fullName: "Cán Bộ Công Nhân Viên",
-    aliases: ["NV", "CBCNV", "CAN BO CONG NHAN VIEN", "CÁN BỘ CÔNG NHÂN VIÊN", "NHÂN VIÊN", "EMPLOYEE", "CHUYÊN VIÊN", "KỸ SƯ"],
+    aliases: ["NV", "CV", "CBCNV", "CAN BO CONG NHAN VIEN", "CÁN BỘ CÔNG NHÂN VIÊN", "NHÂN VIÊN", "CHUYÊN VIÊN", "EMPLOYEE", "KỸ SƯ"],
+  },
+  WORKER: {
+    code: "WORKER",
+    shortName: "CN",
+    fullName: "Công Nhân Sản Xuất",
+    aliases: ["CN", "WORKER", "CÔNG NHÂN", "CÔNG NHÂN SẢN XUẤT"],
   },
   LE_TAN: {
     code: "LE_TAN",
@@ -144,9 +165,15 @@ export const ROLE_MAPPING: Record<string, { code: string; shortName: string; ful
     fullName: "Lễ Tân Văn Phòng",
     aliases: ["LT", "LE_TAN", "LỄ TÂN", "LỄ TÂN VĂN PHÒNG", "RECEPTIONIST"],
   },
+  IE: {
+    code: "IE",
+    shortName: "IE",
+    fullName: "Kỹ Sư Industrial Engineering (IE)",
+    aliases: ["IE", "INDUSTRIAL ENGINEERING", "KỸ SƯ IE", "KỸ THUẬT CÔNG NGHIỆP", "CÁN BỘ IE"],
+  },
 };
 
-export function getRoleDisplayName(rawVal?: string, roleCode?: string): string {
+function getRoleDisplayName(rawVal?: string, roleCode?: string): string {
   if (!rawVal && !roleCode) return "Cán Bộ Công Nhân Viên";
   
   const searchStr = (rawVal || "").trim().toUpperCase();
@@ -168,7 +195,7 @@ export function getRoleDisplayName(rawVal?: string, roleCode?: string): string {
   return rawVal || "Cán Bộ Công Nhân Viên";
 }
 
-export function mapRoleNameToCode(roleStr?: string, titleStr?: string, deptStr?: string, empCode?: string, name?: string): string {
+function mapRoleNameToCode(roleStr?: string, titleStr?: string, deptStr?: string, empCode?: string, name?: string): string {
   const codeNorm = (empCode || "").trim().toUpperCase();
   const nameNorm = (name || "").trim().toUpperCase();
 
@@ -197,6 +224,14 @@ export function mapRoleNameToCode(roleStr?: string, titleStr?: string, deptStr?:
 
   // 1. Lễ Tân
   if (
+    codeNorm === "202409009" ||
+    codeNorm === "202010004" ||
+    codeNorm === "202206011" ||
+    codeNorm === "LT-001" ||
+    nameNorm.includes("NGUYỄN KIM NGUYÊN") ||
+    nameNorm.includes("NGUYEN KIM NGUYEN") ||
+    nameNorm.includes("NGUYỄN MINH HÙNG") ||
+    nameNorm.includes("NGUYEN MINH HUNG") ||
     r.includes("LỄ TÂN") ||
     r.includes("LE_TAN") ||
     r.includes("LE TAN") ||
@@ -235,9 +270,11 @@ export function mapRoleNameToCode(roleStr?: string, titleStr?: string, deptStr?:
     return "TONG_GIAM_DOC";
   }
 
-  // 4. Phó Giám Đốc Khối (Check BEFORE Giám Đốc because P.GĐ contains GĐ)
+  // 4. Phó Giám Đốc Khối / Chánh Văn Phòng (CVP)
   if (
     r.includes("PHÓ GIÁM ĐỐC") ||
+    r.includes("CHÁNH VĂN PHÒNG") ||
+    r.split(/\s+/).includes("CVP") ||
     r.includes("P.GĐK") ||
     r.includes("P.GĐ") ||
     r.includes("P.GD") ||
@@ -264,21 +301,53 @@ export function mapRoleNameToCode(roleStr?: string, titleStr?: string, deptStr?:
     return "GIAM_DOC";
   }
 
-  // 6. Trưởng Phòng
+  // 6. Trưởng Phòng / Team Lead (TP, T.TEAM, TL)
   if (
     r.includes("TRƯỞNG PHÒNG") ||
     r.includes("TRƯỞNG BAN") ||
     r.includes("TRƯỞNG NHÓM") ||
+    r.includes("TEAM LEAD") ||
+    r.includes("T.TEAM") ||
+    r.split(/\s+/).includes("TL") ||
     r.includes("TRUONG_PHONG") ||
-    r.includes("TP")
+    r.split(/\s+/).includes("TP")
   ) {
     return "TRUONG_PHONG";
+  }
+
+  // 7. Tổ Trưởng (TT)
+  if (
+    r.includes("TỔ TRƯỞNG") ||
+    r.includes("TO_TRUONG") ||
+    r.split(/\s+/).includes("TT")
+  ) {
+    return "TO_TRUONG";
+  }
+
+  // 8. Kỹ Sư Industrial Engineering (IE)
+  if (
+    r.includes("INDUSTRIAL ENGINEERING") ||
+    r.includes("KỸ SƯ IE") ||
+    r.includes("CÁN BỘ IE") ||
+    r.includes("PHÒNG IE") ||
+    r.split(/\s+/).includes("IE")
+  ) {
+    return "IE";
+  }
+
+  // 9. Công Nhân (CN)
+  if (
+    r.includes("CÔNG NHÂN") ||
+    r.includes("WORKER") ||
+    r.split(/\s+/).includes("CN")
+  ) {
+    return "WORKER";
   }
 
   return "CBCNV";
 }
 
-export function matchesRoleFilter(emp: EmployeeAccount, filterValue: string): boolean {
+function matchesRoleFilter(emp: EmployeeAccount, filterValue: string): boolean {
   if (!filterValue || filterValue === "ALL") return true;
 
   const allDepts = [emp.department, emp.phongBanHienTai, emp.phongBanSapXep, emp.boPhoanMoi, emp.phongBanMoi].filter(Boolean).join(" ");
@@ -289,116 +358,103 @@ export function matchesRoleFilter(emp: EmployeeAccount, filterValue: string): bo
   return derivedRoleCode.toUpperCase() === filterValue.toUpperCase();
 }
 
-export const INITIAL_DEFAULT_EMPLOYEES: EmployeeAccount[] = [
-  {
-    id: "emp_1",
-    empCode: "TGĐ-001",
-    name: "Nguyễn Văn Hùng",
-    email: "tgd.nguyenvanhung@tbsgroup.vn",
-    phone: "0903800001",
-    title: "TGĐ",
-    department: "Ban Giám Đốc Tập Đoàn",
-    roleCode: "TONG_GIAM_DOC",
-    status: "ACTIVE",
-    vtcvHienTai: "TGĐ",
-  },
-  {
-    id: "emp_2",
-    empCode: "PTGĐ-002",
-    name: "Lê Hoàng Nam",
-    email: "ptgd.lehoangnam@tbsgroup.vn",
-    phone: "0903800002",
-    title: "P.TGĐ",
-    department: "Ban Giám Đốc Vận Hành",
-    roleCode: "PHO_TONG_GIAM_DOC",
-    status: "ACTIVE",
-    vtcvHienTai: "P.TGĐ",
-  },
-  {
-    id: "emp_3",
-    empCode: "GĐ-003",
-    name: "Đặng Minh Tuấn",
-    email: "gd.dangminhtuan@tbsgroup.vn",
-    phone: "0903800003",
-    title: "GĐK",
-    department: "Khối Sản Xuất & Nhà Máy",
-    roleCode: "GIAM_DOC",
-    status: "ACTIVE",
-    vtcvHienTai: "GĐK",
-  },
-  {
-    id: "emp_4",
-    empCode: "PGĐ-004",
-    name: "Nguyễn Thị Mai",
-    email: "pgd.nguyenthimai@tbsgroup.vn",
-    phone: "0903800004",
-    title: "P.GĐK",
-    department: "Khối Quản Lý Chất Lượng (QC)",
-    roleCode: "PHO_GIAM_DOC",
-    status: "ACTIVE",
-    vtcvHienTai: "P.GĐK",
-  },
-  {
-    id: "emp_5",
-    empCode: "202608001",
-    name: "Phạm Nguyễn Anh Huy",
-    email: "anhy.work.2004@gmail.com",
-    phone: "0522511245",
-    title: "Super Admin",
-    department: "IT - Team Chuyển Đổi Số",
-    roleCode: "SUPER_ADMIN",
-    status: "ACTIVE",
-    vtcvHienTai: "Quản Trị Viên Tối Cao",
-  },
-  {
-    id: "emp_6",
-    empCode: "202608002",
-    name: "Trần Ngọc Huy",
-    email: "tranhuy110421@gmail.com",
-    phone: "0522511246",
-    title: "Super Admin",
-    department: "IT - Team Chuyển Đổi Số",
-    roleCode: "SUPER_ADMIN",
-    status: "ACTIVE",
-    vtcvHienTai: "Quản Trị Viên Tối Cao",
-  },
-  {
-    id: "emp_7",
-    empCode: "LT-001",
-    name: "Lễ Tân Văn Phòng",
-    email: "letan@tbsgroup.vn",
-    phone: "0522511247",
-    title: "LT",
-    department: "Văn Phòng Chuỗi SKECHERS",
-    roleCode: "LE_TAN",
-    status: "ACTIVE",
-    vtcvHienTai: "LT",
-  },
-  {
-    id: "emp_8",
-    empCode: "SK-2026-101",
-    name: "Nguyễn Văn An",
-    email: "an.nguyen@tbsgroup.vn",
-    phone: "0988 000 101",
-    title: "NV",
-    department: "Khối Sản Xuất SKECHERS",
-    roleCode: "CBCNV",
-    status: "ACTIVE",
-    vtcvHienTai: "NV",
-  },
-  {
-    id: "emp_9",
-    empCode: "SK-2026-102",
-    name: "Trần Thị Bình",
-    email: "binh.tran@tbsgroup.vn",
-    phone: "0988 000 102",
-    title: "NV",
-    department: "Khối Chất Lượng (QC)",
-    roleCode: "CBCNV",
-    status: "ACTIVE",
-    vtcvHienTai: "NV",
-  },
-];
+function getEmployeeDisplayTitle(emp: EmployeeAccount): string {
+  const candidates = [emp.vtcvSapXep, emp.vtcvHienTai, emp.title, emp.vtcvSap];
+  for (const c of candidates) {
+    if (c && typeof c === "string" && c.trim() !== "" && c.trim() !== "-") {
+      return c.trim();
+    }
+  }
+
+  switch (emp.roleCode) {
+    case "TONG_GIAM_DOC":
+      return "Tổng Giám Đốc";
+    case "PHO_TONG_GIAM_DOC":
+      return "Phó Tổng Giám Đốc";
+    case "GIAM_DOC":
+      return "Giám Đốc";
+    case "PHO_GIAM_DOC":
+      return "Phó Giám Đốc";
+    case "TRUONG_PHONG":
+      return "Trưởng Phòng";
+    case "TO_TRUONG":
+      return "Tổ Trưởng";
+    case "LE_TAN":
+      return "Lễ Tân";
+    case "WORKER":
+      return "Công Nhân";
+    case "IE":
+      return "Kỹ Sư IE";
+    case "SUPER_ADMIN":
+      return "Quản Trị Viên Tối Cao";
+    default:
+      return "Cán bộ Công nhân viên";
+  }
+}
+
+function isDepartmentHead(emp: EmployeeAccount): boolean {
+  const role = mapRoleNameToCode(
+    emp.roleCode,
+    [emp.vtcvHienTai, emp.title, emp.vtcvSapXep, emp.vtcvSap].filter(Boolean).join(" "),
+    [emp.department, emp.phongBanHienTai, emp.boPhoanMoi, emp.phongBanMoi, emp.phongBanSapXep].filter(Boolean).join(" "),
+    emp.empCode,
+    emp.name
+  );
+  if (
+    role === "TRUONG_PHONG" ||
+    role === "GIAM_DOC" ||
+    role === "PHO_GIAM_DOC" ||
+    role === "TONG_GIAM_DOC" ||
+    role === "PHO_TONG_GIAM_DOC" ||
+    role === "SUPER_ADMIN"
+  ) {
+    return true;
+  }
+  const title = (emp.vtcvSapXep || emp.vtcvHienTai || emp.title || "").toUpperCase();
+  return (
+    title.includes("TRƯỞNG PHÒNG") ||
+    title.includes("TRƯỞNG BAN") ||
+    title.includes("TRƯỞNG NHÓM") ||
+    title.includes("TEAM LEAD") ||
+    title.includes("MANAGER") ||
+    title.includes("HEAD OF") ||
+    title.split(/\s+/).includes("TP") ||
+    title.split(/\s+/).includes("TL")
+  );
+}
+
+function getManagementRoleBadgeLabel(emp: EmployeeAccount): string {
+  const role = mapRoleNameToCode(
+    emp.roleCode,
+    [emp.vtcvHienTai, emp.title, emp.vtcvSapXep, emp.vtcvSap].filter(Boolean).join(" "),
+    [emp.department, emp.phongBanHienTai, emp.boPhoanMoi, emp.phongBanMoi, emp.phongBanSapXep].filter(Boolean).join(" "),
+    emp.empCode,
+    emp.name
+  );
+
+  if (role === "TONG_GIAM_DOC") return "Tổng Giám Đốc";
+  if (role === "PHO_TONG_GIAM_DOC") return "Phó Tổng Giám Đốc";
+  if (role === "GIAM_DOC") return "Giám Đốc Khối";
+  if (role === "PHO_GIAM_DOC") return "Phó Giám Đốc Khối";
+  if (role === "SUPER_ADMIN") return "Quản Trị Viên Tối Cao";
+
+  const titleUpper = (emp.vtcvSapXep || emp.vtcvHienTai || emp.title || "").toUpperCase();
+  if (titleUpper.includes("TGĐ") || titleUpper.includes("TỔNG GIÁM ĐỐC")) return "Tổng Giám Đốc";
+  if (titleUpper.includes("P.TGĐ") || titleUpper.includes("PHÓ TỔNG GIÁM ĐỐC")) return "Phó Tổng Giám Đốc";
+  if (titleUpper.includes("GĐK") || titleUpper.includes("GIÁM ĐỐC")) return "Giám Đốc Khối";
+
+  return "Trưởng Phòng Phụ Trách";
+}
+
+function getDepartmentName(emp: EmployeeAccount): string {
+  const dept = (emp.phongBanMoi || emp.boPhoanMoi || emp.department || emp.phongBanHienTai || emp.phongBanSapXep || "").trim();
+  if (!dept || dept === "-" || dept === "---") {
+    return "Văn Phòng Chuỗi SKECHERS";
+  }
+  return dept;
+}
+
+const INITIAL_DEFAULT_EMPLOYEES: EmployeeAccount[] = [];
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<
@@ -663,9 +719,38 @@ export default function AdminPage() {
     createdAccounts?: Array<{ empCode: string; name: string; password: string }>;
   } | null>(null);
 
+  // Personnel Diff & Sync States
+  const [isDiffModalOpen, setIsDiffModalOpen] = useState(false);
+  const [isSubmittingDiffSync, setIsSubmittingDiffSync] = useState(false);
+  const [diffModalTab, setDiffModalTab] = useState<"ALL" | "NEW" | "UPDATED" | "UNCHANGED" | "REMOVED">("ALL");
+  const [diffSourceFileName, setDiffSourceFileName] = useState("");
+  const [diffOptions, setDiffOptions] = useState({
+    updateTitleAndDept: true,
+    preserveManualRole: false,
+    preserveManualLock: true,
+  });
+  const [diffSummary, setDiffSummary] = useState<{
+    newUsers: EmployeeAccount[];
+    updatedUsers: Array<{
+      empCode: string;
+      name: string;
+      changes: Record<string, { before: string; after: string }>;
+      data: EmployeeAccount;
+    }>;
+    unchangedUsers: EmployeeAccount[];
+    deactivatedUsers: EmployeeAccount[];
+  }>({
+    newUsers: [],
+    updatedUsers: [],
+    unchangedUsers: [],
+    deactivatedUsers: [],
+  });
+
   // Search & Role Filter States
   const [userSearchTerm, setUserSearchTerm] = useState("");
   const [userRoleFilter, setUserRoleFilter] = useState("ALL");
+  const [userViewMode, setUserViewMode] = useState<"BY_DEPARTMENT" | "TABLE">("BY_DEPARTMENT");
+  const [expandedDepts, setExpandedDepts] = useState<Record<string, boolean>>({});
   const [userPage, setUserPage] = useState(1);
   const USERS_PER_PAGE = 15;
 
@@ -674,17 +759,50 @@ export default function AdminPage() {
   }, [userSearchTerm, userRoleFilter]);
 
   const filteredEmployees = employees.filter((emp) => {
+    const deptName = getDepartmentName(emp);
     const matchesSearch =
       !userSearchTerm.trim() ||
       (emp.empCode || "").toLowerCase().includes(userSearchTerm.toLowerCase()) ||
       (emp.name || "").toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+      deptName.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
       (emp.department || "").toLowerCase().includes(userSearchTerm.toLowerCase()) ||
       (emp.vtcvHienTai || "").toLowerCase().includes(userSearchTerm.toLowerCase()) ||
       (emp.title || "").toLowerCase().includes(userSearchTerm.toLowerCase()) ||
-      (emp.boPhoanMoi || "").toLowerCase().includes(userSearchTerm.toLowerCase());
+      (emp.boPhoanMoi || "").toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+      (emp.phongBanMoi || "").toLowerCase().includes(userSearchTerm.toLowerCase());
     const matchesRole = matchesRoleFilter(emp, userRoleFilter);
     return matchesSearch && matchesRole;
   });
+
+  // Group filtered employees by Column J (Phòng ban NEW)
+  const departmentGroupMap: Record<string, EmployeeAccount[]> = {};
+  filteredEmployees.forEach((emp) => {
+    const deptName = getDepartmentName(emp);
+    if (!departmentGroupMap[deptName]) {
+      departmentGroupMap[deptName] = [];
+    }
+    departmentGroupMap[deptName].push(emp);
+  });
+
+  const departmentGroups = Object.keys(departmentGroupMap)
+    .sort((a, b) => a.localeCompare(b, "vi"))
+    .map((deptName) => {
+      const members = departmentGroupMap[deptName];
+      const heads = members.filter(isDepartmentHead);
+      return {
+        name: deptName,
+        heads,
+        members,
+        totalCount: members.length,
+      };
+    });
+
+  const toggleDeptExpand = (deptName: string) => {
+    setExpandedDepts((prev) => ({
+      ...prev,
+      [deptName]: prev[deptName] === undefined ? false : !prev[deptName],
+    }));
+  };
 
   const totalUserPages = Math.ceil(filteredEmployees.length / USERS_PER_PAGE) || 1;
 
@@ -756,7 +874,7 @@ export default function AdminPage() {
       try {
         const bstr = evt.target?.result;
         const wb = XLSX.read(bstr, { type: "binary" });
-        const wsName = wb.SheetNames[0];
+        const wsName = wb.SheetNames.find((n: string) => n.trim().toUpperCase() === "VP") || wb.SheetNames[0];
         const ws = wb.Sheets[wsName];
         const rawData: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1 });
 
@@ -792,42 +910,58 @@ export default function AdminPage() {
               const norm = String(cellVal || "")
                 .replace(/[\r\n\t]+/g, " ")
                 .replace(/\s+/g, " ")
+                .normalize("NFC")
                 .trim();
               const c = norm.toUpperCase();
 
+              // MSNV (Col A)
               if (c.includes("MSNV") || c.includes("MÃ NV") || c.includes("MA NV") || c.includes("MÃ NHÂN VIÊN")) empCodeCol = colIdx;
-              else if (c.includes("HỌ & TÊN") || c.includes("HỌ VÀ TÊN") || c.includes("HỌ TÊN") || c.includes("NAME") || c.includes("TÊN")) nameCol = colIdx;
-              else if (c.includes("NGÀY VÀO") || c.includes("NGAY VAO")) ngayVaoCol = colIdx;
-              else if (c.includes("VTCV HIỆN TẠI") || (c.includes("VTCV") && c.includes("HIỆN TẠI"))) vtcvHienTaiCol = colIdx;
-              else if (c.includes("BỘ PHẬN (NEW)") || c.includes("BO PHAN (NEW)") || (c.includes("BỘ PHẬN") && c.includes("NEW"))) boPhoanMoiCol = colIdx;
-              else if (c.includes("PHÒNG BAN (NEW)") || c.includes("PHONG BAN (NEW)") || (c.includes("PHÒNG BAN") && c.includes("NEW"))) phongBanMoiCol = colIdx;
-              else if (c.includes("VTCV SAP")) vtcvSapCol = colIdx;
-              else if (c.includes("VTCV SẮP XẾP")) vtcvSapXepCol = colIdx;
-              else if (c === "PHÒNG BAN" || c === "PHONG BAN") phongBanSapXepCol = colIdx;
-              else if (c.includes("PHÒNG BAN") || c.includes("PHONG BAN")) phongBanHienTaiCol = colIdx;
+              // Họ & Tên (Col B)
+              else if (c.includes("HỌ & TÊN") || c.includes("HO & TEN") || c.includes("HỌ VÀ TÊN") || c.includes("HỌ TÊN") || c.includes("NAME") || (c.includes("TÊN") && !c.includes("VTCV"))) nameCol = colIdx;
+              // Ngày Vào (Col C)
+              else if (c.includes("NGÀY VÀO") || c.includes("NGAY VAO") || c.includes("NGÀY THÁNG")) ngayVaoCol = colIdx;
+              // VTCV Hiện Tại (Col D) - must check before generic VTCV
+              else if ((c.includes("VTCV") && (c.includes("HIỆN TẠI") || c.includes("HIEN TAI")))) vtcvHienTaiCol = colIdx;
+              // Phòng Ban Hiện Tại (Col E) - must check BEFORE (NEW) columns
+              else if ((c === "PHÒNG BAN" || c === "PHONG BAN" || c === "PHONG BAN HI\u1EC6N T\u1EA0I" || c.includes("PHÒNG BAN HIỆN TẠI")) && !c.includes("NEW")) phongBanHienTaiCol = colIdx;
+              // VTCV SAP (Col F) - mã SAP dạng "42 N2007"
+              else if (c.includes("VTCV SAP") || (c.includes("VTCV") && c.includes("SAP") && !c.includes("SẮP XẾP") && !c.includes("SAP XEP"))) vtcvSapCol = colIdx;
+              // VTCV Sắp Xếp (optional Col G)
+              else if (c.includes("VTCV SẮP XẾP") || c.includes("VTCV SAP XEP") || (c.includes("VTCV") && (c.includes("SẮP XẾP") || c.includes("SAP XEP")))) vtcvSapXepCol = colIdx;
+              // Phòng Ban (Sắp Xếp) generic (optional Col H)
+              else if (c.includes("PHÒNG BAN") && !c.includes("NEW") && !c.includes("HIỆN TẠI") && phongBanHienTaiCol !== -1) phongBanSapXepCol = colIdx;
+              // Bộ Phận (NEW) (optional Col I)
+              else if (c.includes("BỘ PHẬN") && c.includes("NEW")) boPhoanMoiCol = colIdx;
+              else if (c.includes("BO PHAN") && c.includes("NEW")) boPhoanMoiCol = colIdx;
+              // Phòng ban (NEW) (Col J) - PRIORITY: check (NEW) first!
+              else if ((c.includes("PHÒNG BAN") || c.includes("PHONG BAN")) && c.includes("NEW")) phongBanMoiCol = colIdx;
+              // Ghi Chú (Col K)
+              else if (c.includes("GHI CHÚ") || c.includes("GHI CHU") || c.includes("NOTE") || c.includes("REMARK")) ghiChuCol = colIdx;
               else if (c.includes("EMAIL")) emailCol = colIdx;
-              else if (c.includes("SĐT") || c.includes("PHONE") || c.includes("ĐIỆN THOẠI")) phoneCol = colIdx;
-              else if (c.includes("GHI CHÚ") || c.includes("GHI CHU") || c.includes("NOTE")) ghiChuCol = colIdx;
+              else if (c.includes("SĐT") || c.includes("PHONE") || c.includes("ĐIỆN THOẠI") || c.includes("SDT")) phoneCol = colIdx;
               else if (c.includes("VAI TRÒ") || c.includes("ROLE") || c.includes("QUYỀN") || c.includes("ROLE_CODE")) roleCodeCol = colIdx;
             });
             break;
           }
         }
 
+        // Fallback column mapping based on ACTUAL Excel file structure:
+        // A=MSNV, B=HỌ&TÊN, C=NGÀY VÀO, D=VTCV HIỆN TẠI, E=Phòng Ban, F=VTCV SAP, G..I=(optional), J=Phòng ban (NEW), K=GHI CHÚ
         const firstColHeader = String(rawData[headerRowIdx >= 0 ? headerRowIdx : 0]?.[0] || "").toUpperCase();
         const startOffset = (empCodeCol > 0) ? empCodeCol : (firstColHeader.includes("STT") || firstColHeader.includes("NO") || firstColHeader === "1" ? 1 : 0);
 
-        if (empCodeCol === -1) empCodeCol = startOffset;
-        if (nameCol === -1) nameCol = startOffset + 1;
-        if (ngayVaoCol === -1) ngayVaoCol = startOffset + 2;
-        if (vtcvHienTaiCol === -1) vtcvHienTaiCol = startOffset + 3;
-        if (phongBanHienTaiCol === -1) phongBanHienTaiCol = startOffset + 4;
-        if (vtcvSapCol === -1) vtcvSapCol = startOffset + 5;
-        if (vtcvSapXepCol === -1) vtcvSapXepCol = startOffset + 6;
-        if (phongBanSapXepCol === -1) phongBanSapXepCol = startOffset + 7;
-        if (boPhoanMoiCol === -1) boPhoanMoiCol = startOffset + 8;
-        if (phongBanMoiCol === -1) phongBanMoiCol = startOffset + 9;
-        if (ghiChuCol === -1) ghiChuCol = startOffset + 10;
+        if (empCodeCol === -1) empCodeCol = startOffset;           // Col A
+        if (nameCol === -1) nameCol = startOffset + 1;             // Col B
+        if (ngayVaoCol === -1) ngayVaoCol = startOffset + 2;       // Col C
+        if (vtcvHienTaiCol === -1) vtcvHienTaiCol = startOffset + 3; // Col D
+        if (phongBanHienTaiCol === -1) phongBanHienTaiCol = startOffset + 4; // Col E
+        if (vtcvSapCol === -1) vtcvSapCol = startOffset + 5;       // Col F
+        // Col G, H, I are optional/variable - only assign if not yet detected
+        if (vtcvSapXepCol === -1) vtcvSapXepCol = -1;             // Not assumed - skip if not found
+        if (phongBanSapXepCol === -1) phongBanSapXepCol = -1;     // Not assumed - skip if not found
+        if (boPhoanMoiCol === -1) boPhoanMoiCol = -1;             // Not assumed - skip if not found
+        if (phongBanMoiCol === -1) phongBanMoiCol = startOffset + 9; // Col J - KEY COLUMN!
+        if (ghiChuCol === -1) ghiChuCol = startOffset + 10;       // Col K
 
         if (nameCol === -1) nameCol = empCodeCol + 1;
 
@@ -856,9 +990,13 @@ export default function AdminPage() {
           const phongBanMoi = String(phongBanMoiCol >= 0 ? row[phongBanMoiCol] ?? "" : "").trim();
           const ghiChu = String(ghiChuCol >= 0 ? row[ghiChuCol] ?? "" : "").trim();
           const rawRole = String(roleCodeCol >= 0 ? row[roleCodeCol] ?? "" : "").trim();
-          const allDeptsStr = [boPhoanMoi, phongBanMoi, phongBanHienTai, phongBanSapXep].filter(Boolean).join(" ");
-          const allTitlesStr = [vtcvHienTai, vtcvSapXep, vtcvSap].filter(Boolean).join(" ");
-          const roleCode = mapRoleNameToCode(rawRole, allTitlesStr, allDeptsStr);
+
+          const officialTitle = vtcvSapXep || vtcvHienTai || vtcvSap;
+          const officialDept = phongBanMoi || boPhoanMoi || phongBanSapXep || phongBanHienTai;
+
+          const allDeptsStr = [phongBanMoi, boPhoanMoi, phongBanSapXep, phongBanHienTai].filter(Boolean).join(" ");
+          const allTitlesStr = [vtcvSapXep, vtcvHienTai, vtcvSap].filter(Boolean).join(" ");
+          const roleCode = mapRoleNameToCode(rawRole, officialTitle, officialDept, empCode, name);
 
           const upperEmp = empCode.toUpperCase();
 
@@ -878,7 +1016,17 @@ export default function AdminPage() {
           let isValid = true;
           let errorMessage = "";
 
-          if (!empCode) {
+          const isOffice = isOfficeStaff({
+            chucVu: vtcvHienTai || vtcvSapXep,
+            title: officialTitle,
+            boPhan: phongBanHienTai || phongBanMoi || boPhoanMoi,
+            department: officialDept,
+          });
+
+          if (!isOffice) {
+            isValid = false;
+            errorMessage = "Loại khỏi hệ thống: Không phải CBNV văn phòng (Công nhân / Lái xe / Tạp vụ / Nhà ăn / Bảo trì)";
+          } else if (!empCode) {
             isValid = false;
             errorMessage = "Thiếu Mã số nhân viên (MSNV)";
           } else if (!name) {
@@ -937,73 +1085,47 @@ export default function AdminPage() {
     setImportProgress({ current: 0, total: validRows.length });
 
     const createdList: Array<{ empCode: string; name: string; password: string }> = [];
-    const newEmpAccounts: EmployeeAccount[] = [];
+    const newEmpAccounts: EmployeeAccount[] = validRows.map((r, idx) => {
+      createdList.push({ empCode: r.empCode, name: r.name, password: "123456" });
+      return {
+        id: `emp_${Date.now()}_${idx}_${Math.random().toString(36).substring(2, 6)}`,
+        empCode: r.empCode,
+        name: r.name,
+        email: r.email,
+        phone: r.phone,
+        title: r.vtcvHienTai || "Cán Bộ Công Nhân Viên",
+        department: r.boPhoanMoi || "Khối Sản Xuất SKECHERS",
+        roleCode: r.roleCode,
+        status: "ACTIVE",
+        ngayVao: r.ngayVao,
+        vtcvHienTai: r.vtcvHienTai,
+        phongBanHienTai: r.phongBanHienTai,
+        vtcvSap: r.vtcvSap,
+        vtcvSapXep: r.vtcvSapXep,
+        phongBanSapXep: r.phongBanSapXep,
+        boPhoanMoi: r.boPhoanMoi,
+        phongBanMoi: r.phongBanMoi,
+        ghiChu: r.ghiChu,
+      };
+    });
 
-    const BATCH_SIZE = 20;
-    for (let i = 0; i < validRows.length; i += BATCH_SIZE) {
-      const batch = validRows.slice(i, i + BATCH_SIZE);
-
-      await Promise.all(
-        batch.map(async (r) => {
-          const newEmp: EmployeeAccount = {
-            id: `emp_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-            empCode: r.empCode,
-            name: r.name,
-            email: r.email,
-            phone: r.phone,
-            title: r.vtcvHienTai || "Cán Bộ Công Nhân Viên",
-            department: r.boPhoanMoi || "Khối Sản Xuất SKECHERS",
-            roleCode: r.roleCode,
-            status: "ACTIVE",
-            ngayVao: r.ngayVao,
-            vtcvHienTai: r.vtcvHienTai,
-            phongBanHienTai: r.phongBanHienTai,
-            vtcvSap: r.vtcvSap,
-            vtcvSapXep: r.vtcvSapXep,
-            phongBanSapXep: r.phongBanSapXep,
-            boPhoanMoi: r.boPhoanMoi,
-            phongBanMoi: r.phongBanMoi,
-            ghiChu: r.ghiChu,
-          };
-
-          newEmpAccounts.push(newEmp);
-          createdList.push({
-            empCode: r.empCode,
-            name: r.name,
-            password: "123456",
-          });
-
-          try {
-            await fetch("/api/users", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                ...newEmp,
-                ngay_vao: newEmp.ngayVao,
-                vtcv_hien_tai: newEmp.vtcvHienTai,
-                phong_ban_hien_tai: newEmp.phongBanHienTai,
-                vtcv_sap: newEmp.vtcvSap,
-                vtcv_sap_xep: newEmp.vtcvSapXep,
-                pb_sap_xep: newEmp.phongBanSapXep,
-                phong_ban_sap_xep: newEmp.phongBanSapXep,
-                bo_phan_moi: newEmp.boPhoanMoi,
-                phong_ban_moi: newEmp.phongBanMoi,
-                ghi_chu: newEmp.ghiChu,
-                default_password: "123456",
-              }),
-            });
-          } catch (e) {}
-        })
-      );
-
-      setImportProgress({
-        current: Math.min(i + BATCH_SIZE, validRows.length),
-        total: validRows.length,
+    try {
+      setImportProgress({ current: Math.floor(validRows.length / 2), total: validRows.length });
+      await apiFetch("/api/users/sync-diff", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          newUsers: newEmpAccounts,
+          sourceFileName: "Import_Excel_Moi.xlsx",
+        }),
       });
+      setImportProgress({ current: validRows.length, total: validRows.length });
+    } catch (e) {
+      console.warn("Bulk import sync-diff error:", e);
     }
 
-    const updatedEmployees = [...newEmpAccounts, ...employees];
-    setEmployees(updatedEmployees);
+    await fetchD1Employees();
+
     setImportResultSummary({
       successCount: validRows.length,
       errorCount: importPreviewRows.length - validRows.length,
@@ -1011,7 +1133,7 @@ export default function AdminPage() {
     });
     setIsSubmittingImport(false);
 
-    showToast(`🎉 Đã import thành công ${validRows.length} tài khoản nhân sự mới! Mật khẩu mặc định: 123456`);
+    showToast(`🎉 Đã import thành công ${validRows.length} tài khoản nhân sự mới vào CSDL D1! Mật khẩu mặc định: 123456`);
   };
 
   const handleExportCreatedAccounts = () => {
@@ -1029,12 +1151,292 @@ export default function AdminPage() {
     showToast("📥 Đã xuất file danh sách tài khoản mới thành công!");
   };
 
+  const handleDiffExcelFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setDiffSourceFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: "binary" });
+        const wsName = wb.SheetNames.find((n: string) => n.trim().toUpperCase() === "VP") || wb.SheetNames[0];
+        const ws = wb.Sheets[wsName];
+        const rawData: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1 });
+
+        if (!rawData || rawData.length <= 1) {
+          alert("File Excel rỗng hoặc không có dữ liệu!");
+          return;
+        }
+
+        let headerRowIdx = -1;
+        let empCodeCol = -1;
+        let nameCol = -1;
+        let ngayVaoCol = -1;
+        let emailCol = -1;
+        let phoneCol = -1;
+        let vtcvHienTaiCol = -1;
+        let phongBanHienTaiCol = -1;
+        let vtcvSapCol = -1;
+        let vtcvSapXepCol = -1;
+        let phongBanSapXepCol = -1;
+        let boPhoanMoiCol = -1;
+        let phongBanMoiCol = -1;
+        let ghiChuCol = -1;
+        let roleCodeCol = -1;
+
+        for (let i = 0; i < Math.min(10, rawData.length); i++) {
+          const row = rawData[i];
+          if (!row || !Array.isArray(row)) continue;
+
+          const rowStr = row.map((c) => String(c || "").toUpperCase().trim()).join(" ");
+          if (rowStr.includes("MSNV") || rowStr.includes("MÃ NV") || rowStr.includes("MÃ NHÂN VIÊN") || rowStr.includes("HỌ") || rowStr.includes("HỌ & TÊN")) {
+            headerRowIdx = i;
+            row.forEach((cellVal, colIdx) => {
+              const norm = String(cellVal || "")
+                .replace(/[\r\n\t]+/g, " ")
+                .replace(/\s+/g, " ")
+                .normalize("NFC")
+                .trim();
+              const c = norm.toUpperCase();
+
+              // MSNV (Col A)
+              if (c.includes("MSNV") || c.includes("MÃ NV") || c.includes("MA NV") || c.includes("MÃ NHÂN VIÊN")) empCodeCol = colIdx;
+              // Họ & Tên (Col B)
+              else if (c.includes("HỌ & TÊN") || c.includes("HO & TEN") || c.includes("HỌ VÀ TÊN") || c.includes("HỌ TÊN") || c.includes("NAME") || (c.includes("TÊN") && !c.includes("VTCV"))) nameCol = colIdx;
+              // Ngày Vào (Col C)
+              else if (c.includes("NGÀY VÀO") || c.includes("NGAY VAO") || c.includes("NGÀY THÁNG")) ngayVaoCol = colIdx;
+              // VTCV Hiện Tại (Col D)
+              else if (c.includes("VTCV") && (c.includes("HIỆN TẠI") || c.includes("HIEN TAI"))) vtcvHienTaiCol = colIdx;
+              // Phòng Ban Hiện Tại (Col E) - without (NEW)
+              else if ((c === "PHÒNG BAN" || c === "PHONG BAN" || c.includes("PHÒNG BAN HIỆN TẠI") || c.includes("PHONG BAN HIEN TAI")) && !c.includes("NEW")) phongBanHienTaiCol = colIdx;
+              // VTCV SAP (Col F)
+              else if (c.includes("VTCV SAP") || (c.includes("VTCV") && c.includes("SAP") && !c.includes("SẮP XẾP") && !c.includes("SAP XEP"))) vtcvSapCol = colIdx;
+              // VTCV Sắp Xếp (optional Col G)
+              else if (c.includes("VTCV SẮP XẾP") || c.includes("VTCV SAP XEP") || (c.includes("VTCV") && (c.includes("SẮP XẾP") || c.includes("SAP XEP")))) vtcvSapXepCol = colIdx;
+              // Phòng Ban Sắp Xếp (optional Col H)
+              else if (c.includes("PHÒNG BAN") && !c.includes("NEW") && !c.includes("HIỆN TẠI") && phongBanHienTaiCol !== -1) phongBanSapXepCol = colIdx;
+              // Bộ Phận (NEW) (optional Col I)
+              else if ((c.includes("BỘ PHẬN") || c.includes("BO PHAN")) && c.includes("NEW")) boPhoanMoiCol = colIdx;
+              // Phòng ban (NEW) (Col J) - PRIORITY!
+              else if ((c.includes("PHÒNG BAN") || c.includes("PHONG BAN")) && c.includes("NEW")) phongBanMoiCol = colIdx;
+              // Ghi Chú (Col K)
+              else if (c.includes("GHI CHÚ") || c.includes("GHI CHU") || c.includes("NOTE") || c.includes("REMARK")) ghiChuCol = colIdx;
+              else if (c.includes("EMAIL")) emailCol = colIdx;
+              else if (c.includes("SĐT") || c.includes("PHONE") || c.includes("ĐIỆN THOẠI") || c.includes("SDT")) phoneCol = colIdx;
+              else if (c.includes("VAI TRÒ") || c.includes("ROLE") || c.includes("QUYỀN") || c.includes("ROLE_CODE")) roleCodeCol = colIdx;
+            });
+            break;
+          }
+        }
+
+        // Strict Header Validation
+        const missingCols: string[] = [];
+        if (empCodeCol === -1) missingCols.push("Mã số nhân viên (MSNV)");
+        if (nameCol === -1) missingCols.push("Họ & Tên nhân viên");
+        if (vtcvHienTaiCol === -1 && vtcvSapXepCol === -1) missingCols.push("VTCV Sắp xếp / VTCV Hiện tại");
+        if (phongBanMoiCol === -1 && boPhoanMoiCol === -1 && phongBanHienTaiCol === -1) missingCols.push("Phòng ban / Bộ phận");
+
+        if (missingCols.length > 0 && headerRowIdx !== -1) {
+          alert(`⚠️ CẢNH BÁO FILE EXCEL KHÔNG HỢP LỆ!\nFile thiếu các cột bắt buộc sau:\n- ${missingCols.join("\n- ")}\n\nVui lòng kiểm tra lại cấu trúc file mẫu Excel!`);
+          return;
+        }
+
+        // Fallback column mapping based on ACTUAL Excel file structure:
+        // A=MSNV, B=HỌ&TÊN, C=NGÀY VÀO, D=VTCV HIỆN TẠI, E=Phòng Ban, F=VTCV SAP, G..I=(optional), J=Phòng ban (NEW), K=GHI CHÚ
+        const firstColHeader = String(rawData[headerRowIdx >= 0 ? headerRowIdx : 0]?.[0] || "").toUpperCase();
+        const startOffset = (empCodeCol > 0) ? empCodeCol : (firstColHeader.includes("STT") || firstColHeader.includes("NO") || firstColHeader === "1" ? 1 : 0);
+
+        if (empCodeCol === -1) empCodeCol = startOffset;           // Col A
+        if (nameCol === -1) nameCol = startOffset + 1;             // Col B
+        if (ngayVaoCol === -1) ngayVaoCol = startOffset + 2;       // Col C
+        if (vtcvHienTaiCol === -1) vtcvHienTaiCol = startOffset + 3; // Col D
+        if (phongBanHienTaiCol === -1) phongBanHienTaiCol = startOffset + 4; // Col E
+        if (vtcvSapCol === -1) vtcvSapCol = startOffset + 5;       // Col F
+        // Col G, H, I optional - do not assume
+        if (vtcvSapXepCol === -1) vtcvSapXepCol = -1;
+        if (phongBanSapXepCol === -1) phongBanSapXepCol = -1;
+        if (boPhoanMoiCol === -1) boPhoanMoiCol = -1;
+        if (phongBanMoiCol === -1) phongBanMoiCol = startOffset + 9; // Col J - KEY!
+        if (ghiChuCol === -1) ghiChuCol = startOffset + 10;       // Col K
+
+        const currentEmpMap = new Map<string, EmployeeAccount>();
+        employees.forEach((emp) => {
+          if (emp.empCode) currentEmpMap.set(emp.empCode.trim().toUpperCase(), emp);
+        });
+
+        const seenEmpCodes = new Set<string>();
+        const newUsersList: EmployeeAccount[] = [];
+        const updatedUsersList: Array<{
+          empCode: string;
+          name: string;
+          changes: Record<string, { before: string; after: string }>;
+          data: EmployeeAccount;
+        }> = [];
+        const unchangedUsersList: EmployeeAccount[] = [];
+
+        const startDataIdx = headerRowIdx >= 0 ? headerRowIdx + 1 : 1;
+
+        for (let i = startDataIdx; i < rawData.length; i++) {
+          const row = rawData[i];
+          if (!row || row.length === 0 || row.every((c: any) => c === undefined || c === null || String(c).trim() === "")) {
+            continue;
+          }
+
+          const empCode = String(row[empCodeCol] ?? "").trim();
+          const name = String(row[nameCol] ?? "").trim();
+          const ngayVao = formatExcelDate(ngayVaoCol >= 0 ? row[ngayVaoCol] : "");
+          const email = String(emailCol >= 0 ? row[emailCol] ?? "" : "").trim();
+          const phone = String(phoneCol >= 0 ? row[phoneCol] ?? "" : "").trim();
+          const vtcvHienTai = String(vtcvHienTaiCol >= 0 ? row[vtcvHienTaiCol] ?? "" : "").trim();
+          const phongBanHienTai = String(phongBanHienTaiCol >= 0 ? row[phongBanHienTaiCol] ?? "" : "").trim();
+          const vtcvSap = String(vtcvSapCol >= 0 ? row[vtcvSapCol] ?? "" : "").trim();
+          const vtcvSapXep = String(vtcvSapXepCol >= 0 ? row[vtcvSapXepCol] ?? "" : "").trim();
+          const phongBanSapXep = String(phongBanSapXepCol >= 0 ? row[phongBanSapXepCol] ?? "" : "").trim();
+          const boPhoanMoi = String(boPhoanMoiCol >= 0 ? row[boPhoanMoiCol] ?? "" : "").trim();
+          const phongBanMoi = String(phongBanMoiCol >= 0 ? row[phongBanMoiCol] ?? "" : "").trim();
+          const ghiChu = String(ghiChuCol >= 0 ? row[ghiChuCol] ?? "" : "").trim();
+          const rawRole = String(roleCodeCol >= 0 ? row[roleCodeCol] ?? "" : "").trim();
+
+          const upperEmp = empCode.toUpperCase();
+          if (
+            !empCode ||
+            upperEmp === "STT" ||
+            upperEmp === "MSNV" ||
+            upperEmp === "MÃ NV" ||
+            upperEmp.includes("DANH SÁCH") ||
+            upperEmp.includes("DANH SACH") ||
+            upperEmp.includes("TỔNG CỘNG") ||
+            upperEmp.includes("TOTAL")
+          ) {
+            continue;
+          }
+
+          seenEmpCodes.add(upperEmp);
+
+          const officialTitle = vtcvSapXep || vtcvHienTai || vtcvSap || "NV";
+          const officialDept = phongBanMoi || boPhoanMoi || phongBanSapXep || phongBanHienTai || "Văn Phòng Chuỗi SKECHERS";
+          
+          // STRICTLY USE ONLY VTCV SẮP XẾP (Column G) FOR ROLE MAPPING (Point #3 Requirement!)
+          const roleCode = mapRoleNameToCode(rawRole, vtcvSapXep, officialDept, empCode, name);
+
+          const newAccountObj: EmployeeAccount = {
+            id: `emp_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+            empCode,
+            name: name || "N/A",
+            email: email || `${empCode.toLowerCase()}@tbsgroup.vn`,
+            phone: phone || "0988 000 000",
+            title: officialTitle,
+            department: officialDept,
+            roleCode,
+            status: "ACTIVE",
+            ngayVao,
+            vtcvHienTai,
+            phongBanHienTai,
+            vtcvSap,
+            vtcvSapXep,
+            phongBanSapXep,
+            boPhoanMoi,
+            phongBanMoi,
+            ghiChu,
+          };
+
+          const existing = currentEmpMap.get(upperEmp);
+          if (!existing) {
+            newUsersList.push(newAccountObj);
+          } else {
+            const changes: Record<string, { before: string; after: string }> = {};
+
+            if (existing.name.trim() !== name.trim() && name) {
+              changes["Họ & Tên"] = { before: existing.name, after: name };
+            }
+
+            const existingTitle = existing.vtcvSapXep || existing.vtcvHienTai || existing.title || "";
+            if (existingTitle.trim() !== officialTitle.trim() && officialTitle) {
+              changes["Chức danh (Title)"] = { before: existingTitle, after: officialTitle };
+            }
+
+            const existingDept = existing.phongBanMoi || existing.boPhoanMoi || existing.department || "";
+            if (existingDept.trim() !== officialDept.trim() && officialDept) {
+              changes["Phòng ban (Dept)"] = { before: existingDept, after: officialDept };
+            }
+
+            if (existing.roleCode !== roleCode && roleCode) {
+              changes["Mã Vai Trò (Role)"] = { before: existing.roleCode, after: roleCode };
+            }
+
+            if (Object.keys(changes).length > 0) {
+              updatedUsersList.push({
+                empCode,
+                name,
+                changes,
+                data: newAccountObj,
+              });
+            } else {
+              unchangedUsersList.push(existing);
+            }
+          }
+        }
+
+        const deactivatedUsersList: EmployeeAccount[] = employees.filter(
+          (emp) => emp.empCode && !seenEmpCodes.has(emp.empCode.trim().toUpperCase())
+        );
+
+        setDiffSummary({
+          newUsers: newUsersList,
+          updatedUsers: updatedUsersList,
+          unchangedUsers: unchangedUsersList,
+          deactivatedUsers: deactivatedUsersList,
+        });
+
+        setDiffModalTab("ALL");
+        setIsDiffModalOpen(true);
+      } catch (err: any) {
+        alert("Lỗi phân tích file Excel Diff: " + err.message);
+      }
+    };
+    reader.readAsBinaryString(file);
+    e.target.value = "";
+  };
+
+  const handleConfirmDiffSync = async () => {
+    try {
+      setIsSubmittingDiffSync(true);
+      const res = await apiFetch("/api/users/sync-diff", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          newUsers: diffSummary.newUsers,
+          updatedUsers: diffSummary.updatedUsers,
+          deactivatedUsers: diffSummary.deactivatedUsers,
+          options: diffOptions,
+          sourceFileName: diffSourceFileName,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Lỗi phản hồi từ máy chủ D1");
+      }
+
+      await fetchD1Employees();
+      setIsDiffModalOpen(false);
+      showToast(
+        `🎉 Đã cập nhật CSDL D1 thành công! Thêm mới: ${diffSummary.newUsers.length} | Cập nhật: ${diffSummary.updatedUsers.length} | Chuyển nghỉ việc: ${diffSummary.deactivatedUsers.length}`
+      );
+    } catch (err: any) {
+      alert("Lỗi thực thi Cập nhật D1: " + err.message);
+    } finally {
+      setIsSubmittingDiffSync(false);
+    }
+  };
+
   const fetchD1Employees = async () => {
     try {
-      const res = await fetch("/api/users", { cache: "no-store" });
+      const res = await apiFetch("/api/users", { cache: "no-store" });
       if (!res.ok) return;
       const json = await res.json().catch(() => null);
-      if (json && json.success && Array.isArray(json.data) && json.data.length > 0) {
+      if (json && json.success && Array.isArray(json.data)) {
         const d1List: EmployeeAccount[] = json.data.map((u: any) => {
           const vtcvStr = [u.vtcv_hien_tai, u.vtcvHienTai, u.vtcv_sap_xep, u.title].filter(Boolean).join(" ");
           const deptStr = [u.bo_phan_moi, u.bo_phan_new, u.phong_ban_moi, u.phong_ban_hien_tai, u.phongBanHienTai, u.department, u.pb_sap_xep, u.phong_ban_sap_xep].filter(Boolean).join(" ");
@@ -1046,15 +1448,15 @@ export default function AdminPage() {
             name: u.name || "N/A",
             email: u.email || `${u.emp_code || "nv"}@tbsgroup.vn`,
             phone: u.phone || "0988 000 000",
-            title: u.title || "Cán Bộ Công Nhân Viên",
+            title: u.title || u.vtcv_sap_xep || u.vtcv_hien_tai || "Cán Bộ Công Nhân Viên",
             department: u.department || u.phong_ban_hien_tai || "Văn Phòng Chuỗi SKECHERS",
             roleCode: derivedRole,
             status: u.status === "LOCKED" ? "LOCKED" : "ACTIVE",
-            ngayVao: u.ngay_vao || u.ngayVao || "-",
-            vtcvHienTai: u.vtcv_hien_tai || u.vtcvHienTai || "-",
-            phongBanHienTai: u.phong_ban_hien_tai || u.phongBanHienTai || u.department || "-",
-            vtcvSap: u.vtcv_sap || u.vtcvSap || "-",
-            vtcvSapXep: u.vtcv_sap_xep || u.vtcvSapXep || "-",
+            ngayVao: u.ngay_vao || u.ngayVao || "",
+            vtcvHienTai: (u.vtcv_hien_tai && u.vtcv_hien_tai !== "-") ? u.vtcv_hien_tai : (u.vtcvHienTai && u.vtcvHienTai !== "-" ? u.vtcvHienTai : ""),
+            phongBanHienTai: u.phong_ban_hien_tai || u.phongBanHienTai || u.department || "",
+            vtcvSap: u.vtcv_sap || u.vtcvSap || "",
+            vtcvSapXep: (u.vtcv_sap_xep && u.vtcv_sap_xep !== "-") ? u.vtcv_sap_xep : (u.vtcvSapXep && u.vtcvSapXep !== "-" ? u.vtcvSapXep : ""),
             phongBanSapXep: u.pb_sap_xep || u.pbSapXep || "-",
             boPhoanMoi: u.bo_phan_moi || u.bo_phan_new || u.boPhoanMoi || u.department || "-",
             phongBanMoi: u.phong_ban_moi || u.department || "-",
@@ -1072,12 +1474,13 @@ export default function AdminPage() {
   }, []);
 
   const handleClearAllEmployees = async () => {
-    if (!confirm("⚠️ CẢNH BÁO: Bạn có chắc chắn muốn XÓA TOÀN BỘ tất cả tài khoản nhân sự khỏi CSDL?")) {
+    if (!confirm("⚠️ CẢNH BÁO: Bạn có chắc chắn muốn XÓA TOÀN BỘ tất cả tài khoản nhân sự khỏi CSDL D1?")) {
       return;
     }
 
+    setEmployees([]);
     try {
-      await fetch("/api/users?all=true", { method: "DELETE" });
+      await apiFetch("/api/users?all=true", { method: "DELETE" });
       await fetchD1Employees();
       showToast("🗑️ Đã xóa toàn bộ tài khoản nhân sự khỏi CSDL!");
     } catch (e) {
@@ -1100,7 +1503,7 @@ export default function AdminPage() {
     setEmployeeForm({ empCode: "", name: "", email: "", phone: "", title: "", department: "Khối Sản Xuất", roleCode: "CBCNV", ngayVao: "", vtcvHienTai: "", vtcvSap: "", vtcvSapXep: "", boPhoanMoi: "" });
     
     try {
-      await fetch("/api/users", {
+      await apiFetch("/api/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1129,7 +1532,7 @@ export default function AdminPage() {
     setEmployees((prev) => prev.map((emp) => (emp.id === id ? { ...emp, status: newStatus } : emp)));
 
     try {
-      await fetch("/api/users", {
+      await apiFetch("/api/users", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...target, status: newStatus }),
@@ -1147,7 +1550,7 @@ export default function AdminPage() {
     setEmployees((prev) => prev.filter((emp) => emp.id !== id));
 
     try {
-      await fetch(`/api/users?id=${encodeURIComponent(id)}&empCode=${encodeURIComponent(empCode)}`, {
+      await apiFetch(`/api/users?id=${encodeURIComponent(id)}&empCode=${encodeURIComponent(empCode)}`, {
         method: "DELETE",
       });
       await fetchD1Employees();
@@ -1678,7 +2081,7 @@ export default function AdminPage() {
                     Quản Lý Danh Sách Nhân Sự & Tài Khoản CSDL D1 ({employees.length})
                   </h3>
                   <p className="text-xs text-slate-500 font-medium mt-0.5">
-                    Hỗ trợ Import Excel thông minh, phân quyền theo mã Role, khóa tài khoản và phân trang 15 user/trang
+                    Hỗ trợ phân chia tài khoản theo <strong>Cột J (Phòng ban NEW)</strong> và hiển thị rõ <strong>Trưởng Phòng Phụ Trách</strong>
                   </p>
                 </div>
 
@@ -1691,9 +2094,20 @@ export default function AdminPage() {
                     <span>Tải Excel Mẫu</span>
                   </button>
 
+                  <label className="px-4 py-2 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-xs font-extrabold transition-colors flex items-center gap-1.5 cursor-pointer shadow-md">
+                    <IconRefresh size={15} />
+                    <span>Cập nhật Danh sách CBNV</span>
+                    <input
+                      type="file"
+                      accept=".xlsx, .xls, .csv"
+                      className="hidden"
+                      onChange={handleDiffExcelFileSelect}
+                    />
+                  </label>
+
                   <label className="px-4 py-2 rounded-xl bg-[#004029] hover:bg-[#005a39] text-white text-xs font-extrabold transition-colors flex items-center gap-1.5 cursor-pointer shadow-md">
                     <IconUpload size={15} />
-                    <span>Import Excel Nhân Sự</span>
+                    <span>Import Excel Mới</span>
                     <input
                       type="file"
                       accept=".xlsx, .xls, .csv"
@@ -1712,172 +2126,461 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              {/* Filter & Search Bar */}
-              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 pt-1">
-                <div className="sm:col-span-8 relative">
-                  <IconSearch size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="text"
-                    value={userSearchTerm}
-                    onChange={(e) => setUserSearchTerm(e.target.value)}
-                    placeholder="Tìm kiếm theo MSNV, Họ tên, Phòng ban, Vị trí công việc..."
-                    className="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-800 outline-none focus:border-[#004029] focus:bg-white"
-                  />
+              {/* View Mode & Filter Controls */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-1">
+                <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-2xl border border-slate-200 w-full sm:w-auto shrink-0">
+                  <button
+                    onClick={() => setUserViewMode("BY_DEPARTMENT")}
+                    className={`flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                      userViewMode === "BY_DEPARTMENT"
+                        ? "bg-[#004029] text-white shadow-md"
+                        : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+                    }`}
+                  >
+                    <IconLayoutGrid size={16} />
+                    <span>Phân Theo Phòng Ban (Cột J - NEW)</span>
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-[#004029] text-[10px] font-bold">
+                      {departmentGroups.length} phòng
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setUserViewMode("TABLE")}
+                    className={`flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                      userViewMode === "TABLE"
+                        ? "bg-[#004029] text-white shadow-md"
+                        : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+                    }`}
+                  >
+                    <IconListCheck size={16} />
+                    <span>Bảng Tất Cả Nhân Sự</span>
+                    <span className="px-2 py-0.5 rounded-full bg-slate-200 text-slate-800 text-[10px] font-bold">
+                      {filteredEmployees.length}
+                    </span>
+                  </button>
                 </div>
 
-                <div className="sm:col-span-4">
-                  <select
-                    value={userRoleFilter}
-                    onChange={(e) => setUserRoleFilter(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 outline-none focus:border-[#004029] cursor-pointer"
-                  >
-                    <option value="ALL">Tất cả vai trò ({employees.length})</option>
-                    <option value="SUPER_ADMIN">Quản Trị Viên Tối Cao (Super Admin)</option>
-                    <option value="TONG_GIAM_DOC">Tổng Giám Đốc</option>
-                    <option value="PHO_TONG_GIAM_DOC">Phó Tổng Giám Đốc</option>
-                    <option value="GIAM_DOC">Giám Đốc Khối</option>
-                    <option value="PHO_GIAM_DOC">Phó Giám Đốc Khối</option>
-                    <option value="TRUONG_PHONG">Trưởng Phòng</option>
-                    <option value="CBCNV">Cán Bộ Công Nhân Viên</option>
-                    <option value="LE_TAN">Lễ Tân Văn Phòng</option>
-                  </select>
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 w-full">
+                  <div className="sm:col-span-8 relative">
+                    <IconSearch size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      value={userSearchTerm}
+                      onChange={(e) => setUserSearchTerm(e.target.value)}
+                      placeholder="Tìm kiếm theo MSNV, Họ tên, Phòng ban Cột J, Vị trí công việc..."
+                      className="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-800 outline-none focus:border-[#004029] focus:bg-white"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-4">
+                    <select
+                      value={userRoleFilter}
+                      onChange={(e) => setUserRoleFilter(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 outline-none focus:border-[#004029] cursor-pointer"
+                    >
+                      <option value="ALL">Tất cả vai trò ({employees.length})</option>
+                      <option value="SUPER_ADMIN">Quản Trị Viên Tối Cao (Super Admin)</option>
+                      <option value="TONG_GIAM_DOC">Tổng Giám Đốc</option>
+                      <option value="PHO_TONG_GIAM_DOC">Phó Tổng Giám Đốc</option>
+                      <option value="GIAM_DOC">Giám Đốc Khối</option>
+                      <option value="PHO_GIAM_DOC">Phó Giám Đốc Khối</option>
+                      <option value="TRUONG_PHONG">Trưởng Phòng</option>
+                      <option value="IE">Kỹ Sư IE (Industrial Engineering)</option>
+                      <option value="CBCNV">Cán Bộ Công Nhân Viên</option>
+                      <option value="LE_TAN">Lễ Tân Văn Phòng</option>
+                    </select>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Users Table */}
-            <div className="bg-white rounded-3xl border border-slate-200/90 shadow-2xs overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200/80 text-[11px] font-black text-slate-600 uppercase tracking-wider">
-                      <th className="py-3 px-4 w-12 text-center">STT</th>
-                      <th className="py-3 px-4">Mã Nhân Viên (MSNV)</th>
-                      <th className="py-3 px-4">Họ và Tên Nhân Viên</th>
-                      <th className="py-3 px-4">Chức Danh (title)</th>
-                      <th className="py-3 px-4">Phòng Ban (department)</th>
-                      <th className="py-3 px-4">Vai Trò Hệ Thống (role_code)</th>
-                      <th className="py-3 px-4">Trạng Thái</th>
-                      <th className="py-3 px-4 text-right">Thao Tác</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-xs font-medium">
-                    {paginatedEmployees.length === 0 ? (
-                      <tr>
-                        <td colSpan={8} className="py-12 text-center text-slate-400 font-bold">
-                          Không tìm thấy nhân sự nào phù hợp với từ khóa!
-                        </td>
-                      </tr>
-                    ) : (
-                      paginatedEmployees.map((emp, empIdx) => (
-                        <tr key={emp.id} className="hover:bg-slate-50/80 transition-colors">
-                          <td className="py-3 px-4 font-mono font-bold text-slate-400 text-center">
-                            {(safeUserPage - 1) * USERS_PER_PAGE + empIdx + 1}
-                          </td>
-                          <td className="py-3 px-4 font-mono font-bold text-[#004029]">{emp.empCode}</td>
-                          <td className="py-3 px-4 font-bold text-slate-900">{emp.name}</td>
-                          <td className="py-3 px-4 text-slate-700 font-semibold">
-                            {emp.vtcvHienTai || emp.title || "---"}
-                          </td>
-                          <td className="py-3 px-4 text-slate-600">
-                            {emp.department || emp.phongBanHienTai || emp.boPhoanMoi || emp.phongBanMoi || "---"}
-                          </td>
-                          <td className="py-3 px-4">
-                            <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-800 font-mono text-[11px] font-bold border border-slate-300 inline-flex items-center gap-1.5 shadow-2xs">
-                              {mapRoleNameToCode(
-                                emp.roleCode,
-                                [emp.vtcvHienTai, emp.title, emp.vtcvSapXep, emp.vtcvSap].filter(Boolean).join(" "),
-                                [emp.department, emp.phongBanHienTai, emp.boPhoanMoi, emp.phongBanMoi, emp.phongBanSapXep].filter(Boolean).join(" ")
-                              )}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4">
-                            <span
-                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold inline-flex items-center gap-1 ${
-                                emp.status === "ACTIVE"
-                                  ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
-                                  : "bg-rose-100 text-rose-800 border border-rose-300"
-                              }`}
-                            >
-                              <span className={`w-1.5 h-1.5 rounded-full ${emp.status === "ACTIVE" ? "bg-emerald-600" : "bg-rose-600"}`} />
-                              {emp.status === "ACTIVE" ? "Hoạt động" : "Bị khóa"}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 text-right">
-                            <div className="flex items-center justify-end gap-1.5">
-                              <button
-                                onClick={() => toggleEmployeeLock(emp.id)}
-                                className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
-                                  emp.status === "ACTIVE"
-                                    ? "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
-                                    : "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
-                                }`}
-                                title={emp.status === "ACTIVE" ? "Khóa tài khoản" : "Mở khóa tài khoản"}
-                              >
-                                {emp.status === "ACTIVE" ? <IconLock size={14} /> : <IconLockOpen size={14} />}
-                              </button>
+            {/* VIEW MODE 1: BY DEPARTMENT (COL J) */}
+            {userViewMode === "BY_DEPARTMENT" ? (
+              <div className="space-y-4">
+                {/* Stats Summary Bar */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="p-4 rounded-2xl bg-emerald-50/80 border border-emerald-200 flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-[#004029] text-white flex items-center justify-center shadow-xs">
+                      <IconBuilding size={20} />
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Tổng Số Phòng Ban (Cột J)</div>
+                      <div className="text-xl font-black text-[#004029]">
+                        {departmentGroups.length} <span className="text-xs text-slate-600 font-normal">đơn vị</span>
+                      </div>
+                    </div>
+                  </div>
 
-                              <button
-                                onClick={() => handleDeleteEmployee(emp.id, emp.empCode, emp.name)}
-                                className="p-1.5 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 transition-colors cursor-pointer"
-                                title="Xóa tài khoản khỏi D1"
-                              >
-                                <IconTrash size={14} />
-                              </button>
+                  <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200 flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-xs">
+                      <IconCrown size={20} />
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Trưởng Phòng Phụ Trách</div>
+                      <div className="text-xl font-black text-amber-700">
+                        {departmentGroups.reduce((acc, g) => acc + g.heads.length, 0)} <span className="text-xs text-slate-600 font-normal">nhân sự quản lý</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-blue-50/80 border border-blue-200 flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs">
+                      <IconUsers size={20} />
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Tổng Thành Viên Tìm Thấy</div>
+                      <div className="text-xl font-black text-blue-900">
+                        {filteredEmployees.length} <span className="text-xs text-slate-600 font-normal">tài khoản</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Department Cards List */}
+                {departmentGroups.length === 0 ? (
+                  <div className="p-12 text-center bg-white rounded-3xl border border-slate-200 text-slate-400 font-bold">
+                    Không tìm thấy phòng ban nào phù hợp với từ khóa tìm kiếm!
+                  </div>
+                ) : (
+                  departmentGroups.map((group) => {
+                    const isCollapsed = expandedDepts[group.name] === true;
+
+                    return (
+                      <div
+                        key={group.name}
+                        className="bg-white rounded-3xl border border-slate-200/90 shadow-2xs overflow-hidden transition-all"
+                      >
+                        {/* Department Card Header */}
+                        <div
+                          onClick={() => toggleDeptExpand(group.name)}
+                          className="p-5 bg-gradient-to-r from-slate-50 via-emerald-50/30 to-white border-b border-slate-200/80 flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer hover:bg-emerald-50/50 transition-colors"
+                        >
+                          <div className="flex items-start md:items-center gap-3">
+                            <div className="w-10 h-10 rounded-2xl bg-[#004029] text-white flex items-center justify-center font-bold shadow-md shrink-0">
+                              <IconBuilding size={20} />
                             </div>
+                            <div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h4 className="text-base font-black text-slate-900 tracking-tight font-display">
+                                  {group.name}
+                                </h4>
+                                <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-[#004029] text-xs font-black border border-emerald-300">
+                                  {group.totalCount} nhân sự
+                                </span>
+                              </div>
+                              <p className="text-xs text-slate-500 font-medium mt-0.5">
+                                Danh mục phòng ban phân loại từ <strong>Cột J ("Phòng ban NEW")</strong> trong file Excel
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Head of Department Badge / Summary */}
+                          <div className="flex items-center gap-3">
+                            {group.heads.length > 0 ? (
+                              <div className="px-3.5 py-2 rounded-2xl bg-amber-50 border border-amber-300/80 text-amber-900 flex items-center gap-2.5 shadow-2xs">
+                                <div className="w-7 h-7 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold shadow-xs">
+                                  <IconCrown size={15} />
+                                </div>
+                                <div>
+                                  <div className="text-[10px] font-extrabold text-amber-800 uppercase tracking-wider">
+                                    Lãnh Đạo / Trưởng Phòng Phụ Trách ({group.heads.length})
+                                  </div>
+                                  <div className="text-xs font-black text-slate-900 flex items-center gap-1.5">
+                                    <span>{group.heads.map((h) => `${h.name} (${getManagementRoleBadgeLabel(h)})`).join(", ")}</span>
+                                    <span className="text-[11px] font-mono text-amber-700">
+                                      ({group.heads.map((h) => h.empCode).join(", ")})
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="px-3.5 py-2 rounded-2xl bg-slate-100 border border-slate-200 text-slate-500 text-xs font-bold flex items-center gap-2">
+                                <IconAlertTriangle size={15} className="text-amber-500" />
+                                <span>Chưa gán Lãnh đạo/Trưởng phòng phụ trách</span>
+                              </div>
+                            )}
+
+                            <div className="w-8 h-8 rounded-full bg-slate-200/80 text-slate-700 flex items-center justify-center">
+                              {isCollapsed ? <IconChevronDown size={18} /> : <IconChevronUp size={18} />}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Department Members Table */}
+                        {!isCollapsed && (
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                              <thead>
+                                <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[10.5px] font-black text-slate-500 uppercase tracking-wider">
+                                  <th className="py-2.5 px-4 w-12 text-center">STT</th>
+                                  <th className="py-2.5 px-4">MSNV</th>
+                                  <th className="py-2.5 px-4">Họ và Tên Nhân Viên</th>
+                                  <th className="py-2.5 px-4">Chức Danh (title)</th>
+                                  <th className="py-2.5 px-4">Vai Trò Hệ Thống</th>
+                                  <th className="py-2.5 px-4">Trạng Thái</th>
+                                  <th className="py-2.5 px-4 text-right">Thao Tác</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100 text-xs font-medium">
+                                {group.members.map((emp, mIdx) => {
+                                  const isHead = isDepartmentHead(emp);
+                                  return (
+                                    <tr
+                                      key={emp.id}
+                                      className={
+                                        isHead
+                                          ? "bg-amber-50/40 hover:bg-amber-50/70 transition-colors border-l-4 border-l-amber-500"
+                                          : "hover:bg-slate-50/80 transition-colors"
+                                      }
+                                    >
+                                      <td className="py-2.5 px-4 font-mono font-bold text-slate-400 text-center">
+                                        {mIdx + 1}
+                                      </td>
+                                      <td className="py-2.5 px-4 font-mono font-bold text-[#004029]">{emp.empCode}</td>
+                                      <td className="py-2.5 px-4 font-bold text-slate-900">
+                                        <div className="flex items-center gap-2">
+                                          <span>{emp.name}</span>
+                                          {isHead && (
+                                            <span className="px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-black inline-flex items-center gap-1 shadow-2xs">
+                                              <IconCrown size={12} /> {getManagementRoleBadgeLabel(emp)}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </td>
+                                      <td className="py-2.5 px-4 text-slate-700 font-semibold">
+                                        {getEmployeeDisplayTitle(emp)}
+                                      </td>
+                                      <td className="py-2.5 px-4">
+                                        <span
+                                          className={`px-2.5 py-0.5 rounded-lg font-mono text-[10.5px] font-bold inline-flex items-center gap-1 border ${
+                                            isHead
+                                              ? "bg-amber-100 text-amber-900 border-amber-300"
+                                              : "bg-slate-100 text-slate-700 border-slate-200"
+                                          }`}
+                                        >
+                                          {mapRoleNameToCode(
+                                            emp.roleCode,
+                                            [emp.vtcvHienTai, emp.title, emp.vtcvSapXep, emp.vtcvSap].filter(Boolean).join(" "),
+                                            [emp.department, emp.phongBanHienTai, emp.boPhoanMoi, emp.phongBanMoi, emp.phongBanSapXep].filter(Boolean).join(" ")
+                                          )}
+                                        </span>
+                                      </td>
+                                      <td className="py-2.5 px-4">
+                                        <span
+                                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold inline-flex items-center gap-1 ${
+                                            emp.status === "ACTIVE"
+                                              ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                                              : "bg-rose-100 text-rose-800 border border-rose-300"
+                                          }`}
+                                        >
+                                          <span className={`w-1.5 h-1.5 rounded-full ${emp.status === "ACTIVE" ? "bg-emerald-600" : "bg-rose-600"}`} />
+                                          {emp.status === "ACTIVE" ? "Hoạt động" : "Bị khóa"}
+                                        </span>
+                                      </td>
+                                      <td className="py-2.5 px-4 text-right">
+                                        <div className="flex items-center justify-end gap-1.5">
+                                          <button
+                                            onClick={() => toggleEmployeeLock(emp.id)}
+                                            className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+                                              emp.status === "ACTIVE"
+                                                ? "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
+                                                : "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+                                            }`}
+                                            title={emp.status === "ACTIVE" ? "Khóa tài khoản" : "Mở khóa tài khoản"}
+                                          >
+                                            {emp.status === "ACTIVE" ? <IconLock size={14} /> : <IconLockOpen size={14} />}
+                                          </button>
+
+                                          <button
+                                            onClick={() => handleDeleteEmployee(emp.id, emp.empCode, emp.name)}
+                                            className="p-1.5 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 transition-colors cursor-pointer"
+                                            title="Xóa tài khoản khỏi D1"
+                                          >
+                                            <IconTrash size={14} />
+                                          </button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            ) : (
+              /* VIEW MODE 2: TABLE VIEW */
+              <div className="bg-white rounded-3xl border border-slate-200/90 shadow-2xs overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-200/80 text-[11px] font-black text-slate-600 uppercase tracking-wider">
+                        <th className="py-3 px-4 w-12 text-center">STT</th>
+                        <th className="py-3 px-4">Mã Nhân Viên (MSNV)</th>
+                        <th className="py-3 px-4">Họ và Tên Nhân Viên</th>
+                        <th className="py-3 px-4">Chức Danh (title)</th>
+                        <th className="py-3 px-4">Phòng Ban (Cột J NEW)</th>
+                        <th className="py-3 px-4">Trưởng Phòng Phụ Trách</th>
+                        <th className="py-3 px-4">Vai Trò Hệ Thống</th>
+                        <th className="py-3 px-4">Trạng Thái</th>
+                        <th className="py-3 px-4 text-right">Thao Tác</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-xs font-medium">
+                      {paginatedEmployees.length === 0 ? (
+                        <tr>
+                          <td colSpan={9} className="py-12 text-center text-slate-400 font-bold">
+                            Không tìm thấy nhân sự nào phù hợp với từ khóa!
                           </td>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Pagination Controls */}
-              {totalUserPages > 1 && (
-                <div className="p-4 bg-slate-50 border-t border-slate-200/80 flex items-center justify-between gap-4 flex-wrap">
-                  <div className="text-xs text-slate-500 font-mono">
-                    Hiển thị <strong>{(safeUserPage - 1) * USERS_PER_PAGE + 1}</strong> - <strong>{Math.min(safeUserPage * USERS_PER_PAGE, filteredEmployees.length)}</strong> trên tổng số <strong>{filteredEmployees.length}</strong> nhân sự
-                  </div>
-
-                  <div className="flex items-center gap-1">
-                    <button
-                      disabled={safeUserPage === 1}
-                      onClick={() => setUserPage(safeUserPage - 1)}
-                      className="p-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 disabled:opacity-30 hover:bg-slate-100 transition-colors cursor-pointer"
-                    >
-                      <IconChevronLeft size={16} />
-                    </button>
-
-                    {getPageNumbers().map((p, idx) =>
-                      typeof p === "number" ? (
-                        <button
-                          key={idx}
-                          onClick={() => setUserPage(p)}
-                          className={`w-8 h-8 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                            safeUserPage === p
-                              ? "bg-[#004029] text-white shadow-xs"
-                              : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-100"
-                          }`}
-                        >
-                          {p}
-                        </button>
                       ) : (
-                        <span key={idx} className="px-1 text-slate-400 font-mono text-xs">...</span>
-                      )
-                    )}
+                        paginatedEmployees.map((emp, empIdx) => {
+                          const deptName = getDepartmentName(emp);
+                          const deptGroup = departmentGroups.find((g) => g.name === deptName);
+                          const deptHeads = deptGroup?.heads || [];
+                          const isHead = isDepartmentHead(emp);
 
-                    <button
-                      disabled={safeUserPage === totalUserPages}
-                      onClick={() => setUserPage(safeUserPage + 1)}
-                      className="p-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 disabled:opacity-30 hover:bg-slate-100 transition-colors cursor-pointer"
-                    >
-                      <IconChevronRight size={16} />
-                    </button>
-                  </div>
+                          return (
+                            <tr
+                              key={emp.id}
+                              className={
+                                isHead
+                                  ? "bg-amber-50/40 hover:bg-amber-50/70 transition-colors"
+                                  : "hover:bg-slate-50/80 transition-colors"
+                              }
+                            >
+                              <td className="py-3 px-4 font-mono font-bold text-slate-400 text-center">
+                                {(safeUserPage - 1) * USERS_PER_PAGE + empIdx + 1}
+                              </td>
+                              <td className="py-3 px-4 font-mono font-bold text-[#004029]">{emp.empCode}</td>
+                              <td className="py-3 px-4 font-bold text-slate-900">
+                                <div className="flex items-center gap-2">
+                                  <span>{emp.name}</span>
+                                  {isHead && (
+                                    <span className="px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-black inline-flex items-center gap-1 shadow-2xs">
+                                      <IconCrown size={12} /> Trưởng Phòng
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="py-3 px-4 text-slate-700 font-semibold">
+                                {getEmployeeDisplayTitle(emp)}
+                              </td>
+                              <td className="py-3 px-4 text-slate-700 font-bold">
+                                {deptName}
+                              </td>
+                              <td className="py-3 px-4">
+                                {deptHeads.length > 0 ? (
+                                  <div className="flex items-center gap-1.5 text-amber-800 font-extrabold text-[11px]">
+                                    <IconCrown size={14} className="text-amber-500 shrink-0" />
+                                    <span>{deptHeads.map((h) => h.name).join(", ")}</span>
+                                  </div>
+                                ) : (
+                                  <span className="text-slate-400 italic text-[11px]">Chưa gán</span>
+                                )}
+                              </td>
+                              <td className="py-3 px-4">
+                                <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-800 font-mono text-[11px] font-bold border border-slate-300 inline-flex items-center gap-1.5 shadow-2xs">
+                                  {mapRoleNameToCode(
+                                    emp.roleCode,
+                                    [emp.vtcvHienTai, emp.title, emp.vtcvSapXep, emp.vtcvSap].filter(Boolean).join(" "),
+                                    [emp.department, emp.phongBanHienTai, emp.boPhoanMoi, emp.phongBanMoi, emp.phongBanSapXep].filter(Boolean).join(" ")
+                                  )}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4">
+                                <span
+                                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold inline-flex items-center gap-1 ${
+                                    emp.status === "ACTIVE"
+                                      ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                                      : "bg-rose-100 text-rose-800 border border-rose-300"
+                                  }`}
+                                >
+                                  <span className={`w-1.5 h-1.5 rounded-full ${emp.status === "ACTIVE" ? "bg-emerald-600" : "bg-rose-600"}`} />
+                                  {emp.status === "ACTIVE" ? "Hoạt động" : "Bị khóa"}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4 text-right">
+                                <div className="flex items-center justify-end gap-1.5">
+                                  <button
+                                    onClick={() => toggleEmployeeLock(emp.id)}
+                                    className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+                                      emp.status === "ACTIVE"
+                                        ? "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
+                                        : "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+                                    }`}
+                                    title={emp.status === "ACTIVE" ? "Khóa tài khoản" : "Mở khóa tài khoản"}
+                                  >
+                                    {emp.status === "ACTIVE" ? <IconLock size={14} /> : <IconLockOpen size={14} />}
+                                  </button>
+
+                                  <button
+                                    onClick={() => handleDeleteEmployee(emp.id, emp.empCode, emp.name)}
+                                    className="p-1.5 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 transition-colors cursor-pointer"
+                                    title="Xóa tài khoản khỏi D1"
+                                  >
+                                    <IconTrash size={14} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
                 </div>
-              )}
-            </div>
+
+                {/* Pagination Controls */}
+                {totalUserPages > 1 && (
+                  <div className="p-4 bg-slate-50 border-t border-slate-200/80 flex items-center justify-between gap-4 flex-wrap">
+                    <div className="text-xs text-slate-500 font-mono">
+                      Hiển thị <strong>{(safeUserPage - 1) * USERS_PER_PAGE + 1}</strong> - <strong>{Math.min(safeUserPage * USERS_PER_PAGE, filteredEmployees.length)}</strong> trên tổng số <strong>{filteredEmployees.length}</strong> nhân sự
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        disabled={safeUserPage === 1}
+                        onClick={() => setUserPage(safeUserPage - 1)}
+                        className="p-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 disabled:opacity-30 hover:bg-slate-100 transition-colors cursor-pointer"
+                      >
+                        <IconChevronLeft size={16} />
+                      </button>
+
+                      {getPageNumbers().map((p, idx) =>
+                        typeof p === "number" ? (
+                          <button
+                            key={idx}
+                            onClick={() => setUserPage(p)}
+                            className={`w-8 h-8 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                              safeUserPage === p
+                                ? "bg-[#004029] text-white shadow-xs"
+                                : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-100"
+                            }`}
+                          >
+                            {p}
+                          </button>
+                        ) : (
+                          <span key={idx} className="px-1 text-slate-400 font-mono text-xs">...</span>
+                        )
+                      )}
+
+                      <button
+                        disabled={safeUserPage === totalUserPages}
+                        onClick={() => setUserPage(safeUserPage + 1)}
+                        className="p-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 disabled:opacity-30 hover:bg-slate-100 transition-colors cursor-pointer"
+                      >
+                        <IconChevronRight size={16} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -2348,6 +3051,269 @@ export default function AdminPage() {
                   </>
                 ) : (
                   <span>Xác Nhận Import {importPreviewRows.filter((r) => r.isValid).length} Nhân Sự Vào D1</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Excel Diff & Sync Preview Modal */}
+      {isDiffModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-6">
+          <div className="bg-white rounded-3xl max-w-6xl w-full border border-slate-200/90 shadow-2xl overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="p-5 bg-gradient-to-r from-blue-900 via-blue-800 to-[#004029] text-white flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-black uppercase tracking-tight font-display flex items-center gap-2">
+                  <IconRefresh size={18} />
+                  Bản Xem Trước Cập Nhật Dữ Liệu Nhân Sự (Diff Preview)
+                </h3>
+                <p className="text-xs text-blue-200 font-medium mt-0.5">
+                  Tệp nguồn: <strong>{diffSourceFileName}</strong> | Đã phân tích & đối chiếu dữ liệu với CSDL D1 theo Mã số Nhân viên (MSNV)
+                </p>
+              </div>
+              <button
+                onClick={() => setIsDiffModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center cursor-pointer transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Old File Warning Banner (Point #6 Requirement) */}
+            {diffSourceFileName && (diffSourceFileName.toLowerCase().includes("2025") || diffSourceFileName.toLowerCase().includes("old") || diffSourceFileName.toLowerCase().includes("2024")) && (
+              <div className="p-3 bg-amber-50 border-b border-amber-200 text-amber-900 text-xs font-bold flex items-center gap-2">
+                <span className="text-base">⚠️</span>
+                <span>
+                  <strong>CẢNH BÁO FILE EXCEL CÓ DẤU HIỆU CŨ:</strong> Tệp nguồn <em>"{diffSourceFileName}"</em> có thể chứa dữ liệu cũ hơn đợt cập nhật gần nhất. Vui lòng đối chiếu kỹ danh sách thay đổi bên dưới trước khi bấm xác nhận để tránh đè đè dữ liệu mới!
+                </span>
+              </div>
+            )}
+
+            {/* Config Checkboxes & Statistics Bar */}
+            <div className="p-4 bg-slate-50 border-b border-slate-200 space-y-3">
+              <div className="flex items-center gap-4 flex-wrap text-xs font-bold text-slate-700 bg-white p-3 rounded-2xl border border-slate-200">
+                <span className="text-slate-400 font-mono uppercase text-[11px]">Tùy chọn ghi DB:</span>
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={diffOptions.updateTitleAndDept}
+                    onChange={(e) => setDiffOptions((prev) => ({ ...prev, updateTitleAndDept: e.target.checked }))}
+                    className="rounded border-slate-300 text-[#004029] focus:ring-[#004029]"
+                  />
+                  <span>Cập nhật Chức danh & Phòng ban từ Excel</span>
+                </label>
+
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={diffOptions.preserveManualRole}
+                    onChange={(e) => setDiffOptions((prev) => ({ ...prev, preserveManualRole: e.target.checked }))}
+                    className="rounded border-slate-300 text-purple-600 focus:ring-purple-600"
+                  />
+                  <span>Giữ nguyên Role đã chỉnh tay thủ công</span>
+                </label>
+
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={diffOptions.preserveManualLock}
+                    onChange={(e) => setDiffOptions((prev) => ({ ...prev, preserveManualLock: e.target.checked }))}
+                    className="rounded border-slate-300 text-rose-600 focus:ring-rose-600"
+                  />
+                  <span>Giữ nguyên Trạng thái Khóa/Mở khóa tài khoản đã chỉnh tay</span>
+                </label>
+              </div>
+
+              {/* Tabs Bar */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
+                <button
+                  onClick={() => setDiffModalTab("ALL")}
+                  className={`px-3.5 py-1.5 rounded-xl font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    diffModalTab === "ALL" ? "bg-slate-900 text-white shadow-xs" : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-100"
+                  }`}
+                >
+                  <span>Tất Cả Phân Tích</span>
+                  <span className="px-1.5 py-0.2 rounded-full bg-slate-200 text-slate-800 text-[10px]">
+                    {diffSummary.newUsers.length + diffSummary.updatedUsers.length + diffSummary.unchangedUsers.length + diffSummary.deactivatedUsers.length}
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => setDiffModalTab("NEW")}
+                  className={`px-3.5 py-1.5 rounded-xl font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    diffModalTab === "NEW" ? "bg-emerald-600 text-white shadow-xs" : "bg-emerald-50 border border-emerald-200 text-emerald-800 hover:bg-emerald-100"
+                  }`}
+                >
+                  <span>✨ Thêm Mới</span>
+                  <span className="px-1.5 py-0.2 rounded-full bg-emerald-200 text-emerald-900 text-[10px]">
+                    {diffSummary.newUsers.length}
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => setDiffModalTab("UPDATED")}
+                  className={`px-3.5 py-1.5 rounded-xl font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    diffModalTab === "UPDATED" ? "bg-amber-600 text-white shadow-xs" : "bg-amber-50 border border-amber-200 text-amber-800 hover:bg-amber-100"
+                  }`}
+                >
+                  <span>🔄 Có Thay Đổi</span>
+                  <span className="px-1.5 py-0.2 rounded-full bg-amber-200 text-amber-900 text-[10px]">
+                    {diffSummary.updatedUsers.length}
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => setDiffModalTab("UNCHANGED")}
+                  className={`px-3.5 py-1.5 rounded-xl font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    diffModalTab === "UNCHANGED" ? "bg-slate-700 text-white shadow-xs" : "bg-slate-100 border border-slate-200 text-slate-700 hover:bg-slate-200"
+                  }`}
+                >
+                  <span>✔️ Không Thay Đổi</span>
+                  <span className="px-1.5 py-0.2 rounded-full bg-slate-300 text-slate-800 text-[10px]">
+                    {diffSummary.unchangedUsers.length}
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => setDiffModalTab("REMOVED")}
+                  className={`px-3.5 py-1.5 rounded-xl font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    diffModalTab === "REMOVED" ? "bg-rose-600 text-white shadow-xs" : "bg-rose-50 border border-rose-200 text-rose-800 hover:bg-rose-100"
+                  }`}
+                >
+                  <span>⚠️ Vắng Mặt (Nghỉ Việc)</span>
+                  <span className="px-1.5 py-0.2 rounded-full bg-rose-200 text-rose-900 text-[10px]">
+                    {diffSummary.deactivatedUsers.length}
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            {/* Table */}
+            <div className="p-4 overflow-y-auto flex-1">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-slate-100 border-b border-slate-200 font-black text-slate-700 text-[10.5px] uppercase">
+                    <th className="py-2.5 px-3">STT</th>
+                    <th className="py-2.5 px-3">MSNV</th>
+                    <th className="py-2.5 px-3">Họ & Tên Nhân Viên</th>
+                    <th className="py-2.5 px-3">Phân Loại Diff</th>
+                    <th className="py-2.5 px-3">Chi Tiết Thay Đổi (Dữ Liệu Hiện Tại ➔ Excel Mới)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium">
+                  {/* NEW USERS */}
+                  {(diffModalTab === "ALL" || diffModalTab === "NEW") &&
+                    diffSummary.newUsers.map((u, idx) => (
+                      <tr key={`new_${u.empCode}_${idx}`} className="hover:bg-emerald-50/50 bg-emerald-50/20">
+                        <td className="py-2 px-3 font-mono text-slate-400 font-bold">{idx + 1}</td>
+                        <td className="py-2 px-3 font-mono font-bold text-[#004029]">{u.empCode}</td>
+                        <td className="py-2 px-3 font-bold text-slate-900">{u.name}</td>
+                        <td className="py-2 px-3">
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold inline-flex items-center gap-1">
+                            ✨ Thêm Mới
+                          </span>
+                        </td>
+                        <td className="py-2 px-3 text-slate-600">
+                          <div className="flex items-center gap-2 text-[11px]">
+                            <span>Title: <strong>{u.title}</strong></span>
+                            <span>•</span>
+                            <span>Dept: <strong>{u.department}</strong></span>
+                            <span>•</span>
+                            <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded border text-slate-800 font-bold">{u.roleCode}</span>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+
+                  {/* UPDATED USERS */}
+                  {(diffModalTab === "ALL" || diffModalTab === "UPDATED") &&
+                    diffSummary.updatedUsers.map((item, idx) => (
+                      <tr key={`upd_${item.empCode}_${idx}`} className="hover:bg-amber-50/50 bg-amber-50/20">
+                        <td className="py-2 px-3 font-mono text-slate-400 font-bold">{idx + 1}</td>
+                        <td className="py-2 px-3 font-mono font-bold text-amber-800">{item.empCode}</td>
+                        <td className="py-2 px-3 font-bold text-slate-900">{item.name}</td>
+                        <td className="py-2 px-3">
+                          <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold inline-flex items-center gap-1">
+                            🔄 Có Thay Đổi
+                          </span>
+                        </td>
+                        <td className="py-2 px-3 text-slate-700">
+                          <div className="space-y-1">
+                            {Object.entries(item.changes).map(([field, ch]) => (
+                              <div key={field} className="flex items-center gap-1.5 text-[11px]">
+                                <span className="font-bold text-slate-500 w-28">{field}:</span>
+                                <span className="line-through text-rose-500 bg-rose-50 px-1.5 py-0.5 rounded">{ch.before || "(Trống)"}</span>
+                                <span className="text-slate-400 font-bold">➔</span>
+                                <span className="font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">{ch.after}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+
+                  {/* UNCHANGED USERS */}
+                  {(diffModalTab === "ALL" || diffModalTab === "UNCHANGED") &&
+                    diffSummary.unchangedUsers.map((u, idx) => (
+                      <tr key={`unc_${u.empCode}_${idx}`} className="hover:bg-slate-50 text-slate-500 opacity-75">
+                        <td className="py-2 px-3 font-mono text-slate-400 font-bold">{idx + 1}</td>
+                        <td className="py-2 px-3 font-mono text-slate-600 font-bold">{u.empCode}</td>
+                        <td className="py-2 px-3 font-medium text-slate-800">{u.name}</td>
+                        <td className="py-2 px-3">
+                          <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-bold">
+                            ✔️ Trùng khớp 100%
+                          </span>
+                        </td>
+                        <td className="py-2 px-3 text-slate-500 text-[11px]">Không có thay đổi so với D1</td>
+                      </tr>
+                    ))}
+
+                  {/* REMOVED / DEACTIVATED USERS */}
+                  {(diffModalTab === "ALL" || diffModalTab === "REMOVED") &&
+                    diffSummary.deactivatedUsers.map((u, idx) => (
+                      <tr key={`rem_${u.empCode}_${idx}`} className="hover:bg-rose-50/50 bg-rose-50/30">
+                        <td className="py-2 px-3 font-mono text-slate-400 font-bold">{idx + 1}</td>
+                        <td className="py-2 px-3 font-mono font-bold text-rose-700">{u.empCode}</td>
+                        <td className="py-2 px-3 font-bold text-slate-900">{u.name}</td>
+                        <td className="py-2 px-3">
+                          <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 text-[10px] font-bold inline-flex items-center gap-1">
+                            ⚠️ Vắng mặt (Nghỉ việc)
+                          </span>
+                        </td>
+                        <td className="py-2 px-3 text-rose-700 text-[11px]">
+                          Có trong CSDL D1 hiện tại nhưng <strong>KHÔNG CÒN</strong> trong file Excel mới ➔ Sẽ chuyển trạng thái sang <strong>INACTIVE (Nghỉ việc)</strong>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Footer Actions */}
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+              <button
+                onClick={() => setIsDiffModalOpen(false)}
+                className="px-4 py-2 rounded-xl bg-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-300 cursor-pointer"
+              >
+                Hủy Bỏ
+              </button>
+
+              <button
+                disabled={isSubmittingDiffSync}
+                onClick={handleConfirmDiffSync}
+                className="px-6 py-2.5 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-xs font-extrabold shadow-md cursor-pointer disabled:opacity-50 flex items-center gap-2"
+              >
+                {isSubmittingDiffSync ? (
+                  <>
+                    <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                    <span>Đang Đồng Bộ CSDL D1...</span>
+                  </>
+                ) : (
+                  <span>
+                    Xác Nhận Cập Nhật CSDL D1 ({diffSummary.newUsers.length + diffSummary.updatedUsers.length + diffSummary.deactivatedUsers.length} Thay Đổi)
+                  </span>
                 )}
               </button>
             </div>

@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ROLES } from "@/lib/permissions";
 import UserAvatar from "@/components/UserAvatar";
-import { IconUsers, IconUserPlus, IconLock, IconLockOpen, IconSearch, IconCheck, IconShield, IconBuilding } from "@tabler/icons-react";
+import { getAllSystemUsers } from "@/lib/userProfiles";
+import { apiFetch } from "@/lib/apiClient";
+import { IconUsers, IconUserPlus, IconLock, IconLockOpen, IconSearch, IconCheck, IconShield, IconBuilding, IconTrash } from "@tabler/icons-react";
 
 interface UserAccount {
   id: string;
@@ -26,66 +28,46 @@ const DEPARTMENTS_LIST = [
   { id: "production", name: "Tổ Hợp Nhà Máy & Sản Xuất" },
 ];
 
+const INITIAL_REAL_USERS: UserAccount[] = getAllSystemUsers().map((u, idx) => ({
+  id: `u_${u.empCode}_${idx}`,
+  empCode: u.empCode,
+  name: u.name,
+  email: u.email,
+  department: u.department,
+  managedDepartmentId: u.managedDepartmentId,
+  roles: u.roles || ["employee"],
+  status: "ACTIVE",
+}));
+
 export default function UsersAdminPage() {
-  const [users, setUsers] = useState<UserAccount[]>([
-    {
-      id: "u1",
-      empCode: "202608001",
-      name: "Phạm Nguyễn Anh Huy",
-      email: "anhy.work.2004@gmail.com",
-      department: "IT - Team Chuyển Đổi Số",
-      managedDepartmentId: "ci",
-      roles: ["employee", "department_head", "ci"],
-      status: "ACTIVE",
-    },
-    {
-      id: "u2",
-      empCode: "202608002",
-      name: "Trần Ngọc Huy",
-      email: "tranhuy110421@gmail.com",
-      department: "IT - Team Chuyển Đổi Số",
-      managedDepartmentId: "ci",
-      roles: ["employee", "department_head", "ci", "admin"],
-      status: "ACTIVE",
-    },
-    {
-      id: "u6",
-      empCode: "LT-001",
-      name: "Lễ Tân Văn Phòng",
-      email: "letan@tbsgroup.vn",
-      department: "Nhân Sự - Hành Chánh",
-      managedDepartmentId: "hr",
-      roles: ["employee", "receptionist"],
-      status: "ACTIVE",
-    },
-    {
-      id: "u3",
-      empCode: "ADMIN-2026",
-      name: "Quản Trị Viên Hệ Thống",
-      email: "admin@tbsgroup.vn",
-      department: "Khối Quản Trị Hệ Thống",
-      roles: ["admin"],
-      status: "ACTIVE",
-    },
-    {
-      id: "u4",
-      empCode: "TGĐ-001",
-      name: "Tổng Giám Đốc",
-      email: "tgd@tbsgroup.vn",
-      department: "Ban Giám Đốc Tập Đoàn",
-      roles: ["ceo"],
-      status: "ACTIVE",
-    },
-    {
-      id: "u5",
-      empCode: "EMP-004",
-      name: "Phạm Văn Bảo Trì",
-      email: "baotri@tbsgroup.vn",
-      department: "Tổ Hợp Nhà Máy & Sản Xuất",
-      roles: ["employee", "maintenance"],
-      status: "ACTIVE",
-    },
-  ]);
+  const [users, setUsers] = useState<UserAccount[]>([]);
+
+  const loadUsersFromApi = async () => {
+    try {
+      const res = await apiFetch("/api/users");
+      if (!res.ok) return;
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        const loadedUsers: UserAccount[] = json.data.map((u: any, idx: number) => ({
+          id: u.id ? String(u.id) : `u_${u.emp_code || u.empCode}_${idx}`,
+          empCode: u.emp_code || u.empCode || "",
+          name: u.name || "N/A",
+          email: u.email || `${u.emp_code || "user"}@tbsgroup.vn`,
+          department: u.department || u.phong_ban_hien_tai || "Khối Sản Xuất SKECHERS",
+          managedDepartmentId: u.managedDepartmentId,
+          roles: u.role_code || u.roleCode ? [u.role_code || u.roleCode] : ["employee"],
+          status: u.status === "LOCKED" ? "LOCKED" : "ACTIVE",
+        }));
+        setUsers(loadedUsers);
+      }
+    } catch (err) {
+      console.log("Error loading users from D1:", err);
+    }
+  };
+
+  useEffect(() => {
+    loadUsersFromApi();
+  }, []);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [deptFilter, setDeptFilter] = useState("ALL");
@@ -95,6 +77,21 @@ export default function UsersAdminPage() {
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const handleDeleteUser = async (id: string, empCode: string, name: string) => {
+    if (!confirm(`Bạn có chắc chắn muốn XÓA VĨNH VIỄN tài khoản "${name}" (${empCode}) khỏi CSDL D1?`)) {
+      return;
+    }
+    setUsers((prev) => prev.filter((u) => u.id !== id && u.empCode !== empCode));
+    try {
+      await apiFetch(`/api/users?id=${encodeURIComponent(id)}&empCode=${encodeURIComponent(empCode)}`, {
+        method: "DELETE",
+      });
+      showToast(`🗑️ Đã xóa tài khoản "${name}" (${empCode}) khỏi CSDL thành công!`);
+    } catch (err: any) {
+      showToast(`❌ Lỗi xóa tài khoản: ${err.message}`);
+    }
   };
 
   const handleToggleLock = (id: string) => {
@@ -262,6 +259,13 @@ export default function UsersAdminPage() {
                       title={u.status === "ACTIVE" ? "Khóa tài khoản" : "Mở khóa tài khoản"}
                     >
                       {u.status === "ACTIVE" ? <IconLock size={15} /> : <IconLockOpen size={15} />}
+                    </button>
+                    <button
+                      onClick={() => handleDeleteUser(u.id, u.empCode, u.name)}
+                      className="p-1.5 rounded-lg border bg-rose-50 text-rose-600 border-rose-200 hover:bg-rose-600 hover:text-white transition cursor-pointer"
+                      title="Xóa tài khoản khỏi D1"
+                    >
+                      <IconTrash size={15} />
                     </button>
                   </div>
                 </td>

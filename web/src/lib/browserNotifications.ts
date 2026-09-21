@@ -49,7 +49,7 @@ export async function syncPushSubscriptionToServer(): Promise<boolean> {
 
     if (!sub) {
       // Create new subscription using real VAPID public key
-      const publicVapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "BO2jkziEEK_t-ex0cLOzysw45I0mm2_g6iwA1CsdDep9nAoDVYmlqTjep7rHWtC-OHu8JWDQr-Ugh7LQMRGbc44";
+      const publicVapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "BDHxfIzFdCA897VJICAZPks2qs53gruuFwNMNuRXPb0QCdSLYFRKOStnXljE4eq75qeqOaxdYaw5MBoTnRKDopM";
       
       try {
         sub = await reg.pushManager.subscribe({

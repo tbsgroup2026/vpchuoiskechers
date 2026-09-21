@@ -8,19 +8,10 @@ export interface BrandPartner {
   updatedAt?: string;
 }
 
-export interface ShoeImageItem {
-  id: string;
-  url: string;
-  name?: string;
-  order: number;
-}
+import { ShoeImageItem, ShoeGroup, DEFAULT_SHOE_GROUPS } from "./shoeGroups";
+export type { ShoeImageItem, ShoeGroup };
+export { DEFAULT_SHOE_GROUPS };
 
-export interface ShoeGroup {
-  id: string;
-  title: string;
-  order: number;
-  items: ShoeImageItem[];
-}
 
 export interface ShoeLinesConfig {
   title: string;
@@ -129,42 +120,10 @@ export const DEFAULT_BRAND_PARTNERS: BrandPartner[] = [
   { id: "bp-9", name: "Vera Bradley", logo: "/images/brands/vera-bradley.svg", displayOrder: 9, isActive: true },
 ];
 
-export const DEFAULT_SHOE_GROUPS: ShoeGroup[] = [
-  {
-    id: "sg-1",
-    title: "PERFORMANCE RUNNING",
-    order: 1,
-    items: [
-      { id: "img-1-1", url: "/images/crawled/04.webp", name: "Skechers GoRun Speed Elite", order: 1 },
-      { id: "img-1-2", url: "/images/crawled/05.webp", name: "Skechers GoRun Persistence", order: 2 },
-      { id: "img-1-3", url: "/images/crawled/60.webp", name: "Skechers Arch Fit Max", order: 3 },
-      { id: "img-1-4", url: "/images/crawled/005.webp", name: "Skechers Hyper Burst Runner", order: 4 },
-    ],
-  },
-  {
-    id: "sg-2",
-    title: "LIFESTYLE CASUAL",
-    order: 2,
-    items: [
-      { id: "img-2-1", url: "/images/crawled/56.webp", name: "Skechers D'Lites Memory Foam", order: 1 },
-      { id: "img-2-2", url: "/images/crawled/58.webp", name: "Skechers Slip-ins Hands Free", order: 2 },
-      { id: "img-2-3", url: "/images/crawled/Da-giay1.jpg", name: "Skechers Uno Stand on Air", order: 3 },
-    ],
-  },
-  {
-    id: "sg-3",
-    title: "WORK & SAFETY",
-    order: 3,
-    items: [
-      { id: "img-3-1", url: "/images/crawled/58.webp", name: "Skechers Work Steel Toe Safety", order: 1 },
-      { id: "img-3-2", url: "/images/crawled/005.webp", name: "Skechers Work Slip Resistant", order: 2 },
-      { id: "img-3-3", url: "/images/crawled/Da-giay1.jpg", name: "Skechers Work Composite Toe", order: 3 },
-    ],
-  },
-];
+
 
 export const DEFAULT_SHOE_LINES_CONFIG: ShoeLinesConfig = {
-  title: "DÒNG GIÀY CHUỖI SKECHERS TIÊU BIỂU",
+  title: "DÒNG GIÀY TIÊU BIỂU",
   groups: DEFAULT_SHOE_GROUPS,
 };
 
@@ -309,6 +268,35 @@ export const DEFAULT_LANDING_CMS: LandingCMSConfig = {
 
 export const CMS_STORAGE_KEY = "vpchuoiskechers_landing_cms";
 
+export const VALID_SHOE_GROUP_TITLES = new Set([
+  "WATER PROOF",
+  "MEN'S SPORT",
+  "MEN USA",
+  "WORK SHOES",
+  "PERFORMANCE",
+]);
+
+export function isGroupValid(group: any): boolean {
+  if (!group || !group.title || typeof group.title !== "string") {
+    return false;
+  }
+  const cleanTitle = group.title.trim().toUpperCase();
+  if (!VALID_SHOE_GROUP_TITLES.has(cleanTitle)) {
+    return false;
+  }
+  if (!Array.isArray(group.items) || group.items.length === 0) {
+    return false;
+  }
+  for (const item of group.items) {
+    if (!item || !item.url) return false;
+    const lower = String(item.url).toLowerCase();
+    if (lower.includes("kglv") || lower.includes("tbs-factory") || lower.includes("crawled")) {
+      return false;
+    }
+  }
+  return true;
+}
+
 export function parseCMSConfig(parsed: any): LandingCMSConfig {
   if (!parsed) return DEFAULT_LANDING_CMS;
 
@@ -333,9 +321,13 @@ export function parseCMSConfig(parsed: any): LandingCMSConfig {
     }
   }
 
-  const rawShoeLines = parsed.shoeLines && Array.isArray(parsed.shoeLines.groups) && parsed.shoeLines.groups.length > 0
-    ? parsed.shoeLines
-    : DEFAULT_SHOE_LINES_CONFIG;
+  const isShoeLinesValid =
+    parsed.shoeLines &&
+    Array.isArray(parsed.shoeLines.groups) &&
+    parsed.shoeLines.groups.length > 0 &&
+    parsed.shoeLines.groups.every((g: any) => isGroupValid(g));
+
+  const rawShoeLines = isShoeLinesValid ? parsed.shoeLines : DEFAULT_SHOE_LINES_CONFIG;
 
   const rawWorkspaceDeps = Array.isArray(parsed.workspaceDepartments) && parsed.workspaceDepartments.length > 0
     ? parsed.workspaceDepartments
@@ -365,7 +357,17 @@ export function getLandingCMS(): LandingCMSConfig {
     const raw = localStorage.getItem(CMS_STORAGE_KEY);
     if (!raw) return DEFAULT_LANDING_CMS;
     const parsed = JSON.parse(raw);
-    return parseCMSConfig(parsed);
+    const config = parseCMSConfig(parsed);
+    // If parsed had invalid or legacy groups, overwrite localStorage with sanitized config
+    const isStoredValid =
+      Array.isArray(parsed?.shoeLines?.groups) &&
+      parsed.shoeLines.groups.length > 0 &&
+      parsed.shoeLines.groups.every((g: any) => isGroupValid(g));
+
+    if (!isStoredValid) {
+      localStorage.setItem(CMS_STORAGE_KEY, JSON.stringify(config));
+    }
+    return config;
   } catch (e) {
     return DEFAULT_LANDING_CMS;
   }

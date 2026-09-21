@@ -1,23 +1,33 @@
 import { NextResponse } from 'next/server';
+import { validateScopeAuthorization } from '@/lib/scopeAuth';
 
-export async function GET() {
+export async function GET(request: Request) {
+  const auth = validateScopeAuthorization(request);
+  if (!auth.authorized || auth.response) {
+    return auth.response;
+  }
+
   return NextResponse.json({
     success: true,
+    scope: auth.scope,
     data: [
       {
         id: 'ann_1',
-        title: 'Bảo trì định kỳ hệ thống máy may Chuyền 1',
-        content: 'Thực hiện kiểm tra dầu bôi trơn và vệ sinh kim định kỳ cho 20 máy may tự động.',
+        title: 'Bảo trì định kỳ hệ thống MMTB',
+        content: 'Thực hiện kiểm tra dầu bôi trơn và vệ sinh kim định kỳ cho các thiết bị thuộc đơn vị.',
         image: null,
         createdBy: { name: 'Nguyễn Văn Nam', employeeCode: 'TBS-101' },
-        targetFactory: { id: 'fac_1', name: 'Nhà Máy Kiên Giang 1' },
-        targetRole: 'MAINTENANCE',
         createdAt: new Date().toISOString(),
       },
     ],
   });
 }
 
-export async function POST() {
-  return NextResponse.json({ success: true, message: 'Created announcement' });
+export async function POST(request: Request) {
+  const auth = validateScopeAuthorization(request);
+  if (!auth.authorized || auth.response) {
+    return auth.response;
+  }
+
+  return NextResponse.json({ success: true, scope: auth.scope, message: 'Created announcement' });
 }

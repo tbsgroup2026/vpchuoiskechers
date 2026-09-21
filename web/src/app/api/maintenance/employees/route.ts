@@ -1,8 +1,15 @@
 import { NextResponse } from 'next/server';
+import { validateScopeAuthorization } from '@/lib/scopeAuth';
 
-export async function GET() {
+export async function GET(request: Request) {
+  const auth = validateScopeAuthorization(request);
+  if (!auth.authorized || auth.response) {
+    return auth.response;
+  }
+
   return NextResponse.json({
     success: true,
+    scope: auth.scope,
     data: [
       {
         id: 'emp_1',
@@ -16,22 +23,15 @@ export async function GET() {
         area: { id: 'area_1', name: 'Phân Xưởng May A' },
         isTeamLead: true,
       },
-      {
-        id: 'emp_2',
-        employeeCode: 'TBS-102',
-        name: 'Trần Thị Hoa',
-        phone: '0987654321',
-        role: 'OPERATOR',
-        factoryId: 'fac_1',
-        factory: { id: 'fac_1', name: 'Nhà Máy Kiên Giang 1' },
-        areaId: 'area_1',
-        area: { id: 'area_1', name: 'Phân Xưởng May A' },
-        isTeamLead: false,
-      },
     ],
   });
 }
 
-export async function POST() {
-  return NextResponse.json({ success: true, message: 'Saved employee' });
+export async function POST(request: Request) {
+  const auth = validateScopeAuthorization(request);
+  if (!auth.authorized || auth.response) {
+    return auth.response;
+  }
+
+  return NextResponse.json({ success: true, scope: auth.scope, message: 'Saved employee' });
 }

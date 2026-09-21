@@ -62,6 +62,7 @@ export default function HRSystemShell() {
       group: "Tổ chức & Hành chính",
       items: [
         { id: "overview", label: "🏠 Hub Tổng Quan Hành Chính", icon: IconLayoutGrid },
+        { id: "personal_hr", label: "👤 Cổng Nhân Sự Cá Nhân", icon: IconUserCheck, directUrl: "/hr/me/profile" },
         { id: "rooms_shortcut", label: "🏢 Quản lý phòng họp", icon: IconDoor, directUrl: "/rooms" },
         { id: "trip_shortcut", label: "✈️ Đăng ký công tác", icon: IconBriefcase, directUrl: "/business-trip" },
       ],

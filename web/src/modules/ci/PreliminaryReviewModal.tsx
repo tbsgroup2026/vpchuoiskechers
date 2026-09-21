@@ -15,6 +15,7 @@ import {
   IconLoader2,
 } from "@tabler/icons-react";
 import { KaizenProposal } from "./CIModule";
+import { getValidKaizenImageUrl } from "@/lib/kaizenImageHelper";
 
 interface PreliminaryReviewModalProps {
   proposal: KaizenProposal;
@@ -291,7 +292,7 @@ export default function PreliminaryReviewModal({
               <div className="grid grid-cols-3 gap-2 pb-1">
                 {verificationPhotos.map((url, idx) => (
                   <div key={idx} className="relative group rounded-xl overflow-hidden border border-slate-300">
-                    <img src={url} alt="Verification" className="w-full h-20 object-cover" />
+                    <img src={getValidKaizenImageUrl(url)} alt="" className="w-full h-20 object-cover" />
                     <button
                       type="button"
                       onClick={() => handleRemovePhoto(idx)}

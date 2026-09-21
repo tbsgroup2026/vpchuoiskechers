@@ -23,13 +23,25 @@
     "MMTB_AUTO_LOGIN_EMP_CODE": "AMDKG",
     "MMTB_AUTO_LOGIN_PASSWORD": "123456",
     "VAPID_PUBLIC_KEY": "BO2jkziEEK_t-ex0cLOzysw45I0mm2_g6iwA1CsdDep9nAoDVYmlqTjep7rHWtC-OHu8JWDQr-Ugh7LQMRGbc44",
-    "VAPID_CONTACT": "mailto:admin@tbsgroup.vn"
+    "VAPID_CONTACT": "mailto:admin@tbsgroup.vn",
+    "GDRIVE_CLIENT_EMAIL": "tbs-backup-sa@photocloudapp-465001.iam.gserviceaccount.com",
+    "GDRIVE_PRIVATE_KEY": "-----BEGIN PRIVATE KEY-----\\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC6s5pQXINw5C50\\nEqeTEkFQrWA0pk5uduPsFtsoMxCFRmFEtavfTiyIsN2ZJMIFc4HnFU5ccjpxjl7G\\nLbTwbJNaLTD5bM/SsUJCWf8+U65WvPUr+AKjC1W0XcyaFMzZIwvTQCqenqnkSDw6\\niZQzmzRg16EDpKQWBsa9UEucl3EwvuCFSliiEaazZLDMs/E8PKMFxVEqFl8YRxG1\\nszWqWd0Ui2mJBV6CjADlzpXOoD3b7RAUN/zL88FJmEWWoKSOs88hiKu8/MgToiz0\\nIRCi8YwMmem0fEzq8giXYlgjyUCUb80BtC8jKJQKFOVnsKM1ruu6KgWy+8r/khaU\\nJ0uDpkmtAgMBAAECggEAD7CTOcikhSKv4rJEod/pXEHNsW7+bVsRaWA8V6L+8uxI\\ntVD9Gh2EMZKHdNy5b2LXGlfYh31T+wIHZekmaQP+2BevI27pAiBCXLgacp7uqjxj\\n8Cd99Ty5HZi6XoJ7+o1u63hbfIwB4/zMDvFL4pBa9P55+gfmgDFelz89s3Gooftr\\neTCGA0FfYUmwOEWRj6qxnjgnUg0FTPy8bKD4tFyw/XqEZmIe7KZehUxpQbqorOOa\\nHKED4nGnfRXa5mB+Nl1/Z3LknUEY2nly75qKrLlNq+WkL8611QKbP8nfITl6IFz3\\ndJCKyoRDRDnHSzBDGW4klJk7y2p0JqYEWzd8Po+rowKBgQD2hYBOOjoiwZRqTMYG\\n6kYnHUFBp1iKydSP8RX7CauEFHcs8jiFfZ/32h3IbBOrJbYbBgAfIM1mt3DxrOzG\\nD9GnKtTJxlrvmNckUp/53AIiXpb4gJfMJMgCtATa/HS6e1cr99SWRNZWH3kbuOcj\\n0aXav2ODtK/p305jP/LA3RTZIwKBgQDB4UwQmRhOHGNSMRsIr20pqYsT2OdGZXRG\\n/2s42Ii6L7kLZHWKRBnJ/CVCsv2BdvaCg1Lq9t4H5DOlboHB3oikcfWVB1sePvTl\\nHbqHIplPRML0qwH3Vu93fsW6jU6OzC/ywKoOdyDpReuko1mUItVC9bevWle0uxyV\\n6wwC0/BG7wKBgQC5+ql7Ws41Hll7gIP8/40BQT7T6w4PVoi4NydgBkGRGWd3Tx15\\nB/dBIxpI89A60+54oKRC15peHZJloRHXsmN2fAegWbaM/39/dZ4e/+3URAwdWdYr\\nOqxx7aGkG8VsUlTHZObKnxAcVQ4m7e3ixe0cBDttR0lXZRJcKghXm/J4hQKBgD90\\nBhoUkQDXh6YZzjg8eeS9yXfYcHD4uWKXK7dyHuWYwt44pcN34Fzb+jHnNNLPZYR3\\niIa//xDkHgcRsMQLmfsAFRkOTEMM5ceqwCaEK1rnLUs4QK97s2oPgpU4tDJGH5c6\\neS28zXerW6EJmULDV7rPgquQTM4owwVJ5Sdzx9rfAoGBAPQiAQdF1M5CrUlEjewC\\nyLmfjU2fn/ofSUvk2B4ibgyl7XG72gKHdo5RFEPbnoXCMsNmE4XfEpsKKb282zIH\\nCPbPXtu3gDecDr85PAW1zCjMpsq0FfLYF9CuPgz5k+Epu4GmbOTeqW9Ye8TdHTRe\\n8/Zmthk9zrG93H68TNZx2ILX\\n-----END PRIVATE KEY-----\\n"
   },
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "vpchuoiskechers-db",
       "database_id": "ae3a7efd-ff5d-45c2-8c49-78d1518e3aa1"
+    },
+    {
+      "binding": "DB_KG",
+      "database_name": "thkiengiangshoes",
+      "database_id": "176450d4-b81b-40d0-aee6-071ce67a626f"
     }
-  ]
+  ],
+  "triggers": {
+    "crons": [
+      "0 19 * * *"
+    ]
+  }
 }

@@ -2,6 +2,8 @@
 
 import { useEffect } from "react";
 import { registerServiceWorker, syncPushSubscriptionToServer } from "@/lib/browserNotifications";
+import { app, analytics } from "@/lib/firebase";
+
 
 /**
  * Initialize Service Worker silently on app load.

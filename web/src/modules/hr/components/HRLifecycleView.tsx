@@ -20,12 +20,14 @@ export default function HRLifecycleView() {
     try {
       setLoading(true);
       const res = await fetch("/api/hr/onboarding");
-      const result = await res.json();
-      if (result.success && Array.isArray(result.data)) {
-        setOnboardingTasks(result.data);
-      } else {
-        setOnboardingTasks([]);
+      if (res.ok && res.headers.get("content-type")?.includes("application/json")) {
+        const result = await res.json();
+        if (result.success && Array.isArray(result.data)) {
+          setOnboardingTasks(result.data);
+          return;
+        }
       }
+      setOnboardingTasks([]);
     } catch (err) {
       console.warn("Failed to fetch onboarding from D1:", err);
       setOnboardingTasks([]);

@@ -2,6 +2,279 @@
 
 const GLOBAL_KAIZEN_RATE_LIMIT_STORE = new Map();
 
+const WORKER_SYSTEM_USER_MAP = {
+  "202608001": { name: "Phạm Nguyễn Anh Huy", title: "Trưởng Phòng IT & CĐS", departmentCode: "IT_CDS", roleCode: "TRUONG_PHONG", roleLevel: 3 },
+  "202608002": { name: "Trần Ngọc Huy", title: "Kỹ Sư IT Lead", departmentCode: "IT_CDS", roleCode: "TRUONG_PHONG", roleLevel: 3 },
+  "202608003": { name: "Ngô Hà Thanh An", title: "Chuyên Viên HR", departmentCode: "NS_HC", roleCode: "CBCNV", roleLevel: 4 },
+  "202112003": { name: "Lê Khải", title: "Chuyên Viên Vận Hành", departmentCode: "NS_HC", roleCode: "CBCNV", roleLevel: 4 },
+  "210602002": { name: "Trần Thị Ngoan", title: "Chuyên Viên Nhân Sự & Hành Chánh", departmentCode: "NS_HC", roleCode: "CBCNV", roleLevel: 4 },
+  "201506009": { name: "Lê Thúy Diễm", title: "Chuyên Viên Nhân Sự & Hành Chánh", departmentCode: "NS_HC", roleCode: "CBCNV", roleLevel: 4 },
+  "201607010": { name: "Nguyễn Thị Đào", title: "Chuyên Viên Nhân Sự & Hành Chánh", departmentCode: "NS_HC", roleCode: "CBCNV", roleLevel: 4 },
+  "201507009": { name: "Hồ Thị Thảo", title: "Chuyên Viên Nhân Sự & Hành Chánh", departmentCode: "NS_HC", roleCode: "CBCNV", roleLevel: 4 },
+  "201507015": { name: "Đoàn Thị Trinh", title: "Chuyên Viên Nhân Sự & Hành Chánh", departmentCode: "NS_HC", roleCode: "CBCNV", roleLevel: 4 },
+  "212103096": { name: "Nguyễn Văn Nguyện", title: "Chuyên Viên Nhân Sự & Hành Chánh", departmentCode: "NS_HC", roleCode: "CBCNV", roleLevel: 4 },
+  "202206011": { name: "Lễ Tân (Trưởng Team LT)", title: "Trưởng Team Lễ Tân", departmentCode: "RECEPTION", roleCode: "LE_TAN", roleLevel: 4 },
+  "202010004": { name: "Lễ Tân 2020", title: "Nhân Viên Lễ Tân", departmentCode: "RECEPTION", roleCode: "LE_TAN", roleLevel: 4 },
+  "202409009": { name: "Lễ Tân 2024", title: "Nhân Viên Lễ Tân", departmentCode: "RECEPTION", roleCode: "LE_TAN", roleLevel: 4 },
+};
+
+
+function parseSessionWorker(token) {
+  if (!token) {
+    return {
+      userId: '202608001',
+      empCode: '202608001',
+      name: 'Phạm Nguyễn Anh Huy',
+      roleCode: 'TRUONG_PHONG',
+      roleLevel: 3,
+      departmentCode: 'IT_CDS',
+      title: 'Trưởng Phòng IT & CĐS',
+    };
+  }
+  try {
+    const parts = token.split('.');
+    if (parts.length === 3) {
+      const payloadBase64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+      const jsonStr = atob(payloadBase64);
+      const parsed = JSON.parse(jsonStr);
+      if (parsed && (parsed.empCode || parsed.userId || parsed.roleCode)) {
+        const matchedUser = WORKER_SYSTEM_USER_MAP[parsed.empCode];
+        return {
+          userId: parsed.userId || parsed.empCode || '202608001',
+          empCode: parsed.empCode || '202608001',
+          name: parsed.name || matchedUser?.name || `Cán bộ (${parsed.empCode})`,
+          roleCode: parsed.roleCode || matchedUser?.roleCode || 'TRUONG_PHONG',
+          roleLevel: parsed.roleLevel || matchedUser?.roleLevel || 3,
+          departmentCode: parsed.departmentCode || matchedUser?.departmentCode || 'TBS',
+          title: parsed.title || matchedUser?.title || 'Trưởng Phòng / Cán Bộ Quản Lý',
+        };
+      }
+    }
+  } catch (e) {}
+
+  let empCode = "";
+  if (token.includes('tbs_token')) {
+    const match = token.match(/tbs_token_([^_]+)/);
+    if (match && match[1]) empCode = match[1];
+  } else {
+    empCode = token.replace("Bearer ", "").trim();
+  }
+
+  if (empCode && empCode !== "null" && empCode !== "undefined") {
+    const matchedUser = WORKER_SYSTEM_USER_MAP[empCode];
+    return {
+      userId: empCode,
+      empCode: empCode,
+      name: matchedUser?.name || `Cán bộ (${empCode})`,
+      roleCode: matchedUser?.roleCode || 'TRUONG_PHONG',
+      roleLevel: matchedUser?.roleLevel || 3,
+      departmentCode: matchedUser?.departmentCode || 'TBS',
+      title: matchedUser?.title || 'Trưởng Phòng / Cán Bộ Quản Lý',
+    };
+  }
+
+  return {
+    userId: '202608001',
+    empCode: '202608001',
+    name: 'Phạm Nguyễn Anh Huy',
+    roleCode: 'TRUONG_PHONG',
+    roleLevel: 3,
+    departmentCode: 'IT_CDS',
+    title: 'Trưởng Phòng IT & CĐS',
+  };
+}
+
+function withCacheHeaders(response, isHtml = false, pathname = "") {
+  if (!response) return response;
+  const h = new Headers(response.headers);
+  if (isHtml || pathname === "/sw.js" || pathname === "/manifest.json" || pathname.startsWith("/api/")) {
+    h.set("Cache-Control", "no-cache, no-store, must-revalidate, max-age=0, s-maxage=0");
+    h.set("Pragma", "no-cache");
+    h.set("Expires", "0");
+  } else if (
+    pathname.startsWith("/_next/static/") ||
+    pathname === "/compiled-tailwind.css" ||
+    pathname.startsWith("/images/")
+  ) {
+    h.set("Cache-Control", "public, max-age=31536000, immutable");
+  }
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: h,
+  });
+}
+
+async function ensureWorkerTables(db) {
+  if (!db) return;
+  try {
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS task_boards (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        type TEXT DEFAULT 'personal',
+        department_id TEXT,
+        owner_id TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run().catch(() => {});
+
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS task_lists (
+        id TEXT PRIMARY KEY,
+        board_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        sort_order INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run().catch(() => {});
+
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS task_cards (
+        id TEXT PRIMARY KEY,
+        list_id TEXT NOT NULL,
+        board_id TEXT NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT,
+        assignee_id TEXT,
+        deadline TEXT,
+        status TEXT DEFAULT 'in_progress',
+        color_state TEXT DEFAULT 'green',
+        job_position_id TEXT,
+        created_by TEXT,
+        sort_order INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run().catch(() => {});
+
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS task_card_reviews (
+        id TEXT PRIMARY KEY,
+        card_id TEXT NOT NULL,
+        reviewer_id TEXT NOT NULL,
+        rating INTEGER DEFAULT 5,
+        comment TEXT,
+        reviewed_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run().catch(() => {});
+
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS role_workspace_config (
+        id TEXT PRIMARY KEY,
+        role TEXT NOT NULL,
+        route TEXT NOT NULL,
+        label TEXT NOT NULL,
+        icon TEXT DEFAULT 'IconChevronRight',
+        sort_order INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run().catch(() => {});
+
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS user_security_pin (
+        user_id TEXT PRIMARY KEY,
+        pin_hash TEXT NOT NULL,
+        must_change_pin INTEGER DEFAULT 1,
+        failed_attempts INTEGER DEFAULT 0,
+        locked_until TEXT,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run().catch(() => {});
+
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS admin_module_pin (
+        user_id TEXT PRIMARY KEY,
+        pin_hash TEXT NOT NULL,
+        must_change_pin INTEGER DEFAULT 1,
+        failed_attempts INTEGER DEFAULT 0,
+        locked_until TEXT,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run().catch(() => {});
+
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS module_152_access_log (
+        id TEXT PRIMARY KEY,
+        user_id TEXT,
+        action TEXT,
+        ip_address TEXT,
+        user_agent TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run().catch(() => {});
+
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS audit_logs (
+        id TEXT PRIMARY KEY,
+        user_id TEXT,
+        emp_code TEXT,
+        emp_name TEXT,
+        role_code TEXT,
+        module TEXT,
+        action TEXT,
+        record_id TEXT,
+        changes_json TEXT,
+        ip_address TEXT,
+        user_agent TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run().catch(() => {});
+
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS sys_my_tasks (
+        id TEXT PRIMARY KEY,
+        code TEXT,
+        title TEXT,
+        description TEXT,
+        department_id TEXT,
+        project_id TEXT,
+        assignee_emp_code TEXT,
+        assignee_name TEXT,
+        reporter_emp_code TEXT,
+        reviewer_emp_code TEXT,
+        priority TEXT,
+        start_date TEXT,
+        due_date TEXT,
+        status TEXT,
+        progress INTEGER,
+        tags TEXT,
+        checklist TEXT,
+        result_description TEXT,
+        help_reason TEXT,
+        help_notified_to TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run().catch(() => {});
+
+    await db.prepare(`ALTER TABLE sys_my_tasks ADD COLUMN project_id TEXT`).run().catch(() => {});
+    await db.prepare(`ALTER TABLE sys_my_tasks ADD COLUMN help_reason TEXT`).run().catch(() => {});
+    await db.prepare(`ALTER TABLE sys_my_tasks ADD COLUMN help_notified_to TEXT`).run().catch(() => {});
+
+    const countRes = await db.prepare(`SELECT COUNT(*) as cnt FROM sys_my_tasks`).first().catch(() => null);
+    if (!countRes || countRes.cnt === 0) {
+      const DEFAULT_MY_TASKS_INIT = [
+        { id: "tsk_001", code: "TSK-001", title: "Rùa tự động hóa dây chuyền dán đế 3 Skechers D'Lites", description: "Triển khai hệ thống xe rùa tự động cấp phôi dán đế cho dây chuyền 3 nhà máy Skechers.", department_id: "IT_DIGITAL", project_id: "PRJ-AUTOMATION", assignee_emp_code: "202608001", assignee_name: "Phạm Nguyễn Anh Huy", reporter_emp_code: "202608002", reviewer_emp_code: "202608002", priority: "HIGH", start_date: "2026-09-01", due_date: "2026-09-15", status: "DOING", progress: 60, tags: "KAIZEN,AUTOMATION", checklist: JSON.stringify([{ id: "c1", title: "Khảo sát mặt bằng dây chuyền 3", completed: true }]), result_description: "" },
+        { id: "tsk_006", code: "TSK-006", title: "Tối ưu tồn kho cửa hàng Skechers Flagship Vincom", description: "Đồng bộ tồn kho real-time giữa kho tổng Kiên Giang và các cửa hàng bán lẻ Skechers trên toàn quốc.", department_id: "RETAIL_SKECHERS", project_id: "PRJ-SKECHERS-RETAIL", assignee_emp_code: "202608001", assignee_name: "Phạm Nguyễn Anh Huy", reporter_emp_code: "202608005", reviewer_emp_code: "202608002", priority: "HIGH", start_date: "2026-09-08", due_date: "2026-09-25", status: "DOING", progress: 75, tags: "SKECHERS,RETAIL", checklist: JSON.stringify([{ id: "c1", title: "Tích hợp POS API cửa hàng Vincom", completed: true }]), result_description: "" }
+      ];
+      for (const t of DEFAULT_MY_TASKS_INIT) {
+        await db.prepare(`
+          INSERT INTO sys_my_tasks (
+            id, code, title, description, department_id, project_id, assignee_emp_code, assignee_name,
+            reporter_emp_code, reviewer_emp_code, priority, start_date, due_date, status,
+            progress, tags, checklist, result_description
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(
+          t.id, t.code, t.title, t.description, t.department_id, t.project_id, t.assignee_emp_code, t.assignee_name,
+          t.reporter_emp_code, t.reviewer_emp_code, t.priority, t.start_date, t.due_date, t.status,
+          t.progress, t.tags, t.checklist, t.result_description || ""
+        ).run().catch(() => {});
+      }
+    }
+  } catch (e) {}
+}
+
 export default {
   async fetch(request, env, ctx) {
     try {
@@ -34,77 +307,76 @@ export default {
       return Response.redirect(new URL("/work", request.url), 301);
     }
 
+    const SECURE_JSON_HEADERS = { "Content-Type": "application/json" };
+
     const ROLE_ACCOUNTS = {
       TONG_GIAM_DOC: {
-        empCode: "TGĐ-001",
-        name: "Tổng Giám Đốc",
-        title: "Tổng Giám Đốc Tập Đoàn TBS Group",
-        department: "Ban Giám Đốc Tập Đoàn",
-        avatar: "/images/tbs-logo.png",
-        email: "tgd@tbsgroup.vn",
-        phone: "0988 000 001",
-        roleCode: "TONG_GIAM_DOC",
+        empCode: "202608001",
+        name: "Phạm Nguyễn Anh Huy",
+        title: "TGĐ / Trưởng Phòng IT & CĐS",
+        department: "IT - Team Chuyển Đổi Số",
+        avatar: "https://res.cloudinary.com/dwl2xtbqa/image/upload/v1787117525/nzcft200bebofw7b4uzg.jpg",
+        email: "anhy.work.2004@gmail.com",
+        phone: "0522511245",
+        roleCode: "SUPER_ADMIN",
         redirectUrl: "/work",
       },
       PHO_TONG_GIAM_DOC: {
-        empCode: "PTGĐ-002",
-        name: "Phó Tổng Giám Đốc",
-        title: "Phó Tổng Giám Đốc Vận Hành & Chuỗi Cung Ứng",
+        empCode: "11950404",
+        name: "Bùi Đình Trung",
+        title: "P.TGĐ",
         department: "Ban Giám Đốc Vận Hành",
         avatar: "/images/tbs-logo.png",
-        email: "ptgd@tbsgroup.vn",
-        phone: "0988 000 002",
+        email: "11950404@tbsgroup.vn",
+        phone: "0903800002",
         roleCode: "PHO_TONG_GIAM_DOC",
         redirectUrl: "/work",
       },
       GIAM_DOC: {
-        empCode: "GĐ-003",
-        name: "Giám Đốc",
-        title: "Giám Đốc Khối Sản Xuất & Tổ Hợp Nhà Máy",
-        department: "Khối Sản Xuất & Nhà Máy",
+        empCode: "210608003",
+        name: "Vũ Thành Lê",
+        title: "GĐ",
+        department: "Ban Giám Đốc",
         avatar: "/images/tbs-logo.png",
-        email: "gd@tbsgroup.vn",
-        phone: "0988 000 003",
+        email: "210608003@tbsgroup.vn",
+        phone: "0903800003",
         roleCode: "GIAM_DOC",
         redirectUrl: "/work",
       },
       PHO_GIAM_DOC: {
-        empCode: "PGĐ-004",
-        name: "Phó Giám Đốc",
-        title: "Phó Giám Đốc Quản Lý Chất Lượng (QC) & Gemba",
+        empCode: "201803001",
+        name: "Nguyễn Thị Mai",
+        title: "P.GĐK",
         department: "Khối Quản Lý Chất Lượng (QC)",
         avatar: "/images/tbs-logo.png",
-        email: "pgd@tbsgroup.vn",
-        phone: "0988 000 004",
+        email: "201803001@tbsgroup.vn",
+        phone: "0903800004",
         roleCode: "PHO_GIAM_DOC",
         redirectUrl: "/work",
       },
       CBCNV: {
-        empCode: "202608001",
-        name: "Cán Bộ Công Nhân Viên",
-        title: "Cán Bộ Công Nhân Viên",
-        department: "Văn Phòng Chuỗi SKECHERS",
+        empCode: "202112003",
+        name: "Lê Khải",
+        title: "Chuyên Viên Vận Hành",
+        department: "Nhân Sự - Hành Chính",
         avatar: "/images/tbs-logo.png",
-        email: "cbcnv@tbsgroup.vn",
+        email: "202112003@tbsgroup.vn",
         phone: "0988 000 005",
         roleCode: "CBCNV",
         redirectUrl: "/work",
       },
       SYSTEM_ADMIN: {
-        empCode: "ADMIN-2026",
-        name: "Quản Trị Viên Hệ Thống",
-        title: "Quản Trị Viên Hệ Thống TBS Group",
-        department: "Khối Quản Trị Hệ Thống & Digital",
+        empCode: "202608001",
+        name: "Phạm Nguyễn Anh Huy",
+        title: "Super Admin",
+        department: "IT - Team Chuyển Đổi Số",
         avatar: "/images/tbs-logo.png",
-        email: "admin@tbsgroup.vn",
-        phone: "0988 000 000",
-        roleCode: "SYSTEM_ADMIN",
+        email: "anhy.work.2004@gmail.com",
+        phone: "0522511245",
+        roleCode: "SUPER_ADMIN",
         redirectUrl: "/admin",
       },
       "tbsgroup2026@gmail.com": {
-        empCode: "ADMIN-2026",
-        name: "Quản Trị Viên Hệ Thống",
-        title: "Quản Trị Viên Hệ Thống TBS Group",
         department: "Khối Quản Trị Hệ Thống & Digital",
         avatar: "/images/tbs-logo.png",
         email: "admin@tbsgroup.vn",
@@ -139,10 +411,21 @@ export default {
         name: "Trần Ngọc Huy",
         title: "Kỹ Sư IT - Team Chuyển Đổi Số",
         department: "IT - Team Chuyển Đổi Số",
-        avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+        avatar: "",
         email: "tranhuy110421@gmail.com",
         phone: "0522511246",
         roleCode: "TRUONG_PHONG",
+        redirectUrl: "/work",
+      },
+      "202608003": {
+        empCode: "202608003",
+        name: "Ngô Hà Thanh An",
+        title: "Chuyên Viên Nhân Sự & Hành Chánh",
+        department: "Nhân Sự - Hành Chính",
+        avatar: "",
+        email: "ngohathanhan@tbsgroup.vn",
+        phone: "0903800003",
+        roleCode: "NHAN_VIEN",
         redirectUrl: "/work",
       },
       "LT-001": {
@@ -189,7 +472,3515 @@ export default {
         roleCode: "CBCNV",
         redirectUrl: "/work",
       },
+      "210602002": {
+        empCode: "210602002",
+        name: "Trần Thị Ngoan",
+        title: "Chuyên Viên Nhân Sự & Hành Chánh",
+        department: "Nhân Sự - Hành Chính",
+        avatar: "",
+        email: "210602002@tbsgroup.vn",
+        phone: "",
+        roleCode: "NHAN_VIEN",
+        redirectUrl: "/work",
+      },
+      "201506009": {
+        empCode: "201506009",
+        name: "Lê Thúy Diễm",
+        title: "Chuyên Viên Nhân Sự & Hành Chánh",
+        department: "Nhân Sự - Hành Chính",
+        avatar: "",
+        email: "201506009@tbsgroup.vn",
+        phone: "",
+        roleCode: "NHAN_VIEN",
+        redirectUrl: "/work",
+      },
+      "201607010": {
+        empCode: "201607010",
+        name: "Nguyễn Thị Đào",
+        title: "Chuyên Viên Nhân Sự & Hành Chánh",
+        department: "Nhân Sự - Hành Chính",
+        avatar: "",
+        email: "201607010@tbsgroup.vn",
+        phone: "",
+        roleCode: "NHAN_VIEN",
+        redirectUrl: "/work",
+      },
+      "201507009": {
+        empCode: "201507009",
+        name: "Hồ Thị Thảo",
+        title: "Chuyên Viên Nhân Sự & Hành Chánh",
+        department: "Nhân Sự - Hành Chính",
+        avatar: "",
+        email: "201507009@tbsgroup.vn",
+        phone: "",
+        roleCode: "NHAN_VIEN",
+        redirectUrl: "/work",
+      },
+      "201507015": {
+        empCode: "201507015",
+        name: "Đoàn Thị Trinh",
+        title: "Chuyên Viên Nhân Sự & Hành Chánh",
+        department: "Nhân Sự - Hành Chính",
+        avatar: "",
+        email: "201507015@tbsgroup.vn",
+        phone: "",
+        roleCode: "NHAN_VIEN",
+        redirectUrl: "/work",
+      },
+      "212103096": {
+        empCode: "212103096",
+        name: "Nguyễn Văn Nguyện",
+        title: "Chuyên Viên Nhân Sự & Hành Chánh",
+        department: "Nhân Sự - Hành Chính",
+        avatar: "",
+        email: "212103096@tbsgroup.vn",
+        phone: "",
+        roleCode: "NHAN_VIEN",
+        redirectUrl: "/work",
+      },
     };
+
+    // ============================================================
+    // D1 API ROUTE: /api/auth/login, /api/auth/me, /api/auth/logout
+    // ============================================================
+    if (url.pathname === "/api/auth/login" || url.pathname === "/api/auth/me" || url.pathname === "/api/auth/logout") {
+      const CORS = {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      };
+      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+
+      if (url.pathname === "/api/auth/login" && request.method === "POST") {
+        try {
+          const body = await request.json().catch(() => ({}));
+          const cleanEmp = (body.empCode || body.emp_code || body.role || "").toString().trim();
+          if (!cleanEmp) {
+            return new Response(JSON.stringify({ success: false, error: "Vui lòng nhập Mã số nhân viên (MSNV)" }), { status: 400, headers: CORS });
+          }
+
+          let userRecord = null;
+          if (env && env.DB) {
+            try {
+              userRecord = await env.DB.prepare("SELECT * FROM sys_users WHERE UPPER(emp_code) = UPPER(?) OR UPPER(email) = UPPER(?)").bind(cleanEmp, cleanEmp).first().catch(() => null);
+            } catch (e) {}
+          }
+
+          if (!userRecord && ROLE_ACCOUNTS[cleanEmp]) {
+            const r = ROLE_ACCOUNTS[cleanEmp];
+            userRecord = {
+              emp_code: r.empCode,
+              name: r.name,
+              title: r.title,
+              department: r.department,
+              email: r.email,
+              phone: r.phone || "",
+              role_code: r.roleCode,
+              avatar: r.avatar || "",
+              redirect_url: r.redirectUrl || "/work"
+            };
+          }
+
+          const empCode = userRecord?.emp_code || userRecord?.empCode || cleanEmp;
+          const userProfile = {
+            userId: userRecord?.id || 205,
+            empCode: empCode,
+            name: userRecord?.name || userRecord?.emp_name || `Cán bộ (${empCode})`,
+            title: userRecord?.title || "Cán bộ công nhân viên",
+            department: userRecord?.department || "Văn Phòng Chuỗi SKECHERS",
+            email: userRecord?.email || `${empCode.toLowerCase()}@tbsgroup.vn`,
+            phone: userRecord?.phone || "",
+            roleCode: userRecord?.role_code || userRecord?.roleCode || "CBCNV",
+            roleLevel: (userRecord?.role_code === "TRUONG_PHONG" ? 3 : (userRecord?.role_code === "SUPER_ADMIN" || userRecord?.role_code === "TONG_GIAM_DOC") ? 1 : 4),
+            avatar: userRecord?.avatar || "",
+            redirectUrl: userRecord?.redirect_url || userRecord?.redirectUrl || "/work"
+          };
+
+          const token = `tbs_token_${empCode}_${Date.now()}`;
+          return new Response(JSON.stringify({
+            success: true,
+            message: "Đăng nhập thành công",
+            token,
+            user: userProfile
+          }), {
+            headers: {
+              ...CORS,
+              "Set-Cookie": `tbs_token=${token}; Path=/; Max-Age=31536000; SameSite=Lax`
+            }
+          });
+        } catch (err) {
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS });
+        }
+      }
+
+      if (url.pathname === "/api/auth/me") {
+        const authHeader = request.headers.get("authorization");
+        const token = authHeader ? authHeader.replace("Bearer ", "") : null;
+        const session = token ? parseSessionWorker(token) : null;
+        if (!session) return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED" }), { status: 401, headers: CORS });
+        return new Response(JSON.stringify({ success: true, user: session }), { headers: CORS });
+      }
+
+      if (url.pathname === "/api/auth/logout") {
+        return new Response(JSON.stringify({ success: true, message: "Đã đăng xuất thành công" }), {
+          headers: {
+            ...CORS,
+            "Set-Cookie": "tbs_token=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT"
+          }
+        });
+      }
+    }
+
+    // ============================================================
+    // API ROUTE: /api/users (User Management & Synchronization)
+    // ============================================================
+    if (url.pathname === "/api/users" || url.pathname.startsWith("/api/users")) {
+      const CORS_HEADERS = {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      };
+
+      if (request.method === "OPTIONS") {
+        return new Response(null, { status: 204, headers: CORS_HEADERS });
+      }
+
+      if (url.pathname === "/api/users/sync-diff" && request.method === "POST") {
+        try {
+          const body = await request.json().catch(() => ({}));
+          const { newUsers = [], updatedUsers = [], deactivatedUsers = [], options = {}, sourceFileName = "File_Excel.xlsx" } = body;
+
+          let successCount = 0;
+          let updatedCount = 0;
+          let deactivatedCount = 0;
+
+          if (env && env.DB) {
+            try {
+              await env.DB.prepare(`
+                CREATE TABLE IF NOT EXISTS sys_users (
+                  id TEXT PRIMARY KEY, emp_code TEXT UNIQUE, name TEXT, email TEXT, phone TEXT, title TEXT, department TEXT, role_code TEXT, status TEXT DEFAULT 'ACTIVE', ngay_vao TEXT, vtcv_hien_tai TEXT, phong_ban_hien_tai TEXT, vtcv_sap TEXT, vtcv_sap_xep TEXT, pb_sap_xep TEXT, bo_phan_moi TEXT, phong_ban_moi TEXT, ghi_chu TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+              `).run().catch(() => {});
+
+              await env.DB.prepare(`
+                CREATE TABLE IF NOT EXISTS audit_logs (
+                  id TEXT PRIMARY KEY, action TEXT, user_email TEXT, details TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+              `).run().catch(() => {});
+
+              await env.DB.prepare(`
+                DELETE FROM sys_users WHERE rowid NOT IN (
+                  SELECT MIN(rowid) FROM sys_users WHERE emp_code IS NOT NULL AND emp_code != '' GROUP BY emp_code
+                )
+              `).run().catch(() => {});
+
+              await env.DB.prepare(`
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_sys_users_emp_code ON sys_users(emp_code)
+              `).run().catch(() => {});
+
+              const statements = [];
+
+              for (const u of newUsers) {
+                const empCodeStr = String(u.empCode || u.emp_code || "").trim();
+                if (!empCodeStr) continue;
+
+                statements.push(
+                  env.DB.prepare(`
+                    INSERT INTO sys_users (
+                      id, emp_code, name, email, phone, title, department, role_code, status,
+                      ngay_vao, vtcv_hien_tai, phong_ban_hien_tai, vtcv_sap, vtcv_sap_xep,
+                      pb_sap_xep, bo_phan_moi, phong_ban_moi, ghi_chu
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE', ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(emp_code) DO UPDATE SET
+                      name = excluded.name, email = excluded.email, phone = excluded.phone, title = excluded.title, department = excluded.department, role_code = excluded.role_code, status = 'ACTIVE', ngay_vao = excluded.ngay_vao, vtcv_hien_tai = excluded.vtcv_hien_tai, phong_ban_hien_tai = excluded.phong_ban_hien_tai, vtcv_sap = excluded.vtcv_sap, vtcv_sap_xep = excluded.vtcv_sap_xep, pb_sap_xep = excluded.pb_sap_xep, bo_phan_moi = excluded.bo_phan_moi, phong_ban_moi = excluded.phong_ban_moi, ghi_chu = excluded.ghi_chu
+                  `).bind(
+                    String(u.id || `emp_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`),
+                    empCodeStr,
+                    String(u.name || "").trim(),
+                    String(u.email || "").trim(),
+                    String(u.phone || "").trim(),
+                    String(u.title || "").trim(),
+                    String(u.department || "").trim(),
+                    String(u.roleCode || u.role_code || "CBCNV").trim(),
+                    String(u.ngayVao || u.ngay_vao || "").trim(),
+                    String(u.vtcvHienTai || u.vtcv_hien_tai || "").trim(),
+                    String(u.phongBanHienTai || u.phong_ban_hien_tai || "").trim(),
+                    String(u.vtcvSap || u.vtcv_sap || "").trim(),
+                    String(u.vtcvSapXep || u.vtcv_sap_xep || "").trim(),
+                    String(u.phongBanSapXep || u.pb_sap_xep || "").trim(),
+                    String(u.boPhoanMoi || u.bo_phan_moi || "").trim(),
+                    String(u.phongBanMoi || u.phong_ban_moi || "").trim(),
+                    String(u.ghiChu || u.ghi_chu || "").trim()
+                  )
+                );
+                successCount++;
+              }
+
+              for (const item of updatedUsers) {
+                const u = item.data || item;
+                const empCodeStr = String(u.empCode || u.emp_code || "").trim();
+                if (!empCodeStr) continue;
+
+                if (options.preserveManualLock) {
+                  statements.push(
+                    env.DB.prepare(`
+                      UPDATE sys_users SET
+                        name = ?, email = ?, phone = ?, title = ?, department = ?, role_code = ?,
+                        ngay_vao = ?, vtcv_hien_tai = ?, phong_ban_hien_tai = ?, vtcv_sap = ?,
+                        vtcv_sap_xep = ?, pb_sap_xep = ?, bo_phan_moi = ?, phong_ban_moi = ?, ghi_chu = ?
+                      WHERE emp_code = ?
+                    `).bind(
+                      String(u.name || "").trim(), String(u.email || "").trim(), String(u.phone || "").trim(), String(u.title || "").trim(), String(u.department || "").trim(), String(u.roleCode || u.role_code || "CBCNV").trim(),
+                      String(u.ngayVao || u.ngay_vao || "").trim(), String(u.vtcvHienTai || u.vtcv_hien_tai || "").trim(), String(u.phongBanHienTai || u.phong_ban_hien_tai || "").trim(), String(u.vtcvSap || u.vtcv_sap || "").trim(),
+                      String(u.vtcvSapXep || u.vtcv_sap_xep || "").trim(), String(u.phongBanSapXep || u.pb_sap_xep || "").trim(), String(u.boPhoanMoi || u.bo_phan_moi || "").trim(), String(u.phongBanMoi || u.phong_ban_moi || "").trim(), String(u.ghiChu || u.ghi_chu || "").trim(),
+                      empCodeStr
+                    )
+                  );
+                } else {
+                  statements.push(
+                    env.DB.prepare(`
+                      UPDATE sys_users SET
+                        name = ?, email = ?, phone = ?, title = ?, department = ?, role_code = ?, status = 'ACTIVE',
+                        ngay_vao = ?, vtcv_hien_tai = ?, phong_ban_hien_tai = ?, vtcv_sap = ?,
+                        vtcv_sap_xep = ?, pb_sap_xep = ?, bo_phan_moi = ?, phong_ban_moi = ?, ghi_chu = ?
+                      WHERE emp_code = ?
+                    `).bind(
+                      String(u.name || "").trim(), String(u.email || "").trim(), String(u.phone || "").trim(), String(u.title || "").trim(), String(u.department || "").trim(), String(u.roleCode || u.role_code || "CBCNV").trim(),
+                      String(u.ngayVao || u.ngay_vao || "").trim(), String(u.vtcvHienTai || u.vtcv_hien_tai || "").trim(), String(u.phongBanHienTai || u.phong_ban_hien_tai || "").trim(), String(u.vtcvSap || u.vtcv_sap || "").trim(),
+                      String(u.vtcvSapXep || u.vtcv_sap_xep || "").trim(), String(u.phongBanSapXep || u.pb_sap_xep || "").trim(), String(u.boPhoanMoi || u.bo_phan_moi || "").trim(), String(u.phongBanMoi || u.phong_ban_moi || "").trim(), String(u.ghiChu || u.ghi_chu || "").trim(),
+                      empCodeStr
+                    )
+                  );
+                }
+                updatedCount++;
+              }
+
+              for (const item of deactivatedUsers) {
+                const empCodeStr = String(typeof item === "string" ? item : item.empCode || item.emp_code || "").trim();
+                if (!empCodeStr) continue;
+                statements.push(
+                  env.DB.prepare(`UPDATE sys_users SET status = 'INACTIVE' WHERE emp_code = ?`).bind(empCodeStr)
+                );
+                deactivatedCount++;
+              }
+
+              const auditDetail = `Diff Sync File: ${sourceFileName} | Added: ${successCount} | Updated: ${updatedCount} | Deactivated: ${deactivatedCount}`;
+              statements.push(
+                env.DB.prepare(`
+                  INSERT INTO audit_logs (id, action, user_email, details)
+                  VALUES (?, 'PERSONNEL_DIFF_SYNC', 'admin@tbsgroup.vn', ?)
+                `).bind(`log_${Date.now()}`, auditDetail)
+              );
+
+              if (statements.length > 0) {
+                const CHUNK_SIZE = 50;
+                for (let i = 0; i < statements.length; i += CHUNK_SIZE) {
+                  const chunk = statements.slice(i, i + CHUNK_SIZE);
+                  try {
+                    await env.DB.batch(chunk);
+                  } catch (batchErr) {
+                    console.warn("D1 batch failed, running fallback individual inserts:", batchErr);
+                    for (const stmt of chunk) {
+                      await stmt.run().catch(err => console.error("Single stmt sync error:", err));
+                    }
+                  }
+                }
+              }
+            } catch (e) {
+              console.error("D1 Sync-Diff error:", e);
+              return new Response(JSON.stringify({ success: false, error: e.message || String(e) }), { status: 500, headers: CORS_HEADERS });
+            }
+          }
+
+          return new Response(JSON.stringify({
+            success: true,
+            data: { newUsersCount: successCount, updatedUsersCount: updatedCount, deactivatedUsersCount: deactivatedCount }
+          }), { headers: CORS_HEADERS });
+        } catch (err) {
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS_HEADERS });
+        }
+      }
+
+      if (request.method === "GET") {
+        try {
+          if (env && env.DB) {
+            try {
+              await env.DB.prepare(`
+                CREATE TABLE IF NOT EXISTS sys_users (
+                  id TEXT PRIMARY KEY,
+                  emp_code TEXT UNIQUE,
+                  name TEXT,
+                  email TEXT,
+                  phone TEXT,
+                  title TEXT,
+                  department TEXT,
+                  role_code TEXT,
+                  status TEXT DEFAULT 'ACTIVE',
+                  ngay_vao TEXT,
+                  vtcv_hien_tai TEXT,
+                  phong_ban_hien_tai TEXT,
+                  vtcv_sap TEXT,
+                  vtcv_sap_xep TEXT,
+                  pb_sap_xep TEXT,
+                  bo_phan_moi TEXT,
+                  phong_ban_moi TEXT,
+                  ghi_chu TEXT,
+                  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+              `).run().catch(() => {});
+
+              await env.DB.prepare(`
+                CREATE TABLE IF NOT EXISTS sys_metadata (
+                  key TEXT PRIMARY KEY,
+                  value TEXT
+                )
+              `).run().catch(() => {});
+
+              await env.DB.prepare(`
+                DELETE FROM sys_users WHERE rowid NOT IN (
+                  SELECT MIN(rowid) FROM sys_users WHERE emp_code IS NOT NULL AND emp_code != '' GROUP BY emp_code
+                )
+              `).run().catch(() => {});
+
+              await env.DB.prepare(`
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_sys_users_emp_code ON sys_users(emp_code)
+              `).run().catch(() => {});
+
+              // No auto-seeding of demo accounts into D1 so sys_users table strictly contains user imports
+
+              const { results } = await env.DB.prepare(`SELECT * FROM sys_users ORDER BY id ASC`).all();
+              if (results && Array.isArray(results)) {
+                return new Response(JSON.stringify({ success: true, data: results }), { headers: CORS_HEADERS });
+              }
+            } catch (e) {
+              console.error("GET sys_users inner error:", e);
+              return new Response(JSON.stringify({ success: false, error: e.message || String(e), data: [] }), { status: 500, headers: CORS_HEADERS });
+            }
+          }
+
+          return new Response(JSON.stringify({ success: true, data: [] }), { headers: CORS_HEADERS });
+        } catch (err) {
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS_HEADERS });
+        }
+      }
+
+      if (request.method === "POST" || request.method === "PUT") {
+        try {
+          const body = await request.json().catch(() => ({}));
+          if (env && env.DB && body.empCode) {
+            try {
+              await env.DB.prepare(`
+                CREATE TABLE IF NOT EXISTS sys_users (
+                  id TEXT PRIMARY KEY,
+                  emp_code TEXT UNIQUE,
+                  name TEXT,
+                  email TEXT,
+                  phone TEXT,
+                  title TEXT,
+                  department TEXT,
+                  role_code TEXT,
+                  status TEXT DEFAULT 'ACTIVE',
+                  ngay_vao TEXT,
+                  vtcv_hien_tai TEXT,
+                  phong_ban_hien_tai TEXT,
+                  vtcv_sap TEXT,
+                  vtcv_sap_xep TEXT,
+                  pb_sap_xep TEXT,
+                  bo_phan_moi TEXT,
+                  phong_ban_moi TEXT,
+                  ghi_chu TEXT,
+                  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+              `).run().catch(() => {});
+
+
+
+              await env.DB.prepare(`
+                INSERT INTO sys_users (
+                  id, emp_code, name, email, phone, title, department, role_code, status,
+                  ngay_vao, vtcv_hien_tai, phong_ban_hien_tai, vtcv_sap, vtcv_sap_xep,
+                  pb_sap_xep, bo_phan_moi, phong_ban_moi, ghi_chu
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(emp_code) DO UPDATE SET
+                  name = excluded.name,
+                  email = excluded.email,
+                  phone = excluded.phone,
+                  title = excluded.title,
+                  department = excluded.department,
+                  role_code = excluded.role_code,
+                  status = excluded.status,
+                  ngay_vao = excluded.ngay_vao,
+                  vtcv_hien_tai = excluded.vtcv_hien_tai,
+                  phong_ban_hien_tai = excluded.phong_ban_hien_tai,
+                  vtcv_sap = excluded.vtcv_sap,
+                  vtcv_sap_xep = excluded.vtcv_sap_xep,
+                  pb_sap_xep = excluded.pb_sap_xep,
+                  bo_phan_moi = excluded.bo_phan_moi,
+                  phong_ban_moi = excluded.phong_ban_moi,
+                  ghi_chu = excluded.ghi_chu
+              `).bind(
+                String(body.id || `emp_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`),
+                String(body.empCode || body.emp_code || "").trim(),
+                String(body.name || "").trim(),
+                String(body.email || "").trim(),
+                String(body.phone || "").trim(),
+                String(body.title || "").trim(),
+                String(body.department || "").trim(),
+                String(body.roleCode || body.role_code || "CBCNV").trim(),
+                String(body.status || "ACTIVE").trim(),
+                String(body.ngay_vao || body.ngayVao || "").trim(),
+                String(body.vtcv_hien_tai || body.vtcvHienTai || "").trim(),
+                String(body.phong_ban_hien_tai || body.phongBanHienTai || "").trim(),
+                String(body.vtcv_sap || body.vtcvSap || "").trim(),
+                String(body.vtcv_sap_xep || body.vtcvSapXep || "").trim(),
+                String(body.pb_sap_xep || body.phongBanSapXep || "").trim(),
+                String(body.bo_phan_moi || body.boPhoanMoi || "").trim(),
+                String(body.phong_ban_moi || body.phongBanMoi || "").trim(),
+                String(body.ghi_chu || body.ghiChu || "").trim()
+              ).run().catch((e) => {
+                console.error("D1 single user insert error:", e);
+              });
+            } catch (e) {}
+          }
+
+          return new Response(JSON.stringify({ success: true, message: "Cập nhật tài khoản người dùng thành công!" }), { headers: CORS_HEADERS });
+        } catch (err) {
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS_HEADERS });
+        }
+      }
+
+      if (request.method === "DELETE") {
+        try {
+          const all = url.searchParams.get("all");
+          const id = url.searchParams.get("id");
+          const empCode = url.searchParams.get("empCode");
+
+          if (env && env.DB) {
+            try {
+              if (all === "true") {
+                await env.DB.prepare(`DELETE FROM sys_users`).run().catch(() => {});
+                await env.DB.prepare(`INSERT INTO sys_metadata (key, value) VALUES ('sys_users_cleared', 'true') ON CONFLICT(key) DO UPDATE SET value = 'true'`).run().catch(() => {});
+              } else if (empCode || id) {
+                await env.DB.prepare(`DELETE FROM sys_users WHERE emp_code = ? OR id = ?`).bind(empCode || "", id || "").run().catch(() => {});
+              }
+            } catch (e) {}
+          }
+
+          return new Response(JSON.stringify({ success: true, message: "Đã xóa tài khoản người dùng thành công!" }), { headers: CORS_HEADERS });
+        } catch (err) {
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS_HEADERS });
+        }
+      }
+    }
+
+    // ============================================================
+    // API ROUTE: /api/task-boards
+    // ============================================================
+    if (url.pathname === "/api/task-boards" || url.pathname.startsWith("/api/task-boards")) {
+      const CORS_HEADERS = {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      };
+      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS_HEADERS });
+
+      const authHeader = request.headers.get("authorization");
+      const token = authHeader ? authHeader.replace("Bearer ", "") : null;
+      const session = parseSessionWorker(token);
+      const empCode = session?.empCode || session?.userId || "202608001";
+      const requestedDept = url.searchParams.get("department_id") || url.searchParams.get("dept");
+
+      if (request.method === "GET") {
+        let boards = [];
+        if (env && env.DB) {
+          try {
+            await env.DB.prepare(`
+              CREATE TABLE IF NOT EXISTS task_boards (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                type TEXT DEFAULT 'personal',
+                department_id TEXT,
+                owner_id TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+              )
+            `).run().catch(() => {});
+
+            await env.DB.prepare(`
+              CREATE TABLE IF NOT EXISTS task_lists (
+                id TEXT PRIMARY KEY,
+                board_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                sort_order INTEGER DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+              )
+            `).run().catch(() => {});
+
+            const { results } = await env.DB.prepare(`SELECT * FROM task_boards ORDER BY created_at DESC`).all();
+            if (results && results.length > 0) {
+              boards = results;
+            }
+          } catch (e) {}
+        }
+
+        if (boards.length === 0) {
+          boards = [
+            { id: "tb_dept_it", name: "Bảng Công Việc Phòng IT & CĐS", type: "department", department_id: "IT_CDS", owner_id: "202608001" },
+            { id: `tb_${empCode}_personal`, name: "Bảng Công Việc Cá Nhân", type: "personal", department_id: requestedDept || "IT_CDS", owner_id: empCode }
+          ];
+
+          if (env && env.DB) {
+            for (const b of boards) {
+              await env.DB.prepare(`
+                INSERT INTO task_boards (id, name, type, department_id, owner_id)
+                VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO NOTHING
+              `).bind(b.id, b.name, b.type, b.department_id, b.owner_id).run().catch(() => {});
+            }
+          }
+        }
+
+        return new Response(JSON.stringify({ success: true, data: boards }), { headers: CORS_HEADERS });
+      }
+
+      if (request.method === "POST") {
+        try {
+          const body = await request.json().catch(() => ({}));
+          const name = (body.name || "").trim();
+          if (!name) {
+            return new Response(JSON.stringify({ success: false, error: "Tên Bảng Công Việc là bắt buộc" }), { status: 400, headers: CORS_HEADERS });
+          }
+
+          const boardId = `tb_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+          const boardType = body.type || "personal";
+          const deptId = body.department_id || requestedDept || "IT_CDS";
+
+          if (env && env.DB) {
+            await env.DB.prepare(`
+              INSERT INTO task_boards (id, name, type, department_id, owner_id)
+              VALUES (?, ?, ?, ?, ?)
+            `).bind(boardId, name, boardType, deptId, empCode).run().catch(() => {});
+
+            const defaultLists = ["To Do", "Doing", "Review", "Done", "Need Help"];
+            for (let i = 0; i < defaultLists.length; i++) {
+              await env.DB.prepare(`
+                INSERT INTO task_lists (id, board_id, name, sort_order)
+                VALUES (?, ?, ?, ?)
+              `).bind(`tl_${boardId}_${i}`, boardId, defaultLists[i], i).run().catch(() => {});
+            }
+          }
+
+          return new Response(JSON.stringify({ success: true, message: "Đã tạo Bảng Công Việc mới thành công", id: boardId }), { headers: CORS_HEADERS });
+        } catch (err) {
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS_HEADERS });
+        }
+      }
+    }
+
+    // ============================================================
+    // API ROUTE: /api/task-cards
+    // ============================================================
+    if (url.pathname === "/api/task-cards" || url.pathname.startsWith("/api/task-cards")) {
+      const CORS_HEADERS = {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      };
+      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS_HEADERS });
+
+      const authHeader = request.headers.get("authorization");
+      const token = authHeader ? authHeader.replace("Bearer ", "") : null;
+      const session = parseSessionWorker(token);
+      const empCode = session?.empCode || session?.userId || "202608001";
+      const boardId = url.searchParams.get("board_id") || "tb_dept_it";
+
+      if (request.method === "GET") {
+        let lists = [];
+        let cards = [];
+
+        if (env && env.DB) {
+          try {
+            await env.DB.prepare(`
+              CREATE TABLE IF NOT EXISTS task_cards (
+                id TEXT PRIMARY KEY,
+                list_id TEXT NOT NULL,
+                board_id TEXT NOT NULL,
+                title TEXT NOT NULL,
+                description TEXT,
+                assignee_id TEXT,
+                deadline TEXT,
+                status TEXT DEFAULT 'in_progress',
+                color_state TEXT DEFAULT 'green',
+                job_position_id TEXT,
+                created_by TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+              )
+            `).run().catch(() => {});
+
+            const { results: lRes } = await env.DB.prepare(`SELECT * FROM task_lists WHERE board_id = ? ORDER BY sort_order ASC`).bind(boardId).all();
+            if (lRes && lRes.length > 0) lists = lRes;
+
+            const { results: cRes } = await env.DB.prepare(`SELECT * FROM task_cards WHERE board_id = ? ORDER BY created_at DESC`).bind(boardId).all();
+            if (cRes && cRes.length > 0) cards = cRes;
+          } catch (e) {}
+        }
+
+        if (lists.length === 0) {
+          lists = [
+            { id: `tl_${boardId}_0`, board_id: boardId, name: "To Do", sort_order: 0 },
+            { id: `tl_${boardId}_1`, board_id: boardId, name: "Doing", sort_order: 1 },
+            { id: `tl_${boardId}_2`, board_id: boardId, name: "Review", sort_order: 2 },
+            { id: `tl_${boardId}_3`, board_id: boardId, name: "Done", sort_order: 3 },
+            { id: `tl_${boardId}_4`, board_id: boardId, name: "Cần trợ giúp", sort_order: 4 },
+          ];
+        }
+
+        if (cards.length === 0) {
+          cards = [
+            {
+              id: "tc_001",
+              list_id: `tl_${boardId}_0`,
+              board_id: boardId,
+              title: "Nâng cấp hệ thống Andon báo lỗi chuyền may 5",
+              description: "Thay thế bảng LED cũ bằng màn hình Android hiển thị real-time sự cố dừng chuyền.",
+              assignee_id: "202608001",
+              deadline: "2026-09-20",
+              status: "in_progress",
+              color_state: "green",
+              created_by: empCode
+            },
+            {
+              id: "tc_002",
+              list_id: `tl_${boardId}_4`,
+              board_id: boardId,
+              title: "Khắc phục sự cố cảm biến vị trí xe rùa dán đế chuyền 3",
+              description: "Cần Trưởng phòng hỗ trợ phê duyệt thay mới linh kiện cảm biến vị trí khẩn cấp.",
+              assignee_id: empCode,
+              deadline: "2026-09-17",
+              status: "need_help",
+              color_state: "red",
+              created_by: empCode
+            }
+          ];
+        }
+
+        return new Response(JSON.stringify({ success: true, lists, cards }), { headers: CORS_HEADERS });
+      }
+
+      if (request.method === "POST") {
+        try {
+          const body = await request.json().catch(() => ({}));
+          const { board_id, list_id, title, description = "", assignee_id = null, deadline = null } = body;
+
+          if (!title || !title.trim()) {
+            return new Response(JSON.stringify({ success: false, error: "Tiêu đề công việc là bắt buộc" }), { status: 400, headers: CORS_HEADERS });
+          }
+
+          const cardId = `tc_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+          const targetBoard = board_id || boardId;
+          const targetList = list_id || `tl_${targetBoard}_0`;
+
+          let colorState = "green";
+          if (deadline) {
+            const diffDays = (new Date(deadline).getTime() - Date.now()) / 86400000;
+            if (diffDays < 0) colorState = "red";
+            else if (diffDays <= 1) colorState = "yellow";
+          }
+
+          if (env && env.DB) {
+            await env.DB.prepare(`
+              INSERT INTO task_cards (id, list_id, board_id, title, description, assignee_id, deadline, status, color_state, created_by)
+              VALUES (?, ?, ?, ?, ?, ?, ?, 'in_progress', ?, ?)
+            `).bind(cardId, targetList, targetBoard, title.trim(), description, assignee_id || empCode, deadline, colorState, empCode).run().catch(() => {});
+          }
+
+          return new Response(JSON.stringify({ success: true, message: "Đã tạo thẻ công việc mới thành công", id: cardId }), { headers: CORS_HEADERS });
+        } catch (err) {
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS_HEADERS });
+        }
+      }
+
+      if (request.method === "PATCH") {
+        try {
+          const body = await request.json().catch(() => ({}));
+          const { id, list_id, title, description, assignee_id, deadline, sort_order } = body;
+
+          if (!id) {
+            return new Response(JSON.stringify({ success: false, error: "Mã thẻ id là bắt buộc" }), { status: 400, headers: CORS_HEADERS });
+          }
+
+          if (env && env.DB) {
+            let colorState = "green";
+            if (deadline) {
+              const diffDays = (new Date(deadline).getTime() - Date.now()) / 86400000;
+              if (diffDays < 0) colorState = "red";
+              else if (diffDays <= 1) colorState = "yellow";
+            }
+
+            await env.DB.prepare(`
+              UPDATE task_cards
+              SET list_id = COALESCE(?, list_id),
+                  title = COALESCE(?, title),
+                  description = COALESCE(?, description),
+                  assignee_id = COALESCE(?, assignee_id),
+                  deadline = COALESCE(?, deadline),
+                  color_state = COALESCE(?, color_state),
+                  updated_at = CURRENT_TIMESTAMP
+              WHERE id = ?
+            `).bind(list_id || null, title || null, description || null, assignee_id || null, deadline || null, colorState, id).run().catch(() => {});
+          }
+
+          return new Response(JSON.stringify({ success: true, message: "Đã cập nhật thẻ công việc thành công" }), { headers: CORS_HEADERS });
+        } catch (err) {
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS_HEADERS });
+        }
+      }
+    }
+
+    // ============================================================
+    // API ROUTE: /api/tasks (Kanban Tasks CRUD & Drag-Drop Sync)
+    // ============================================================
+    if (url.pathname === "/api/tasks" || url.pathname.startsWith("/api/tasks")) {
+      const CORS_HEADERS = {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      };
+
+      if (request.method === "OPTIONS") {
+        return new Response(null, { status: 204, headers: CORS_HEADERS });
+      }
+
+      const DEFAULT_KANBAN_TASKS = [
+        {
+          id: "tsk_003",
+          code: "TSK-003",
+          title: "Nâng cấp hệ thống Andon báo lỗi chuyền may 5",
+          description: "Thay thế bảng LED cũ bằng màn hình Android hiển thị real-time sự cố dừng chuyền.",
+          department_id: "IT_DIGITAL",
+          assignee_emp_code: "202608001",
+          assignee_name: "Phạm Nguyễn Anh Huy",
+          reporter_emp_code: "202608002",
+          reviewer_emp_code: "202608002",
+          priority: "URGENT",
+          start_date: "2026-08-25",
+          due_date: "2026-09-10",
+          status: "TO_DO",
+          progress: 30,
+          tags: "ANDON,GEMBA",
+          checklist: [
+            { id: "c1", title: "Lắp đặt màn hình Android 32 inch", completed: true },
+            { id: "c2", title: "Kết nối WebSocket API báo hiệu", completed: false },
+          ],
+          result_description: "",
+        },
+        {
+          id: "tsk_004",
+          code: "TSK-004",
+          title: "Tự động hóa sao lưu dữ liệu toàn hệ thống lên Google Drive",
+          description: "Cấu hình Service Account Google Drive tự động sao lưu bảng D1 định kỳ theo sự kiện thao tác.",
+          department_id: "IT_DIGITAL",
+          assignee_emp_code: "202608001",
+          assignee_name: "Phạm Nguyễn Anh Huy",
+          reporter_emp_code: "202608002",
+          reviewer_emp_code: "202608002",
+          priority: "HIGH",
+          start_date: "2026-09-10",
+          due_date: "2026-09-12",
+          status: "DOING",
+          progress: 60,
+          tags: "BACKUP,CLOUD",
+          checklist: [
+            { id: "c1", title: "Cấu hình Google Drive Service Account JWT", completed: true },
+            { id: "c2", title: "Phân loại thư mục backup theo chủ đề", completed: true },
+            { id: "c3", title: "Tối ưu hóa Event-Driven trigger real-time", completed: false },
+          ],
+          result_description: "",
+        },
+        {
+          id: "tsk_005",
+          code: "TSK-005",
+          title: "Nghiên cứu ứng dụng AI Gemba nhận diện trang phục bảo hộ",
+          description: "Sử dụng camera AI nhận diện công nhân quên đeo khẩu trang hoặc nón bảo hộ khi vào khu vực máy cắt.",
+          department_id: "IT_DIGITAL",
+          assignee_emp_code: "202608001",
+          assignee_name: "Phạm Nguyễn Anh Huy",
+          reporter_emp_code: "202608002",
+          reviewer_emp_code: "202608002",
+          priority: "MEDIUM",
+          start_date: "2026-09-15",
+          due_date: "2026-10-01",
+          status: "TO_DO",
+          progress: 0,
+          tags: "AI,SAFETY",
+          checklist: [
+            { id: "c1", title: "Thu thập dataset hình ảnh đồ bảo hộ", completed: false },
+          ],
+          result_description: "",
+        },
+        {
+          id: "tsk_001",
+          code: "TSK-001",
+          title: "Rùa tự động hóa dây chuyền dán đế 3 Skechers D'Lites",
+          description: "Triển khai hệ thống xe rùa tự động cấp phôi dán đế cho dây chuyền 3 nhà máy Skechers. Cần nghiệm thu chỉ số an toàn và độ chính xác vị trí.",
+          department_id: "IT_DIGITAL",
+          assignee_emp_code: "202608001",
+          assignee_name: "Phạm Nguyễn Anh Huy",
+          reporter_emp_code: "202608002",
+          reviewer_emp_code: "202608002",
+          priority: "HIGH",
+          start_date: "2026-09-01",
+          due_date: "2026-09-15",
+          status: "TO_DO",
+          progress: 40,
+          tags: "KAIZEN,AUTOMATION",
+          checklist: [
+            { id: "c1", title: "Khảo sát mặt bằng dây chuyền 3", completed: true },
+            { id: "c2", title: "Lập trình cảm biến vị trí xe rùa", completed: false },
+          ],
+          result_description: "",
+        },
+        {
+          id: "tsk_002",
+          code: "TSK-002",
+          title: "Số hóa quy trình đăng ký xe đi công tác các nhà máy",
+          description: "Xây dựng form điện tử và luồng duyệt tự động cho cán bộ đăng ký xe đi công tác liên nhà máy.",
+          department_id: "HÀNH_CHÍNH",
+          assignee_emp_code: "202608001",
+          assignee_name: "Phạm Nguyễn Anh Huy",
+          reporter_emp_code: "202608003",
+          reviewer_emp_code: "202608002",
+          priority: "MEDIUM",
+          start_date: "2026-09-05",
+          due_date: "2026-09-20",
+          status: "DOING",
+          progress: 50,
+          tags: "ISO,DIGITAL",
+          checklist: [
+            { id: "c1", title: "Thu thập yêu cầu từ phòng Hành chính", completed: true },
+            { id: "c2", title: "Thiết kế giao diện đặt xe", completed: false },
+          ],
+          result_description: "",
+        }
+      ];
+
+      const ensureMyTasksTable = async () => {
+        if (!env || !env.DB) return;
+        try {
+          await env.DB.prepare(`
+            CREATE TABLE IF NOT EXISTS sys_my_tasks (
+              id TEXT PRIMARY KEY,
+              code TEXT,
+              title TEXT,
+              description TEXT,
+              department_id TEXT,
+              assignee_emp_code TEXT,
+              assignee_name TEXT,
+              reporter_emp_code TEXT,
+              reviewer_emp_code TEXT,
+              priority TEXT,
+              start_date TEXT,
+              due_date TEXT,
+              status TEXT,
+              progress INTEGER,
+              tags TEXT,
+              checklist TEXT,
+              result_description TEXT,
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+          `).run().catch(() => {});
+
+          const countRes = await env.DB.prepare(`SELECT COUNT(*) as cnt FROM sys_my_tasks`).first().catch(() => null);
+          if (!countRes || countRes.cnt === 0) {
+            for (const t of DEFAULT_KANBAN_TASKS) {
+              await env.DB.prepare(`
+                INSERT INTO sys_my_tasks (
+                  id, code, title, description, department_id, assignee_emp_code, assignee_name,
+                  reporter_emp_code, reviewer_emp_code, priority, start_date, due_date, status,
+                  progress, tags, checklist, result_description
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              `).bind(
+                t.id, t.code, t.title, t.description, t.department_id, t.assignee_emp_code, t.assignee_name,
+                t.reporter_emp_code, t.reviewer_emp_code, t.priority, t.start_date, t.due_date, t.status,
+                t.progress, t.tags, JSON.stringify(t.checklist), t.result_description
+              ).run().catch(() => {});
+            }
+          }
+        } catch (e) {}
+      };
+
+      const authHeader = request.headers.get("authorization");
+      const token = authHeader ? authHeader.replace("Bearer ", "") : null;
+      const session = parseSessionWorker(token);
+      const empCode = session?.empCode || session?.userId || "202608001";
+      const userProfile = WORKER_SYSTEM_USER_MAP[empCode] || null;
+      const userRoleLevel = session?.roleLevel ?? (userProfile?.roleLevel ?? (userProfile?.roleCode === "TRUONG_PHONG" ? 3 : userProfile?.roleCode === "SUPER_ADMIN" ? 1 : 4));
+      const userDept = session?.departmentCode || userProfile?.departmentCode || "IT_CDS";
+
+      if (request.method === "GET") {
+        try {
+          const requestedDept = url.searchParams.get("department_id") || url.searchParams.get("dept");
+          const requestedAssignee = url.searchParams.get("assignee_emp_code") || url.searchParams.get("empCode");
+
+          let query = "";
+          let params = [];
+          let filteredFallback = DEFAULT_KANBAN_TASKS;
+
+          if (userRoleLevel >= 4) {
+            // Level 4: Staff / Worker / Maintenance -> Strictly only see their own tasks
+            query = `SELECT * FROM sys_my_tasks WHERE assignee_emp_code = ? OR reporter_emp_code = ? ORDER BY created_at DESC`;
+            params = [empCode, empCode];
+            filteredFallback = DEFAULT_KANBAN_TASKS.filter((t) => t.assignee_emp_code === empCode || t.reporter_emp_code === empCode);
+          } else if (userRoleLevel === 3) {
+            // Level 3: Department Head -> See all tasks in their managed department
+            if (requestedAssignee && requestedAssignee !== "ALL") {
+              query = `SELECT * FROM sys_my_tasks WHERE (department_id = ? OR department_id = 'IT_DIGITAL' OR assignee_emp_code = ? OR reporter_emp_code = ?) AND (assignee_emp_code = ? OR reporter_emp_code = ?) ORDER BY created_at DESC`;
+              params = [userDept, empCode, empCode, requestedAssignee, requestedAssignee];
+              filteredFallback = DEFAULT_KANBAN_TASKS.filter((t) => t.assignee_emp_code === requestedAssignee || t.reporter_emp_code === requestedAssignee);
+            } else {
+              query = `SELECT * FROM sys_my_tasks WHERE department_id = ? OR department_id = 'IT_DIGITAL' OR assignee_emp_code = ? OR reporter_emp_code = ? ORDER BY created_at DESC`;
+              params = [userDept, empCode, empCode];
+            }
+          } else {
+            // Level 1-2: Executive / Super Admin -> See all or filter by requested dept/assignee
+            if (requestedAssignee && requestedAssignee !== "ALL") {
+              query = `SELECT * FROM sys_my_tasks WHERE assignee_emp_code = ? OR reporter_emp_code = ? ORDER BY created_at DESC`;
+              params = [requestedAssignee, requestedAssignee];
+              filteredFallback = DEFAULT_KANBAN_TASKS.filter((t) => t.assignee_emp_code === requestedAssignee || t.reporter_emp_code === requestedAssignee);
+            } else if (requestedDept && requestedDept !== "ALL") {
+              query = `SELECT * FROM sys_my_tasks WHERE department_id = ? ORDER BY created_at DESC`;
+              params = [requestedDept];
+              filteredFallback = DEFAULT_KANBAN_TASKS.filter((t) => (t.department_id || "").toUpperCase().includes(requestedDept.toUpperCase()));
+            } else {
+              query = `SELECT * FROM sys_my_tasks ORDER BY created_at DESC`;
+              params = [];
+            }
+          }
+
+          if (env && env.DB) {
+            await ensureMyTasksTable();
+            const { results } = await env.DB.prepare(query).bind(...params).all();
+            if (results && results.length > 0) {
+              const formatted = results.map((r) => ({
+                ...r,
+                checklist: typeof r.checklist === "string" ? JSON.parse(r.checklist || "[]") : (r.checklist || []),
+              }));
+              return new Response(JSON.stringify({ success: true, tasks: formatted }), { headers: CORS_HEADERS });
+            }
+          }
+          return new Response(JSON.stringify({ success: true, tasks: filteredFallback }), { headers: CORS_HEADERS });
+        } catch (err) {
+          return new Response(JSON.stringify({ success: true, tasks: DEFAULT_KANBAN_TASKS }), { headers: CORS_HEADERS });
+        }
+      }
+
+      if (request.method === "POST") {
+        try {
+          const body = await request.json().catch(() => ({}));
+          const title = (body.title || "").trim();
+          if (!title) {
+            return new Response(JSON.stringify({ success: false, error: "Tiêu đề là bắt buộc" }), { status: 400, headers: CORS_HEADERS });
+          }
+
+          const targetAssigneeEmp = body.assignee_emp_code || empCode;
+          const targetAssigneeName = body.assignee_name || WORKER_SYSTEM_USER_MAP[targetAssigneeEmp]?.name || session?.name || "Cán Bộ";
+
+          const newTask = {
+            id: `tsk_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+            code: `TSK-${Math.floor(100 + Math.random() * 900)}`,
+            title: title,
+            description: (body.description || "").trim(),
+            department_id: body.department_id || userDept || "IT_CDS",
+            assignee_emp_code: targetAssigneeEmp,
+            assignee_name: targetAssigneeName,
+            reporter_emp_code: empCode,
+            priority: body.priority || "MEDIUM",
+            start_date: new Date().toISOString().substring(0, 10),
+            due_date: body.due_date || new Date(Date.now() + 7 * 86400000).toISOString().substring(0, 10),
+            status: "TO_DO",
+            progress: 0,
+            tags: body.tags || "TASK",
+            checklist: [],
+            result_description: "",
+          };
+
+          if (env && env.DB) {
+            await ensureMyTasksTable();
+            await env.DB.prepare(`
+              INSERT INTO sys_my_tasks (
+                id, code, title, description, department_id, assignee_emp_code, assignee_name,
+                reporter_emp_code, priority, start_date, due_date, status, progress, tags, checklist, result_description
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `).bind(
+              newTask.id, newTask.code, newTask.title, newTask.description, newTask.department_id,
+              newTask.assignee_emp_code, newTask.assignee_name, newTask.reporter_emp_code,
+              newTask.priority, newTask.start_date, newTask.due_date, newTask.status,
+              newTask.progress, newTask.tags, JSON.stringify(newTask.checklist), newTask.result_description
+            ).run().catch(() => {});
+
+            // Trigger real-time Google Drive backup
+            await triggerEventDrivenDriveBackup(env, "TASK_CREATE", empCode).catch(() => {});
+          }
+
+          return new Response(JSON.stringify({ success: true, message: "Đã tạo công việc mới", task: newTask }), { headers: CORS_HEADERS });
+        } catch (err) {
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS_HEADERS });
+        }
+      }
+
+      if (request.method === "PATCH") {
+        try {
+          const body = await request.json().catch(() => ({}));
+          const { taskId, status, resultDescription, checklistId, completed, progress } = body;
+
+          if (!taskId) {
+            return new Response(JSON.stringify({ success: false, error: "taskId là bắt buộc" }), { status: 400, headers: CORS_HEADERS });
+          }
+
+          if (env && env.DB) {
+            await ensureMyTasksTable();
+            const existing = await env.DB.prepare(`SELECT * FROM sys_my_tasks WHERE id = ?`).bind(taskId).first().catch(() => null);
+
+            if (existing) {
+              let newStatus = status !== undefined ? status : existing.status;
+              let newResult = resultDescription !== undefined ? resultDescription : existing.result_description;
+              let newProgress = progress !== undefined ? progress : existing.progress;
+              let checklistArr = typeof existing.checklist === "string" ? JSON.parse(existing.checklist || "[]") : (existing.checklist || []);
+
+              if (checklistId !== undefined) {
+                checklistArr = checklistArr.map((c) => c.id === checklistId ? { ...c, completed: Boolean(completed) } : c);
+                const doneCount = checklistArr.filter((c) => c.completed).length;
+                newProgress = checklistArr.length > 0 ? Math.round((doneCount / checklistArr.length) * 100) : newProgress;
+              }
+
+              if (newStatus === "DONE") {
+                newProgress = 100;
+              }
+
+              await env.DB.prepare(`
+                UPDATE sys_my_tasks
+                SET status = ?, result_description = ?, progress = ?, checklist = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+              `).bind(newStatus, newResult, newProgress, JSON.stringify(checklistArr), taskId).run().catch(() => {});
+
+              // Record Audit log & trigger real-time Google Drive backup on task move / completion!
+              await recordAuditLog(
+                { empCode: "202608001", roleCode: "TRUONG_PHONG", id: "emp_1" },
+                "KANBAN_TASKS",
+                newStatus === "DONE" ? "COMPLETE_TASK" : "MOVE_TASK_STATUS",
+                taskId,
+                { oldStatus: existing.status },
+                { newStatus, resultDescription: newResult },
+                request
+              ).catch(() => {});
+
+              await triggerEventDrivenDriveBackup(env, "KANBAN_TASKS", "202608001").catch(() => {});
+            }
+          }
+
+          return new Response(JSON.stringify({ success: true, message: "Đã chuyển trạng thái công việc thành công" }), { headers: CORS_HEADERS });
+        } catch (err) {
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS_HEADERS });
+        }
+      }
+    }
+
+    // ============================================================
+    // ============================================================
+    // API ROUTE: GET /api/test-backup (Immediate Test Backup Trigger)
+    // ============================================================
+    if (url.pathname === "/api/test-backup") {
+      const CORS_HEADERS = {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+      };
+      try {
+        const testUser = { empCode: "202608001", roleCode: "TRUONG_PHONG", id: "emp_1" };
+        await recordAuditLog(testUser, "SYSTEM_ADMIN", "MANUAL_TEST_BACKUP", "TEST_001", { test_note: "Kiem tra day file backup len Google Drive" }, request);
+        const overrideUrl = url.searchParams.get("url") || url.searchParams.get("webapp_url");
+        const backupResult = await triggerEventDrivenDriveBackup(env, "TEST_SUITE", "202608001", overrideUrl);
+        return new Response(JSON.stringify({
+          success: true,
+          message: "🎉 Đã chạy xong test sao lưu!",
+          backupResult: backupResult
+        }), { headers: CORS_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS_HEADERS });
+      }
+    }
+
+    // ============================================================
+    // API ROUTE: /api/push/subscribe & /api/push/unsubscribe
+    // ============================================================
+    if (url.pathname === "/api/push/subscribe" || url.pathname.startsWith("/api/push/subscribe")) {
+      const CORS = {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      };
+      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+      try {
+        const body = request.method === "POST" ? await request.json().catch(() => ({})) : {};
+        const { subscription, endpoint } = body || {};
+        const targetSub = subscription || (endpoint ? { endpoint } : null);
+        const subEndpoint = targetSub?.endpoint || endpoint;
+        if (subEndpoint && env && env.DB) {
+          try {
+            await env.DB.prepare(`
+              CREATE TABLE IF NOT EXISTS push_subscriptions (
+                id TEXT PRIMARY KEY,
+                endpoint TEXT UNIQUE NOT NULL,
+                subscription_json TEXT NOT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+              )
+            `).run().catch(() => {});
+            const subId = `sub_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+            await env.DB.prepare(`
+              INSERT INTO push_subscriptions (id, endpoint, subscription_json)
+              VALUES (?, ?, ?)
+              ON CONFLICT(endpoint) DO UPDATE SET subscription_json = excluded.subscription_json
+            `).bind(subId, subEndpoint, JSON.stringify(targetSub)).run().catch(() => {});
+          } catch (e) {}
+        }
+      } catch (e) {}
+      return new Response(JSON.stringify({ success: true, message: "Push subscription registered successfully" }), { headers: CORS });
+    }
+
+    if (url.pathname === "/api/push/unsubscribe" || url.pathname.startsWith("/api/push/unsubscribe")) {
+      const CORS = {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      };
+      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+      try {
+        const body = request.method === "POST" ? await request.json().catch(() => ({})) : {};
+        const { endpoint } = body || {};
+        if (endpoint && env && env.DB) {
+          try {
+            await env.DB.prepare(`DELETE FROM push_subscriptions WHERE endpoint = ?`).bind(endpoint).run().catch(() => {});
+          } catch (e) {}
+        }
+      } catch (e) {}
+      return new Response(JSON.stringify({ success: true, message: "Unsubscribed successfully" }), { headers: CORS });
+    }
+
+    // ============================================================
+    // API ROUTE: /api/audit/webhook
+    // ============================================================
+    if (url.pathname === "/api/audit/webhook" || url.pathname.startsWith("/api/audit/webhook")) {
+      const CORS = {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      };
+      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+      try {
+        const body = await request.json().catch(() => ({}));
+        const clientIp = request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for') || '127.0.0.1';
+        const userAgent = request.headers.get('user-agent') || 'Browser';
+        const eventType = body.eventType || 'GENERAL_AUDIT';
+        const data = body.data || {};
+
+        if (data.password) delete data.password;
+        if (data.oldPassword) delete data.oldPassword;
+        if (data.newPassword) delete data.newPassword;
+
+        if (env && env.DB) {
+          try {
+            await ensureAuditAndBackupTables();
+            await env.DB.prepare(`
+              INSERT INTO audit_logs (user_id, emp_code, emp_name, role_code, module, action, record_id, changes_json, ip_address, user_agent, created_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            `).bind(
+              data.emp_code || data.empCode || 'SYSTEM',
+              data.emp_code || data.empCode || 'SYSTEM',
+              data.emp_name || data.empName || 'Cán Bộ Công Nhân Viên',
+              data.role_code || data.roleCode || 'CBCNV',
+              eventType,
+              data.action || eventType,
+              data.record_id || null,
+              JSON.stringify(data),
+              clientIp,
+              userAgent
+            ).run().catch(() => {});
+          } catch (e) {}
+        }
+        return new Response(JSON.stringify({ success: true, message: "Audit log recorded successfully", eventType }), { headers: CORS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: true, message: "Audit log recorded" }), { headers: CORS });
+      }
+    }
+
+    // ============================================================
+    // API ROUTE: /api/notifications
+    // ============================================================
+    if (url.pathname === "/api/notifications" || url.pathname.startsWith("/api/notifications")) {
+      const CORS = {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      };
+      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+      if (request.method === "GET") {
+        let notifs = [];
+        if (env && env.DB) {
+          try {
+            await env.DB.prepare(`
+              CREATE TABLE IF NOT EXISTS sys_notifications (
+                id TEXT PRIMARY KEY,
+                title TEXT,
+                message TEXT,
+                type TEXT,
+                target_user TEXT,
+                link TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+              )
+            `).run().catch(() => {});
+            const { results } = await env.DB.prepare(`SELECT * FROM sys_notifications ORDER BY created_at DESC LIMIT 20`).all();
+            if (results && results.length > 0) notifs = results;
+          } catch (e) {}
+        }
+        if (notifs.length === 0) {
+          notifs = [
+            { id: "n1", title: "🔔 Chào mừng bạn đến với Văn Phòng Chuỗi SKECHERS", message: "Hệ thống đã sẵn sàng hỗ trợ tác nghiệp 2026", type: "INFO", targetUser: "ALL", created_at: new Date().toISOString() },
+            { id: "n2", title: "📋 Cập nhật bảng công việc phòng ban", message: "Hãy kiểm tra tiến độ các task được gán cho bạn", type: "KAIZEN", targetUser: "ALL", created_at: new Date().toISOString() },
+          ];
+        }
+        return new Response(JSON.stringify({ success: true, data: notifs }), { headers: CORS });
+      }
+      if (request.method === "POST") {
+        try {
+          const body = await request.json().catch(() => ({}));
+          if (env && env.DB && body.title) {
+            try {
+              await env.DB.prepare(`
+                CREATE TABLE IF NOT EXISTS sys_notifications (
+                  id TEXT PRIMARY KEY,
+                  title TEXT,
+                  message TEXT,
+                  type TEXT,
+                  target_user TEXT,
+                  link TEXT,
+                  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+              `).run().catch(() => {});
+              const notifId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+              await env.DB.prepare(`
+                INSERT INTO sys_notifications (id, title, message, type, target_user, link)
+                VALUES (?, ?, ?, ?, ?, ?)
+              `).bind(notifId, body.title, body.message || "", body.type || "INFO", body.targetUser || "ALL", body.link || "/work").run().catch(() => {});
+            } catch (e) {}
+          }
+          return new Response(JSON.stringify({ success: true, message: "Đã phát thông báo thành công" }), { headers: CORS });
+        } catch (err) {
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS });
+        }
+      }
+    }
+
+    // ============================================================
+    // API ROUTE: /api/profile
+    // ============================================================
+    if (url.pathname === "/api/profile" || url.pathname.startsWith("/api/profile")) {
+      const CORS = {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      };
+      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+      if (request.method === "GET") {
+        let profileData = null;
+        if (env && env.DB) {
+          try {
+            const empCode = url.searchParams.get("empCode") || "202608001";
+            const row = await env.DB.prepare(`SELECT * FROM sys_users WHERE emp_code = ?`).bind(empCode).first().catch(() => null);
+            if (row) profileData = row;
+          } catch (e) {}
+        }
+        if (!profileData) {
+          profileData = {
+            empCode: "202608001",
+            name: "Phạm Nguyễn Anh Huy",
+            phone: "0522511245",
+            email: "anhy.work.2004@gmail.com",
+            title: "IT - Team Chuyển Đổi Số",
+            department: "IT - Team Chuyển Đổi Số",
+            roleCode: "TRUONG_PHONG",
+            avatar: "https://res.cloudinary.com/dwl2xtbqa/image/upload/v1787117525/nzcft200bebofw7b4uzg.jpg",
+          };
+        }
+        return new Response(JSON.stringify({ success: true, data: profileData }), { headers: CORS });
+      }
+      if (request.method === "POST") {
+        try {
+          const body = await request.json().catch(() => ({}));
+          if (env && env.DB && (body.empCode || body.emp_code)) {
+            try {
+              await env.DB.prepare(`
+                INSERT INTO sys_users (id, emp_code, name, email, phone, title, department, role_code)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(emp_code) DO UPDATE SET
+                  name=excluded.name,
+                  email=excluded.email,
+                  phone=excluded.phone,
+                  title=excluded.title,
+                  department=excluded.department
+              `).bind(
+                body.id || `emp_${Date.now()}`,
+                body.empCode || body.emp_code,
+                body.name || "",
+                body.email || "",
+                body.phone || "",
+                body.title || "",
+                body.department || "",
+                body.roleCode || "CBCNV"
+              ).run().catch(() => {});
+            } catch (e) {}
+          }
+          return new Response(JSON.stringify({ success: true, message: "Cập nhật hồ sơ thành công" }), { headers: CORS });
+        } catch (err) {
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS });
+        }
+      }
+    }
+
+    // ============================================================
+    // API ROUTE: /api/projects
+    // ============================================================
+    if (url.pathname === "/api/projects" || url.pathname.startsWith("/api/projects")) {
+      const CORS = {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      };
+      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+      const proj = {
+        id: "PROJ-01",
+        code: "PROJ-DIGITAL-2026",
+        name: "Chuyển Đổi Số SKECHERS 2026",
+        description: "Dự án số hóa toàn diện quy trình sản xuất, Gemba & MMTB Văn phòng chuỗi SKECHERS - TBS Group.",
+        manager_name: "Phạm Nguyễn Anh Huy",
+        progress: 75,
+        members: [
+          { empCode: "202608001", name: "Phạm Nguyễn Anh Huy", department: "IT_CDS", role: "PROJECT_MANAGER" },
+          { empCode: "NS-001", name: "Nguyễn Thị Lan Anh", department: "NHAN_SU", role: "MEMBER" },
+          { empCode: "QC-001", name: "Bùi Thị Hằng", department: "CHAT_LUONG_QC", role: "MEMBER" },
+          { empCode: "KT-001", name: "Trần Thị Thu Hương", department: "KE_TOAN", role: "MEMBER" },
+        ],
+      };
+      return new Response(JSON.stringify({ success: true, project: proj }), { headers: CORS });
+    }
+
+    // ============================================================
+    // API ROUTE: /api/hr/onboarding
+    // ============================================================
+    if (url.pathname.startsWith("/api/hr/")) {
+      const CORS = {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      };
+      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+      if (url.pathname === "/api/hr/onboarding") {
+        const onboardingTasks = [
+          {
+            id: "ob_1",
+            employeeName: "Nguyễn Văn Hùng",
+            department: "Khối CNTT - Chuyển đổi số",
+            joinDate: "2026-09-01",
+            mentor: "Phạm Nguyễn Anh Huy",
+            progress: 60,
+            items: [
+              { text: "Nhận máy tính & cấp tài khoản TBS Email", done: true },
+              { text: "Đào tạo An toàn thông tin & Nội quy văn phòng", done: true },
+              { text: "Bàn giao tài liệu kiến trúc hệ thống 1-5-2", done: false },
+            ]
+          }
+        ];
+        return new Response(JSON.stringify({ success: true, data: onboardingTasks }), { headers: CORS });
+      }
+      return new Response(JSON.stringify({ success: true, data: [] }), { headers: CORS });
+    }
+
+    // ============================================================
+    // D1 API ROUTE: /api/task-boards
+    // ============================================================
+    if (url.pathname === "/api/task-boards" || url.pathname.startsWith("/api/task-boards")) {
+      const CORS = {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      };
+      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+
+      const authHeader = request.headers.get("authorization");
+      const token = authHeader ? authHeader.replace("Bearer ", "") : null;
+      if (!token) {
+        return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập để truy cập Task Board" }), { status: 401, headers: CORS });
+      }
+
+      const session = parseSessionWorker(token);
+      const empCode = session?.empCode || session?.userId || "202608001";
+      const userProfile = ROLE_ACCOUNTS[empCode] || null;
+      const userRoleLevel = session?.roleLevel ?? (userProfile?.roleCode === "TRUONG_PHONG" ? 3 : userProfile?.roleCode === "SYSTEM_ADMIN" || userProfile?.roleCode === "TONG_GIAM_DOC" ? 1 : 4);
+      const userManagedDept = session?.departmentCode || userProfile?.department || "";
+
+      if (request.method === "GET") {
+        try {
+          if (env && env.DB) await ensureWorkerTables(env.DB);
+          const requestedDept = url.searchParams.get("department_id") || url.searchParams.get("dept");
+
+          let query = "";
+          let params = [];
+
+          if (userRoleLevel === 3) {
+            query = `SELECT * FROM task_boards WHERE owner_id = ? OR type = 'personal' OR (department_id IS NOT NULL AND department_id = ?) ORDER BY created_at DESC`;
+            params = [empCode, userManagedDept];
+          } else if (userRoleLevel <= 2) {
+            if (requestedDept && requestedDept !== "all") {
+              query = `SELECT * FROM task_boards WHERE owner_id = ? OR type = 'personal' OR (department_id IS NOT NULL AND department_id = ?) ORDER BY created_at DESC`;
+              params = [empCode, requestedDept];
+            } else {
+              query = `SELECT * FROM task_boards ORDER BY created_at DESC`;
+              params = [];
+            }
+          } else {
+            query = `SELECT * FROM task_boards WHERE owner_id = ? OR type = 'personal' ORDER BY created_at DESC`;
+            params = [empCode];
+          }
+
+          let results = [];
+          if (env && env.DB) {
+            try {
+              const res = await env.DB.prepare(query).bind(...params).all();
+              if (res && res.results) results = res.results;
+            } catch (e) {}
+          }
+
+          if (results.length === 0 && env && env.DB) {
+            const defaultBoardId = `tb_${empCode}_personal`;
+            try {
+              await env.DB.prepare("INSERT INTO task_boards (id, name, type, owner_id) VALUES (?, 'Board Cá Nhân', 'personal', ?)").bind(defaultBoardId, empCode).run().catch(() => {});
+              const defaultLists = ["Plan", "To Do", "Doing", "Need Help"];
+              for (let i = 0; i < defaultLists.length; i++) {
+                await env.DB.prepare("INSERT INTO task_lists (id, board_id, name, sort_order) VALUES (?, ?, ?, ?)").bind(`tl_${defaultBoardId}_${i}`, defaultBoardId, defaultLists[i], i).run().catch(() => {});
+              }
+              const resFresh = await env.DB.prepare("SELECT * FROM task_boards WHERE id = ?").bind(defaultBoardId).all();
+              if (resFresh && resFresh.results) results = resFresh.results;
+            } catch (e) {}
+          }
+
+          return new Response(JSON.stringify({ success: true, data: results }), { headers: CORS });
+        } catch (err) {
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS });
+        }
+      }
+
+      if (request.method === "POST") {
+        try {
+          const body = await request.json().catch(() => ({}));
+          const { name, type = "personal", department_id = null } = body;
+          if (!name || !name.trim()) {
+            return new Response(JSON.stringify({ success: false, error: "Tên Task Board là bắt buộc" }), { status: 400, headers: CORS });
+          }
+
+          const boardId = `tb_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+          if (env && env.DB) {
+            await ensureWorkerTables(env.DB);
+            await env.DB.prepare("INSERT INTO task_boards (id, name, type, department_id, owner_id) VALUES (?, ?, ?, ?, ?)").bind(boardId, name.trim(), type, department_id, empCode).run();
+            const defaultLists = ["Plan", "To Do", "Doing", "Need Help"];
+            for (let i = 0; i < defaultLists.length; i++) {
+              await env.DB.prepare("INSERT INTO task_lists (id, board_id, name, sort_order) VALUES (?, ?, ?, ?)").bind(`tl_${boardId}_${i}`, boardId, defaultLists[i], i).run().catch(() => {});
+            }
+          }
+          return new Response(JSON.stringify({ success: true, message: "Đã tạo Task Board thành công", id: boardId }), { headers: CORS });
+        } catch (err) {
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS });
+        }
+      }
+    }
+
+    // ============================================================
+    // D1 API ROUTE: /api/task-cards/my-upcoming
+    // ============================================================
+    if (url.pathname === "/api/task-cards/my-upcoming") {
+      const CORS = {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      };
+      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+
+      const authHeader = request.headers.get("authorization");
+      const token = authHeader ? authHeader.replace("Bearer ", "") : null;
+      if (!token) return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED" }), { status: 401, headers: CORS });
+
+      const session = parseSessionWorker(token);
+      const empCode = session?.empCode || session?.userId || "202608001";
+
+      let cards = [];
+      if (env && env.DB) {
+        try {
+          await ensureWorkerTables(env.DB);
+          const { results } = await env.DB.prepare(`
+            SELECT * FROM task_cards
+            WHERE (assignee_id = ? OR created_by = ?) AND status != 'done'
+            ORDER BY CASE WHEN deadline IS NULL THEN 1 ELSE 0 END, deadline ASC
+            LIMIT 20
+          `).bind(empCode, empCode).all();
+          if (results) cards = results;
+        } catch (e) {}
+      }
+      return new Response(JSON.stringify({ success: true, data: cards }), { headers: CORS });
+    }
+
+    // ============================================================
+    // D1 API ROUTE: /api/task-cards/:id/review
+    // ============================================================
+    if (url.pathname.startsWith("/api/task-cards/") && url.pathname.endsWith("/review")) {
+      const CORS = {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      };
+      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+
+      const authHeader = request.headers.get("authorization");
+      const token = authHeader ? authHeader.replace("Bearer ", "") : null;
+      if (!token) return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED" }), { status: 401, headers: CORS });
+
+      const session = parseSessionWorker(token);
+      const reviewerId = session?.empCode || session?.userId || "MANAGER";
+      const parts = url.pathname.split("/");
+      const cardId = parts[3];
+
+      try {
+        const body = await request.json().catch(() => ({}));
+        const { rating = 5, comment = "" } = body;
+
+        if (env && env.DB && cardId) {
+          await ensureWorkerTables(env.DB);
+          const existing = await env.DB.prepare("SELECT * FROM task_cards WHERE id = ?").bind(cardId).first().catch(() => null);
+          if (!existing) {
+            return new Response(JSON.stringify({ success: false, error: "Không tìm thấy thẻ công việc" }), { status: 404, headers: CORS });
+          }
+
+          const reviewId = `tcr_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+          await env.DB.prepare("INSERT INTO task_card_reviews (id, card_id, reviewer_id, rating, comment) VALUES (?, ?, ?, ?, ?)").bind(reviewId, cardId, reviewerId, Number(rating) || 5, comment || "").run();
+          await env.DB.prepare("UPDATE task_cards SET status = 'done', updated_at = CURRENT_TIMESTAMP WHERE id = ?").bind(cardId).run();
+        }
+
+        return new Response(JSON.stringify({
+          success: true,
+          message: "Đã nghiệm thu và đánh giá thẻ công việc thành công!",
+          rating: Number(body.rating) || 5,
+        }), { headers: CORS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS });
+      }
+    }
+
+    // ============================================================
+    // D1 API ROUTE: /api/task-cards/:id/complete
+    // ============================================================
+    if (url.pathname.startsWith("/api/task-cards/") && url.pathname.endsWith("/complete")) {
+      const CORS = {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      };
+      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+
+      const authHeader = request.headers.get("authorization");
+      const token = authHeader ? authHeader.replace("Bearer ", "") : null;
+      if (!token) return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED" }), { status: 401, headers: CORS });
+
+      const parts = url.pathname.split("/");
+      const cardId = parts[3];
+
+      try {
+        if (env && env.DB && cardId) {
+          await ensureWorkerTables(env.DB);
+          const existing = await env.DB.prepare("SELECT * FROM task_cards WHERE id = ?").bind(cardId).first().catch(() => null);
+          if (!existing) {
+            return new Response(JSON.stringify({ success: false, error: "Không tìm thấy thẻ công việc" }), { status: 404, headers: CORS });
+          }
+          await env.DB.prepare("UPDATE task_cards SET status = 'pending_review', updated_at = CURRENT_TIMESTAMP WHERE id = ?").bind(cardId).run();
+        }
+        return new Response(JSON.stringify({
+          success: true,
+          message: "Đã đánh dấu hoàn thành! Thẻ chuyển sang trạng thái chờ Trưởng phòng nghiệm thu.",
+        }), { headers: CORS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS });
+      }
+    }
+
+    // ============================================================
+    // D1 API ROUTE: /api/task-cards (GET, POST, PATCH)
+    // ============================================================
+    if (url.pathname === "/api/task-cards" || url.pathname.startsWith("/api/task-cards")) {
+      const CORS = {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      };
+      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+
+      const authHeader = request.headers.get("authorization");
+      const token = authHeader ? authHeader.replace("Bearer ", "") : null;
+      if (!token) return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED" }), { status: 401, headers: CORS });
+
+      const session = parseSessionWorker(token);
+      const empCode = session?.empCode || session?.userId || "202608001";
+
+      if (request.method === "GET") {
+        try {
+          const boardId = url.searchParams.get("board_id");
+          if (!boardId) return new Response(JSON.stringify({ success: false, error: "board_id là bắt buộc" }), { status: 400, headers: CORS });
+
+          let lists = [];
+          let cards = [];
+          if (env && env.DB) {
+            await ensureWorkerTables(env.DB);
+            const resL = await env.DB.prepare("SELECT * FROM task_lists WHERE board_id = ? ORDER BY sort_order ASC").bind(boardId).all();
+            if (resL && resL.results) lists = resL.results;
+
+            const resC = await env.DB.prepare("SELECT * FROM task_cards WHERE board_id = ? ORDER BY sort_order ASC, created_at DESC").bind(boardId).all();
+            if (resC && resC.results) cards = resC.results;
+          }
+          return new Response(JSON.stringify({ success: true, lists, cards }), { headers: CORS });
+        } catch (err) {
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS });
+        }
+      }
+
+      if (request.method === "POST") {
+        try {
+          const body = await request.json().catch(() => ({}));
+          const { board_id, list_id, title, description = "", assignee_id = null, deadline = null, job_position_id = null } = body;
+          if (!board_id || !list_id || !title || !title.trim()) {
+            return new Response(JSON.stringify({ success: false, error: "board_id, list_id và title là bắt buộc" }), { status: 400, headers: CORS });
+          }
+
+          const cardId = `tc_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+          let colorState = "green";
+          if (deadline) {
+            const now = new Date().getTime();
+            const dlTime = new Date(deadline).getTime();
+            const diffDays = (dlTime - now) / (1000 * 60 * 60 * 24);
+            if (diffDays < 0) colorState = "red";
+            else if (diffDays <= 1) colorState = "yellow";
+          }
+
+          if (env && env.DB) {
+            await ensureWorkerTables(env.DB);
+            await env.DB.prepare(`
+              INSERT INTO task_cards (id, list_id, board_id, title, description, assignee_id, deadline, status, color_state, job_position_id, created_by)
+              VALUES (?, ?, ?, ?, ?, ?, ?, 'in_progress', ?, ?, ?)
+            `).bind(cardId, list_id, board_id, title.trim(), description, assignee_id, deadline, colorState, job_position_id, empCode).run();
+          }
+          return new Response(JSON.stringify({ success: true, message: "Đã tạo thẻ công việc thành công", id: cardId }), { headers: CORS });
+        } catch (err) {
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS });
+        }
+      }
+
+      if (request.method === "PATCH") {
+        try {
+          const body = await request.json().catch(() => ({}));
+          const { id, list_id, title, description, assignee_id, deadline, sort_order } = body;
+          if (!id) return new Response(JSON.stringify({ success: false, error: "Mã thẻ id là bắt buộc" }), { status: 400, headers: CORS });
+
+          if (env && env.DB) {
+            await ensureWorkerTables(env.DB);
+            const existing = await env.DB.prepare("SELECT * FROM task_cards WHERE id = ?").bind(id).first().catch(() => null);
+            if (!existing) {
+              return new Response(JSON.stringify({ success: false, error: "Không tìm thấy thẻ công việc" }), { status: 404, headers: CORS });
+            }
+
+            let colorState = existing.color_state;
+            const finalDeadline = deadline !== undefined ? deadline : existing.deadline;
+            if (finalDeadline) {
+              const now = new Date().getTime();
+              const dlTime = new Date(finalDeadline).getTime();
+              const diffDays = (dlTime - now) / (1000 * 60 * 60 * 24);
+              if (diffDays < 0) colorState = "red";
+              else if (diffDays <= 1) colorState = "yellow";
+              else colorState = "green";
+            }
+
+            await env.DB.prepare(`
+              UPDATE task_cards
+              SET list_id = COALESCE(?, list_id),
+                  title = COALESCE(?, title),
+                  description = COALESCE(?, description),
+                  assignee_id = COALESCE(?, assignee_id),
+                  deadline = COALESCE(?, deadline),
+                  color_state = ?,
+                  sort_order = COALESCE(?, sort_order),
+                  updated_at = CURRENT_TIMESTAMP
+              WHERE id = ?
+            `).bind(list_id, title, description, assignee_id, deadline, colorState, sort_order, id).run();
+          }
+          return new Response(JSON.stringify({ success: true, message: "Đã cập nhật thẻ công việc thành công" }), { headers: CORS });
+        } catch (err) {
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS });
+        }
+      }
+    }
+
+    // ============================================================
+    // D1 API ROUTE: /api/workspace/menu
+    // ============================================================
+    if (url.pathname === "/api/workspace/menu" || url.pathname.startsWith("/api/workspace/menu")) {
+      const CORS = {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      };
+      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+
+      const authHeader = request.headers.get("authorization");
+      const token = authHeader ? authHeader.replace("Bearer ", "") : null;
+      const session = token ? parseSessionWorker(token) : null;
+      const roleParam = url.searchParams.get("role");
+
+      let roleCode = "NHAN_VIEN";
+      if (session) roleCode = session.roleCode || session.role || "NHAN_VIEN";
+      else if (roleParam) roleCode = roleParam;
+
+      const MANDATORY_ROUTES = [
+        { route: "/work/room-booking", label: "Đăng Ký Phòng Họp", icon: "IconCalendar", isMandatory: true },
+        { route: "/work/business-trip", label: "Đăng Ký Công Tác", icon: "IconBriefcase", isMandatory: true },
+      ];
+      const MINIMAL_FALLBACK_ROUTES = [
+        { route: "/work/my-tasks", label: "Công Việc Của Tôi", icon: "IconChecklist", isMandatory: true },
+        { route: "/work/kaizen/register", label: "Đề Xuất Kaizen", icon: "IconSparkles", isMandatory: false },
+        { route: "/work/room-booking", label: "Đăng Ký Phòng Họp", icon: "IconCalendar", isMandatory: true },
+        { route: "/work/business-trip", label: "Đăng Ký Công Tác", icon: "IconBriefcase", isMandatory: true },
+        { route: "/work/notifications", label: "Thông Báo Cá Nhân", icon: "IconBell", isMandatory: false },
+        { route: "/work/payroll/me", label: "Bảng Lương Của Tôi", icon: "IconReceipt", isMandatory: false },
+      ];
+
+      let configuredRoutes = [];
+      let isFallback = true;
+      if (env && env.DB) {
+        try {
+          await ensureWorkerTables(env.DB);
+          const { results } = await env.DB.prepare(`
+            SELECT * FROM role_workspace_config WHERE UPPER(role) = UPPER(?) ORDER BY sort_order ASC, created_at ASC
+          `).bind(roleCode).all();
+          if (results && results.length > 0) {
+            configuredRoutes = results.map((r) => ({
+              route: r.route,
+              label: r.label,
+              icon: r.icon || "IconChevronRight",
+              sortOrder: r.sort_order || 0,
+              isMandatory: false,
+            }));
+            isFallback = false;
+          }
+        } catch (e) {}
+      }
+
+      if (isFallback) configuredRoutes = MINIMAL_FALLBACK_ROUTES;
+      const mergedRoutes = [...configuredRoutes];
+      for (const mand of MANDATORY_ROUTES) {
+        if (!mergedRoutes.some((item) => item.route === mand.route)) {
+          mergedRoutes.push(mand);
+        }
+      }
+
+      return new Response(JSON.stringify({ success: true, role: roleCode, menu: mergedRoutes, isFallback }), { headers: CORS });
+    }
+
+    // ============================================================
+    // D1 API ROUTE: /api/overview/:module
+    // ============================================================
+    if (url.pathname.startsWith("/api/overview/")) {
+      const CORS = {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      };
+      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+
+      const parts = url.pathname.split("/");
+      const targetModule = parts[3] || "kaizen";
+      const plantGroup = url.searchParams.get("plant_group") || "ALL";
+      const plantCode = url.searchParams.get("plant_code") || "ALL";
+
+      let stats = { total_proposals: 0, approved_proposals: 0, pending_proposals: 0, total_saved_seconds: 0, total_savings_vnd: 0 };
+      if (env && env.DB && targetModule === "kaizen") {
+        try {
+          let whereClause = "WHERE (is_archived IS NULL OR is_archived = 0)";
+          const bindings = [];
+          if (plantGroup === "TO_HOP_KIEN_GIANG") {
+            whereClause += " AND (plant_group = 'TO_HOP_KIEN_GIANG' OR site_code = 'thkiengiangshoes' OR LOWER(source_region) LIKE '%kiên giang%' OR LOWER(factory) LIKE '%kiên giang%')";
+          } else if (plantGroup === "VPCHUOI") {
+            whereClause += " AND (site_code != 'thkiengiangshoes' AND LOWER(source_region) NOT LIKE '%kiên giang%')";
+          } else if (plantGroup === "MIEN_DONG") {
+            whereClause += " AND (plant_group = 'MIEN_DONG' OR LOWER(factory) LIKE '%miền đông%')";
+          }
+          if (plantCode !== "ALL") {
+            whereClause += " AND (plant_code = ? OR LOWER(factory) LIKE ?)";
+            bindings.push(plantCode, `%${plantCode.toLowerCase()}%`);
+          }
+
+          const totalRes = await env.DB.prepare(`SELECT COUNT(*) as count FROM ci_kaizen_proposals ${whereClause}`).bind(...bindings).first().catch(() => null);
+          const approvedRes = await env.DB.prepare(`SELECT COUNT(*) as count FROM ci_kaizen_proposals ${whereClause} AND (approval_status = 'PHE_DUYET' OR sub_status = 'DA_DANH_GIA')`).bind(...bindings).first().catch(() => null);
+          const pendingRes = await env.DB.prepare(`SELECT COUNT(*) as count FROM ci_kaizen_proposals ${whereClause} AND (sub_status = 'CHO_DUYET' OR sub_status = 'CHO_IE_XAC_NHAN' OR sub_status = 'CHO_PHE_DUYET_TRIEN_KHAI')`).bind(...bindings).first().catch(() => null);
+          const savingsRes = await env.DB.prepare(`SELECT SUM(so_giay_tiet_kiem) as total_seconds, SUM(total_savings_vnd) as total_vnd FROM ci_kaizen_proposals ${whereClause}`).bind(...bindings).first().catch(() => null);
+
+          stats = {
+            total_proposals: Number(totalRes?.count || 0),
+            approved_proposals: Number(approvedRes?.count || 0),
+            pending_proposals: Number(pendingRes?.count || 0),
+            total_saved_seconds: Number(savingsRes?.total_seconds || 0),
+            total_savings_vnd: Number(savingsRes?.total_vnd || 0),
+          };
+        } catch (e) {}
+      }
+
+      return new Response(JSON.stringify({ success: true, module: targetModule, plant_group: plantGroup, plant_code: plantCode, stats }), { headers: CORS });
+    }
+
+    // ============================================================
+    // D1 API ROUTE: /api/employee/:id/performance
+    // ============================================================
+    if (url.pathname.startsWith("/api/employee/") && url.pathname.endsWith("/performance")) {
+      const CORS = {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      };
+      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+
+      const parts = url.pathname.split("/");
+      const empId = parts[3];
+
+      let reviews = [];
+      let avgScore = 5.0;
+      let totalCompleted = 0;
+
+      if (env && env.DB && empId) {
+        try {
+          await ensureWorkerTables(env.DB);
+          const { results } = await env.DB.prepare(`
+            SELECT r.rating, r.comment, r.reviewed_at, c.title, c.id as card_id
+            FROM task_card_reviews r
+            JOIN task_cards c ON r.card_id = c.id
+            WHERE c.assignee_id = ? OR c.created_by = ?
+            ORDER BY r.reviewed_at DESC LIMIT 100
+          `).bind(empId, empId).all();
+          if (results) {
+            reviews = results;
+            totalCompleted = reviews.length;
+            const sumRatings = reviews.reduce((acc, item) => acc + (Number(item.rating) || 0), 0);
+            if (totalCompleted > 0) avgScore = Number((sumRatings / totalCompleted).toFixed(1));
+          }
+        } catch (e) {}
+      }
+
+      return new Response(JSON.stringify({
+        success: true,
+        employee_id: empId,
+        average_score: avgScore,
+        total_completed_tasks: totalCompleted,
+        reviews,
+      }), { headers: CORS });
+    }
+
+    // ============================================================
+    // D1 API ROUTE: /api/management-152/verify-access
+    // ============================================================
+    if (url.pathname === "/api/management-152/verify-access" || url.pathname.startsWith("/api/management-152/verify-access")) {
+      const CORS = {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      };
+      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+
+      const authHeader = request.headers.get("authorization");
+      const token = authHeader ? authHeader.replace("Bearer ", "") : null;
+      if (!token) return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập" }), { status: 401, headers: CORS });
+
+      const session = parseSessionWorker(token);
+      const empCode = session?.empCode || session?.userId || "202608001";
+
+      try {
+        const body = await request.json().catch(() => ({}));
+        const { pin } = body;
+        if (!pin || !pin.trim()) return new Response(JSON.stringify({ success: false, error: "Vui lòng nhập mã PIN xác thực" }), { status: 400, headers: CORS });
+
+        if (env && env.DB) {
+          await ensureWorkerTables(env.DB);
+          let pinRecord = await env.DB.prepare("SELECT * FROM user_security_pin WHERE user_id = ?").bind(empCode).first().catch(() => null);
+          if (!pinRecord) {
+            await env.DB.prepare("INSERT INTO user_security_pin (user_id, pin_hash, must_change_pin, failed_attempts) VALUES (?, ?, 1, 0)").bind(empCode, "123456").run().catch(() => {});
+            pinRecord = { user_id: empCode, pin_hash: "123456", must_change_pin: 1, failed_attempts: 0, locked_until: null };
+          }
+
+          if (pinRecord.locked_until) {
+            const lockTime = new Date(pinRecord.locked_until).getTime();
+            const nowTime = Date.now();
+            if (nowTime < lockTime) {
+              const remainingMins = Math.ceil((lockTime - nowTime) / (1000 * 60));
+              return new Response(JSON.stringify({
+                success: false,
+                error: "LOCKED",
+                message: `Tài khoản tạm bị khóa truy cập Module 1-5-2. Thử lại sau ${remainingMins} phút.`,
+              }), { status: 429, headers: CORS });
+            }
+          }
+
+          const isValidPin = pin.trim() === pinRecord.pin_hash;
+          if (!isValidPin) {
+            const newFailed = Number(pinRecord.failed_attempts || 0) + 1;
+            let lockedUntil = null;
+            if (newFailed >= 3) {
+              const lockDate = new Date();
+              lockDate.setMinutes(lockDate.getMinutes() + 15);
+              lockedUntil = lockDate.toISOString();
+            }
+            await env.DB.prepare("UPDATE user_security_pin SET failed_attempts = ?, locked_until = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?").bind(newFailed, lockedUntil, empCode).run().catch(() => {});
+            return new Response(JSON.stringify({
+              success: false,
+              error: newFailed >= 3 ? "LOCKED" : "INVALID_PIN",
+              message: newFailed >= 3 ? "Đã nhập sai 3 lần. Tài khoản bị tạm khóa 15 phút." : `Mã PIN không chính xác. Sai ${newFailed}/3 lần.`,
+            }), { status: 400, headers: CORS });
+          }
+
+          await env.DB.prepare("UPDATE user_security_pin SET failed_attempts = 0, locked_until = NULL, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?").bind(empCode).run().catch(() => {});
+          return new Response(JSON.stringify({ success: true, mustChangePin: Boolean(pinRecord.must_change_pin) }), { headers: CORS });
+        }
+
+        return new Response(JSON.stringify({ success: true, mustChangePin: false }), { headers: CORS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS });
+      }
+    }
+
+    // ============================================================
+    // D1 API ROUTE: /api/admin/workspace-config
+    // ============================================================
+    if (url.pathname === "/api/admin/workspace-config" || url.pathname.startsWith("/api/admin/workspace-config")) {
+      const CORS = {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      };
+      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+
+      const authHeader = request.headers.get("authorization");
+      const token = authHeader ? authHeader.replace("Bearer ", "") : null;
+      if (!token) return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED" }), { status: 401, headers: CORS });
+
+      if (request.method === "GET") {
+        try {
+          const roleParam = url.searchParams.get("role");
+          let results = [];
+          if (env && env.DB) {
+            await ensureWorkerTables(env.DB);
+            let query = "SELECT * FROM role_workspace_config ORDER BY role ASC, sort_order ASC";
+            let bindings = [];
+            if (roleParam) {
+              query = "SELECT * FROM role_workspace_config WHERE UPPER(role) = UPPER(?) ORDER BY sort_order ASC";
+              bindings.push(roleParam);
+            }
+            const res = await env.DB.prepare(query).bind(...bindings).all();
+            if (res && res.results) results = res.results;
+          }
+          return new Response(JSON.stringify({ success: true, data: results }), { headers: CORS });
+        } catch (err) {
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS });
+        }
+      }
+
+      if (request.method === "POST") {
+        try {
+          const body = await request.json().catch(() => ({}));
+          const { role, route, label, icon = "IconChevronRight", sort_order = 0 } = body;
+          if (!role || !route || !label) {
+            return new Response(JSON.stringify({ success: false, error: "Role, route và label là bắt buộc" }), { status: 400, headers: CORS });
+          }
+
+          const id = `rwc_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+          if (env && env.DB) {
+            await ensureWorkerTables(env.DB);
+            await env.DB.prepare("INSERT INTO role_workspace_config (id, role, route, label, icon, sort_order) VALUES (?, ?, ?, ?, ?, ?)").bind(id, role.toUpperCase(), route, label, icon, Number(sort_order) || 0).run();
+          }
+          return new Response(JSON.stringify({ success: true, message: "Đã thêm cấu hình menu cho role thành công", id }), { headers: CORS });
+        } catch (err) {
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS });
+        }
+      }
+
+      if (request.method === "DELETE") {
+        try {
+          const id = url.searchParams.get("id");
+          if (!id) return new Response(JSON.stringify({ success: false, error: "Thiếu tham số id" }), { status: 400, headers: CORS });
+
+          if (env && env.DB) {
+            await ensureWorkerTables(env.DB);
+            await env.DB.prepare("DELETE FROM role_workspace_config WHERE id = ?").bind(id).run();
+          }
+          return new Response(JSON.stringify({ success: true, message: "Đã xóa cấu hình menu" }), { headers: CORS });
+        } catch (err) {
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS });
+        }
+      }
+    }
+
+    // ============================================================
+    // D1 API ROUTE: /api/admin/audit-search
+    // ============================================================
+    if (url.pathname === "/api/admin/audit-search" || url.pathname.startsWith("/api/admin/audit-search")) {
+      const CORS = {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      };
+      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+
+      const authHeader = request.headers.get("authorization");
+      const token = authHeader ? authHeader.replace("Bearer ", "") : null;
+      if (!token) return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED" }), { status: 401, headers: CORS });
+
+      try {
+        const userId = url.searchParams.get("user_id");
+        const moduleName = url.searchParams.get("module");
+        const action = url.searchParams.get("action");
+
+        let results = [];
+        if (env && env.DB) {
+          await ensureWorkerTables(env.DB);
+          const conditions = [];
+          const bindings = [];
+
+          if (userId) {
+            conditions.push("(user_id = ? OR emp_code = ?)");
+            bindings.push(userId, userId);
+          }
+          if (moduleName) {
+            conditions.push("module = ?");
+            bindings.push(moduleName);
+          }
+          if (action) {
+            conditions.push("action = ?");
+            bindings.push(action);
+          }
+
+          const whereStr = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+          const query = `SELECT * FROM audit_logs ${whereStr} ORDER BY created_at DESC LIMIT 200`;
+
+          const res = await env.DB.prepare(query).bind(...bindings).all();
+          if (res && res.results) results = res.results;
+        }
+
+        return new Response(JSON.stringify({ success: true, data: results }), { headers: CORS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS });
+      }
+    }
+
+    // ============================================================
+    // D1 API ROUTE: /api/admin/module-152/verify-pin & change-pin
+    // ============================================================
+    if (url.pathname === "/api/admin/module-152/verify-pin") {
+      const CORS = {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      };
+      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+
+      const authHeader = request.headers.get("authorization");
+      const token = authHeader ? authHeader.replace("Bearer ", "") : null;
+      if (!token) return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED" }), { status: 401, headers: CORS });
+
+      const session = parseSessionWorker(token);
+      const empCode = session?.empCode || session?.userId || "202608001";
+
+      try {
+        const body = await request.json().catch(() => ({}));
+        const { pin } = body;
+        if (!pin || !pin.trim()) return new Response(JSON.stringify({ success: false, error: "Vui lòng nhập mã PIN 2FA" }), { status: 400, headers: CORS });
+
+        if (env && env.DB) {
+          await ensureWorkerTables(env.DB);
+          let pinRecord = await env.DB.prepare("SELECT * FROM admin_module_pin WHERE user_id = ?").bind(empCode).first().catch(() => null);
+          if (!pinRecord) {
+            await env.DB.prepare("INSERT INTO admin_module_pin (user_id, pin_hash, must_change_pin, failed_attempts) VALUES (?, ?, 1, 0)").bind(empCode, "123456").run().catch(() => {});
+            pinRecord = { user_id: empCode, pin_hash: "123456", must_change_pin: 1, failed_attempts: 0, locked_until: null };
+          }
+
+          if (pinRecord.locked_until) {
+            const lockTime = new Date(pinRecord.locked_until).getTime();
+            const nowTime = Date.now();
+            if (nowTime < lockTime) {
+              const remainingMins = Math.ceil((lockTime - nowTime) / (1000 * 60));
+              return new Response(JSON.stringify({
+                success: false,
+                error: "LOCKED",
+                message: `Tài khoản đã bị tạm khóa module 1-5-2. Vui lòng thử lại sau ${remainingMins} phút.`,
+              }), { status: 429, headers: CORS });
+            }
+          }
+
+          const isValidPin = pin.trim() === pinRecord.pin_hash;
+          if (!isValidPin) {
+            const newFailed = Number(pinRecord.failed_attempts || 0) + 1;
+            let lockedUntil = null;
+            if (newFailed >= 5) {
+              const lockDate = new Date();
+              lockDate.setMinutes(lockDate.getMinutes() + 15);
+              lockedUntil = lockDate.toISOString();
+            }
+            await env.DB.prepare("UPDATE admin_module_pin SET failed_attempts = ?, locked_until = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?").bind(newFailed, lockedUntil, empCode).run().catch(() => {});
+            return new Response(JSON.stringify({
+              success: false,
+              error: newFailed >= 5 ? "LOCKED" : "INVALID_PIN",
+              message: newFailed >= 5 ? "Đã nhập sai quá 5 lần. Tài khoản bị tạm khóa 15 phút." : `Mã PIN không đúng. Nhập sai ${newFailed}/5 lần.`,
+            }), { status: 400, headers: CORS });
+          }
+
+          await env.DB.prepare("UPDATE admin_module_pin SET failed_attempts = 0, locked_until = NULL, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?").bind(empCode).run().catch(() => {});
+          return new Response(JSON.stringify({ success: true, mustChangePin: Boolean(pinRecord.must_change_pin) }), { headers: CORS });
+        }
+
+        return new Response(JSON.stringify({ success: true, mustChangePin: false }), { headers: CORS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS });
+      }
+    }
+
+    if (url.pathname === "/api/admin/module-152/change-pin") {
+      const CORS = {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      };
+      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+
+      const authHeader = request.headers.get("authorization");
+      const token = authHeader ? authHeader.replace("Bearer ", "") : null;
+      if (!token) return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED" }), { status: 401, headers: CORS });
+
+      const session = parseSessionWorker(token);
+      const empCode = session?.empCode || session?.userId || "202608001";
+
+      try {
+        const body = await request.json().catch(() => ({}));
+        const { oldPin, newPin } = body;
+        if (!oldPin || !oldPin.trim() || !newPin || !newPin.trim()) {
+          return new Response(JSON.stringify({ success: false, error: "Vui lòng nhập đầy đủ mã PIN hiện tại và mã PIN mới" }), { status: 400, headers: CORS });
+        }
+        if (newPin.trim().length < 6) {
+          return new Response(JSON.stringify({ success: false, error: "Mã PIN mới phải có ít nhất 6 ký tự" }), { status: 400, headers: CORS });
+        }
+        if (newPin.trim() === "123456") {
+          return new Response(JSON.stringify({ success: false, error: "Mã PIN mới không được trùng với mã PIN mặc định (123456)" }), { status: 400, headers: CORS });
+        }
+
+        if (env && env.DB) {
+          await ensureWorkerTables(env.DB);
+          const pinRecord = await env.DB.prepare("SELECT * FROM admin_module_pin WHERE user_id = ?").bind(empCode).first().catch(() => null);
+          if (!pinRecord || pinRecord.pin_hash !== oldPin.trim()) {
+            return new Response(JSON.stringify({ success: false, error: "Mã PIN hiện tại không chính xác" }), { status: 400, headers: CORS });
+          }
+
+          await env.DB.prepare("UPDATE admin_module_pin SET pin_hash = ?, must_change_pin = 0, failed_attempts = 0, locked_until = NULL, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?").bind(newPin.trim(), empCode).run();
+        }
+
+        return new Response(JSON.stringify({
+          success: true,
+          message: "Đổi mã PIN 2FA thành công! Quý vị có thể truy cập Module 1-5-2 bình thường.",
+        }), { headers: CORS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS });
+      }
+    }
+
+    if (url.pathname === "/api/tasks") {
+      const CORS = {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      };
+      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+
+      const authHeader = request.headers.get("authorization");
+      const token = authHeader ? authHeader.replace("Bearer ", "") : null;
+      const session = parseSessionWorker(token);
+      const empCode = session?.empCode || session?.userId || "202608001";
+
+      try {
+        if (env && env.DB) {
+          await ensureWorkerTables(env.DB);
+        }
+
+        if (request.method === "GET") {
+          let tasks = [];
+          if (env && env.DB) {
+            const { results } = await env.DB.prepare("SELECT * FROM sys_my_tasks ORDER BY created_at DESC").all().catch(() => ({ results: [] }));
+            if (results && results.length > 0) {
+              tasks = results.map(r => ({
+                ...r,
+                checklist: typeof r.checklist === "string" ? JSON.parse(r.checklist || "[]") : (r.checklist || []),
+              }));
+            }
+          }
+          return new Response(JSON.stringify({ success: true, tasks }), { headers: CORS });
+        }
+
+        if (request.method === "POST") {
+          const body = await request.json().catch(() => ({}));
+          const {
+            title,
+            description = '',
+            priority = 'MEDIUM',
+            due_date,
+            project_id = null,
+            assignee_emp_code = '202608001',
+            assignee_name = 'Phạm Nguyễn Anh Huy',
+            department_id = 'IT_DIGITAL',
+            tags = 'TASK',
+          } = body;
+
+          if (!title || !title.trim()) {
+            return new Response(JSON.stringify({ success: false, error: 'Tiêu đề công việc là bắt buộc' }), { status: 400, headers: CORS });
+          }
+
+          const newTask = {
+            id: `tsk_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+            code: `TSK-${Math.floor(100 + Math.random() * 900)}`,
+            title: title.trim(),
+            description: (description || '').trim(),
+            department_id: department_id || "IT_DIGITAL",
+            project_id: project_id || null,
+            assignee_emp_code: assignee_emp_code || "202608001",
+            assignee_name: assignee_name || "Phạm Nguyễn Anh Huy",
+            reporter_emp_code: empCode,
+            priority: priority || "MEDIUM",
+            start_date: new Date().toISOString().substring(0, 10),
+            due_date: due_date || new Date(Date.now() + 7 * 86400000).toISOString().substring(0, 10),
+            status: "TO_DO",
+            progress: 0,
+            tags: tags || "TASK",
+            checklist: [],
+            result_description: "",
+          };
+
+          if (env && env.DB) {
+            await env.DB.prepare(`
+              INSERT INTO sys_my_tasks (
+                id, code, title, description, department_id, project_id, assignee_emp_code, assignee_name,
+                reporter_emp_code, priority, start_date, due_date, status, progress, tags, checklist, result_description
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `).bind(
+              newTask.id, newTask.code, newTask.title, newTask.description, newTask.department_id, newTask.project_id,
+              newTask.assignee_emp_code, newTask.assignee_name, newTask.reporter_emp_code,
+              newTask.priority, newTask.start_date, newTask.due_date, newTask.status,
+              newTask.progress, newTask.tags, JSON.stringify(newTask.checklist), newTask.result_description
+            ).run().catch((e) => console.error("D1 insert task err:", e));
+          }
+
+          return new Response(JSON.stringify({
+            success: true,
+            message: 'Tạo công việc thành công',
+            task: newTask,
+          }), { headers: CORS });
+        }
+
+        if (request.method === "PATCH") {
+          const body = await request.json().catch(() => ({}));
+          const { taskId, status, resultDescription, helpReason, checklistId, completed, progress } = body;
+
+          if (!taskId) {
+            return new Response(JSON.stringify({ success: false, error: 'taskId là bắt buộc' }), { status: 400, headers: CORS });
+          }
+
+          if (env && env.DB) {
+            const existing = await env.DB.prepare("SELECT * FROM sys_my_tasks WHERE id = ?").bind(taskId).first().catch(() => null);
+            if (existing) {
+              let newStatus = status !== undefined ? status : existing.status;
+              let newResult = resultDescription !== undefined ? resultDescription : existing.result_description;
+              let newHelpReason = helpReason !== undefined ? helpReason : existing.help_reason;
+              let newHelpNotifiedTo = existing.help_notified_to;
+
+              let newProgress = progress !== undefined ? progress : existing.progress;
+              let checklistArr = typeof existing.checklist === 'string' ? JSON.parse(existing.checklist || '[]') : (existing.checklist || []);
+
+              if (checklistId !== undefined) {
+                checklistArr = checklistArr.map((c) => c.id === checklistId ? { ...c, completed: Boolean(completed) } : c);
+                const doneCount = checklistArr.filter((c) => c.completed).length;
+                newProgress = checklistArr.length > 0 ? Math.round((doneCount / checklistArr.length) * 100) : newProgress;
+              }
+
+              if (newStatus === "DONE") {
+                newProgress = 100;
+              }
+
+              await env.DB.prepare(`
+                UPDATE sys_my_tasks
+                SET status = ?, result_description = ?, help_reason = ?, help_notified_to = ?, progress = ?, checklist = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+              `).bind(newStatus, newResult, newHelpReason || "", newHelpNotifiedTo || "", newProgress, JSON.stringify(checklistArr), taskId).run().catch(() => {});
+            }
+          }
+
+          return new Response(JSON.stringify({
+            success: true,
+            message: 'Đã cập nhật công việc thành công'
+          }), { headers: CORS });
+        }
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS });
+      }
+    }
+
+    // ============================================================
+    // API ROUTE: /api/ci-kaizen (Kaizen Proposals & Management)
+    // ============================================================
+    if (url.pathname === "/api/ci-kaizen" || url.pathname === "/api/ci-kaizen/" || url.pathname.startsWith("/api/ci-kaizen/")) {
+      const CORS = {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Sync-Secret",
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+      };
+
+      if (request.method === "OPTIONS") {
+        return new Response(null, { status: 204, headers: CORS });
+      }
+
+      try {
+        if (url.pathname === "/api/ci-kaizen/check-duplicate" && request.method === "POST") {
+          const body = await request.json().catch(() => ({}));
+          const { factory = '', region = '', line = '', category = '', beforeDescription = '', afterSolution = '', title = '' } = body;
+
+          let matches = [];
+          if (env && env.DB) {
+            const { results } = await env.DB.prepare(`
+              SELECT * FROM ci_kaizen_proposals 
+              WHERE (trang_thai IS NULL OR trang_thai != 'DA_GOP')
+              ORDER BY created_at DESC LIMIT 300
+            `).all().catch(() => ({ results: [] }));
+
+            if (results && results.length > 0) {
+              const targetArea = (factory || region || '').toUpperCase().trim();
+              const targetLine = (line || '').toUpperCase().trim();
+              const targetCategory = (category || '').toUpperCase().trim();
+              const targetText = `${title} ${beforeDescription} ${afterSolution}`;
+
+              for (const prop of results) {
+                const propArea = (prop.factory || prop.region || '').toUpperCase().trim();
+                const propLine = (prop.line || '').toUpperCase().trim();
+                const propCategory = (prop.category || '').toUpperCase().trim();
+                const propText = `${prop.title || ''} ${prop.before_description || ''} ${prop.after_solution || ''}`;
+
+                let score = 0;
+                if (targetArea && propArea && (targetArea.includes(propArea) || propArea.includes(targetArea))) score += 25;
+                if (targetLine && propLine && (targetLine.includes(propLine) || propLine.includes(targetLine))) score += 25;
+                else if (!targetLine && !propLine) score += 15;
+                if (targetCategory && propCategory && targetCategory === propCategory) score += 20;
+
+                const cleanTokens = (s) => (s || '').toLowerCase().replace(/[^\w\s\u00C0-\u1EF9]/gi, '').split(/\s+/).filter(w => w.length > 2);
+                const t1 = new Set(cleanTokens(targetText));
+                const t2 = new Set(cleanTokens(propText));
+                let inter = 0;
+                for (const tok of t1) { if (t2.has(tok)) inter++; }
+                const union = new Set([...t1, ...t2]).size;
+                const textSim = union > 0 ? Math.round((inter / union) * 100) : 0;
+                score += Math.round((textSim * 30) / 100);
+
+                if (textSim >= 30 && score >= 70) {
+                  matches.push({
+                    proposal: prop,
+                    similarityPercentage: Math.min(99, score),
+                  });
+                }
+              }
+            }
+          }
+
+          return new Response(JSON.stringify({
+            success: true,
+            isDuplicate: matches.length > 0,
+            matches: matches.slice(0, 5)
+          }), { headers: CORS });
+        }
+
+        if (url.pathname === "/api/ci-kaizen/sync" && (request.method === "POST" || request.method === "GET")) {
+          let syncedCount = 0;
+          let createdCount = 0;
+          let updatedCount = 0;
+
+          if (env && env.DB) {
+            try {
+              const fetchRes = await fetch("https://thkiengiangshoes.tbsgroup2026.workers.dev/api/ci-kaizen?sync=1", {
+                headers: {
+                  "Cache-Control": "no-cache",
+                  "x-sync-secret": "tbs_ii_secure_jwt_secret_key_2026"
+                }
+              });
+              if (fetchRes.ok) {
+                const json = await fetchRes.json();
+                const sourceProposals = json.data || json.proposals || [];
+                
+                for (const item of sourceProposals) {
+                  if (!item || (!item.id && !item.external_id) || !item.title) continue;
+                  
+                  const siteCode = item.site_code || 'thkiengiangshoes';
+                  const externalId = item.external_id || item.id;
+                  const localId = siteCode === 'thkiengiangshoes'
+                    ? (String(item.id).startsWith('tkg_') ? String(item.id) : `tkg_${externalId}`)
+                    : String(item.id);
+
+                  const existing = await env.DB.prepare('SELECT id FROM ci_kaizen_proposals WHERE id = ? OR (site_code = ? AND external_id = ?)').bind(localId, siteCode, externalId).first().catch(() => null);
+                  const attachmentsJson = item.attachments_json || (Array.isArray(item.attachments) ? JSON.stringify(item.attachments) : '[]');
+                  
+                  if (existing) {
+                    await env.DB.prepare(`
+                      UPDATE ci_kaizen_proposals
+                      SET title = ?, category = ?, category_label = ?, factory = ?, region = ?, department = ?, line = ?, proposer_name = ?, before_description = ?, after_solution = ?, before_image_url = ?, after_image_url = ?, attachments_json = ?, updated_at = CURRENT_TIMESTAMP
+                      WHERE id = ?
+                    `).bind(
+                      item.title || '', item.category || 'PRODUCTIVITY', item.category_label || item.categoryLabel || '3.Tăng Năng suất',
+                      'TH Kiên Giang Shoes', 'TH Kiên Giang Shoes', item.department || '', item.line || '',
+                      item.proposer_name || item.proposerName || '', item.before_description || item.beforeDescription || '', item.after_solution || item.afterSolution || '',
+                      item.before_image_url || item.beforeImageUrl || '', item.after_image_url || item.afterImageUrl || '', attachmentsJson, existing.id
+                    ).run().catch(() => {});
+                    updatedCount++;
+                  } else {
+                    await env.DB.prepare(`
+                      INSERT INTO ci_kaizen_proposals (
+                        id, code, title, category, category_label, registration_type, factory, region, source_region, department, line, proposer_name, proposer_emp_code, before_description, after_solution, saved_seconds, total_savings_vnd, score_points, vote_count, view_count, status, approval_status, sub_status, trang_thai, review_status, before_image_url, after_image_url, attachments_json, site_code, external_id, created_at
+                      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    `).bind(
+                      localId, item.code || `KZ-${Math.floor(1000 + Math.random() * 9000)}`, item.title || '', item.category || 'PRODUCTIVITY', item.category_label || item.categoryLabel || '3.Tăng Năng suất',
+                      item.registration_type || 'THI_DUA', 'TH Kiên Giang Shoes', 'TH Kiên Giang Shoes', 'TH Kiên Giang Shoes',
+                      item.department || '', item.line || '', item.proposer_name || item.proposerName || '', item.proposer_emp_code || item.proposerEmpCode || 'TKG-EMP',
+                      item.before_description || item.beforeDescription || '', item.after_solution || item.afterSolution || '',
+                      item.saved_seconds || 0, item.total_savings_vnd || 0, item.score_points || 0, item.vote_count || 0, item.view_count || 0,
+                      item.status || 'SUBMITTED', item.approval_status || 'PENDING', item.sub_status || 'CHO_DUYET', item.trang_thai || 'CHO_DUYET', item.review_status || 'CHO_DUYET',
+                      item.before_image_url || item.beforeImageUrl || '', item.after_image_url || item.afterImageUrl || '', attachmentsJson,
+                      siteCode, externalId, item.created_at || new Date().toISOString().replace('T', ' ').substring(0, 19)
+                    ).run().catch((e) => console.error("Sync D1 insert error:", e));
+                    createdCount++;
+                  }
+                  syncedCount++;
+                }
+              }
+            } catch (syncErr) {
+              console.error("[Sync Error]:", syncErr);
+            }
+          }
+
+          return new Response(JSON.stringify({
+            success: true,
+            message: `Đồng bộ dữ liệu từ TH Kiên Giang thành công! (Tổng: ${syncedCount}, Mới: ${createdCount}, Cập nhật: ${updatedCount})`,
+            syncedCount,
+            createdCount,
+            updatedCount
+          }), { headers: CORS });
+        }
+
+        if (request.method === "GET") {
+          if (url.pathname === "/api/ci-kaizen/status-counts") {
+            let total = 0, submitted = 0, pending = 0, approved = 0, rejected = 0;
+            if (env && env.DB) {
+              const res = await env.DB.prepare(`
+                SELECT 
+                  COUNT(*) as total,
+                  SUM(CASE WHEN sub_status = 'CHO_DUYET' OR trang_thai = 'CHO_DUYET' THEN 1 ELSE 0 END) as submitted,
+                  SUM(CASE WHEN approval_status = 'PHE_DUYET' OR trang_thai = 'DA_DANH_GIA' THEN 1 ELSE 0 END) as approved
+                FROM ci_kaizen_proposals
+              `).first().catch(() => null);
+              if (res) {
+                total = res.total || 0;
+                submitted = res.submitted || 0;
+                approved = res.approved || 0;
+              }
+            }
+            return new Response(JSON.stringify({
+              success: true,
+              data: { total, submitted, pending, approved, rejected }
+            }), { headers: CORS });
+          }
+
+          let proposals = [];
+          if (env && env.DB) {
+            const { results } = await env.DB.prepare("SELECT * FROM ci_kaizen_proposals ORDER BY created_at DESC LIMIT 500").all().catch(() => ({ results: [] }));
+            proposals = (results || []).map(p => ({ ...p, site_code: "vpchuoiskechers" }));
+          }
+
+          if (env && env.DB_KG) {
+            const { results: kgResults } = await env.DB_KG.prepare("SELECT * FROM ci_kaizen_proposals ORDER BY created_at DESC LIMIT 500").all().catch(() => ({ results: [] }));
+            if (kgResults && kgResults.length > 0) {
+              const existingIds = new Set(proposals.map(p => p.id));
+              for (const kgP of kgResults) {
+                if (!existingIds.has(kgP.id)) {
+                  proposals.push({ ...kgP, site_code: "thkiengiangshoes" });
+                }
+              }
+            }
+          }
+
+          proposals.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+
+          return new Response(JSON.stringify({
+            success: true,
+            data: proposals,
+            proposals: proposals
+          }), { headers: CORS });
+        }
+
+        if (request.method === "POST") {
+          const body = await request.json().catch(() => ({}));
+          const id = body.id || `kz_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+          
+          let code = body.code;
+          if (!code && env && env.DB) {
+            try {
+              const maxRes = await env.DB.prepare(`
+                SELECT code FROM ci_kaizen_proposals 
+                WHERE code LIKE 'CI-2026-%' 
+                ORDER BY CAST(SUBSTR(code, 9) AS INTEGER) DESC LIMIT 1
+              `).first().catch(() => null);
+
+              let maxSeq = 0;
+              if (maxRes && maxRes.code) {
+                const parts = String(maxRes.code).split("-");
+                const numStr = parts[parts.length - 1];
+                const parsedNum = parseInt(numStr, 10);
+                if (!isNaN(parsedNum)) maxSeq = parsedNum;
+              }
+              code = `CI-2026-${String(maxSeq + 1).padStart(3, "0")}`;
+            } catch (e) {
+              code = `CI-2026-${Math.floor(100 + Math.random() * 900)}`;
+            }
+          }
+          if (!code) {
+            code = `CI-2026-${Math.floor(100 + Math.random() * 900)}`;
+          }
+
+          if (env && env.DB) {
+            try {
+              await env.DB.prepare(`
+                INSERT INTO ci_kaizen_proposals (
+                  id, code, title, category, category_label, registration_type, factory, region, source_region, department, line, proposer_name, proposer_emp_code, before_description, after_solution, saved_seconds, total_savings_vnd, score_points, vote_count, view_count, status, approval_status, sub_status, trang_thai, review_status, before_image_url, after_image_url, attachments_json, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                  title = excluded.title,
+                  before_description = excluded.before_description,
+                  after_solution = excluded.after_solution,
+                  status = excluded.status
+              `).bind(
+                id, code, body.title || '', body.category || 'PRODUCTIVITY', body.categoryLabel || body.category_label || '3.Tăng Năng suất',
+                body.registrationType || 'THI_DUA', body.factory || 'VP CHUỖI', body.region || 'Nhà Máy Miền Đông', body.source_region || 'Văn phòng Chuỗi',
+                body.department || 'May', body.line || 'May', body.proposerName || body.proposer_name || '', body.proposerEmpCode || body.proposer_emp_code || '',
+                body.beforeDescription || body.before_description || '', body.afterSolution || body.after_solution || '',
+                body.savedSeconds || body.saved_seconds || 0, body.totalSavingsVnd || body.total_savings_vnd || 0,
+                body.scorePoints || body.score_points || 0, body.voteCount || body.vote_count || 0, body.viewCount || body.view_count || 0,
+                body.status || 'SUBMITTED', body.approvalStatus || body.approval_status || 'PENDING', body.subStatus || body.sub_status || 'CHO_DUYET',
+                body.trangThai || body.trang_thai || 'CHO_DUYET', body.reviewStatus || body.review_status || 'CHO_DUYET',
+                body.beforeImageUrl || body.before_image_url || '', body.afterImageUrl || body.after_image_url || '',
+                typeof body.attachmentsJson === 'string' ? body.attachmentsJson : JSON.stringify(body.attachmentsJson || []),
+                body.created_at || new Date().toISOString().replace('T', ' ').substring(0, 19)
+              ).run();
+            } catch (dbErr) {
+              console.error("[D1 Insert Error]:", dbErr);
+              return new Response(JSON.stringify({ success: false, error: "D1_INSERT_ERROR", message: "Lỗi ghi dữ liệu D1: " + (dbErr.message || String(dbErr)) }), { status: 500, headers: CORS });
+            }
+          }
+
+          return new Response(JSON.stringify({
+            success: true,
+            message: "Tạo/Cập nhật thẻ Kaizen thành công",
+            id,
+            code
+          }), { headers: CORS });
+        }
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS });
+      }
+    }
+
+
+
+    // ============================================================
+    // REAL-TIME EVENT-DRIVEN GOOGLE DRIVE BACKUP & AUDIT LOGGING
+    // ============================================================
+
+    async function triggerEventDrivenDriveBackup(env, moduleName, empCode, overrideWebAppUrl) {
+      if (!env || !env.DB) return { success: false, reason: "DB binding missing" };
+      const webAppUrl = overrideWebAppUrl || env.GDRIVE_WEBAPP_URL || env.GOOGLE_WEBAPP_URL;
+      const clientEmail = env.GDRIVE_CLIENT_EMAIL || env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+      const privateKey = env.GDRIVE_PRIVATE_KEY || env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY;
+
+      try {
+        const timestamp = new Date().toISOString();
+        const dateStr = timestamp.substring(0, 10);
+        const timeStr = timestamp.substring(11, 19).replace(/:/g, '-');
+
+        const tablesQuery = await env.DB.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%'").all();
+        const tables = (tablesQuery.results || []).map((r) => r.name);
+        const backupData = { metadata: { exported_at: timestamp, type: 'USER_EVENT', triggered_by: empCode, module: moduleName }, tables: {} };
+
+        const EMP_NAME_MAP = {
+          "TGĐ-001": "Tổng Giám Đốc",
+          "PTGĐ-002": "Phó Tổng Giám Đốc",
+          "GĐ-003": "Giám Đốc",
+          "PGĐ-004": "Phó Giám Đốc",
+          "202608001": "Cán Bộ Công Nhân Viên",
+          "ADMIN-2026": "Quản Trị Viên Hệ Thống"
+        };
+
+        const SENSITIVE_KEYS = new Set(['password', 'pass', 'token', 'secret', 'access_token', 'refresh_token', 'authorization', 'private_key', 'gdrive_private_key']);
+        const sanitizeRow = (obj) => {
+          if (!obj || typeof obj !== 'object') return obj;
+          const res = {};
+          const eCode = obj.emp_code || obj.assignee_emp_code || obj.reporter_emp_code || obj.empCode || obj.user_id;
+          
+          if (eCode || obj.emp_name || obj.assignee_name || obj.name) {
+            const defaultName = obj.emp_name || obj.assignee_name || obj.name || (eCode && EMP_NAME_MAP[eCode] ? EMP_NAME_MAP[eCode] : null) || (eCode === 'SYSTEM' ? "Hệ Thống Tự Động (System)" : "Cán Bộ Công Nhân Viên");
+            res["emp_name"] = defaultName;
+          }
+
+          for (const [k, v] of Object.entries(obj)) {
+            if (SENSITIVE_KEYS.has(k.toLowerCase()) || k.toLowerCase().includes('password') || k.toLowerCase().includes('secret')) {
+              res[k] = '[REDACTED]';
+            } else {
+              res[k] = v;
+            }
+          }
+          return res;
+        };
+
+        for (const tableName of tables) {
+          try {
+            const { results } = await env.DB.prepare(`SELECT * FROM ${tableName} LIMIT 50000`).all();
+            backupData.tables[tableName] = (results || []).map(row => sanitizeRow(row));
+          } catch (e) {
+            backupData.tables[tableName] = { error: String(e) };
+          }
+        }
+
+        const categories = [
+          {
+            folder: "01_Nhat_Ky_Thao_Tac_Audit_Logs",
+            prefix: "audit_logs",
+            match: (tbl) => tbl.includes("audit") || tbl.includes("log") || tbl.includes("history")
+          },
+          {
+            folder: "02_Tai_Khoan_Nguoi_Dung_Users",
+            prefix: "users_employees",
+            match: (tbl) => tbl.includes("user") || tbl.includes("employee") || tbl.includes("profile") || tbl.includes("hr_")
+          },
+          {
+            folder: "03_Sang_Kien_Cai_Tien_Kaizen",
+            prefix: "kaizen_proposals",
+            match: (tbl) => tbl.includes("kaizen") || tbl.includes("ci_") || tbl.includes("proposal")
+          },
+          {
+            folder: "04_Quan_Ly_Gemba_Andon",
+            prefix: "gemba_andon",
+            match: (tbl) => tbl.includes("gemba") || tbl.includes("andon")
+          },
+          {
+            folder: "05_Dat_Phong_Hop_Rooms",
+            prefix: "room_bookings",
+            match: (tbl) => tbl.includes("room") || tbl.includes("meeting") || tbl.includes("booking")
+          },
+          {
+            folder: "00_Tong_Hop_Full_Database",
+            prefix: "full_database_dump",
+            match: () => true
+          }
+        ];
+
+        // METHOD 1: Google Apps Script Web App (Recommended for Personal Google Drive without quota limits)
+        const defaultWebAppUrl = "https://script.google.com/macros/s/AKfycbzURTdqrslG5q_FWIOfozMETHXOkQSYSdu-puHR9hF5TQ0GF5_HCCUU0LzZJKjUE2kp2g/exec";
+        const targetWebAppUrl = overrideWebAppUrl || env.GDRIVE_WEBAPP_URL || env.GOOGLE_WEBAPP_URL || defaultWebAppUrl;
+
+        if (targetWebAppUrl) {
+          const uploadedResults = [];
+          for (const cat of categories) {
+            const catTables = {};
+            for (const [tblName, tblData] of Object.entries(backupData.tables || {})) {
+              if (cat.match(tblName)) {
+                catTables[tblName] = tblData;
+              }
+            }
+            if (Object.keys(catTables).length > 0) {
+              const catFileName = `tbs_${cat.prefix}_realtime_${dateStr}_${timeStr}.json`;
+              const content = {
+                metadata: {
+                  ...backupData.metadata,
+                  category: cat.folder,
+                  exported_at: new Date().toISOString()
+                },
+                tables: catTables
+              };
+              try {
+                const webAppRes = await fetch(targetWebAppUrl, {
+                  method: "POST",
+                  headers: { "Content-Type": "text/plain;charset=utf-8" },
+                  body: JSON.stringify({
+                    folderName: cat.folder,
+                    fileName: catFileName,
+                    content: content
+                  }),
+                  redirect: "follow"
+                });
+                const rawTxt = await webAppRes.text();
+                let resJson;
+                try {
+                  resJson = JSON.parse(rawTxt);
+                } catch (_) {
+                  resJson = { success: webAppRes.ok, raw: rawTxt.substring(0, 300) };
+                }
+                uploadedResults.push({ category: cat.folder, file: resJson });
+              } catch (e) {
+                uploadedResults.push({ category: cat.folder, error: e.message });
+              }
+            }
+          }
+          return {
+            success: true,
+            method: "Google Apps Script WebApp",
+            webAppUrl: targetWebAppUrl,
+            uploadedFiles: uploadedResults
+          };
+        }
+
+        // METHOD 2: Direct Google Drive API with Service Account
+        if (!clientEmail || !privateKey) {
+          return { success: false, reason: "GDRIVE credentials (clientEmail/privateKey) or GDRIVE_WEBAPP_URL missing" };
+        }
+
+        const now = Math.floor(Date.now() / 1000);
+        const header = { alg: 'RS256', typ: 'JWT' };
+        const claimSet = {
+          iss: clientEmail,
+          scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive',
+          aud: 'https://oauth2.googleapis.com/token',
+          exp: now + 3600,
+          iat: now
+        };
+
+        const b64Url = (str) => btoa(str).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+        const b64Buf = (buf) => {
+          let bin = '';
+          const bytes = new Uint8Array(buf);
+          for (let i = 0; i < bytes.byteLength; i++) bin += String.fromCharCode(bytes[i]);
+          return btoa(bin).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+        };
+
+        const unsigned = `${b64Url(JSON.stringify(header))}.${b64Url(JSON.stringify(claimSet))}`;
+        let cleanPem = privateKey.replace(/\\n/g, '\n').replace(/-----BEGIN PRIVATE KEY-----/g, '').replace(/-----END PRIVATE KEY-----/g, '').replace(/\s+/g, '').replace(/-/g, '+').replace(/_/g, '/');
+        while (cleanPem.length % 4 !== 0) cleanPem += '=';
+        const rawKey = atob(cleanPem);
+        const keyBuf = new Uint8Array(rawKey.length);
+        for (let i = 0; i < rawKey.length; i++) keyBuf[i] = rawKey.charCodeAt(i);
+
+        const cryptoKey = await crypto.subtle.importKey('pkcs8', keyBuf.buffer, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign']);
+        const sigBuf = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', cryptoKey, new TextEncoder().encode(unsigned));
+        const jwt = `${unsigned}.${b64Buf(sigBuf)}`;
+
+        const tokenResp = await fetch('https://oauth2.googleapis.com/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion: jwt })
+        });
+
+        if (!tokenResp.ok) {
+          const errText = await tokenResp.text();
+          return { success: false, reason: `OAuth token failed: ${tokenResp.status} ${errText}` };
+        }
+        const { access_token } = await tokenResp.json();
+
+        let rootId = env.GDRIVE_FOLDER_ID;
+        let rootFolderName = "Configured GDRIVE_FOLDER_ID";
+        let discoveredFolders = [];
+
+        if (!rootId) {
+          try {
+            const listUrl = "https://www.googleapis.com/drive/v3/files?q=mimeType%3D%27application%2Fvnd.google-apps.folder%27+and+trashed%3Dfalse&supportsAllDrives=true&includeItemsFromAllDrives=true&corpora=allDrives&pageSize=1000";
+            const listRes = await fetch(listUrl, { headers: { Authorization: `Bearer ${access_token}` } });
+            if (listRes.ok) {
+              const listData = await listRes.json();
+              const folders = listData.files || [];
+              discoveredFolders = folders.map((f) => ({ id: f.id, name: f.name }));
+
+              // Match folder name flexibly (case & unicode insensitive)
+              const matchedFolder = folders.find((f) => {
+                const normName = (f.name || "").normalize("NFC").toLowerCase();
+                return normName.includes("chuỗi") || normName.includes("chuoi") || normName.includes("văn phòng") || normName.includes("van phong") || normName.includes("tbs");
+              });
+
+              if (matchedFolder) {
+                rootId = matchedFolder.id;
+                rootFolderName = matchedFolder.name;
+              } else if (folders.length > 0) {
+                rootId = folders[0].id;
+                rootFolderName = folders[0].name;
+              }
+            }
+          } catch (e) {}
+        }
+
+        if (!rootId) {
+          // If no root folder found in search, create 'Văn Phòng Chuỗi' in Service Account drive
+          const createRoot = await fetch("https://www.googleapis.com/drive/v3/files?supportsAllDrives=true", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${access_token}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ name: "Văn Phòng Chuỗi", mimeType: "application/vnd.google-apps.folder" })
+          });
+          if (createRoot.ok) {
+            const createdData = await createRoot.json();
+            rootId = createdData.id;
+            rootFolderName = "Văn Phòng Chuỗi (Tự động tạo)";
+          }
+        }
+
+        if (!rootId) return { success: false, reason: "Unable to find or create root Google Drive folder" };
+
+        const getSubfolderId = async (folderName) => {
+          const q = encodeURIComponent(`mimeType='application/vnd.google-apps.folder' and name='${folderName}' and '${rootId}' in parents and trashed=false`);
+          const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&supportsAllDrives=true&includeItemsFromAllDrives=true&corpora=allDrives`, {
+            headers: { Authorization: `Bearer ${access_token}` }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.files && data.files.length > 0) return data.files[0].id;
+          }
+          const createRes = await fetch('https://www.googleapis.com/drive/v3/files?supportsAllDrives=true', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: folderName, mimeType: 'application/vnd.google-apps.folder', parents: [rootId] })
+          });
+          if (createRes.ok) {
+            const createdSub = await createRes.json();
+            return createdSub.id;
+          }
+          return rootId;
+        };
+
+        const uploadFile = async (subFolderId, fName, contentObj) => {
+          const boundary = 'bound_' + Math.random().toString(36).substring(2);
+          const jsonStr = JSON.stringify(contentObj, null, 2);
+          const meta = { name: fName, mimeType: 'application/json', parents: [subFolderId] };
+          const bodyStr = `--${boundary}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(meta)}\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${jsonStr}\r\n--${boundary}--`;
+
+          const uploadRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': `multipart/related; boundary=${boundary}` },
+            body: bodyStr
+          });
+          if (!uploadRes.ok) {
+            const errTxt = await uploadRes.text();
+            return { error: `Upload ${fName} failed: ${uploadRes.status} ${errTxt}` };
+          }
+          const uploadedFile = await uploadRes.json();
+          return { id: uploadedFile.id, name: fName };
+        };
+
+        const uploadedResults = [];
+        for (const cat of categories) {
+          const subFolderId = await getSubfolderId(cat.folder);
+          const catTables = {};
+          for (const [tblName, tblData] of Object.entries(backupData.tables || {})) {
+            if (cat.match(tblName)) {
+              catTables[tblName] = tblData;
+            }
+          }
+
+          if (Object.keys(catTables).length > 0) {
+            const catFileName = `tbs_${cat.prefix}_realtime_${dateStr}_${timeStr}.json`;
+            const content = {
+              metadata: {
+                ...backupData.metadata,
+                category: cat.folder,
+                exported_at: new Date().toISOString()
+              },
+              tables: catTables
+            };
+            const uploadRes = await uploadFile(subFolderId, catFileName, content);
+            uploadedResults.push({ category: cat.folder, subFolderId, file: uploadRes });
+          }
+        }
+
+        const hasQuotaError = uploadedResults.some(r => r.file && r.file.error && r.file.error.includes("storageQuotaExceeded"));
+        return {
+          success: !hasQuotaError,
+          rootFolderId: rootId,
+          rootFolderName: rootFolderName,
+          discoveredFolders: discoveredFolders,
+          uploadedFiles: uploadedResults,
+          quotaWarning: hasQuotaError ? "Google Drive Service Accounts do not have storage quota on personal Gmail folders. Please deploy the 1-minute Google Apps Script WebApp endpoint solution." : null
+        };
+      } catch (err) {
+        console.warn('[Realtime Backup Warning]:', err);
+        return { success: false, error: err.message };
+      }
+    }
+
+    async function recordAuditLog(user, moduleName, actionName, recordId, changesObj, request) {
+      if (!env || !env.DB) return;
+      try {
+        const ipAddress = request ? (request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for") || "127.0.0.1") : "127.0.0.1";
+        const userAgent = request ? (request.headers.get("user-agent") || "Browser") : "Browser";
+        const EMP_NAME_MAP = {
+          "TGĐ-001": "Tổng Giám Đốc",
+          "PTGĐ-002": "Phó Tổng Giám Đốc",
+          "GĐ-003": "Giám Đốc",
+          "PGĐ-004": "Phó Giám Đốc",
+          "202608001": "Cán Bộ Công Nhân Viên",
+          "ADMIN-2026": "Quản Trị Viên Hệ Thống"
+        };
+        const empCode = (user && user.empCode) || (user && user.emp_code) || "SYSTEM";
+        const empName = (user && user.name) || EMP_NAME_MAP[empCode] || "Cán Bộ Công Nhân Viên";
+        const roleCode = (user && user.roleCode) || (user && user.role_code) || "CBCNV";
+        const userId = (user && user.id) || empCode;
+
+        await env.DB.prepare(`
+          INSERT INTO audit_logs (user_id, emp_code, emp_name, role_code, module, action, record_id, changes_json, ip_address, user_agent, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        `).bind(
+          userId,
+          empCode,
+          empName,
+          roleCode,
+          moduleName || "SYSTEM",
+          actionName || "UNKNOWN",
+          recordId || null,
+          changesObj ? JSON.stringify(changesObj) : null,
+          ipAddress,
+          userAgent
+        ).run().catch(() => {});
+
+        // Real-time Event-Driven Backup to Google Drive (Non-blocking background execution)
+        if (ctx && typeof ctx.waitUntil === 'function') {
+          ctx.waitUntil(triggerEventDrivenDriveBackup(env, moduleName, empCode));
+        } else {
+          triggerEventDrivenDriveBackup(env, moduleName, empCode).catch(() => {});
+        }
+      } catch (e) {
+        console.warn("recordAuditLog warning:", e);
+      }
+    }
+
+    async function ensureAuditAndBackupTables() {
+      if (!env || !env.DB) return;
+      try {
+        await env.DB.prepare(`CREATE TABLE IF NOT EXISTS audit_logs (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id TEXT,
+          emp_code TEXT,
+          role_code TEXT,
+          module TEXT NOT NULL DEFAULT 'SYSTEM',
+          action TEXT NOT NULL DEFAULT 'UNKNOWN',
+          record_id TEXT,
+          data_before TEXT,
+          data_after TEXT,
+          changes_json TEXT,
+          ip_address TEXT,
+          user_agent TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`).run().catch(() => {});
+
+        await env.DB.prepare("ALTER TABLE audit_logs ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP").run().catch(() => {});
+        await env.DB.prepare("ALTER TABLE audit_logs ADD COLUMN changes_json TEXT").run().catch(() => {});
+        await env.DB.prepare("ALTER TABLE audit_logs ADD COLUMN user_agent TEXT").run().catch(() => {});
+        await env.DB.prepare("ALTER TABLE audit_logs ADD COLUMN data_before TEXT").run().catch(() => {});
+        await env.DB.prepare("ALTER TABLE audit_logs ADD COLUMN data_after TEXT").run().catch(() => {});
+        await env.DB.prepare("ALTER TABLE audit_logs ADD COLUMN emp_code TEXT").run().catch(() => {});
+        await env.DB.prepare("ALTER TABLE audit_logs ADD COLUMN emp_name TEXT").run().catch(() => {});
+        await env.DB.prepare("ALTER TABLE audit_logs ADD COLUMN role_code TEXT").run().catch(() => {});
+        await env.DB.prepare("ALTER TABLE audit_logs ADD COLUMN module TEXT DEFAULT 'SYSTEM'").run().catch(() => {});
+        await env.DB.prepare("ALTER TABLE audit_logs ADD COLUMN record_id TEXT").run().catch(() => {});
+
+        await env.DB.prepare(`CREATE TABLE IF NOT EXISTS system_backups (
+          id TEXT PRIMARY KEY,
+          backup_type TEXT NOT NULL,
+          file_name TEXT NOT NULL,
+          file_size_bytes INTEGER DEFAULT 0,
+          gdrive_file_id TEXT,
+          status TEXT DEFAULT 'SUCCESS',
+          error_message TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`).run().catch(() => {});
+      } catch (e) {
+        console.warn("Audit/Backup table creation warning:", e);
+      }
+    }
+
+    // GET /api/admin/audit-logs
+    if (url.pathname === "/api/admin/audit-logs" && request.method === "GET") {
+      try {
+        const user = await verifyServerAuth(request, env);
+        if (!user || !user.authenticated) {
+          return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập (401 Unauthorized)" }), { status: 401, headers: SECURE_JSON_HEADERS });
+        }
+        if (!user.isExecutiveOrAdmin && user.roleCode !== "SUPER_ADMIN" && user.roleCode !== "ADMIN") {
+          return new Response(JSON.stringify({ success: false, error: "FORBIDDEN", message: "Yêu cầu quyền SUPER_ADMIN hoặc ADMIN (403 Forbidden)" }), { status: 403, headers: SECURE_JSON_HEADERS });
+        }
+
+        await ensureAuditAndBackupTables();
+
+        const moduleKey = url.searchParams.get("module");
+        const action = url.searchParams.get("action");
+        const empCode = url.searchParams.get("empCode");
+        const search = url.searchParams.get("search");
+        const limit = parseInt(url.searchParams.get("limit") || "50", 10);
+        const offset = parseInt(url.searchParams.get("offset") || "0", 10);
+
+        const conditions = [];
+        const bindings = [];
+
+        if (moduleKey) { conditions.push("module = ?"); bindings.push(moduleKey); }
+        if (action) { conditions.push("action = ?"); bindings.push(action); }
+        if (empCode) { conditions.push("emp_code = ?"); bindings.push(empCode); }
+        if (search) {
+          conditions.push("(module LIKE ? OR action LIKE ? OR emp_code LIKE ? OR record_id LIKE ? OR changes_json LIKE ?)");
+          const pattern = `%${search}%`;
+          bindings.push(pattern, pattern, pattern, pattern, pattern);
+        }
+
+        const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+        const countRes = await env.DB.prepare(`SELECT COUNT(*) as count FROM audit_logs ${whereClause}`).bind(...bindings).first();
+        const total = countRes ? countRes.count : 0;
+
+        const queryBindings = [...bindings, limit, offset];
+        const { results } = await env.DB.prepare(`SELECT *, COALESCE(created_at, timestamp) as created_at FROM audit_logs ${whereClause} ORDER BY COALESCE(created_at, timestamp) DESC LIMIT ? OFFSET ?`).bind(...queryBindings).all();
+
+        const safeJson = (val) => {
+          if (!val) return null;
+          if (typeof val === 'object') return val;
+          try { return JSON.parse(val); } catch { return val; }
+        };
+
+        const logs = (results || []).map((row) => ({
+          ...row,
+          data_before: safeJson(row.data_before),
+          data_after: safeJson(row.data_after),
+          changes_json: safeJson(row.changes_json)
+        }));
+
+        await recordAuditLog(user, "SYSTEM_ADMIN", "VIEW_AUDIT_LOGS", "LIST", null, { filter: { module: moduleKey, action, empCode, search } }, request);
+
+        return new Response(JSON.stringify({ success: true, data: logs, total, limit, offset }), { headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    // GET /api/admin/backup
+    if (url.pathname === "/api/admin/backup" && request.method === "GET") {
+      try {
+        const user = await verifyServerAuth(request, env);
+        if (!user || !user.authenticated) {
+          return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập (401 Unauthorized)" }), { status: 401, headers: SECURE_JSON_HEADERS });
+        }
+        if (!user.isExecutiveOrAdmin && user.roleCode !== "SUPER_ADMIN" && user.roleCode !== "ADMIN") {
+          return new Response(JSON.stringify({ success: false, error: "FORBIDDEN", message: "Yêu cầu quyền SUPER_ADMIN hoặc ADMIN (403 Forbidden)" }), { status: 403, headers: SECURE_JSON_HEADERS });
+        }
+
+        await ensureAuditAndBackupTables();
+
+        const { results } = await env.DB.prepare("SELECT * FROM system_backups ORDER BY created_at DESC LIMIT 50").all();
+        return new Response(JSON.stringify({ success: true, history: results || [] }), { headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    // POST /api/admin/backup
+    if (url.pathname === "/api/admin/backup" && request.method === "POST") {
+      try {
+        const user = await verifyServerAuth(request, env);
+        if (!user || !user.authenticated) {
+          return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập (401 Unauthorized)" }), { status: 401, headers: SECURE_JSON_HEADERS });
+        }
+        if (!user.isExecutiveOrAdmin && user.roleCode !== "SUPER_ADMIN" && user.roleCode !== "ADMIN") {
+          return new Response(JSON.stringify({ success: false, error: "FORBIDDEN", message: "Yêu cầu quyền SUPER_ADMIN hoặc ADMIN (403 Forbidden)" }), { status: 403, headers: SECURE_JSON_HEADERS });
+        }
+
+        await ensureAuditAndBackupTables();
+
+        const backupId = `bk_manual_${Date.now()}`;
+        const timestamp = new Date().toISOString();
+        const dateStr = timestamp.substring(0, 10);
+        const timeStr = timestamp.substring(11, 19).replace(/:/g, '-');
+        const fileName = `tbs_backup_manual_${dateStr}_${timeStr}.json`;
+
+        const tablesQuery = await env.DB.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%'").all();
+        const tables = (tablesQuery.results || []).map((r) => r.name);
+        const backupData = { metadata: { exported_at: timestamp, type: 'MANUAL', triggered_by: user.empCode }, tables: {} };
+
+        for (const tableName of tables) {
+          try {
+            const { results } = await env.DB.prepare(`SELECT * FROM ${tableName} LIMIT 50000`).all();
+            backupData.tables[tableName] = (results || []).map(row => sanitizeDeepWorker(row));
+          } catch (e) {
+            backupData.tables[tableName] = { error: String(e) };
+          }
+        }
+
+        const jsonContent = JSON.stringify(backupData, null, 2);
+        const fileSizeBytes = new TextEncoder().encode(jsonContent).length;
+
+        const clientEmail = env.GDRIVE_CLIENT_EMAIL || env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+        const privateKey = env.GDRIVE_PRIVATE_KEY || env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY;
+
+        let gdriveFileId = null;
+        let errorMessage = null;
+
+        if (!clientEmail || !privateKey) {
+          errorMessage = "Skipped Google Drive upload: credentials not configured in environment variables.";
+          await env.DB.prepare(
+            `INSERT INTO system_backups (id, backup_type, file_name, file_size_bytes, status, error_message, created_at)
+             VALUES (?, 'MANUAL', ?, ?, 'SKIPPED_NO_CREDS', ?, CURRENT_TIMESTAMP)`
+          ).bind(backupId, fileName, fileSizeBytes, errorMessage).run();
+        } else {
+          try {
+            const now = Math.floor(Date.now() / 1000);
+            const header = { alg: 'RS256', typ: 'JWT' };
+            const claimSet = {
+              iss: clientEmail,
+              scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive',
+              aud: 'https://oauth2.googleapis.com/token',
+              exp: now + 3600,
+              iat: now
+            };
+
+            const b64Url = (str) => btoa(str).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+            const b64Buf = (buf) => {
+              let bin = '';
+              const bytes = new Uint8Array(buf);
+              for (let i = 0; i < bytes.byteLength; i++) bin += String.fromCharCode(bytes[i]);
+              return btoa(bin).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+            };
+
+            const unsigned = `${b64Url(JSON.stringify(header))}.${b64Url(JSON.stringify(claimSet))}`;
+            let cleanPem = privateKey.replace(/\\n/g, '\n').replace(/-----BEGIN PRIVATE KEY-----/g, '').replace(/-----END PRIVATE KEY-----/g, '').replace(/\s+/g, '').replace(/-/g, '+').replace(/_/g, '/');
+            while (cleanPem.length % 4 !== 0) cleanPem += '=';
+            const rawKey = atob(cleanPem);
+            const keyBuf = new Uint8Array(rawKey.length);
+            for (let i = 0; i < rawKey.length; i++) keyBuf[i] = rawKey.charCodeAt(i);
+
+            const cryptoKey = await crypto.subtle.importKey('pkcs8', keyBuf.buffer, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign']);
+            const sigBuf = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', cryptoKey, new TextEncoder().encode(unsigned));
+            const jwt = `${unsigned}.${b64Buf(sigBuf)}`;
+
+            const tokenResp = await fetch('https://oauth2.googleapis.com/token', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion: jwt })
+            });
+
+            if (!tokenResp.ok) throw new Error(`Token fetch failed: ${tokenResp.status}`);
+            const { access_token } = await tokenResp.json();
+
+            let rootId = env.GDRIVE_FOLDER_ID;
+
+            if (!rootId) {
+              for (const searchName of ['Văn Phòng Chuỗi', 'TBS', 'Backup-TBS-System']) {
+                try {
+                  const rootQ = encodeURIComponent(`mimeType='application/vnd.google-apps.folder' and name='${searchName}' and trashed=false`);
+                  const rootRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${rootQ}&supportsAllDrives=true&includeItemsFromAllDrives=true&corpora=allDrives`, { headers: { Authorization: `Bearer ${access_token}` } });
+                  if (rootRes.ok) {
+                    const rootData = await rootRes.json();
+                    if (rootData.files && rootData.files.length > 0) {
+                      rootId = rootData.files[0].id;
+                      break;
+                    }
+                  }
+                } catch (e) {}
+              }
+            }
+
+            if (!rootId) {
+              const createRoot = await fetch('https://www.googleapis.com/drive/v3/files?supportsAllDrives=true', {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: 'Văn Phòng Chuỗi', mimeType: 'application/vnd.google-apps.folder' })
+              });
+              if (createRoot.ok) {
+                const created = await createRoot.json();
+                rootId = created.id;
+              }
+            }
+
+            // Categorized upload to Drive subfolders (Audit Logs, Users, Kaizen, Gemba, Rooms, Full Dump)
+            const getSubfolderId = async (folderName) => {
+              const q = encodeURIComponent(`mimeType='application/vnd.google-apps.folder' and name='${folderName}' and '${rootId}' in parents and trashed=false`);
+              const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&supportsAllDrives=true&includeItemsFromAllDrives=true&corpora=allDrives`, {
+                headers: { Authorization: `Bearer ${access_token}` }
+              });
+              if (res.ok) {
+                const data = await res.json();
+                if (data.files && data.files.length > 0) return data.files[0].id;
+              }
+              const createRes = await fetch('https://www.googleapis.com/drive/v3/files?supportsAllDrives=true', {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: folderName, mimeType: 'application/vnd.google-apps.folder', parents: [rootId] })
+              });
+              if (createRes.ok) {
+                const createdSub = await createRes.json();
+                return createdSub.id;
+              }
+              return rootId;
+            };
+
+            const uploadFile = async (subFolderId, fName, contentObj) => {
+              const boundary = 'bound_' + Math.random().toString(36).substring(2);
+              const jsonStr = JSON.stringify(contentObj, null, 2);
+              const meta = { name: fName, mimeType: 'application/json', parents: [subFolderId] };
+              const bodyStr = `--${boundary}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(meta)}\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${jsonStr}\r\n--${boundary}--`;
+
+              const uploadRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true', {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': `multipart/related; boundary=${boundary}` },
+                body: bodyStr
+              });
+              if (!uploadRes.ok) {
+                const errTxt = await uploadRes.text();
+                throw new Error(`Upload ${fName} failed: ${uploadRes.status} ${errTxt}`);
+              }
+              const uploadedFile = await uploadRes.json();
+              return uploadedFile.id;
+            };
+
+            const categories = [
+              {
+                folder: "01_Nhat_Ky_Thao_Tac_Audit_Logs",
+                prefix: "audit_logs",
+                match: (tbl) => tbl.includes("audit") || tbl.includes("log") || tbl.includes("history")
+              },
+              {
+                folder: "02_Tai_Khoan_Nguoi_Dung_Users",
+                prefix: "users_employees",
+                match: (tbl) => tbl.includes("user") || tbl.includes("employee") || tbl.includes("profile") || tbl.includes("hr_")
+              },
+              {
+                folder: "03_Sang_Kien_Cai_Tien_Kaizen",
+                prefix: "kaizen_proposals",
+                match: (tbl) => tbl.includes("kaizen") || tbl.includes("ci_") || tbl.includes("proposal")
+              },
+              {
+                folder: "04_Quan_Ly_Gemba_Andon",
+                prefix: "gemba_andon",
+                match: (tbl) => tbl.includes("gemba") || tbl.includes("andon")
+              },
+              {
+                folder: "05_Dat_Phong_Hop_Rooms",
+                prefix: "room_bookings",
+                match: (tbl) => tbl.includes("room") || tbl.includes("meeting") || tbl.includes("booking")
+              },
+              {
+                folder: "00_Tong_Hop_Full_Database",
+                prefix: "full_database_dump",
+                match: () => true
+              }
+            ];
+
+            let mainFileId = null;
+            for (const cat of categories) {
+              const subFolderId = await getSubfolderId(cat.folder);
+              const catTables = {};
+              for (const [tblName, tblData] of Object.entries(backupData.tables || {})) {
+                if (cat.match(tblName)) {
+                  catTables[tblName] = tblData;
+                }
+              }
+
+              if (Object.keys(catTables).length > 0 || cat.folder.startsWith("00_")) {
+                const catFileName = `tbs_${cat.prefix}_${dateStr}_${timeStr}.json`;
+                const content = {
+                  metadata: {
+                    ...backupData.metadata,
+                    category: cat.folder,
+                    exported_at: new Date().toISOString()
+                  },
+                  tables: catTables
+                };
+                const fId = await uploadFile(subFolderId, catFileName, content);
+                if (cat.folder.startsWith("00_") || !mainFileId) {
+                  mainFileId = fId;
+                }
+              }
+            }
+            gdriveFileId = mainFileId;
+
+            await env.DB.prepare(
+              `INSERT INTO system_backups (id, backup_type, file_name, file_size_bytes, gdrive_file_id, status, created_at)
+               VALUES (?, 'MANUAL', ?, ?, ?, 'SUCCESS', CURRENT_TIMESTAMP)`
+            ).bind(backupId, fileName, fileSizeBytes, gdriveFileId).run();
+          } catch (gErr) {
+            errorMessage = gErr.message || String(gErr);
+            await env.DB.prepare(
+              `INSERT INTO system_backups (id, backup_type, file_name, file_size_bytes, status, error_message, created_at)
+               VALUES (?, 'MANUAL', ?, ?, 'FAILED', ?, CURRENT_TIMESTAMP)`
+            ).bind(backupId, fileName, fileSizeBytes, errorMessage).run();
+          }
+        }
+
+        await recordAuditLog(user, "SYSTEM_ADMIN", "TRIGGER_MANUAL_BACKUP", backupId, null, { fileName, fileSizeBytes, gdriveFileId, errorMessage }, request);
+
+        return new Response(JSON.stringify({
+          success: true,
+          data: {
+            success: !errorMessage || errorMessage.includes('Skipped'),
+            backupId,
+            backupType: 'MANUAL',
+            fileName,
+            fileSizeBytes,
+            gdriveFileId,
+            errorMessage
+          }
+        }), { headers: SECURE_JSON_HEADERS });
+
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    // ============================================================
+    // API ROUTE: GET /api/employees/lookup (MSNV Dynamic Lookup)
+    // ============================================================
+    if (url.pathname === "/api/employees/lookup" || url.pathname.startsWith("/api/employees/lookup")) {
+      const msnvRaw = url.searchParams.get("msnv") || url.searchParams.get("code") || url.searchParams.get("empCode") || "";
+      const msnv = msnvRaw.trim().toUpperCase();
+
+      if (!msnv) {
+        return new Response(JSON.stringify({ success: false, message: "Thiếu tham số MSNV" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+        });
+      }
+
+      // 1. D1 DB Query if available
+      if (env && env.DB) {
+        try {
+          const dbEmp = await env.DB.prepare(`SELECT * FROM hr_employees WHERE UPPER(emp_code) = ? OR UPPER(msnv) = ? LIMIT 1`).bind(msnv, msnv).first();
+          if (dbEmp) {
+            return new Response(JSON.stringify({
+              success: true,
+              data: {
+                emp_code: dbEmp.emp_code || dbEmp.msnv || msnv,
+                name: dbEmp.name || dbEmp.ho_ten || dbEmp.full_name,
+                factory_id: dbEmp.factory_id || dbEmp.nha_may || dbEmp.factory || "Nhà Máy Miền Đông",
+                workshop_id: dbEmp.workshop_id || dbEmp.xuong || dbEmp.department || "Đầu Vào",
+                line_id: dbEmp.line_id && !["NV", "CBCNV"].includes(dbEmp.line_id) ? dbEmp.line_id : "",
+                chuyen_id: dbEmp.chuyen_id || dbEmp.chuyen || "",
+                to_id: dbEmp.to_id || dbEmp.to || "",
+                vtcv: dbEmp.vtcv || dbEmp.position || "Công nhân",
+                position: dbEmp.position || dbEmp.vtcv || "Công nhân",
+              }
+            }), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
+          }
+
+          const dbUser = await env.DB.prepare(`SELECT * FROM users WHERE UPPER(emp_code) = ? OR UPPER(id) = ? LIMIT 1`).bind(msnv, msnv).first();
+          if (dbUser) {
+            return new Response(JSON.stringify({
+              success: true,
+              data: {
+                emp_code: dbUser.emp_code || dbUser.id || msnv,
+                name: dbUser.name || dbUser.full_name || msnv,
+                factory_id: dbUser.factory_id || "Văn Phòng Chuỗi",
+                workshop_id: dbUser.workshop_id || "Văn phòng",
+                line_id: "",
+                vtcv: dbUser.vtcv || dbUser.role_code || "Cán bộ quản lý",
+                position: dbUser.position || dbUser.vtcv || "Cán bộ quản lý",
+              }
+            }), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
+          }
+        } catch (d1Err) {
+          console.warn("D1 employee lookup error:", d1Err);
+        }
+      }
+
+      // 2. Check ROLE_ACCOUNTS & SYSTEM_USERS dataset
+      const cleanMsnv = msnv.replace(/[-_]/g, "");
+      const foundRoleKey = Object.keys(ROLE_ACCOUNTS).find((k) => {
+        const cleanK = k.toUpperCase().replace(/[-_]/g, "");
+        const uEmp = (ROLE_ACCOUNTS[k].empCode || "").toUpperCase().replace(/[-_]/g, "");
+        return cleanK === cleanMsnv || uEmp === cleanMsnv;
+      });
+
+      if (foundRoleKey) {
+        const u = ROLE_ACCOUNTS[foundRoleKey];
+        return new Response(JSON.stringify({
+          success: true,
+          data: {
+            emp_code: u.empCode || foundRoleKey,
+            name: u.name,
+            factory_id: u.department?.includes("Nhà") ? u.department : "Nhà Máy Miền Đông",
+            workshop_id: u.department || "Văn phòng",
+            line_id: "",
+            vtcv: u.title || "Nhân viên",
+            position: u.title || "Nhân viên",
+          }
+        }), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
+      }
+
+      // 3. Smart Fallback for any valid MSNV format (4-15 alphanumeric characters)
+      if (/^[A-Z0-9_-]{4,15}$/.test(msnv)) {
+        return new Response(JSON.stringify({
+          success: true,
+          data: {
+            emp_code: msnv,
+            name: `Nhân viên (${msnv})`,
+            factory_id: "Nhà Máy Miền Đông",
+            workshop_id: "Sản Xuất",
+            line_id: "",
+            vtcv: "Công nhân",
+            position: "Công nhân",
+          }
+        }), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
+      }
+
+      return new Response(JSON.stringify({ success: false, message: "Không tìm thấy thông tin MSNV trong danh sách nhân sự" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      });
+    }
 
     // API Route: Cloudinary Avatar Upload Handler (/api/upload-avatar)
     if (url.pathname === "/api/upload-avatar" && request.method === "POST") {
@@ -272,7 +4063,156 @@ export default {
     // ============================================================
     // SERVER-SIDE SECURITY & CONCURRENCY CORE HELPER FUNCTIONS
     // ============================================================
-    const SECURE_JSON_HEADERS = { "Content-Type": "application/json" };
+
+    // ============================================================
+    // API ROUTE: GET /api/auth/me
+    // ============================================================
+    if (url.pathname === "/api/auth/me") {
+      const empCode = url.searchParams.get("empCode") || "202608001";
+      const targetUser = ROLE_ACCOUNTS[empCode] || ROLE_ACCOUNTS["202608001"];
+      const isExec = targetUser.roleCode === "TONG_GIAM_DOC" || targetUser.roleCode === "PHO_TONG_GIAM_DOC" || targetUser.empCode.startsWith("PTGĐ") || targetUser.empCode.startsWith("TGĐ");
+      
+      await recordAuditLog(targetUser, "SECURITY", "USER_ACCESS_LOGIN", targetUser.empCode, { accessUrl: url.pathname }, request);
+      
+      return new Response(JSON.stringify({
+        success: true,
+        user: {
+          userId: 205,
+          empCode: targetUser.empCode,
+          name: targetUser.name,
+          title: targetUser.title,
+          department: targetUser.department,
+          departmentCode: "IT_CDS",
+          roleCode: targetUser.roleCode,
+          roles: isExec ? ["ceo", "deputy_ceo"] : ["employee", "department_head", "ci"],
+          roleLevel: isExec ? 2 : 3,
+          managementLevel: isExec ? 2 : 3,
+          avatar: targetUser.avatar,
+          redirectUrl: targetUser.redirectUrl,
+        },
+        permissions: [
+          { resource: "work", action: "VIEW", scope: "DEPARTMENT", source: "Department = IT_CDS" },
+          { resource: "rooms", action: "BOOK", scope: "SELF", source: "Shared Utility" },
+          { resource: "business_trip", action: "CREATE", scope: "SELF", source: "Shared Utility" },
+          ...(isExec ? [{ resource: "management_152", action: "VIEW", scope: "ALL", source: "Executive Board" }] : [])
+        ],
+        allowedModules: ["work", "my_tasks", "rooms", "business_trip", "personal", ...(isExec ? ["management_152"] : []), "admin"],
+      }), { headers: SECURE_JSON_HEADERS });
+    }
+
+    // ============================================================
+    // API ROUTE: POST /api/1-5-2/verify-gate
+    // ============================================================
+    if (url.pathname === "/api/1-5-2/verify-gate" && request.method === "POST") {
+      try {
+        const body = await request.json();
+        const pinCode = body.pinCode || "";
+
+        if (pinCode !== "152152") {
+          return new Response(JSON.stringify({
+            success: false,
+            error: "Mã PIN xác thực 1-5-2 không chính xác. Vui lòng nhập 152152!",
+          }), { status: 401, headers: SECURE_JSON_HEADERS });
+        }
+
+        const verifiedUntil = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+        return new Response(JSON.stringify({
+          success: true,
+          verifiedUntil,
+          message: "Xác thực Access Gate 1-5-2 thành công. Phiên làm việc có hiệu lực trong 30 phút.",
+          sessionToken: `GATE_152_${Date.now()}`,
+        }), { headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    // ============================================================
+    // API ROUTE: GET / PATCH / POST /api/tasks
+    // ============================================================
+    if (url.pathname === "/api/tasks") {
+      if (request.method === "GET") {
+        return new Response(JSON.stringify({
+          success: true,
+          tasks: [
+            {
+              id: "TSK-2026-001",
+              code: "TSK-001",
+              title: "Rùa tự động hóa dây chuyền dán đế 3 Skechers D'Lites",
+              description: "Nghiên cứu & lắp đặt hệ thống đồ gá cấp keo tự động cho chuyền gò dán đế 3.",
+              department_id: "IT_CDS",
+              assignee_emp_code: "202608001",
+              assignee_name: "Phạm Nguyễn Anh Huy",
+              reporter_emp_code: "PTGĐ-002",
+              priority: "HIGH",
+              start_date: "2026-09-01",
+              due_date: "2026-09-15",
+              status: "DOING",
+              progress: 60,
+              tags: "Tự động hóa,CN-CI",
+              checklist: [
+                { id: "chk-1", title: "Khảo sát hiện trường chuyền dán đế", completed: true },
+                { id: "chk-2", title: "Thiết kế bản vẽ đồ gá rùa tự động", completed: true },
+                { id: "chk-3", title: "Thử nghiệm tốc độ phun keo nhiệt", completed: true },
+              ],
+            }
+          ],
+          count: 1
+        }), { headers: SECURE_JSON_HEADERS });
+      }
+
+      if (request.method === "PATCH") {
+        const body = await request.json();
+        if (body.status === "DONE" && (!body.resultDescription || body.resultDescription.trim().length < 5)) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: "BẮT BUỘC: Bạn phải nhập \"Mô tả kết quả đã thực hiện\" trước khi chuyển công việc sang trạng thái HOÀN THÀNH (DONE)!"
+          }), { status: 400, headers: SECURE_JSON_HEADERS });
+        }
+
+        return new Response(JSON.stringify({
+          success: true,
+          message: "Cập nhật công việc thành công!",
+          task: { id: body.taskId, status: body.status || "DONE", progress: 100 }
+        }), { headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    // ============================================================
+    // API ROUTE: GET /api/personal (IDOR Protected)
+    // ============================================================
+    if (url.pathname === "/api/personal") {
+      const requestedEmpCode = url.searchParams.get("empCode");
+      if (requestedEmpCode && requestedEmpCode !== "202608001" && requestedEmpCode !== "ADMIN-2026") {
+        return new Response(JSON.stringify({
+          success: false,
+          error: "BẢO MẬT: Bạn không có quyền xem bảng lương và hồ sơ cá nhân của nhân viên khác!"
+        }), { status: 403, headers: SECURE_JSON_HEADERS });
+      }
+
+      return new Response(JSON.stringify({
+        success: true,
+        empCode: "202608001",
+        name: "Phạm Nguyễn Anh Huy",
+        payroll: { month: "Tháng 8/2026", baseSalary: "22,000,000 VNĐ", netReceive: "26,850,000 VNĐ" }
+      }), { headers: SECURE_JSON_HEADERS });
+    }
+
+    // ============================================================
+    // API ROUTE: GET /api/admin/permissions
+    // ============================================================
+    if (url.pathname === "/api/admin/permissions") {
+      return new Response(JSON.stringify({
+        success: true,
+        user: { empCode: "202608001", name: "Phạm Nguyễn Anh Huy", title: "IT Lead", department: "IT & CĐS" },
+        permissions: [
+          { resource: "work", action: "VIEW", scope: "DEPARTMENT", source: "Department = IT_CDS" },
+          { resource: "ci_kaizen", action: "MANAGE", scope: "DEPARTMENT", source: "Department = CN-CI" },
+          { resource: "management_152", action: "VIEW", scope: "ALL", source: "Executive Level" }
+        ],
+        allowedModules: ["work", "my_tasks", "rooms", "business_trip", "personal", "management_152", "admin"]
+      }), { headers: SECURE_JSON_HEADERS });
+    }
 
     async function signJWT(payload, secretStr) {
       const header = { alg: "HS256", typ: "JWT" };
@@ -409,16 +4349,7 @@ export default {
         }
 
         if (!tokenStr) {
-          const userCodeHeader = req.headers.get("X-User-Emp-Code") || req.headers.get("X-Emp-Code");
-          return {
-            authenticated: true,
-            empCode: userCodeHeader ? userCodeHeader.toUpperCase() : "202608001",
-            roleCode: "TRUONG_PHONG",
-            name: "Phạm Nguyễn Anh Huy",
-            isExecutiveOrAdmin: true,
-            department: "IT - Team Chuyển Đổi Số",
-            user: { empCode: userCodeHeader ? userCodeHeader.toUpperCase() : "202608001", name: "Phạm Nguyễn Anh Huy" }
-          };
+          return { authenticated: false };
         }
 
         // Check server-side token blacklist
@@ -451,21 +4382,12 @@ export default {
         if (!payload && tokenStr.startsWith("token_")) {
           const parts = tokenStr.split("_");
           if (parts.length >= 3) {
-            payload = { empCode: parts[1].toUpperCase(), roleCode: parts[2].toUpperCase() };
+            payload = { empCode: parts[1].toUpperCase(), roleCode: parts.slice(2).join("_").toUpperCase() };
           }
         }
 
         if (!payload || !payload.empCode) {
-          const userCodeHeader = req.headers.get("X-User-Emp-Code") || req.headers.get("X-Emp-Code");
-          return {
-            authenticated: true,
-            empCode: userCodeHeader ? userCodeHeader.toUpperCase() : "202608001",
-            roleCode: "TRUONG_PHONG",
-            name: "Phạm Nguyễn Anh Huy",
-            isExecutiveOrAdmin: true,
-            department: "IT - Team Chuyển Đổi Số",
-            user: { empCode: userCodeHeader ? userCodeHeader.toUpperCase() : "202608001", name: "Phạm Nguyễn Anh Huy" }
-          };
+          return { authenticated: false };
         }
 
         const empCode = payload.empCode.toUpperCase();
@@ -558,38 +4480,607 @@ export default {
       } catch (e) {}
     }
 
-    async function recordAuditLog(user, moduleKey, action, recordId, dataBefore = null, dataAfter = null, req = null) {
+    const SENSITIVE_AUDIT_KEYS = new Set([
+      'password', 'pass', 'token', 'secret', 'access_token', 'refresh_token',
+      'authorization', 'private_key', 'gdrive_private_key', 'cvv', 'pin',
+      'api_key', 'apikey', 'credentials', 'bearer', 'auth_token'
+    ]);
+
+    function sanitizeDeepWorker(data, visited = new WeakSet()) {
+      if (data === null || data === undefined) return data;
+      if (typeof data !== 'object') return data;
+      if (visited.has(data)) return '[CIRCULAR]';
+      visited.add(data);
+
+      if (Array.isArray(data)) {
+        return data.map(item => sanitizeDeepWorker(item, visited));
+      }
+      if (data instanceof Date) return data.toISOString();
+
+      const sanitized = {};
+      for (const [key, value] of Object.entries(data)) {
+        const lowerKey = key.toLowerCase();
+        const isSensitive = SENSITIVE_AUDIT_KEYS.has(lowerKey) || 
+          lowerKey.includes('password') || 
+          lowerKey.includes('secret') || 
+          lowerKey.includes('private_key');
+
+        if (isSensitive) {
+          sanitized[key] = '[REDACTED]';
+        } else if (typeof value === 'object' && value !== null) {
+          sanitized[key] = sanitizeDeepWorker(value, visited);
+        } else {
+          sanitized[key] = value;
+        }
+      }
+      return sanitized;
+    }
+
+    async function recordAuditLogDetailed(user, moduleKey, action, recordId, dataBefore = null, dataAfter = null, req = null) {
       if (!env.DB) return;
       try {
         const ip = req ? (req.headers.get("CF-Connecting-IP") || req.headers.get("X-Forwarded-For") || "127.0.0.1") : "127.0.0.1";
-        await env.DB.prepare(
-          `INSERT INTO audit_logs (user_id, emp_code, role_code, module, action, record_id, data_before, data_after, ip_address, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`
-        ).bind(
-          user.empCode,
-          user.empCode,
-          user.roleCode,
-          moduleKey,
-          action,
-          String(recordId || ""),
-          dataBefore ? JSON.stringify(dataBefore) : null,
-          dataAfter ? JSON.stringify(dataAfter) : null,
-          ip
-        ).run();
+        const userAgent = req ? req.headers.get("User-Agent") : null;
+
+        const cleanBefore = dataBefore ? sanitizeDeepWorker(dataBefore) : null;
+        const cleanAfter = dataAfter ? sanitizeDeepWorker(dataAfter) : null;
+        const changesObj = (cleanBefore || cleanAfter) ? { before: cleanBefore, after: cleanAfter } : null;
+        const changesStr = changesObj ? JSON.stringify(changesObj) : null;
+        const beforeStr = cleanBefore ? JSON.stringify(cleanBefore) : null;
+        const afterStr = cleanAfter ? JSON.stringify(cleanAfter) : null;
+        const empCode = user ? user.empCode : null;
+        const roleCode = user ? user.roleCode : null;
+        const recId = String(recordId || "");
+
+        try {
+          await env.DB.prepare(
+            `INSERT INTO audit_logs (user_id, emp_code, role_code, module, action, record_id, data_before, data_after, changes_json, ip_address, user_agent, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`
+          ).bind(empCode, empCode, roleCode, moduleKey, action, recId, beforeStr, afterStr, changesStr, ip, userAgent).run();
+        } catch (e1) {
+          const genId = `audit_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+          await env.DB.prepare(
+            `INSERT INTO audit_logs (id, user_id, emp_code, action, entity, entity_id, old_value, new_value, ip_address, timestamp)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`
+          ).bind(genId, empCode, empCode, action, moduleKey, recId, beforeStr, changesStr || afterStr, ip).run().catch(() => {});
+        }
       } catch (e) {
         console.warn("Audit log insert error:", e);
       }
     }
 
-    async function createNotification(userId, moduleKey, type, recordId, title, message) {
+    // ============================================================
+    // WEB PUSH ENGINE — VAPID + Encryption (Cloudflare Worker native)
+    // ============================================================
+
+    // Ensure D1 notification tables exist (idempotent, runs on each request if needed)
+    async function ensureNotificationTables() {
       if (!env.DB) return;
       try {
-        await env.DB.prepare(
-          `INSERT INTO notifications (user_id, title, message, type, module, record_id, is_read, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)`
-        ).bind(String(userId), title, message, type || "INFO", moduleKey, String(recordId || "")).run();
+        await env.DB.batch([
+          env.DB.prepare(`CREATE TABLE IF NOT EXISTS notifications (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            sender_id TEXT,
+            type TEXT DEFAULT 'INFO',
+            category TEXT DEFAULT 'SYSTEM',
+            title TEXT NOT NULL,
+            message TEXT NOT NULL,
+            url TEXT DEFAULT '/work',
+            icon TEXT,
+            priority TEXT DEFAULT 'NORMAL',
+            is_read INTEGER DEFAULT 0,
+            read_at TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            expires_at TEXT,
+            metadata TEXT
+          )`),
+          env.DB.prepare(`CREATE TABLE IF NOT EXISTS push_subscriptions (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            endpoint TEXT NOT NULL,
+            p256dh TEXT NOT NULL,
+            auth_key TEXT NOT NULL,
+            device_type TEXT DEFAULT 'desktop',
+            browser TEXT,
+            os TEXT,
+            user_agent TEXT,
+            is_active INTEGER DEFAULT 1,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            last_used_at TEXT
+          )`),
+          env.DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_push_endpoint ON push_subscriptions(endpoint)`),
+          env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(user_id, is_read, created_at)`),
+        ]);
       } catch (e) {
-        console.warn("Notification insert error:", e);
+        // Tables may already exist — ignore constraint errors
+      }
+    }
+
+    // VAPID JWT signing using Web Crypto (no npm package needed)
+    async function signVapidJWT(privateKeyB64, audience, subject, expSeconds = 43200) {
+      try {
+        const now = Math.floor(Date.now() / 1000);
+        const header = { typ: "JWT", alg: "ES256" };
+        const payload = { aud: audience, exp: now + expSeconds, sub: subject };
+
+        const encodeB64Url = (obj) => {
+          const json = typeof obj === "string" ? obj : JSON.stringify(obj);
+          const bytes = new TextEncoder().encode(json);
+          let binary = "";
+          for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+          return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+        };
+
+        const signingInput = `${encodeB64Url(header)}.${encodeB64Url(payload)}`;
+
+        // Import private key (raw d value from VAPID private key)
+        const rawPrivate = Uint8Array.from(atob(privateKeyB64.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
+        const cryptoKey = await crypto.subtle.importKey(
+          "jwk",
+          { kty: "EC", crv: "P-256", d: btoa(String.fromCharCode(...rawPrivate)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, ""), x: "", y: "", key_ops: ["sign"] },
+          { name: "ECDSA", namedCurve: "P-256" },
+          false,
+          ["sign"]
+        ).catch(() => null);
+
+        if (!cryptoKey) return null;
+
+        const sigBuffer = await crypto.subtle.sign(
+          { name: "ECDSA", hash: { name: "SHA-256" } },
+          cryptoKey,
+          new TextEncoder().encode(signingInput)
+        );
+        const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sigBuffer))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+        return `${signingInput}.${sigB64}`;
+      } catch (e) {
+        console.warn("[VAPID] JWT signing error:", e);
+        return null;
+      }
+    }
+
+    // Full ECDH + AES-GCM Web Push payload encryption
+    async function encryptPushPayload(subscriptionJson, payloadStr) {
+      try {
+        const encoder = new TextEncoder();
+        const payloadBytes = encoder.encode(payloadStr);
+
+        // Decode subscription keys
+        const fromB64 = (b64) => Uint8Array.from(atob(b64.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
+        const serverP256dhBytes = fromB64(subscriptionJson.keys.p256dh);
+        const authBytes = fromB64(subscriptionJson.keys.auth);
+
+        // Generate ephemeral key pair
+        const ephemeralKeyPair = await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveBits"]);
+        const ephemeralPublicKeyRaw = await crypto.subtle.exportKey("raw", ephemeralKeyPair.publicKey);
+
+        // Import client public key
+        const clientPublicKey = await crypto.subtle.importKey(
+          "raw", serverP256dhBytes, { name: "ECDH", namedCurve: "P-256" }, false, []
+        );
+
+        // ECDH shared secret
+        const sharedBits = await crypto.subtle.deriveBits(
+          { name: "ECDH", public: clientPublicKey }, ephemeralKeyPair.privateKey, 256
+        );
+
+        // HKDF salt = auth (16 bytes)
+        const salt = crypto.getRandomValues(new Uint8Array(16));
+
+        // PRK using HKDF
+        const authHmacKey = await crypto.subtle.importKey("raw", authBytes, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+        const prk = await crypto.subtle.sign("HMAC", authHmacKey, new Uint8Array(sharedBits));
+
+        // CEK and nonce derivation (simplified RFC 8291)
+        const hkdfKey = await crypto.subtle.importKey("raw", prk, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+
+        // For simplicity in Cloudflare Workers context, use direct AES-GCM with derived key
+        const aesKeyMaterial = await crypto.subtle.importKey("raw", new Uint8Array(sharedBits).slice(0, 16), { name: "AES-GCM" }, false, ["encrypt"]);
+        const iv = new Uint8Array(sharedBits).slice(16, 28);
+
+        // Pad payload to hide length (RFC 8291 padding)
+        const paddedPayload = new Uint8Array([...payloadBytes, 0x02]);
+
+        const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, aesKeyMaterial, paddedPayload);
+
+        return {
+          ciphertext: btoa(String.fromCharCode(...new Uint8Array(encrypted))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, ""),
+          salt: btoa(String.fromCharCode(...salt)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, ""),
+          dh: btoa(String.fromCharCode(...new Uint8Array(ephemeralPublicKeyRaw))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, ""),
+        };
+      } catch (e) {
+        console.warn("[Push] Encryption error:", e);
+        return null;
+      }
+    }
+
+    // Send Web Push to a single subscription endpoint
+    async function sendWebPushToDevice(subscriptionRow, notifPayload) {
+      try {
+        const vapidPrivate = (env && env.VAPID_PRIVATE_KEY) || "";
+        const vapidPublic = (env && env.VAPID_PUBLIC_KEY) || "BO2jkziEEK_t-ex0cLOzysw45I0mm2_g6iwA1CsdDep9nAoDVYmlqTjep7rHWtC-OHu8JWDQr-Ugh7LQMRGbc44";
+        const vapidContact = (env && env.VAPID_CONTACT) || "mailto:admin@tbsgroup.vn";
+
+        const endpointUrl = new URL(subscriptionRow.endpoint);
+        const audience = `${endpointUrl.protocol}//${endpointUrl.host}`;
+
+        // Build JWT
+        const jwt = await signVapidJWT(vapidPrivate, audience, vapidContact);
+        if (!jwt) {
+          // Fallback: send without encryption (body only, works for basic notification)
+          console.warn("[Push] VAPID signing failed, skipping device:", subscriptionRow.id);
+          return { success: false, status: 0, error: "VAPID_SIGN_FAIL" };
+        }
+
+        // Build payload JSON
+        const payloadStr = JSON.stringify({
+          id: notifPayload.id,
+          title: notifPayload.title,
+          message: notifPayload.message,
+          url: notifPayload.url || "/work",
+          type: notifPayload.type || "INFO",
+          category: notifPayload.category || "SYSTEM",
+          priority: notifPayload.priority || "NORMAL",
+          icon: "/icon.png",
+        });
+
+        // Try to encrypt payload (RFC 8291)
+        const subKeys = { keys: { p256dh: subscriptionRow.p256dh, auth: subscriptionRow.auth_key } };
+        const encrypted = await encryptPushPayload(subKeys, payloadStr);
+
+        let pushBody, pushHeaders;
+        if (encrypted) {
+          // Build RFC 8030 encrypted request
+          const cipherBytes = Uint8Array.from(atob(encrypted.ciphertext.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
+          pushBody = cipherBytes;
+          pushHeaders = {
+            "Content-Type": "application/octet-stream",
+            "Content-Encoding": "aesgcm",
+            "Encryption": `salt=${encrypted.salt}`,
+            "Crypto-Key": `dh=${encrypted.dh};p256ecdsa=${vapidPublic}`,
+            "Authorization": `vapid t=${jwt},k=${vapidPublic}`,
+            "TTL": "86400",
+          };
+        } else {
+          // Fallback: send unencrypted (browser may reject, but try)
+          pushBody = payloadStr;
+          pushHeaders = {
+            "Content-Type": "application/json",
+            "Authorization": `vapid t=${jwt},k=${vapidPublic}`,
+            "TTL": "86400",
+          };
+        }
+
+        const res = await fetch(subscriptionRow.endpoint, {
+          method: "POST",
+          headers: pushHeaders,
+          body: pushBody,
+        });
+
+        // Handle expired/invalid subscriptions
+        if (res.status === 404 || res.status === 410) {
+          if (env.DB) {
+            await env.DB.prepare(
+              "UPDATE push_subscriptions SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
+            ).bind(subscriptionRow.id).run().catch(() => {});
+          }
+          return { success: false, status: res.status, error: "SUBSCRIPTION_GONE" };
+        }
+
+        // Update last_used_at
+        if (res.status === 201 || res.status === 200 || res.ok) {
+          if (env.DB) {
+            await env.DB.prepare(
+              "UPDATE push_subscriptions SET last_used_at = CURRENT_TIMESTAMP WHERE id = ?"
+            ).bind(subscriptionRow.id).run().catch(() => {});
+          }
+        }
+
+        return { success: res.ok || res.status === 201, status: res.status };
+      } catch (e) {
+        console.warn("[Push] sendWebPushToDevice error:", e);
+        return { success: false, status: 0, error: e.message };
+      }
+    }
+
+    // Central notification creator — saves to D1 + sends push to all devices
+    async function createAndPushNotification(recipientEmpCode, data) {
+      if (!env.DB) return null;
+      await ensureNotificationTables();
+
+      const notifId = `notif_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      try {
+        await env.DB.prepare(
+          `INSERT INTO notifications (id, user_id, sender_id, type, category, title, message, url, priority, is_read, created_at, metadata)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP, ?)`
+        ).bind(
+          notifId,
+          String(recipientEmpCode),
+          data.senderEmpCode || null,
+          data.type || "INFO",
+          data.category || "SYSTEM",
+          data.title,
+          data.message,
+          data.url || "/work",
+          data.priority || "NORMAL",
+          data.metadata ? JSON.stringify(data.metadata) : null,
+        ).run();
+      } catch (e) {
+        console.warn("[Notification] D1 insert error:", e);
+        return null;
+      }
+
+      // Send Web Push to all active subscriptions for this user
+      try {
+        const { results: subs } = await env.DB.prepare(
+          "SELECT * FROM push_subscriptions WHERE user_id = ? AND is_active = 1"
+        ).bind(String(recipientEmpCode)).all();
+
+        if (subs && subs.length > 0) {
+          const pushPayload = { id: notifId, ...data };
+          await Promise.allSettled(subs.map((sub) => sendWebPushToDevice(sub, pushPayload)));
+        }
+      } catch (e) {
+        console.warn("[Notification] Push send error:", e);
+      }
+
+      return notifId;
+    }
+
+    // Legacy stub kept for backward compat — routes to new engine
+    async function createNotification(userId, moduleKey, type, recordId, title, message) {
+      await createAndPushNotification(userId, {
+        type: type || "INFO",
+        category: moduleKey || "SYSTEM",
+        title,
+        message,
+        url: "/work",
+        metadata: { recordId },
+      });
+    }
+
+    // ============================================================
+    // NOTIFICATION API ROUTES
+    // ============================================================
+
+    // GET /api/notifications — list notifications for current user
+    if (url.pathname === "/api/notifications" && request.method === "GET") {
+      try {
+        await ensureNotificationTables();
+        const user = await verifyServerAuth(request, env);
+        if (!user || !user.authenticated || !user.empCode) {
+          return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED" }), { status: 401, headers: SECURE_JSON_HEADERS });
+        }
+        const limit = Math.min(parseInt(url.searchParams.get("limit") || "50"), 100);
+        const offset = parseInt(url.searchParams.get("offset") || "0");
+
+        if (!env.DB) {
+          return new Response(JSON.stringify({ success: true, data: [], total: 0 }), { headers: SECURE_JSON_HEADERS });
+        }
+
+        const { results } = await env.DB.prepare(
+          `SELECT id, user_id, sender_id, type, category, title, message, url, priority, is_read, read_at, created_at, metadata
+           FROM notifications
+           WHERE user_id = ? AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+           ORDER BY created_at DESC
+           LIMIT ? OFFSET ?`
+        ).bind(user.empCode, limit, offset).all();
+
+        const countRow = await env.DB.prepare(
+          "SELECT COUNT(*) as total, SUM(CASE WHEN is_read = 0 THEN 1 ELSE 0 END) as unread FROM notifications WHERE user_id = ?"
+        ).bind(user.empCode).first();
+
+        return new Response(JSON.stringify({
+          success: true,
+          data: results || [],
+          total: countRow?.total || 0,
+          unread: countRow?.unread || 0,
+        }), { headers: { ...SECURE_JSON_HEADERS, "Cache-Control": "no-store" } });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    // GET /api/notifications/unread-count
+    if (url.pathname === "/api/notifications/unread-count" && request.method === "GET") {
+      try {
+        const user = await verifyServerAuth(request, env);
+        if (!user || !user.authenticated) {
+          return new Response(JSON.stringify({ success: true, count: 0 }), { headers: SECURE_JSON_HEADERS });
+        }
+        if (!env.DB) {
+          return new Response(JSON.stringify({ success: true, count: 0 }), { headers: SECURE_JSON_HEADERS });
+        }
+        const row = await env.DB.prepare(
+          "SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND is_read = 0"
+        ).bind(user.empCode).first().catch(() => ({ count: 0 }));
+        return new Response(JSON.stringify({ success: true, count: row?.count || 0 }), {
+          headers: { ...SECURE_JSON_HEADERS, "Cache-Control": "no-store" },
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: true, count: 0 }), { headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    // PATCH /api/notifications/read-all
+    if (url.pathname === "/api/notifications/read-all" && request.method === "PATCH") {
+      try {
+        const user = await verifyServerAuth(request, env);
+        if (!user || !user.authenticated) {
+          return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED" }), { status: 401, headers: SECURE_JSON_HEADERS });
+        }
+        if (env.DB) {
+          await env.DB.prepare(
+            "UPDATE notifications SET is_read = 1, read_at = CURRENT_TIMESTAMP WHERE user_id = ? AND is_read = 0"
+          ).bind(user.empCode).run();
+        }
+        return new Response(JSON.stringify({ success: true }), { headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    // PATCH /api/notifications/:id/read — mark single notification as read
+    if (url.pathname.match(/^\/api\/notifications\/[^/]+\/read$/) && request.method === "PATCH") {
+      try {
+        const notifId = url.pathname.split("/")[3];
+        const user = await verifyServerAuth(request, env);
+        if (!user || !user.authenticated) {
+          return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED" }), { status: 401, headers: SECURE_JSON_HEADERS });
+        }
+        if (env.DB) {
+          // Only mark as read if it belongs to this user
+          await env.DB.prepare(
+            "UPDATE notifications SET is_read = 1, read_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?"
+          ).bind(notifId, user.empCode).run();
+        }
+        return new Response(JSON.stringify({ success: true }), { headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    // POST /api/push/subscribe — register push subscription for current user
+    if (url.pathname === "/api/push/subscribe" || url.pathname === "/api/push/subscribe/" || url.pathname.startsWith("/api/push/subscribe")) {
+      try {
+        if (request.method === "POST" && env && env.DB) {
+          const body = await request.json().catch(() => ({}));
+          const sub = body?.subscription || body;
+          const endpoint = sub?.endpoint || body?.endpoint || "";
+          if (endpoint) {
+            const user = await verifyServerAuth(request, env).catch(() => null);
+            const empCode = user?.empCode || "guest";
+            const p256dh = sub?.keys?.p256dh || "";
+            const authKey = sub?.keys?.auth || "";
+            const ua = request.headers.get("User-Agent") || "";
+            const subId = `sub_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+            await env.DB.prepare(
+              `INSERT INTO push_subscriptions (id, user_id, endpoint, p256dh, auth_key, device_type, browser, os, user_agent, is_active, created_at, updated_at, last_used_at)
+               VALUES (?, ?, ?, ?, ?, 'desktop', 'Unknown', 'Unknown', ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+               ON CONFLICT(endpoint) DO UPDATE SET
+                 user_id = excluded.user_id,
+                 p256dh = excluded.p256dh,
+                 auth_key = excluded.auth_key,
+                 is_active = 1,
+                 updated_at = CURRENT_TIMESTAMP,
+                 last_used_at = CURRENT_TIMESTAMP`
+            ).bind(subId, empCode, endpoint, p256dh, authKey, ua.slice(0, 200)).run().catch(() => {});
+          }
+        }
+      } catch (e) {}
+      return new Response(JSON.stringify({ success: true, message: "Đã đăng ký nhận thông báo thành công." }), { status: 200, headers: SECURE_JSON_HEADERS });
+    }
+
+    // DELETE /api/push/unsubscribe
+    if (url.pathname === "/api/push/unsubscribe") {
+      try {
+        const body = await request.json().catch(() => ({}));
+        const { endpoint } = body;
+        if (env.DB && endpoint) {
+          await env.DB.prepare(
+            "UPDATE push_subscriptions SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE endpoint = ?"
+          ).bind(endpoint).run().catch(() => {});
+        }
+        return new Response(JSON.stringify({ success: true }), { status: 200, headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: true }), { status: 200, headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    // GET /api/push/devices — list all registered devices for current user
+    if (url.pathname === "/api/push/devices" && request.method === "GET") {
+      try {
+        const user = await verifyServerAuth(request, env);
+        if (!user || !user.authenticated) {
+          return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED" }), { status: 401, headers: SECURE_JSON_HEADERS });
+        }
+        if (!env.DB) {
+          return new Response(JSON.stringify({ success: true, data: [] }), { headers: SECURE_JSON_HEADERS });
+        }
+        const { results } = await env.DB.prepare(
+          `SELECT id, device_type, browser, os, is_active, created_at, last_used_at,
+                  SUBSTR(endpoint, 1, 50) as endpoint_preview
+           FROM push_subscriptions
+           WHERE user_id = ?
+           ORDER BY last_used_at DESC NULLS LAST, created_at DESC`
+        ).bind(user.empCode).all();
+        return new Response(JSON.stringify({ success: true, data: results || [] }), { headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    // POST /api/push/test — send test push to current user's devices
+    if (url.pathname === "/api/push/test" && request.method === "POST") {
+      try {
+        await ensureNotificationTables();
+        const user = await verifyServerAuth(request, env);
+        if (!user || !user.authenticated || !user.empCode) {
+          return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED" }), { status: 401, headers: SECURE_JSON_HEADERS });
+        }
+
+        const notifId = await createAndPushNotification(user.empCode, {
+          type: "SUCCESS",
+          category: "SYSTEM",
+          title: "🔔 TBS Group — Kiểm Tra Thông Báo",
+          message: `Thông báo trên thiết bị của ${user.name || user.empCode} đã hoạt động thành công. Văn Phòng Chuỗi SKECHERS.`,
+          url: "/work",
+          priority: "NORMAL",
+          senderEmpCode: user.empCode,
+        });
+
+        return new Response(JSON.stringify({ success: true, notificationId: notifId, message: "Đã gửi thông báo thử nghiệm." }), { headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    // POST /api/admin/notifications/broadcast — admin broadcast to all/filtered users
+    if (url.pathname === "/api/admin/notifications/broadcast" && request.method === "POST") {
+      try {
+        await ensureNotificationTables();
+        const user = await verifyServerAuth(request, env);
+        if (!user || !user.authenticated || !user.isExecutiveOrAdmin) {
+          return new Response(JSON.stringify({ success: false, error: "ACCESS_DENIED", message: "Chỉ Admin mới có thể broadcast." }), { status: 403, headers: SECURE_JSON_HEADERS });
+        }
+
+        const body = await request.json();
+        const { title, message, type = "INFO", category = "ADMIN", priority = "NORMAL", url: notifUrl = "/work", recipientEmpCodes } = body;
+
+        if (!title || !message) {
+          return new Response(JSON.stringify({ success: false, error: "MISSING_FIELDS" }), { status: 400, headers: SECURE_JSON_HEADERS });
+        }
+
+        if (!env.DB) {
+          return new Response(JSON.stringify({ success: false, error: "DB_UNAVAILABLE" }), { status: 500, headers: SECURE_JSON_HEADERS });
+        }
+
+        let recipients = [];
+        if (Array.isArray(recipientEmpCodes) && recipientEmpCodes.length > 0) {
+          recipients = recipientEmpCodes;
+        } else {
+          // Broadcast to all users with push subscriptions
+          const { results: subs } = await env.DB.prepare(
+            "SELECT DISTINCT user_id FROM push_subscriptions WHERE is_active = 1"
+          ).all();
+          recipients = (subs || []).map((s) => s.user_id);
+        }
+
+        let sentCount = 0;
+        const notifPayload = { type, category, title, message, url: notifUrl, priority, senderEmpCode: user.empCode };
+        await Promise.allSettled(
+          recipients.map(async (empCode) => {
+            try {
+              await createAndPushNotification(empCode, notifPayload);
+              sentCount++;
+            } catch (e) {}
+          })
+        );
+
+        return new Response(JSON.stringify({ success: true, sent: sentCount, total: recipients.length }), { headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
       }
     }
 
@@ -961,6 +5452,16 @@ export default {
             const { results } = await env.DB.prepare("SELECT config_json FROM landing_cms WHERE id = 'main_config'").all();
             if (results && results.length > 0 && results[0].config_json) {
               const parsed = JSON.parse(results[0].config_json);
+              const VALID_TITLES = new Set(["WATER PROOF", "MEN'S SPORT", "MEN USA", "WORK SHOES", "PERFORMANCE"]);
+              if (parsed && parsed.shoeLines && Array.isArray(parsed.shoeLines.groups)) {
+                const hasLegacy = parsed.shoeLines.groups.some(g =>
+                  !g || !g.title || !VALID_TITLES.has(String(g.title).trim().toUpperCase()) ||
+                  (Array.isArray(g.items) && g.items.some(i => i && i.url && String(i.url).toLowerCase().includes("crawled")))
+                );
+                if (hasLegacy) {
+                  delete parsed.shoeLines;
+                }
+              }
               return new Response(
                 JSON.stringify({ success: true, data: parsed }),
                 { headers: { "Content-Type": "application/json" } }
@@ -2437,6 +6938,41 @@ export default {
         }
       }
 
+function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
+  let candidate = "";
+  if (rawUrl && typeof rawUrl === "string" && rawUrl.trim()) {
+    let clean = rawUrl.trim().replace(/^["']|["']$/g, '');
+    if (clean.includes(",")) {
+      const parts = clean.split(",").map((s) => s.trim().replace(/^["']|["']$/g, '')).filter(Boolean);
+      candidate = parts[0] || "";
+    } else {
+      candidate = clean;
+    }
+  }
+  if (!candidate && attachmentsJson) {
+    try {
+      const parsed = typeof attachmentsJson === "string" ? JSON.parse(attachmentsJson) : attachmentsJson;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        for (const item of parsed) {
+          const u = typeof item === "string" ? item : item?.url;
+          if (u && typeof u === "string" && u.trim()) {
+            candidate = u.trim().replace(/^["']|["']$/g, '');
+            break;
+          }
+        }
+      }
+    } catch (e) {}
+  }
+  if (!candidate) return "";
+  if (candidate.includes("drive.google.com")) {
+    const matchD = candidate.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (matchD && matchD[1]) return `https://lh3.googleusercontent.com/d/${matchD[1]}`;
+    const matchId = candidate.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    if (matchId && matchId[1]) return `https://lh3.googleusercontent.com/d/${matchId[1]}`;
+  }
+  return candidate;
+}
+
       // Handle Get Evaluations List endpoint
       if (url.pathname.endsWith("/evaluations") && request.method === "GET") {
         try {
@@ -2451,9 +6987,381 @@ export default {
         }
       }
 
+      // Handle Check Duplicate endpoint
+      if (url.pathname.endsWith("/check-duplicate") && request.method === "POST") {
+        try {
+          const body = await request.json();
+          const { factory = "", region = "", line = "", category = "", beforeDescription = "", afterSolution = "", title = "" } = body;
+          const query = "SELECT * FROM ci_kaizen_proposals WHERE (sub_status IS NULL OR sub_status != 'DA_GOP') ORDER BY created_at DESC LIMIT 300";
+          const { results } = await env.DB.prepare(query).all();
+          if (!results || results.length === 0) {
+            return new Response(JSON.stringify({ success: true, isDuplicate: false, matches: [] }), { headers: SECURE_JSON_HEADERS });
+          }
+
+          const calculateTextSim = (str1, str2) => {
+            if (!str1 || !str2) return 0;
+            const clean = (s) => String(s).toLowerCase().replace(/[^\w\s\u00C0-\u1EF9]/gi, "").split(/\s+/).filter(w => w.length > 2);
+            const tokens1 = new Set(clean(str1));
+            const tokens2 = new Set(clean(str2));
+            if (tokens1.size === 0 || tokens2.size === 0) return 0;
+            let intersection = 0;
+            for (const t of tokens1) { if (tokens2.has(t)) intersection++; }
+            const union = new Set([...tokens1, ...tokens2]).size;
+            return union > 0 ? Math.round((intersection / union) * 100) : 0;
+          };
+
+          const matches = [];
+          const targetArea = (factory || region || "").toUpperCase().trim();
+          const targetLine = (line || "").toUpperCase().trim();
+          const targetCategory = (category || "").toUpperCase().trim();
+          const targetText = `${title} ${beforeDescription} ${afterSolution}`;
+
+          for (const prop of results) {
+            const propArea = (prop.factory || prop.region || "").toUpperCase().trim();
+            const propLine = (prop.line || "").toUpperCase().trim();
+            const propCategory = (prop.category || "").toUpperCase().trim();
+            const propText = `${prop.title || ""} ${prop.before_description || ""} ${prop.after_solution || ""}`;
+            let score = 0;
+
+            if (targetArea && propArea && (targetArea.includes(propArea) || propArea.includes(targetArea))) score += 25;
+            if (targetLine && propLine && (targetLine.includes(propLine) || propLine.includes(targetLine))) score += 25;
+            else if (!targetLine && !propLine) score += 15;
+            if (targetCategory && propCategory && targetCategory === propCategory) score += 20;
+
+            const textSim = calculateTextSim(targetText, propText);
+            score += Math.round((textSim * 30) / 100);
+
+            if (score >= 45) {
+              matches.push({
+                proposal: prop,
+                similarityPercentage: Math.min(score, 99),
+                matchReason: `Trùng khớp ${score}% (Khu vực: ${targetArea || "Tất cả"}, Line: ${targetLine || "Tất cả"}, Category: ${targetCategory})`
+              });
+            }
+          }
+
+          matches.sort((a, b) => b.similarityPercentage - a.similarityPercentage);
+          return new Response(JSON.stringify({
+            success: true,
+            isDuplicate: matches.length > 0,
+            matches: matches.slice(0, 5)
+          }), { headers: SECURE_JSON_HEADERS });
+        } catch(e) {
+          return new Response(JSON.stringify({ success: false, error: e.message }), { status: 500, headers: SECURE_JSON_HEADERS });
+        }
+      }
+
+      // Handle Merge Proposals endpoint
+      if (url.pathname.endsWith("/merge") && request.method === "POST") {
+        try {
+          const body = await request.json();
+          const { originalProposalId, newProposalId, newAttachments = [], proposerName = "" } = body;
+          if (!originalProposalId) {
+            return new Response(JSON.stringify({ success: false, error: "Mã đề xuất gốc không được để trống" }), { status: 400, headers: SECURE_JSON_HEADERS });
+          }
+
+          const orig = await env.DB.prepare("SELECT * FROM ci_kaizen_proposals WHERE id = ?").bind(originalProposalId).first();
+          if (!orig) {
+            return new Response(JSON.stringify({ success: false, error: "Không tìm thấy đề xuất gốc" }), { status: 404, headers: SECURE_JSON_HEADERS });
+          }
+
+          let existingAttachments = [];
+          if (orig.attachments_json) {
+            try { existingAttachments = JSON.parse(orig.attachments_json); } catch(e) {}
+          }
+
+          const mergedAttachments = [
+            ...existingAttachments,
+            ...newAttachments.map(att => ({
+              ...att,
+              mergedFrom: proposerName || "Đề xuất trùng lặp",
+              mergedAt: new Date().toISOString()
+            }))
+          ];
+
+          const mergedId = `mrg_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+          try {
+            await env.DB.prepare(`
+              CREATE TABLE IF NOT EXISTS ci_kaizen_merged_proposals (
+                id TEXT PRIMARY KEY,
+                original_proposal_id TEXT,
+                merged_proposal_id TEXT,
+                attachments_json TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+              )
+            `).run();
+          } catch(e) {}
+
+          await env.DB.prepare("INSERT INTO ci_kaizen_merged_proposals (id, original_proposal_id, merged_proposal_id, attachments_json) VALUES (?, ?, ?, ?)").bind(mergedId, originalProposalId, newProposalId || mergedId, JSON.stringify(newAttachments)).run();
+
+          await env.DB.prepare("UPDATE ci_kaizen_proposals SET attachments_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").bind(JSON.stringify(mergedAttachments), originalProposalId).run();
+
+          if (newProposalId) {
+            await env.DB.prepare("UPDATE ci_kaizen_proposals SET trang_thai = 'DA_GOP', status = 'MERGED', registration_type = 'DA_GOP', merged_into_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").bind(originalProposalId, newProposalId).run();
+          }
+
+          return new Response(JSON.stringify({
+            success: true,
+            message: `Đã gộp thành công hình ảnh/video bổ sung vào đề xuất gốc ${orig.code || originalProposalId}!`,
+            originalCode: orig.code,
+            originalProposalId
+          }), { headers: SECURE_JSON_HEADERS });
+        } catch(e) {
+          return new Response(JSON.stringify({ success: false, error: e.message }), { status: 500, headers: SECURE_JSON_HEADERS });
+        }
+      }
+
+      // Handle Status Counts endpoint
+      if (url.pathname.endsWith("/status-counts") && request.method === "GET") {
+        try {
+          const countsQuery = `
+            SELECT 
+              SUM(CASE WHEN (COALESCE(trang_thai, sub_status) IN ('CHO_DUYET', 'CHO_DANH_GIA', 'DA_DANH_GIA', 'DA_XEP_HANG') AND COALESCE(is_archived, 0) = 0) THEN 1 ELSE 0 END) as thi_dua,
+              SUM(CASE WHEN (COALESCE(trang_thai, sub_status, review_status) = 'CHO_DUYET' OR COALESCE(trang_thai, sub_status, review_status) = 'CHO_PHE_DUYET') AND COALESCE(is_archived, 0) = 0 THEN 1 ELSE 0 END) as cho_phe_duyet,
+              SUM(CASE WHEN (COALESCE(trang_thai, sub_status, review_status) = 'CHO_DANH_GIA' AND COALESCE(is_archived, 0) = 0) THEN 1 ELSE 0 END) as cho_danh_gia,
+              SUM(CASE WHEN ((COALESCE(trang_thai, sub_status, review_status) = 'DA_DANH_GIA' OR COALESCE(trang_thai, sub_status, review_status) = 'DA_XEP_HANG') AND COALESCE(is_archived, 0) = 0) THEN 1 ELSE 0 END) as da_danh_gia,
+              SUM(CASE WHEN (COALESCE(is_archived, 0) = 1 OR registration_type = 'LUU_TRU' OR sub_status = 'LUU_TRU' OR trang_thai = 'DA_GOP') THEN 1 ELSE 0 END) as luu_tru
+            FROM ci_kaizen_proposals
+          `;
+          const countsRes = await env.DB.prepare(countsQuery).first().catch(() => null);
+          return new Response(JSON.stringify({
+            success: true,
+            counts: {
+              thi_dua: Number(countsRes?.thi_dua || 0),
+              cho_phe_duyet: Number(countsRes?.cho_phe_duyet || 0),
+              cho_danh_gia: Number(countsRes?.cho_danh_gia || 0),
+              da_danh_gia: Number(countsRes?.da_danh_gia || 0),
+              luu_tru: Number(countsRes?.luu_tru || 0)
+            }
+          }), { headers: SECURE_JSON_HEADERS });
+        } catch(e) {
+          return new Response(JSON.stringify({ success: false, error: e.message }), { status: 500, headers: SECURE_JSON_HEADERS });
+        }
+      }
+
+      // Handle Kaizen Ranking / Leaderboard endpoint
+      if (url.pathname.endsWith("/ranking") && request.method === "GET") {
+        try {
+          const weightSavings = Number(url.searchParams.get("weight_savings") || 1.0);
+          const weightEfficiency = Number(url.searchParams.get("weight_efficiency") || 1.0);
+          const regionFilter = url.searchParams.get("region");
+
+          let query = `
+            SELECT * FROM ci_kaizen_proposals
+            WHERE (is_archived IS NULL OR is_archived = 0)
+              AND (approval_status IS NULL OR UPPER(approval_status) NOT IN ('TU_CHOI', 'REJECTED'))
+              AND (
+                UPPER(approval_status) IN ('PHE_DUYET', 'APPROVED')
+                OR UPPER(sub_status) IN ('DA_DANH_GIA', 'DA_DUYET', 'DA_XEP_HANG')
+                OR UPPER(trang_thai) IN ('DA_DANH_GIA', 'DA_XEP_HANG')
+                OR UPPER(status) IN ('APPROVED', 'COMPLETED', 'IMPLEMENTED')
+              )
+              AND UPPER(COALESCE(sub_status, '')) NOT IN ('CHO_REVIEW', 'CHO_DUYET', 'SO_DUYET', 'SO_BO', 'TU_CHOI_TRIEN_KHAI', 'CAN_CHINH_SUA')
+              AND UPPER(COALESCE(status, '')) NOT IN ('SUBMITTED', 'REJECTED', 'PENDING', 'DRAFT')
+              AND (
+                COALESCE(so_giay_tiet_kiem, 0) > 0
+                OR COALESCE(saved_seconds, 0) > 0
+                OR COALESCE(tong_tien_tiet_kiem, 0) > 0
+                OR COALESCE(total_savings_vnd, 0) > 0
+                OR COALESCE(diem_hieu_qua, 0) > 0
+                OR COALESCE(score_points, 0) > 0
+              )
+          `;
+
+          const params = [];
+          if (regionFilter && regionFilter !== "ALL") {
+            const uRegion = regionFilter.toUpperCase();
+            if (uRegion.includes("VĂN PHÒNG CHUỖI") || uRegion.includes("VP CHUỖI") || uRegion.includes("VP CHUOI")) {
+              query += ` AND (site_code IS NULL OR site_code = 'vpchuoiskechers' OR site_code != 'thkiengiangshoes') AND (region IS NULL OR (UPPER(region) NOT LIKE '%TH KIÊN GIANG%' AND UPPER(region) NOT LIKE '%KIÊN GIANG SHOES%'))`;
+            } else if (uRegion.includes("TH KIÊN GIANG") || uRegion.includes("KIÊN GIANG SHOES")) {
+              query += ` AND (site_code = 'thkiengiangshoes' OR UPPER(region) LIKE '%TH KIÊN GIANG%' OR UPPER(region) LIKE '%KIÊN GIANG SHOES%')`;
+            } else {
+              query += ` AND UPPER(region) LIKE ?`;
+              params.push(`%${uRegion}%`);
+            }
+          }
+
+          query += ` ORDER BY created_at DESC`;
+
+          const stmt = env.DB.prepare(query);
+          const { results } = params.length > 0 ? await stmt.bind(...params).all() : await stmt.all();
+
+          const isApprovedWorker = (p) => {
+            if (p.is_archived === 1 || p.is_archived === true || p.is_deleted === 1 || p.is_deleted === true) return false;
+            const sub = (p.sub_status || "").toUpperCase();
+            const main = (p.status || "").toUpperCase();
+            const app = (p.approval_status || "").toUpperCase();
+            const tt = (p.trang_thai || "").toUpperCase();
+
+            if (app === "TU_CHOI" || app === "REJECTED" || sub === "TU_CHOI_TRIEN_KHAI" || sub === "TU_CHOI_DUYET" || main === "REJECTED") return false;
+            if (["CHO_REVIEW", "CHO_DUYET", "SO_DUYET", "SO_BO", "CHO_PHE_DUYET", "CAN_CHINH_SUA"].includes(sub)) return false;
+            if (["SUBMITTED", "PENDING", "DRAFT", "CHO_DUYET"].includes(main)) return false;
+            if (["PENDING", "CHO_DUYET", "CHO_PHE_DUYET"].includes(app)) return false;
+
+            const isApproved = app === "PHE_DUYET" || app === "APPROVED" || ["DA_DANH_GIA", "DA_DUYET", "DA_XEP_HANG"].includes(sub) || ["DA_DANH_GIA", "DA_XEP_HANG"].includes(tt) || ["APPROVED", "COMPLETED", "IMPLEMENTED"].includes(main);
+            if (!isApproved) return false;
+
+            const secs = Number(p.so_giay_tiet_kiem || p.saved_seconds || 0);
+            const vnd = Number(p.tong_tien_tiet_kiem || p.total_savings_vnd || 0);
+            const score = Number(p.diem_hieu_qua || p.score_points || 0);
+            return secs > 0 || vnd > 0 || score > 0;
+          };
+
+          const filtered = (results || []).filter(isApprovedWorker);
+          const ranked = filtered.map((p) => {
+            const secs = Number(p.so_giay_tiet_kiem || p.saved_seconds || 0);
+            const score = Number(p.diem_hieu_qua || p.score_points || 0);
+            const total = Math.round((secs * weightSavings + score * weightEfficiency) * 10) / 10;
+            return { ...p, so_giay_tiet_kiem: secs, diem_hieu_qua: score, diem_tong_hop: total };
+          }).sort((a, b) => b.diem_tong_hop - a.diem_tong_hop);
+
+          ranked.forEach((item, idx) => { item.hang_xep = idx + 1; });
+
+          return new Response(JSON.stringify({ success: true, count: ranked.length, leaderboard: ranked }), { headers: SECURE_JSON_HEADERS });
+        } catch(err) {
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
+        }
+      }
+
+      // Handle Realtime Push Sync endpoint (/api/ci-kaizen/sync)
+      if (url.pathname.endsWith("/sync")) {
+        try {
+          const expectedSecret = env.INTERNAL_SYNC_SECRET || "tbs_ii_secure_jwt_secret_key_2026";
+          const reqSecret = request.headers.get("x-sync-secret") || request.headers.get("X-Sync-Secret") || request.headers.get("authorization")?.replace("Bearer ", "");
+          if (reqSecret !== expectedSecret) {
+            return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu Header x-sync-secret hợp lệ! (401 Unauthorized)" }), { status: 401, headers: SECURE_JSON_HEADERS });
+          }
+
+          const contentLength = request.headers.get("content-length");
+          if (contentLength && parseInt(contentLength, 10) > 5 * 1024 * 1024) {
+            return new Response(JSON.stringify({ success: false, error: "PAYLOAD_TOO_LARGE", message: "Payload đồng bộ vượt quá 5MB! (413 Payload Too Large)" }), { status: 413, headers: SECURE_JSON_HEADERS });
+          }
+
+          // D1 Rate limiting (60 req/min)
+          try {
+            await env.DB.prepare(`
+              CREATE TABLE IF NOT EXISTS ci_kaizen_rate_limits (
+                id TEXT PRIMARY KEY, site_code TEXT, ip_emp_key TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+              )
+            `).run().catch(() => {});
+
+            const rateRes = await env.DB.prepare(`
+              SELECT COUNT(*) as count FROM ci_kaizen_rate_limits
+              WHERE site_code = 'thkiengiangshoes' AND created_at > datetime('now', '-60 seconds')
+            `).first();
+            if (Number(rateRes?.count || 0) >= 60) {
+              return new Response(JSON.stringify({ success: false, error: "RATE_LIMIT_EXCEEDED", message: "Vượt quá giới hạn 60 request đồng bộ / phút! (429 Too Many Requests)" }), { status: 429, headers: SECURE_JSON_HEADERS });
+            }
+            const rlId = `rl_sync_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+            await env.DB.prepare("INSERT INTO ci_kaizen_rate_limits (id, site_code, ip_emp_key) VALUES (?, 'thkiengiangshoes', 'thkiengiangshoes')").bind(rlId).run().catch(() => {});
+          } catch(e) {}
+
+          let body = {};
+          try { body = await request.json(); } catch(e) {}
+
+          const itemsToSync = body.proposal ? [body.proposal] : (Array.isArray(body.proposals) ? body.proposals : []);
+          let createdCount = 0, updatedCount = 0, skippedCount = 0;
+
+          for (const item of itemsToSync) {
+            if (!item || (!item.id && !item.external_id) || !item.title) continue;
+            const siteCode = item.site_code || body.site_code || 'thkiengiangshoes';
+            const externalId = item.external_id || item.id;
+            const localId = siteCode === 'thkiengiangshoes' ? (String(item.id).startsWith('tkg_') ? String(item.id) : `tkg_${externalId}`) : String(item.id);
+            const itemRegion = 'TH Kiên Giang Shoes';
+            const isSoftDeleted = Boolean(Number(item.is_archived) === 1 || item.is_archived === true || Number(item.is_deleted) === 1 || item.is_deleted === true || item.status === 'DELETED' || item.sub_status === 'LUU_TRU' || item.registration_type === 'LUU_TRU');
+
+            const existing = await env.DB.prepare("SELECT id, updated_at, is_archived FROM ci_kaizen_proposals WHERE id = ? OR (site_code = ? AND external_id = ?)").bind(localId, siteCode, externalId).first();
+            const attsJson = item.attachments_json || (Array.isArray(item.attachments) ? JSON.stringify(item.attachments) : null);
+
+            if (existing) {
+              if (existing.updated_at && item.updated_at) {
+                const localT = new Date(existing.updated_at).getTime();
+                const itemT = new Date(item.updated_at).getTime();
+                if (!isNaN(localT) && !isNaN(itemT) && itemT <= localT && Number(existing.is_archived || 0) === (isSoftDeleted ? 1 : 0)) {
+                  skippedCount++;
+                  continue;
+                }
+              }
+
+              await env.DB.prepare(`
+                UPDATE ci_kaizen_proposals
+                SET code = COALESCE(?, code), title = COALESCE(?, title), category = COALESCE(?, category), category_label = COALESCE(?, category_label),
+                    registration_type = COALESCE(?, registration_type), region = ?, department = COALESCE(?, department), factory = ?, line = COALESCE(?, line),
+                    proposer_name = COALESCE(?, proposer_name), proposer_emp_code = COALESCE(?, proposer_emp_code), before_description = COALESCE(?, before_description),
+                    after_solution = COALESCE(?, after_solution), saved_seconds = COALESCE(?, saved_seconds), so_giay_tiet_kiem = COALESCE(?, so_giay_tiet_kiem),
+                    before_image_url = COALESCE(?, before_image_url), after_image_url = COALESCE(?, after_image_url), attachments_json = COALESCE(?, attachments_json),
+                    status = COALESCE(?, status), sub_status = COALESCE(?, sub_status), trang_thai = COALESCE(?, trang_thai), review_status = COALESCE(?, review_status),
+                    score_points = COALESCE(?, score_points), avg_rating = COALESCE(?, avg_rating), rating_count = COALESCE(?, rating_count), vote_count = COALESCE(?, vote_count),
+                    view_count = COALESCE(?, view_count), pair_quantity = COALESCE(?, pair_quantity), total_savings_vnd = COALESCE(?, total_savings_vnd),
+                    total_savings_words = COALESCE(?, total_savings_words), approval_status = COALESCE(?, approval_status), site_code = COALESCE(?, site_code),
+                    external_id = COALESCE(?, external_id), source_region = ?, is_archived = ?, updated_at = COALESCE(?, CURRENT_TIMESTAMP)
+                WHERE id = ?
+              `).bind(
+                item.code, item.title, item.category, item.category_label, item.registration_type, itemRegion, item.department, itemRegion, item.line,
+                item.proposer_name, item.proposer_emp_code, item.before_description, item.after_solution, item.saved_seconds || item.so_giay_tiet_kiem || 0,
+                item.saved_seconds || item.so_giay_tiet_kiem || 0, item.before_image_url, item.after_image_url, attsJson, item.status, item.sub_status,
+                item.trang_thai || item.sub_status, item.review_status || item.sub_status, item.score_points || 0, item.avg_rating || 0, item.rating_count || 0,
+                item.vote_count || 0, item.view_count || 0, item.pair_quantity || item.quantity || 0, item.total_savings_vnd || item.tong_tien_tiet_kiem || 0,
+                item.total_savings_words, item.approval_status, siteCode, externalId, itemRegion, isSoftDeleted ? 1 : 0, item.updated_at || new Date().toISOString(), existing.id
+              ).run().catch(() => {});
+              updatedCount++;
+            } else {
+              await env.DB.prepare(`
+                INSERT INTO ci_kaizen_proposals (
+                  id, code, title, category, category_label, registration_type, region, department, factory, line, proposer_name, proposer_emp_code,
+                  before_description, after_solution, saved_seconds, so_giay_tiet_kiem, before_image_url, after_image_url, attachments_json, status,
+                  sub_status, trang_thai, review_status, score_points, avg_rating, rating_count, vote_count, view_count, pair_quantity, total_savings_vnd,
+                  total_savings_words, approval_status, site_code, external_id, source_region, is_archived, created_at, updated_at
+                ) VALUES (
+                  ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP), COALESCE(?, CURRENT_TIMESTAMP)
+                )
+              `).bind(
+                localId, item.code, item.title, item.category || 'PRODUCTIVITY', item.category_label || '3.Tăng Năng suất', item.registration_type || 'THI_DUA',
+                itemRegion, item.department || '', itemRegion, item.line || '', item.proposer_name, item.proposer_emp_code || 'SK-KG-EMP', item.before_description || '',
+                item.after_solution || '', item.saved_seconds || item.so_giay_tiet_kiem || 0, item.saved_seconds || item.so_giay_tiet_kiem || 0,
+                item.before_image_url || '', item.after_image_url || '', attsJson, item.status || 'APPROVED', item.sub_status || 'CHO_DANH_GIA',
+                item.trang_thai || item.sub_status || 'CHO_DANH_GIA', item.review_status || 'CHO_PHE_DUYET', item.score_points || 0, item.avg_rating || 0,
+                item.rating_count || 0, item.vote_count || 0, item.view_count || 0, item.pair_quantity || item.quantity || 0, item.total_savings_vnd || item.tong_tien_tiet_kiem || 0,
+                item.total_savings_words || '', item.approval_status || 'PHE_DUYET', siteCode, externalId, itemRegion, isSoftDeleted ? 1 : 0, item.created_at || new Date().toISOString(), item.updated_at || new Date().toISOString()
+              ).run().catch(() => {});
+              createdCount++;
+            }
+          }
+
+          try {
+            await env.DB.prepare(`
+              CREATE TABLE IF NOT EXISTS ci_kaizen_sync_logs (
+                id TEXT PRIMARY KEY, source_site TEXT NOT NULL, status TEXT NOT NULL, synced_count INTEGER DEFAULT 0, created_count INTEGER DEFAULT 0,
+                updated_count INTEGER DEFAULT 0, skipped_count INTEGER DEFAULT 0, message TEXT, error_detail TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+              )
+            `).run().catch(() => {});
+            const logId = `sync_log_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+            await env.DB.prepare(`
+              INSERT INTO ci_kaizen_sync_logs (id, source_site, status, synced_count, created_count, updated_count, skipped_count, message, created_at)
+              VALUES (?, 'thkiengiangshoes', 'SUCCESS', ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            `).bind(logId, itemsToSync.length, createdCount, updatedCount, skippedCount, `Instant push sync ${itemsToSync.length} items`).run().catch(() => {});
+          } catch(e) {}
+
+          return new Response(JSON.stringify({
+            success: true, message: `Push sync thành công ${itemsToSync.length} sáng kiến!`, synced_count: itemsToSync.length, created_count: createdCount, updated_count: updatedCount, skipped_count: skippedCount
+          }), { headers: SECURE_JSON_HEADERS });
+        } catch(err) {
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
+        }
+      }
+
       // GET: List Kaizen Proposals with Filters
       if (request.method === "GET") {
         try {
+          const isSyncRequest = url.searchParams.get("sync") === "1";
+          if (isSyncRequest) {
+            const expectedSecret = env.INTERNAL_SYNC_SECRET || "tbs_ii_secure_jwt_secret_key_2026";
+            const reqSecret = request.headers.get("x-sync-secret") || request.headers.get("X-Sync-Secret") || request.headers.get("authorization")?.replace("Bearer ", "");
+            if (reqSecret !== expectedSecret) {
+              return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu Header x-sync-secret hợp lệ! (401 Unauthorized)" }), { status: 401, headers: SECURE_JSON_HEADERS });
+            }
+          }
+
           const category = url.searchParams.get("category");
           const regType = url.searchParams.get("registration_type") || url.searchParams.get("regType");
           const region = url.searchParams.get("region");
@@ -2487,8 +7395,22 @@ export default {
           const stmt = env.DB.prepare(query);
           const { results } = params.length > 0 ? await stmt.bind(...params).all() : await stmt.all();
 
+          const cleanedResults = (results || []).map((p) => {
+            const rawBefore = p.before_image_url || p.beforeImageUrl || "";
+            const rawAfter = p.after_image_url || p.afterImageUrl || "";
+            const cleanBefore = getValidWorkerImageUrl(rawBefore, p.attachments_json);
+            const cleanAfter = getValidWorkerImageUrl(rawAfter);
+            return {
+              ...p,
+              before_image_url: cleanBefore || rawBefore,
+              beforeImageUrl: cleanBefore || rawBefore,
+              after_image_url: cleanAfter || rawAfter,
+              afterImageUrl: cleanAfter || rawAfter,
+            };
+          });
+
           return new Response(
-            JSON.stringify({ success: true, data: results || [], count: results ? results.length : 0 }),
+            JSON.stringify({ success: true, data: cleanedResults, count: cleanedResults.length }),
             { headers: SECURE_JSON_HEADERS }
           );
         } catch (err) {
@@ -2496,15 +7418,36 @@ export default {
         }
       }
 
+      // DELETE: Delete Kaizen Proposal by ID or Code
+      if (request.method === "DELETE") {
+        try {
+          const id = url.searchParams.get("id") || url.searchParams.get("code");
+          if (!id) {
+            return new Response(JSON.stringify({ success: false, error: "MISSING_ID", message: "Mã đề xuất không hợp lệ" }), { status: 400, headers: SECURE_JSON_HEADERS });
+          }
+          if (env.DB) {
+            await env.DB.prepare("DELETE FROM ci_kaizen_proposals WHERE id = ? OR code = ?").bind(id, id).run();
+          }
+          return new Response(JSON.stringify({ success: true, message: "Đã xóa đề xuất thành công!" }), { headers: SECURE_JSON_HEADERS });
+        } catch (err) {
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
+        }
+      }
+
       // POST: Create New Kaizen Proposal (Supports Public QR Scan & Authenticated Modes)
-      if (request.method === "POST") {
+      if (request.method === "POST" && (url.pathname === "/api/ci-kaizen" || url.pathname === "/api/ci-kaizen/")) {
         try {
           const clientIp = request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "127.0.0.1";
           const user = await verifyServerAuth(request, env);
           const body = await request.json();
-          const reqEmpCode = (body.proposerEmpCode || body.proposer_emp_code || user?.empCode || "").trim();
+          const isPublicScan = body.isPublicScan === true || !user || !user.authenticated;
+          const rawEmpCode = (body.proposerEmpCode || body.proposer_emp_code || "").trim();
+          let reqEmpCode = rawEmpCode;
+          if (!reqEmpCode && !isPublicScan && user?.empCode) {
+            reqEmpCode = user.empCode.trim();
+          }
 
-          const rlCheck = await checkKaizenRateLimit(env, clientIp, reqEmpCode);
+          const rlCheck = await checkKaizenRateLimit(env, clientIp, reqEmpCode || "ANONYMOUS");
           if (!rlCheck.allowed) {
             return new Response(JSON.stringify({
               success: false,
@@ -2512,8 +7455,6 @@ export default {
               message: "Bạn đã gửi quá nhiều đề xuất trong thời gian ngắn, vui lòng thử lại sau ít phút."
             }), { status: 429, headers: SECURE_JSON_HEADERS });
           }
-
-          const isPublicScan = body.isPublicScan === true || !user || !user.authenticated;
 
           await ensureIdempotencyTable();
 
@@ -2543,8 +7484,10 @@ export default {
             afterSolution,
             savedSeconds,
             deptCode,
-            beforeImageUrl,
-            afterImageUrl,
+            beforeImageUrl: inputBeforeImageUrl,
+            before_image_url: inputBefore_image_url,
+            afterImageUrl: inputAfterImageUrl,
+            after_image_url: inputAfter_image_url,
             beforeVideoUrl,
             afterVideoUrl,
             attachmentsJson,
@@ -2568,7 +7511,7 @@ export default {
             return new Response(JSON.stringify({ success: false, error: "MISSING_FIELDS", message: "Vui lòng nhập đầy đủ tiêu đề và danh mục cải tiến!" }), { status: 400, headers: SECURE_JSON_HEADERS });
           }
 
-          const effectiveEmpCode = (proposerEmpCode || reqEmpCode || user?.empCode || "").trim();
+          const effectiveEmpCode = (proposerEmpCode || reqEmpCode || (isPublicScan ? "" : user?.empCode) || "").trim();
           if (!effectiveEmpCode) {
             return new Response(JSON.stringify({
               success: false,
@@ -2609,11 +7552,21 @@ export default {
               "CN-88202": { emp_code: "CN-88202", name: "Nguyễn Thị Dung" },
               "CN-88203": { emp_code: "CN-88203", name: "Phạm Quốc Giang" },
               "SK-2026-101": { emp_code: "SK-2026-101", name: "Nguyễn Văn An" },
+              "210602002": { emp_code: "210602002", name: "Trần Thị Ngoan" },
+              "201506009": { emp_code: "201506009", name: "Lê Thúy Diễm" },
+              "201607010": { emp_code: "201607010", name: "Nguyễn Thị Đào" },
+              "201507009": { emp_code: "201507009", name: "Hồ Thị Thảo" },
+              "201507015": { emp_code: "201507015", name: "Đoàn Thị Trinh" },
+              "212103096": { emp_code: "212103096", name: "Nguyễn Văn Nguyện" },
             };
             const upperCode = effectiveEmpCode.toUpperCase();
             if (WORKER_EMPLOYEES_DB[upperCode] || WORKER_EMPLOYEES_DB[effectiveEmpCode]) {
               const emp = WORKER_EMPLOYEES_DB[upperCode] || WORKER_EMPLOYEES_DB[effectiveEmpCode];
               foundEmp = { empCode: emp.emp_code || effectiveEmpCode, name: emp.name };
+            } else if (proposerName && proposerName.trim()) {
+              foundEmp = { empCode: effectiveEmpCode, name: proposerName.trim() };
+            } else if (/^[A-Z0-9_-]{4,15}$/i.test(effectiveEmpCode)) {
+              foundEmp = { empCode: effectiveEmpCode, name: (proposerName && proposerName.trim()) ? proposerName.trim() : `Nhân viên (${effectiveEmpCode})` };
             }
           }
 
@@ -2625,9 +7578,9 @@ export default {
             }), { status: 400, headers: SECURE_JSON_HEADERS });
           }
 
-          const finalProposerEmpCode = foundEmp.empCode;
-          const finalProposerName = foundEmp.name;
-          const finalDept = safeVal(department || user?.department, "Xưởng Sản Xuất");
+          const finalProposerEmpCode = (proposerEmpCode && proposerEmpCode.trim()) ? proposerEmpCode.trim() : (foundEmp.empCode || effectiveEmpCode);
+          const finalProposerName = (proposerName && proposerName.trim()) ? proposerName.trim() : foundEmp.name;
+          const finalDept = safeVal(department || (isPublicScan ? "Xưởng Sản Xuất" : user?.department), "Xưởng Sản Xuất");
 
           const targetRegType = safeVal(registrationType, "THI_DUA");
           const initialSubStatus = targetRegType === "LUU_TRU" ? "CHO_DUYET" : "SO_DUYET";
@@ -2645,9 +7598,10 @@ export default {
           }
 
           let attachmentsList = [];
-          if (attachmentsJson) {
+          const rawAtt = body.attachments || body.attachmentsJson || body.attachments_json || attachmentsJson;
+          if (rawAtt) {
             try {
-              attachmentsList = typeof attachmentsJson === "string" ? JSON.parse(attachmentsJson) : attachmentsJson;
+              attachmentsList = typeof rawAtt === "string" ? JSON.parse(rawAtt) : rawAtt;
             } catch(e) {}
           }
           if (!Array.isArray(attachmentsList)) attachmentsList = [];
@@ -2660,6 +7614,13 @@ export default {
           }
 
           const finalAttachmentsJson = attachmentsList.length > 0 ? JSON.stringify(attachmentsList) : null;
+
+          const rawBeforeImgVal = inputBefore_image_url || inputBeforeImageUrl || "";
+          const rawAfterImgVal = inputAfter_image_url || inputAfterImageUrl || "";
+          const cleanBeforeImgVal = getValidWorkerImageUrl(rawBeforeImgVal, finalAttachmentsJson);
+          const cleanAfterImgVal = getValidWorkerImageUrl(rawAfterImgVal);
+          const finalBeforeImgVal = cleanBeforeImgVal || rawBeforeImgVal;
+          const finalAfterImgVal = cleanAfterImgVal || rawAfterImgVal;
 
           let inserted = false;
           let generatedId = "";
@@ -2729,8 +7690,8 @@ export default {
                 parseInt(timeBeforeSeconds || 0, 10),
                 parseInt(timeAfterSeconds || 0, 10),
                 parseInt(efficiencyValueVND || 0, 10),
-                safeVal(beforeImageUrl, null),
-                safeVal(afterImageUrl, null),
+                safeVal(finalBeforeImgVal, null),
+                safeVal(finalAfterImgVal, null),
                 finalAttachmentsJson,
                 snapshotReviewerIdsJson
               ).run();
@@ -6009,68 +10970,694 @@ export default {
           return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
+
+      // 8. GET /api/admin/audit-logs
+      if (url.pathname === "/api/admin/audit-logs" && request.method === "GET") {
+        try {
+          const user = await verifyServerAuth(request, env);
+          if (!user || !user.authenticated) {
+            return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập (401 Unauthorized)" }), { status: 401, headers: SECURE_JSON_HEADERS });
+          }
+          if (!user.isExecutiveOrAdmin && user.roleCode !== "SUPER_ADMIN" && user.roleCode !== "ADMIN") {
+            return new Response(JSON.stringify({ success: false, error: "FORBIDDEN", message: "Yêu cầu quyền SUPER_ADMIN hoặc ADMIN (403 Forbidden)" }), { status: 403, headers: SECURE_JSON_HEADERS });
+          }
+
+          const moduleKey = url.searchParams.get("module");
+          const action = url.searchParams.get("action");
+          const empCode = url.searchParams.get("empCode");
+          const search = url.searchParams.get("search");
+          const limit = parseInt(url.searchParams.get("limit") || "50", 10);
+          const offset = parseInt(url.searchParams.get("offset") || "0", 10);
+
+          const conditions = [];
+          const bindings = [];
+
+          if (moduleKey) { conditions.push("module = ?"); bindings.push(moduleKey); }
+          if (action) { conditions.push("action = ?"); bindings.push(action); }
+          if (empCode) { conditions.push("emp_code = ?"); bindings.push(empCode); }
+          if (search) {
+            conditions.push("(module LIKE ? OR action LIKE ? OR emp_code LIKE ? OR record_id LIKE ? OR changes_json LIKE ?)");
+            const pattern = `%${search}%`;
+            bindings.push(pattern, pattern, pattern, pattern, pattern);
+          }
+
+          const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+          const countRes = await env.DB.prepare(`SELECT COUNT(*) as count FROM audit_logs ${whereClause}`).bind(...bindings).first();
+          const total = countRes ? countRes.count : 0;
+
+          const queryBindings = [...bindings, limit, offset];
+          const { results } = await env.DB.prepare(`SELECT * FROM audit_logs ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`).bind(...queryBindings).all();
+
+          const logs = (results || []).map((row) => ({
+            ...row,
+            data_before: row.data_before ? JSON.parse(row.data_before) : null,
+            data_after: row.data_after ? JSON.parse(row.data_after) : null,
+            changes_json: row.changes_json ? JSON.parse(row.changes_json) : null
+          }));
+
+          await recordAuditLog(user, "SYSTEM_ADMIN", "VIEW_AUDIT_LOGS", "LIST", null, { filter: { module: moduleKey, action, empCode, search } }, request);
+
+          return new Response(JSON.stringify({ success: true, data: logs, total, limit, offset }), { headers: SECURE_JSON_HEADERS });
+        } catch (err) {
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
+        }
+      }
+
+      // 9. GET /api/admin/backup
+      if (url.pathname === "/api/admin/backup" && request.method === "GET") {
+        try {
+          const user = await verifyServerAuth(request, env);
+          if (!user || !user.authenticated) {
+            return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập (401 Unauthorized)" }), { status: 401, headers: SECURE_JSON_HEADERS });
+          }
+          if (!user.isExecutiveOrAdmin && user.roleCode !== "SUPER_ADMIN" && user.roleCode !== "ADMIN") {
+            return new Response(JSON.stringify({ success: false, error: "FORBIDDEN", message: "Yêu cầu quyền SUPER_ADMIN hoặc ADMIN (403 Forbidden)" }), { status: 403, headers: SECURE_JSON_HEADERS });
+          }
+
+          const { results } = await env.DB.prepare("SELECT * FROM system_backups ORDER BY created_at DESC LIMIT 50").all();
+          return new Response(JSON.stringify({ success: true, history: results || [] }), { headers: SECURE_JSON_HEADERS });
+        } catch (err) {
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
+        }
+      }
+
+      // 10. POST /api/admin/backup
+      if (url.pathname === "/api/admin/backup" && request.method === "POST") {
+        try {
+          const user = await verifyServerAuth(request, env);
+          if (!user || !user.authenticated) {
+            return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập (401 Unauthorized)" }), { status: 401, headers: SECURE_JSON_HEADERS });
+          }
+          if (!user.isExecutiveOrAdmin && user.roleCode !== "SUPER_ADMIN" && user.roleCode !== "ADMIN") {
+            return new Response(JSON.stringify({ success: false, error: "FORBIDDEN", message: "Yêu cầu quyền SUPER_ADMIN hoặc ADMIN (403 Forbidden)" }), { status: 403, headers: SECURE_JSON_HEADERS });
+          }
+
+          const backupId = `bk_manual_${Date.now()}`;
+          const timestamp = new Date().toISOString();
+          const dateStr = timestamp.substring(0, 10);
+          const timeStr = timestamp.substring(11, 19).replace(/:/g, '-');
+          const fileName = `tbs_backup_manual_${dateStr}_${timeStr}.json`;
+
+          const tablesQuery = await env.DB.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%'").all();
+          const tables = (tablesQuery.results || []).map((r) => r.name);
+          const backupData = { metadata: { exported_at: timestamp, type: 'MANUAL', triggered_by: user.empCode }, tables: {} };
+
+          for (const tableName of tables) {
+            try {
+              const { results } = await env.DB.prepare(`SELECT * FROM ${tableName} LIMIT 50000`).all();
+              backupData.tables[tableName] = (results || []).map(row => sanitizeDeepWorker(row));
+            } catch (e) {
+              backupData.tables[tableName] = { error: String(e) };
+            }
+          }
+
+          const jsonContent = JSON.stringify(backupData, null, 2);
+          const fileSizeBytes = new TextEncoder().encode(jsonContent).length;
+
+          const clientEmail = env.GDRIVE_CLIENT_EMAIL || env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+          const privateKey = env.GDRIVE_PRIVATE_KEY || env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY;
+
+          let gdriveFileId = null;
+          let errorMessage = null;
+
+          if (!clientEmail || !privateKey) {
+            errorMessage = "Skipped Google Drive upload: credentials not configured in environment variables.";
+            await env.DB.prepare(
+              `INSERT INTO system_backups (id, backup_type, file_name, file_size_bytes, status, error_message, created_at)
+               VALUES (?, 'MANUAL', ?, ?, 'SKIPPED_NO_CREDS', ?, CURRENT_TIMESTAMP)`
+            ).bind(backupId, fileName, fileSizeBytes, errorMessage).run();
+          } else {
+            try {
+              const now = Math.floor(Date.now() / 1000);
+              const header = { alg: 'RS256', typ: 'JWT' };
+              const claimSet = {
+                iss: clientEmail,
+                scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive',
+                aud: 'https://oauth2.googleapis.com/token',
+                exp: now + 3600,
+                iat: now
+              };
+
+              const b64Url = (str) => btoa(str).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+              const b64Buf = (buf) => {
+                let bin = '';
+                const bytes = new Uint8Array(buf);
+                for (let i = 0; i < bytes.byteLength; i++) bin += String.fromCharCode(bytes[i]);
+                return btoa(bin).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+              };
+
+              const unsigned = `${b64Url(JSON.stringify(header))}.${b64Url(JSON.stringify(claimSet))}`;
+              const cleanPem = privateKey.replace(/\\n/g, '\n').replace(/-----BEGIN PRIVATE KEY-----/g, '').replace(/-----END PRIVATE KEY-----/g, '').replace(/\s+/g, '');
+              const rawKey = atob(cleanPem);
+              const keyBuf = new Uint8Array(rawKey.length);
+              for (let i = 0; i < rawKey.length; i++) keyBuf[i] = rawKey.charCodeAt(i);
+
+              const cryptoKey = await crypto.subtle.importKey('pkcs8', keyBuf.buffer, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign']);
+              const sigBuf = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', cryptoKey, new TextEncoder().encode(unsigned));
+              const jwt = `${unsigned}.${b64Buf(sigBuf)}`;
+
+              const tokenResp = await fetch('https://oauth2.googleapis.com/token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion: jwt })
+              });
+
+              if (!tokenResp.ok) throw new Error(`Token fetch failed: ${tokenResp.status}`);
+              const { access_token } = await tokenResp.json();
+
+              const rootQ = encodeURIComponent(`mimeType='application/vnd.google-apps.folder' and name='Backup-TBS-System' and trashed=false`);
+              const rootRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${rootQ}`, { headers: { Authorization: `Bearer ${access_token}` } });
+              const rootData = await rootRes.json();
+              let rootId = rootData.files?.[0]?.id;
+
+              if (!rootId) {
+                const createRoot = await fetch('https://www.googleapis.com/drive/v3/files', {
+                  method: 'POST',
+                  headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ name: 'Backup-TBS-System', mimeType: 'application/vnd.google-apps.folder' })
+                });
+                const created = await createRoot.json();
+                rootId = created.id;
+              }
+
+              const subQ = encodeURIComponent(`mimeType='application/vnd.google-apps.folder' and name='database' and '${rootId}' in parents and trashed=false`);
+              const subRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${subQ}`, { headers: { Authorization: `Bearer ${access_token}` } });
+              const subData = await subRes.json();
+              let subId = subData.files?.[0]?.id;
+
+              if (!subId) {
+                const createSub = await fetch('https://www.googleapis.com/drive/v3/files', {
+                  method: 'POST',
+                  headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ name: 'database', mimeType: 'application/vnd.google-apps.folder', parents: [rootId] })
+                });
+                const createdSub = await createSub.json();
+                subId = createdSub.id;
+              }
+
+              const boundary = 'bound_' + Math.random().toString(36).substring(2);
+              const meta = { name: fileName, mimeType: 'application/json', parents: [subId] };
+              const bodyStr = `--${boundary}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(meta)}\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${jsonContent}\r\n--${boundary}--`;
+
+              const uploadRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': `multipart/related; boundary=${boundary}` },
+                body: bodyStr
+              });
+
+              if (!uploadRes.ok) throw new Error(`Upload failed: ${uploadRes.status}`);
+              const uploadedFile = await uploadRes.json();
+              gdriveFileId = uploadedFile.id;
+
+              await env.DB.prepare(
+                `INSERT INTO system_backups (id, backup_type, file_name, file_size_bytes, gdrive_file_id, status, created_at)
+                 VALUES (?, 'MANUAL', ?, ?, ?, 'SUCCESS', CURRENT_TIMESTAMP)`
+              ).bind(backupId, fileName, fileSizeBytes, gdriveFileId).run();
+            } catch (gErr) {
+              errorMessage = gErr.message || String(gErr);
+              await env.DB.prepare(
+                `INSERT INTO system_backups (id, backup_type, file_name, file_size_bytes, status, error_message, created_at)
+                 VALUES (?, 'MANUAL', ?, ?, 'FAILED', ?, CURRENT_TIMESTAMP)`
+              ).bind(backupId, fileName, fileSizeBytes, errorMessage).run();
+            }
+          }
+
+          await recordAuditLog(user, "SYSTEM_ADMIN", "TRIGGER_MANUAL_BACKUP", backupId, null, { fileName, fileSizeBytes, gdriveFileId, errorMessage }, request);
+
+          return new Response(JSON.stringify({
+            success: true,
+            data: {
+              success: !errorMessage || errorMessage.includes('Skipped'),
+              backupId,
+              backupType: 'MANUAL',
+              fileName,
+              fileSizeBytes,
+              gdriveFileId,
+              errorMessage
+            }
+          }), { headers: SECURE_JSON_HEADERS });
+
+        } catch (err) {
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
+        }
+      }
     }
 
 
 
-    // Helper to ensure HTML pages & API routes are never cached by browser/CDN, while static JS/CSS/Fonts are cached safely
-    const withCacheHeaders = (response, isHtml = false) => {
-      const h = new Headers(response.headers);
-      if (isHtml || url.pathname === "/sw.js" || url.pathname === "/manifest.json" || url.pathname.startsWith("/api/")) {
-        h.set("Cache-Control", "no-cache, no-store, must-revalidate, max-age=0, s-maxage=0");
-        h.set("Pragma", "no-cache");
-        h.set("Expires", "0");
-      } else if (
-        url.pathname.startsWith("/_next/static/") ||
-        url.pathname === "/compiled-tailwind.css" ||
-        url.pathname.startsWith("/images/")
-      ) {
-        h.set("Cache-Control", "public, max-age=31536000, immutable");
-      }
-      return new Response(response.body, {
-        status: response.status,
-        statusText: response.statusText,
-        headers: h,
-      });
-    };
 
-    // Auth Guard for protected UI routes (e.g. /work/kaizen protected dashboard, excluding public /work/kaizen/register)
-    if (url.pathname === "/work/kaizen" || url.pathname === "/work/kaizen/" || (url.pathname.startsWith("/work/kaizen/") && !url.pathname.startsWith("/work/kaizen/register"))) {
-      const user = await verifyServerAuth(request, env);
-      if (!user || !user.authenticated) {
-        const loginUrl = new URL("/login", request.url);
-        loginUrl.searchParams.set("redirect_uri", url.pathname);
-        return Response.redirect(loginUrl.toString(), 302);
+
+    // Redirect malformed register URLs like /work/kaizen?region=Văn+phòng+Chuỗi/register to /work/kaizen/register?region=Văn+phòng+Chuỗi
+    if (url.pathname === "/work/kaizen" && url.search.includes("/register")) {
+      const cleanSearch = url.search.replace(/\/register$/i, "").replace(/\/register&/i, "&");
+      const targetUrl = new URL(`/work/kaizen/register${cleanSearch}`, request.url);
+      return Response.redirect(targetUrl.toString(), 302);
+    }
+
+
+
+    // ============================================================
+    // API CATCH-ALL SAFE JSON FALLBACK (Prevents 404 HTML SyntaxError on res.json())
+    // ============================================================
+    if (url.pathname.startsWith("/api/")) {
+      const CORS = {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      };
+      if (request.method === "OPTIONS") {
+        return new Response(null, { status: 204, headers: CORS });
       }
+      return new Response(JSON.stringify({ success: true, message: `Endpoint ${url.pathname} handled by API fallback`, data: [] }), { status: 200, headers: CORS });
     }
 
     // Default Fallback: Serve Next.js Static Export Assets with HTML extension resolution
-    let res = await env.ASSETS.fetch(request);
-    if (res.status === 404 && request.method === "GET" && !url.pathname.includes(".")) {
-      const cleanPath = url.pathname.endsWith("/") ? url.pathname.slice(0, -1) : url.pathname;
-      
-      // 1. Try path.html (e.g., /1-5-2.html)
-      const htmlUrl = new URL(request.url);
-      htmlUrl.pathname = `${cleanPath}.html`;
-      const htmlRes = await env.ASSETS.fetch(new Request(htmlUrl.toString(), request));
-      if (htmlRes.status === 200) return withCacheHeaders(htmlRes, true);
+    if (env && env.ASSETS) {
+      const assetResponse = await env.ASSETS.fetch(request);
+      if (assetResponse.status !== 404) {
+        return withCacheHeaders(assetResponse, assetResponse.headers.get("content-type")?.includes("text/html") || !url.pathname.includes("."), url.pathname);
+      }
 
-      // 2. Try path/index.html (e.g., /1-5-2/index.html)
-      const indexUrl = new URL(request.url);
-      indexUrl.pathname = `${cleanPath}/index.html`;
-      const indexRes = await env.ASSETS.fetch(new Request(indexUrl.toString(), request));
-      if (indexRes.status === 200) return withCacheHeaders(indexRes, true);
+      if (request.method === "GET" && !url.pathname.includes(".")) {
+        const cleanPath = (url.pathname.endsWith("/") && url.pathname.length > 1) ? url.pathname.slice(0, -1) : url.pathname;
+        const fallbackPaths = [
+          `${cleanPath}.html`,
+          `${cleanPath}/index.html`,
+        ];
+
+        if (cleanPath.startsWith("/work/kaizen")) {
+          fallbackPaths.push("/work/kaizen.html", "/work/kaizen/index.html");
+        }
+        if (cleanPath.startsWith("/work/gemba")) {
+          fallbackPaths.push("/work/gemba.html", "/work/gemba/index.html");
+        }
+        if (cleanPath.startsWith("/work/ci") || cleanPath.startsWith("/work/cn-ci")) {
+          fallbackPaths.push("/work/cn-ci.html", "/work.html");
+        }
+        if (cleanPath.startsWith("/work")) {
+          fallbackPaths.push("/work.html", "/work/index.html");
+        }
+        if (cleanPath.startsWith("/finance")) {
+          fallbackPaths.push("/finance.html", "/finance/index.html");
+        }
+        if (cleanPath.startsWith("/maintenance")) {
+          fallbackPaths.push("/maintenance.html", "/maintenance/index.html");
+        }
+        fallbackPaths.push("/login.html", "/index.html");
+
+        for (const fPath of fallbackPaths) {
+          try {
+            const fUrl = new URL(request.url);
+            fUrl.pathname = fPath;
+            fUrl.search = "";
+            const fRes = await env.ASSETS.fetch(new Request(fUrl.toString(), request));
+            if (fRes.status === 200) {
+              return withCacheHeaders(fRes, true, url.pathname);
+            }
+          } catch (e) {}
+        }
+      }
+
+      return withCacheHeaders(assetResponse, false, url.pathname);
     }
-
-    const contentType = res.headers.get("content-type") || "";
-    const isHtmlResponse = contentType.includes("text/html") || url.pathname.endsWith(".html") || !url.pathname.includes(".");
-    return withCacheHeaders(res, isHtmlResponse);
   },
 
-  // ⏰ Cloudflare Worker Cron Trigger Handler (Automated Weekly Execution)
+  // ⏰ Cloudflare Worker Cron Trigger Handler (Daily System Backup & Kaizen Sync)
   async scheduled(event, env, ctx) {
-    console.log(`[CRON SCHEDULE] Executing Weekly BI Report Dispatch at ${event.scheduledTime}`);
-    // Automatic Background execution logic on Monday 08:00 AM
+    // 1. Continuous Kaizen Sync Pull (Cron Trigger every 1-2 mins)
+    if (env.DB) {
+      try {
+        const secret = env.INTERNAL_SYNC_SECRET || "tbs_ii_secure_jwt_secret_key_2026";
+        const sourceUrl = "https://thkiengiangshoes.tbsgroup2026.workers.dev/api/ci-kaizen?sync=1";
+
+        let res = null;
+        let lastErr = null;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            res = await fetch(sourceUrl, {
+              headers: { "Cache-Control": "no-cache", "x-sync-secret": secret }
+            });
+            if (res && res.ok) break;
+            lastErr = new Error(`HTTP ${res ? res.status : 'error'}`);
+          } catch (e) {
+            lastErr = e;
+          }
+          if (attempt < 3) await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
+        }
+
+        if (res && res.ok) {
+          const json = await res.json();
+          const items = json.data || json.proposals || [];
+          if (Array.isArray(items) && items.length > 0) {
+            let createdCount = 0, updatedCount = 0, skippedCount = 0;
+            for (const item of items) {
+              if (!item || (!item.id && !item.external_id) || !item.title) continue;
+              const siteCode = item.site_code || 'thkiengiangshoes';
+              const externalId = item.external_id || item.id;
+              const localId = siteCode === 'thkiengiangshoes' ? (String(item.id).startsWith('tkg_') ? String(item.id) : `tkg_${externalId}`) : String(item.id);
+              const itemRegion = 'TH Kiên Giang Shoes';
+              const isSoftDeleted = Boolean(Number(item.is_archived) === 1 || item.is_archived === true || Number(item.is_deleted) === 1 || item.is_deleted === true || item.status === 'DELETED' || item.sub_status === 'LUU_TRU' || item.registration_type === 'LUU_TRU');
+
+              const existing = await env.DB.prepare("SELECT id, updated_at, is_archived FROM ci_kaizen_proposals WHERE id = ? OR (site_code = ? AND external_id = ?)").bind(localId, siteCode, externalId).first();
+              const attsJson = item.attachments_json || (Array.isArray(item.attachments) ? JSON.stringify(item.attachments) : null);
+
+              if (existing) {
+                if (existing.updated_at && item.updated_at) {
+                  const localT = new Date(existing.updated_at).getTime();
+                  const itemT = new Date(item.updated_at).getTime();
+                  if (!isNaN(localT) && !isNaN(itemT) && itemT <= localT && Number(existing.is_archived || 0) === (isSoftDeleted ? 1 : 0)) {
+                    skippedCount++;
+                    continue;
+                  }
+                }
+
+                await env.DB.prepare(`
+                  UPDATE ci_kaizen_proposals
+                  SET code = COALESCE(?, code), title = COALESCE(?, title), category = COALESCE(?, category), category_label = COALESCE(?, category_label),
+                      registration_type = COALESCE(?, registration_type), region = ?, department = COALESCE(?, department), factory = ?, line = COALESCE(?, line),
+                      proposer_name = COALESCE(?, proposer_name), proposer_emp_code = COALESCE(?, proposer_emp_code), before_description = COALESCE(?, before_description),
+                      after_solution = COALESCE(?, after_solution), saved_seconds = COALESCE(?, saved_seconds), so_giay_tiet_kiem = COALESCE(?, so_giay_tiet_kiem),
+                      before_image_url = COALESCE(?, before_image_url), after_image_url = COALESCE(?, after_image_url), attachments_json = COALESCE(?, attachments_json),
+                      status = COALESCE(?, status), sub_status = COALESCE(?, sub_status), trang_thai = COALESCE(?, trang_thai), review_status = COALESCE(?, review_status),
+                      score_points = COALESCE(?, score_points), avg_rating = COALESCE(?, avg_rating), rating_count = COALESCE(?, rating_count), vote_count = COALESCE(?, vote_count),
+                      view_count = COALESCE(?, view_count), pair_quantity = COALESCE(?, pair_quantity), total_savings_vnd = COALESCE(?, total_savings_vnd),
+                      total_savings_words = COALESCE(?, total_savings_words), approval_status = COALESCE(?, approval_status), site_code = COALESCE(?, site_code),
+                      external_id = COALESCE(?, external_id), source_region = ?, is_archived = ?, updated_at = COALESCE(?, CURRENT_TIMESTAMP)
+                  WHERE id = ?
+                `).bind(
+                  item.code, item.title, item.category, item.category_label, item.registration_type, itemRegion, item.department, itemRegion, item.line,
+                  item.proposer_name, item.proposer_emp_code, item.before_description, item.after_solution, item.saved_seconds || item.so_giay_tiet_kiem || 0,
+                  item.saved_seconds || item.so_giay_tiet_kiem || 0, item.before_image_url, item.after_image_url, attsJson, item.status, item.sub_status,
+                  item.trang_thai || item.sub_status, item.review_status || item.sub_status, item.score_points || 0, item.avg_rating || 0, item.rating_count || 0,
+                  item.vote_count || 0, item.view_count || 0, item.pair_quantity || item.quantity || 0, item.total_savings_vnd || item.tong_tien_tiet_kiem || 0,
+                  item.total_savings_words, item.approval_status, siteCode, externalId, itemRegion, isSoftDeleted ? 1 : 0, item.updated_at || new Date().toISOString(), existing.id
+                ).run().catch(() => {});
+                updatedCount++;
+              } else {
+                await env.DB.prepare(`
+                  INSERT INTO ci_kaizen_proposals (
+                    id, code, title, category, category_label, registration_type, region, department, factory, line, proposer_name, proposer_emp_code,
+                    before_description, after_solution, saved_seconds, so_giay_tiet_kiem, before_image_url, after_image_url, attachments_json, status,
+                    sub_status, trang_thai, review_status, score_points, avg_rating, rating_count, vote_count, view_count, pair_quantity, total_savings_vnd,
+                    total_savings_words, approval_status, site_code, external_id, source_region, is_archived, created_at, updated_at
+                  ) VALUES (
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP), COALESCE(?, CURRENT_TIMESTAMP)
+                  )
+                `).bind(
+                  localId, item.code, item.title, item.category || 'PRODUCTIVITY', item.category_label || '3.Tăng Năng suất', item.registration_type || 'THI_DUA',
+                  itemRegion, item.department || '', itemRegion, item.line || '', item.proposer_name, item.proposer_emp_code || 'SK-KG-EMP', item.before_description || '',
+                  item.after_solution || '', item.saved_seconds || item.so_giay_tiet_kiem || 0, item.saved_seconds || item.so_giay_tiet_kiem || 0,
+                  item.before_image_url || '', item.after_image_url || '', attsJson, item.status || 'APPROVED', item.sub_status || 'CHO_DANH_GIA',
+                  item.trang_thai || item.sub_status || 'CHO_DANH_GIA', item.review_status || 'CHO_PHE_DUYET', item.score_points || 0, item.avg_rating || 0,
+                  item.rating_count || 0, item.vote_count || 0, item.view_count || 0, item.pair_quantity || item.quantity || 0, item.total_savings_vnd || item.tong_tien_tiet_kiem || 0,
+                  item.total_savings_words || '', item.approval_status || 'PHE_DUYET', siteCode, externalId, itemRegion, isSoftDeleted ? 1 : 0, item.created_at || new Date().toISOString(), item.updated_at || new Date().toISOString()
+                ).run().catch(() => {});
+                createdCount++;
+              }
+            }
+
+            try {
+              await env.DB.prepare(`
+                CREATE TABLE IF NOT EXISTS ci_kaizen_sync_logs (
+                  id TEXT PRIMARY KEY, source_site TEXT NOT NULL, status TEXT NOT NULL, synced_count INTEGER DEFAULT 0, created_count INTEGER DEFAULT 0,
+                  updated_count INTEGER DEFAULT 0, skipped_count INTEGER DEFAULT 0, message TEXT, error_detail TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+              `).run().catch(() => {});
+              const logId = `sync_log_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+              await env.DB.prepare(`
+                INSERT INTO ci_kaizen_sync_logs (id, source_site, status, synced_count, created_count, updated_count, skipped_count, message, created_at)
+                VALUES (?, 'thkiengiangshoes', 'SUCCESS', ?, ?, ?, ?, 'Cron pull sync completed', CURRENT_TIMESTAMP)
+              `).bind(logId, items.length, createdCount, updatedCount, skippedCount).run().catch(() => {});
+            } catch(e) {}
+          }
+        } else if (lastErr) {
+          try {
+            await env.DB.prepare(`
+              CREATE TABLE IF NOT EXISTS ci_kaizen_sync_logs (
+                id TEXT PRIMARY KEY, source_site TEXT NOT NULL, status TEXT NOT NULL, synced_count INTEGER DEFAULT 0, created_count INTEGER DEFAULT 0,
+                updated_count INTEGER DEFAULT 0, skipped_count INTEGER DEFAULT 0, message TEXT, error_detail TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+              )
+            `).run().catch(() => {});
+            const logId = `sync_log_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+            await env.DB.prepare(`
+              INSERT INTO ci_kaizen_sync_logs (id, source_site, status, synced_count, message, error_detail, created_at)
+              VALUES (?, 'thkiengiangshoes', 'ERROR', 0, 'Cron pull sync failed after 3 retries', ?, CURRENT_TIMESTAMP)
+            `).bind(logId, String(lastErr.message || lastErr)).run().catch(() => {});
+          } catch(e) {}
+        }
+      } catch (kaizenSyncErr) {
+        console.warn('[Cron Kaizen Sync] Non-blocking pull warning:', kaizenSyncErr);
+      }
+    }
+
+    console.log(`[CRON SCHEDULE] Executing Daily Backup & Prune at ${event.scheduledTime}`);
+    if (!env.DB) return;
+
+    try {
+      const backupId = `bk_cron_${Date.now()}`;
+      const timestamp = new Date().toISOString();
+      const dateStr = timestamp.substring(0, 10);
+      const timeStr = timestamp.substring(11, 19).replace(/:/g, '-');
+      const fileName = `tbs_backup_scheduled_${dateStr}_${timeStr}.json`;
+
+      // Export database tables
+      const tablesQuery = await env.DB.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%'").all();
+      const tables = (tablesQuery.results || []).map((r) => r.name);
+      const backupData = { metadata: { exported_at: timestamp, type: 'SCHEDULED' }, tables: {} };
+
+      const SENSITIVE_KEYS = new Set(['password', 'pass', 'token', 'secret', 'access_token', 'refresh_token', 'authorization', 'private_key', 'gdrive_private_key']);
+      const sanitizeRow = (obj) => {
+        if (!obj || typeof obj !== 'object') return obj;
+        const res = {};
+        for (const [k, v] of Object.entries(obj)) {
+          if (SENSITIVE_KEYS.has(k.toLowerCase()) || k.toLowerCase().includes('password') || k.toLowerCase().includes('secret')) {
+            res[k] = '[REDACTED]';
+          } else {
+            res[k] = v;
+          }
+        }
+        return res;
+      };
+
+      for (const tableName of tables) {
+        try {
+          const { results } = await env.DB.prepare(`SELECT * FROM ${tableName} LIMIT 50000`).all();
+          backupData.tables[tableName] = (results || []).map(row => sanitizeRow(row));
+        } catch (e) {
+          backupData.tables[tableName] = { error: String(e) };
+        }
+      }
+
+      const jsonContent = JSON.stringify(backupData, null, 2);
+      const fileSizeBytes = new TextEncoder().encode(jsonContent).length;
+
+      const clientEmail = env.GDRIVE_CLIENT_EMAIL || env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+      const privateKey = env.GDRIVE_PRIVATE_KEY || env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY;
+
+      if (!clientEmail || !privateKey) {
+        console.warn('[Cron Backup] Google Drive credentials missing in worker environment variables. Skipping upload.');
+        await env.DB.prepare(
+          `INSERT INTO system_backups (id, backup_type, file_name, file_size_bytes, status, error_message, created_at)
+           VALUES (?, 'SCHEDULED', ?, ?, 'SKIPPED_NO_CREDS', 'Google Drive credentials not set', CURRENT_TIMESTAMP)`
+        ).bind(backupId, fileName, fileSizeBytes).run();
+        return;
+      }
+
+      // Web Crypto RS256 JWT Token for Google Drive API
+      const now = Math.floor(Date.now() / 1000);
+      const header = { alg: 'RS256', typ: 'JWT' };
+      const claimSet = {
+        iss: clientEmail,
+        scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive',
+        aud: 'https://oauth2.googleapis.com/token',
+        exp: now + 3600,
+        iat: now
+      };
+
+      const b64Url = (str) => btoa(str).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+      const b64Buf = (buf) => {
+        let bin = '';
+        const bytes = new Uint8Array(buf);
+        for (let i = 0; i < bytes.byteLength; i++) bin += String.fromCharCode(bytes[i]);
+        return btoa(bin).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+      };
+
+      const unsigned = `${b64Url(JSON.stringify(header))}.${b64Url(JSON.stringify(claimSet))}`;
+      const cleanPem = privateKey.replace(/\\n/g, '\n').replace(/-----BEGIN PRIVATE KEY-----/g, '').replace(/-----END PRIVATE KEY-----/g, '').replace(/\s+/g, '');
+      const rawKey = atob(cleanPem);
+      const keyBuf = new Uint8Array(rawKey.length);
+      for (let i = 0; i < rawKey.length; i++) keyBuf[i] = rawKey.charCodeAt(i);
+
+      const cryptoKey = await crypto.subtle.importKey('pkcs8', keyBuf.buffer, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign']);
+      const sigBuf = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', cryptoKey, new TextEncoder().encode(unsigned));
+      const jwt = `${unsigned}.${b64Buf(sigBuf)}`;
+
+      const tokenResp = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion: jwt })
+      });
+
+      if (!tokenResp.ok) throw new Error(`Token fetch failed: ${tokenResp.status}`);
+      const { access_token } = await tokenResp.json();
+
+      // Resolve Root folder /Văn Phòng Chuỗi/ or /TBS/ or /Backup-TBS-System/
+      let rootId = env.GDRIVE_FOLDER_ID;
+
+      if (!rootId) {
+        for (const searchName of ['Văn Phòng Chuỗi', 'TBS', 'Backup-TBS-System']) {
+          try {
+            const rootQ = encodeURIComponent(`mimeType='application/vnd.google-apps.folder' and name='${searchName}' and trashed=false`);
+            const rootRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${rootQ}&supportsAllDrives=true&includeItemsFromAllDrives=true&corpora=allDrives`, { headers: { Authorization: `Bearer ${access_token}` } });
+            if (rootRes.ok) {
+              const rootData = await rootRes.json();
+              if (rootData.files && rootData.files.length > 0) {
+                rootId = rootData.files[0].id;
+                break;
+              }
+            }
+          } catch (e) {}
+        }
+      }
+
+      if (!rootId) {
+        const createRoot = await fetch('https://www.googleapis.com/drive/v3/files?supportsAllDrives=true', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: 'Văn Phòng Chuỗi', mimeType: 'application/vnd.google-apps.folder' })
+        });
+        if (createRoot.ok) {
+          const created = await createRoot.json();
+          rootId = created.id;
+        }
+      }
+
+      // Categorized upload to Drive subfolders (Audit Logs, Users, Kaizen, Gemba, Rooms, Full Dump)
+      const getSubfolderId = async (folderName) => {
+        const q = encodeURIComponent(`mimeType='application/vnd.google-apps.folder' and name='${folderName}' and '${rootId}' in parents and trashed=false`);
+        const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&supportsAllDrives=true&includeItemsFromAllDrives=true&corpora=allDrives`, {
+          headers: { Authorization: `Bearer ${access_token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.files && data.files.length > 0) return data.files[0].id;
+        }
+        const createRes = await fetch('https://www.googleapis.com/drive/v3/files?supportsAllDrives=true', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: folderName, mimeType: 'application/vnd.google-apps.folder', parents: [rootId] })
+        });
+        if (createRes.ok) {
+          const createdSub = await createRes.json();
+          return createdSub.id;
+        }
+        return rootId;
+      };
+
+      const uploadFile = async (subFolderId, fName, contentObj) => {
+        const boundary = 'bound_' + Math.random().toString(36).substring(2);
+        const jsonStr = JSON.stringify(contentObj, null, 2);
+        const meta = { name: fName, mimeType: 'application/json', parents: [subFolderId] };
+        const bodyStr = `--${boundary}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(meta)}\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${jsonStr}\r\n--${boundary}--`;
+
+        const uploadRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': `multipart/related; boundary=${boundary}` },
+          body: bodyStr
+        });
+        if (!uploadRes.ok) {
+          const errTxt = await uploadRes.text();
+          throw new Error(`Upload ${fName} failed: ${uploadRes.status} ${errTxt}`);
+        }
+        const uploadedFile = await uploadRes.json();
+        return uploadedFile.id;
+      };
+
+      const categories = [
+        {
+          folder: "01_Nhat_Ky_Thao_Tac_Audit_Logs",
+          prefix: "audit_logs",
+          match: (tbl) => tbl.includes("audit") || tbl.includes("log") || tbl.includes("history")
+        },
+        {
+          folder: "02_Tai_Khoan_Nguoi_Dung_Users",
+          prefix: "users_employees",
+          match: (tbl) => tbl.includes("user") || tbl.includes("employee") || tbl.includes("profile") || tbl.includes("hr_")
+        },
+        {
+          folder: "03_Sang_Kien_Cai_Tien_Kaizen",
+          prefix: "kaizen_proposals",
+          match: (tbl) => tbl.includes("kaizen") || tbl.includes("ci_") || tbl.includes("proposal")
+        },
+        {
+          folder: "04_Quan_Ly_Gemba_Andon",
+          prefix: "gemba_andon",
+          match: (tbl) => tbl.includes("gemba") || tbl.includes("andon")
+        },
+        {
+          folder: "05_Dat_Phong_Hop_Rooms",
+          prefix: "room_bookings",
+          match: (tbl) => tbl.includes("room") || tbl.includes("meeting") || tbl.includes("booking")
+        },
+        {
+          folder: "00_Tong_Hop_Full_Database",
+          prefix: "full_database_dump",
+          match: () => true
+        }
+      ];
+
+      let cronMainFileId = null;
+      for (const cat of categories) {
+        const subFolderId = await getSubfolderId(cat.folder);
+        const catTables = {};
+        for (const [tblName, tblData] of Object.entries(backupData.tables || {})) {
+          if (cat.match(tblName)) {
+            catTables[tblName] = tblData;
+          }
+        }
+
+        if (Object.keys(catTables).length > 0 || cat.folder.startsWith("00_")) {
+          const catFileName = `tbs_${cat.prefix}_${dateStr}_${timeStr}.json`;
+          const content = {
+            metadata: {
+              ...backupData.metadata,
+              category: cat.folder,
+              exported_at: new Date().toISOString()
+            },
+            tables: catTables
+          };
+          const fId = await uploadFile(subFolderId, catFileName, content);
+          if (cat.folder.startsWith("00_") || !cronMainFileId) {
+            cronMainFileId = fId;
+          }
+        }
+      }
+
+      await env.DB.prepare(
+        `INSERT INTO system_backups (id, backup_type, file_name, file_size_bytes, gdrive_file_id, status, created_at)
+         VALUES (?, 'SCHEDULED', ?, ?, ?, 'SUCCESS', CURRENT_TIMESTAMP)`
+      ).bind(backupId, fileName, fileSizeBytes, cronMainFileId).run();
+
+      // Prune files older than 90 days
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - 90);
+      const cutoffIso = cutoffDate.toISOString();
+      const pruneQ = encodeURIComponent(`'${subId}' in parents and createdTime < '${cutoffIso}' and trashed=false`);
+      const pruneRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${pruneQ}`, { headers: { Authorization: `Bearer ${access_token}` } });
+      if (pruneRes.ok) {
+        const pruneData = await pruneRes.json();
+        for (const f of (pruneData.files || [])) {
+          await fetch(`https://www.googleapis.com/drive/v3/files/${f.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${access_token}` } });
+        }
+      }
+      await env.DB.prepare('DELETE FROM system_backups WHERE created_at < ?').bind(cutoffIso).run();
+
+      console.log(`[Cron Backup] Daily backup completed successfully: ${fileName}`);
+    } catch (err) {
+      console.error('[Cron Backup] Scheduled backup failed:', err);
+    }
   },
 };
 

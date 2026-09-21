@@ -23,6 +23,7 @@ interface QualityModuleProps {
 
 export default function QualityModule({ onNavigateToApp }: QualityModuleProps) {
   const [selectedFactory, setSelectedFactory] = useState<Factory>(FACTORIES[0]);
+  const [selectedQuarter, setSelectedQuarter] = useState<string>("all");
 
   return (
     <div className="space-y-6">
@@ -54,8 +55,20 @@ export default function QualityModule({ onNavigateToApp }: QualityModuleProps) {
           </div>
         </div>
 
-        {/* Factory Selector Dropdown */}
-        <div className="flex-shrink-0">
+        {/* Filters */}
+        <div className="flex flex-wrap items-center gap-3 flex-shrink-0">
+          <select
+            value={selectedQuarter}
+            onChange={(e) => setSelectedQuarter(e.target.value)}
+            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 cursor-pointer"
+          >
+            <option value="all">🗓️ Tất cả các quý</option>
+            <option value="q1">Quý 1 / 2026</option>
+            <option value="q2">Quý 2 / 2026</option>
+            <option value="q3">Quý 3 / 2026</option>
+            <option value="q4">Quý 4 / 2026</option>
+          </select>
+
           <FactorySelector
             selectedFactoryId={selectedFactory.id}
             onSelectFactory={(f) => setSelectedFactory(f)}

@@ -56,22 +56,6 @@ const STANDARD_WORKSHOPS = {
     "Line 2": ["Tổ 1", "Tổ 2"],
     "Line 3": ["Tổ 1", "Tổ 2"],
   },
-  // Legacy aliases mapping to same structure
-  "Xưởng Đế": {
-    "Line 1": ["Tổ 1", "Tổ 2"],
-    "Line 2": ["Tổ 1", "Tổ 2"],
-    "Line 3": ["Tổ 1", "Tổ 2"],
-  },
-  "Xưởng Mũi": {
-    "Line 1": ["Tổ 1", "Tổ 2"],
-    "Line 2": ["Tổ 1", "Tổ 2"],
-    "Line 3": ["Tổ 1", "Tổ 2"],
-  },
-  "Xưởng Gò": {
-    "Line 1": ["Tổ 1", "Tổ 2"],
-    "Line 2": ["Tổ 1", "Tổ 2"],
-    "Line 3": ["Tổ 1", "Tổ 2"],
-  },
 };
 
 const VP_WORKSHOPS = {

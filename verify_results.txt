@@ -1,0 +1,24 @@
+--- OLD TERMS COUNT ---
+'Nhân Kiệt': 0
+'NHÂN KIỆT': 0
+'Vieclamxanh': 0
+'vieclamxanh': 0
+'Việc Làm Xanh': 0
+'VIỆC LÀM XANH': 0
+'Nguyễn Quốc Trung': 0
+'Ngô Hồng Minh': 0
+'Hồng Minh': 0
+'nhankiet.vn': 0
+'nhankiet.org': 0
+'0308022768': 0
+
+--- NEW TERMS COUNT ---
+'TBS Group': 24
+'Skechers': 28
+'TBS Work Hub': 23
+'TBS II': 24
+'Phạm Nguyễn Anh Huy': 7
+'Ngô Hà Thanh An': 3
+'Trần Bá Minh Sơn': 4
+'2224802010738': 6
+'D22CNTT02': 4

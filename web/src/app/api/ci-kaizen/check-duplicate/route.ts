@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { ensureKaizenSchema } from '@/lib/kaizenDbMigration';
-
-
+import { getValidKaizenImageUrl } from '@/lib/kaizenImageHelper';
 
 function getDbBinding(): any {
   return (process.env as any).DB || (globalThis as any).DB || null;
@@ -23,11 +22,13 @@ function calculateTextSimilarity(str1: string, str2: string): number {
   if (tokens1.size === 0 || tokens2.size === 0) return 0;
 
   let intersection = 0;
-  for (const token of tokens1) {
+  const arr1 = Array.from(tokens1);
+  const arr2 = Array.from(tokens2);
+  for (const token of arr1) {
     if (tokens2.has(token)) intersection++;
   }
 
-  const union = new Set([...tokens1, ...tokens2]).size;
+  const union = new Set([...arr1, ...arr2]).size;
   return union > 0 ? Math.round((intersection / union) * 100) : 0;
 }
 
@@ -93,9 +94,14 @@ export async function POST(request: Request) {
       const textSim = calculateTextSimilarity(targetText, propText);
       score += Math.round((textSim * 30) / 100);
 
-      if (score >= 45) {
+      // Only flag as duplicate if text similarity is genuinely high (>=30%) AND overall score >= 70
+      if (textSim >= 30 && score >= 70) {
         matches.push({
-          proposal: prop,
+          proposal: {
+            ...prop,
+            before_image_url: getValidKaizenImageUrl(prop.before_image_url, prop.attachments_json) || prop.before_image_url || '',
+            after_image_url: getValidKaizenImageUrl(prop.after_image_url) || prop.after_image_url || '',
+          },
           similarityPercentage: Math.min(score, 99),
           matchReason: `Trùng khớp ${score}% (Khu vực: ${targetArea || 'Tất cả'}, Line: ${targetLine || 'Tất cả'}, Category: ${targetCategory})`,
         });

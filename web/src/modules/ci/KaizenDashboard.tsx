@@ -22,6 +22,7 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import { KaizenProposal } from "./CIModule";
+import KaizenLeaderboard from "./KaizenLeaderboard";
 
 interface KaizenDashboardProps {
   proposals: KaizenProposal[];
@@ -178,6 +179,7 @@ const getCustomerCode = (p: KaizenProposal): string => {
 
 export default function KaizenDashboard({ proposals, onBackToLibrary, onNavigateToStatus, onSelectProposal }: KaizenDashboardProps) {
   const [selectedMonth, setSelectedMonth] = useState<string>("ALL");
+  const [selectedQuarter, setSelectedQuarter] = useState<string>("ALL");
   const [statusScope, setStatusScope] = useState<"APPROVED" | "EVALUATED" | "ALL">("ALL");
   const [cascadingFilterState, setCascadingFilterState] = useState<CascadingFilterState>({
     factories: [],
@@ -219,6 +221,19 @@ export default function KaizenDashboard({ proposals, onBackToLibrary, onNavigate
         if (!isEvaluated) return false;
       }
 
+      if (selectedQuarter !== "ALL") {
+        if (!p.created_at) return false;
+        try {
+          const d = new Date(p.created_at);
+          if (isNaN(d.getTime())) return false;
+          const month = d.getMonth() + 1;
+          const q = month <= 3 ? "Q1" : month <= 6 ? "Q2" : month <= 9 ? "Q3" : "Q4";
+          if (q !== selectedQuarter) return false;
+        } catch {
+          return false;
+        }
+      }
+
       if (selectedMonth !== "ALL") {
         if (!p.created_at) return false;
         try {
@@ -235,7 +250,7 @@ export default function KaizenDashboard({ proposals, onBackToLibrary, onNavigate
 
       return true;
     });
-  }, [proposals, statusScope, selectedMonth, cascadingFilterState]);
+  }, [proposals, statusScope, selectedMonth, selectedQuarter, cascadingFilterState]);
 
   const monthOptions = useMemo(() => {
     const set = new Set<string>();
@@ -309,8 +324,7 @@ export default function KaizenDashboard({ proposals, onBackToLibrary, onNavigate
     if (cascadingFilterState.lines.length > 0) {
       const grouped = getLinesForWorkshops(
         cascadingFilterState.factories,
-        cascadingFilterState.workshops,
-        cascadingFilterState.lines
+        cascadingFilterState.workshops
       );
       const items = grouped.flatMap((g) => g.lines);
       if (items.length > 0) {
@@ -464,7 +478,54 @@ export default function KaizenDashboard({ proposals, onBackToLibrary, onNavigate
   const [showTop11Modal, setShowTop11Modal] = useState(false);
 
   const ranked11Proposals = useMemo(() => {
-    let thiDuaList = filteredProposals.filter((p) => p && !(p as any).is_archived);
+    let thiDuaList = filteredProposals.filter((p) => {
+      if (!p || (p as any).is_archived) return false;
+
+      const appStatus = String(p.approval_status || "").toUpperCase();
+      const subStatus = String(p.sub_status || (p as any).review_status || "").toUpperCase();
+      const mainStatus = String(p.status || "").toUpperCase();
+
+      // Must NOT be rejected or edit-requested
+      if (appStatus === "TU_CHOI" || subStatus === "TU_CHOI_TRIEN_KHAI" || subStatus === "TU_CHOI_DUYET" || mainStatus === "REJECTED" || subStatus === "CAN_CHINH_SUA") {
+        return false;
+      }
+
+      // Must NOT be pending approval / submitted / waiting review
+      if (
+        subStatus === "CHO_REVIEW" ||
+        subStatus === "SO_BO" ||
+        subStatus === "SO_DUYET" ||
+        subStatus === "CHO_DUYET" ||
+        subStatus === "CHO_DANH_GIA" ||
+        appStatus === "PENDING" ||
+        appStatus === "CHO_DUYET" ||
+        mainStatus === "SUBMITTED" ||
+        mainStatus === "CHO_DUYET" ||
+        mainStatus === "DRAFT"
+      ) {
+        return false;
+      }
+
+      // Must be officially approved
+      const isApproved =
+        appStatus === "PHE_DUYET" ||
+        appStatus === "APPROVED" ||
+        appStatus === "DA_DANH_GIA" ||
+        subStatus === "DA_DANH_GIA" ||
+        subStatus === "DA_DUYET" ||
+        mainStatus === "APPROVED" ||
+        mainStatus === "COMPLETED" ||
+        mainStatus === "IMPLEMENTED";
+
+      if (!isApproved) return false;
+
+      // Savings value OR score points MUST BE > 0
+      const savingsVal = getProposalValue(p);
+      const scoreVal = Number(p.score_points || (p as any).scorePoints || 0);
+      if (savingsVal <= 0 && scoreVal <= 0) return false;
+
+      return true;
+    });
 
     const sorted = [...thiDuaList]
       .sort((a, b) => {
@@ -597,6 +658,21 @@ export default function KaizenDashboard({ proposals, onBackToLibrary, onNavigate
               <option value="APPROVED">🟢 Đã phê duyệt (Chính thức)</option>
               <option value="EVALUATED">⭐ Đã đánh giá / Hoàn thành</option>
               <option value="ALL">📋 Tất cả (Gồm chờ duyệt)</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
+            <span className="text-[11px] font-bold text-slate-600 px-2">Lọc Quý:</span>
+            <select
+              value={selectedQuarter}
+              onChange={(e) => setSelectedQuarter(e.target.value)}
+              className="bg-white px-2.5 py-1 rounded-lg text-xs font-bold text-slate-800 outline-none border border-slate-300 focus:border-[#006838]"
+            >
+              <option value="ALL">Tất cả các quý</option>
+              <option value="Q1">Quý 1 (T1 - T3)</option>
+              <option value="Q2">Quý 2 (T4 - T6)</option>
+              <option value="Q3">Quý 3 (T7 - T9)</option>
+              <option value="Q4">Quý 4 (T10 - T12)</option>
             </select>
           </div>
 
@@ -1293,6 +1369,11 @@ export default function KaizenDashboard({ proposals, onBackToLibrary, onNavigate
           </div>
         </div>
       )}
+
+      <KaizenLeaderboard
+        proposals={filteredProposals}
+        onSelectProposal={onSelectProposal}
+      />
 
       <button
         onClick={scrollToTop}

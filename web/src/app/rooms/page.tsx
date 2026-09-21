@@ -46,6 +46,7 @@ import UserAvatar from "@/components/UserAvatar";
 import { PERMISSIONS } from "@/lib/permissions";
 import { getCurrentUser, getUserDisplayBadgeTitle } from "@/lib/userProfiles";
 import { broadcastNotification } from "@/lib/browserNotifications";
+import { apiFetch, registerPoller, unregisterPoller } from "@/lib/apiClient";
 
 interface MeetingRoom {
   id: string;
@@ -131,8 +132,8 @@ const getTodayVnDate = () => {
 };
 
 export default function MeetingRoomsPage() {
-  const [activeTab, setActiveTab] = useState<"APPROVALS" | "BOOKING" | "ROOMS" | "VISITORS" | "CALENDAR">("APPROVALS");
-  const [userRole, setUserRole] = useState<"LE_TAN" | "CBCNV">("LE_TAN");
+  const [activeTab, setActiveTab] = useState<"APPROVALS" | "BOOKING" | "ROOMS" | "VISITORS" | "CALENDAR">("CALENDAR");
+  const [userRole, setUserRole] = useState<"LE_TAN" | "CBCNV">("CBCNV");
   const [reassignModalBooking, setReassignModalBooking] = useState<RoomBooking | null>(null);
   const [newAssignedRoomId, setNewAssignedRoomId] = useState<string>("");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -212,15 +213,22 @@ export default function MeetingRoomsPage() {
           avatar: cur.avatar || "/images/tbs-logo.png",
         });
 
-        // Tự động phân quyền dựa trên tài khoản thực tế thay vì button demo
-        const isRec = cur.roles?.includes("receptionist") ||
-                      cur.roleCode === "LE_TAN" ||
-                      cur.empCode === "LT-001" ||
-                      cur.title?.includes("Lễ Tân");
-        if (isRec) {
+        const roleUpper = (cur.roleCode || "").toUpperCase();
+        const isRecOrAdmin =
+          roleUpper === "LE_TAN" ||
+          roleUpper === "RECEPTIONIST" ||
+          roleUpper === "ADMIN" ||
+          roleUpper === "SUPER_ADMIN" ||
+          roleUpper === "SYSTEM_ADMIN" ||
+          cur.roles?.includes("receptionist") ||
+          cur.roles?.includes("admin") ||
+          ["LT-001", "202206011", "202409009", "202010004", "202608001"].includes(cur.empCode || "") ||
+          (cur.title || "").toLowerCase().includes("lễ tân");
+
+        if (isRecOrAdmin) {
           setUserRole("LE_TAN");
         } else {
-          setUserRole("LE_TAN");
+          setUserRole("CBCNV");
         }
       }
     }
@@ -233,13 +241,39 @@ export default function MeetingRoomsPage() {
     }
   }, []);
 
+  // 🔒 Permission Guard: Only Lễ Tân (LE_TAN) and Admin / Super Admin (ADMIN, SUPER_ADMIN) can access Reception Desk tab
+  const canAccessReceptionDesk = (() => {
+    const roleUpper = (currentUser.roleCode || "").toUpperCase();
+    const empCode = currentUser.empCode || "";
+    const title = (currentUser.title || "").toLowerCase();
+
+    if (roleUpper === "LE_TAN" || roleUpper === "RECEPTIONIST" || roleUpper === "ADMIN" || roleUpper === "SUPER_ADMIN" || roleUpper === "SYSTEM_ADMIN") {
+      return true;
+    }
+    if (["LT-001", "202206011", "202409009", "202010004", "202608001"].includes(empCode)) {
+      return true;
+    }
+    if (title.includes("lễ tân") || title.includes("receptionist")) {
+      return true;
+    }
+    return false;
+  })();
+
+  // Redirect unauthorized users away from APPROVALS tab if accessed directly
+  useEffect(() => {
+    if (!canAccessReceptionDesk && activeTab === "APPROVALS") {
+      setActiveTab("CALENDAR");
+    }
+  }, [canAccessReceptionDesk, activeTab]);
+
+
   const [d1Error, setD1Error] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
     async function loadD1Rooms() {
       try {
-        const res = await fetch("/api/rooms");
+        const res = await apiFetch("/api/rooms");
         const json = await res.json();
         if (isMounted) {
           if (!json.success || json.error === "D1_CONNECTION_ERROR") {
@@ -279,10 +313,10 @@ export default function MeetingRoomsPage() {
       }
     }
     loadD1Rooms();
-    const interval = setInterval(loadD1Rooms, 3000);
+    const interval = registerPoller(setInterval(loadD1Rooms, 60000));
     return () => {
       isMounted = false;
-      clearInterval(interval);
+      unregisterPoller(interval);
     };
   }, []);
 
@@ -1269,33 +1303,35 @@ export default function MeetingRoomsPage() {
         </div>
 
         <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
-          {/* Quick Role Switcher Toggle */}
-          <div className="hidden sm:flex items-center gap-1 p-1 bg-slate-100 rounded-xl border border-slate-200 text-[11px] font-bold">
-            <button
-              onClick={() => {
-                setUserRole("LE_TAN");
-                showToast("👩‍💼 Đã chuyển sang chế độ Quản lý Bàn Lễ Tân!");
-              }}
-              className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
-                userRole === "LE_TAN" ? "bg-[#006838] text-white shadow-2xs" : "text-slate-600 hover:text-slate-900"
-              }`}
-              title="Chế độ Quản lý Lễ Tân: Phê duyệt & xếp phòng họp"
-            >
-              👩‍💼 Quản lý Lễ Tân
-            </button>
-            <button
-              onClick={() => {
-                setUserRole("CBCNV");
-                showToast("👤 Đã chuyển sang chế độ Cán bộ CNV!");
-              }}
-              className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
-                userRole === "CBCNV" ? "bg-[#006838] text-white shadow-2xs" : "text-slate-600 hover:text-slate-900"
-              }`}
-              title="Chế độ Cán bộ CNV: Đặt phòng họp & xem lịch"
-            >
-              👤 Cán bộ CNV
-            </button>
-          </div>
+          {/* Quick Role Switcher Toggle (Dành riêng cho Lễ Tân & Admin) */}
+          {canAccessReceptionDesk && (
+            <div className="hidden sm:flex items-center gap-1 p-1 bg-slate-100 rounded-xl border border-slate-200 text-[11px] font-bold">
+              <button
+                onClick={() => {
+                  setUserRole("LE_TAN");
+                  showToast("👩‍💼 Đã chuyển sang chế độ Quản lý Bàn Lễ Tân!");
+                }}
+                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                  userRole === "LE_TAN" ? "bg-[#006838] text-white shadow-2xs" : "text-slate-600 hover:text-slate-900"
+                }`}
+                title="Chế độ Quản lý Lễ Tân: Phê duyệt & xếp phòng họp"
+              >
+                👩‍💼 Quản lý Lễ Tân
+              </button>
+              <button
+                onClick={() => {
+                  setUserRole("CBCNV");
+                  showToast("👤 Đã chuyển sang chế độ Cán bộ CNV!");
+                }}
+                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                  userRole === "CBCNV" ? "bg-[#006838] text-white shadow-2xs" : "text-slate-600 hover:text-slate-900"
+                }`}
+                title="Chế độ Cán bộ CNV: Đặt phòng họp & xem lịch"
+              >
+                👤 Cán bộ CNV
+              </button>
+            </div>
+          )}
 
           <button className="px-2 py-1 rounded-lg bg-slate-100 text-slate-700 text-[11px] sm:text-xs font-bold flex items-center gap-1 hover:bg-slate-200 transition-colors">
             <span>VN</span>
@@ -1400,9 +1436,9 @@ export default function MeetingRoomsPage() {
 
           {/* Card 3: Lịch họp hôm nay */}
           <div
-            onClick={() => setActiveTab("APPROVALS")}
+            onClick={() => setActiveTab(canAccessReceptionDesk ? "APPROVALS" : "CALENDAR")}
             className="p-3 sm:p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs hover:shadow-md hover:border-amber-300 transition-all flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3.5 group min-w-0 cursor-pointer"
-            title="Click để chuyển tới Màn hình Quản lý Bàn Lễ Tân"
+            title={canAccessReceptionDesk ? "Click để chuyển tới Màn hình Quản lý Bàn Lễ Tân" : "Click để xem Lịch tổng hợp cuộc họp"}
           >
             <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-blue-50 text-blue-700 flex items-center justify-center border border-blue-200 group-hover:scale-105 transition-transform flex-shrink-0">
               <IconCalendar size={18} className="sm:hidden" />
@@ -1443,23 +1479,25 @@ export default function MeetingRoomsPage() {
 
         {/* TOP NAVIGATION TABS */}
         <div className="bg-slate-200/60 p-1.5 rounded-2xl border border-slate-200/90 shadow-inner flex items-center gap-1 overflow-x-auto scrollbar-none flex-nowrap">
-          {/* Tab Bàn Lễ Tân - Luôn hiển thị để người dùng/Lễ Tân truy cập màn hình quản lý */}
-          <button
-            onClick={() => setActiveTab("APPROVALS")}
-            className={`px-4 py-2.5 rounded-xl font-extrabold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
-              activeTab === "APPROVALS"
-                ? "bg-[#006838] text-white shadow-md border border-[#004e2a]"
-                : "text-slate-700 hover:text-[#006838] hover:bg-white/70"
-            }`}
-          >
-            <IconChecklist size={18} />
-            <span>Bàn Lễ Tân (Xác nhận &amp; Xếp lịch)</span>
-            {bookings.filter((b) => b.status === "PENDING").length > 0 && (
-              <span className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[11px] font-black animate-pulse">
-                {bookings.filter((b) => b.status === "PENDING").length} chờ duyệt
-              </span>
-            )}
-          </button>
+          {/* Tab Bàn Lễ Tân - Chỉ hiển thị cho Lễ Tân (LE_TAN) & Admin / Super Admin (ADMIN, SUPER_ADMIN) */}
+          {canAccessReceptionDesk && (
+            <button
+              onClick={() => setActiveTab("APPROVALS")}
+              className={`px-4 py-2.5 rounded-xl font-extrabold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === "APPROVALS"
+                  ? "bg-[#006838] text-white shadow-md border border-[#004e2a]"
+                  : "text-slate-700 hover:text-[#006838] hover:bg-white/70"
+              }`}
+            >
+              <IconChecklist size={18} />
+              <span>Bàn Lễ Tân (Xác nhận &amp; Xếp lịch)</span>
+              {bookings.filter((b) => b.status === "PENDING").length > 0 && (
+                <span className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[11px] font-black animate-pulse">
+                  {bookings.filter((b) => b.status === "PENDING").length} chờ duyệt
+                </span>
+              )}
+            </button>
+          )}
 
           <button
             onClick={() => setActiveTab("BOOKING")}
@@ -1518,26 +1556,8 @@ export default function MeetingRoomsPage() {
         {/* ════════════════════════════════════════════════════════════════
             TAB 0: 🛎️ BÀN LỄ TÂN (XÁC NHẬN PHÒNG, ĐỔI PHÒNG, XẾP LỊCH, ĐÓN KHÁCH)
            ════════════════════════════════════════════════════════════════ */}
-        {activeTab === "APPROVALS" && (
+        {canAccessReceptionDesk && activeTab === "APPROVALS" && (
           <div className="space-y-6 animate-in fade-in duration-200">
-            {userRole !== "LE_TAN" &&
-              !currentUser.roles?.includes("admin") &&
-              !currentUser.roles?.includes("ceo") &&
-              !currentUser.roles?.includes("deputy_ceo") &&
-              !currentUser.roles?.includes("director") &&
-              !currentUser.roles?.includes("deputy_director") &&
-              !["SUPER_ADMIN", "TONG_GIAM_DOC", "PHO_TONG_GIAM_DOC", "GIAM_DOC", "PHO_GIAM_DOC"].includes(currentUser.roleCode || "") &&
-              !["202608001", "ADMIN-2026", "TGĐ-001", "PTGĐ-002", "GĐ-003", "PGĐ-004"].includes(currentUser.empCode || "") && (
-                <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-bold flex items-center justify-between gap-2 shadow-2xs">
-                  <div className="flex items-center gap-2">
-                    <span className="text-base">🔒</span>
-                    <span><b>Chế độ Chỉ Xem (Read-Only):</b> Bạn đang truy cập Bàn Lễ Tân với vai trò <b>{currentUser.name}</b> ({currentUser.department}). Quyền Duyệt &amp; Xếp phòng dành riêng cho <b>Lễ Tân &amp; Ban Giám Đốc</b>. Bạn vẫn có thể gửi đăng ký ở tab "Đặt Phòng Họp".</span>
-                  </div>
-                  <span className="px-2.5 py-1 rounded-lg bg-amber-200/80 text-amber-950 text-[10px] font-black uppercase tracking-wider whitespace-nowrap">
-                    Chỉ Xem
-                  </span>
-                </div>
-            )}
 
             {/* Lễ Tân Executive Dashboard Banner */}
             <div className="relative overflow-hidden p-5 sm:p-6 rounded-3xl bg-slate-900 text-white shadow-lg space-y-4 border border-emerald-800/30 group">

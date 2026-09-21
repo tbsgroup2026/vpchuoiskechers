@@ -26,12 +26,33 @@ import {
   IconFolder,
   IconChevronRight,
   IconBuilding,
+  IconExternalLink,
 } from "@tabler/icons-react";
 import CIModule from "./CIModule";
+import { EquipmentScope, EQUIPMENT_SCOPES, SCOPE_KEYS, STORAGE_KEY_SCOPE } from "@/lib/equipmentScope";
+import { usePermission } from "@/hooks/usePermission";
 
 export default function CNCIWrapper() {
   const router = useRouter();
+  const { canAccessScope } = usePermission();
   const [subView, setSubView] = useState<"kaizen" | "ci" | "gemba" | null>(null);
+  const [mmtbScope, setMmtbScope] = useState<EquipmentScope>("ALL");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem(STORAGE_KEY_SCOPE) as EquipmentScope | null;
+      if (saved && SCOPE_KEYS.includes(saved)) {
+        setMmtbScope(saved);
+      }
+    }
+  }, []);
+
+  const handleSelectMmtbScope = (scope: EquipmentScope) => {
+    setMmtbScope(scope);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(STORAGE_KEY_SCOPE, scope);
+    }
+  };
 
   // Sync subView with URL search params if present
   useEffect(() => {
@@ -158,16 +179,16 @@ export default function CNCIWrapper() {
                   </div>
                 </div>
 
-                {/* List Items */}
+                {/* Action Buttons */}
                 <div className="space-y-2.5 pt-2">
-                  {/* Item 1: Tổng Quan */}
+                  {/* Button 1: Tổng Quan */}
                   <Link
                     href="/work/kaizen"
-                    className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 hover:bg-emerald-50/50 border border-slate-100 hover:border-emerald-200 transition-all duration-200 group cursor-pointer"
+                    className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 hover:bg-emerald-50/60 active:bg-emerald-100/70 border border-slate-200/80 hover:border-emerald-300 active:scale-[0.98] transition-all duration-200 group cursor-pointer shadow-2xs"
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-xl bg-emerald-100/80 text-[#006838] flex items-center justify-center shrink-0 font-bold border border-emerald-200/50 group-hover:scale-105 transition-transform">
-                        <IconFileText size={20} />
+                        <IconChartBar size={20} />
                       </div>
                       <span className="text-xs font-black text-slate-800 group-hover:text-[#006838] transition-colors">
                         Tổng Quan
@@ -176,21 +197,73 @@ export default function CNCIWrapper() {
                     <IconChevronRight size={18} className="text-slate-400 group-hover:text-[#006838] group-hover:translate-x-0.5 transition-all" />
                   </Link>
 
-                  {/* Item 2: Biểu Mẫu */}
+                  {/* Button 2: Văn phòng Chuỗi */}
                   <Link
-                    href="/work/kaizen/register"
-                    className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 hover:bg-emerald-50/50 border border-slate-100 hover:border-emerald-200 transition-all duration-200 group cursor-pointer"
+                    href="/work/kaizen/van-phong-chuoi"
+                    className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 hover:bg-emerald-50/60 active:bg-emerald-100/70 border border-slate-200/80 hover:border-emerald-300 active:scale-[0.98] transition-all duration-200 group cursor-pointer shadow-2xs"
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-xl bg-emerald-100/80 text-[#006838] flex items-center justify-center shrink-0 font-bold border border-emerald-200/50 group-hover:scale-105 transition-transform">
-                        <IconDeviceMobile size={20} />
+                        <IconBuilding size={20} />
                       </div>
                       <span className="text-xs font-black text-slate-800 group-hover:text-[#006838] transition-colors">
-                        Biểu Mẫu
+                        Văn phòng Chuỗi
                       </span>
                     </div>
                     <IconChevronRight size={18} className="text-slate-400 group-hover:text-[#006838] group-hover:translate-x-0.5 transition-all" />
                   </Link>
+
+                  {/* Button 3: Nhà Máy Miền Đông */}
+                  <Link
+                    href="/work/kaizen/nha-may-mien-dong"
+                    className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 hover:bg-emerald-50/60 active:bg-emerald-100/70 border border-slate-200/80 hover:border-emerald-300 active:scale-[0.98] transition-all duration-200 group cursor-pointer shadow-2xs"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-emerald-100/80 text-[#006838] flex items-center justify-center shrink-0 font-bold border border-emerald-200/50 group-hover:scale-105 transition-transform">
+                        <IconBuildingFactory size={20} />
+                      </div>
+                      <span className="text-xs font-black text-slate-800 group-hover:text-[#006838] transition-colors">
+                        Nhà Máy Miền Đông
+                      </span>
+                    </div>
+                    <IconChevronRight size={18} className="text-slate-400 group-hover:text-[#006838] group-hover:translate-x-0.5 transition-all" />
+                  </Link>
+
+                  {/* Button 4: Tổ Hợp Kiên Giang */}
+                  <a
+                    href="https://thkiengiangshoes.tbsgroup2026.workers.dev/work/kaizen"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 hover:bg-emerald-50/60 active:bg-emerald-100/70 border border-slate-200/80 hover:border-emerald-300 active:scale-[0.98] transition-all duration-200 group cursor-pointer shadow-2xs"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-emerald-100/80 text-[#006838] flex items-center justify-center shrink-0 font-bold border border-emerald-200/50 group-hover:scale-105 transition-transform">
+                        <IconMapPin size={20} />
+                      </div>
+                      <span className="text-xs font-black text-slate-800 group-hover:text-[#006838] transition-colors">
+                        Tổ Hợp Kiên Giang
+                      </span>
+                    </div>
+                    <IconChevronRight size={18} className="text-slate-400 group-hover:text-[#006838] group-hover:translate-x-0.5 transition-all" />
+                  </a>
+
+                  {/* Button 5: Thư Viện Cải Tiến của Ngành */}
+                  <a
+                    href="https://script.google.com/macros/s/AKfycbwMgjjpbOtI6pWBGkcXBIVbtY0zo1URCjb5qteNg0THY3HW9MZwXGfMVh0mBh6sD1pOdA/exec"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 hover:bg-emerald-50/60 active:bg-emerald-100/70 border border-slate-200/80 hover:border-emerald-300 active:scale-[0.98] transition-all duration-200 group cursor-pointer shadow-2xs"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-emerald-100/80 text-[#006838] flex items-center justify-center shrink-0 font-bold border border-emerald-200/50 group-hover:scale-105 transition-transform">
+                        <IconSchool size={20} />
+                      </div>
+                      <span className="text-xs font-black text-slate-800 group-hover:text-[#006838] transition-colors">
+                        Thư Viện Cải Tiến của Ngành
+                      </span>
+                    </div>
+                    <IconChevronRight size={18} className="text-slate-400 group-hover:text-[#006838] group-hover:translate-x-0.5 transition-all" />
+                  </a>
                 </div>
               </div>
             </div>
@@ -215,12 +288,12 @@ export default function CNCIWrapper() {
                   </div>
                 </div>
 
-                {/* List Items */}
+                {/* Action Buttons */}
                 <div className="space-y-2.5 pt-2">
-                  {/* Item 1: Tổng Quan */}
+                  {/* Button 1: Tổng Quan */}
                   <Link
                     href="/work/gemba"
-                    className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 hover:bg-blue-50/50 border border-slate-100 hover:border-blue-200 transition-all duration-200 group cursor-pointer"
+                    className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 hover:bg-blue-50/60 active:bg-blue-100/70 border border-slate-200/80 hover:border-blue-300 active:scale-[0.98] transition-all duration-200 group cursor-pointer shadow-2xs"
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-xl bg-blue-100/80 text-blue-600 flex items-center justify-center shrink-0 font-bold border border-blue-200/50 group-hover:scale-105 transition-transform">
@@ -233,12 +306,10 @@ export default function CNCIWrapper() {
                     <IconChevronRight size={18} className="text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all" />
                   </Link>
 
-                  {/* Item 2: Văn phòng Chuỗi */}
-                  <a
-                    href="https://script.google.com/macros/s/AKfycbwZ0h0Im1bKF5X_Tm7v7-YfcnDATKazw5Sp6oSkLj1Agk1Onzi9UshAchDsccPdt6R6/exec"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 hover:bg-blue-50/50 border border-slate-100 hover:border-blue-200 transition-all duration-200 group cursor-pointer"
+                  {/* Button 2: Văn phòng Chuỗi */}
+                  <Link
+                    href="/work/gemba?region=V%C4%83n+ph%C3%B2ng+Chu%E1%BB%97i"
+                    className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 hover:bg-blue-50/60 active:bg-blue-100/70 border border-slate-200/80 hover:border-blue-300 active:scale-[0.98] transition-all duration-200 group cursor-pointer shadow-2xs"
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-xl bg-blue-100/80 text-blue-600 flex items-center justify-center shrink-0 font-bold border border-blue-200/50 group-hover:scale-105 transition-transform">
@@ -249,14 +320,12 @@ export default function CNCIWrapper() {
                       </span>
                     </div>
                     <IconChevronRight size={18} className="text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all" />
-                  </a>
+                  </Link>
 
-                  {/* Item 3: Nhà Máy Miền Đông */}
-                  <a
-                    href="https://script.google.com/macros/s/AKfycbwZ0h0Im1bKF5X_Tm7v7-YfcnDATKazw5Sp6oSkLj1Agk1Onzi9UshAchDsccPdt6R6/exec"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 hover:bg-blue-50/50 border border-slate-100 hover:border-blue-200 transition-all duration-200 group cursor-pointer"
+                  {/* Button 3: Nhà Máy Miền Đông */}
+                  <Link
+                    href="/work/gemba?region=Nh%C3%A0+M%C3%A1y+Mi%E1%BB%81n+%C4%90%C3%B4ng"
+                    className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 hover:bg-blue-50/60 active:bg-blue-100/70 border border-slate-200/80 hover:border-blue-300 active:scale-[0.98] transition-all duration-200 group cursor-pointer shadow-2xs"
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-xl bg-blue-100/80 text-blue-600 flex items-center justify-center shrink-0 font-bold border border-blue-200/50 group-hover:scale-105 transition-transform">
@@ -267,14 +336,14 @@ export default function CNCIWrapper() {
                       </span>
                     </div>
                     <IconChevronRight size={18} className="text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all" />
-                  </a>
+                  </Link>
 
-                  {/* Item 4: Tổ Hợp Kiên Giang */}
+                  {/* Button 4: Tổ Hợp Kiên Giang */}
                   <a
-                    href="https://script.google.com/macros/s/AKfycbwZ0h0Im1bKF5X_Tm7v7-YfcnDATKazw5Sp6oSkLj1Agk1Onzi9UshAchDsccPdt6R6/exec"
+                    href="https://thkiengiangshoes.tbsgroup2026.workers.dev/work/gemba"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 hover:bg-blue-50/50 border border-slate-100 hover:border-blue-200 transition-all duration-200 group cursor-pointer"
+                    className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 hover:bg-blue-50/60 active:bg-blue-100/70 border border-slate-200/80 hover:border-blue-300 active:scale-[0.98] transition-all duration-200 group cursor-pointer shadow-2xs"
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-xl bg-blue-100/80 text-blue-600 flex items-center justify-center shrink-0 font-bold border border-blue-200/50 group-hover:scale-105 transition-transform">
@@ -310,119 +379,87 @@ export default function CNCIWrapper() {
                   </div>
                 </div>
 
-                {/* List Items */}
+                {/* 4 Scope Action Buttons matching Thư Viện Cải Tiến & GEMBA */}
                 <div className="space-y-2.5 pt-2">
-                  {/* Item 1: Bảo Dưỡng MMTB */}
-                  <Link
-                    href="/maintenance"
-                    className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 hover:bg-amber-50/50 border border-slate-100 hover:border-amber-200 transition-all duration-200 group cursor-pointer"
+                  {/* Button 1: Tổng Quan */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleSelectMmtbScope("ALL");
+                      router.push("/maintenance?scope=ALL");
+                    }}
+                    className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 hover:bg-amber-50/60 active:bg-amber-100/70 border border-slate-200/80 hover:border-amber-300 active:scale-[0.98] transition-all duration-200 group cursor-pointer shadow-2xs"
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-xl bg-amber-100/80 text-amber-600 flex items-center justify-center shrink-0 font-bold border border-amber-200/50 group-hover:scale-105 transition-transform">
-                        <IconTools size={20} />
+                        <IconChartBar size={20} />
                       </div>
                       <span className="text-xs font-black text-slate-800 group-hover:text-amber-600 transition-colors">
-                        Bảo Dưỡng MMTB
+                        Tổng Quan
                       </span>
                     </div>
                     <IconChevronRight size={18} className="text-slate-400 group-hover:text-amber-600 group-hover:translate-x-0.5 transition-all" />
-                  </Link>
+                  </button>
 
-                  {/* Item 2: Nhu Cầu Sửa Chữa */}
-                  <Link
-                    href="/maintenance/tickets"
-                    className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 hover:bg-amber-50/50 border border-slate-100 hover:border-amber-200 transition-all duration-200 group cursor-pointer"
+                  {/* Button 2: Văn phòng Chuỗi */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleSelectMmtbScope("OFFICE");
+                      router.push("/maintenance?scope=OFFICE");
+                    }}
+                    className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 hover:bg-amber-50/60 active:bg-amber-100/70 border border-slate-200/80 hover:border-amber-300 active:scale-[0.98] transition-all duration-200 group cursor-pointer shadow-2xs"
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-xl bg-amber-100/80 text-amber-600 flex items-center justify-center shrink-0 font-bold border border-amber-200/50 group-hover:scale-105 transition-transform">
-                        <IconCalendar size={20} />
+                        <IconBuilding size={20} />
                       </div>
                       <span className="text-xs font-black text-slate-800 group-hover:text-amber-600 transition-colors">
-                        Nhu Cầu Sửa Chữa
+                        Văn phòng Chuỗi
                       </span>
                     </div>
                     <IconChevronRight size={18} className="text-slate-400 group-hover:text-amber-600 group-hover:translate-x-0.5 transition-all" />
-                  </Link>
+                  </button>
 
-                  {/* Item 3: Danh Sách MMTB */}
-                  <Link
-                    href="/maintenance/machines"
-                    className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 hover:bg-amber-50/50 border border-slate-100 hover:border-amber-200 transition-all duration-200 group cursor-pointer"
+                  {/* Button 3: Nhà Máy Miền Đông */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleSelectMmtbScope("EAST");
+                      router.push("/maintenance?scope=EAST");
+                    }}
+                    className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 hover:bg-amber-50/60 active:bg-amber-100/70 border border-slate-200/80 hover:border-amber-300 active:scale-[0.98] transition-all duration-200 group cursor-pointer shadow-2xs"
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-xl bg-amber-100/80 text-amber-600 flex items-center justify-center shrink-0 font-bold border border-amber-200/50 group-hover:scale-105 transition-transform">
-                        <IconFileText size={20} />
+                        <IconBuildingFactory size={20} />
                       </div>
                       <span className="text-xs font-black text-slate-800 group-hover:text-amber-600 transition-colors">
-                        Danh Sách MMTB
+                        Nhà Máy Miền Đông
                       </span>
                     </div>
                     <IconChevronRight size={18} className="text-slate-400 group-hover:text-amber-600 group-hover:translate-x-0.5 transition-all" />
-                  </Link>
+                  </button>
 
-                  {/* Item 4: Đề Xuất Cải Tiến */}
-                  <Link
-                    href="/work/kaizen"
-                    className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 hover:bg-amber-50/50 border border-slate-100 hover:border-amber-200 transition-all duration-200 group cursor-pointer"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-amber-100/80 text-amber-600 flex items-center justify-center shrink-0 font-bold border border-amber-200/50 group-hover:scale-105 transition-transform">
-                        <IconClock size={20} />
-                      </div>
-                      <span className="text-xs font-black text-slate-800 group-hover:text-amber-600 transition-colors">
-                        Đề Xuất Cải Tiến
-                      </span>
-                    </div>
-                    <IconChevronRight size={18} className="text-slate-400 group-hover:text-amber-600 group-hover:translate-x-0.5 transition-all" />
-                  </Link>
-
-                  {/* Item 5: Thời Gian Phản Hồi */}
-                  <Link
-                    href="/maintenance"
-                    className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 hover:bg-amber-50/50 border border-slate-100 hover:border-amber-200 transition-all duration-200 group cursor-pointer"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-amber-100/80 text-amber-600 flex items-center justify-center shrink-0 font-bold border border-amber-200/50 group-hover:scale-105 transition-transform">
-                        <IconStar size={20} />
-                      </div>
-                      <span className="text-xs font-black text-slate-800 group-hover:text-amber-600 transition-colors">
-                        Thời Gian Phản Hồi
-                      </span>
-                    </div>
-                    <IconChevronRight size={18} className="text-slate-400 group-hover:text-amber-600 group-hover:translate-x-0.5 transition-all" />
-                  </Link>
-
-                  {/* Item 6: Sơ Đồ Nhà Máy */}
-                  <Link
-                    href="/work/gemba"
-                    className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 hover:bg-amber-50/50 border border-slate-100 hover:border-amber-200 transition-all duration-200 group cursor-pointer"
+                  {/* Button 4: Tổ Hợp Kiên Giang */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleSelectMmtbScope("KIEN_GIANG");
+                      router.push("/maintenance?scope=KIEN_GIANG");
+                    }}
+                    className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 hover:bg-amber-50/60 active:bg-amber-100/70 border border-slate-200/80 hover:border-amber-300 active:scale-[0.98] transition-all duration-200 group cursor-pointer shadow-2xs"
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-xl bg-amber-100/80 text-amber-600 flex items-center justify-center shrink-0 font-bold border border-amber-200/50 group-hover:scale-105 transition-transform">
                         <IconMapPin size={20} />
                       </div>
                       <span className="text-xs font-black text-slate-800 group-hover:text-amber-600 transition-colors">
-                        Sơ Đồ Nhà Máy
+                        Tổ Hợp Kiên Giang
                       </span>
                     </div>
                     <IconChevronRight size={18} className="text-slate-400 group-hover:text-amber-600 group-hover:translate-x-0.5 transition-all" />
-                  </Link>
-
-                  {/* Item 7: Quản Lý Danh Mục */}
-                  <Link
-                    href="/maintenance"
-                    className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 hover:bg-amber-50/50 border border-slate-100 hover:border-amber-200 transition-all duration-200 group cursor-pointer"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-amber-100/80 text-amber-600 flex items-center justify-center shrink-0 font-bold border border-amber-200/50 group-hover:scale-105 transition-transform">
-                        <IconFolder size={20} />
-                      </div>
-                      <span className="text-xs font-black text-slate-800 group-hover:text-amber-600 transition-colors">
-                        Quản Lý Danh Mục
-                      </span>
-                    </div>
-                    <IconChevronRight size={18} className="text-slate-400 group-hover:text-amber-600 group-hover:translate-x-0.5 transition-all" />
-                  </Link>
+                  </button>
                 </div>
               </div>
             </div>

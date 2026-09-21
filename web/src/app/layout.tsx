@@ -65,6 +65,10 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
+                window.addEventListener('unhandledrejection', function(e) {
+                  console.warn('Silenced unhandled promise rejection:', e.reason);
+                  if (e.preventDefault) e.preventDefault();
+                });
                 window.addEventListener('error', function(e) {
                   var target = e.target;
                   if (target && (target.tagName === 'LINK' || target.tagName === 'SCRIPT')) {

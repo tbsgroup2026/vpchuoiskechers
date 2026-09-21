@@ -1,0 +1,349 @@
+HƯỚNG DẪN HÌNH THỨC TRÌNH BÀY BÁO CÁO 
+THỰC TẬP TỐT NGHIỆP
+Hình thức chung 
+- Báo cáo được đóng bìa cứng, khổ giấy A4, số lượng: 1 cuốn gửi Doanh nghiệp chấm (nếu có) + 1 cuốn nộp về Viện (có đầy đủ biểu mẫu và Phiếu chấm).
+- Font chữ trình bày : 
+Times New Roman
+, size: 
+13
+ và tối thiểu 20 trang 
+- Mỗi trang format theo cỡ 
+top
+ 2 cm, 
+bottom 
+2 cm, 
+Right 
+2 cm, 
+Left
+ 3 cm
+- Bìa cứng bên ngoài, riêng màu sắc do Khoa quy định (Màu xanh dương).
+Hình thức bố trí cuốn báo cáo theo thứ tự như sau (có mẫu đính kèm): 
+1. 
+Trang 
+bìa cứng 
+(
+xem phụ lục 2
+) – 
+màu xanh dương + 
+kính
+2. 
+Trang
+ bìa lót  
+(in lại trang bìa cứng ở trên bằng giấy màu trắng)
+3. 
+Trang 
+kế tiếp theo thứ tự
+ 
+: 
+ 
+-  Giấy tiếp nhận sinh viên thực tập (bản chính) 
+(
+xem phụ lục 3
+)
+- Nhật ký thực tập của SV (
+xem phụ lục 4
+)
+-  Phiếu nhận xét của Cơ quan/Đơn vị
+ nơi sinh viên tham gia thực tập (bản chính) 
+(xem phụ lục 5
+).
+ 
+Mục này
+ 
+cần ghi rõ thời gian bắt đầu và kết thúc giai đoạn thực tập của sinh viên. Cuối phần nhận xét phải có mộc tròn xác nhận của Cơ quan – Nơi sinh viên đăng ký và tham gia thực tập.
+- Phiếu chấm dành cho Doanh nghiệp
+- Phiếu
+ 
+nhận xét của giáo viên hướng dẫn thực tập 
+(
+xem phụ lục 6
+)
+- Phiếu chấm dành cho Giảng viên
+4. 
+Trang
+ Lời cảm ơn
+5. 
+Trang 
+mục lục (
+xem trang 7 
+)
+6. 
+Trang Danh mục hình, Danh mục bảng (nếu có)
+7. 
+Trang 
+lời mở đầu 
+(đánh số thứ tự (là 1) bắt đầu từ trang lời mở đầu)   
+8. 
+Trang
+ Nội dung cuốn báo cáo (
+xem trang 8)
+ 
+9. 
+Trang 
+kết luận 
+ 
+10. 
+Trang 
+Tài liệu tham khảo
+[1]  Tài liệu đơn vị cung cấp.
+[2]  Tài liệu trên mạng. 
+[3] Tài liệu từ giáo trình 
+Lưu ý:
+  Nghiêm cấm sinh viên có 
+hành vi sao chép
+ trong nội dung báo cáo tốt nghiệp. Nếu phát hiện sao chép nguyên văn báo cáo của sinh viên cùng khóa, cùng lớp…hay của khóa trước mà không có trích dẫn hoặc tham chiếu thì sẽ bị đánh rớt và buộc phải đóng tiền đi thực tập lại với khóa sau.
+-7617
+-41907
+Phụ lục 2: Mẫu trang bìa
+UBND TP HỒ CHÍ MINH
+TRƯỜNG ĐẠI HỌC THỦ DẦU MỘT
+BÁO CÁO CHUYÊN ĐỀ
+THỰC TẬP TỐT NGHIỆP
+Nơi thực tập
+<<TÊN ĐƠN VỊ THỰC TẬP>>
+<<TÊN ĐỀ TÀI>>
+NGƯỜI HƯỚNG DẪN TẠI ĐƠN VỊ:............................................
+GIẢNG VIÊN HƯỚNG DẪN:.........................................................
+SINH VIÊN THỰC HIỆN:
+................
+MÃ SỐ SV:.....................
+CHUYÊN NGÀNH:..........................
+LỚP:................................
+NIÊN KHÓA:....................................................................................
+TP. Hồ Chí Minh, năm 2026
+-7617
+-41907
+2224088
+173038
+2224088
+173038
+CƠ QUAN/ĐƠN VỊ
+………………………………………………………………………………………………
+Phụ lục 3: Mẫu GTNSV
+CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM
+Độc lập – Tự do – Hạnh phúc
+1831023
+20638
+1831023
+20638
+                 
+ TP. Hồ Chí Minh, ngày…….tháng….. năm 2026
+GIẤY TIẾP NHẬN SINH VIÊN THỰC TẬP 
+Cơ quan/Đơn vị tiếp nhận thực tập:…………………………………………………….
+Địa chỉ : …………………………………………………………………………………
+Điện thoại :  ………………….....
+; Fax   :  ……………………..........................
+Đồng ý tiếp nhận anh/chị :  …………………………………, Ngày sinh :  …. / …. /....
+Mã số sinh viên: ………………………………………………………………………...
+Là sinh viên Trường Đại học Thủ Dầu Một thuộc Viện Công nghệ số
+Chuyên ngành:  ……………………………………………………………………......
+Thực tập tại bộ phận:  …………………………………... của Cơ quan/Đơn vị  chúng tôi trong thời gian  …………  tháng . 
+Với nhiệm vụ:  …………………………………………………………………………
+Anh /chị sinh viên thực tập chấp hành đúng nội quy kỷ luật và phân công của Cơ quan/Đơn vị .
+                                                                         
+Xác nhận của của Cơ quan/Doanh nghiệp
+                                                               
+                                                            ( 
+Ký & ghi rõ Họ - Tên, chức vụ, đóng dấu 
+)
+Phụ lục 4: Mẫu NKTT
+UBND THÀNH PHỐ HỒ CHÍ MINH
+TRƯỜNG ĐẠI HỌC THỦ DẦU MỘT
+1803718
+187008
+1803718
+187008
+CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM
+Độc lập – Tự do – Hạnh phúc
+1728152
+187008
+1728152
+187008
+NHẬT KÝ THỰC TẬP
+Tên đề tài: 
+Cán bộ hướng dẫn: 
+3.        Sinh viên thực hiện: 
+     MSSV: 
+ Lớp:
+ 
+Tuần lễ
+Từ ngày  đến ngày
+Nội dung
+Ghi chú
+1
+2
+3
+4
+5
+6
+7
+8
+..
+..
+Cán bộ hướng dẫn
+ 
+(Ký và ghi rõ họ tên)
+Tp. Hồ Chí Minh, ngày … tháng … năm 2026
+Sinh viên
+(Ký và ghi rõ họ tên)
+                                               
+Phụ lục 5: Mẫu NXTT
+CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM
+Độc lập – Tự do – Hạnh phúc
+PHIẾU NHẬN XÉT SINH VIÊN 
+CỦA ĐƠN VỊ THỰC TẬP
+Họ và tên sinh viên: 
+Lớp:
+Khóa:
+Viện Công nghệ số, Trường Đại học Thủ Dầu Một.
+Trong thời gian từ ngày…..tháng……năm….. .. đến ngày…..tháng…..năm ….......
+Tại :...................................................................................................................................
+Địa chỉ :.............................................................................................................................
+Sau quá trình thực tập tại đơn vị của sinh viên, chúng tôi có một số nhận xét đánh giá như sau :
+Tri thức, năng lực, chuyên môn nghề nghiệp :
+Kỹ năng thực hành nghề nghiệp:
+Thái độ:
+Các nhận xét khác :
+Đánh giá kết quả thực tập
+714376
+3175
+714376
+3175
+Điểm số: 
+Điểm chữ:
+Ngày
+tháng
+năm………
+Cán bộ hướng dẫn
+Xác nhận của đơn vị thực tập
+(Ký và ghi rõ họ và tên) 
+(Ký, đóng dấu và ghi rõ họ và tên)
+Phụ lục 6: Mẫu NXGV
+NHẬN XÉT CỦA GIẢNG VIÊN HƯỚNG DẪN
+1. Về hình thức và kỹ năng trình bày báo cáo thực tập
+……………………………………………………………………………….............................................................................................................................................................
+.........................................................................................................................................
+.........................................................................................................................................
+.........................................................................................................................................
+2. Nội dung báo cáo 
+2.1. Kết quả đợt thực tập
+.........................................................................................................................................
+.........................................................................................................................................
+.........................................................................................................................................
+2.2.Tính sáng tạo của chuyên đề thực tập:
+.........................................................................................................................................
+.........................................................................................................................................
+.........................................................................................................................................
+2.3. Tính thực tiễn của chuyên đề thực tập:
+.........................................................................................................................................
+.........................................................................................................................................
+.........................................................................................................................................
+1641475
+92075
+1641475
+92075
+3. Điểm đạt
+: Điểm số 
+Điểm chữ:......................................................
+Tp. Hồ Chí Minh, ngày….tháng….năm……
+Giảng viên hướng dẫn
+  
+  ( Ký và ghi rõ họ tên)
+Trang mục lục và các trang tiếp theo 
+(Đánh số trang theo kiểu La mã - i, ii, iii…)
+Tên các chương, mục và số thứ tự trang bắt đầu
+Các chương mục trình bày tối đa 3 cấp.
+Ví dụ: 
+Chương I: ……..
+1.1. ………………
+1.1.1……………….
+1.1.1.1. ……………………
+1.2. …………………….
+ Trang danh mục các bảng 
+(nếu có)
+Số thứ tự các bảng, tên các bảng và số trang. Ví dụ: Danh mục các bảng trong chuyên đề
+Bảng 1: 
+ 1
+Bảng 2:
+ 12
+Bảng 3:
+ 21
+Bảng 4:
+ 30
+Trang danh mục các hình 
+(nếu có)
+Số thứ tự các hình, tên các hình và số trang 
+Hình 1: 
+ 2
+Hình 2: 
+ 10
+Hình 3: 
+ 23
+Hinh 4: 
+ 29
+Trang các chữ viết tắt dùng trong báo cáo 
+(Nếu có)
+Chữ viết tắt, diễn giải tiếng Anh (nếu là chữ viết tắt từ tiếng Anh), diễn giải tiếng Việt. Ví dụ:
+TTTN : Thực tập tốt nghiệp
+CQCQ: Cơ quan chủ quản
+Phần mở đầu 
+(Từ phần này đánh số trang bắt đầu từ số 1)
+Giới thiệu lý do, mục đích chọn chủ đề báo cáo thực tập. 
+Nội dung thực tập
+Địa điểm thực tập
+Phần nội dung của báo cáo  thực tập 
+Trình bày kết quả những việc đã làm, có nhận xét, đánh giá về mỗi phần. Có thể tham khảo các chương mục như sau: 
+Chương 1. Tổng quan về cơ sở thực tập
+Thành lập và phát triển 
+Chức năng hoạt động của cơ quan tiếp nhận (bao gồm các lĩnh vực hoạt động, thế mạnh của công ty)
+Sơ đồ tổ chức và bố
+ trí nhân sự
+Chương 2. Nội dung thực tập tại cơ quan tiếp nhận
+ (
+Có thể điều chỉnh tùy thuộc vào nội dung/ công việc thực tập
+) 
+Mô tả công việc
+Phương thức làm việc
+Qui trình thực hiện
+Kết quả đạt được 
+Chương 3. So sánh thực tế với lý thuyết. Đề xuất các giải pháp cải tiến. 
+Phần kết luận và kiến nghị
+Kết luận
+Tóm tắt những nội dung đã thực hiện được trong quá trình thực tập 
+Nêu tóm tắt điểm mạnh và hạn chế của vấn đề thực tập tại công ty
+Kiến nghị
+Cơ quan thực tập: SV kiến nghị với cơ quan thực tập về chủ đề thực tập
+CTĐT: SV có thể kiến nghị về bộ môn 2 khía cạnh:
+Kiến thức trang bị trong nhà trường có đủ cho SV tự tin thực tập tốt nghiệp? cần trang bị thêm kiến thức gì cho SV
+Đề nghị qui trình thực tập tốt nghiệp cải tiến 
+Ý kiến bản thân sau khi hoàn thành báo cáo thực tập tốt nghiệp
+- 
+Qui trình gửi SV đi thực tập tốt nghiệp tại các cơ quan phù hợp hay chưa? 
+- 
+SV học hỏi được gì sau khi hoàn thành chương trình thực tập tốt nghiệp?
+- 
+Nguyện vọng của bản thân sau khi hoàn thành chương trình thực tập tốt nghiệp?
+Tài liệu tham khảo 
+Quy cách trình bày các dạng tài liệu tham khảo 
+a- Sách:
+- Tên tác giả. 
+Tên sách
+. Tập 1. Tên của tập 1. In lần thứ mấy. Nơi xuất bản: Nhà xuất bản.  Năm xuất bản. 
+Ví dụ: 
+Hoàng Thị Hường. 
+Microsoft Office POWERPOINT 2010. TP.HCM
+: Tổng Hợp TPHCM. 2014.
+b- Tạp chí, bài báo hội nghị:
+- Tên tác giả. “Tên bài báo.” 
+Tên tạp chí/Hội nghị
+. Tập ?. Số ?. Số trang của bài báo.  
+Ví dụ:
+Hilburn, T.B.; Bagert, D.J.. "A software engineering curriculum model," 
+Frontiers in Education Conference. 1999. FIE '99. 29th Annual
+ . vol.1. no.. pp.12A4/6,12A411 vol.1, 10-13 Nov. 1999
+Hazzan, O.; Tomayko, James E.. "Reflection and abstraction in learning software engineering's human aspects," 
+Computer
+ . vol.38. no.6. pp.39,45. May 2005
+- Tài liệu tham khảo được xếp theo thứ tự A, B, C theo họ của tác giả. 
+14. Phụ lục 
+Trình bày những biểu mẫu, số liệu, biểu, bảng... phục vụ việc làm báo cáo thực tập. 

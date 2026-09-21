@@ -68,8 +68,11 @@ export default function HRManagerDashboard({
             className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 cursor-pointer"
           >
             <option value="month">Tháng 08/2026</option>
-            <option value="quarter">Quý 3 / 2026</option>
-            <option value="year">Năm 2026</option>
+            <option value="q1">Quý 1 / 2026</option>
+            <option value="q2">Quý 2 / 2026</option>
+            <option value="q3">Quý 3 / 2026</option>
+            <option value="q4">Quý 4 / 2026</option>
+            <option value="year">Cả Năm 2026</option>
           </select>
 
           <button

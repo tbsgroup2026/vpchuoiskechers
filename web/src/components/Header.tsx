@@ -27,7 +27,8 @@ import {
   IconShieldCheck,
   IconBuildingStore,
 } from '@tabler/icons-react';
-import { getCurrentUser, setUserAvatar, logoutUserProfile, isAdminUser, getUserDisplayBadgeTitle } from '@/lib/userProfiles';
+import { getCurrentUser, setUserAvatar, setUserProfileInfo, logoutUserProfile, isAdminUser, getUserDisplayBadgeTitle } from '@/lib/userProfiles';
+import { logLoginLogoutEvent, logPasswordChangeEvent, logFeatureAccessEvent } from '@/lib/webhookAuditClient';
 
 interface NotificationItem {
   id: number;
@@ -196,12 +197,11 @@ export default function Header() {
     try {
       const updatedUser = {
         ...editProfileForm,
-        roleCode: userInfo?.roleCode || 'TONG_GIAM_DOC',
+        empCode: editProfileForm.empCode || userInfo?.empCode || '',
+        roleCode: userInfo?.roleCode || 'CBCNV',
       };
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem('tbs_current_user', JSON.stringify(updatedUser));
-        localStorage.setItem('tbs_current_user', JSON.stringify(updatedUser));
-        window.dispatchEvent(new Event('tbs_profile_updated'));
+      if (typeof window !== 'undefined' && updatedUser.empCode) {
+        setUserProfileInfo(updatedUser.empCode, updatedUser);
       }
 
       setUserInfo({
@@ -336,6 +336,13 @@ export default function Header() {
   }, [pathname]);
 
   const handleLogout = () => {
+    logLoginLogoutEvent({
+      emp_code: userInfo?.empCode || 'GUEST',
+      emp_name: userInfo?.name || 'Cán Bộ Công Nhân Viên',
+      action: 'Đăng xuất',
+      result: 'Thành công'
+    });
+
     logoutUserProfile();
     setIsLoggedIn(false);
     setUserInfo(null);
@@ -349,17 +356,47 @@ export default function Header() {
     setPwdMsg(null);
 
     if (!oldPassword) {
+      logPasswordChangeEvent({
+        emp_code: userInfo?.empCode || 'UNKNOWN',
+        emp_name: userInfo?.name || 'Cán Bộ Công Nhân Viên',
+        changed_by: 'Tự đổi',
+        result: 'Thất bại',
+        reason: 'Thiếu mật khẩu hiện tại'
+      });
       setPwdMsg({ text: lang === "VN" ? 'Vui lòng nhập mật khẩu hiện tại' : 'Please enter current password', error: true });
       return;
     }
     if (newPassword.length < 6) {
+      logPasswordChangeEvent({
+        emp_code: userInfo?.empCode || 'UNKNOWN',
+        emp_name: userInfo?.name || 'Cán Bộ Công Nhân Viên',
+        changed_by: 'Tự đổi',
+        result: 'Thất bại',
+        reason: 'Mật khẩu mới ngắn hơn 6 ký tự'
+      });
       setPwdMsg({ text: lang === "VN" ? 'Mật khẩu mới phải có ít nhất 6 ký tự' : 'New password must be at least 6 characters', error: true });
       return;
     }
     if (newPassword !== confirmPassword) {
+      logPasswordChangeEvent({
+        emp_code: userInfo?.empCode || 'UNKNOWN',
+        emp_name: userInfo?.name || 'Cán Bộ Công Nhân Viên',
+        changed_by: 'Tự đổi',
+        result: 'Thất bại',
+        reason: 'Xác nhận mật khẩu mới không khớp'
+      });
       setPwdMsg({ text: lang === "VN" ? 'Mật khẩu xác nhận không khớp với mật khẩu mới' : 'Passwords do not match', error: true });
       return;
     }
+
+    // Zero Password Logging Policy: Log ONLY metadata (empCode, name, timestamp, changed_by, result, reason)
+    logPasswordChangeEvent({
+      emp_code: userInfo?.empCode || 'UNKNOWN',
+      emp_name: userInfo?.name || 'Cán Bộ Công Nhân Viên',
+      changed_by: 'Tự đổi',
+      result: 'Thành công',
+      reason: 'Tự cập nhật mật khẩu tài khoản cá nhân'
+    });
 
     setPwdMsg({ text: lang === "VN" ? 'Đã cập nhật mật khẩu thành công!' : 'Password updated successfully!', error: false });
     setTimeout(() => {
@@ -616,13 +653,13 @@ export default function Header() {
                   <div className="relative">
                     <UserAvatar
                       src={userInfo?.avatar}
-                      name={userInfo?.name || userInfo?.empCode || 'Phạm Nguyễn Anh Huy'}
+                      name={userInfo?.name || userInfo?.empCode || 'Cán Bộ Công Nhân Viên'}
                       size="xs"
                       showOnlineBadge={true}
                     />
                   </div>
                   <span className="text-xs font-extrabold text-[#f2dc9a] max-w-[140px] truncate">
-                    {userInfo?.name || userInfo?.empCode || 'Phạm Nguyễn Anh Huy'}
+                    {userInfo?.name || userInfo?.empCode || 'Cán Bộ Công Nhân Viên'}
                   </span>
                   <IconChevronDown
                     size={13}
@@ -648,20 +685,20 @@ export default function Header() {
                       <div className="flex items-center gap-3">
                         <UserAvatar
                           src={userInfo?.avatar}
-                          name={userInfo?.name || userInfo?.empCode || 'Phạm Nguyễn Anh Huy'}
+                          name={userInfo?.name || userInfo?.empCode || 'Cán Bộ Công Nhân Viên'}
                           size="lg"
                         />
                         <div className="min-w-0 flex-1">
-                          <h4 className="text-sm font-black truncate text-white">{userInfo?.name || 'Phạm Nguyễn Anh Huy'}</h4>
-                          <p className="text-xs text-[#2fd39a] truncate font-semibold mt-0.5">{userInfo?.email || 'anhhuy.pham@tbsgroup.vn'}</p>
+                          <h4 className="text-sm font-black truncate text-white">{userInfo?.name || userInfo?.empCode || 'Cán Bộ Công Nhân Viên'}</h4>
+                          <p className="text-xs text-[#2fd39a] truncate font-semibold mt-0.5">{userInfo?.email || `${userInfo?.empCode || 'user'}@tbsgroup.vn`}</p>
                         </div>
                       </div>
                       <div className="flex items-center justify-between pt-2 border-t border-white/15">
                         <span className="inline-block px-2.5 py-0.5 rounded-full bg-[#2fd39a]/25 text-[#2fd39a] text-[10px] font-extrabold uppercase tracking-wider border border-[#2fd39a]/40">
-                          {userInfo?.title || 'IT - Team Chuyển Đổi Số'}
+                          {userInfo?.title || 'Cán Bộ Công Nhân Viên'}
                         </span>
                         <span className="text-[10px] font-mono font-bold text-[#f2dc9a]">
-                          Mã NV: {userInfo?.empCode || '202608001'}
+                          Mã NV: {userInfo?.empCode || 'N/A'}
                         </span>
                       </div>
                     </div>

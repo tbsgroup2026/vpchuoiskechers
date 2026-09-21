@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import NavLink from "@/components/NavLink";
 import dynamic from "next/dynamic";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useStatusCounts } from "@/context/StatusCountsContext";
 
 // Dynamic Imports for Modals & Sub-views to shrink initial JS bundle & accelerate 3G/4G loading
@@ -19,6 +20,8 @@ const KaizenLeaderboard = dynamic(() => import("./KaizenLeaderboard"), { ssr: fa
 
 import UserAvatar from "@/components/UserAvatar";
 import { getCurrentUser } from "@/lib/userProfiles";
+import { getValidKaizenImageUrl, getAllKaizenImageUrls } from "@/lib/kaizenImageHelper";
+import { apiFetch, registerPoller, unregisterPoller } from "@/lib/apiClient";
 
 const PROPOSALS_CACHE_KEY = "vpchuoiskechers_kaizen_proposals_cache_v2";
 
@@ -43,6 +46,7 @@ import {
   IconLayoutGrid,
   IconList,
   IconRefresh,
+  IconReload,
   IconPlus,
   IconDownload,
   IconSearch,
@@ -148,8 +152,49 @@ export interface KaizenProposal {
   created_at: string;
 }
 
+export function KaizenCardImage({ src, alt, attachmentsJson }: { src?: string; alt?: string; attachmentsJson?: string }) {
+  const initialUrl = getValidKaizenImageUrl(src, attachmentsJson);
+  const [imgSrc, setImgSrc] = useState(initialUrl);
+  const [hasError, setHasError] = useState(!initialUrl);
+
+  useEffect(() => {
+    const valid = getValidKaizenImageUrl(src, attachmentsJson);
+    setImgSrc(valid);
+    setHasError(!valid);
+  }, [src, attachmentsJson]);
+
+  if (!imgSrc || hasError) {
+    return (
+      <div className="flex flex-col items-center gap-0.5 text-slate-400 select-none">
+        <IconPhoto size={26} />
+        <span className="text-[10px] font-bold">Chưa có ảnh</span>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={imgSrc}
+      alt=""
+      onError={() => {
+        const all = getAllKaizenImageUrls(src, attachmentsJson);
+        const next = all.find((u) => u !== imgSrc);
+        if (next) {
+          setImgSrc(next);
+        } else {
+          setHasError(true);
+        }
+      }}
+      className="w-full h-full object-cover group-hover/img:scale-105 transition-transform duration-500"
+    />
+  );
+}
+
 export function normalizeProposal(p: KaizenProposal): KaizenProposal {
   if (!p) return p;
+  const cleanBeforeImg = getValidKaizenImageUrl(p.before_image_url, p.attachments_json);
+  const cleanAfterImg = getValidKaizenImageUrl(p.after_image_url);
+
   let isArchived = Boolean(
     Number(p.is_archived) === 1 ||
     p.is_archived === true ||
@@ -180,6 +225,8 @@ export function normalizeProposal(p: KaizenProposal): KaizenProposal {
 
   return {
     ...p,
+    before_image_url: cleanBeforeImg || p.before_image_url || "",
+    after_image_url: cleanAfterImg || p.after_image_url || "",
     review_status: reviewStatus as any,
     is_archived: isArchived
   };
@@ -264,6 +311,7 @@ export function HalfStarRating({ value, onChange, readOnly = false, size = 22 }:
 
 const REGION_SUB_ITEMS = [
   "Văn phòng Chuỗi",
+  "Phòng Ban THKG",
   "Nhà Máy Miền Đông",
   "Kiên Giang 1",
   "Kiên Giang 2",
@@ -271,50 +319,173 @@ const REGION_SUB_ITEMS = [
   "Hoàn Thiện Đế",
 ];
 
-const matchRegionFilter = (propRegionOrObj: any, filterRegion: string) => {
+export function matchRegionFilter(propRegionOrObj: any, filterRegion: string): boolean {
   if (!filterRegion || filterRegion === "ALL") return true;
   if (!propRegionOrObj) return false;
 
+  let siteCode = "";
+  let regStr = "";
+  let factoryStr = "";
+  let sourceRegStr = "";
+  let deptStr = "";
   let propStr = "";
+
   if (typeof propRegionOrObj === "string") {
     propStr = propRegionOrObj;
   } else if (typeof propRegionOrObj === "object") {
-    propStr = `${propRegionOrObj.factory || ""} ${propRegionOrObj.region || ""} ${propRegionOrObj.department || ""} ${propRegionOrObj.area || ""} ${propRegionOrObj.code || ""} ${propRegionOrObj.title || ""}`;
+    siteCode = String(propRegionOrObj.site_code || "").toLowerCase();
+    regStr = String(propRegionOrObj.region || "").toLowerCase();
+    factoryStr = String(propRegionOrObj.factory || "").toLowerCase();
+    sourceRegStr = String(propRegionOrObj.source_region || "").toLowerCase();
+    deptStr = String(propRegionOrObj.department || "").toLowerCase();
+    propStr = `${propRegionOrObj.factory || ""} ${propRegionOrObj.region || ""} ${propRegionOrObj.source_region || ""} ${propRegionOrObj.department || ""} ${propRegionOrObj.area || ""}`;
   }
 
   const pr = propStr.toUpperCase();
+  const filterClean = filterRegion.replace(/\+/g, " ").trim();
+  const filterUpper = filterClean.toUpperCase();
 
-  if (filterRegion === "Văn phòng Chuỗi" || filterRegion.includes("VP CHUỖI")) {
-    return pr.includes("VĂN PHÒNG CHUỖI") || pr.includes("VP CHUỖI") || pr.includes("VP CHUOI") || pr.includes("R&D") || pr.includes("SKECHERS") || pr.includes("VP2");
-  }
-  if (filterRegion === "Nhà Máy Miền Đông") {
-    return pr.includes("MIỀN ĐÔNG") || pr.includes("MIEN DONG") || pr.includes("NMMĐ") || pr.includes("NMMD");
-  }
-  if (filterRegion === "Kiên Giang 1") {
-    return pr.includes("KIÊN GIANG 1") || pr.includes("KIEN GIANG 1") || pr.includes("KG 1") || pr.includes("KG1");
-  }
-  if (filterRegion === "Kiên Giang 2") {
-    return pr.includes("KIÊN GIANG 2") || pr.includes("KIEN GIANG 2") || pr.includes("KG 2") || pr.includes("KG2");
-  }
-  if (filterRegion === "Kiên Giang 3") {
-    return pr.includes("KIÊN GIANG 3") || pr.includes("KIEN GIANG 3") || pr.includes("KG 3") || pr.includes("KG3");
-  }
-  if (filterRegion === "Hoàn Thiện Đế" || filterRegion === "Hoàn thiện đế") {
-    return pr.includes("HOÀN THIỆN ĐẾ") || pr.includes("HOAN THIEN DE") || pr.includes("ĐẾ") || pr.includes("HTĐ");
+  // 1. If filter is Nhà Máy Miền Đông / Miền Đông
+  if (
+    filterUpper.includes("NHÀ MÁY MIỀN ĐÔNG") ||
+    filterUpper.includes("NHA MAY MIEN DONG") ||
+    filterUpper.includes("MIỀN ĐÔNG") ||
+    filterUpper.includes("MIEN DONG") ||
+    filterUpper.includes("NMMĐ") ||
+    filterUpper.includes("NMMD")
+  ) {
+    if (siteCode === "thkiengiangshoes") return false;
+    const isExplicitVpChuoi = factoryStr.includes("văn phòng chuỗi") || regStr.includes("văn phòng chuỗi") || sourceRegStr.includes("văn phòng chuỗi");
+    const mentionsMienDong = regStr.includes("miền đông") || factoryStr.includes("miền đông") || sourceRegStr.includes("miền đông") || pr.includes("MIỀN ĐÔNG") || pr.includes("MIEN DONG") || pr.includes("NMMĐ") || pr.includes("NMMD");
+
+    if (isExplicitVpChuoi && !regStr.includes("miền đông") && !factoryStr.includes("miền đông") && !sourceRegStr.includes("miền đông")) {
+      return false;
+    }
+    return mentionsMienDong;
   }
 
-  return pr.includes(filterRegion.toUpperCase());
-};
+  // 2. If filter is Phòng Ban THKG / THKG / Kiên Giang
+  if (
+    filterUpper.includes("PHÒNG BAN THKG") ||
+    filterUpper.includes("THKG") ||
+    filterUpper.includes("KIÊN GIANG") ||
+    filterUpper.includes("TH KIÊN GIANG") ||
+    filterUpper.includes("KIEN GIANG")
+  ) {
+    if (filterUpper.includes("1") || filterUpper.includes("2") || filterUpper.includes("3")) {
+      const numMatch = filterUpper.match(/[1-3]/)?.[0];
+      if (numMatch) {
+        return (
+          pr.includes(`KIÊN GIANG ${numMatch}`) ||
+          pr.includes(`KIEN GIANG ${numMatch}`) ||
+          pr.includes(`KG ${numMatch}`) ||
+          pr.includes(`KG${numMatch}`)
+        );
+      }
+    }
+
+    if (filterUpper.includes("PHÒNG BAN THKG") || filterUpper.includes("PHONG BAN THKG")) {
+      const isSpecificOtherUnit =
+        pr.includes("KIÊN GIANG 1") || pr.includes("KIEN GIANG 1") || pr.includes("KG 1") || pr.includes("KG1") ||
+        pr.includes("KIÊN GIANG 2") || pr.includes("KIEN GIANG 2") || pr.includes("KG 2") || pr.includes("KG2") ||
+        pr.includes("KIÊN GIANG 3") || pr.includes("KIEN GIANG 3") || pr.includes("KG 3") || pr.includes("KG3") ||
+        pr.includes("HOÀN THIỆN ĐẾ") || pr.includes("HOAN THIEN DE") || pr.includes("HTĐ") || pr.includes("HTD");
+      if (isSpecificOtherUnit) return false;
+    }
+
+    return (
+      siteCode === "thkiengiangshoes" ||
+      regStr.includes("kiên giang") ||
+      factoryStr.includes("kiên giang") ||
+      sourceRegStr.includes("kiên giang") ||
+      factoryStr.includes("hoàn thiện đế") ||
+      regStr.includes("hoàn thiện đế") ||
+      factoryStr.includes("phòng ci") ||
+      factoryStr.includes("phòng cn") ||
+      factoryStr.includes("phòng chất lượng") ||
+      factoryStr.includes("phòng kế hoạch") ||
+      factoryStr.includes("phòng nhân sự") ||
+      deptStr.includes("phòng ci") ||
+      deptStr.includes("phòng cn") ||
+      deptStr.includes("phòng chất lượng") ||
+      deptStr.includes("phòng kế hoạch") ||
+      deptStr.includes("phòng nhân sự") ||
+      deptStr.includes("kế hoạch") ||
+      deptStr.includes("nhân sự") ||
+      deptStr.includes("chuyển đổi số") ||
+      deptStr.includes("công nghệ") ||
+      pr.includes("KIÊN GIANG") ||
+      pr.includes("KIEN GIANG") ||
+      pr.includes("THKG")
+    );
+  }
+
+  // 3. If filter is Văn phòng Chuỗi
+  if (filterUpper.includes("VĂN PHÒNG CHUỖI") || filterUpper.includes("VP CHUỖI") || filterUpper.includes("VAN PHONG CHUOI")) {
+    const isExcludedDept =
+      factoryStr.includes("phòng ci") ||
+      factoryStr.includes("phòng cn") ||
+      factoryStr.includes("phòng chất lượng") ||
+      factoryStr.includes("phòng kế hoạch") ||
+      factoryStr.includes("phòng nhân sự") ||
+      deptStr.includes("phòng ci") ||
+      deptStr.includes("phòng cn") ||
+      deptStr.includes("phòng chất lượng") ||
+      deptStr.includes("phòng kế hoạch") ||
+      deptStr.includes("phòng nhân sự") ||
+      deptStr.includes("kế hoạch") ||
+      deptStr.includes("nhân sự");
+
+    if (
+      siteCode === "thkiengiangshoes" ||
+      isExcludedDept ||
+      regStr.includes("kiên giang") ||
+      factoryStr.includes("kiên giang") ||
+      regStr.includes("miền đông") ||
+      factoryStr.includes("miền đông") ||
+      regStr.includes("hoàn thiện đế") ||
+      factoryStr.includes("hoàn thiện đế") ||
+      factoryStr.includes("htđ") ||
+      factoryStr.includes("htd")
+    ) {
+      return false;
+    }
+    return (
+      siteCode === "vpchuoiskechers" ||
+      regStr.includes("văn phòng chuỗi") ||
+      factoryStr.includes("văn phòng chuỗi") ||
+      sourceRegStr.includes("văn phòng chuỗi") ||
+      pr.includes("VĂN PHÒNG CHUỖI") ||
+      pr.includes("VP CHUỖI") ||
+      pr.includes("VP CHUOI")
+    );
+  }
+
+  // 4. If filter is Hoàn Thiện Đế
+  if (filterUpper.includes("HOÀN THIỆN ĐẾ") || filterUpper.includes("HOAN THIEN DE")) {
+    return (
+      regStr.includes("hoàn thiện đế") ||
+      factoryStr.includes("hoàn thiện đế") ||
+      pr.includes("HOÀN THIỆN ĐẾ") ||
+      pr.includes("HOAN THIEN DE") ||
+      pr.includes("HTĐ")
+    );
+  }
+
+  return pr.includes(filterUpper);
+}
 
 export function matchWorkshopFilter(p: KaizenProposal, selectedWorkshop: string): boolean {
   if (!p) return false;
-  if (!selectedWorkshop || selectedWorkshop === "ALL") return true;
+  if (!selectedWorkshop || selectedWorkshop === "ALL" || selectedWorkshop === "all") return true;
 
   const target = selectedWorkshop.trim().toLowerCase();
 
   const wsStr = [
     (p as any).workshop_name,
     (p as any).phan_xuong,
+    (p as any).cong_doan,
+    (p as any).stage,
     p.department,
     p.line,
   ]
@@ -322,14 +493,57 @@ export function matchWorkshopFilter(p: KaizenProposal, selectedWorkshop: string)
     .join(" ")
     .toLowerCase();
 
-  if (target.includes("đầu vào") || target.includes("dau vao")) {
-    return wsStr.includes("đầu vào") || wsStr.includes("dau vao") || wsStr.includes("input") || wsStr.includes("chặt") || wsStr.includes("chuẩn bị") || wsStr.includes("cắt");
+  if (target.includes("đầu vào") || target.includes("dau vao") || target.includes("dauvao") || target.includes("dau-vao") || target === "input") {
+    return (
+      wsStr.includes("đầu vào") ||
+      wsStr.includes("dau vao") ||
+      wsStr.includes("input") ||
+      wsStr.includes("chặt") ||
+      wsStr.includes("chuẩn bị") ||
+      wsStr.includes("cắt") ||
+      wsStr.includes("đầu")
+    );
   }
-  if (target.includes("may")) {
-    return wsStr.includes("may") || wsStr.includes("stitching") || wsStr.includes("sewing") || wsStr.includes("mũi");
+  if (target.includes("may") || target === "sewing" || target === "stitching") {
+    return (
+      wsStr.includes("may") ||
+      wsStr.includes("stitching") ||
+      wsStr.includes("sewing") ||
+      wsStr.includes("mũi")
+    );
   }
-  if (target.includes("gò") || target.includes("go")) {
-    return wsStr.includes("gò") || wsStr.includes("go") || wsStr.includes("dán đế") || wsStr.includes("gót") || wsStr.includes("hoàn thiện") || wsStr.includes("assembly");
+  if (target.includes("gò") || target.includes("go") || target === "assembly") {
+    return (
+      wsStr.includes("gò") ||
+      wsStr.includes("go") ||
+      wsStr.includes("dán đế") ||
+      wsStr.includes("gót") ||
+      wsStr.includes("hoàn thiện") ||
+      wsStr.includes("assembly")
+    );
+  }
+  if (target.includes("khác") || target.includes("khac") || target === "other") {
+    const isDauVao =
+      wsStr.includes("đầu vào") ||
+      wsStr.includes("dau vao") ||
+      wsStr.includes("input") ||
+      wsStr.includes("chặt") ||
+      wsStr.includes("chuẩn bị") ||
+      wsStr.includes("cắt") ||
+      wsStr.includes("đầu");
+    const isMay =
+      wsStr.includes("may") ||
+      wsStr.includes("stitching") ||
+      wsStr.includes("sewing") ||
+      wsStr.includes("mũi");
+    const isGo =
+      wsStr.includes("gò") ||
+      wsStr.includes("go") ||
+      wsStr.includes("dán đế") ||
+      wsStr.includes("gót") ||
+      wsStr.includes("hoàn thiện") ||
+      wsStr.includes("assembly");
+    return !isDauVao && !isMay && !isGo;
   }
 
   return wsStr.includes(target);
@@ -348,6 +562,8 @@ export function isApprovedProposal(p: KaizenProposal): boolean {
   if (
     subStatus === "CHO_REVIEW" ||
     subStatus === "SO_BO" ||
+    subStatus === "SO_DUYET" ||
+    subStatus === "CHO_DUYET" ||
     appStatus === "PENDING" ||
     status === "SUBMITTED" ||
     status === "CHO_DUYET" ||
@@ -462,7 +678,22 @@ export function renderCardTopRightBadge(prop: KaizenProposal, rankInfo?: any) {
   );
 }
 
-export default function CIModule() {
+export const UNIT_SLUG_MAP: Record<string, { label: string; regionKey: string; slug: string }> = {
+  "van-phong-chuoi": { label: "Văn phòng Chuỗi", regionKey: "Văn phòng Chuỗi", slug: "van-phong-chuoi" },
+  "phong-ban-thkg": { label: "Phòng Ban THKG", regionKey: "Phòng Ban THKG", slug: "phong-ban-thkg" },
+  "nha-may-mien-dong": { label: "Nhà Máy Miền Đông", regionKey: "Nhà Máy Miền Đông", slug: "nha-may-mien-dong" },
+  "kien-giang-1": { label: "Kiên Giang 1", regionKey: "Kiên Giang 1", slug: "kien-giang-1" },
+  "kien-giang-2": { label: "Kiên Giang 2", regionKey: "Kiên Giang 2", slug: "kien-giang-2" },
+  "kien-giang-3": { label: "Kiên Giang 3", regionKey: "Kiên Giang 3", slug: "kien-giang-3" },
+  "hoan-thien-de": { label: "Hoàn Thiện Đế", regionKey: "Hoàn Thiện Đế", slug: "hoan-thien-de" },
+};
+
+interface CIModuleProps {
+  initialUnitSlug?: string;
+}
+
+export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
+  const activeUnitInfo = initialUnitSlug ? UNIT_SLUG_MAP[initialUnitSlug] : null;
   const { isExecutiveOrAdmin } = usePermission();
   const [proposals, setProposals] = useState<KaizenProposal[]>([]);
   const [loading, setLoading] = useState(true);
@@ -506,6 +737,7 @@ export default function CIModule() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isRegTypeExpanded, setIsRegTypeExpanded] = useState(true);
   const [isRegionExpanded, setIsRegionExpanded] = useState(true);
+  const [isThkgExpanded, setIsThkgExpanded] = useState(true);
   const [isCategoryExpanded, setIsCategoryExpanded] = useState(true);
 
   // Synchronized Logged-in User Profile
@@ -547,6 +779,117 @@ export default function CIModule() {
       return () => window.removeEventListener("tbs_profile_updated", loadUser);
     }
   }, []);
+
+  const searchParams = useSearchParams();
+
+  // Sync region and stage/workshop filter from URL search params on mount & navigation
+  useEffect(() => {
+    if (activeUnitInfo) {
+      setSelectedRegion((prev) => (prev !== activeUnitInfo.regionKey ? activeUnitInfo.regionKey : prev));
+      return;
+    }
+
+    let rVal = "";
+    let sVal = "";
+
+    if (searchParams) {
+      rVal = searchParams.get("region") || searchParams.get("factory") || "";
+      sVal = searchParams.get("stage") || searchParams.get("congdoan") || searchParams.get("workshop") || "";
+    } else if (typeof window !== "undefined" && window.location.search) {
+      const urlParams = new URLSearchParams(window.location.search);
+      rVal = urlParams.get("region") || urlParams.get("factory") || "";
+      sVal = urlParams.get("stage") || urlParams.get("congdoan") || urlParams.get("workshop") || "";
+    }
+
+    if (rVal) {
+      const decodedR = decodeURIComponent(rVal.replace(/\+/g, " ")).trim();
+      if (decodedR) {
+        setSelectedRegion((prev) => (prev !== decodedR ? decodedR : prev));
+      }
+    }
+
+    if (sVal) {
+      const decodedS = decodeURIComponent(sVal.replace(/\+/g, " ")).trim().toLowerCase();
+      let targetW = "ALL";
+      if (decodedS.includes("đầu vào") || decodedS.includes("dauvao") || decodedS.includes("dau-vao") || decodedS.includes("dau vao")) {
+        targetW = "Đầu vào";
+      } else if (decodedS.includes("may") || decodedS.includes("sewing") || decodedS.includes("stitching")) {
+        targetW = "May";
+      } else if (decodedS.includes("gò") || decodedS.includes("go") || decodedS.includes("assembly")) {
+        targetW = "Gò";
+      } else if (decodedS === "all" || decodedS === "tat-ca" || decodedS === "tất cả") {
+        targetW = "ALL";
+      } else {
+        targetW = sVal;
+      }
+      setSelectedWorkshop((prev) => (prev !== targetW ? targetW : prev));
+    }
+  }, [searchParams, activeUnitInfo]);
+
+  // Keep browser URL search params synchronized with selectedRegion & selectedWorkshop
+  useEffect(() => {
+    if (!isHydrated) return;
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    let changed = false;
+
+    if (!activeUnitInfo) {
+      if (selectedRegion && selectedRegion !== "ALL") {
+        if (url.searchParams.get("region") !== selectedRegion) {
+          url.searchParams.set("region", selectedRegion);
+          changed = true;
+        }
+      } else {
+        if (url.searchParams.has("region")) {
+          url.searchParams.delete("region");
+          changed = true;
+        }
+      }
+    }
+
+    if (selectedWorkshop && selectedWorkshop !== "ALL") {
+      let stageParam = "dauvao";
+      const wLower = selectedWorkshop.toLowerCase();
+      if (wLower.includes("may")) stageParam = "may";
+      else if (wLower.includes("gò") || wLower === "go") stageParam = "go";
+      else if (wLower.includes("đầu vào") || wLower.includes("dauvao") || wLower.includes("dau-vao")) stageParam = "dauvao";
+      else stageParam = selectedWorkshop;
+
+      if (url.searchParams.get("stage") !== stageParam) {
+        url.searchParams.set("stage", stageParam);
+        changed = true;
+      }
+    } else {
+      if (url.searchParams.has("stage") || url.searchParams.has("congdoan") || url.searchParams.has("workshop")) {
+        url.searchParams.delete("stage");
+        url.searchParams.delete("congdoan");
+        url.searchParams.delete("workshop");
+        changed = true;
+      }
+    }
+
+    if (changed && url.href !== window.location.href) {
+      window.history.replaceState(null, "", url.toString());
+    }
+  }, [selectedRegion, selectedWorkshop, isHydrated, activeUnitInfo]);
+
+  const registerUrl = useMemo(() => {
+    const baseUrl = "https://vpchuoiskechers.tbsgroup2026.workers.dev/work/kaizen/register";
+    const params = new URLSearchParams();
+    if (selectedRegion && selectedRegion !== "ALL") {
+      params.set("region", selectedRegion);
+    }
+    if (selectedWorkshop && selectedWorkshop !== "ALL") {
+      let stageParam = selectedWorkshop;
+      const wLower = selectedWorkshop.toLowerCase();
+      if (wLower.includes("đầu vào") || wLower.includes("dauvao") || wLower.includes("dau-vao")) stageParam = "dauvao";
+      else if (wLower.includes("may")) stageParam = "may";
+      else if (wLower.includes("gò") || wLower === "go") stageParam = "go";
+      params.set("stage", stageParam);
+    }
+    const q = params.toString();
+    return q ? `${baseUrl}?${q}` : baseUrl;
+  }, [selectedRegion, selectedWorkshop]);
 
   // Preliminary Review Modal State
   const [isPreliminaryModalOpen, setIsPreliminaryModalOpen] = useState(false);
@@ -598,7 +941,7 @@ export default function CIModule() {
   const fetchProposals = async (silent = false) => {
     try {
       if (!silent && proposals.length === 0) setLoading(true);
-      const res = await fetchWithRetryAndTimeout(`/api/ci-kaizen`, {}, 2, 8000);
+      const res = await apiFetch(`/api/ci-kaizen`);
       if (!res.ok) {
         if (!silent && proposals.length === 0) setLoading(false);
         return;
@@ -622,8 +965,50 @@ export default function CIModule() {
   };
 
   useEffect(() => {
+    // Auto-sync proposals from individual factory links on mount
+    fetch("/api/ci-kaizen/sync", { method: "POST" })
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success) {
+          fetchProposals(true);
+          refetchStatusCounts();
+        }
+      })
+      .catch(() => {});
+
     fetchProposals(proposals.length > 0);
+
+    // Automatic short-interval background polling for real-time UI/leaderboard updates
+    const pollInterval = registerPoller(
+      setInterval(() => {
+        fetchProposals(true);
+      }, 8000)
+    );
+
+    return () => unregisterPoller(pollInterval);
   }, []);
+
+  const [isSyncingKG, setIsSyncingKG] = useState(false);
+
+  const handleSyncFromKienGiang = async () => {
+    try {
+      setIsSyncingKG(true);
+      showToast("⏳ Đang đồng bộ dữ liệu sáng kiến từ Kiên Giang Shoes...");
+      const res = await fetch("/api/ci-kaizen/sync", { method: "POST" });
+      const json = await res.json();
+      if (json.success) {
+        showToast(`🎉 ${json.message || "Đồng bộ sáng kiến Kiên Giang thành công!"}`);
+        fetchProposals(true);
+        refetchStatusCounts();
+      } else {
+        showToast(`❌ ${json.error || json.message || "Lỗi đồng bộ Kiên Giang"}`);
+      }
+    } catch (e: any) {
+      showToast("❌ Lỗi kết nối máy chủ đồng bộ!");
+    } finally {
+      setIsSyncingKG(false);
+    }
+  };
 
   const handleRecordView = async (prop: KaizenProposal) => {
     setActiveProposal(prop);
@@ -662,7 +1047,8 @@ export default function CIModule() {
     }
   };
 
-  const handleDeleteProposal = async (proposalId: string) => {
+  const handleDeleteProposal = async (proposalId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     if (!confirm("Bạn có chắc chắn muốn xóa đề xuất cải tiến này khỏi hệ thống D1 Database?")) return;
     try {
       const res = await fetch(`/api/ci-kaizen?id=${proposalId}`, { method: "DELETE" });
@@ -670,6 +1056,7 @@ export default function CIModule() {
       if (json.success) {
         showToast("🗑️ Đã xóa đề xuất cải tiến thành công!");
         setIsDetailModalOpen(false);
+        setProposals((prev) => prev.filter((p) => p.id !== proposalId));
         fetchProposals();
         refetchStatusCounts();
       } else {
@@ -699,29 +1086,38 @@ export default function CIModule() {
 
     const thiDuaList = normalizedProposals.filter((p) => {
       if (!p || p.is_archived) return false;
+      if (selectedRegion !== "ALL" && !matchRegionFilter(p, selectedRegion)) return false;
 
       const appStatus = String(p.approval_status || "").toUpperCase();
       const subStatus = String(p.sub_status || p.review_status || "").toUpperCase();
       const status = String(p.status || "").toUpperCase();
 
-      if (appStatus === "TU_CHOI" || subStatus === "TU_CHOI_TRIEN_KHAI" || status === "REJECTED") {
+      if (appStatus === "TU_CHOI" || subStatus === "TU_CHOI_TRIEN_KHAI" || subStatus === "TU_CHOI_DUYET" || status === "REJECTED" || subStatus === "CAN_CHINH_SUA") {
         return false;
       }
 
-      if (subStatus === "CHO_REVIEW" || appStatus === "PENDING" || status === "SUBMITTED") {
+      if (
+        subStatus === "CHO_REVIEW" ||
+        subStatus === "SO_BO" ||
+        subStatus === "SO_DUYET" ||
+        subStatus === "CHO_DUYET" ||
+        appStatus === "PENDING" ||
+        status === "SUBMITTED" ||
+        status === "CHO_DUYET" ||
+        status === "DRAFT"
+      ) {
         return false;
       }
 
-      const isApproved =
-        appStatus === "PHE_DUYET" ||
-        subStatus === "CHO_DANH_GIA" ||
-        subStatus === "DA_DANH_GIA" ||
-        status === "UNDER_REVIEW" ||
-        status === "APPROVED" ||
-        status === "COMPLETED";
+      if (!isApprovedProposal(p)) return false;
+
+      // Savings or score points MUST be > 0
+      const savingsVal = getProposalSavingsVal(p);
+      const scoreVal = Number(p.score_points || (p as any).scorePoints || 0);
+      if (savingsVal <= 0 && scoreVal <= 0) return false;
 
       const regType = String(p.registration_type || "").toUpperCase();
-      return isApproved && (regType === "THI_DUA" || Number(p.is_thi_dua) === 1 || subStatus === "CHO_DANH_GIA" || subStatus === "DA_DANH_GIA");
+      return (regType === "THI_DUA" || Number(p.is_thi_dua) === 1 || subStatus === "CHO_DANH_GIA" || subStatus === "DA_DANH_GIA");
     });
 
     const sorted = [...thiDuaList].sort((a, b) => {
@@ -791,7 +1187,7 @@ export default function CIModule() {
     });
 
     return map;
-  }, [normalizedProposals]);
+  }, [normalizedProposals, selectedRegion]);
 
   const filteredProposals = useMemo(() => {
     const filtered = normalizedProposals.filter((p) => {
@@ -824,7 +1220,7 @@ export default function CIModule() {
       if (selectedRegType === "CHO_PHE_DUYET" || selectedRegType === "CHO_DUYET") {
         const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
         const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
-        return dateA - dateB;
+        return dateB - dateA;
       }
 
       const rankIdxA = proposalRanksMap[a.id]?.rankIndex;
@@ -839,13 +1235,21 @@ export default function CIModule() {
 
       const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
       const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
-      return dateA - dateB;
+      return dateB - dateA;
     });
   }, [normalizedProposals, selectedRegion, selectedWorkshop, selectedCategory, selectedRegType, searchQuery, proposalRanksMap]);
 
   const regTypeCounts = useMemo(() => {
+    const targetRegion = activeUnitInfo ? activeUnitInfo.regionKey : selectedRegion;
+    const scopedProposals = normalizedProposals.filter((p) => {
+      if (targetRegion !== "ALL" && !matchRegionFilter(p, targetRegion)) {
+        return false;
+      }
+      return true;
+    });
+
     let thiDua = 0, choReview = 0, choDanhGia = 0, daDanhGia = 0, luuTru = 0;
-    for (const p of normalizedProposals) {
+    for (const p of scopedProposals) {
       if (matchRegTypeFilter(p, "THI_DUA")) thiDua++;
       if (matchRegTypeFilter(p, "CHO_PHE_DUYET")) choReview++;
       if (matchRegTypeFilter(p, "CHO_DANH_GIA")) choDanhGia++;
@@ -853,7 +1257,7 @@ export default function CIModule() {
       if (matchRegTypeFilter(p, "LUU_TRU")) luuTru++;
     }
     return { thiDua, choReview, choDanhGia, daDanhGia, luuTru };
-  }, [normalizedProposals]);
+  }, [normalizedProposals, activeUnitInfo, selectedRegion]);
 
   const countThiDua = regTypeCounts.thiDua;
   const countChoReview = regTypeCounts.choReview;
@@ -861,21 +1265,53 @@ export default function CIModule() {
   const countDaDanhGia = regTypeCounts.daDanhGia;
   const countLuuTru = regTypeCounts.luuTru;
 
+  const subPageStageCounts = useMemo(() => {
+    const targetRegion = activeUnitInfo ? activeUnitInfo.regionKey : selectedRegion;
+    const unitProps = normalizedProposals.filter((p) =>
+      targetRegion === "ALL" ? true : matchRegionFilter(p, targetRegion)
+    );
+    let dauVao = 0, may = 0, go = 0, khac = 0;
+    for (const p of unitProps) {
+      if (matchWorkshopFilter(p, "Đầu vào")) dauVao++;
+      else if (matchWorkshopFilter(p, "May")) may++;
+      else if (matchWorkshopFilter(p, "Gò")) go++;
+      else khac++;
+    }
+    return { dauVao, may, go, khac, total: unitProps.length };
+  }, [normalizedProposals, activeUnitInfo, selectedRegion]);
+
   const regionCounts = useMemo(() => {
     const result: Record<string, number> = {};
     for (const subItem of REGION_SUB_ITEMS) {
-      result[subItem] = normalizedProposals.filter((p) => matchRegionFilter(p, subItem)).length;
+      result[subItem] = normalizedProposals.filter(
+        (p) => matchRegionFilter(p, subItem) && (selectedWorkshop === "ALL" || matchWorkshopFilter(p, selectedWorkshop))
+      ).length;
     }
+    result["THKG"] = (result["Phòng Ban THKG"] || 0) +
+                     (result["Kiên Giang 1"] || 0) +
+                     (result["Kiên Giang 2"] || 0) +
+                     (result["Kiên Giang 3"] || 0) +
+                     (result["Hoàn Thiện Đế"] || 0);
     return result;
-  }, [normalizedProposals]);
+  }, [normalizedProposals, selectedWorkshop]);
 
   const categoryCounts = useMemo(() => {
+    const targetRegion = activeUnitInfo ? activeUnitInfo.regionKey : selectedRegion;
+    const scopedProposals = normalizedProposals.filter((p) => {
+      if (targetRegion !== "ALL" && !matchRegionFilter(p, targetRegion)) {
+        return false;
+      }
+      return true;
+    });
+
     const result: Record<string, number> = {};
     for (const cat of CATEGORIES) {
-      result[cat.id] = normalizedProposals.filter((p) => p.category === cat.id).length;
+      result[cat.id] = scopedProposals.filter((p) => p.category === cat.id).length;
     }
     return result;
-  }, [normalizedProposals]);
+  }, [normalizedProposals, activeUnitInfo, selectedRegion]);
+
+
 
   return (
     <div className="min-h-screen bg-[#f1f5f9] text-slate-800 font-sans flex flex-col md:flex-row w-full selection:bg-[#006838] selection:text-white">
@@ -935,7 +1371,7 @@ export default function CIModule() {
               </h4>
             )}
             <div className="space-y-1">
-              <NavLink
+              <Link
                 href="/work"
                 className={`w-full text-left rounded-xl transition-all cursor-pointer flex items-center gap-2.5 ${
                   isSidebarCollapsed ? "p-2.5 justify-center" : "px-3.5 py-2"
@@ -944,7 +1380,20 @@ export default function CIModule() {
               >
                 <IconArrowLeft size={18} className="shrink-0 text-emerald-400" />
                 {!isSidebarCollapsed && <span className="truncate">Về Trang Chủ</span>}
-              </NavLink>
+              </Link>
+
+              {activeUnitInfo && (
+                <Link
+                  href="/work/kaizen"
+                  className={`w-full text-left rounded-xl transition-all cursor-pointer flex items-center gap-2.5 ${
+                    isSidebarCollapsed ? "p-2.5 justify-center" : "px-3.5 py-2"
+                  } bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 font-extrabold text-xs border border-emerald-800/80 shadow-2xs mb-1`}
+                  title="Về Trang Tổng Quan (7 Đơn Vị)"
+                >
+                  <IconBuildingFactory size={18} className="shrink-0 text-emerald-400" />
+                  {!isSidebarCollapsed && <span className="truncate">🏠 Về Tổng Quan</span>}
+                </Link>
+              )}
 
               <button
                 type="button"
@@ -972,8 +1421,8 @@ export default function CIModule() {
                     : "text-slate-300 hover:bg-slate-800/80 hover:text-white font-bold text-xs"
                 }`}
               >
-                <IconChartBar size={18} className="shrink-0 text-slate-400" />
-                {!isSidebarCollapsed && <span className="truncate">Dashboard</span>}
+                <IconChartBar size={18} className="shrink-0" />
+                {!isSidebarCollapsed && <span className="text-xs truncate">Dashboard</span>}
               </button>
 
               <button
@@ -1028,8 +1477,8 @@ export default function CIModule() {
                 }`}
               >
                 <div className="flex items-center gap-2">
-                  <IconTrophy size={16} className="text-amber-400 shrink-0" />
-                  {!isSidebarCollapsed && <span>Loại đăng ký</span>}
+                  <IconFilter size={16} className="text-slate-400 shrink-0" />
+                  {!isSidebarCollapsed && <span>Trạng thái lọc</span>}
                 </div>
                 {!isSidebarCollapsed && (
                   <span className="text-slate-400">
@@ -1044,20 +1493,21 @@ export default function CIModule() {
                     onClick={() => {
                       const nextReg = selectedRegType === "THI_DUA" ? "ALL" : "THI_DUA";
                       setSelectedRegType(nextReg);
-                      setSelectedRegion("ALL");
+                      setSelectedWorkshop("ALL");
                       setSelectedCategory("ALL");
                       setActiveTab("LIBRARY");
                     }}
                     className={`w-full text-left px-2.5 py-1 rounded-lg flex items-center justify-between transition-colors ${
                       selectedRegType === "THI_DUA"
-                        ? "bg-[#006838] text-white font-extrabold"
+                        ? "bg-amber-500/20 text-amber-300 font-extrabold border border-amber-500/30"
                         : "text-slate-300 hover:bg-slate-800/80 hover:text-white"
                     }`}
                   >
                     <span className="flex items-center gap-1.5">
-                      <span>🏆 Thi đua</span>
+                      <IconTrophy size={13} className="text-amber-400 shrink-0" />
+                      <span>Thi đua</span>
                     </span>
-                    <span className="px-2 py-0.2 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-extrabold">
+                    <span className="px-1.5 py-0.2 rounded-full bg-amber-500/30 text-amber-300 text-[9px] font-extrabold">
                       {countThiDua}
                     </span>
                   </button>
@@ -1066,21 +1516,21 @@ export default function CIModule() {
                     onClick={() => {
                       const nextReg = selectedRegType === "CHO_PHE_DUYET" ? "ALL" : "CHO_PHE_DUYET";
                       setSelectedRegType(nextReg);
-                      setSelectedRegion("ALL");
+                      setSelectedWorkshop("ALL");
                       setSelectedCategory("ALL");
                       setActiveTab("LIBRARY");
                     }}
-                    className={`w-full text-left px-3 py-1 rounded-lg flex items-center justify-between text-[11px] transition-colors ${
+                    className={`w-full text-left px-2.5 py-1 rounded-lg flex items-center justify-between transition-colors ${
                       selectedRegType === "CHO_PHE_DUYET"
-                        ? "bg-blue-950/80 text-blue-300 font-extrabold"
-                        : "text-blue-400/80 hover:bg-slate-800/60 hover:text-blue-300"
+                        ? "bg-blue-500/20 text-blue-300 font-extrabold border border-blue-500/30"
+                        : "text-slate-300 hover:bg-slate-800/80 hover:text-white"
                     }`}
                   >
                     <span className="flex items-center gap-1.5">
                       <IconUserCheck size={13} className="text-blue-400 shrink-0" />
                       <span>Chờ phê duyệt</span>
                     </span>
-                    <span className="px-1.5 py-0.2 rounded-full bg-blue-500/20 text-blue-400 text-[9px] font-extrabold">
+                    <span className="px-1.5 py-0.2 rounded-full bg-blue-500/30 text-blue-300 text-[9px] font-extrabold">
                       {countChoReview}
                     </span>
                   </button>
@@ -1089,21 +1539,21 @@ export default function CIModule() {
                     onClick={() => {
                       const nextReg = selectedRegType === "DA_DANH_GIA" ? "ALL" : "DA_DANH_GIA";
                       setSelectedRegType(nextReg);
-                      setSelectedRegion("ALL");
+                      setSelectedWorkshop("ALL");
                       setSelectedCategory("ALL");
                       setActiveTab("LIBRARY");
                     }}
-                    className={`w-full text-left px-3 py-1 rounded-lg flex items-center justify-between text-[11px] transition-colors ${
+                    className={`w-full text-left px-2.5 py-1 rounded-lg flex items-center justify-between transition-colors ${
                       selectedRegType === "DA_DANH_GIA"
-                        ? "bg-emerald-950/80 text-emerald-300 font-extrabold"
-                        : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"
+                        ? "bg-emerald-500/20 text-emerald-300 font-extrabold border border-emerald-500/30"
+                        : "text-slate-300 hover:bg-slate-800/80 hover:text-white"
                     }`}
                   >
                     <span className="flex items-center gap-1.5">
                       <IconCircleCheck size={13} className="text-emerald-400 shrink-0" />
                       <span>Đã duyệt</span>
                     </span>
-                    <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-400 text-[9px] font-extrabold">
+                    <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/30 text-emerald-300 text-[9px] font-extrabold">
                       {countDaDanhGia}
                     </span>
                   </button>
@@ -1112,7 +1562,7 @@ export default function CIModule() {
                     onClick={() => {
                       const nextReg = selectedRegType === "LUU_TRU" ? "ALL" : "LUU_TRU";
                       setSelectedRegType(nextReg);
-                      setSelectedRegion("ALL");
+                      setSelectedWorkshop("ALL");
                       setSelectedCategory("ALL");
                       setActiveTab("LIBRARY");
                     }}
@@ -1144,7 +1594,7 @@ export default function CIModule() {
               >
                 <div className="flex items-center gap-2">
                   <IconBuilding size={16} className="text-slate-400 shrink-0" />
-                  {!isSidebarCollapsed && <span>Khu vực</span>}
+                  {!isSidebarCollapsed && <span>{activeUnitInfo ? "Phân xưởng sản xuất" : "Khu vực sản xuất"}</span>}
                 </div>
                 {!isSidebarCollapsed && (
                   <span className="text-slate-400">
@@ -1155,32 +1605,167 @@ export default function CIModule() {
 
               {(!isSidebarCollapsed && isRegionExpanded) && (
                 <div className="space-y-0.5 pl-2 text-xs font-bold">
-                  <div className="px-2 py-1 text-slate-400 text-[11px] font-extrabold tracking-wider uppercase">
-                    CÁC ĐƠN VỊ SẢN XUẤT
-                  </div>
-                  <div className="pl-4 space-y-0.5 border-l border-slate-700/80 ml-2 mb-1">
-                    {REGION_SUB_ITEMS.map((subItem) => {
-                      const cnt = regionCounts[subItem] ?? 0;
-                      return (
+                  {activeUnitInfo ? (
+                    <>
+                      <div
+                        onClick={() => {
+                          setSelectedWorkshop("ALL");
+                          setSelectedRegType("ALL");
+                          setSelectedCategory("ALL");
+                        }}
+                        className={`px-2 py-1 rounded flex items-center justify-between text-[11px] font-extrabold tracking-wider uppercase cursor-pointer transition-colors ${
+                          selectedWorkshop === "ALL"
+                            ? "text-emerald-400 bg-emerald-950/40"
+                            : "text-slate-300 hover:text-white hover:bg-slate-800/40"
+                        }`}
+                        title="Bấm để xem tất cả phân xưởng"
+                      >
+                        <span>PHÂN XƯỞNG SẢN XUẤT ({activeUnitInfo.label})</span>
+                        <span className="text-[9px] text-emerald-300 font-mono font-bold">({subPageStageCounts.total})</span>
+                      </div>
+                      <div className="pl-4 space-y-0.5 border-l border-slate-700/80 ml-2 mb-1">
+                        {[
+                          { key: "Đầu vào", label: "📦 Đầu vào", count: subPageStageCounts.dauVao },
+                          { key: "May", label: "🪡 May", count: subPageStageCounts.may },
+                          { key: "Gò", label: "👟 Gò", count: subPageStageCounts.go },
+                        ].map((stg) => (
+                          <button
+                            key={stg.key}
+                            onClick={() => {
+                              const nextWs = selectedWorkshop === stg.key ? "ALL" : stg.key;
+                              setSelectedWorkshop(nextWs);
+                              setSelectedRegType("ALL");
+                              setSelectedCategory("ALL");
+                              setActiveTab("LIBRARY");
+                            }}
+                            className={`w-full text-left px-2 py-1 rounded flex items-center justify-between text-[11px] transition-colors ${
+                              selectedWorkshop === stg.key
+                                ? "bg-emerald-900/80 text-emerald-200 font-black"
+                                : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200 font-medium"
+                            }`}
+                          >
+                            <span className="truncate">{stg.label}</span>
+                            <span className="text-[9px] text-slate-300 font-mono font-bold">({stg.count})</span>
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="px-2 py-1 text-slate-400 text-[11px] font-extrabold tracking-wider uppercase">
+                        KHU VỰC SẢN XUẤT
+                      </div>
+                      <div className="pl-4 space-y-1 border-l border-slate-700/80 ml-2 mb-1">
+                        {/* 1. Văn phòng Chuỗi */}
                         <button
-                          key={subItem}
+                          type="button"
                           onClick={() => {
-                            const nextRegion = selectedRegion === subItem ? "ALL" : subItem;
-                            setSelectedRegion(nextRegion);
+                            const nextReg = selectedRegion === "Văn phòng Chuỗi" ? "ALL" : "Văn phòng Chuỗi";
+                            setSelectedRegion(nextReg);
+                            setSelectedWorkshop("ALL");
                             setSelectedRegType("ALL");
                             setSelectedCategory("ALL");
                             setActiveTab("LIBRARY");
                           }}
-                          className={`w-full text-left px-2 py-0.5 rounded flex items-center justify-between text-[11px] transition-colors ${
-                            selectedRegion === subItem ? "bg-emerald-900/80 text-emerald-200 font-black" : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200 font-medium"
+                          className={`w-full text-left px-2 py-1 rounded flex items-center justify-between text-[11px] transition-colors cursor-pointer ${
+                            selectedRegion === "Văn phòng Chuỗi" ? "bg-emerald-900/80 text-emerald-200 font-black" : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200 font-medium"
                           }`}
                         >
-                          <span className="truncate">{subItem}</span>
-                          <span className="text-[9px] text-slate-400 font-mono">({cnt})</span>
+                          <span className="truncate">🏢 Văn phòng Chuỗi</span>
+                          <span className="text-[9px] text-slate-300 font-mono font-bold">({regionCounts["Văn phòng Chuỗi"] || 0})</span>
                         </button>
-                      );
-                    })}
-                  </div>
+
+                        {/* 2. Nhà Máy Miền Đông */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const nextReg = selectedRegion === "Nhà Máy Miền Đông" ? "ALL" : "Nhà Máy Miền Đông";
+                            setSelectedRegion(nextReg);
+                            setSelectedWorkshop("ALL");
+                            setSelectedRegType("ALL");
+                            setSelectedCategory("ALL");
+                            setActiveTab("LIBRARY");
+                          }}
+                          className={`w-full text-left px-2 py-1 rounded flex items-center justify-between text-[11px] transition-colors cursor-pointer ${
+                            selectedRegion === "Nhà Máy Miền Đông" ? "bg-emerald-900/80 text-emerald-200 font-black" : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200 font-medium"
+                          }`}
+                        >
+                          <span className="truncate">🏭 Nhà Máy Miền Đông</span>
+                          <span className="text-[9px] text-slate-300 font-mono font-bold">({regionCounts["Nhà Máy Miền Đông"] || 0})</span>
+                        </button>
+
+                        {/* 3. Tổ Hợp Kiên Giang (THKG) Parent Group */}
+                        <div className="space-y-0.5 pt-0.5">
+                          <div
+                            className={`w-full text-left px-2 py-1 rounded flex items-center justify-between text-[11px] transition-colors cursor-pointer ${
+                              selectedRegion === "THKG" ? "bg-emerald-900/80 text-emerald-200 font-black" : "text-slate-300 hover:bg-slate-800/60 hover:text-white font-bold"
+                            }`}
+                            onClick={() => {
+                              const nextReg = selectedRegion === "THKG" ? "ALL" : "THKG";
+                              setSelectedRegion(nextReg);
+                              setSelectedWorkshop("ALL");
+                              setSelectedRegType("ALL");
+                              setSelectedCategory("ALL");
+                              setActiveTab("LIBRARY");
+                            }}
+                          >
+                            <div className="flex items-center gap-1 min-w-0">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setIsThkgExpanded(!isThkgExpanded);
+                                }}
+                                className="p-0.5 rounded hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+                                title="Đóng/Mở danh sách đơn vị THKG"
+                              >
+                                {isThkgExpanded ? <IconChevronDown size={13} /> : <IconChevronRight size={13} />}
+                              </button>
+                              <span className="truncate">📍 THKG</span>
+                            </div>
+                            <span className="text-[9px] text-emerald-400 font-mono font-black bg-emerald-950/60 px-1.5 py-0.2 rounded border border-emerald-800/50">
+                              ({regionCounts["THKG"] || 0})
+                            </span>
+                          </div>
+
+                          {/* THKG 5 Sub-units */}
+                          {isThkgExpanded && (
+                            <div className="pl-3 space-y-0.5 border-l border-slate-700/60 ml-2 pt-0.5">
+                              {[
+                                { label: "Phòng Ban THKG", slug: "phong-ban-thkg" },
+                                { label: "Kiên Giang 1", slug: "kien-giang-1" },
+                                { label: "Kiên Giang 2", slug: "kien-giang-2" },
+                                { label: "Kiên Giang 3", slug: "kien-giang-3" },
+                                { label: "Hoàn Thiện Đế", slug: "hoan-thien-de" },
+                              ].map((subItem) => {
+                                const cnt = regionCounts[subItem.label] ?? 0;
+                                return (
+                                  <button
+                                    key={subItem.label}
+                                    type="button"
+                                    onClick={() => {
+                                      const nextReg = selectedRegion === subItem.label ? "ALL" : subItem.label;
+                                      setSelectedRegion(nextReg);
+                                      setSelectedWorkshop("ALL");
+                                      setSelectedRegType("ALL");
+                                      setSelectedCategory("ALL");
+                                      setActiveTab("LIBRARY");
+                                    }}
+                                    className={`w-full text-left px-2 py-0.5 rounded flex items-center justify-between text-[10.5px] transition-colors cursor-pointer ${
+                                      selectedRegion === subItem.label ? "bg-emerald-900/80 text-emerald-200 font-black" : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200 font-medium"
+                                    }`}
+                                  >
+                                    <span className="truncate">└ {subItem.label}</span>
+                                    <span className="text-[9px] text-slate-300 font-mono font-bold">({cnt})</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -1215,7 +1800,7 @@ export default function CIModule() {
                           const nextCat = selectedCategory === c.id ? "ALL" : c.id;
                           setSelectedCategory(nextCat);
                           setSelectedRegType("ALL");
-                          setSelectedRegion("ALL");
+                          setSelectedWorkshop("ALL");
                           setActiveTab("LIBRARY");
                         }}
                         className={`w-full text-left px-2 py-0.5 rounded-lg flex items-center justify-between transition-colors ${
@@ -1290,7 +1875,18 @@ export default function CIModule() {
                 <div className="w-8 h-8 rounded-lg bg-slate-800 text-white flex items-center justify-center flex-shrink-0 shadow-2xs">
                   <IconPhoto size={18} />
                 </div>
-                <h2 className="text-xl font-black text-slate-900 tracking-tight">Thư Viện Cải Tiến</h2>
+                <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                  <span>Thư Viện Cải Tiến</span>
+                  {activeUnitInfo ? (
+                    <span className="text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-xl border border-emerald-200 text-xs font-black shadow-2xs">
+                      📍 Đơn vị: {activeUnitInfo.label}
+                    </span>
+                  ) : (
+                    <span className="text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-xl border border-blue-200 text-xs font-black shadow-2xs">
+                      🌐 Tổng Quan (7 Đơn Vị)
+                    </span>
+                  )}
+                </h2>
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
@@ -1374,14 +1970,7 @@ export default function CIModule() {
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-2">
                 <select
                   value={selectedRegType}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setSelectedRegType(val);
-                    if (val !== "ALL") {
-                      setSelectedRegion("ALL");
-                      setSelectedCategory("ALL");
-                    }
-                  }}
+                  onChange={(e) => setSelectedRegType(e.target.value)}
                   className="w-full px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 text-[11px] font-bold text-slate-700 outline-none focus:border-[#006838]"
                 >
                   <option value="ALL">🏆 Tất cả loại</option>
@@ -1404,14 +1993,7 @@ export default function CIModule() {
 
                 <select
                   value={selectedCategory}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setSelectedCategory(val);
-                    if (val !== "ALL") {
-                      setSelectedRegType("ALL");
-                      setSelectedRegion("ALL");
-                    }
-                  }}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
                   className="w-full px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 text-[11px] font-bold text-slate-700 outline-none focus:border-[#006838]"
                 >
                   <option value="ALL">📁 Danh mục</option>
@@ -1427,34 +2009,33 @@ export default function CIModule() {
                   onChange={(e) => {
                     const val = e.target.value;
                     setSelectedRegion(val);
-                    if (val !== "ALL") {
-                      setSelectedRegType("ALL");
-                      setSelectedCategory("ALL");
-                    }
+                    setSelectedWorkshop("ALL");
+                    setSelectedRegType("ALL");
+                    setSelectedCategory("ALL");
                   }}
                   className="w-full px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 text-[11px] font-bold text-slate-700 outline-none focus:border-[#006838]"
+                  title="Chọn Khu vực sản xuất"
                 >
-                  <option value="ALL">🏢 Tất cả khu vực</option>
-                  {REGION_SUB_ITEMS.map((r) => (
-                    <option key={r} value={r}>
-                      {r}
-                    </option>
-                  ))}
+                  <option value="ALL">🏢 Khu vực sản xuất (Tất cả)</option>
+                  <option value="Văn phòng Chuỗi">🏢 Văn phòng Chuỗi ({regionCounts["Văn phòng Chuỗi"] || 0})</option>
+                  <option value="Nhà Máy Miền Đông">🏭 Nhà Máy Miền Đông ({regionCounts["Nhà Máy Miền Đông"] || 0})</option>
+                  <optgroup label="📍 TỔ HỢP KIÊN GIANG (THKG)">
+                    <option value="THKG">📍 Tất cả THKG ({regionCounts["THKG"] || 0})</option>
+                    <option value="Phòng Ban THKG">  └ Phòng Ban THKG ({regionCounts["Phòng Ban THKG"] || 0})</option>
+                    <option value="Kiên Giang 1">  └ Kiên Giang 1 ({regionCounts["Kiên Giang 1"] || 0})</option>
+                    <option value="Kiên Giang 2">  └ Kiên Giang 2 ({regionCounts["Kiên Giang 2"] || 0})</option>
+                    <option value="Kiên Giang 3">  └ Kiên Giang 3 ({regionCounts["Kiên Giang 3"] || 0})</option>
+                    <option value="Hoàn Thiện Đế">  └ Hoàn Thiện Đế ({regionCounts["Hoàn Thiện Đế"] || 0})</option>
+                  </optgroup>
                 </select>
 
                 <select
                   value={selectedWorkshop}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setSelectedWorkshop(val);
-                    if (val !== "ALL") {
-                      setSelectedRegType("ALL");
-                      setSelectedCategory("ALL");
-                    }
-                  }}
+                  onChange={(e) => setSelectedWorkshop(e.target.value)}
                   className="w-full px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 text-[11px] font-bold text-slate-700 outline-none focus:border-[#006838]"
+                  title="Lọc theo Phân xưởng sản xuất"
                 >
-                  <option value="ALL">🏭 Phân Xưởng</option>
+                  <option value="ALL">🏭 Phân xưởng sản xuất (Tất cả)</option>
                   <option value="Đầu vào">Đầu vào</option>
                   <option value="May">May</option>
                   <option value="Gò">Gò</option>
@@ -1496,6 +2077,7 @@ export default function CIModule() {
             </div>
 
             <div className="w-full space-y-4">
+
               {viewMode === "GRID" && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                   {filteredProposals.map((prop) => {
@@ -1508,23 +2090,13 @@ export default function CIModule() {
                         className="rounded-2xl bg-[#ffffff] border border-slate-200/90 shadow-2xs hover:shadow-md hover:border-[#006838]/60 transition-all cursor-pointer overflow-hidden flex flex-col justify-between group"
                       >
                         <div className="relative h-28 bg-slate-100 border-b border-slate-100 overflow-hidden flex items-center justify-center group/img">
-                          {prop.before_image_url ? (
-                            <img
-                              src={prop.before_image_url}
-                              alt={prop.title}
-                              className="w-full h-full object-cover group-hover/img:scale-105 transition-transform duration-500"
-                            />
-                          ) : (
-                            <div className="flex flex-col items-center gap-0.5 text-slate-400">
-                              <IconPhoto size={26} />
-                              <span className="text-[10px] font-bold">Chưa có ảnh</span>
-                            </div>
-                          )}
+                          <KaizenCardImage
+                            src={prop.before_image_url}
+                            alt={prop.title}
+                            attachmentsJson={prop.attachments_json}
+                          />
 
-                          <div className="absolute top-1.5 inset-x-1.5 flex items-center justify-between pointer-events-none gap-1">
-                            <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider shadow-2xs ${catObj.color}`}>
-                              {prop.category_label || catObj.label}
-                            </span>
+                          <div className="absolute top-1.5 right-1.5 pointer-events-none z-10">
                             {renderCardTopRightBadge(prop, rankInfo)}
                           </div>
 
@@ -1539,6 +2111,10 @@ export default function CIModule() {
 
                         <div className="p-3 space-y-2 flex-1 flex flex-col justify-between">
                           <div className="space-y-1">
+                            <div className="flex items-center gap-1 text-[9.5px] font-bold text-slate-500">
+                              <IconTag size={10} className="text-emerald-600 shrink-0" />
+                              <span className="truncate text-emerald-700">{prop.category_label || catObj.label}</span>
+                            </div>
                             <h3 className="font-extrabold text-slate-900 text-xs line-clamp-2 leading-snug group-hover:text-[#006838] transition-colors" title={prop.title}>
                               {prop.title}
                             </h3>
@@ -1570,21 +2146,7 @@ export default function CIModule() {
                                 <span>{prop.view_count || 0}</span>
                               </span>
 
-                              {isPendingApprovalProposal(prop) && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setApprovalModalProposal(prop);
-                                    setIsApprovalModalOpen(true);
-                                  }}
-                                  className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black shadow-2xs transition-colors flex items-center gap-1 cursor-pointer shrink-0"
-                                  title="Phê duyệt tính khả thi sáng kiến (Bước 3)"
-                                >
-                                  <IconShieldCheck size={13} />
-                                  <span>Phê duyệt</span>
-                                </button>
-                              )}
+
 
                               {isApprovedProposal(prop) && (
                                 rankInfo ? (
@@ -1615,6 +2177,19 @@ export default function CIModule() {
                                     <span>Chấm điểm</span>
                                   </button>
                                 )
+                              )}
+
+                              {((currentUser?.empCode && prop.proposer_emp_code && currentUser.empCode.trim().toUpperCase() === prop.proposer_emp_code.trim().toUpperCase()) ||
+                                (currentUser?.name && prop.proposer_name && currentUser.name.trim().toLowerCase() === prop.proposer_name.trim().toLowerCase()) ||
+                                isExecutiveOrAdmin) && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleDeleteProposal(prop.id, e)}
+                                  className="w-6 h-6 rounded-lg bg-rose-50 hover:bg-rose-600 text-rose-500 hover:text-white transition-colors cursor-pointer flex items-center justify-center shrink-0 border border-rose-200"
+                                  title="Xóa đề xuất cải tiến này"
+                                >
+                                  <IconTrash size={12} />
+                                </button>
                               )}
                             </div>
                           </div>
@@ -1702,19 +2277,7 @@ export default function CIModule() {
                                   >
                                     Xem
                                   </button>
-                                  {isPending && isExecutiveOrAdmin && (
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setApprovalModalProposal(prop);
-                                        setIsApprovalModalOpen(true);
-                                      }}
-                                      className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors cursor-pointer text-[11px] font-extrabold flex items-center gap-1"
-                                    >
-                                      <IconShieldCheck size={12} />
-                                      <span>Phê duyệt</span>
-                                    </button>
-                                  )}
+
                                   {isApproved && (
                                     <button
                                       onClick={(e) => {
@@ -1747,6 +2310,7 @@ export default function CIModule() {
       {isCreateModalOpen && (
         <KaizenPublicSubmitForm
           isModal={true}
+          initialData={selectedRegion && selectedRegion !== "ALL" ? { region: selectedRegion, factory: selectedRegion } : undefined}
           onClose={() => setIsCreateModalOpen(false)}
           onSuccess={() => {
             fetchProposals();
@@ -1819,13 +2383,13 @@ export default function CIModule() {
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col items-center gap-3">
                 <div className="p-3 bg-white rounded-2xl border-2 border-emerald-500 shadow-md">
                   <img
-                    src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://vpchuoiskechers.tbsgroup2026.workers.dev/work/kaizen/register"
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(registerUrl)}`}
                     alt="Mã QR Công Nhân Nộp Bài Kaizen"
                     className="w-44 h-44 object-contain"
                   />
                 </div>
                 <span className="text-[11px] font-mono font-bold text-emerald-800 break-all bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
-                  https://vpchuoiskechers.tbsgroup2026.workers.dev/work/kaizen/register
+                  {registerUrl}
                 </span>
               </div>
 
@@ -1833,7 +2397,7 @@ export default function CIModule() {
                 <button
                   type="button"
                   onClick={() => {
-                    navigator.clipboard.writeText("https://vpchuoiskechers.tbsgroup2026.workers.dev/work/kaizen/register");
+                    navigator.clipboard.writeText(registerUrl);
                     showToast("📋 Đã sao chép đường dẫn QR công nhân vào bộ nhớ tạm!");
                   }}
                   className="px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-extrabold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer border border-slate-300"
@@ -1843,7 +2407,7 @@ export default function CIModule() {
                 </button>
 
                 <a
-                  href="/work/kaizen/register"
+                  href={registerUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="px-3.5 py-2.5 rounded-xl bg-[#006838] hover:bg-[#004d29] text-white font-extrabold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-md"

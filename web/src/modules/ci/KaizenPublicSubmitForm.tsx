@@ -21,6 +21,7 @@ import {
 } from "@tabler/icons-react";
 import { INITIAL_ORG_TREE } from "./organizationTree";
 import KaizenDuplicateCompareModal from "./KaizenDuplicateCompareModal";
+import { getValidKaizenImageUrl, getAllKaizenImageUrls } from "@/lib/kaizenImageHelper";
 
 export const CATEGORIES = [
   { id: "MATERIAL_SAVING", label: "1.Tiết kiệm Vật tư", color: "bg-amber-600 text-white" },
@@ -152,11 +153,34 @@ export default function KaizenPublicSubmitForm({
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const host = window.location.hostname.toLowerCase();
-      if (host.includes("vpchuoi")) {
-        setUnitTitle("VP CHUỖI SKECHERS");
+      const search = window.location.search;
+      const urlParams = new URLSearchParams(search);
+      const rawRegion = urlParams.get("region") || urlParams.get("factory");
+
+      let targetFac = "Nhà Máy Miền Đông";
+      if (rawRegion) {
+        const cleanRegion = decodeURIComponent(rawRegion).replace(/\/register$/i, "").trim();
+        targetFac = normalizeFactoryName(cleanRegion);
       } else {
+        const host = window.location.hostname.toLowerCase();
+        if (host.includes("vpchuoi")) {
+          targetFac = "Văn phòng Chuỗi";
+        }
+      }
+
+      setForm((prev) => ({
+        ...prev,
+        region: targetFac,
+        factory: targetFac,
+      }));
+      setSelectedFormFactory(targetFac);
+
+      if (targetFac === "Văn phòng Chuỗi") {
+        setUnitTitle("VP CHUỖI SKECHERS");
+      } else if (targetFac.includes("Kiên Giang") || targetFac.includes("KG")) {
         setUnitTitle("THNM Kiên Giang");
+      } else {
+        setUnitTitle("Nhà Máy Miền Đông");
       }
     }
   }, []);
@@ -258,6 +282,8 @@ export default function KaizenPublicSubmitForm({
     timeBeforeSeconds: 0,
     timeAfterSeconds: 0,
     efficiencyValueVND: 0,
+    before_image_url: "",
+    after_image_url: "",
     beforeImageUrl: "",
     afterImageUrl: "",
     beforeImageLink: "",
@@ -269,11 +295,11 @@ export default function KaizenPublicSubmitForm({
     registrationType: "LUU_TRU",
   });
 
-  // Debounced Employee Auto-Fill Lookup by MSNV (Blur + Debounce ~300ms, >= 8 chars - độ dài MSNV hợp lệ)
+  // Debounced Employee Auto-Fill Lookup by MSNV (Blur + Debounce ~300ms, >= 4 chars - độ dài MSNV hợp lệ)
   React.useEffect(() => {
     const code = form.proposerEmpCode.trim();
-    // Chỉ lookup khi MSNV đủ độ dài hợp lệ (8+ ký tự) để giảm API calls không cần thiết
-    if (!code || code.length < 8) {
+    // Chỉ lookup khi MSNV đủ độ dài hợp lệ (4+ ký tự) để giảm API calls không cần thiết
+    if (!code || code.length < 4) {
       setNotFoundMsg(null);
       setLookupLoading(false);
       setAutoFilled(false);
@@ -285,6 +311,7 @@ export default function KaizenPublicSubmitForm({
     }
 
     setLookupLoading(true);
+    setAutoFilled(false);
     setNotFoundMsg(null);
 
     // Tạo request ID unique để xử lý race condition
@@ -396,6 +423,8 @@ export default function KaizenPublicSubmitForm({
         timeBeforeSeconds: 0,
         timeAfterSeconds: 0,
         efficiencyValueVND: 0,
+        before_image_url: initialData.before_image_url || initialData.beforeImageUrl || "",
+        after_image_url: initialData.after_image_url || initialData.afterImageUrl || "",
         beforeImageUrl: initialData.before_image_url || initialData.beforeImageUrl || "",
         afterImageUrl: initialData.after_image_url || initialData.afterImageUrl || "",
         beforeImageLink: "",
@@ -447,7 +476,7 @@ export default function KaizenPublicSubmitForm({
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, fieldName: "beforeImageUrl" | "afterImageUrl") => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, fieldName: "beforeImageUrl" | "afterImageUrl" | "before_image_url" | "after_image_url") => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
@@ -466,12 +495,18 @@ export default function KaizenPublicSubmitForm({
       });
 
       const urls = await Promise.all(uploadPromises);
-      setForm((prev) => {
-        const existing = prev[fieldName] ? prev[fieldName].split(",").map((s) => s.trim()).filter(Boolean) : [];
+      setForm((prev: any) => {
+        const isBefore = fieldName.includes("before");
+        const primaryKey = isBefore ? "before_image_url" : "after_image_url";
+        const aliasKey = isBefore ? "beforeImageUrl" : "afterImageUrl";
+        const existingStr = prev[primaryKey] || prev[aliasKey] || "";
+        const existing = existingStr ? existingStr.split(",").map((s: string) => s.trim()).filter(Boolean) : [];
         const combined = Array.from(new Set([...existing, ...urls]));
+        const joined = combined.join(",");
         return {
           ...prev,
-          [fieldName]: combined.join(","),
+          [primaryKey]: joined,
+          [aliasKey]: joined,
         };
       });
       showToast("✅ Ảnh đã tải lên thành công!");
@@ -519,7 +554,12 @@ export default function KaizenPublicSubmitForm({
       ? `${selectedFormWorkshop}${selectedFormLine ? ` - ${selectedFormLine}` : ""}`
       : form.department || "Xưởng Sản Xuất";
 
-    const targetFactory = selectedFormFactory || form.factory || "KG 1";
+    const targetFactory = form.factory || selectedFormFactory || "Nhà Máy Miền Đông";
+
+    if (lookupLoading) {
+      showToast("⚠️ Đang truy vấn thông tin nhân sự theo MSNV, vui lòng đợi trong giây lát!");
+      return;
+    }
 
     if (
       !form.proposerEmpCode.trim() ||
@@ -533,12 +573,8 @@ export default function KaizenPublicSubmitForm({
       return;
     }
 
-    if (!autoFilled && !isEdit) {
-      showToast("⚠️ MSNV không tồn tại trong hệ thống — vui lòng kiểm tra lại MSNV đã được import!");
-      return;
-    }
-
     const hasBeforeMedia = !!(
+      (form.before_image_url && form.before_image_url.trim()) ||
       (form.beforeImageUrl && form.beforeImageUrl.trim()) ||
       (form.beforeImageLink && form.beforeImageLink.trim()) ||
       (form.beforeVideoUrl && form.beforeVideoUrl.trim()) ||
@@ -554,8 +590,17 @@ export default function KaizenPublicSubmitForm({
 
     try {
       setSubmitting(true);
-      const finalBeforeImg = form.beforeImageUrl || form.beforeImageLink.trim();
-      const finalAfterImg = form.afterImageUrl || form.afterImageLink.trim();
+      const rawBefore = form.before_image_url || form.beforeImageUrl || form.beforeImageLink.trim();
+      const rawAfter = form.after_image_url || form.afterImageUrl || form.afterImageLink.trim();
+      const finalBeforeImg = getValidKaizenImageUrl(rawBefore);
+      const finalAfterImg = getValidKaizenImageUrl(rawAfter);
+
+      const allBeforeUrls = getAllKaizenImageUrls(rawBefore);
+      const allAfterUrls = getAllKaizenImageUrls(rawAfter);
+      const attachmentsList = [
+        ...allBeforeUrls.map((url) => ({ url, tag: "BEFORE", type: "image" })),
+        ...allAfterUrls.map((url) => ({ url, tag: "AFTER", type: "image" })),
+      ];
 
       const currentMonth = new Date().getMonth() + 1;
       const currentYear = new Date().getFullYear();
@@ -573,8 +618,13 @@ export default function KaizenPublicSubmitForm({
         line: selectedFormLine,
         proposerMonth: currentMonth,
         proposerYear: currentYear,
-        beforeImageUrl: finalBeforeImg,
-        afterImageUrl: finalAfterImg,
+        before_image_url: finalBeforeImg || rawBefore,
+        after_image_url: finalAfterImg || rawAfter,
+        beforeImageUrl: finalBeforeImg || rawBefore,
+        afterImageUrl: finalAfterImg || rawAfter,
+        attachments: attachmentsList,
+        attachmentsJson: JSON.stringify(attachmentsList),
+        attachments_json: JSON.stringify(attachmentsList),
         beforeVideoUrl: "",
         afterVideoUrl: "",
         efficiencyValueVND: 0,
@@ -627,6 +677,11 @@ export default function KaizenPublicSubmitForm({
 
       const json = await res.json();
       if (json.success) {
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.removeItem("vpchuoiskechers_kaizen_proposals_cache_v2");
+          } catch (e) {}
+        }
         if (isEdit) {
           showToast("🎉 Cập nhật thông tin đề xuất cải tiến thành công!");
           if (onSuccess) onSuccess();
@@ -670,6 +725,8 @@ export default function KaizenPublicSubmitForm({
       timeBeforeSeconds: 0,
       timeAfterSeconds: 0,
       efficiencyValueVND: 0,
+      before_image_url: "",
+      after_image_url: "",
       beforeImageUrl: "",
       afterImageUrl: "",
       beforeImageLink: "",
@@ -1048,10 +1105,10 @@ export default function KaizenPublicSubmitForm({
                     <IconPhoto size={16} className="text-[#006838]" />
                     <span>Ảnh TRƯỚC Cải Tiến <span className="text-rose-600 font-bold ml-0.5">*</span>:</span>
                   </label>
-                  {form.beforeImageUrl && (
+                  {(form.before_image_url || form.beforeImageUrl) && (
                     <button
                       type="button"
-                      onClick={() => setForm({ ...form, beforeImageUrl: "" })}
+                      onClick={() => setForm({ ...form, before_image_url: "", beforeImageUrl: "" })}
                       className="text-[11px] text-rose-600 font-bold flex items-center gap-1 cursor-pointer"
                     >
                       <IconTrash size={13} />
@@ -1060,10 +1117,10 @@ export default function KaizenPublicSubmitForm({
                   )}
                 </div>
 
-                {form.beforeImageUrl ? (
+                {(form.before_image_url || form.beforeImageUrl) ? (
                   <div className="space-y-2">
                     <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto p-1 bg-white rounded-xl border border-slate-200">
-                      {form.beforeImageUrl.split(",").map((url, idx) => {
+                      {(form.before_image_url || form.beforeImageUrl).split(",").map((url, idx) => {
                         const cleanUrl = url.trim();
                         if (!cleanUrl) return null;
                         return (
@@ -1072,9 +1129,11 @@ export default function KaizenPublicSubmitForm({
                             <button
                               type="button"
                               onClick={() => {
-                                const currentUrls = form.beforeImageUrl.split(",").map((s) => s.trim()).filter(Boolean);
+                                const rawStr = form.before_image_url || form.beforeImageUrl;
+                                const currentUrls = rawStr.split(",").map((s) => s.trim()).filter(Boolean);
                                 const updated = currentUrls.filter((_, i) => i !== idx);
-                                setForm({ ...form, beforeImageUrl: updated.join(",") });
+                                const joined = updated.join(",");
+                                setForm({ ...form, before_image_url: joined, beforeImageUrl: joined });
                               }}
                               className="absolute top-1 right-1 bg-rose-600 text-white rounded-full p-1 shadow-md hover:bg-rose-700 transition cursor-pointer"
                               title="Xóa ảnh này"
@@ -1191,7 +1250,7 @@ export default function KaizenPublicSubmitForm({
               )}
               <button
                 type="submit"
-                disabled={submitting || uploading}
+                disabled={submitting || uploading || lookupLoading}
                 className="w-full sm:w-auto px-8 py-3 rounded-2xl bg-[#006838] text-white font-black text-xs hover:bg-[#004d29] shadow-lg hover:shadow-emerald-900/30 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 {submitting ? (

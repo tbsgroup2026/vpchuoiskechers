@@ -6,6 +6,7 @@ import { IconPlus, IconPencil, IconTrash, IconUsers, IconFileSpreadsheet } from 
 import MaintenanceShell from '@/components/MaintenanceShell';
 import FilterSelect from '@/components/FilterSelect';
 import RefreshButton from '@/components/RefreshButton';
+import { logPasswordChangeEvent, logDocumentDownloadEvent } from '@/lib/webhookAuditClient';
 
 type CategoryOption = { id: string; name: string; parentId: string | null };
 
@@ -192,9 +193,30 @@ export default function EmployeesPage() {
       });
       const result = await res.json();
       if (!result.success) {
+        if (formData.password.trim()) {
+          logPasswordChangeEvent({
+            emp_code: formData.employeeCode,
+            emp_name: formData.name,
+            changed_by: 'Admin reset (Hệ thống MMTB)',
+            result: 'Thất bại',
+            reason: result.error || 'Lỗi không lưu được'
+          });
+        }
         setFormError(result.error || 'Không lưu được');
         return;
       }
+
+      // Log Password Change Event if password was set/updated (ZERO PASSWORD DATA)
+      if (formData.password.trim()) {
+        logPasswordChangeEvent({
+          emp_code: formData.employeeCode,
+          emp_name: formData.name,
+          changed_by: 'Admin reset (Hệ thống MMTB)',
+          result: 'Thành công',
+          reason: editingId ? 'Quản trị viên cập nhật lại mật khẩu nhân viên' : 'Khởi tạo tài khoản mới kèm mật khẩu'
+        });
+      }
+
       setShowForm(false);
       await load();
     } catch {
@@ -223,6 +245,7 @@ export default function EmployeesPage() {
   }
 
   function handleExport() {
+    const fileName = `Nhan_Su_MMTB_${new Date().toISOString().slice(0, 10)}.xlsx`;
     const rows = filtered.map((e) => ({
       'Mã nhân viên': e.employeeCode,
       Tên: e.name,
@@ -235,17 +258,34 @@ export default function EmployeesPage() {
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Nhan_Su');
-    XLSX.writeFile(wb, `Nhan_Su_MMTB_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    XLSX.writeFile(wb, fileName);
+
+    // Audit Log Hook for Document Download
+    logDocumentDownloadEvent({
+      emp_code: 'ADMIN',
+      emp_name: 'Cán Bộ Quản Trị',
+      document_name: fileName,
+      file_path_or_id: '/api/maintenance/employees/export'
+    });
   }
 
   function handleDownloadTemplate() {
+    const fileName = 'Mau_Nhap_Nhan_Su_MMTB.xlsx';
     const ws = XLSX.utils.aoa_to_sheet([
       [...IMPORT_TEMPLATE_HEADERS],
       ['NV-001', 'Nguyễn Văn A', '0900000000', '123456', 'Vận hành', 'KG1', 'Xưởng 1'],
     ]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Mau_Nhap_NhanSu');
-    XLSX.writeFile(wb, 'Mau_Nhap_Nhan_Su_MMTB.xlsx');
+    XLSX.writeFile(wb, fileName);
+
+    // Audit Log Hook for Template Download
+    logDocumentDownloadEvent({
+      emp_code: 'ADMIN',
+      emp_name: 'Cán Bộ Quản Trị',
+      document_name: fileName,
+      file_path_or_id: '/templates/Mau_Nhap_Nhan_Su_MMTB.xlsx'
+    });
   }
 
   function findByName(list: CategoryOption[], name: string, parentId?: string | null): CategoryOption | undefined {

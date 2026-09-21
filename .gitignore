@@ -9,6 +9,10 @@ dist/
 .env
 .env.*
 !.env.template
+gdrive-key.json
+firebase-service-account.json
+*-key.json
+*.json.key
 
 # Database files
 *.db

@@ -229,6 +229,19 @@ export default function KaizenDetailModal({
     return Boolean((uEmp && pEmp && uEmp === pEmp) || (uName && pName && uName === pName));
   }, [user, proposal]);
 
+  const canEditOrDelete = useMemo(() => {
+    if (!user) return false;
+    if (isOwner || isExecutiveOrAdmin) return true;
+    const uEmp = (user.empCode || "").trim().toUpperCase();
+    const uName = (user.name || "").trim().toLowerCase();
+    return (
+      ["201711002", "210602002", "202608001", "202608010", "222102020", "2026080001"].includes(uEmp) ||
+      uName.includes("anh huy") || uName.includes("lê khải") || uName.includes("le khai") ||
+      uName.includes("thanh tình") || uName.includes("thanh tinh") ||
+      uName.includes("trần thị ngoan") || uName.includes("ngoan")
+    );
+  }, [user, isOwner, isExecutiveOrAdmin]);
+
   const isJudgeOrExecutive = useMemo(() => {
     if (!user) return false;
     const uEmp = (user.empCode || "").trim().toUpperCase();
@@ -758,7 +771,7 @@ export default function KaizenDetailModal({
                   <span>Hủy</span>
                 </button>
               </div>
-            ) : isOwner || isExecutiveOrAdmin ? (
+            ) : canEditOrDelete ? (
               <div className="grid grid-cols-2 gap-1.5">
                 <button
                   type="button"

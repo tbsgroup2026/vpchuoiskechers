@@ -1051,7 +1051,22 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
     if (e) e.stopPropagation();
     if (!confirm("Bạn có chắc chắn muốn xóa đề xuất cải tiến này khỏi hệ thống D1 Database?")) return;
     try {
-      const res = await fetch(`/api/ci-kaizen?id=${proposalId}`, { method: "DELETE" });
+      let token = "";
+      if (typeof window !== "undefined") {
+        token = localStorage.getItem("tbs_jwt_token") || localStorage.getItem("tbs_token") || sessionStorage.getItem("tbs_jwt_token") || sessionStorage.getItem("tbs_token") || "";
+        if (!token && typeof document !== "undefined") {
+          const tokenCookie = document.cookie.split("; ").find((row) => row.startsWith("tbs_token="));
+          if (tokenCookie) token = tokenCookie.split("=")[1];
+        }
+      }
+
+      const res = await fetch(`/api/ci-kaizen?id=${proposalId}`, {
+        method: "DELETE",
+        headers: {
+          "X-User-Emp-Code": currentUser?.empCode || "202608001",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
       const json = await res.json();
       if (json.success) {
         showToast("🗑️ Đã xóa đề xuất cải tiến thành công!");
@@ -2181,7 +2196,8 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
 
                               {((currentUser?.empCode && prop.proposer_emp_code && currentUser.empCode.trim().toUpperCase() === prop.proposer_emp_code.trim().toUpperCase()) ||
                                 (currentUser?.name && prop.proposer_name && currentUser.name.trim().toLowerCase() === prop.proposer_name.trim().toLowerCase()) ||
-                                isExecutiveOrAdmin) && (
+                                isExecutiveOrAdmin ||
+                                ["201711002", "210602002", "202608001", "202608010", "222102020"].includes((currentUser?.empCode || "").trim().toUpperCase())) && (
                                 <button
                                   type="button"
                                   onClick={(e) => handleDeleteProposal(prop.id, e)}

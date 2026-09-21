@@ -93,10 +93,12 @@ export async function POST(request: Request) {
     const attachmentsJson = body.attachments_json || body.attachmentsJson || null;
     const categoryVal = body.category || null;
 
+    const productCodeVal = body.product_code || body.productCode || null;
     const db = getDbBinding();
 
     if (db) {
       try {
+        await db.prepare('ALTER TABLE ci_kaizen_proposals ADD COLUMN product_code TEXT').run().catch(() => {});
         await db.prepare('ALTER TABLE ci_kaizen_proposals ADD COLUMN pair_quantity INTEGER DEFAULT 0').run().catch(() => {});
         await db.prepare('ALTER TABLE ci_kaizen_proposals ADD COLUMN total_savings_vnd REAL DEFAULT 0').run().catch(() => {});
         await db.prepare('ALTER TABLE ci_kaizen_proposals ADD COLUMN total_savings_words TEXT').run().catch(() => {});
@@ -110,6 +112,7 @@ export async function POST(request: Request) {
               sub_status = ?,
               status = ?,
               category = COALESCE(?, category),
+              product_code = COALESCE(?, product_code),
               time_before_seconds = ?,
               time_after_seconds = ?,
               saved_seconds = ?,
@@ -131,6 +134,7 @@ export async function POST(request: Request) {
             subStatus,
             status,
             categoryVal,
+            productCodeVal,
             timeBefore,
             timeAfter,
             savedSecs,

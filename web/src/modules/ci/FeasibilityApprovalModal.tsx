@@ -91,6 +91,9 @@ export default function FeasibilityApprovalModal({
   const [costAfter, setCostAfter] = useState<number | string>(
     (proposal as any)?.cost_after || (proposal as any)?.chi_phi_sau || ""
   );
+  const [productCode, setProductCode] = useState<string>(
+    (proposal as any)?.product_code || (proposal as any)?.productCode || ""
+  );
   const [afterMediaList, setAfterMediaList] = useState<{ id: string; type: "image" | "video"; url: string; name?: string }[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -136,6 +139,7 @@ export default function FeasibilityApprovalModal({
       setDirectSavingsVnd(proposal.total_savings_vnd || (proposal as any).tong_tien_tiet_kiem || "");
       setCostBefore((proposal as any).cost_before || (proposal as any).chi_phi_truoc || "");
       setCostAfter((proposal as any).cost_after || (proposal as any).chi_phi_sau || "");
+      setProductCode((proposal as any).product_code || (proposal as any).productCode || "");
       
       const pBefore = Number(proposal.time_before_seconds || 0);
       const pAfter = Number(proposal.time_after_seconds || 0);
@@ -352,6 +356,8 @@ export default function FeasibilityApprovalModal({
           costAfter: finalCostAfter,
           cost_before: finalCostBefore,
           cost_after: finalCostAfter,
+          product_code: productCode,
+          productCode: productCode,
           after_image_url: afterImgUrlStr,
           attachments_json: attachmentsJsonStr,
         }),
@@ -439,11 +445,11 @@ export default function FeasibilityApprovalModal({
                 Tiêu đề
               </span>
               <h3 className="text-sm font-black text-slate-900 leading-snug">
-                {proposal.title}
+                {(proposal.title && String(proposal.title).trim()) || (proposal as any).tieu_de || (proposal as any).name || (proposal.before_description ? `Cải tiến: ${String(proposal.before_description).trim().substring(0, 60)}` : "Sáng kiến cải tiến Kaizen")}
               </h3>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-slate-100 text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 pt-3 border-t border-slate-100 text-xs">
               <div className="space-y-1">
                 <span className="text-[11px] font-bold text-slate-400 block">
                   Người đăng ký
@@ -463,11 +469,38 @@ export default function FeasibilityApprovalModal({
 
               <div className="space-y-1">
                 <span className="text-[11px] font-bold text-slate-400 block">
+                  Mã đơn hàng
+                </span>
+                <input
+                  type="text"
+                  value={productCode}
+                  onChange={(e) => setProductCode(e.target.value)}
+                  placeholder="Mã đơn hàng"
+                  className="px-2.5 py-1 rounded-xl bg-slate-50 font-mono font-extrabold text-xs border border-slate-300 outline-none focus:ring-2 focus:ring-emerald-500 w-full text-slate-900"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <span className="text-[11px] font-bold text-slate-400 block">
+                  Số lượng (Đôi)
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  value={pairQuantity}
+                  onChange={(e) => setPairQuantity(e.target.value)}
+                  placeholder="Số đôi"
+                  className="px-2.5 py-1 rounded-xl bg-slate-50 font-mono font-extrabold text-xs border border-slate-300 outline-none focus:ring-2 focus:ring-emerald-500 w-full text-slate-900"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <span className="text-[11px] font-bold text-slate-400 block">
                   Khu vực
                 </span>
-                <span className="px-2.5 py-1 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs inline-flex items-center gap-1 border border-slate-200/80">
-                  <IconBuildingWarehouse size={13} className="text-slate-500" />
-                  <span>{proposal.region || proposal.factory || "Nhà Máy Miền Đông"}</span>
+                <span className="px-2.5 py-1 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs inline-flex items-center gap-1 border border-slate-200/80 truncate">
+                  <IconBuildingWarehouse size={13} className="text-slate-500 shrink-0" />
+                  <span className="truncate">{proposal.region || proposal.factory || "Nhà Máy Miền Đông"}</span>
                 </span>
               </div>
 
@@ -478,7 +511,7 @@ export default function FeasibilityApprovalModal({
                 <select
                   value={editedCategory}
                   onChange={(e) => setEditedCategory(e.target.value)}
-                  className="px-2.5 py-1 rounded-xl bg-emerald-50 text-emerald-800 font-extrabold text-xs border border-emerald-300 outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer shadow-2xs w-full max-w-[170px]"
+                  className="px-2.5 py-1 rounded-xl bg-emerald-50 text-emerald-800 font-extrabold text-xs border border-emerald-300 outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer shadow-2xs w-full"
                 >
                   {CATEGORIES.map((c) => (
                     <option key={c.id} value={c.id}>

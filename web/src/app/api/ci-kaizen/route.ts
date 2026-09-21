@@ -129,7 +129,7 @@ export async function GET(request: Request) {
     if (db) {
       await ensureKaizenSchema(db);
 
-      // Seed/Upsert 2 core proposals from screenshot into D1 database if missing
+      // Seed/Upsert core proposals into D1 database and force restore original titles
       try {
         for (const seed of DEFAULT_KAIZEN_PROPOSALS) {
           await db.prepare(`
@@ -152,6 +152,11 @@ export async function GET(request: Request) {
             seed.after_image_url, seed.attachments_json, seed.created_at
           ).run();
         }
+
+        // Explicitly restore original titles for default proposals in D1 DB
+        await db.prepare("UPDATE ci_kaizen_proposals SET title = 'Tán nút ô dê bằng máy tán bán tự động' WHERE code = 'CI-2026-001' OR id = 'kz_nmmd_001'").run().catch(() => {});
+        await db.prepare("UPDATE ci_kaizen_proposals SET title = 'Tăng số đôi trên khuôn in lô gô chắn bùn ngoài m...' WHERE code = 'CI-2026-002' OR id = 'kz_nmmd_002'").run().catch(() => {});
+        await db.prepare("UPDATE ci_kaizen_proposals SET title = 'Số hóa quy trình duyệt đăng ký sáng kiến Kaizen realtime' WHERE code = 'CI-2026-003' OR id = 'kz_vpc_001'").run().catch(() => {});
       } catch (seedErr) {
         console.warn('[ci-kaizen GET] Seed error:', seedErr);
       }
@@ -159,12 +164,23 @@ export async function GET(request: Request) {
       const query = `SELECT * FROM ci_kaizen_proposals ORDER BY created_at DESC LIMIT 500`;
       const { results } = await db.prepare(query).all();
 
-      const cleanedResults = (results || []).map((p: any) => ({
-        ...p,
-        title: (p.title && String(p.title).trim()) || p.tieu_de || p.name || (p.before_description ? `Cải tiến: ${String(p.before_description).trim().substring(0, 50)}` : 'Sáng kiến cải tiến Kaizen'),
-        before_image_url: getValidKaizenImageUrl(p.before_image_url, p.attachments_json) || p.before_image_url || '',
-        after_image_url: getValidKaizenImageUrl(p.after_image_url) || p.after_image_url || '',
-      }));
+      const cleanedResults = (results || []).map((p: any) => {
+        let titleVal = (p.title && String(p.title).trim()) || p.tieu_de || p.name;
+        if (!titleVal || titleVal === "Sáng kiến cải tiến Kaizen" || titleVal === "Ý tưởng đề xuất cải tiến Kaizen") {
+          if (p.code === "CI-2026-001" || p.id === "kz_nmmd_001") titleVal = "Tán nút ô dê bằng máy tán bán tự động";
+          else if (p.code === "CI-2026-002" || p.id === "kz_nmmd_002") titleVal = "Tăng số đôi trên khuôn in lô gô chắn bùn ngoài m...";
+          else if (p.code === "CI-2026-003" || p.id === "kz_vpc_001") titleVal = "Số hóa quy trình duyệt đăng ký sáng kiến Kaizen realtime";
+          else if (p.before_description && p.before_description.trim()) titleVal = `Cải tiến: ${String(p.before_description).trim().substring(0, 50)}`;
+          else titleVal = "Sáng kiến cải tiến Kaizen";
+        }
+
+        return {
+          ...p,
+          title: titleVal,
+          before_image_url: getValidKaizenImageUrl(p.before_image_url, p.attachments_json) || p.before_image_url || '',
+          after_image_url: getValidKaizenImageUrl(p.after_image_url) || p.after_image_url || '',
+        };
+      });
 
       const finalData = cleanedResults.length > 0 ? cleanedResults : DEFAULT_KAIZEN_PROPOSALS;
 

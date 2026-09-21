@@ -1038,7 +1038,7 @@ function TabInfoContent({
               />
             ) : (
               <p className="font-bold text-rose-950 leading-relaxed whitespace-pre-wrap text-xs">
-                {proposal.before_description || "Chưa có mô tả hiện trạng lãng phí trước cải tiến."}
+                {proposal.before_description || (proposal as any).beforeDescription || "Chưa có mô tả hiện trạng lãng phí trước cải tiến."}
               </p>
             )}
           </div>
@@ -1058,7 +1058,7 @@ function TabInfoContent({
               />
             ) : (
               <p className="font-bold text-emerald-950 leading-relaxed whitespace-pre-wrap text-xs">
-                {proposal.after_solution || "Chưa có mô tả giải pháp sáng kiến cải tiến."}
+                {proposal.after_solution || (proposal as any).afterSolution || "Chưa có mô tả giải pháp sáng kiến cải tiến."}
               </p>
             )}
           </div>
@@ -1078,7 +1078,7 @@ function TabInfoContent({
         const tAfterRaw = isEditing ? Number(editForm.time_after_seconds) : Number(proposal.time_after_seconds || (proposal as any).timeAfterSeconds || 0);
         const timeBefore = isNaN(tBeforeRaw) ? 0 : tBeforeRaw;
         const timeAfter = isNaN(tAfterRaw) ? 0 : tAfterRaw;
-        const savedSecs = Math.max(0, timeBefore - timeAfter);
+        const savedSecs = Math.max(0, timeBefore - timeAfter) || Number(proposal.saved_seconds || (proposal as any).so_giay_tiet_kiem || (proposal as any).savedSeconds || 0);
 
         const effRaw = isEditing
           ? (Number(editForm.efficiency_value_vnd) || Math.round(savedSecs * 12.5))
@@ -1098,10 +1098,11 @@ function TabInfoContent({
         if (isCostMode) {
           const totRaw = isEditing
             ? (Number(editForm.total_savings_vnd) || Math.max(0, costBefore - costAfter))
-            : Number(proposal.total_savings_vnd || (proposal as any).tong_tien_tiet_kiem || Math.max(0, costBefore - costAfter));
+            : Number(proposal.total_savings_vnd || (proposal as any).totalSavingsVnd || (proposal as any).tong_tien_tiet_kiem || Math.max(0, costBefore - costAfter));
           totalSavingsVnd = isNaN(totRaw) ? 0 : totRaw;
         } else {
-          totalSavingsVnd = pairQty > 0 ? efficiencyVnd * pairQty : efficiencyVnd;
+          const totRaw = Number(proposal.total_savings_vnd || (proposal as any).totalSavingsVnd || (proposal as any).tong_tien_tiet_kiem || 0);
+          totalSavingsVnd = totRaw > 0 ? totRaw : (pairQty > 0 ? efficiencyVnd * pairQty : efficiencyVnd);
         }
         if (isNaN(totalSavingsVnd)) totalSavingsVnd = 0;
 

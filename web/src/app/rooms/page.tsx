@@ -1563,7 +1563,7 @@ export default function MeetingRoomsPage() {
             <div className="relative overflow-hidden p-5 sm:p-6 rounded-3xl bg-slate-900 text-white shadow-lg space-y-4 border border-emerald-800/30 group">
               {/* Background Real Image & Dark Emerald Gradient Overlay */}
               <img
-                src="/images/KGLV/SẢNH GÓC TỪ TRONG NHÌN RA.png"
+                src="/images/KGLV/sanh-goc-tu-trong-nhin-ra.png"
                 alt="Quản Lý Phòng Họp & Lễ Tân"
                 className="absolute inset-0 w-full h-full object-cover opacity-35 group-hover:scale-105 transition-transform duration-700 pointer-events-none"
               />

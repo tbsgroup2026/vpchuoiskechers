@@ -218,9 +218,30 @@ export async function POST(request: Request) {
       proposerEmpCode,
       proposerPosition = 'Công nhân',
       productCode = '',
+      product_code = '',
+      quantity = 0,
+      pair_quantity = 0,
+      pairQuantity = 0,
+      so_luong_giay = 0,
       beforeDescription = '',
+      before_description = '',
       afterSolution = '',
+      after_solution = '',
       savedSeconds = 0,
+      saved_seconds = 0,
+      so_giay_tiet_kiem = 0,
+      timeBeforeSeconds = 0,
+      time_before_seconds = 0,
+      timeAfterSeconds = 0,
+      time_after_seconds = 0,
+      efficiencyValueVND = 0,
+      efficiency_value_vnd = 0,
+      totalSavingsVnd = 0,
+      total_savings_vnd = 0,
+      costBefore = 0,
+      cost_before = 0,
+      costAfter = 0,
+      cost_after = 0,
       beforeImageUrl = '',
       afterImageUrl = '',
       before_image_url = '',
@@ -228,6 +249,20 @@ export async function POST(request: Request) {
       attachments = [],
       status = 'SUBMITTED',
     } = body;
+
+    const finalProductCode = (productCode || product_code || '').trim();
+    const finalQuantity = Number(quantity || pair_quantity || pairQuantity || so_luong_giay || 0);
+    const finalBeforeDesc = (beforeDescription || before_description || '').trim();
+    const finalAfterSol = (afterSolution || after_solution || '').trim() || 'Đề xuất đăng ký hiện trạng trước cải tiến';
+    const finalTimeBefore = Number(timeBeforeSeconds || time_before_seconds || 0);
+    const finalTimeAfter = Number(timeAfterSeconds || time_after_seconds || 0);
+    const calcSavedSecs = Math.max(0, finalTimeBefore - finalTimeAfter);
+    const finalSavedSecs = Number(savedSeconds || saved_seconds || so_giay_tiet_kiem || calcSavedSecs || 0);
+    const finalEfficiencyVnd = Number(efficiencyValueVND || efficiency_value_vnd || Math.round(finalSavedSecs * 12.5) || 0);
+    const finalCostBefore = Number(costBefore || cost_before || 0);
+    const finalCostAfter = Number(costAfter || cost_after || 0);
+    const calcTotalSavings = finalCostBefore > 0 ? Math.max(0, finalCostBefore - finalCostAfter) : (finalQuantity > 0 ? finalEfficiencyVnd * finalQuantity : finalEfficiencyVnd);
+    const finalTotalSavings = Number(totalSavingsVnd || total_savings_vnd || calcTotalSavings || 0);
 
     const rawBeforeImg = before_image_url || beforeImageUrl || '';
     const rawAfterImg = after_image_url || afterImageUrl || '';
@@ -335,8 +370,20 @@ export async function POST(request: Request) {
               department = ?,
               line = ?,
               proposer_name = ?,
+              proposer_position = ?,
+              product_code = ?,
+              pair_quantity = ?,
+              quantity = ?,
               before_description = ?,
               after_solution = ?,
+              time_before_seconds = ?,
+              time_after_seconds = ?,
+              saved_seconds = ?,
+              so_giay_tiet_kiem = ?,
+              efficiency_value_vnd = ?,
+              total_savings_vnd = ?,
+              cost_before = ?,
+              cost_after = ?,
               before_image_url = ?,
               after_image_url = ?,
               attachments_json = ?,
@@ -356,8 +403,20 @@ export async function POST(request: Request) {
             department,
             line,
             proposerName,
-            beforeDescription,
-            afterSolution,
+            proposerPosition || 'Công nhân',
+            finalProductCode,
+            finalQuantity,
+            finalQuantity,
+            finalBeforeDesc,
+            finalAfterSol,
+            finalTimeBefore,
+            finalTimeAfter,
+            finalSavedSecs,
+            finalSavedSecs,
+            finalEfficiencyVnd,
+            finalTotalSavings,
+            finalCostBefore,
+            finalCostAfter,
             cleanBeforeImg || rawBeforeImg,
             cleanAfterImg || rawAfterImg,
             attachmentsJson,
@@ -368,13 +427,19 @@ export async function POST(request: Request) {
         const query = `
           INSERT INTO ci_kaizen_proposals (
             id, code, title, category, category_label, registration_type,
-            region, department, factory, line, proposer_name, proposer_emp_code,
-            before_description, after_solution, saved_seconds, so_giay_tiet_kiem,
+            region, department, factory, line, proposer_name, proposer_emp_code, proposer_position,
+            product_code, pair_quantity, quantity,
+            before_description, after_solution,
+            time_before_seconds, time_after_seconds, saved_seconds, so_giay_tiet_kiem,
+            efficiency_value_vnd, total_savings_vnd, cost_before, cost_after,
             before_image_url, after_image_url, attachments_json, status, sub_status,
             trang_thai, review_status, created_at, updated_at
           ) VALUES (
             ?, ?, ?, ?, ?, ?,
-            ?, ?, ?, ?, ?, ?,
+            ?, ?, ?, ?, ?, ?, ?,
+            ?, ?, ?,
+            ?, ?,
+            ?, ?, ?, ?,
             ?, ?, ?, ?,
             ?, ?, ?, ?, 'CHO_DUYET',
             'CHO_DUYET', 'CHO_DUYET', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
@@ -396,10 +461,20 @@ export async function POST(request: Request) {
             line,
             proposerName,
             (proposerEmpCode && proposerEmpCode.trim()) ? proposerEmpCode.trim() : (session?.empCode || 'SK-EMP'),
-            beforeDescription,
-            afterSolution,
-            savedSeconds || 0,
-            savedSeconds || 0,
+            proposerPosition || 'Công nhân',
+            finalProductCode,
+            finalQuantity,
+            finalQuantity,
+            finalBeforeDesc,
+            finalAfterSol,
+            finalTimeBefore,
+            finalTimeAfter,
+            finalSavedSecs,
+            finalSavedSecs,
+            finalEfficiencyVnd,
+            finalTotalSavings,
+            finalCostBefore,
+            finalCostAfter,
             cleanBeforeImg || rawBeforeImg,
             cleanAfterImg || rawAfterImg,
             attachmentsJson,

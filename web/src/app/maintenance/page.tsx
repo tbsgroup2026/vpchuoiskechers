@@ -386,7 +386,7 @@ export default function OverviewPage() {
         <div className="relative rounded-2xl overflow-hidden bg-slate-900 border border-emerald-800/30 p-5 sm:p-6 text-white shadow-md space-y-4 group">
           {/* Background Real Image & Dark Emerald Gradient Overlay */}
           <img
-            src="/images/KGLV/CĐTT 2 LỐI VÀO.png"
+            src="/images/KGLV/cdtt-2-loi-vao.png"
             alt="Quản Lý MMTB / Bảo Trì SKECHERS"
             className="absolute inset-0 w-full h-full object-cover opacity-35 group-hover:scale-105 transition-transform duration-700 pointer-events-none"
           />

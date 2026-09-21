@@ -74,7 +74,7 @@ export default function HRHanhChanhHubView({
       <div className="relative w-full rounded-3xl overflow-hidden shadow-lg border border-emerald-800/20 bg-slate-900 text-white p-6 sm:p-8 lg:p-9 group">
         {/* Background Real Image & Dark Emerald Gradient Overlay */}
         <img
-          src="/images/KGLV/CĐTT 2 GÓC HÌNH VP2.png"
+          src="/images/KGLV/cdtt-2-goc-hinh-vp2.png"
           alt="Nhân Sự – Hành Chánh"
           className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:scale-105 transition-transform duration-700 pointer-events-none"
         />

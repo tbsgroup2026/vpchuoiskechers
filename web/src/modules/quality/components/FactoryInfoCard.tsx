@@ -20,7 +20,7 @@ export default function FactoryInfoCard({ factory }: FactoryInfoCardProps) {
     <div className="relative overflow-hidden rounded-3xl bg-slate-900 border border-emerald-500/30 p-5 sm:p-6 text-white shadow-xl group">
       {/* Background Real Image & Dark Emerald Gradient Overlay */}
       <img
-        src="/images/KGLV/3 DÒNG GIÀY CHÍNH.png"
+        src="/images/KGLV/3-dong-giay-chinh.png"
         alt="Quản Lý Chất Lượng SKECHERS"
         className="absolute inset-0 w-full h-full object-cover opacity-35 group-hover:scale-105 transition-transform duration-700 pointer-events-none"
       />

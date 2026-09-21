@@ -29,6 +29,16 @@ export async function ensureKaizenSchema(db: any, force = false) {
       'ALTER TABLE ci_kaizen_proposals ADD COLUMN ie_time_after_confirmed REAL',
       'ALTER TABLE ci_kaizen_proposals ADD COLUMN plant_code TEXT DEFAULT "VPCHUOI"',
       'ALTER TABLE ci_kaizen_proposals ADD COLUMN plant_group TEXT DEFAULT "VPCHUOI"',
+      'ALTER TABLE ci_kaizen_proposals ADD COLUMN product_code TEXT',
+      'ALTER TABLE ci_kaizen_proposals ADD COLUMN pair_quantity REAL DEFAULT 0',
+      'ALTER TABLE ci_kaizen_proposals ADD COLUMN quantity REAL DEFAULT 0',
+      'ALTER TABLE ci_kaizen_proposals ADD COLUMN time_before_seconds REAL DEFAULT 0',
+      'ALTER TABLE ci_kaizen_proposals ADD COLUMN time_after_seconds REAL DEFAULT 0',
+      'ALTER TABLE ci_kaizen_proposals ADD COLUMN efficiency_value_vnd REAL DEFAULT 0',
+      'ALTER TABLE ci_kaizen_proposals ADD COLUMN total_savings_vnd REAL DEFAULT 0',
+      'ALTER TABLE ci_kaizen_proposals ADD COLUMN cost_before REAL DEFAULT 0',
+      'ALTER TABLE ci_kaizen_proposals ADD COLUMN cost_after REAL DEFAULT 0',
+      'ALTER TABLE ci_kaizen_proposals ADD COLUMN proposer_position TEXT',
     ];
 
     for (const sql of columns) {

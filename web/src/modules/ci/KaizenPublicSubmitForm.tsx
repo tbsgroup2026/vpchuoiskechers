@@ -282,6 +282,9 @@ export default function KaizenPublicSubmitForm({
     timeBeforeSeconds: 0,
     timeAfterSeconds: 0,
     efficiencyValueVND: 0,
+    costBefore: 0,
+    costAfter: 0,
+    totalSavingsVnd: 0,
     before_image_url: "",
     after_image_url: "",
     beforeImageUrl: "",
@@ -586,53 +589,86 @@ export default function KaizenPublicSubmitForm({
       return;
     }
 
-    const finalAfterSolution = form.afterSolution.trim() || "Đề xuất đăng ký hiện trạng trước cải tiến";
+      const finalAfterSolution = form.afterSolution.trim() || "Đề xuất đăng ký hiện trạng trước cải tiến";
+      const timeBefore = Number(form.timeBeforeSeconds) || 0;
+      const timeAfter = Number(form.timeAfterSeconds) || 0;
+      const savedSecs = Math.max(0, timeBefore - timeAfter) || Number(form.savedSeconds) || 0;
+      const effValue = Number(form.efficiencyValueVND) || Math.round(savedSecs * 12.5);
+      const qty = Number(form.quantity) || 0;
+      const costBefore = Number(form.costBefore) || 0;
+      const costAfter = Number(form.costAfter) || 0;
+      const calcSavings = costBefore > 0 ? Math.max(0, costBefore - costAfter) : (qty > 0 ? effValue * qty : effValue);
+      const totalSavings = Number(form.totalSavingsVnd) || calcSavings;
 
-    try {
-      setSubmitting(true);
-      const rawBefore = form.before_image_url || form.beforeImageUrl || form.beforeImageLink.trim();
-      const rawAfter = form.after_image_url || form.afterImageUrl || form.afterImageLink.trim();
-      const finalBeforeImg = getValidKaizenImageUrl(rawBefore);
-      const finalAfterImg = getValidKaizenImageUrl(rawAfter);
+      try {
+        setSubmitting(true);
+        const rawBefore = form.before_image_url || form.beforeImageUrl || form.beforeImageLink.trim();
+        const rawAfter = form.after_image_url || form.afterImageUrl || form.afterImageLink.trim();
+        const finalBeforeImg = getValidKaizenImageUrl(rawBefore);
+        const finalAfterImg = getValidKaizenImageUrl(rawAfter);
 
-      const allBeforeUrls = getAllKaizenImageUrls(rawBefore);
-      const allAfterUrls = getAllKaizenImageUrls(rawAfter);
-      const attachmentsList = [
-        ...allBeforeUrls.map((url) => ({ url, tag: "BEFORE", type: "image" })),
-        ...allAfterUrls.map((url) => ({ url, tag: "AFTER", type: "image" })),
-      ];
+        const allBeforeUrls = getAllKaizenImageUrls(rawBefore);
+        const allAfterUrls = getAllKaizenImageUrls(rawAfter);
+        const attachmentsList = [
+          ...allBeforeUrls.map((url) => ({ url, tag: "BEFORE", type: "image" })),
+          ...allAfterUrls.map((url) => ({ url, tag: "AFTER", type: "image" })),
+        ];
 
-      const currentMonth = new Date().getMonth() + 1;
-      const currentYear = new Date().getFullYear();
-      const finalTitle = form.title.trim() || "Ý tưởng đề xuất cải tiến Kaizen";
+        const currentMonth = new Date().getMonth() + 1;
+        const currentYear = new Date().getFullYear();
+        const finalTitle = form.title.trim() || "Ý tưởng đề xuất cải tiến Kaizen";
 
-      const method = isEdit ? "PUT" : "POST";
-      const payload = {
-        ...form,
-        id: isEdit ? proposalId : undefined,
-        action: isEdit ? "UPDATE" : undefined,
-        title: finalTitle,
-        factory: targetFactory,
-        region: targetFactory,
-        department: targetDept,
-        line: selectedFormLine,
-        proposerMonth: currentMonth,
-        proposerYear: currentYear,
-        before_image_url: finalBeforeImg || rawBefore,
-        after_image_url: finalAfterImg || rawAfter,
-        beforeImageUrl: finalBeforeImg || rawBefore,
-        afterImageUrl: finalAfterImg || rawAfter,
-        attachments: attachmentsList,
-        attachmentsJson: JSON.stringify(attachmentsList),
-        attachments_json: JSON.stringify(attachmentsList),
-        beforeVideoUrl: "",
-        afterVideoUrl: "",
-        efficiencyValueVND: 0,
-        registrationType: "THI_DUA",
-        sub_status: "CHO_DUYET",
-        trang_thai: "CHO_DUYET",
-        isPublicScan: true,
-      };
+        const method = isEdit ? "PUT" : "POST";
+        const payload = {
+          ...form,
+          id: isEdit ? proposalId : undefined,
+          action: isEdit ? "UPDATE" : undefined,
+          title: finalTitle,
+          product_code: form.productCode.trim(),
+          productCode: form.productCode.trim(),
+          pair_quantity: qty,
+          quantity: qty,
+          so_luong_giay: qty,
+          factory: targetFactory,
+          region: targetFactory,
+          department: targetDept,
+          line: selectedFormLine,
+          proposerMonth: currentMonth,
+          proposerYear: currentYear,
+          proposer_position: form.proposerPosition,
+          proposerPosition: form.proposerPosition,
+          before_description: form.beforeDescription.trim(),
+          beforeDescription: form.beforeDescription.trim(),
+          after_solution: finalAfterSolution,
+          afterSolution: finalAfterSolution,
+          pricing_direction: form.pricingDirection,
+          pricingDirection: form.pricingDirection,
+          time_before_seconds: timeBefore,
+          timeBeforeSeconds: timeBefore,
+          time_after_seconds: timeAfter,
+          timeAfterSeconds: timeAfter,
+          saved_seconds: savedSecs,
+          so_giay_tiet_kiem: savedSecs,
+          efficiency_value_vnd: effValue,
+          efficiencyValueVND: effValue,
+          cost_before: costBefore,
+          costAfter: costAfter,
+          total_savings_vnd: totalSavings,
+          totalSavingsVnd: totalSavings,
+          before_image_url: finalBeforeImg || rawBefore,
+          after_image_url: finalAfterImg || rawAfter,
+          beforeImageUrl: finalBeforeImg || rawBefore,
+          afterImageUrl: finalAfterImg || rawAfter,
+          attachments: attachmentsList,
+          attachmentsJson: JSON.stringify(attachmentsList),
+          attachments_json: JSON.stringify(attachmentsList),
+          beforeVideoUrl: "",
+          afterVideoUrl: "",
+          registrationType: "THI_DUA",
+          sub_status: "CHO_DUYET",
+          trang_thai: "CHO_DUYET",
+          isPublicScan: true,
+        };
 
       if (!isEdit) {
         showToast("🔍 Đang kiểm tra trùng lặp với các đề xuất hiện có...");
@@ -703,15 +739,15 @@ export default function KaizenPublicSubmitForm({
   const handleResetForm = () => {
     setSubmittedCode(null);
     setForm({
-      region: "Kiên Giang 1",
+      region: selectedFormFactory || "Nhà Máy Miền Đông",
       proposerEmpCode: "",
-      proposerPosition: "Công Nhân Sản Xuất",
+      proposerPosition: "Công nhân",
       proposerMonth: new Date().getMonth() + 1,
       proposerYear: new Date().getFullYear(),
       proposerName: "",
       customer: "Skechers",
-      factory: "VP2 SKECHERS",
-      department: "",
+      factory: selectedFormFactory || "Nhà Máy Miền Đông",
+      department: selectedFormWorkshop || "Đầu Vào",
       title: "",
       category: "PRODUCTIVITY",
       categoryLabel: "3.Tăng Năng suất",
@@ -721,10 +757,13 @@ export default function KaizenPublicSubmitForm({
       beforeDescription: "",
       afterSolution: "",
       pricingDirection: "THOI_GIAN",
-      savedSeconds: 30,
+      savedSeconds: 0,
       timeBeforeSeconds: 0,
       timeAfterSeconds: 0,
       efficiencyValueVND: 0,
+      costBefore: 0,
+      costAfter: 0,
+      totalSavingsVnd: 0,
       before_image_url: "",
       after_image_url: "",
       beforeImageUrl: "",
@@ -1054,6 +1093,202 @@ export default function KaizenPublicSubmitForm({
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838]"
                 />
               </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="font-black text-slate-900 text-xs">
+                  Mã hàng sản phẩm <span className="text-slate-400 font-normal ml-1">(VD: SK-2026-X1)</span>
+                </label>
+                <input
+                  type="text"
+                  value={form.productCode}
+                  onChange={(e) => setForm({ ...form, productCode: e.target.value })}
+                  placeholder="VD: SK-2026-X1, D30901..."
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838]"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-black text-slate-900 text-xs">
+                  Số lượng đơn hàng (Đôi) <span className="text-slate-400 font-normal ml-1">(Nhập số đôi)</span>
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  value={form.quantity || ""}
+                  onChange={(e) => {
+                    const q = Math.max(0, parseInt(e.target.value) || 0);
+                    const eff = form.efficiencyValueVND || Math.round((Math.max(0, form.timeBeforeSeconds - form.timeAfterSeconds)) * 12.5);
+                    const tot = q > 0 ? eff * q : eff;
+                    setForm({ ...form, quantity: q, totalSavingsVnd: tot });
+                  }}
+                  placeholder="VD: 5000 đôi"
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838]"
+                />
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <label className="font-black text-slate-900 text-xs flex items-center gap-1.5">
+                  <IconClock size={16} className="text-[#006838]" />
+                  <span>ĐÁNH GIÁ HIỆU QUẢ CẢI TIẾN</span>
+                </label>
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-1 cursor-pointer font-bold text-xs text-slate-700">
+                    <input
+                      type="radio"
+                      name="pricingDirection"
+                      value="THOI_GIAN"
+                      checked={form.pricingDirection === "THOI_GIAN"}
+                      onChange={() => setForm({ ...form, pricingDirection: "THOI_GIAN" })}
+                    />
+                    <span>⏱️ Thời gian (giây)</span>
+                  </label>
+                  <label className="flex items-center gap-1 cursor-pointer font-bold text-xs text-slate-700">
+                    <input
+                      type="radio"
+                      name="pricingDirection"
+                      value="TRI_GIA"
+                      checked={form.pricingDirection === "TRI_GIA"}
+                      onChange={() => setForm({ ...form, pricingDirection: "TRI_GIA" })}
+                    />
+                    <span>💰 Trị giá (VNĐ)</span>
+                  </label>
+                </div>
+              </div>
+
+              {form.pricingDirection === "THOI_GIAN" ? (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <label className="font-bold text-slate-700 text-[11px]">TRƯỚC Cải Tiến (giây)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step="any"
+                      value={form.timeBeforeSeconds || ""}
+                      onChange={(e) => {
+                        const tb = Math.max(0, parseFloat(e.target.value) || 0);
+                        const ta = form.timeAfterSeconds || 0;
+                        const sSecs = Math.max(0, tb - ta);
+                        const eff = Math.round(sSecs * 12.5);
+                        const q = form.quantity || 0;
+                        const tot = q > 0 ? eff * q : eff;
+                        setForm({
+                          ...form,
+                          timeBeforeSeconds: tb,
+                          savedSeconds: sSecs,
+                          efficiencyValueVND: eff,
+                          totalSavingsVnd: tot,
+                        });
+                      }}
+                      placeholder="VD: 30"
+                      className="w-full px-3 py-1.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838] bg-white"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="font-bold text-slate-700 text-[11px]">SAU Cải Tiến (giây)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step="any"
+                      value={form.timeAfterSeconds || ""}
+                      onChange={(e) => {
+                        const tb = form.timeBeforeSeconds || 0;
+                        const ta = Math.max(0, parseFloat(e.target.value) || 0);
+                        const sSecs = Math.max(0, tb - ta);
+                        const eff = Math.round(sSecs * 12.5);
+                        const q = form.quantity || 0;
+                        const tot = q > 0 ? eff * q : eff;
+                        setForm({
+                          ...form,
+                          timeAfterSeconds: ta,
+                          savedSeconds: sSecs,
+                          efficiencyValueVND: eff,
+                          totalSavingsVnd: tot,
+                        });
+                      }}
+                      placeholder="VD: 15"
+                      className="w-full px-3 py-1.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838] bg-white"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="font-bold text-slate-700 text-[11px]">Tiết kiệm &amp; Quy đổi VNĐ</label>
+                    <div className="px-3 py-1.5 rounded-xl border border-emerald-300 bg-emerald-50 text-[#006838] font-black text-xs flex items-center justify-between">
+                      <span>{Math.max(0, (form.timeBeforeSeconds || 0) - (form.timeAfterSeconds || 0))}s</span>
+                      <span>{(form.efficiencyValueVND || 0).toLocaleString("vi-VN")} VNĐ/đôi</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <label className="font-bold text-slate-700 text-[11px]">Chi phí TRƯỚC (VNĐ)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step="1000"
+                      value={form.costBefore || ""}
+                      onChange={(e) => {
+                        const cb = Math.max(0, parseFloat(e.target.value) || 0);
+                        const ca = form.costAfter || 0;
+                        const tot = Math.max(0, cb - ca);
+                        setForm({
+                          ...form,
+                          costBefore: cb,
+                          totalSavingsVnd: tot,
+                        });
+                      }}
+                      placeholder="VD: 10000000"
+                      className="w-full px-3 py-1.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838] bg-white"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="font-bold text-slate-700 text-[11px]">Chi phí SAU (VNĐ)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step="1000"
+                      value={form.costAfter || ""}
+                      onChange={(e) => {
+                        const cb = form.costBefore || 0;
+                        const ca = Math.max(0, parseFloat(e.target.value) || 0);
+                        const tot = Math.max(0, cb - ca);
+                        setForm({
+                          ...form,
+                          costAfter: ca,
+                          totalSavingsVnd: tot,
+                        });
+                      }}
+                      placeholder="VD: 5000000"
+                      className="w-full px-3 py-1.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838] bg-white"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="font-bold text-slate-700 text-[11px]">Tổng tiết kiệm (VNĐ)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step="1000"
+                      value={form.totalSavingsVnd || ""}
+                      onChange={(e) => {
+                        const tot = Math.max(0, parseFloat(e.target.value) || 0);
+                        setForm({
+                          ...form,
+                          totalSavingsVnd: tot,
+                        });
+                      }}
+                      placeholder="Tự động hoặc nhập..."
+                      className="w-full px-3 py-1.5 rounded-xl border border-emerald-300 bg-emerald-50 text-[#006838] font-black text-xs outline-none focus:border-[#006838]"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="space-y-1">

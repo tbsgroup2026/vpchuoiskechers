@@ -98,7 +98,7 @@ export default function HomeNew({
       <div className="relative rounded-lg overflow-hidden bg-[#092b23] text-white p-4 sm:p-5 border border-emerald-900/60 shadow-xs">
         <div
           className="absolute inset-0 bg-cover bg-right opacity-35 pointer-events-none"
-          style={{ backgroundImage: `url('/images/KGLV/CĐTT 2 GÓC HÌNH VP2.png')` }}
+          style={{ backgroundImage: `url('/images/KGLV/cdtt-2-goc-hinh-vp2.png')` }}
         >
           <div className="absolute inset-0 bg-gradient-to-r from-[#092b23] via-[#092b23]/90 to-transparent" />
         </div>

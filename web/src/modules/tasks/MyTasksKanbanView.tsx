@@ -1023,7 +1023,7 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
         {/* Right Half Skechers Headquarters Photo with smooth white gradient fade to left */}
         <div
           className="absolute top-0 right-0 bottom-0 w-full md:w-3/5 bg-cover bg-right-top opacity-90 transition-transform duration-700 pointer-events-none"
-          style={{ backgroundImage: `url('/images/KGLV/CĐTT 2 GÓC HÌNH VP2.png')` }}
+          style={{ backgroundImage: `url('/images/KGLV/cdtt-2-goc-hinh-vp2.png')` }}
         >
           <div className="absolute inset-0 bg-gradient-to-r from-white via-white/80 to-transparent" />
         </div>

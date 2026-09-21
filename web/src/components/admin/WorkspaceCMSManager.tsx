@@ -109,7 +109,7 @@ export default function WorkspaceCMSManager({ departments, onChange, onSave, sho
       images: [
         {
           id: `img-${Date.now()}-1`,
-          src: "/images/KGLV/MẶT TIỀN SẢNH.png",
+          src: "/images/KGLV/mat-tien-sanh.png",
           caption: "Không gian làm việc mới SKECHERS",
           order: 1,
         },
@@ -220,7 +220,7 @@ export default function WorkspaceCMSManager({ departments, onChange, onSave, sho
       if (dep.id !== depId) return dep;
       const newImg: WorkspaceImageItem = {
         id: `img-${dep.id}-${Date.now()}`,
-        src: "/images/KGLV/MẶT TIỀN SẢNH.png",
+        src: "/images/KGLV/mat-tien-sanh.png",
         caption: `Không gian ${dep.name} mới`,
         order: dep.images.length + 1,
       };

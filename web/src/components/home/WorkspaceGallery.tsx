@@ -36,7 +36,7 @@ export const WORKSPACE_ITEMS: WorkspaceItem[] = [
     category: "sanh",
     categoryLabel: "Sảnh & Điều Hành",
     tag: "Lobby Front",
-    image: "/images/KGLV/MẶT TIỀN SẢNH.png",
+    image: "/images/KGLV/mat-tien-sanh.png",
     desc: "Mặt tiền sảnh tiếp đón thiết kế hiện đại, thể hiện diện mạo chuyên nghiệp và quy mô vận hành của Văn phòng Chuỗi SKECHERS - TBS Group.",
   },
   {
@@ -46,7 +46,7 @@ export const WORKSPACE_ITEMS: WorkspaceItem[] = [
     category: "sanh",
     categoryLabel: "Sảnh & Điều Hành",
     tag: "Interior Lobby",
-    image: "/images/KGLV/SẢNH GÓC TỪ TRONG NHÌN RA.png",
+    image: "/images/KGLV/sanh-goc-tu-trong-nhin-ra.png",
     desc: "Góc nhìn từ bên trong sảnh ra khu vực sân chính, ngập tràn ánh sáng tự nhiên và điểm xuyết cây xanh thân thiện với môi trường.",
   },
   {
@@ -56,7 +56,7 @@ export const WORKSPACE_ITEMS: WorkspaceItem[] = [
     category: "sanh",
     categoryLabel: "Sảnh & Điều Hành",
     tag: "Management Hub",
-    image: "/images/KGLV/CĐTT 2 GÓC HÌNH VP2.png",
+    image: "/images/KGLV/cdtt-2-goc-hinh-vp2.png",
     desc: "Khu vực điều hành sản xuất và kết nối liên phòng ban, hỗ trợ theo dõi tiến độ đơn hàng SKECHERS thời gian thực.",
   },
   {
@@ -66,7 +66,7 @@ export const WORKSPACE_ITEMS: WorkspaceItem[] = [
     category: "trung-bay",
     categoryLabel: "Khu Trưng Bày",
     tag: "Key Collections",
-    image: "/images/KGLV/3 DÒNG GIÀY CHÍNH.png",
+    image: "/images/KGLV/3-dong-giay-chinh.png",
     desc: "Bàn trưng bày 3 dòng sản phẩm cốt lõi: Skechers Performance (thể thao), Lifestyle (thời trang) và Work Series (bảo hộ).",
   },
   {
@@ -76,7 +76,7 @@ export const WORKSPACE_ITEMS: WorkspaceItem[] = [
     category: "trung-bay",
     categoryLabel: "Khu Trưng Bày",
     tag: "Milestone Shoes",
-    image: "/images/KGLV/CĐTT 1 GÓC 4 ĐÔI GIÀY.png",
+    image: "/images/KGLV/cdtt-1-goc-4-doi-giay.png",
     desc: "Góc lưu giữ 4 mẫu giày đánh dấu những bước tiến đột phá về công nghệ sản xuất và sản lượng chuỗi SKECHERS tại TBS Group.",
   },
   {
@@ -86,7 +86,7 @@ export const WORKSPACE_ITEMS: WorkspaceItem[] = [
     category: "trung-bay",
     categoryLabel: "Khu Trưng Bày",
     tag: "Brand Icon",
-    image: "/images/KGLV/CĐTT 2 GÓC HÌNH CHIẾC GIÀY.png",
+    image: "/images/KGLV/cdtt-2-goc-hinh-chiec-giay.png",
     desc: "Mô hình biểu tượng chiếc giày khổng lồ thể hiện tinh thần sáng tạo và tay nghề tinh xảo của đội ngũ kỹ sư TBS.",
   },
   {
@@ -96,7 +96,7 @@ export const WORKSPACE_ITEMS: WorkspaceItem[] = [
     category: "trung-bay",
     categoryLabel: "Khu Trưng Bày",
     tag: "Product Showcase",
-    image: "/images/KGLV/CĐTT 2 GÓC 3 CHIẾC GIÀY.png",
+    image: "/images/KGLV/cdtt-2-goc-3-chie-giay.png",
     desc: "Showcase trưng bày sản phẩm mới nhất được kiểm định khắt khe trước khi xuất khẩu ra các thị trường toàn cầu.",
   },
   {
@@ -106,7 +106,7 @@ export const WORKSPACE_ITEMS: WorkspaceItem[] = [
     category: "truyen-thong",
     categoryLabel: "Khu Truyền Thống",
     tag: "Heritage Walk 1",
-    image: "/images/KGLV/CĐTT 1 LỐI VÀO.png",
+    image: "/images/KGLV/cdtt-1-loi-vao.png",
     desc: "Lối vào không gian truyền thống tái hiện chặng đường hình thành và phát triển của chuỗi cung ứng SKECHERS.",
   },
   {
@@ -116,7 +116,7 @@ export const WORKSPACE_ITEMS: WorkspaceItem[] = [
     category: "truyen-thong",
     categoryLabel: "Khu Truyền Thống",
     tag: "Heritage Walk 2",
-    image: "/images/KGLV/CĐTT 2 LỐI VÀO.png",
+    image: "/images/KGLV/cdtt-2-loi-vao.png",
     desc: "Khu vực giới thiệu văn hóa doanh nghiệp, các giá trị cốt lõi và quan hệ đối tác bền chặt cùng SKECHERS Global.",
   },
   {
@@ -126,7 +126,7 @@ export const WORKSPACE_ITEMS: WorkspaceItem[] = [
     category: "truyen-thong",
     categoryLabel: "Khu Truyền Thống",
     tag: "Awards & History",
-    image: "/images/KGLV/BẢNG LỊCH SỬ & KỈ NIỆM CHƯƠNG.png",
+    image: "/images/KGLV/bang-lich-su-ki-niem-chuong.png",
     desc: "Bảng danh dự lưu danh các giải thưởng uy tín, bằng khen quốc tế và kỷ niệm chương qua từng giai đoạn phát triển.",
   },
   {
@@ -136,7 +136,7 @@ export const WORKSPACE_ITEMS: WorkspaceItem[] = [
     category: "rd",
     categoryLabel: "Khu Mẫu & R&D",
     tag: "R&D Lab",
-    image: "/images/KGLV/PHÒNG R&D.png",
+    image: "/images/KGLV/phong-rd.png",
     desc: "Phòng nghiên cứu & phát triển với trang thiết bị hiện đại, phát triển các mẫu giày thử nghiệm và tối ưu quy trình may.",
   },
   {
@@ -146,7 +146,7 @@ export const WORKSPACE_ITEMS: WorkspaceItem[] = [
     category: "rd",
     categoryLabel: "Khu Mẫu & R&D",
     tag: "Sample Room Access",
-    image: "/images/KGLV/CĐTT 1 LỐI ĐI XUỐNG KV MẪU.png",
+    image: "/images/KGLV/cdtt-1-loi-di-xuong-kv-mau.png",
     desc: "Hành lang dẫn xuống khu vực may mẫu thử nghiệm, đảm bảo tính liền mạch giữa ý tưởng thiết kế và thực thi sản xuất.",
   },
   {
@@ -156,7 +156,7 @@ export const WORKSPACE_ITEMS: WorkspaceItem[] = [
     category: "van-hanh",
     categoryLabel: "Vận Hành & Sản Xuất",
     tag: "Process Flow",
-    image: "/images/KGLV/CĐTT 2 GÓC QUI TRÌNH GIÀY.png",
+    image: "/images/KGLV/cdtt-2-goc-qui-trinh-giay.png",
     desc: "Trực quan hóa quy trình sản xuất chuẩn hóa từ khâu kiểm định nguyên vật liệu đầu vào đến hoàn thiện xuất hàng.",
   },
   {
@@ -166,7 +166,7 @@ export const WORKSPACE_ITEMS: WorkspaceItem[] = [
     category: "van-hanh",
     categoryLabel: "Vận Hành & Sản Xuất",
     tag: "Material Library",
-    image: "/images/KGLV/PHÒNG THƯ VIỆN VẬT TƯ.png",
+    image: "/images/KGLV/phong-thu-vien-vat-tu.png",
     desc: "Thư viện vật tư với hàng ngàn mẫu vải, da, phụ liệu đạt chứng nhận xanh và tiêu chuẩn chất lượng khắt khe của SKECHERS.",
   },
 ];

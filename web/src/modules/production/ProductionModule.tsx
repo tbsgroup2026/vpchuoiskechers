@@ -406,7 +406,7 @@ export default function ProductionModule() {
       <div className="relative rounded-3xl overflow-hidden bg-slate-900 text-white p-6 lg:p-8 shadow-xl border border-emerald-900/40 group">
         {/* Background Real Image & Dark Emerald Gradient Overlay */}
         <img
-          src="/images/KGLV/CĐTT 1 LỐI VÀO.png"
+          src="/images/KGLV/cdtt-1-loi-vao.png"
           alt="Tổ Hợp Nhà Máy SKECHERS"
           className="absolute inset-0 w-full h-full object-cover opacity-35 group-hover:scale-105 transition-transform duration-700 pointer-events-none"
         />

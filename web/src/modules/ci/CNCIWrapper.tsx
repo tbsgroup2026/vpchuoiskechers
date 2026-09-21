@@ -113,7 +113,7 @@ export default function CNCIWrapper() {
           <div className="p-6 sm:p-8 rounded-3xl bg-slate-900 text-white shadow-md relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-teal-900/40 group">
             {/* Background Real Image & Dark Emerald Gradient Overlay */}
             <img
-              src="/images/KGLV/CĐTT 2 GÓC QUI TRÌNH GIÀY.png"
+              src="/images/KGLV/cdtt-2-goc-qui-trinh-giay.png"
               alt="CN-CI Cải Tiến Liên Tục"
               className="absolute inset-0 w-full h-full object-cover opacity-35 group-hover:scale-105 transition-transform duration-700 pointer-events-none"
             />

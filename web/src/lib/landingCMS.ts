@@ -134,9 +134,9 @@ export const DEFAULT_WORKSPACE_DEPARTMENTS: WorkspaceDepartment[] = [
     icon: "building",
     order: 1,
     images: [
-      { id: "img-sanh-1", src: "/images/KGLV/MẶT TIỀN SẢNH.png", caption: "Không gian làm việc chuẩn mực SKECHERS", order: 1 },
-      { id: "img-sanh-2", src: "/images/KGLV/SẢNH GÓC TỪ TRONG NHÌN RA.png", caption: "Khu vực điều hành chuỗi", order: 2 },
-      { id: "img-sanh-3", src: "/images/KGLV/3 DÒNG GIÀY CHÍNH.png", caption: "Góc trưng bày sản phẩm kỷ niệm", order: 3 },
+      { id: "img-sanh-1", src: "/images/KGLV/mat-tien-sanh.png", caption: "Không gian làm việc chuẩn mực SKECHERS", order: 1 },
+      { id: "img-sanh-2", src: "/images/KGLV/sanh-goc-tu-trong-nhin-ra.png", caption: "Khu vực điều hành chuỗi", order: 2 },
+      { id: "img-sanh-3", src: "/images/KGLV/3-dong-giay-chinh.png", caption: "Góc trưng bày sản phẩm kỷ niệm", order: 3 },
     ],
   },
   {
@@ -156,7 +156,7 @@ export const DEFAULT_WORKSPACE_DEPARTMENTS: WorkspaceDepartment[] = [
     icon: "briefcase",
     order: 3,
     images: [
-      { id: "img-vp-1", src: "/images/KGLV/CĐTT 2 GÓC HÌNH VP2.png", caption: "Sảnh điều hành trung tâm SKECHERS", order: 1 },
+      { id: "img-vp-1", src: "/images/KGLV/cdtt-2-goc-hinh-vp2.png", caption: "Sảnh điều hành trung tâm SKECHERS", order: 1 },
       { id: "img-vp-2", src: "/images/tbs-hands.png", caption: "Phòng làm việc Ban Điều Hành Chuỗi", order: 2 },
       { id: "img-vp-3", src: "/images/tbs-team-banner.png", caption: "Phòng họp chiến lược 1-5-2", order: 3 },
     ],

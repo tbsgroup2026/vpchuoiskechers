@@ -248,7 +248,7 @@ export default function GembaManagementView({ selectedScope, currentUser }: Gemb
       <div className="relative w-full rounded-3xl overflow-hidden shadow-lg border border-emerald-800/20 bg-slate-900 text-white p-6 sm:p-7 group">
         {/* Background Real Image & Dark Emerald Gradient Overlay */}
         <img
-          src="/images/KGLV/CĐTT 1 LỐI ĐI XUỐNG KV MẪU.png"
+          src="/images/KGLV/cdtt-1-loi-di-xuong-kv-mau.png"
           alt="Gemba Walk Hiện Trường"
           className="absolute inset-0 w-full h-full object-cover opacity-35 group-hover:scale-105 transition-transform duration-700 pointer-events-none"
         />

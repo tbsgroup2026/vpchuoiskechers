@@ -143,7 +143,7 @@ export default function RDModule({
         <div className="lg:col-span-4 rounded-3xl overflow-hidden shadow-sm bg-slate-900 text-white p-5 border border-emerald-600/30 flex flex-col justify-between relative group">
           {/* Background Real Image & Dark Emerald Gradient Overlay */}
           <img
-            src="/images/KGLV/PHÒNG R&D.png"
+            src="/images/KGLV/phong-rd.png"
             alt="R&D Phát Triển Sản Phẩm"
             className="absolute inset-0 w-full h-full object-cover opacity-35 group-hover:scale-105 transition-transform duration-700 pointer-events-none"
           />

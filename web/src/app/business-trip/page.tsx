@@ -1173,7 +1173,7 @@ export default function BusinessTripRegistrationPage() {
         <div className="relative overflow-hidden flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-900 text-white p-5 rounded-2xl border border-emerald-800/30 shadow-md group">
           {/* Background Real Image & Dark Emerald Gradient Overlay */}
           <img
-            src="/images/KGLV/MẶT TIỀN SẢNH.png"
+            src="/images/KGLV/mat-tien-sanh.png"
             alt="Đăng Ký Công Tác SKECHERS"
             className="absolute inset-0 w-full h-full object-cover opacity-35 group-hover:scale-105 transition-transform duration-700 pointer-events-none"
           />

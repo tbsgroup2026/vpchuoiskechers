@@ -3439,7 +3439,7 @@ export default {
         ];
 
         // METHOD 1: Google Apps Script Web App (Recommended for Personal Google Drive without quota limits)
-        const defaultWebAppUrl = "https://script.google.com/macros/s/AKfycbzURTdqrslG5q_FWIOfozMETHXOkQSYSdu-puHR9hF5TQ0GF5_HCCUU0LzZJKjUE2kp2g/exec";
+        const defaultWebAppUrl = "https://script.google.com/macros/s/AKfycbyIpvFGkvd022GKMKRBzFUR11mvH7RIuKyh-hX7-ans-R296oIn9CNMyLCq4CmqNOm9zg/exec";
         const targetWebAppUrl = overrideWebAppUrl || env.GDRIVE_WEBAPP_URL || env.GOOGLE_WEBAPP_URL || defaultWebAppUrl;
 
         if (targetWebAppUrl) {

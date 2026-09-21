@@ -249,7 +249,7 @@ export default function CNCIWrapper() {
 
                   {/* Button 5: Thư Viện Cải Tiến của Ngành */}
                   <a
-                    href="https://script.google.com/macros/s/AKfycbwMgjjpbOtI6pWBGkcXBIVbtY0zo1URCjb5qteNg0THY3HW9MZwXGfMVh0mBh6sD1pOdA/exec"
+                    href="https://script.google.com/macros/s/AKfycbyIpvFGkvd022GKMKRBzFUR11mvH7RIuKyh-hX7-ans-R296oIn9CNMyLCq4CmqNOm9zg/exec"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 hover:bg-emerald-50/60 active:bg-emerald-100/70 border border-slate-200/80 hover:border-emerald-300 active:scale-[0.98] transition-all duration-200 group cursor-pointer shadow-2xs"

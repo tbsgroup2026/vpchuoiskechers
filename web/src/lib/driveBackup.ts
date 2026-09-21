@@ -30,7 +30,7 @@ const FOLDER_MAP: Record<BackupCategory, string> = {
 
 const DEFAULT_WEBHOOK_URL =
   process.env.BACKUP_WEBHOOK_URL ||
-  'https://script.google.com/macros/s/AKfycbwMgjjpbOtI6pWBGkcXBIVbtY0zo1URCjb5qteNg0THY3HW9MZwXGfMVh0mBh6sD1pOdA/exec';
+  'https://script.google.com/macros/s/AKfycbyIpvFGkvd022GKMKRBzFUR11mvH7RIuKyh-hX7-ans-R296oIn9CNMyLCq4CmqNOm9zg/exec';
 
 const WEBHOOK_SECRET =
   process.env.BACKUP_WEBHOOK_SECRET || 'tbs_backup_secret_2026';

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { getValidKaizenImageUrl } from "@/lib/kaizenImageHelper";
-import { getKaizenDisplayTitle } from "@/lib/kaizenTitleHelper";
+import { getKaizenDisplayTitle, getKaizenBeforeDescription, getKaizenAfterSolution } from "@/lib/kaizenTitleHelper";
 import {
   IconX,
   IconTrophy,
@@ -186,8 +186,8 @@ export default function KaizenDetailModal({
       customer: proposal.customer || "Skechers",
       category: normCategory,
       pricing_direction: initialPricingDir,
-      before_description: proposal.before_description || "",
-      after_solution: proposal.after_solution || "",
+      before_description: getKaizenBeforeDescription(proposal),
+      after_solution: getKaizenAfterSolution(proposal),
       time_before_seconds: Number(proposal.time_before_seconds || (proposal as any).timeBeforeSeconds || 0),
       time_after_seconds: Number(proposal.time_after_seconds || (proposal as any).timeAfterSeconds || 0),
       efficiency_value_vnd: Number(proposal.efficiency_value_vnd || (proposal as any).efficiencyValueVND || 0),
@@ -1130,7 +1130,7 @@ function TabInfoContent({
               />
             ) : (
               <p className="font-bold text-rose-950 leading-relaxed whitespace-pre-wrap text-xs">
-                {proposal.before_description || (proposal as any).beforeDescription || "Chưa có mô tả hiện trạng lãng phí trước cải tiến."}
+                {getKaizenBeforeDescription(proposal)}
               </p>
             )}
           </div>
@@ -1150,7 +1150,7 @@ function TabInfoContent({
               />
             ) : (
               <p className="font-bold text-emerald-950 leading-relaxed whitespace-pre-wrap text-xs">
-                {proposal.after_solution || (proposal as any).afterSolution || "Chưa có mô tả giải pháp sáng kiến cải tiến."}
+                {getKaizenAfterSolution(proposal)}
               </p>
             )}
           </div>

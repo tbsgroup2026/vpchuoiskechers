@@ -588,9 +588,10 @@ export async function PUT(request: Request) {
     const db = getDbBinding();
 
     if (db) {
-      const finalTitle = (title && String(title).trim()) || undefined;
-      const finalBeforeDesc = (before_description || beforeDescription || '').trim();
-      const finalAfterSol = (after_solution || afterSolution || '').trim();
+      const inputBeforeDesc = before_description !== undefined ? before_description : beforeDescription;
+      const inputAfterSol = after_solution !== undefined ? after_solution : afterSolution;
+      const finalBeforeDesc = inputBeforeDesc !== undefined ? String(inputBeforeDesc).trim() : null;
+      const finalAfterSol = inputAfterSol !== undefined ? String(inputAfterSol).trim() : null;
       const finalProductCode = (product_code || productCode || '').trim();
       const finalPairQty = Number(pair_quantity || pairQuantity || quantity || 0);
       const finalTimeBefore = Number(time_before_seconds || timeBeforeSeconds || 0);
@@ -615,8 +616,8 @@ export async function PUT(request: Request) {
             pair_quantity = COALESCE(?, pair_quantity),
             quantity = COALESCE(?, quantity),
             pricing_direction = COALESCE(?, pricing_direction),
-            before_description = COALESCE(?, before_description),
-            after_solution = COALESCE(?, after_solution),
+            before_description = CASE WHEN ? IS NOT NULL THEN ? ELSE before_description END,
+            after_solution = CASE WHEN ? IS NOT NULL THEN ? ELSE after_solution END,
             time_before_seconds = COALESCE(?, time_before_seconds),
             time_after_seconds = COALESCE(?, time_after_seconds),
             saved_seconds = COALESCE(?, saved_seconds),
@@ -646,8 +647,10 @@ export async function PUT(request: Request) {
           finalPairQty || null,
           finalPairQty || null,
           pricing_direction || null,
-          finalBeforeDesc || null,
-          finalAfterSol || null,
+          finalBeforeDesc,
+          finalBeforeDesc,
+          finalAfterSol,
+          finalAfterSol,
           finalTimeBefore || null,
           finalTimeAfter || null,
           finalSavedSecs || null,

@@ -7801,7 +7801,8 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           if (!action && body.title !== undefined) {
             const isOwnerOrAdmin = user.isExecutiveOrAdmin || user.roleCode === "SUPER_ADMIN" || user.roleCode === "ADMIN" ||
               ["201711002", "210602002", "202608001", "202608010", "222102020", "2026080001"].includes(String(user.empCode || "").trim().toUpperCase());
-            const proposalRec = await env.DB.prepare("SELECT * FROM ci_kaizen_proposals WHERE id = ?").bind(id).first();
+            const targetId = id || body.code || body.id;
+            const proposalRec = await env.DB.prepare("SELECT * FROM ci_kaizen_proposals WHERE id = ? OR code = ?").bind(targetId, targetId).first();
             if (!proposalRec) {
               return new Response(JSON.stringify({ success: false, error: "PROPOSAL_NOT_FOUND", message: "Không tìm thấy đề xuất cải tiến" }), { status: 404, headers: SECURE_JSON_HEADERS });
             }
@@ -7810,6 +7811,13 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
             if (!isOwner && !isOwnerOrAdmin) {
               return new Response(JSON.stringify({ success: false, error: "FORBIDDEN", message: "Bạn không có quyền chỉnh sửa đề xuất này!" }), { status: 403, headers: SECURE_JSON_HEADERS });
             }
+
+            const inputBeforeDesc = body.before_description !== undefined ? body.before_description : (body.beforeDescription !== undefined ? body.beforeDescription : null);
+            const inputAfterSol = body.after_solution !== undefined ? body.after_solution : (body.afterSolution !== undefined ? body.afterSolution : null);
+
+            const finalBeforeDesc = inputBeforeDesc !== null ? String(inputBeforeDesc).trim() : (proposalRec.before_description || "");
+            const finalAfterSol = inputAfterSol !== null ? String(inputAfterSol).trim() : (proposalRec.after_solution || "");
+
             await env.DB.prepare(`
               UPDATE ci_kaizen_proposals SET
                 title = ?,
@@ -7834,39 +7842,41 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
                 after_image_url = ?,
                 updated_at = CURRENT_TIMESTAMP,
                 version = version + 1
-              WHERE id = ?
+              WHERE id = ? OR code = ?
             `).bind(
-              safeVal(body.title, proposalRec.title),
-              safeVal(body.before_description, proposalRec.before_description),
-              safeVal(body.after_solution, proposalRec.after_solution),
-              safeVal(body.region || body.factory, proposalRec.region),
-              safeVal(body.factory || body.region, proposalRec.factory),
-              safeVal(body.department, proposalRec.department),
-              safeVal(body.line, proposalRec.line),
-              safeVal(body.customer, proposalRec.customer),
-              safeVal(body.category, proposalRec.category),
-              safeVal(body.product_code, proposalRec.product_code),
+              body.title || proposalRec.title,
+              finalBeforeDesc,
+              finalAfterSol,
+              body.region || body.factory || proposalRec.region,
+              body.factory || body.region || proposalRec.factory,
+              body.department !== undefined ? body.department : proposalRec.department,
+              body.line !== undefined ? body.line : proposalRec.line,
+              body.customer !== undefined ? body.customer : proposalRec.customer,
+              body.category || proposalRec.category,
+              body.product_code !== undefined ? body.product_code : proposalRec.product_code,
               parseInt(body.quantity || body.pair_quantity || proposalRec.quantity || 0, 10),
               parseInt(body.pair_quantity || body.quantity || proposalRec.pair_quantity || 0, 10),
-              safeVal(body.pricing_direction, proposalRec.pricing_direction),
+              body.pricing_direction || proposalRec.pricing_direction,
               parseInt(body.time_before_seconds || proposalRec.time_before_seconds || 0, 10),
               parseInt(body.time_after_seconds || proposalRec.time_after_seconds || 0, 10),
               parseInt(body.saved_seconds || proposalRec.saved_seconds || 0, 10),
               parseInt(body.efficiency_value_vnd || proposalRec.efficiency_value_vnd || 0, 10),
               parseInt(body.total_savings_vnd || proposalRec.total_savings_vnd || 0, 10),
-              safeVal(body.before_image_url !== undefined ? body.before_image_url : proposalRec.before_image_url, null),
-              safeVal(body.after_image_url !== undefined ? body.after_image_url : proposalRec.after_image_url, null),
-              id
+              body.before_image_url !== undefined ? body.before_image_url : proposalRec.before_image_url,
+              body.after_image_url !== undefined ? body.after_image_url : proposalRec.after_image_url,
+              proposalRec.id,
+              proposalRec.code || proposalRec.id
             ).run();
-            await recordAuditLog(user, "ci_kaizen", "INLINE_EDIT", id, { title: proposalRec.title }, { title: body.title }, request);
-            return new Response(JSON.stringify({ success: true, message: "Đã cập nhật đề xuất cải tiến thành công!", id }), { headers: SECURE_JSON_HEADERS });
+            await recordAuditLog(user, "ci_kaizen", "INLINE_EDIT", proposalRec.id, { title: proposalRec.title }, { title: body.title }, request);
+            return new Response(JSON.stringify({ success: true, message: "Đã cập nhật đề xuất cải tiến thành công!", id: proposalRec.id }), { headers: SECURE_JSON_HEADERS });
           }
 
-          if (!id) {
+          const targetId = id || body.code || body.id;
+          if (!targetId) {
             return new Response(JSON.stringify({ success: false, error: "Missing proposal ID" }), { status: 400, headers: SECURE_JSON_HEADERS });
           }
 
-          const proposal = await env.DB.prepare("SELECT * FROM ci_kaizen_proposals WHERE id = ?").bind(id).first();
+          const proposal = await env.DB.prepare("SELECT * FROM ci_kaizen_proposals WHERE id = ? OR code = ?").bind(targetId, targetId).first();
           if (!proposal) {
             return new Response(JSON.stringify({ success: false, error: "PROPOSAL_NOT_FOUND", message: "Không tìm thấy đề xuất cải tiến" }), { status: 404, headers: SECURE_JSON_HEADERS });
           }

@@ -57,3 +57,30 @@ export function getKaizenDisplayTitle(p: any): string {
   }
   return `Sáng kiến ${catClean} - ${lineDept}`;
 }
+
+export function getKaizenBeforeDescription(p: any): string {
+  if (!p) return "Chưa có mô tả hiện trạng lãng phí trước cải tiến.";
+
+  const desc = (p.before_description || p.beforeDescription || "").trim();
+  if (desc && !desc.includes("Chưa có mô tả hiện trạng lãng phí")) {
+    return desc;
+  }
+
+  const title = getKaizenDisplayTitle(p);
+  const dept = p.department || p.line || p.factory || p.region || "bộ phận sản xuất";
+  return `Hiện trạng công đoạn/thao tác "${title}" tại ${dept} còn làm thủ công, tiêu tốn thời gian và có nguy cơ phát sinh lãng phí.`;
+}
+
+export function getKaizenAfterSolution(p: any): string {
+  if (!p) return "Chưa có mô tả giải pháp sáng kiến cải tiến.";
+
+  const sol = (p.after_solution || p.afterSolution || "").trim();
+  if (sol && !sol.includes("Chưa có mô tả giải pháp sáng kiến")) {
+    return sol;
+  }
+
+  const title = getKaizenDisplayTitle(p);
+  const dept = p.department || p.line || p.factory || p.region || "bộ phận sản xuất";
+  return `Đã triển khai cải tiến "${title}" giúp tối ưu hóa thao tác tại ${dept}, nâng cao năng suất và đảm bảo chất lượng.`;
+}
+

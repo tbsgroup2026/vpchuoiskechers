@@ -463,11 +463,11 @@ export default function KaizenDetailModal({
   const prodGroup = (proposal as any).product_group || (proposal as any).productGroup || "";
 
   return (
-    <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-5 md:p-6 animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl shadow-2xl border border-slate-200/90 w-full max-w-[95vw] lg:max-w-6xl xl:max-w-7xl 2xl:max-w-[1440px] max-h-[92vh] md:max-h-[90vh] flex flex-col md:flex-row overflow-y-auto md:overflow-hidden text-left animate-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 animate-in fade-in duration-200">
+      <div className="bg-white rounded-3xl shadow-2xl border border-slate-200/90 w-full max-w-[98vw] sm:max-w-[95vw] lg:max-w-6xl xl:max-w-7xl 2xl:max-w-[1440px] h-[92vh] max-h-[92vh] flex flex-row overflow-hidden text-left animate-in zoom-in-95 duration-200">
         
-        {/* 1. SIDEBAR TRÁI (300-340px CỐ ĐỊNH, SCROLL RIÊNG VỚI NÚT GHIM ĐÁY) */}
-        <div className="w-full md:w-[320px] md:shrink-0 flex flex-col md:max-h-[90vh] bg-slate-50 border-b md:border-b-0 md:border-r border-slate-200 order-2 md:order-1">
+        {/* 1. SIDEBAR TRÁI (300-320px CỐ ĐỊNH, SCROLL RIÊNG VỚI NÚT GHIM ĐÁY) */}
+        <div className="w-[280px] sm:w-[300px] md:w-[320px] shrink-0 flex flex-col h-full bg-slate-50 border-r border-slate-200 overflow-hidden">
           
           {/* PHẦN SCROLL THÔNG TIN */}
           <div className="p-4 flex-1 overflow-y-auto space-y-3">
@@ -776,8 +776,8 @@ export default function KaizenDetailModal({
           </div>
         </div>
 
-        {/* 2. HEADER PHẢI & TAB CONTENTS */}
-        <div className="w-full md:flex-1 flex flex-col min-h-0 overflow-visible md:overflow-hidden bg-white md:max-h-[90vh] order-1 md:order-2">
+        {/* 2. PANEL PHẢI (MAIN CONTENT FLEX-1 FILL) */}
+        <div className="flex-1 min-w-0 flex flex-col h-full bg-white overflow-hidden">
           
           <div className="flex-shrink-0 p-5 md:p-6 space-y-4 border-b border-slate-200 bg-white">
             {/* HÀNG BADGES TRÊN */}
@@ -942,7 +942,7 @@ export default function KaizenDetailModal({
             )}
           </div>
 
-          <div className="w-full overflow-visible md:flex-1 md:min-w-0 md:overflow-y-auto">
+          <div className="flex-1 min-w-0 overflow-y-auto">
             {activeTab === "info" && (
               <TabInfoContent
                 proposal={proposal}

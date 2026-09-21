@@ -15,18 +15,7 @@ export function getKaizenDisplayTitle(p: any): string {
     return rawTitle;
   }
 
-  // 2. Explicit title restoration for standard proposals ONLY when title is empty/generic
-  if (p.code === "CI-2026-001" || p.id === "kz_nmmd_001" || p.code === "ACI-2026-001") {
-    return "Tán nút ô dê bằng máy tán bán tự động";
-  }
-  if (p.code === "CI-2026-002" || p.id === "kz_nmmd_002" || p.code === "ACI-2026-002") {
-    return "Tăng số đôi trên khuôn in lô gô chắn bùn ngoài mẫu 118433";
-  }
-  if (p.code === "CI-2026-003" || p.id === "kz_vpc_001" || p.code === "ACI-2026-003") {
-    return "Số hóa quy trình duyệt đăng ký sáng kiến Kaizen realtime";
-  }
-
-  // 3. Extract title from before_description if available
+  // 2. Extract title from before_description if available
   const beforeDesc = (p.before_description && String(p.before_description).trim()) || "";
   if (beforeDesc && !beforeDesc.includes("Chưa có mô tả") && beforeDesc.length > 5) {
     return beforeDesc.length > 70 ? `Cải tiến: ${beforeDesc.substring(0, 68)}...` : `Cải tiến: ${beforeDesc}`;

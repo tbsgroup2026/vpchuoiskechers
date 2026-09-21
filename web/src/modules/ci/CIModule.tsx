@@ -965,6 +965,26 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
     }
   };
 
+  const handleProposalUpdated = (updatedProp: any) => {
+    if (!updatedProp) return;
+    setProposals((prev) => {
+      const next = prev.map((p) => {
+        if (p.id === updatedProp.id || (updatedProp.code && p.code === updatedProp.code)) {
+          return { ...p, ...updatedProp };
+        }
+        return p;
+      });
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem(PROPOSALS_CACHE_KEY, JSON.stringify(next));
+        } catch (e) {}
+      }
+      return next;
+    });
+    fetchProposals(true);
+    refetchStatusCounts();
+  };
+
   useEffect(() => {
     // Auto-sync proposals from individual factory links on mount
     fetch("/api/ci-kaizen/sync", { method: "POST" })
@@ -2372,6 +2392,7 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
           onRate={() => {
             fetchProposals();
           }}
+          onSaveSuccess={handleProposalUpdated}
         />
       )}
 

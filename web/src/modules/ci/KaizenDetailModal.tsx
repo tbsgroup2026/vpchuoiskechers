@@ -44,6 +44,7 @@ interface KaizenDetailModalProps {
   onDelete: () => void;
   onEvaluate?: () => void;
   onRate?: () => void;
+  onSaveSuccess?: (updatedPayload: any) => void;
 }
 
 const CATEGORIES = [
@@ -137,6 +138,7 @@ export default function KaizenDetailModal({
   onDelete,
   onEvaluate,
   onRate,
+  onSaveSuccess,
 }: KaizenDetailModalProps) {
   const { user, isExecutiveOrAdmin } = usePermission();
   const levelRank = (user as any)?.levelRank || (user as any)?.roleLevel || 4;
@@ -442,6 +444,7 @@ export default function KaizenDetailModal({
       if (json.success) {
         Object.assign(proposal, payload);
         setIsEditing(false);
+        if (onSaveSuccess) onSaveSuccess(payload);
         if (onEvaluate) onEvaluate();
         if (onRate) onRate();
       } else {

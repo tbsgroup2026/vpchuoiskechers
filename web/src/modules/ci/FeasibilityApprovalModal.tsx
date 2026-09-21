@@ -275,6 +275,11 @@ export default function FeasibilityApprovalModal({
       if (decision === "APPROVE") {
         let hasErr = false;
 
+        if (!productCode || !productCode.trim()) {
+          setErrorMsg("❌ Vui lòng nhập Mã đơn hàng!");
+          hasErr = true;
+        }
+
         if (categoryMode === "PRODUCTIVITY_TIME") {
           if (beforeVal < 0 || afterVal < 0) {
             setErrorMsg("❌ Thời gian Trước và Sau phải là số không âm!");
@@ -449,7 +454,7 @@ export default function FeasibilityApprovalModal({
               </h3>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 pt-3 border-t border-slate-100 text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 pt-3 border-t border-slate-100 text-xs">
               <div className="space-y-1">
                 <span className="text-[11px] font-bold text-slate-400 block">
                   Người đăng ký
@@ -469,27 +474,13 @@ export default function FeasibilityApprovalModal({
 
               <div className="space-y-1">
                 <span className="text-[11px] font-bold text-slate-400 block">
-                  Mã đơn hàng
+                  Mã đơn hàng <span className="text-rose-600 font-bold">*</span>
                 </span>
                 <input
                   type="text"
                   value={productCode}
                   onChange={(e) => setProductCode(e.target.value)}
-                  placeholder="Mã đơn hàng"
-                  className="px-2.5 py-1 rounded-xl bg-slate-50 font-mono font-extrabold text-xs border border-slate-300 outline-none focus:ring-2 focus:ring-emerald-500 w-full text-slate-900"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <span className="text-[11px] font-bold text-slate-400 block">
-                  Số lượng (Đôi)
-                </span>
-                <input
-                  type="number"
-                  min={0}
-                  value={pairQuantity}
-                  onChange={(e) => setPairQuantity(e.target.value)}
-                  placeholder="Số đôi"
+                  placeholder="Mã đơn hàng *"
                   className="px-2.5 py-1 rounded-xl bg-slate-50 font-mono font-extrabold text-xs border border-slate-300 outline-none focus:ring-2 focus:ring-emerald-500 w-full text-slate-900"
                 />
               </div>

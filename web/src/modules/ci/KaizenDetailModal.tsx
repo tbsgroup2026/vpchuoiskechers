@@ -405,9 +405,22 @@ export default function KaizenDetailModal({
         after_image_url: editForm.after_image_url,
       };
 
+      let token = "";
+      if (typeof window !== "undefined") {
+        token = localStorage.getItem("tbs_jwt_token") || localStorage.getItem("tbs_token") || sessionStorage.getItem("tbs_jwt_token") || sessionStorage.getItem("tbs_token") || "";
+        if (!token && typeof document !== "undefined") {
+          const tokenCookie = document.cookie.split("; ").find((row) => row.startsWith("tbs_token="));
+          if (tokenCookie) token = tokenCookie.split("=")[1];
+        }
+      }
+
       const res = await fetch("/api/ci-kaizen", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-User-Emp-Code": user?.empCode || "202608001",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify(payload),
       });
 

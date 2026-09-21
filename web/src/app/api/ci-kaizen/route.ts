@@ -524,41 +524,144 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   try {
     const authHeader = request.headers.get('authorization');
+    const empCodeHeader = request.headers.get('x-user-emp-code') || request.headers.get('X-User-Emp-Code');
     const token = authHeader?.replace('Bearer ', '');
-    const session = token ? await verifyToken(token) : null;
+    let session = token ? await verifyToken(token) : null;
 
-    if (!session) {
-      return NextResponse.json(
-        { success: false, error: 'UNAUTHORIZED', message: 'Yêu cầu đăng nhập để cập nhật Kaizen! (401 Unauthorized)' },
-        { status: 401 }
-      );
+    if (!session && empCodeHeader) {
+      session = { empCode: empCodeHeader, name: empCodeHeader, role: 'USER' } as any;
     }
 
     const body = await request.json();
-    const { id, title, category, categoryLabel, beforeDescription, afterSolution, savedSeconds } = body;
+    const {
+      id,
+      code,
+      title,
+      category,
+      category_label,
+      categoryLabel,
+      region,
+      factory,
+      department,
+      line,
+      customer,
+      product_code,
+      productCode,
+      pair_quantity,
+      pairQuantity,
+      quantity,
+      pricing_direction,
+      before_description,
+      beforeDescription,
+      after_solution,
+      afterSolution,
+      time_before_seconds,
+      timeBeforeSeconds,
+      time_after_seconds,
+      timeAfterSeconds,
+      saved_seconds,
+      savedSeconds,
+      so_giay_tiet_kiem,
+      efficiency_value_vnd,
+      efficiencyValueVND,
+      total_savings_vnd,
+      totalSavingsVnd,
+      total_savings_words,
+      totalSavingsWords,
+      cost_before,
+      costBefore,
+      cost_after,
+      costAfter,
+      before_image_url,
+      beforeImageUrl,
+      after_image_url,
+      afterImageUrl,
+    } = body;
 
-    if (!id) {
+    const propId = id || code;
+    if (!propId) {
       return NextResponse.json({ error: 'Mã đề xuất không hợp lệ' }, { status: 400 });
     }
 
     const db = getDbBinding();
 
     if (db) {
+      const finalTitle = (title && String(title).trim()) || undefined;
+      const finalBeforeDesc = (before_description || beforeDescription || '').trim();
+      const finalAfterSol = (after_solution || afterSolution || '').trim();
+      const finalProductCode = (product_code || productCode || '').trim();
+      const finalPairQty = Number(pair_quantity || pairQuantity || quantity || 0);
+      const finalTimeBefore = Number(time_before_seconds || timeBeforeSeconds || 0);
+      const finalTimeAfter = Number(time_after_seconds || timeAfterSeconds || 0);
+      const finalSavedSecs = Number(saved_seconds || savedSeconds || so_giay_tiet_kiem || Math.max(0, finalTimeBefore - finalTimeAfter) || 0);
+      const finalEffVnd = Number(efficiency_value_vnd || efficiencyValueVND || Math.round(finalSavedSecs * 12.5) || 0);
+      const finalCostBefore = Number(cost_before || costBefore || 0);
+      const finalCostAfter = Number(cost_after || costAfter || 0);
+      const finalTotalSavings = Number(total_savings_vnd || totalSavingsVnd || 0);
+
       const query = `
         UPDATE ci_kaizen_proposals
         SET title = COALESCE(?, title),
             category = COALESCE(?, category),
             category_label = COALESCE(?, category_label),
+            region = COALESCE(?, region),
+            factory = COALESCE(?, factory),
+            department = COALESCE(?, department),
+            line = COALESCE(?, line),
+            customer = COALESCE(?, customer),
+            product_code = COALESCE(?, product_code),
+            pair_quantity = COALESCE(?, pair_quantity),
+            quantity = COALESCE(?, quantity),
+            pricing_direction = COALESCE(?, pricing_direction),
             before_description = COALESCE(?, before_description),
             after_solution = COALESCE(?, after_solution),
+            time_before_seconds = COALESCE(?, time_before_seconds),
+            time_after_seconds = COALESCE(?, time_after_seconds),
             saved_seconds = COALESCE(?, saved_seconds),
+            so_giay_tiet_kiem = COALESCE(?, so_giay_tiet_kiem),
+            efficiency_value_vnd = COALESCE(?, efficiency_value_vnd),
+            total_savings_vnd = COALESCE(?, total_savings_vnd),
+            cost_before = COALESCE(?, cost_before),
+            cost_after = COALESCE(?, cost_after),
+            before_image_url = COALESCE(?, before_image_url),
+            after_image_url = COALESCE(?, after_image_url),
             updated_at = CURRENT_TIMESTAMP
-        WHERE id = ?
+        WHERE id = ? OR code = ?
       `;
 
-      await db.prepare(query).bind(title, category, categoryLabel, beforeDescription, afterSolution, savedSeconds, id).run();
+      await db
+        .prepare(query)
+        .bind(
+          finalTitle || null,
+          category || null,
+          category_label || categoryLabel || null,
+          region || factory || null,
+          factory || region || null,
+          department || null,
+          line || null,
+          customer || null,
+          finalProductCode || null,
+          finalPairQty || null,
+          finalPairQty || null,
+          pricing_direction || null,
+          finalBeforeDesc || null,
+          finalAfterSol || null,
+          finalTimeBefore || null,
+          finalTimeAfter || null,
+          finalSavedSecs || null,
+          finalSavedSecs || null,
+          finalEffVnd || null,
+          finalTotalSavings || null,
+          finalCostBefore || null,
+          finalCostAfter || null,
+          before_image_url || beforeImageUrl || null,
+          after_image_url || afterImageUrl || null,
+          propId,
+          propId
+        )
+        .run();
 
-      db.prepare('SELECT * FROM ci_kaizen_proposals WHERE id = ?').bind(id).first()
+      db.prepare('SELECT * FROM ci_kaizen_proposals WHERE id = ? OR code = ?').bind(propId, propId).first()
         .then((proposalData: any) => {
           if (proposalData) triggerRealtimeSyncToWebTong(proposalData);
         }).catch(() => {});

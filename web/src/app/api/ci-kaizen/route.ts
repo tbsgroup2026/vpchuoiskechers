@@ -5,6 +5,7 @@ import { ensureKaizenSchema } from '@/lib/kaizenDbMigration';
 import { triggerRealtimeSyncToWebTong } from '@/lib/kaizenSyncHelper';
 import { SYSTEM_USERS } from '@/lib/userProfiles';
 import { getValidKaizenImageUrl } from '@/lib/kaizenImageHelper';
+import { getKaizenDisplayTitle } from '@/lib/kaizenTitleHelper';
 
 function getDbBinding(): any {
   return (process.env as any).DB || (globalThis as any).DB || null;
@@ -165,18 +166,19 @@ export async function GET(request: Request) {
       const { results } = await db.prepare(query).all();
 
       const cleanedResults = (results || []).map((p: any) => {
-        let titleVal = (p.title && String(p.title).trim()) || p.tieu_de || p.name;
-        if (!titleVal || titleVal === "Sáng kiến cải tiến Kaizen" || titleVal === "Ý tưởng đề xuất cải tiến Kaizen") {
-          if (p.code === "CI-2026-001" || p.id === "kz_nmmd_001") titleVal = "Tán nút ô dê bằng máy tán bán tự động";
-          else if (p.code === "CI-2026-002" || p.id === "kz_nmmd_002") titleVal = "Tăng số đôi trên khuôn in lô gô chắn bùn ngoài m...";
-          else if (p.code === "CI-2026-003" || p.id === "kz_vpc_001") titleVal = "Số hóa quy trình duyệt đăng ký sáng kiến Kaizen realtime";
-          else if (p.before_description && p.before_description.trim()) titleVal = `Cải tiến: ${String(p.before_description).trim().substring(0, 50)}`;
-          else titleVal = "Sáng kiến cải tiến Kaizen";
+        const computedTitle = getKaizenDisplayTitle(p);
+
+        // Persist non-generic title back to D1 database if D1 currently stores NULL or generic title
+        if ((!p.title || p.title === "Sáng kiến cải tiến Kaizen" || p.title === "Ý tưởng đề xuất cải tiến Kaizen") && computedTitle) {
+          db.prepare("UPDATE ci_kaizen_proposals SET title = ? WHERE id = ? OR code = ?")
+            .bind(computedTitle, p.id, p.code)
+            .run()
+            .catch(() => {});
         }
 
         return {
           ...p,
-          title: titleVal,
+          title: computedTitle,
           before_image_url: getValidKaizenImageUrl(p.before_image_url, p.attachments_json) || p.before_image_url || '',
           after_image_url: getValidKaizenImageUrl(p.after_image_url) || p.after_image_url || '',
         };

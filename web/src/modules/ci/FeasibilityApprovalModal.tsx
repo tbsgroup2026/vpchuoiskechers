@@ -17,6 +17,7 @@ import {
 import { convertNumberToWords } from "@/lib/numberToWords";
 import { KaizenProposal, CATEGORIES } from "./CIModule";
 import { getValidKaizenImageUrl } from "@/lib/kaizenImageHelper";
+import { getKaizenDisplayTitle } from "@/lib/kaizenTitleHelper";
 
 interface FeasibilityApprovalModalProps {
   isOpen: boolean;
@@ -450,7 +451,7 @@ export default function FeasibilityApprovalModal({
                 Tiêu đề
               </span>
               <h3 className="text-sm font-black text-slate-900 leading-snug">
-                {(proposal.title && String(proposal.title).trim()) || (proposal as any).tieu_de || (proposal as any).name || (proposal.before_description ? `Cải tiến: ${String(proposal.before_description).trim().substring(0, 60)}` : "Sáng kiến cải tiến Kaizen")}
+                {getKaizenDisplayTitle(proposal)}
               </h3>
             </div>
 

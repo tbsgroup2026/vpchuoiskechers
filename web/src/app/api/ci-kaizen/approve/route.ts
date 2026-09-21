@@ -27,14 +27,23 @@ export async function POST(request: Request) {
 
     const roleCode = String((session as any)?.roleCode || (session as any)?.role || '').toUpperCase();
     const userEmpCode = String((session as any)?.empCode || '').trim();
+    const userName = String((session as any)?.name || (session as any)?.proposer_name || '').toLowerCase();
     const userRoles = Array.isArray((session as any)?.roles) ? (session as any).roles : [];
-    const isExecutiveOrAdmin = Boolean((session as any)?.isExecutiveOrAdmin) || ['TONG_GIAM_DOC', 'ADMIN', 'PHO_GIAM_DOC'].includes(roleCode) || userEmpCode === '201809012';
+    
+    const isExplicitApprover = 
+      ['202608001', '202608010', '222102020', '2026080001'].includes(userEmpCode) ||
+      userName.includes('anh huy') || userName.includes('lê khải') || userName.includes('le khai') ||
+      userName.includes('thanh tình') || userName.includes('thanh tinh');
+
+    const isExecutiveOrAdmin = Boolean((session as any)?.isExecutiveOrAdmin) || ['TONG_GIAM_DOC', 'ADMIN', 'PHO_GIAM_DOC'].includes(roleCode) || userEmpCode === '201809012' || isExplicitApprover;
     const isApproverRole =
       isExecutiveOrAdmin ||
+      isExplicitApprover ||
       (Boolean((session as any)?.levelRank) && Number((session as any).levelRank) >= 3) ||
       userEmpCode === '201809012' ||
       userRoles.includes('deputy_director') ||
       userRoles.includes('ci') ||
+      userRoles.includes('ci_lead') ||
       ['TONG_GIAM_DOC', 'PHO_TONG_GIAM_DOC', 'GIAM_DOC', 'PHO_GIAM_DOC', 'TRUONG_PHONG', 'CI_LEAD', 'QC', 'ADMIN'].includes(roleCode);
 
     if (!isApproverRole) {

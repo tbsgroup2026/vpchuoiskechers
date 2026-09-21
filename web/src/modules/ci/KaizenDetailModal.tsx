@@ -231,8 +231,18 @@ export default function KaizenDetailModal({
 
   const isJudgeOrExecutive = useMemo(() => {
     if (!user) return false;
-    if (isExecutiveOrAdmin || levelRank >= 3) return true;
+    const uEmp = (user.empCode || "").trim().toUpperCase();
+    const uName = (user.name || "").trim().toLowerCase();
     const rc = ((user as any)?.roleCode || (user as any)?.role || "").toUpperCase();
+    const uRoles = Array.isArray((user as any)?.roles) ? (user as any).roles : [];
+    
+    const isExplicitApprover =
+      ["202608001", "202608010", "222102020", "2026080001"].includes(uEmp) ||
+      uName.includes("anh huy") || uName.includes("lê khải") || uName.includes("le khai") ||
+      uName.includes("thanh tình") || uName.includes("thanh tinh") ||
+      uRoles.includes("ci_lead") || uRoles.includes("ci");
+
+    if (isExecutiveOrAdmin || isExplicitApprover || levelRank >= 3) return true;
     return ["TONG_GIAM_DOC", "PHO_TONG_GIAM_DOC", "GIAM_DOC", "PHO_GIAM_DOC", "TRUONG_PHONG", "CI_LEAD", "QC", "ADMIN"].includes(rc);
   }, [user, isExecutiveOrAdmin, levelRank]);
 
@@ -687,12 +697,48 @@ export default function KaizenDetailModal({
               </div>
             )}
 
+            {!isEditing && isJudgeOrExecutive && (
+              <div className="p-2.5 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 shadow-xs space-y-2">
+                <div className="text-[11px] font-black text-emerald-900 uppercase flex items-center justify-between">
+                  <span className="flex items-center gap-1">
+                    <IconShieldCheck size={14} className="text-emerald-600" />
+                    <span>Phê Duyệt Sáng Kiến Kaizen</span>
+                  </span>
+                  <span className="text-[10px] text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded-md font-extrabold">CI Lead</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFeasibilityInitialDecision("APPROVE");
+                      setIsFeasibilityModalOpen(true);
+                    }}
+                    className="py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs shadow-xs flex items-center justify-center gap-1 transition-all cursor-pointer"
+                  >
+                    <IconCheck size={15} />
+                    <span>Phê duyệt</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFeasibilityInitialDecision("REJECT");
+                      setIsFeasibilityModalOpen(true);
+                    }}
+                    className="py-2 px-3 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-black text-xs shadow-xs flex items-center justify-center gap-1 transition-all cursor-pointer"
+                  >
+                    <IconX size={15} />
+                    <span>Từ chối</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
             {!isEditing && (proposal.status === "ARCHIVED" || proposal.sub_status === "LUU_TRU" || proposal.registration_type === "LUU_TRU") && isJudgeOrExecutive && (
               <button
                 type="button"
                 disabled={markingThiDua}
                 onClick={handleToggleThiDua}
-                className={`w-full py-2.5 px-3 rounded-xl font-black text-xs shadow-2xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                className={`w-full py-2 px-3 rounded-xl font-black text-xs shadow-2xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                   Number(proposal.is_thi_dua) === 1
                     ? "bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300"
                     : "bg-amber-500 hover:bg-amber-600 text-white shadow-md"

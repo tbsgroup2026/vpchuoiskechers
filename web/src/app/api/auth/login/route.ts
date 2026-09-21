@@ -250,6 +250,23 @@ export async function POST(request: Request) {
         redirectUrl: '/work',
         validPasswords: ['123456', '21032004', 'Admin@123456'],
       },
+      '210602002': {
+        userId: 301,
+        empCode: '210602002',
+        name: 'Trần Thị Ngoan',
+        title: 'Chuyên Viên IE & Phê Duyệt Sáng Kiến Kaizen',
+        email: '210602002@tbsgroup.vn',
+        phone: '0901234567',
+        roleId: 6,
+        roleCode: 'IE',
+        roles: ['employee', 'ie', 'ci', 'ci_lead', 'approver'],
+        roleLevel: 2,
+        departmentId: 12,
+        departmentCode: 'KY_THUAT_IE',
+        departmentName: 'Kỹ Thuật Công Nghiệp (IE)',
+        redirectUrl: '/work',
+        validPasswords: ['123456', '21032004', 'Admin@123456'],
+      },
     };
 
     const cleanEmpCode = (empCode || role || '').trim();
@@ -271,6 +288,9 @@ export async function POST(request: Request) {
       logistics_head: '202112003',
       rd_head: '202608001',
       admin: '202608001',
+      ie: '210602002',
+      tranthingoan: '210602002',
+      ngoan: '210602002',
     };
 
     const targetEmpCode = ROLE_ALIAS_MAP[cleanEmpCode] || cleanEmpCode;

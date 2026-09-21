@@ -145,15 +145,46 @@ export const SYSTEM_USERS: Record<string, UserProfile> = {
     userId: 301,
     empCode: "210602002",
     name: "Trần Thị Ngoan",
-    title: "Chuyên Viên Nhân Sự & Hành Chánh",
-    department: "Nhân Sự - Hành Chính",
+    title: "Chuyên Viên IE & Phê Duyệt Sáng Kiến Kaizen",
+    department: "KỸ THUẬT CÔNG NGHIỆP (IE)",
     email: "210602002@tbsgroup.vn",
-    phone: "",
-    roleCode: "NHAN_VIEN",
-    roles: ["employee", "hr"],
-    roleLevel: 4,
+    phone: "0901234567",
+    roleCode: "IE",
+    roles: ["employee", "ie", "ci", "ci_lead", "approver"],
+    roleLevel: 2,
     avatar: "",
     redirectUrl: "/work",
+    managedDepartmentId: "ie",
+  },
+  "TRANTHINGOAN": {
+    userId: 301,
+    empCode: "210602002",
+    name: "Trần Thị Ngoan",
+    title: "Chuyên Viên IE & Phê Duyệt Sáng Kiến Kaizen",
+    department: "KỸ THUẬT CÔNG NGHIỆP (IE)",
+    email: "210602002@tbsgroup.vn",
+    phone: "0901234567",
+    roleCode: "IE",
+    roles: ["employee", "ie", "ci", "ci_lead", "approver"],
+    roleLevel: 2,
+    avatar: "",
+    redirectUrl: "/work",
+    managedDepartmentId: "ie",
+  },
+  "NGOAN": {
+    userId: 301,
+    empCode: "210602002",
+    name: "Trần Thị Ngoan",
+    title: "Chuyên Viên IE & Phê Duyệt Sáng Kiến Kaizen",
+    department: "KỸ THUẬT CÔNG NGHIỆP (IE)",
+    email: "210602002@tbsgroup.vn",
+    phone: "0901234567",
+    roleCode: "IE",
+    roles: ["employee", "ie", "ci", "ci_lead", "approver"],
+    roleLevel: 2,
+    avatar: "",
+    redirectUrl: "/work",
+    managedDepartmentId: "ie",
   },
   "201506009": {
     userId: 302,
@@ -303,6 +334,9 @@ export const ROLE_ALIAS_MAP: Record<string, string> = {
   maintenance: "202112003",
   logistics: "202112003",
   rd: "202608001",
+  ie: "210602002",
+  tranthingoan: "210602002",
+  ngoan: "210602002",
   "2026080001": "202608001",
   "20260800001": "202608001",
   "20260801": "202608001",
@@ -327,6 +361,14 @@ export function normalizeEmpCode(input: any): string {
   const strInput = String(input).trim();
   if (!strInput) return "";
   const trimmed = strInput.toLowerCase();
+  if (
+    trimmed === "210602002" ||
+    trimmed === "tranthingoan" ||
+    trimmed === "ngoan" ||
+    trimmed === "ie"
+  ) {
+    return "210602002";
+  }
   if (
     trimmed === "lt-001" ||
     trimmed === "lt001" ||

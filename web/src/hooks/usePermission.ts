@@ -52,7 +52,7 @@ export function usePermission() {
     "TONG_GIAM_DOC", "PHO_TONG_GIAM_DOC", "GIAM_DOC", "PHO_GIAM_DOC",
     "SUPER_ADMIN", "SYSTEM_ADMIN", "ADMIN-2026", "admin", "ceo",
     "deputy_ceo", "director", "deputy_director", "202608001", "2026080001",
-    "202608010", "222102020", "LEKHAI", "DUTHITHANHTINH", "CI_LEAD", "ci_lead", "ci"
+    "202608010", "222102020", "210602002", "LEKHAI", "DUTHITHANHTINH", "TRANTHINGOAN", "NGOAN", "CI_LEAD", "ci_lead", "ci", "IE", "ie"
   ];
 
   const isExecutiveOrAdmin = EXECS.includes(roleCode) || EXECS.includes(empCode) || roles.some(r => EXECS.includes(r.toLowerCase()));
@@ -69,6 +69,7 @@ export function usePermission() {
     if (roleCode === "LE_TAN") activeRoles.add("receptionist");
     if (roleCode === "KE_TOAN") activeRoles.add("accountant");
     if (roleCode === "NHAN_SU") activeRoles.add("hr");
+    if (roleCode === "IE") activeRoles.add("ie");
     if (roleCode === "KY_THUAT_VIEN" || roleCode === "KY_THUAT") activeRoles.add("maintenance");
     if (roleCode === "QC_MANAGER" || roleCode === "QC") activeRoles.add("qc");
 

@@ -31,9 +31,9 @@ export async function POST(request: Request) {
     const userRoles = Array.isArray((session as any)?.roles) ? (session as any).roles : [];
     
     const isExplicitApprover = 
-      ['202608001', '202608010', '222102020', '2026080001'].includes(userEmpCode) ||
+      ['202608001', '202608010', '222102020', '210602002', '2026080001'].includes(userEmpCode) ||
       userName.includes('anh huy') || userName.includes('lê khải') || userName.includes('le khai') ||
-      userName.includes('thanh tình') || userName.includes('thanh tinh');
+      userName.includes('thanh tình') || userName.includes('thanh tinh') || userName.includes('trần thị ngoan') || userName.includes('ngoan');
 
     const isExecutiveOrAdmin = Boolean((session as any)?.isExecutiveOrAdmin) || ['TONG_GIAM_DOC', 'ADMIN', 'PHO_GIAM_DOC'].includes(roleCode) || userEmpCode === '201809012' || isExplicitApprover;
     const isApproverRole =
@@ -44,7 +44,8 @@ export async function POST(request: Request) {
       userRoles.includes('deputy_director') ||
       userRoles.includes('ci') ||
       userRoles.includes('ci_lead') ||
-      ['TONG_GIAM_DOC', 'PHO_TONG_GIAM_DOC', 'GIAM_DOC', 'PHO_GIAM_DOC', 'TRUONG_PHONG', 'CI_LEAD', 'QC', 'ADMIN'].includes(roleCode);
+      userRoles.includes('ie') ||
+      ['TONG_GIAM_DOC', 'PHO_TONG_GIAM_DOC', 'GIAM_DOC', 'PHO_GIAM_DOC', 'TRUONG_PHONG', 'CI_LEAD', 'IE', 'QC', 'ADMIN'].includes(roleCode);
 
     if (!isApproverRole) {
       return NextResponse.json(

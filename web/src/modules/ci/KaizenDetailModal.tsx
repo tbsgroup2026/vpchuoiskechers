@@ -237,13 +237,14 @@ export default function KaizenDetailModal({
     const uRoles = Array.isArray((user as any)?.roles) ? (user as any).roles : [];
     
     const isExplicitApprover =
-      ["202608001", "202608010", "222102020", "2026080001"].includes(uEmp) ||
+      ["202608001", "202608010", "222102020", "210602002", "2026080001"].includes(uEmp) ||
       uName.includes("anh huy") || uName.includes("lê khải") || uName.includes("le khai") ||
       uName.includes("thanh tình") || uName.includes("thanh tinh") ||
-      uRoles.includes("ci_lead") || uRoles.includes("ci");
+      uName.includes("trần thị ngoan") || uName.includes("ngoan") ||
+      uRoles.includes("ci_lead") || uRoles.includes("ci") || uRoles.includes("ie");
 
     if (isExecutiveOrAdmin || isExplicitApprover || levelRank >= 3) return true;
-    return ["TONG_GIAM_DOC", "PHO_TONG_GIAM_DOC", "GIAM_DOC", "PHO_GIAM_DOC", "TRUONG_PHONG", "CI_LEAD", "QC", "ADMIN"].includes(rc);
+    return ["TONG_GIAM_DOC", "PHO_TONG_GIAM_DOC", "GIAM_DOC", "PHO_GIAM_DOC", "TRUONG_PHONG", "CI_LEAD", "IE", "QC", "ADMIN"].includes(rc);
   }, [user, isExecutiveOrAdmin, levelRank]);
 
   const [evalData, setEvalData] = useState<any>(null);

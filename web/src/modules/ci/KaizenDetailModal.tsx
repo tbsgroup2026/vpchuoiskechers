@@ -470,16 +470,16 @@ export default function KaizenDetailModal({
         <div className="w-[280px] sm:w-[300px] md:w-[320px] shrink-0 flex flex-col h-full bg-slate-50 border-r border-slate-200 overflow-hidden">
           
           {/* PHẦN SCROLL THÔNG TIN */}
-          <div className="p-4 flex-1 overflow-y-auto space-y-3">
+          <div className="p-3 flex-1 overflow-y-auto space-y-2.5 [scrollbar-width:thin] [scrollbar-color:#cbd5e1_transparent]">
             {editError && (
-              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold animate-in fade-in">
+              <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold animate-in fade-in">
                 {editError}
               </div>
             )}
 
-            {/* KHOẢNG ẢNH BẢO ĐẢM ASPECT 16/9, MAX HEIGHT 180PX & PLACEHOLDER XÁM NHẠT */}
-            <div className="space-y-2">
-              <div className="relative w-full aspect-video max-h-[180px] bg-slate-100 rounded-xl overflow-hidden border border-slate-200 shadow-2xs flex items-center justify-center">
+            {/* KHOẢNG ẢNH BẢO ĐẢM ASPECT 16/9, MAX HEIGHT 130PX & PLACEHOLDER XÁM NHẠT */}
+            <div className="space-y-1.5">
+              <div className="relative w-full aspect-video max-h-[135px] bg-slate-100 rounded-xl overflow-hidden border border-slate-200 shadow-2xs flex items-center justify-center">
                 {selectedMedia?.type === "image" && selectedMedia.url ? (
                   <img
                     src={selectedMedia.url}
@@ -493,14 +493,14 @@ export default function KaizenDetailModal({
                     className="w-full h-full object-cover bg-black"
                   />
                 ) : (
-                  <div className="text-center text-slate-400 text-xs font-medium flex flex-col items-center gap-1.5">
-                    <IconPhoto size={28} className="opacity-50 text-slate-400" />
+                  <div className="text-center text-slate-400 text-xs font-medium flex flex-col items-center gap-1">
+                    <IconPhoto size={24} className="opacity-50 text-slate-400" />
                     <span>Không có ảnh</span>
                   </div>
                 )}
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex gap-1.5">
                 {getValidKaizenImageUrl(isEditing ? editForm.before_image_url : proposal.before_image_url, proposal.attachments_json) ? (
                   <button
                     type="button"
@@ -508,7 +508,7 @@ export default function KaizenDetailModal({
                       const url = getValidKaizenImageUrl(isEditing ? editForm.before_image_url : proposal.before_image_url, proposal.attachments_json);
                       if (url) setSelectedMedia({ type: "image", url });
                     }}
-                    className={`w-12 h-12 rounded-lg overflow-hidden border-2 transition-all cursor-pointer bg-slate-100 ${
+                    className={`w-10 h-10 rounded-lg overflow-hidden border-2 transition-all cursor-pointer bg-slate-100 ${
                       selectedMedia?.url === getValidKaizenImageUrl(isEditing ? editForm.before_image_url : proposal.before_image_url, proposal.attachments_json) && selectedMedia?.type === "image"
                         ? "border-[#006838] ring-2 ring-[#006838]/30"
                         : "border-slate-200 hover:border-slate-300 opacity-80 hover:opacity-100"
@@ -526,7 +526,7 @@ export default function KaizenDetailModal({
                       const url = getValidKaizenImageUrl(isEditing ? editForm.after_image_url : proposal.after_image_url);
                       if (url) setSelectedMedia({ type: "image", url });
                     }}
-                    className={`w-12 h-12 rounded-lg overflow-hidden border-2 transition-all cursor-pointer bg-slate-100 ${
+                    className={`w-10 h-10 rounded-lg overflow-hidden border-2 transition-all cursor-pointer bg-slate-100 ${
                       selectedMedia?.url === getValidKaizenImageUrl(isEditing ? editForm.after_image_url : proposal.after_image_url) && selectedMedia?.type === "image"
                         ? "border-[#006838] ring-2 ring-[#006838]/30"
                         : "border-slate-200 hover:border-slate-300 opacity-80 hover:opacity-100"
@@ -539,54 +539,54 @@ export default function KaizenDetailModal({
               </div>
             </div>
 
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
               {(isEditing ? editForm.region : proposal.region) || "Nhà Máy Miền Đông"} &bull; {catObj.label.toUpperCase()}
             </div>
 
             {/* ĐIỂM TB & CHUYÊN MÔN (2 CỘT) */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs text-center space-y-0.5">
-                <span className="text-[11px] font-semibold uppercase text-slate-500 block">ĐIỂM TB</span>
-                <span className="text-sm font-semibold text-amber-600 block">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="p-2 rounded-xl bg-white border border-slate-200 shadow-2xs text-center space-y-0.5">
+                <span className="text-[10px] font-semibold uppercase text-slate-500 block">ĐIỂM TB</span>
+                <span className="text-xs font-bold text-amber-600 block">
                   {(proposal.avg_rating || 0).toFixed(1)} ⭐
                 </span>
-                <span className="text-[10px] text-slate-400 block">
+                <span className="text-[9.5px] text-slate-400 block">
                   {proposal.rating_count || 0} lượt đánh giá
                 </span>
               </div>
 
-              <div className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs text-center space-y-0.5">
-                <span className="text-[11px] font-semibold uppercase text-slate-500 block">CHUYÊN MÔN</span>
-                <span className="text-sm font-semibold text-emerald-600 block">
+              <div className="p-2 rounded-xl bg-white border border-slate-200 shadow-2xs text-center space-y-0.5">
+                <span className="text-[10px] font-semibold uppercase text-slate-500 block">CHUYÊN MÔN</span>
+                <span className="text-xs font-bold text-emerald-600 block">
                   {proposal.score_points || proposal.average_score ? `${proposal.score_points || proposal.average_score}/100` : "---"}
                 </span>
-                <span className="text-[10px] text-slate-400 block">
+                <span className="text-[9.5px] text-slate-400 block">
                   {proposal.sub_status === "DA_DANH_GIA" ? "Đã tổng hợp" : "Chờ tổng hợp"}
                 </span>
               </div>
             </div>
 
             {/* NGƯỜI ĐĂNG KÝ (FULL WIDTH 1 HÀNG) */}
-            <div className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-1">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 block">
+            <div className="p-2 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-0.5">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 block">
                 NGƯỜI ĐĂNG KÝ
               </span>
               <div className="flex items-center gap-1.5">
                 <span className="text-xs">👤</span>
-                <span className="text-sm font-semibold text-slate-900 truncate">
+                <span className="text-xs font-bold text-slate-900 truncate">
                   {proposal.proposer_name || proposal.proposer_emp_code || "---"}
                 </span>
               </div>
             </div>
 
             {/* KHU VỰC (FULL WIDTH 1 HÀNG) */}
-            <div className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-0.5">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 block">KHU VỰC</span>
+            <div className="p-2 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-0.5">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 block">KHU VỰC / NHÀ MÁY</span>
               {isEditing ? (
                 <select
                   value={editForm.region}
                   onChange={(e) => setEditForm((prev) => ({ ...prev, region: e.target.value }))}
-                  className="w-full text-sm font-semibold text-slate-900 bg-amber-50 border border-amber-300 rounded-lg p-1"
+                  className="w-full text-xs font-semibold text-slate-900 bg-amber-50 border border-amber-300 rounded-lg p-1"
                 >
                   {REGIONS.map((r) => (
                     <option key={r} value={r}>
@@ -595,16 +595,16 @@ export default function KaizenDetailModal({
                   ))}
                 </select>
               ) : (
-                <span className="text-sm font-semibold text-slate-900 block truncate" title={proposal.region || proposal.factory || "---"}>
-                  {proposal.region || proposal.factory || "---"}
+                <span className="text-xs font-bold text-slate-900 block truncate" title={proposal.region || proposal.factory || "---"}>
+                  🏢 {proposal.region || proposal.factory || "---"}
                 </span>
               )}
             </div>
 
             {/* CÁC Ô CÒN LẠI (LƯỚI 2 CỘT) */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-0.5">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 block">PHÂN LOẠI</span>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="p-2 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-0.5">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 block">PHÂN LOẠI</span>
                 {isEditing ? (
                   <select
                     value={editForm.category}
@@ -634,14 +634,14 @@ export default function KaizenDetailModal({
                     ))}
                   </select>
                 ) : (
-                  <span className="text-sm font-semibold text-slate-900 block truncate" title={catObj.label}>
+                  <span className="text-xs font-bold text-slate-900 block truncate" title={catObj.label}>
                     {catObj.label}
                   </span>
                 )}
               </div>
 
-              <div className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-0.5">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 block">KHÁCH HÀNG</span>
+              <div className="p-2 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-0.5">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 block">KHÁCH HÀNG</span>
                 {isEditing ? (
                   <select
                     value={editForm.customer}
@@ -655,36 +655,36 @@ export default function KaizenDetailModal({
                     ))}
                   </select>
                 ) : (
-                  <span className="text-sm font-semibold text-slate-900 block truncate">
+                  <span className="text-xs font-bold text-slate-900 block truncate">
                     {cust || "---"}
                   </span>
                 )}
               </div>
 
-              <div className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-0.5">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 block">NGÀY ĐĂNG</span>
-                <span className="text-sm font-semibold text-slate-900 block truncate">
+              <div className="p-2 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-0.5">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 block">NGÀY ĐĂNG</span>
+                <span className="text-xs font-bold text-slate-900 block truncate">
                   {proposal.created_at ? new Date(proposal.created_at).toLocaleDateString("vi-VN") : "---"}
                 </span>
               </div>
 
-              <div className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-0.5">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 block">VTCV</span>
-                <span className="text-sm font-semibold text-slate-900 block truncate" title={vtcv}>
+              <div className="p-2 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-0.5">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 block">VTCV</span>
+                <span className="text-xs font-bold text-slate-900 block truncate" title={vtcv}>
                   {vtcv}
                 </span>
               </div>
 
-              <div className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-0.5">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 block">PHÂN XƯỞNG</span>
-                <span className="text-sm font-semibold text-slate-900 block truncate" title={prodGroup || proposal.factory || "---"}>
+              <div className="p-2 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-0.5">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 block">NHÓM SP/DV</span>
+                <span className="text-xs font-bold text-slate-900 block truncate" title={prodGroup || proposal.factory || "---"}>
                   {prodGroup || proposal.factory || "---"}
                 </span>
               </div>
 
-              <div className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-0.5">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 block">NHÂN SỰ ĐỀ XUẤT</span>
-                <span className="text-sm font-mono font-semibold text-slate-900 block truncate">
+              <div className="p-2 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-0.5">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 block">MSNV</span>
+                <span className="text-xs font-mono font-bold text-slate-900 block truncate">
                   {proposal.proposer_emp_code || "---"}
                 </span>
               </div>
@@ -692,9 +692,9 @@ export default function KaizenDetailModal({
           </div>
 
           {/* CỤM NÚT SỬA / XÓA / ĐÓNG GHIM Ở ĐÁY PANEL TRÁI */}
-          <div className="p-4 shrink-0 border-t border-slate-200 bg-slate-50 space-y-2">
+          <div className="p-3 shrink-0 border-t border-slate-200 bg-slate-50 space-y-1.5">
             {thiDuaMsg && (
-              <div className="p-2 rounded-xl bg-amber-100 border border-amber-300 text-amber-900 text-[11px] font-bold text-center animate-in fade-in">
+              <div className="p-1.5 rounded-lg bg-amber-100 border border-amber-300 text-amber-900 text-[10px] font-bold text-center animate-in fade-in">
                 {thiDuaMsg}
               </div>
             )}
@@ -704,13 +704,13 @@ export default function KaizenDetailModal({
                 type="button"
                 disabled={markingThiDua}
                 onClick={handleToggleThiDua}
-                className={`w-full h-10 px-3 rounded-xl font-semibold text-xs shadow-2xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                className={`w-full h-9 px-3 rounded-xl font-bold text-xs shadow-2xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                   Number(proposal.is_thi_dua) === 1
                     ? "bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300"
                     : "bg-amber-500 hover:bg-amber-600 text-white shadow-md"
                 }`}
               >
-                <IconTrophy size={16} />
+                <IconTrophy size={15} />
                 <span>
                   {markingThiDua
                     ? "Đang xử lý..."
@@ -722,14 +722,14 @@ export default function KaizenDetailModal({
             )}
 
             {isEditing ? (
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-1.5">
                 <button
                   type="button"
                   disabled={saving}
                   onClick={handleSaveInlineEdit}
-                  className="h-10 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                  className="h-9 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-2xs flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
                 >
-                  {saving ? <IconLoader2 size={16} className="animate-spin" /> : <IconDeviceFloppy size={16} />}
+                  {saving ? <IconLoader2 size={15} className="animate-spin" /> : <IconDeviceFloppy size={15} />}
                   <span>{saving ? "Lưu..." : "Lưu"}</span>
                 </button>
                 <button
@@ -739,18 +739,18 @@ export default function KaizenDetailModal({
                     initEditForm();
                     setIsEditing(false);
                   }}
-                  className="h-10 px-3 rounded-xl border border-slate-300 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs flex items-center justify-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
+                  className="h-9 px-3 rounded-xl border border-slate-300 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
                 >
                   <IconX size={15} />
                   <span>Hủy</span>
                 </button>
               </div>
             ) : isOwner || isExecutiveOrAdmin ? (
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-1.5">
                 <button
                   type="button"
                   onClick={() => setIsEditing(true)}
-                  className="h-10 px-3 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs shadow-xs flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                  className="h-9 px-3 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-2xs flex items-center justify-center gap-1 transition-colors cursor-pointer"
                 >
                   <IconEditCircle size={15} />
                   <span>Sửa</span>
@@ -758,7 +758,7 @@ export default function KaizenDetailModal({
                 <button
                   type="button"
                   onClick={onDelete}
-                  className="h-10 px-3 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 font-semibold text-xs flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                  className="h-9 px-3 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 font-bold text-xs flex items-center justify-center gap-1 transition-colors cursor-pointer"
                 >
                   <IconTrash size={15} />
                   <span>Xóa</span>
@@ -769,7 +769,7 @@ export default function KaizenDetailModal({
             <button
               type="button"
               onClick={onClose}
-              className="w-full h-10 px-4 rounded-xl border border-slate-300 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
+              className="w-full h-9 px-3 rounded-xl border border-slate-300 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
             >
               <span>✕ Đóng</span>
             </button>
@@ -779,21 +779,21 @@ export default function KaizenDetailModal({
         {/* 2. PANEL PHẢI (MAIN CONTENT FLEX-1 FILL) */}
         <div className="flex-1 min-w-0 flex flex-col h-full bg-white overflow-hidden">
           
-          <div className="flex-shrink-0 p-5 md:p-6 space-y-4 border-b border-slate-200 bg-white">
+          <div className="flex-shrink-0 p-3.5 sm:p-4 space-y-2.5 border-b border-slate-200 bg-white">
             {/* HÀNG BADGES TRÊN */}
-            <div className="flex items-center gap-2 flex-wrap min-h-[28px] md:min-h-[30px]">
-              <span className="h-7 px-3 rounded-full bg-slate-100 border border-slate-300 text-slate-800 text-[13px] font-semibold inline-flex items-center gap-1.5 whitespace-nowrap">
+            <div className="flex items-center gap-1.5 flex-wrap min-h-[26px]">
+              <span className="h-6 px-2.5 rounded-full bg-slate-100 border border-slate-300 text-slate-800 text-xs font-semibold inline-flex items-center gap-1 whitespace-nowrap">
                 <span>📈</span>
                 <span>{catObj.label}</span>
               </span>
 
-              <span className="h-7 px-3 rounded-full bg-amber-50 border border-amber-300 text-amber-900 text-[13px] font-semibold inline-flex items-center gap-1.5 whitespace-nowrap">
+              <span className="h-6 px-2.5 rounded-full bg-amber-50 border border-amber-300 text-amber-900 text-xs font-semibold inline-flex items-center gap-1 whitespace-nowrap">
                 <span>🏆</span>
                 <span>{proposal.registration_type === "THI_DUA" ? "Thi đua" : "Lưu trữ"}</span>
               </span>
 
               <span
-                className={`h-7 px-3 rounded-full border text-[13px] font-semibold inline-flex items-center gap-1.5 whitespace-nowrap ${
+                className={`h-6 px-2.5 rounded-full border text-xs font-semibold inline-flex items-center gap-1 whitespace-nowrap ${
                   proposal.approval_status === "TU_CHOI" || proposal.sub_status === "TU_CHOI_TRIEN_KHAI" || proposal.status === "REJECTED"
                     ? "bg-rose-50 text-rose-800 border-rose-300"
                     : proposal.sub_status === "CHO_REVIEW" || proposal.approval_status === "PENDING" || proposal.status === "SUBMITTED"
@@ -818,8 +818,8 @@ export default function KaizenDetailModal({
               </span>
 
               {isEditing && (
-                <span className="h-7 px-3 rounded-full bg-amber-400 text-amber-950 font-semibold text-[13px] border border-amber-500 inline-flex items-center gap-1 animate-pulse whitespace-nowrap">
-                  ✏️ Chế độ Sửa trực tiếp (Inline Edit)
+                <span className="h-6 px-2.5 rounded-full bg-amber-400 text-amber-950 font-bold text-xs border border-amber-500 inline-flex items-center gap-1 animate-pulse whitespace-nowrap">
+                  ✏️ Chế độ Sửa trực tiếp
                 </span>
               )}
             </div>
@@ -833,42 +833,42 @@ export default function KaizenDetailModal({
                   value={editForm.title}
                   onChange={(e) => setEditForm((prev) => ({ ...prev, title: e.target.value }))}
                   placeholder="Nhập tiêu đề đề xuất sáng kiến..."
-                  className="w-full text-xl font-bold p-2.5 rounded-xl border border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-500 bg-amber-50/60 text-slate-900"
+                  className="w-full text-lg font-bold p-2 rounded-xl border border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-500 bg-amber-50/60 text-slate-900"
                 />
               </div>
             ) : (
-              <h2 className="text-2xl md:text-3xl font-extrabold text-slate-900 leading-snug tracking-tight">
+              <h2 className="text-lg sm:text-xl md:text-2xl font-black text-slate-900 leading-snug tracking-tight">
                 {(proposal.title && String(proposal.title).trim()) || (proposal as any).tieu_de || (proposal as any).name || (proposal.before_description ? `Cải tiến: ${String(proposal.before_description).trim().substring(0, 60)}...` : "Sáng kiến cải tiến Kaizen")}
               </h2>
             )}
 
-            <p className="text-[13px] text-slate-500 font-medium">
-              MSNV: <span className="font-mono text-slate-700 font-semibold">{proposal.proposer_emp_code}</span> &bull; KV: <span className="text-slate-700 font-semibold">{(isEditing ? editForm.region : proposal.region) || "Nhà Máy Miền Đông"}</span> &bull; Tháng {pMonth}/{pYear}
+            <p className="text-xs text-slate-500 font-medium">
+              MSNV: <span className="font-mono text-slate-700 font-bold">{proposal.proposer_emp_code}</span> &bull; KV: <span className="text-slate-700 font-bold">{(isEditing ? editForm.region : proposal.region) || "Nhà Máy Miền Đông"}</span> &bull; Tháng {pMonth}/{pYear}
             </p>
 
             {/* BANNER PHÊ DUYỆT TÍNH KHẢ THI (BƯỚC 3 - QĐ-TBKG) BANNER TOP */}
             {!isEditing && isJudgeOrExecutive && (
-              <div className="mt-4 p-3.5 md:p-4 rounded-xl bg-sky-50 border border-sky-200 flex flex-col xl:flex-row items-start xl:items-center justify-between gap-3.5 shadow-2xs">
-                <div className="flex-1 min-w-[240px] space-y-1">
-                  <div className="flex items-center gap-1.5 text-xs md:text-sm font-bold text-sky-950">
+              <div className="mt-2 p-2.5 sm:p-3 rounded-xl bg-sky-50 border border-sky-200 flex flex-col xl:flex-row items-start xl:items-center justify-between gap-2.5 shadow-2xs">
+                <div className="flex-1 min-w-[200px] space-y-0.5">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-sky-950">
                     <span className="text-sky-600 shrink-0">💭</span>
                     <span className="font-bold text-sky-950">Xem xét tính khả thi sáng kiến (Bước 3 – QĐ-TBKG)</span>
                   </div>
-                  <p className="text-[12px] md:text-[13px] text-slate-600 leading-normal">
+                  <p className="text-xs text-slate-600 leading-normal">
                     Đề xuất đang ở trạng thái <strong className="text-sky-800 font-bold">{proposal.approval_status === "TU_CHOI" || proposal.sub_status === "TU_CHOI_TRIEN_KHAI" || proposal.status === "REJECTED" ? "Từ chối" : proposal.approval_status === "PHE_DUYET" ? "Đã duyệt" : "Chờ phê duyệt"}</strong>. Bạn có muốn phê duyệt tính khả thi để cho phép thử nghiệm và đánh giá?
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0 flex-wrap w-full xl:w-auto pt-1 xl:pt-0">
+                <div className="flex items-center gap-1.5 shrink-0 flex-wrap w-full xl:w-auto pt-0.5 xl:pt-0">
                   <button
                     type="button"
                     onClick={() => {
                       setFeasibilityInitialDecision("APPROVE");
                       setIsFeasibilityModalOpen(true);
                     }}
-                    className="h-8 md:h-9 px-3 rounded-lg bg-[#009b55] hover:bg-[#008247] text-white font-bold text-xs md:text-[13px] shadow-2xs flex items-center justify-center gap-1.5 transition-all cursor-pointer whitespace-nowrap"
+                    className="h-8 px-2.5 rounded-lg bg-[#009b55] hover:bg-[#008247] text-white font-bold text-xs shadow-2xs flex items-center justify-center gap-1 transition-all cursor-pointer whitespace-nowrap"
                   >
-                    <IconCheck size={16} />
+                    <IconCheck size={15} />
                     <span>Phê Duyệt Triển Khai</span>
                   </button>
 
@@ -878,9 +878,9 @@ export default function KaizenDetailModal({
                       setFeasibilityInitialDecision("REJECT");
                       setIsFeasibilityModalOpen(true);
                     }}
-                    className="h-8 md:h-9 px-3 rounded-lg bg-[#e11d48] hover:bg-[#be123c] text-white font-bold text-xs md:text-[13px] shadow-2xs flex items-center justify-center gap-1.5 transition-all cursor-pointer whitespace-nowrap"
+                    className="h-8 px-2.5 rounded-lg bg-[#e11d48] hover:bg-[#be123c] text-white font-bold text-xs shadow-2xs flex items-center justify-center gap-1 transition-all cursor-pointer whitespace-nowrap"
                   >
-                    <IconX size={16} />
+                    <IconX size={15} />
                     <span>Từ Chối Triển Khai</span>
                   </button>
 
@@ -890,9 +890,9 @@ export default function KaizenDetailModal({
                       setFeasibilityInitialDecision("APPROVE");
                       setIsFeasibilityModalOpen(true);
                     }}
-                    className="h-8 md:h-9 px-3 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs md:text-[13px] shadow-2xs flex items-center justify-center gap-1.5 transition-all cursor-pointer whitespace-nowrap"
+                    className="h-8 px-2.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-2xs flex items-center justify-center gap-1 transition-all cursor-pointer whitespace-nowrap"
                   >
-                    <IconAward size={16} />
+                    <IconAward size={15} />
                     <span>Khuyến Khích</span>
                   </button>
                 </div>
@@ -900,13 +900,13 @@ export default function KaizenDetailModal({
             )}
           </div>
 
-          <div className="flex-shrink-0 px-5 md:px-6 h-[40px] border-b border-slate-200 bg-slate-50/50 flex items-center gap-2 overflow-x-auto">
+          <div className="flex-shrink-0 px-3.5 sm:px-4 h-[36px] border-b border-slate-200 bg-slate-50/50 flex items-center gap-2 overflow-x-auto">
             <button
               type="button"
               onClick={() => setActiveTab("info")}
-              className={`h-8 px-4 rounded-lg text-[13px] font-semibold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+              className={`h-7 px-3.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
                 activeTab === "info"
-                  ? "bg-[#0b1739] text-white shadow-xs"
+                  ? "bg-[#0b1739] text-white shadow-2xs"
                   : "bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900"
               }`}
             >
@@ -917,9 +917,9 @@ export default function KaizenDetailModal({
               <button
                 type="button"
                 onClick={() => setActiveTab("expert_review")}
-                className={`h-8 px-4 rounded-lg text-[13px] font-semibold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+                className={`h-7 px-3.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
                   activeTab === "expert_review"
-                    ? "bg-[#0b1739] text-white shadow-xs"
+                    ? "bg-[#0b1739] text-white shadow-2xs"
                     : "bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900"
                 }`}
               >
@@ -931,9 +931,9 @@ export default function KaizenDetailModal({
               <button
                 type="button"
                 onClick={() => setActiveTab("star_review")}
-                className={`h-8 px-4 rounded-lg text-[13px] font-semibold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+                className={`h-7 px-3.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
                   activeTab === "star_review"
-                    ? "bg-[#0b1739] text-white shadow-xs"
+                    ? "bg-[#0b1739] text-white shadow-2xs"
                     : "bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900"
                 }`}
               >
@@ -942,7 +942,7 @@ export default function KaizenDetailModal({
             )}
           </div>
 
-          <div className="flex-1 min-w-0 overflow-y-auto">
+          <div className="flex-1 min-w-0 overflow-y-auto [scrollbar-width:thin] [scrollbar-color:#cbd5e1_transparent]">
             {activeTab === "info" && (
               <TabInfoContent
                 proposal={proposal}

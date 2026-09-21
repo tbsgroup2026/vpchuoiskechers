@@ -1462,12 +1462,12 @@ video {
   height: 360px;
 }
 
-.h-\[38px\] {
-  height: 38px;
+.h-\[36px\] {
+  height: 36px;
 }
 
-.h-\[40px\] {
-  height: 40px;
+.h-\[38px\] {
+  height: 38px;
 }
 
 .h-\[42px\] {
@@ -1582,8 +1582,8 @@ video {
   max-height: 20rem;
 }
 
-.max-h-\[180px\] {
-  max-height: 180px;
+.max-h-\[135px\] {
+  max-height: 135px;
 }
 
 .max-h-\[420px\] {
@@ -1670,8 +1670,8 @@ video {
   min-height: 260px;
 }
 
-.min-h-\[28px\] {
-  min-height: 28px;
+.min-h-\[26px\] {
+  min-height: 26px;
 }
 
 .min-h-\[300px\] {
@@ -7971,6 +7971,14 @@ video {
   grid-template-columns: repeat(auto-fill,minmax(300px,1fr));
 }
 
+.\[scrollbar-color\:\#cbd5e1_transparent\] {
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+.\[scrollbar-width\:thin\] {
+  scrollbar-width: thin;
+}
+
 :root {
   --font-sans: 'Be Vietnam Pro', 'Outfit', system-ui, -apple-system, sans-serif;
   --font-display: 'Outfit', 'Be Vietnam Pro', system-ui, sans-serif;
@@ -10605,6 +10613,10 @@ body {
     padding: 0.625rem;
   }
 
+  .sm\:p-3 {
+    padding: 0.75rem;
+  }
+
   .sm\:p-3\.5 {
     padding: 0.875rem;
   }
@@ -10856,14 +10868,6 @@ body {
     display: none;
   }
 
-  .md\:h-9 {
-    height: 2.25rem;
-  }
-
-  .md\:min-h-\[30px\] {
-    min-height: 30px;
-  }
-
   .md\:min-h-\[85px\] {
     min-height: 85px;
   }
@@ -10928,21 +10932,12 @@ body {
     border-radius: 0px;
   }
 
-  .md\:p-4 {
-    padding: 1rem;
-  }
-
   .md\:p-6 {
     padding: 1.5rem;
   }
 
   .md\:p-8 {
     padding: 2rem;
-  }
-
-  .md\:px-6 {
-    padding-left: 1.5rem;
-    padding-right: 1.5rem;
   }
 
   .md\:pb-28 {
@@ -10953,18 +10948,14 @@ body {
     padding-top: 10rem;
   }
 
+  .md\:text-2xl {
+    font-size: 1.5rem;
+    line-height: 2rem;
+  }
+
   .md\:text-3xl {
     font-size: 1.875rem;
     line-height: 2.25rem;
-  }
-
-  .md\:text-\[13px\] {
-    font-size: 13px;
-  }
-
-  .md\:text-sm {
-    font-size: 0.875rem;
-    line-height: 1.25rem;
   }
 
   .md\:opacity-30 {

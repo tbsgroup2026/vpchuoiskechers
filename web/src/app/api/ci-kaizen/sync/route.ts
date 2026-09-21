@@ -136,7 +136,7 @@ async function upsertProposals(db: any, sourceProposals: any[], defaultSiteCode 
 
     // Check if proposal exists locally by id OR (site_code AND external_id)
     const existing: any = await db
-      .prepare('SELECT id, updated_at, is_archived FROM ci_kaizen_proposals WHERE id = ? OR (site_code = ? AND external_id = ?)')
+      .prepare('SELECT id, title, before_description, after_solution, updated_at, is_archived FROM ci_kaizen_proposals WHERE id = ? OR (site_code = ? AND external_id = ?)')
       .bind(localId, siteCode, externalId)
       .first();
 
@@ -154,6 +154,12 @@ async function upsertProposals(db: any, sourceProposals: any[], defaultSiteCode 
           continue; // Skip outdated update
         }
       }
+
+      const cleanSyncTitle = (item.title && String(item.title).trim()) || '';
+      const isGenericTitle = !cleanSyncTitle || cleanSyncTitle === 'Sáng kiến cải tiến Kaizen' || cleanSyncTitle === 'Ý tưởng đề xuất cải tiến Kaizen';
+      const syncTitleToUse = (!isGenericTitle ? cleanSyncTitle : (existing.title || itemTitle));
+      const syncBeforeDescToUse = (item.before_description && String(item.before_description).trim()) || existing.before_description || null;
+      const syncAfterSolToUse = (item.after_solution && String(item.after_solution).trim()) || existing.after_solution || null;
 
       // UPDATE existing proposal
       const updateSql = `
@@ -201,7 +207,7 @@ async function upsertProposals(db: any, sourceProposals: any[], defaultSiteCode 
         .prepare(updateSql)
         .bind(
           item.code,
-          itemTitle,
+          syncTitleToUse,
           item.category,
           item.category_label,
           item.registration_type,
@@ -211,8 +217,8 @@ async function upsertProposals(db: any, sourceProposals: any[], defaultSiteCode 
           item.line,
           item.proposer_name,
           item.proposer_emp_code,
-          item.before_description,
-          item.after_solution,
+          syncBeforeDescToUse,
+          syncAfterSolToUse,
           item.saved_seconds || item.so_giay_tiet_kiem || 0,
           item.saved_seconds || item.so_giay_tiet_kiem || 0,
           item.before_image_url,

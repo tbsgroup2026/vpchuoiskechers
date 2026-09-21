@@ -142,7 +142,6 @@ export async function GET(request: Request) {
               region = excluded.region,
               source_region = excluded.source_region,
               department = excluded.department,
-              title = excluded.title,
               category_label = excluded.category_label
           `).bind(
             seed.id, seed.code, seed.title, seed.category, seed.category_label, seed.registration_type,
@@ -153,11 +152,6 @@ export async function GET(request: Request) {
             seed.after_image_url, seed.attachments_json, seed.created_at
           ).run();
         }
-
-        // Explicitly restore original titles for default proposals in D1 DB
-        await db.prepare("UPDATE ci_kaizen_proposals SET title = 'Tán nút ô dê bằng máy tán bán tự động' WHERE code = 'CI-2026-001' OR id = 'kz_nmmd_001'").run().catch(() => {});
-        await db.prepare("UPDATE ci_kaizen_proposals SET title = 'Tăng số đôi trên khuôn in lô gô chắn bùn ngoài m...' WHERE code = 'CI-2026-002' OR id = 'kz_nmmd_002'").run().catch(() => {});
-        await db.prepare("UPDATE ci_kaizen_proposals SET title = 'Số hóa quy trình duyệt đăng ký sáng kiến Kaizen realtime' WHERE code = 'CI-2026-003' OR id = 'kz_vpc_001'").run().catch(() => {});
       } catch (seedErr) {
         console.warn('[ci-kaizen GET] Seed error:', seedErr);
       }
@@ -381,7 +375,17 @@ export async function POST(request: Request) {
         ]);
 
     if (db) {
-      if (existingId) {
+      const targetId = existingId || id;
+      const targetCode = existingCode || code;
+
+      const existingRecord: any = await db
+        .prepare("SELECT id, code FROM ci_kaizen_proposals WHERE id = ? OR code = ?")
+        .bind(targetId, targetCode)
+        .first()
+        .catch(() => null);
+
+      if (existingRecord || existingId) {
+        const updateId = existingRecord?.id || targetId;
         const updateQuery = `
           UPDATE ci_kaizen_proposals
           SET title = ?,
@@ -412,7 +416,7 @@ export async function POST(request: Request) {
               sub_status = 'CHO_DUYET',
               review_status = 'CHO_DUYET',
               updated_at = CURRENT_TIMESTAMP
-          WHERE id = ?
+          WHERE id = ? OR code = ?
         `;
         await db
           .prepare(updateQuery)
@@ -441,7 +445,8 @@ export async function POST(request: Request) {
             cleanBeforeImg || rawBeforeImg,
             cleanAfterImg || rawAfterImg,
             attachmentsJson,
-            existingId
+            updateId,
+            targetCode
           )
           .run();
       } else {
@@ -590,6 +595,7 @@ export async function PUT(request: Request) {
     if (db) {
       const inputBeforeDesc = before_description !== undefined ? before_description : beforeDescription;
       const inputAfterSol = after_solution !== undefined ? after_solution : afterSolution;
+      const finalTitle = title ? String(title).trim() : null;
       const finalBeforeDesc = inputBeforeDesc !== undefined ? String(inputBeforeDesc).trim() : null;
       const finalAfterSol = inputAfterSol !== undefined ? String(inputAfterSol).trim() : null;
       const finalProductCode = (product_code || productCode || '').trim();

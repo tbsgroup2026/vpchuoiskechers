@@ -3,18 +3,7 @@ export function getKaizenDisplayTitle(p: any): string {
 
   const rawTitle = (p.title && String(p.title).trim()) || p.tieu_de || p.name || "";
 
-  // 1. Explicit title restoration for standard proposals
-  if (p.code === "CI-2026-001" || p.id === "kz_nmmd_001" || p.code === "ACI-2026-001") {
-    return "Tán nút ô dê bằng máy tán bán tự động";
-  }
-  if (p.code === "CI-2026-002" || p.id === "kz_nmmd_002" || p.code === "ACI-2026-002") {
-    return "Tăng số đôi trên khuôn in lô gô chắn bùn ngoài mẫu 118433";
-  }
-  if (p.code === "CI-2026-003" || p.id === "kz_vpc_001" || p.code === "ACI-2026-003") {
-    return "Số hóa quy trình duyệt đăng ký sáng kiến Kaizen realtime";
-  }
-
-  // 2. Check if title is custom and non-generic
+  // 1. Check if title is custom and non-generic
   const isGeneric =
     !rawTitle ||
     rawTitle === "Sáng kiến cải tiến Kaizen" ||
@@ -24,6 +13,17 @@ export function getKaizenDisplayTitle(p: any): string {
 
   if (!isGeneric) {
     return rawTitle;
+  }
+
+  // 2. Explicit title restoration for standard proposals ONLY when title is empty/generic
+  if (p.code === "CI-2026-001" || p.id === "kz_nmmd_001" || p.code === "ACI-2026-001") {
+    return "Tán nút ô dê bằng máy tán bán tự động";
+  }
+  if (p.code === "CI-2026-002" || p.id === "kz_nmmd_002" || p.code === "ACI-2026-002") {
+    return "Tăng số đôi trên khuôn in lô gô chắn bùn ngoài mẫu 118433";
+  }
+  if (p.code === "CI-2026-003" || p.id === "kz_vpc_001" || p.code === "ACI-2026-003") {
+    return "Số hóa quy trình duyệt đăng ký sáng kiến Kaizen realtime";
   }
 
   // 3. Extract title from before_description if available

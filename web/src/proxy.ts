@@ -11,6 +11,7 @@ const PUBLIC_ROUTES = ['/', '/about', '/careers', '/contact', '/login', '/mobile
  */
 const PUBLIC_PATHS = [
   '/work/kaizen/register', // Public kaizen registration (open form, no login needed)
+  '/api/ci-kaizen',        // Kaizen API (handles its own authorization, rate limits & X-User-Emp-Code)
   '/api/users',            // User management & lookup API
   '/api/employees',        // Employee lookup API
   '/api/push',             // Push subscription API

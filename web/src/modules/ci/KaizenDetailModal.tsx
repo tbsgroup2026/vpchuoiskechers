@@ -697,41 +697,7 @@ export default function KaizenDetailModal({
               </div>
             )}
 
-            {!isEditing && isJudgeOrExecutive && (
-              <div className="p-2.5 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 shadow-xs space-y-2">
-                <div className="text-[11px] font-black text-emerald-900 uppercase flex items-center justify-between">
-                  <span className="flex items-center gap-1">
-                    <IconShieldCheck size={14} className="text-emerald-600" />
-                    <span>Phê Duyệt Sáng Kiến Kaizen</span>
-                  </span>
-                  <span className="text-[10px] text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded-md font-extrabold">CI Lead</span>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFeasibilityInitialDecision("APPROVE");
-                      setIsFeasibilityModalOpen(true);
-                    }}
-                    className="py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs shadow-xs flex items-center justify-center gap-1 transition-all cursor-pointer"
-                  >
-                    <IconCheck size={15} />
-                    <span>Phê duyệt</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFeasibilityInitialDecision("REJECT");
-                      setIsFeasibilityModalOpen(true);
-                    }}
-                    className="py-2 px-3 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-black text-xs shadow-xs flex items-center justify-center gap-1 transition-all cursor-pointer"
-                  >
-                    <IconX size={15} />
-                    <span>Từ chối</span>
-                  </button>
-                </div>
-              </div>
-            )}
+
 
             {!isEditing && (proposal.status === "ARCHIVED" || proposal.sub_status === "LUU_TRU" || proposal.registration_type === "LUU_TRU") && isJudgeOrExecutive && (
               <button
@@ -878,7 +844,58 @@ export default function KaizenDetailModal({
               MSNV: <span className="font-mono text-slate-700">{proposal.proposer_emp_code}</span> &bull; KV: <span className="text-slate-700">{(isEditing ? editForm.region : proposal.region) || "Nhà Máy Miền Đông"}</span> &bull; Tháng {pMonth}/{pYear}
             </p>
 
+            {/* THÔNG BÁO / PHÊ DUYỆT TÍNH KHẢ THI (BƯỚC 3 - QĐ-TBKG) BANNER TOP */}
+            {!isEditing && isJudgeOrExecutive && (
+              <div className="mt-3.5 p-3.5 md:p-4 rounded-2xl bg-sky-50/90 border border-sky-200 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 shadow-2xs">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5 font-extrabold text-sky-950 text-xs md:text-sm">
+                    <span className="text-sky-600 text-base">💭</span>
+                    <span>Xem xét tính khả thi sáng kiến (Bước 3 – QĐ-TBKG)</span>
+                  </div>
+                  <p className="text-[11.5px] font-medium text-slate-600 leading-normal">
+                    Đề xuất đang ở trạng thái <strong className="text-sky-800 font-bold">{proposal.approval_status === "TU_CHOI" || proposal.sub_status === "TU_CHOI_TRIEN_KHAI" || proposal.status === "REJECTED" ? "Từ chối" : proposal.approval_status === "PHE_DUYET" ? "Đã duyệt" : "Chờ phê duyệt"}</strong>. Bạn có muốn phê duyệt tính khả thi để cho phép thử nghiệm và đánh giá?
+                  </p>
+                </div>
 
+                <div className="flex items-center gap-2 shrink-0 flex-wrap w-full lg:w-auto pt-1 lg:pt-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFeasibilityInitialDecision("APPROVE");
+                      setIsFeasibilityModalOpen(true);
+                    }}
+                    className="flex-1 lg:flex-none px-4 py-2.5 rounded-xl bg-[#009b55] hover:bg-[#008247] text-white font-extrabold text-xs shadow-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    <IconCheck size={16} />
+                    <span>Phê Duyệt Triển Khai</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFeasibilityInitialDecision("REJECT");
+                      setIsFeasibilityModalOpen(true);
+                    }}
+                    className="flex-1 lg:flex-none px-4 py-2.5 rounded-xl bg-[#e11d48] hover:bg-[#be123c] text-white font-extrabold text-xs shadow-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    <IconX size={16} />
+                    <span>Từ Chối Triển Khai</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFeasibilityInitialDecision("APPROVE");
+                      setIsFeasibilityModalOpen(true);
+                    }}
+                    className="flex-1 lg:flex-none px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-xs shadow-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    <IconAward size={16} />
+                    <span>Khuyến Khích</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex-shrink-0 px-5 md:px-6 py-3 border-b border-slate-200 bg-slate-50/50 flex items-center gap-2 overflow-x-auto">

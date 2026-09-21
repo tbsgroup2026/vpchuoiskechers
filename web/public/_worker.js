@@ -1073,8 +1073,6 @@ export default {
             await db.prepare('ALTER TABLE ci_kaizen_proposals ADD COLUMN total_savings_words TEXT').run().catch(() => {});
             await db.prepare('ALTER TABLE ci_kaizen_proposals ADD COLUMN is_archived INTEGER DEFAULT 0').run().catch(() => {});
 
-            const existing = await db.prepare("SELECT id, code FROM ci_kaizen_proposals WHERE id = ? OR code = ?").bind(propId, propId).first().catch(() => null);
-
             const inputBeforeDesc = body.before_description !== undefined ? body.before_description : body.beforeDescription;
             const inputAfterSol = body.after_solution !== undefined ? body.after_solution : body.afterSolution;
             const finalTitle = body.title ? String(body.title).trim() : null;
@@ -1090,69 +1088,71 @@ export default {
             const finalCostAfter = Number(body.cost_after || body.costAfter || 0);
             const finalTotalSavings = Number(body.total_savings_vnd || body.totalSavingsVnd || 0);
 
-            if (existing) {
+            let updatedCount = 0;
+            try {
+              const res = await db.prepare(`
+                UPDATE ci_kaizen_proposals
+                SET title = COALESCE(?, title),
+                    category = COALESCE(?, category),
+                    category_label = COALESCE(?, category_label),
+                    region = COALESCE(?, region),
+                    factory = COALESCE(?, factory),
+                    department = COALESCE(?, department),
+                    line = COALESCE(?, line),
+                    customer = COALESCE(?, customer),
+                    pricing_direction = COALESCE(?, pricing_direction),
+                    product_code = COALESCE(?, product_code),
+                    pair_quantity = COALESCE(?, pair_quantity),
+                    quantity = COALESCE(?, quantity),
+                    before_description = CASE WHEN ? IS NOT NULL THEN ? ELSE before_description END,
+                    after_solution = CASE WHEN ? IS NOT NULL THEN ? ELSE after_solution END,
+                    time_before_seconds = COALESCE(?, time_before_seconds),
+                    time_after_seconds = COALESCE(?, time_after_seconds),
+                    saved_seconds = COALESCE(?, saved_seconds),
+                    so_giay_tiet_kiem = COALESCE(?, so_giay_tiet_kiem),
+                    efficiency_value_vnd = COALESCE(?, efficiency_value_vnd),
+                    total_savings_vnd = COALESCE(?, total_savings_vnd),
+                    cost_before = COALESCE(?, cost_before),
+                    cost_after = COALESCE(?, cost_after),
+                    before_image_url = COALESCE(?, before_image_url),
+                    after_image_url = COALESCE(?, after_image_url),
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ? OR code = ?
+              `).bind(
+                finalTitle,
+                body.category || null,
+                body.category_label || body.categoryLabel || null,
+                body.region || body.factory || null,
+                body.factory || body.region || null,
+                body.department || null,
+                body.line || null,
+                body.customer || null,
+                body.pricing_direction || null,
+                finalProductCode || null,
+                finalPairQty || null,
+                finalPairQty || null,
+                finalBeforeDesc,
+                finalBeforeDesc,
+                finalAfterSol,
+                finalAfterSol,
+                finalTimeBefore || null,
+                finalTimeAfter || null,
+                finalSavedSecs || null,
+                finalSavedSecs || null,
+                finalEffVnd || null,
+                finalTotalSavings || null,
+                finalCostBefore || null,
+                finalCostAfter || null,
+                body.before_image_url || body.beforeImageUrl || null,
+                body.after_image_url || body.afterImageUrl || null,
+                propId,
+                propId
+              ).run();
+              updatedCount = res?.meta?.changes || 0;
+            } catch (err1) {
+              console.warn("Primary UPDATE failed, fallback UPDATE without optional columns:", err1);
               try {
-                await db.prepare(`
-                  UPDATE ci_kaizen_proposals
-                  SET title = COALESCE(?, title),
-                      category = COALESCE(?, category),
-                      category_label = COALESCE(?, category_label),
-                      region = COALESCE(?, region),
-                      factory = COALESCE(?, factory),
-                      department = COALESCE(?, department),
-                      line = COALESCE(?, line),
-                      customer = COALESCE(?, customer),
-                      pricing_direction = COALESCE(?, pricing_direction),
-                      product_code = COALESCE(?, product_code),
-                      pair_quantity = COALESCE(?, pair_quantity),
-                      quantity = COALESCE(?, quantity),
-                      before_description = CASE WHEN ? IS NOT NULL THEN ? ELSE before_description END,
-                      after_solution = CASE WHEN ? IS NOT NULL THEN ? ELSE after_solution END,
-                      time_before_seconds = COALESCE(?, time_before_seconds),
-                      time_after_seconds = COALESCE(?, time_after_seconds),
-                      saved_seconds = COALESCE(?, saved_seconds),
-                      so_giay_tiet_kiem = COALESCE(?, so_giay_tiet_kiem),
-                      efficiency_value_vnd = COALESCE(?, efficiency_value_vnd),
-                      total_savings_vnd = COALESCE(?, total_savings_vnd),
-                      cost_before = COALESCE(?, cost_before),
-                      cost_after = COALESCE(?, cost_after),
-                      before_image_url = COALESCE(?, before_image_url),
-                      after_image_url = COALESCE(?, after_image_url),
-                      updated_at = CURRENT_TIMESTAMP
-                  WHERE id = ? OR code = ?
-                `).bind(
-                  finalTitle,
-                  body.category || null,
-                  body.category_label || body.categoryLabel || null,
-                  body.region || body.factory || null,
-                  body.factory || body.region || null,
-                  body.department || null,
-                  body.line || null,
-                  body.customer || null,
-                  body.pricing_direction || null,
-                  finalProductCode || null,
-                  finalPairQty || null,
-                  finalPairQty || null,
-                  finalBeforeDesc,
-                  finalBeforeDesc,
-                  finalAfterSol,
-                  finalAfterSol,
-                  finalTimeBefore || null,
-                  finalTimeAfter || null,
-                  finalSavedSecs || null,
-                  finalSavedSecs || null,
-                  finalEffVnd || null,
-                  finalTotalSavings || null,
-                  finalCostBefore || null,
-                  finalCostAfter || null,
-                  body.before_image_url || body.beforeImageUrl || null,
-                  body.after_image_url || body.afterImageUrl || null,
-                  propId,
-                  propId
-                ).run();
-              } catch (updateErr) {
-                console.warn("Primary UPDATE failed, executing safe fallback UPDATE:", updateErr);
-                await db.prepare(`
+                const res = await db.prepare(`
                   UPDATE ci_kaizen_proposals
                   SET title = COALESCE(?, title),
                       category = COALESCE(?, category),
@@ -1206,8 +1206,11 @@ export default {
                   propId,
                   propId
                 ).run();
-              }
-            } else {
+                updatedCount = res?.meta?.changes || 0;
+              } catch (err2) {}
+            }
+
+            if (updatedCount === 0) {
               const newId = body.id || `kz_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
               const newCode = body.code || `KZ-2026-${Math.floor(1000 + Math.random() * 9000)}`;
               await db.prepare(`
@@ -1218,6 +1221,11 @@ export default {
                   so_giay_tiet_kiem, efficiency_value_vnd, total_savings_vnd, cost_before, cost_after,
                   before_image_url, after_image_url, attachments_json
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                  title = excluded.title,
+                  before_description = excluded.before_description,
+                  after_solution = excluded.after_solution,
+                  updated_at = CURRENT_TIMESTAMP
               `).bind(
                 newId, newCode, finalTitle || 'Sáng kiến cải tiến Kaizen', body.category || 'PRODUCTIVITY',
                 body.category_label || '3.Tăng Năng suất', body.factory || 'VP CHUỖI', body.region || 'Văn phòng Chuỗi',
@@ -1226,7 +1234,7 @@ export default {
                 finalBeforeDesc || '', finalAfterSol || '', finalTimeBefore, finalTimeAfter, finalSavedSecs,
                 finalSavedSecs, finalEffVnd, finalTotalSavings, finalCostBefore, finalCostAfter,
                 body.before_image_url || '', body.after_image_url || '', body.attachments_json || '[]'
-              ).run();
+              ).run().catch((e) => console.warn("UPSERT insert error:", e));
             }
           }
           return new Response(JSON.stringify({ success: true, message: "Cập nhật đề xuất Kaizen thành công!" }), { headers: CORS_HEADERS });

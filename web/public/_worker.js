@@ -976,6 +976,213 @@ export default {
     }
 
     // ============================================================
+    // D1 API ROUTE: /api/ci-kaizen (Kaizen Proposal Management & Sync)
+    // ============================================================
+    if (url.pathname === "/api/ci-kaizen" || url.pathname.startsWith("/api/ci-kaizen")) {
+      const CORS_HEADERS = {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-User-Emp-Code, X-Sync-Secret",
+      };
+
+      if (request.method === "OPTIONS") {
+        return new Response(null, { status: 204, headers: CORS_HEADERS });
+      }
+
+      const db = env && env.DB;
+      if (db) {
+        await ensureWorkerTables(db);
+        await db.prepare(`
+          CREATE TABLE IF NOT EXISTS ci_kaizen_proposals (
+            id TEXT PRIMARY KEY,
+            code TEXT,
+            title TEXT,
+            category TEXT,
+            category_label TEXT,
+            registration_type TEXT,
+            factory TEXT,
+            region TEXT,
+            source_region TEXT,
+            department TEXT,
+            line TEXT,
+            proposer_name TEXT,
+            proposer_emp_code TEXT,
+            proposer_position TEXT,
+            product_code TEXT,
+            pair_quantity REAL DEFAULT 0,
+            quantity REAL DEFAULT 0,
+            before_description TEXT,
+            after_solution TEXT,
+            time_before_seconds REAL DEFAULT 0,
+            time_after_seconds REAL DEFAULT 0,
+            saved_seconds REAL DEFAULT 0,
+            so_giay_tiet_kiem REAL DEFAULT 0,
+            efficiency_value_vnd REAL DEFAULT 0,
+            total_savings_vnd REAL DEFAULT 0,
+            cost_before REAL DEFAULT 0,
+            cost_after REAL DEFAULT 0,
+            before_image_url TEXT,
+            after_image_url TEXT,
+            attachments_json TEXT,
+            status TEXT DEFAULT 'SUBMITTED',
+            sub_status TEXT DEFAULT 'CHO_DUYET',
+            trang_thai TEXT DEFAULT 'CHO_DUYET',
+            review_status TEXT DEFAULT 'CHO_DUYET',
+            approval_status TEXT DEFAULT 'PENDING',
+            score_points REAL DEFAULT 0,
+            vote_count INTEGER DEFAULT 0,
+            view_count INTEGER DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          )
+        `).run().catch(() => {});
+      }
+
+      // 1. POST /api/ci-kaizen/sync
+      if (url.pathname === "/api/ci-kaizen/sync") {
+        return new Response(JSON.stringify({ success: true, message: "Sync acknowledged" }), { headers: CORS_HEADERS });
+      }
+
+      // 2. GET /api/ci-kaizen
+      if (url.pathname === "/api/ci-kaizen" && request.method === "GET") {
+        try {
+          let proposals = [];
+          if (db) {
+            const { results } = await db.prepare("SELECT * FROM ci_kaizen_proposals ORDER BY created_at DESC LIMIT 500").all();
+            if (results && results.length > 0) proposals = results;
+          }
+          return new Response(JSON.stringify({ success: true, data: proposals, proposals }), { headers: CORS_HEADERS });
+        } catch (err) {
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS_HEADERS });
+        }
+      }
+
+      // 3. POST or PUT /api/ci-kaizen (Inline edit & proposal submission)
+      if (url.pathname === "/api/ci-kaizen" && (request.method === "POST" || request.method === "PUT")) {
+        try {
+          const body = await request.json().catch(() => ({}));
+          const propId = body.id || body.code;
+          if (!propId) {
+            return new Response(JSON.stringify({ success: false, error: "Mã đề xuất không hợp lệ" }), { status: 400, headers: CORS_HEADERS });
+          }
+
+          if (db) {
+            const existing = await db.prepare("SELECT id, code FROM ci_kaizen_proposals WHERE id = ? OR code = ?").bind(propId, propId).first().catch(() => null);
+
+            const inputBeforeDesc = body.before_description !== undefined ? body.before_description : body.beforeDescription;
+            const inputAfterSol = body.after_solution !== undefined ? body.after_solution : body.afterSolution;
+            const finalTitle = body.title ? String(body.title).trim() : null;
+            const finalBeforeDesc = inputBeforeDesc !== undefined ? String(inputBeforeDesc).trim() : null;
+            const finalAfterSol = inputAfterSol !== undefined ? String(inputAfterSol).trim() : null;
+            const finalProductCode = String(body.product_code || body.productCode || '').trim();
+            const finalPairQty = Number(body.pair_quantity || body.pairQuantity || body.quantity || 0);
+            const finalTimeBefore = Number(body.time_before_seconds || body.timeBeforeSeconds || 0);
+            const finalTimeAfter = Number(body.time_after_seconds || body.timeAfterSeconds || 0);
+            const finalSavedSecs = Number(body.saved_seconds || body.savedSeconds || body.so_giay_tiet_kiem || Math.max(0, finalTimeBefore - finalTimeAfter) || 0);
+            const finalEffVnd = Number(body.efficiency_value_vnd || body.efficiencyValueVND || Math.round(finalSavedSecs * 12.5) || 0);
+            const finalCostBefore = Number(body.cost_before || body.costBefore || 0);
+            const finalCostAfter = Number(body.cost_after || body.costAfter || 0);
+            const finalTotalSavings = Number(body.total_savings_vnd || body.totalSavingsVnd || 0);
+
+            if (existing) {
+              await db.prepare(`
+                UPDATE ci_kaizen_proposals
+                SET title = COALESCE(?, title),
+                    category = COALESCE(?, category),
+                    category_label = COALESCE(?, category_label),
+                    region = COALESCE(?, region),
+                    factory = COALESCE(?, factory),
+                    department = COALESCE(?, department),
+                    line = COALESCE(?, line),
+                    product_code = COALESCE(?, product_code),
+                    pair_quantity = COALESCE(?, pair_quantity),
+                    quantity = COALESCE(?, quantity),
+                    before_description = CASE WHEN ? IS NOT NULL THEN ? ELSE before_description END,
+                    after_solution = CASE WHEN ? IS NOT NULL THEN ? ELSE after_solution END,
+                    time_before_seconds = COALESCE(?, time_before_seconds),
+                    time_after_seconds = COALESCE(?, time_after_seconds),
+                    saved_seconds = COALESCE(?, saved_seconds),
+                    so_giay_tiet_kiem = COALESCE(?, so_giay_tiet_kiem),
+                    efficiency_value_vnd = COALESCE(?, efficiency_value_vnd),
+                    total_savings_vnd = COALESCE(?, total_savings_vnd),
+                    cost_before = COALESCE(?, cost_before),
+                    cost_after = COALESCE(?, cost_after),
+                    before_image_url = COALESCE(?, before_image_url),
+                    after_image_url = COALESCE(?, after_image_url),
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ? OR code = ?
+              `).bind(
+                finalTitle,
+                body.category || null,
+                body.category_label || body.categoryLabel || null,
+                body.region || body.factory || null,
+                body.factory || body.region || null,
+                body.department || null,
+                body.line || null,
+                finalProductCode || null,
+                finalPairQty || null,
+                finalPairQty || null,
+                finalBeforeDesc,
+                finalBeforeDesc,
+                finalAfterSol,
+                finalAfterSol,
+                finalTimeBefore || null,
+                finalTimeAfter || null,
+                finalSavedSecs || null,
+                finalSavedSecs || null,
+                finalEffVnd || null,
+                finalTotalSavings || null,
+                finalCostBefore || null,
+                finalCostAfter || null,
+                body.before_image_url || body.beforeImageUrl || null,
+                body.after_image_url || body.afterImageUrl || null,
+                propId,
+                propId
+              ).run();
+            } else {
+              const newId = body.id || `kz_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+              const newCode = body.code || `KZ-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+              await db.prepare(`
+                INSERT INTO ci_kaizen_proposals (
+                  id, code, title, category, category_label, factory, region, department, line,
+                  proposer_name, proposer_emp_code, proposer_position, product_code, pair_quantity, quantity,
+                  before_description, after_solution, time_before_seconds, time_after_seconds, saved_seconds,
+                  so_giay_tiet_kiem, efficiency_value_vnd, total_savings_vnd, cost_before, cost_after,
+                  before_image_url, after_image_url, attachments_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              `).bind(
+                newId, newCode, finalTitle || 'Sáng kiến cải tiến Kaizen', body.category || 'PRODUCTIVITY',
+                body.category_label || '3.Tăng Năng suất', body.factory || 'VP CHUỖI', body.region || 'Văn phòng Chuỗi',
+                body.department || 'May', body.line || '', body.proposer_name || 'Người đề xuất', body.proposer_emp_code || '202608001',
+                body.proposer_position || 'Công nhân', finalProductCode, finalPairQty, finalPairQty,
+                finalBeforeDesc || '', finalAfterSol || '', finalTimeBefore, finalTimeAfter, finalSavedSecs,
+                finalSavedSecs, finalEffVnd, finalTotalSavings, finalCostBefore, finalCostAfter,
+                body.before_image_url || '', body.after_image_url || '', body.attachments_json || '[]'
+              ).run();
+            }
+          }
+          return new Response(JSON.stringify({ success: true, message: "Cập nhật đề xuất Kaizen thành công!" }), { headers: CORS_HEADERS });
+        } catch (err) {
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS_HEADERS });
+        }
+      }
+
+      // 4. DELETE /api/ci-kaizen
+      if (url.pathname === "/api/ci-kaizen" && request.method === "DELETE") {
+        try {
+          const id = url.searchParams.get("id");
+          if (db && id) {
+            await db.prepare("DELETE FROM ci_kaizen_proposals WHERE id = ? OR code = ?").bind(id, id).run();
+          }
+          return new Response(JSON.stringify({ success: true, message: "Đã xóa đề xuất thành công!" }), { headers: CORS_HEADERS });
+        } catch (err) {
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS_HEADERS });
+        }
+      }
+    }
+
+    // ============================================================
     // API ROUTE: /api/task-boards
     // ============================================================
     if (url.pathname === "/api/task-boards" || url.pathname.startsWith("/api/task-boards")) {

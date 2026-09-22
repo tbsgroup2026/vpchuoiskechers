@@ -20,6 +20,7 @@ import HRRecruitmentView from "@/modules/hr/components/HRRecruitmentView";
 import HRAttendancePayrollView from "@/modules/hr/components/HRAttendancePayrollView";
 import HRContractsView from "@/modules/hr/components/HRContractsView";
 import QualityModule from "@/modules/quality/QualityModule";
+import ProductionPerformanceModule from "@/modules/production/ProductionPerformanceModule";
 import RDModule from "@/modules/rd/RDModule";
 import CNCIWrapper from "@/modules/ci/CNCIWrapper";
 import { StrategicManagementContent } from "@/components/home/StrategicManagementDashboard";
@@ -834,6 +835,14 @@ export default function WorkDashboardPage({ initialDept }: { initialDept?: strin
       icon: IconBuildingFactory,
       hasData: true,
     },
+    {
+      id: "production-output",
+      num: "14",
+      name: "Sản Lượng Nhà Máy",
+      sub: "PPH, sản lượng theo giờ & hiệu suất từng Tổ/Chuyền",
+      icon: IconTrendingUp,
+      hasData: true,
+    },
   ];
 
   const toggleFullscreen = () => {
@@ -1010,6 +1019,28 @@ export default function WorkDashboardPage({ initialDept }: { initialDept?: strin
             normalizedCode.startsWith("QĐ");
 
           return isMaintenanceStaff || isQuanDocOrAbove;
+
+        case "production-output": {
+          // Sản Lượng Nhà Máy (PPH) — cùng quyền truy cập như Tổ hợp Nhà máy: Bảo trì MMTB & Quản đốc Xưởng trở lên
+          const isMaintenanceStaffOutput =
+            combinedRoles.includes("maintenance") ||
+            combinedRoles.includes("technician") ||
+            deptCode.includes("BAO_TRI") ||
+            deptCode.includes("MMTB") ||
+            deptName.includes("BẢO TRÌ") ||
+            deptName.includes("MÁY MÓC") ||
+            normalizedCode.startsWith("BT");
+
+          const isQuanDocOrAboveOutput =
+            isTP ||
+            combinedRoles.includes("factory_manager") ||
+            combinedRoles.includes("supervisor") ||
+            Boolean(activeUser?.title && activeUser.title.toUpperCase().includes("QUẢN ĐỐC")) ||
+            Boolean(sysUser?.title && sysUser.title.toUpperCase().includes("QUẢN ĐỐC")) ||
+            normalizedCode.startsWith("QĐ");
+
+          return isMaintenanceStaffOutput || isQuanDocOrAboveOutput;
+        }
 
         default:
           return false;
@@ -1558,7 +1589,7 @@ export default function WorkDashboardPage({ initialDept }: { initialDept?: strin
           {/* ════════════════════════════════════════════════════════════════
               DEPARTMENT HERO BANNER CARD (Screenshot 1 Layout)
              ════════════════════════════════════════════════════════════════ */}
-          {activeDeptObj && activeDeptObj.id !== "home" && activeDeptObj.id !== "overview" && activeDeptObj.id !== "my-tasks" && activeDeptObj.id !== "my_tasks" && activeDeptObj.id !== "finance" && activeDeptObj.id !== "rd" && activeDeptObj.id !== "hr" && activeDeptObj.id !== "ci" && (
+          {activeDeptObj && activeDeptObj.id !== "home" && activeDeptObj.id !== "overview" && activeDeptObj.id !== "my-tasks" && activeDeptObj.id !== "my_tasks" && activeDeptObj.id !== "finance" && activeDeptObj.id !== "rd" && activeDeptObj.id !== "hr" && activeDeptObj.id !== "ci" && activeDeptObj.id !== "production-output" && (
             <div className="relative w-full rounded-3xl overflow-hidden border border-slate-200/90 shadow-md flex-shrink-0 bg-slate-900 group">
               {/* Background Image with Dark Emerald Overlay */}
               <img
@@ -1652,7 +1683,7 @@ export default function WorkDashboardPage({ initialDept }: { initialDept?: strin
               <QualityModule onNavigateToApp={(url) => window.open(url, "_blank")} />
             </div>
           )}
-          {/* IF TH-NM (PHÒNG SẢN XUẤT) IS SELECTED */}
+          {/* IF TỔ HỢP NHÀ MÁY (ĐIỀU HÀNH CA & MÁY MÓC XƯỞNG) IS SELECTED */}
           {selectedDept === "production" && (
             <div className="space-y-4 my-auto">
               <div className="flex items-center justify-between">
@@ -1683,6 +1714,13 @@ export default function WorkDashboardPage({ initialDept }: { initialDept?: strin
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* IF SẢN LƯỢNG NHÀ MÁY (PPH / HIỆU SUẤT NHÀ MÁY) IS SELECTED */}
+          {selectedDept === "production-output" && (
+            <div className="space-y-4 my-auto">
+              <ProductionPerformanceModule />
             </div>
           )}
 

@@ -4,14 +4,15 @@ import { useEffect, useState } from 'react';
 import { IconPlus, IconPencil, IconTrash } from '@tabler/icons-react';
 import MaintenanceShell from '@/components/MaintenanceShell';
 import RefreshButton from '@/components/RefreshButton';
+import { readMaintenanceCache, writeMaintenanceCache } from '@/lib/maintenanceCache';
 
 type FailureCategory = { id: string; name: string; isOther: boolean; order: number; scopeCategoryId: string | null };
 
 // Danh mục hư — hiện ra khi nhân viên báo sự cố trên App Mobile Native. Mục có nhãn "Chung" dùng
 // CHUNG cho mọi nhà máy (chỉ xem ở đây) — mục bạn tự thêm chỉ áp dụng riêng cho Tổ hợp KG.
 export default function FailureCategoriesPage() {
-  const [categories, setCategories] = useState<FailureCategory[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [categories, setCategories] = useState<FailureCategory[]>(() => readMaintenanceCache<FailureCategory[]>('failure_categories') || []);
+  const [loading, setLoading] = useState(() => readMaintenanceCache<FailureCategory[]>('failure_categories') === null);
   const [error, setError] = useState<string | null>(null);
 
   const [showForm, setShowForm] = useState(false);
@@ -27,12 +28,14 @@ export default function FailureCategoriesPage() {
 
   const load = async (force = false) => {
     try {
-      force ? setRefreshing(true) : setLoading(true);
+      if (force) setRefreshing(true);
       setError(null);
       const res = await fetch(`/api/maintenance/failure-categories${force ? '?fresh=1' : ''}`);
       const result = await res.json();
-      if (result.success) setCategories(result.data || []);
-      else { console.warn('Failed to load failure-categories from tbsMayMoc:', result.error); setError(result.error || 'Không lấy được dữ liệu'); }
+      if (result.success) {
+        setCategories(result.data || []);
+        writeMaintenanceCache('failure_categories', result.data || []);
+      } else { console.warn('Failed to load failure-categories from tbsMayMoc:', result.error); setError(result.error || 'Không lấy được dữ liệu'); }
     } catch (err) {
       console.warn('Failed to fetch failure-categories from tbsMayMoc:', err);
     } finally {
@@ -121,9 +124,6 @@ export default function FailureCategoriesPage() {
           </div>
           <div className="flex items-center gap-2">
             <RefreshButton onClick={() => load(true)} loading={refreshing} />
-            <button onClick={openCreateForm} className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-tbs-dark text-white text-xs font-bold hover:opacity-90">
-              <IconPlus size={15} /> Thêm Danh Mục
-            </button>
           </div>
         </div>
 
@@ -145,16 +145,6 @@ export default function FailureCategoriesPage() {
                       {c.isOther && <span className="px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded text-[10px] font-bold">Khác (nhập tự do)</span>}
                     </div>
                   </div>
-                  {!shared && (
-                    <div className="flex items-center gap-1.5">
-                      <button onClick={() => openEditForm(c)} title="Sửa" className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100">
-                        <IconPencil size={14} />
-                      </button>
-                      <button onClick={() => handleDelete(c)} disabled={deletingId === c.id} title="Xoá" className="p-1.5 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100 disabled:opacity-40">
-                        <IconTrash size={14} />
-                      </button>
-                    </div>
-                  )}
                 </div>
               );
             })}

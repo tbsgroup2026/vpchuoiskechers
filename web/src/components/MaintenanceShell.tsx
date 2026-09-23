@@ -281,82 +281,16 @@ function MaintenanceShellInner({
 
       {/* MAIN CONTENT WRAPPER */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Top Header Bar */}
-        <header className="bg-white border-b border-slate-200/80 px-4 sm:px-6 py-3 sticky top-0 z-20 flex flex-col gap-3 shadow-2xs">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <Link href="/work" className="lg:hidden flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-[#006838]">
-                <IconArrowLeft size={16} />
-                <span>Tổng quan</span>
-              </Link>
-              <div className="hidden lg:block">
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">MMTB Management</span>
-                  <span className="text-slate-300">•</span>
-                  <h1 className="text-sm font-bold text-slate-900 leading-none">{title}</h1>
-                </div>
-                {subtitle && <p className="text-xs text-slate-500 font-medium mt-1">{subtitle}</p>}
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-50 text-slate-700 border border-slate-200 text-xs font-medium">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span>Hệ thống vận hành bình thường</span>
-              </span>
-
-              <div className="flex items-center gap-2 border-l border-slate-200 pl-3">
-                <UserAvatar src={currentUser.avatar} name={currentUser.name} size="sm" />
-                <div className="hidden md:block text-left">
-                  <div className="text-xs font-bold text-slate-900 leading-none">{currentUser.name}</div>
-                  <div className="text-[10px] text-slate-500 font-medium mt-0.5">{getUserDisplayBadgeTitle(currentUser)}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* SCOPE TAB BAR / SEGMENTED CONTROL (Mục 3 Yêu Cầu UI) */}
-          <div className="pt-2 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none max-w-full">
-              {SCOPE_KEYS.map((scopeKey) => {
-                const scopeMeta = EQUIPMENT_SCOPES[scopeKey];
-                const isAllowed = canAccessScope(scopeKey);
-                const isActive = activeScope === scopeKey;
-
-                if (!isAllowed) {
-                  return null; // Không hiển thị tab user không có quyền (Mục 3)
-                }
-
-                return (
-                  <button
-                    key={scopeKey}
-                    onClick={() => handleSelectScope(scopeKey)}
-                    className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 border flex-shrink-0 cursor-pointer ${
-                      isActive
-                        ? 'bg-[#006838] text-white border-[#006838] shadow-md shadow-emerald-950/10 scale-[1.02]'
-                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-900'
-                    }`}
-                  >
-                    <span>{scopeMeta.icon}</span>
-                    <span>{scopeMeta.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Active Scope Status Indicator */}
-            <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200/80 self-start sm:self-auto flex-shrink-0">
-              <span className="text-[11px] uppercase tracking-wider text-slate-400 font-bold">Đang xem:</span>
-              <span className="flex items-center gap-1.5 text-slate-900 font-extrabold">
-                <span>{currentScopeMeta.icon}</span>
-                <span>{currentScopeMeta.label.toUpperCase()}</span>
-              </span>
-            </div>
-          </div>
-        </header>
+        {/* Mobile-only back link (header bar removed per yêu cầu) */}
+        <div className="lg:hidden bg-white border-b border-slate-200/80 px-4 py-3 sticky top-0 z-20">
+          <Link href="/work" className="flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-[#006838]">
+            <IconArrowLeft size={16} />
+            <span>Tổng quan</span>
+          </Link>
+        </div>
 
         {/* Content Body */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-7 space-y-6 max-w-7xl w-full mx-auto">{children}</main>
+        <main className="flex-1 p-4 sm:p-6 lg:p-7 space-y-6 w-full">{children}</main>
       </div>
     </div>
   );

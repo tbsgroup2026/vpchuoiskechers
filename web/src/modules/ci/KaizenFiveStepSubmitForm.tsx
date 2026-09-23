@@ -67,6 +67,10 @@ export default function KaizenFiveStepSubmitForm({ onSuccessClose, onCancel }: K
   
   // Request ID để xử lý race condition
   const lookupRequestIdRef = React.useRef(0);
+  // Đánh dấu người dùng đã TỰ TAY sửa ô Tên sau lần tự điền gần nhất — nếu true, kết quả tra cứu
+  // MSNV (đến trễ do debounce) sẽ KHÔNG được đè lên tên đã sửa tay nữa. Reset về false mỗi khi
+  // MSNV đổi (bắt đầu 1 lượt tra cứu mới, cho phép tự điền lại bình thường).
+  const nameManuallyEditedRef = React.useRef(false);
 
   // 5-Step Form State
   const [form, setForm] = useState({
@@ -130,6 +134,8 @@ export default function KaizenFiveStepSubmitForm({ onSuccessClose, onCancel }: K
       return;
     }
     isInitialMount.current = false;
+    // MSNV vừa đổi — bắt đầu 1 lượt tra cứu mới, cho phép tự điền tên lại từ đầu.
+    nameManuallyEditedRef.current = false;
 
     setLookupLoading(true);
     setNotFoundMsg(null);
@@ -154,7 +160,9 @@ export default function KaizenFiveStepSubmitForm({ onSuccessClose, onCancel }: K
           const normalizedWs = normalizeWorkshopName(normalizedFac, emp.workshop_id);
           setForm((prev) => ({
             ...prev,
-            proposerName: emp.name || prev.proposerName,
+            // Không đè tên nếu người dùng đã tự tay sửa ô Tên sau lần tự điền gần nhất (tránh kết
+            // quả tra cứu đến trễ ghi đè mất tên họ vừa sửa tay).
+            proposerName: nameManuallyEditedRef.current ? prev.proposerName : (emp.name || prev.proposerName),
             proposerPosition: emp.vtcv || emp.position || prev.proposerPosition,
             factory: normalizedFac,
             department: normalizedWs,
@@ -651,7 +659,10 @@ export default function KaizenFiveStepSubmitForm({ onSuccessClose, onCancel }: K
                       type="text"
                       required
                       value={form.proposerName}
-                      onChange={(e) => setForm({ ...form, proposerName: e.target.value })}
+                      onChange={(e) => {
+                        nameManuallyEditedRef.current = true;
+                        setForm({ ...form, proposerName: e.target.value });
+                      }}
                       placeholder="VD: Nguyễn Văn Trãi"
                       className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838] focus:ring-1 focus:ring-[#006838]"
                     />

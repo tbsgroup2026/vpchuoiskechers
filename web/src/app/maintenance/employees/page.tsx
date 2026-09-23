@@ -6,6 +6,10 @@ import { IconPlus, IconPencil, IconTrash, IconUsers, IconFileSpreadsheet } from 
 import MaintenanceShell from '@/components/MaintenanceShell';
 import FilterSelect from '@/components/FilterSelect';
 import RefreshButton from '@/components/RefreshButton';
+import Pagination from '@/components/Pagination';
+import { readMaintenanceCache, writeMaintenanceCache } from '@/lib/maintenanceCache';
+
+const PAGE_SIZE = 50;
 import { logPasswordChangeEvent, logDocumentDownloadEvent } from '@/lib/webhookAuditClient';
 
 type CategoryOption = { id: string; name: string; parentId: string | null };
@@ -65,10 +69,10 @@ function normLoose(s: unknown): string {
 // Nhân Sự — Thêm/Sửa/Xoá tài khoản đăng nhập App Mobile Native THẬT của nhân viên KG. Không tạo/
 // sửa được tài khoản Quản trị (ADMIN) — tbsMayMoc chặn ở server, chỉ Admin toàn quyền làm được.
 export default function EmployeesPage() {
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [factories, setFactories] = useState<CategoryOption[]>([]);
-  const [areas, setAreas] = useState<CategoryOption[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [employees, setEmployees] = useState<Employee[]>(() => readMaintenanceCache<Employee[]>('employees') || []);
+  const [factories, setFactories] = useState<CategoryOption[]>(() => readMaintenanceCache<CategoryOption[]>('employees_factories') || []);
+  const [areas, setAreas] = useState<CategoryOption[]>(() => readMaintenanceCache<CategoryOption[]>('employees_areas') || []);
+  const [loading, setLoading] = useState(() => readMaintenanceCache<Employee[]>('employees') === null);
   const [error, setError] = useState<string | null>(null);
 
   const [search, setSearch] = useState('');
@@ -95,7 +99,7 @@ export default function EmployeesPage() {
 
   const load = async (force = false) => {
     try {
-      force ? setRefreshing(true) : setLoading(true);
+      if (force) setRefreshing(true);
       setError(null);
       const fresh = force ? '&fresh=1' : '';
       const settled = await Promise.allSettled([
@@ -104,10 +108,18 @@ export default function EmployeesPage() {
         fetch(`/api/maintenance/categories?type=AREA${fresh}`).then((r) => r.json()),
       ]);
       const [empRes, facRes, areaRes] = settled.map((s) => (s.status === 'fulfilled' ? s.value : { success: false, error: String(s.reason) }));
-      if (empRes.success) setEmployees(empRes.data || []);
-      else { console.warn('Failed to load employees from tbsMayMoc:', empRes.error); setError(empRes.error || 'Không lấy được dữ liệu'); }
-      if (facRes.success) setFactories(facRes.data || []);
-      if (areaRes.success) setAreas(areaRes.data || []);
+      if (empRes.success) {
+        setEmployees(empRes.data || []);
+        writeMaintenanceCache('employees', empRes.data || []);
+      } else { console.warn('Failed to load employees from tbsMayMoc:', empRes.error); setError(empRes.error || 'Không lấy được dữ liệu'); }
+      if (facRes.success) {
+        setFactories(facRes.data || []);
+        writeMaintenanceCache('employees_factories', facRes.data || []);
+      }
+      if (areaRes.success) {
+        setAreas(areaRes.data || []);
+        writeMaintenanceCache('employees_areas', areaRes.data || []);
+      }
     } catch (err) {
       console.warn('Failed to fetch employees from tbsMayMoc:', err);
     } finally {
@@ -136,6 +148,12 @@ export default function EmployeesPage() {
       return matchesQ && matchesFactory && matchesArea && matchesRole;
     });
   }, [employees, search, filterFactoryId, filterAreaId, filterRole]);
+
+  const [page, setPage] = useState(1);
+  useEffect(() => {
+    setPage(1);
+  }, [search, filterFactoryId, filterAreaId, filterRole]);
+  const pageItems = useMemo(() => filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [filtered, page]);
 
   function openCreateForm() {
     setEditingId(null);
@@ -390,19 +408,6 @@ export default function EmployeesPage() {
           </div>
           <div className="flex items-center gap-2">
             <RefreshButton onClick={() => load(true)} loading={refreshing} />
-            <button onClick={openCreateForm} className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-tbs-dark text-white text-xs font-bold hover:opacity-90">
-              <IconPlus size={15} /> Thêm Nhân Viên
-            </button>
-            <input ref={importInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportFileChange} />
-            <button
-              onClick={() => importInputRef.current?.click()}
-              className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700"
-            >
-              <IconFileSpreadsheet size={15} /> Nhập Excel
-            </button>
-            <button onClick={handleDownloadTemplate} className="px-3 py-2.5 text-[11px] font-bold text-blue-600 hover:underline">
-              Tải mẫu
-            </button>
             <button
               onClick={handleExport}
               disabled={filtered.length === 0}
@@ -460,7 +465,7 @@ export default function EmployeesPage() {
             <tbody className="divide-y divide-gray-100 text-xs text-gray-700 whitespace-nowrap">
               {loading && <tr><td className="p-4 text-gray-400" colSpan={8}>Đang tải...</td></tr>}
               {!loading && filtered.length === 0 && <tr><td className="p-4 text-gray-400" colSpan={8}>Không có nhân viên nào</td></tr>}
-              {filtered.map((e) => (
+              {pageItems.map((e) => (
                 <tr key={e.id} className="hover:bg-gray-50/80 transition">
                   <td className="p-4 font-mono font-bold text-accent">{e.employeeCode}</td>
                   <td className="p-4 font-semibold text-tbs-dark">{e.name}</td>
@@ -470,28 +475,13 @@ export default function EmployeesPage() {
                   <td className="p-4">{e.area?.name ?? '-'}</td>
                   <td className="p-4">{e.isTeamLead ? '✓' : '-'}</td>
                   <td className="p-4 text-center">
-                    {e.role === 'ADMIN' ? (
-                      <span className="text-gray-300">—</span>
-                    ) : (
-                      <div className="flex items-center justify-center gap-1.5">
-                        <button onClick={() => openEditForm(e)} title="Sửa" className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100">
-                          <IconPencil size={14} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(e)}
-                          disabled={deletingId === e.id}
-                          title="Xoá"
-                          className="p-1.5 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100 disabled:opacity-40"
-                        >
-                          <IconTrash size={14} />
-                        </button>
-                      </div>
-                    )}
+                    <span className="text-gray-300">—</span>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          <Pagination page={page} totalItems={filtered.length} pageSize={PAGE_SIZE} onPageChange={setPage} />
         </div>
       </div>
 

@@ -7,6 +7,10 @@ import { IconDeviceLaptop, IconCircleCheck, IconCircleDashed, IconAlertTriangle,
 import MaintenanceShell from '@/components/MaintenanceShell';
 import FilterSelect from '@/components/FilterSelect';
 import RefreshButton from '@/components/RefreshButton';
+import Pagination from '@/components/Pagination';
+import { readMaintenanceCache, writeMaintenanceCache } from '@/lib/maintenanceCache';
+
+const PAGE_SIZE = 50;
 
 type CategoryOption = { id: string; name: string; parentId: string | null };
 
@@ -158,9 +162,13 @@ function normLoose(s: unknown): string {
 }
 
 export default function MachinesPage() {
-  const [machines, setMachines] = useState<Machine[]>([]);
-  const [filterOptions, setFilterOptions] = useState<FilterOptions>(EMPTY_FILTERS);
-  const [loading, setLoading] = useState(true);
+  const [machines, setMachines] = useState<Machine[]>(() => readMaintenanceCache<Machine[]>('machines') || []);
+  const [filterOptions, setFilterOptions] = useState<FilterOptions>(() => readMaintenanceCache<FilterOptions>('machines_filters') || EMPTY_FILTERS);
+  const [loading, setLoading] = useState(() => readMaintenanceCache<Machine[]>('machines') === null);
+  // "Kiểm Kê" — mã máy đã xuất hiện trong nhật ký kiểm kê ít nhất 1 lần (xem /api/maintenance/
+  // inventory-log) — chỉ tính là "Máy đã kiểm kê", khớp đúng cách trang Danh Sách MMTB thật đang
+  // tính (chỉ hiện/đếm máy đã kiểm kê, không phải toàn bộ máy trong hệ thống).
+  const [verifiedCodes, setVerifiedCodes] = useState<Set<string>>(() => new Set(readMaintenanceCache<string[]>('machines_verified') || []));
   const [error, setError] = useState<string | null>(null);
   const [selectedQR, setSelectedQR] = useState<string | null>(null);
   const [qrImageUrl, setQrImageUrl] = useState<string | null>(null);
@@ -211,7 +219,9 @@ export default function MachinesPage() {
   // đúng dữ liệu mới nhất từ tbsMayMoc ngay lập tức.
   const load = async (force = false) => {
     try {
-      force ? setRefreshing(true) : setLoading(true);
+      // KHÔNG bật lại setLoading(true) khi KHÔNG force — nếu đã có cache (loading khởi tạo=false),
+      // giữ nguyên dữ liệu cũ hiện ngay, chỉ âm thầm tải mới ở nền (tránh che mất cache vừa hiện).
+      if (force) setRefreshing(true);
       setError(null);
       const fresh = force ? '&fresh=1' : '';
       // Máy móc (nặng, ~2500 máy) gọi riêng khỏi 6 danh mục lọc — và 6 danh mục lọc để TRÌNH
@@ -230,28 +240,37 @@ export default function MachinesPage() {
         fetch(`/api/maintenance/categories?type=TEAM${fresh}`).then((r) => r.json()),
         fetch(`/api/maintenance/categories?type=MACHINE_TYPE${fresh}`).then((r) => r.json()),
         fetch(`/api/maintenance/categories?type=MACHINE_STATUS${fresh}`).then((r) => r.json()),
+        fetch(`/api/maintenance/inventory-log${force ? '?fresh=1' : ''}`).then((r) => r.json()),
       ]);
       const asResult = (s: PromiseSettledResult<any>) =>
         s.status === 'fulfilled' ? s.value : { success: false, error: String(s.reason) };
-      const [machinesRes, factoriesRes, areasRes, linesRes, teamsRes, typesRes, statusesRes] = settled.map(asResult);
+      const [machinesRes, factoriesRes, areasRes, linesRes, teamsRes, typesRes, statusesRes, inventoryLogRes] = settled.map(asResult);
       if (machinesRes.success && Array.isArray(machinesRes.data)) {
         setMachines(machinesRes.data);
+        writeMaintenanceCache('machines', machinesRes.data);
       } else {
-        setMachines([]);
         console.warn('Failed to load machines from tbsMayMoc:', machinesRes.error);
         setError(machinesRes.error || 'Không lấy được dữ liệu');
       }
-      setFilterOptions({
+      if (inventoryLogRes.success && Array.isArray(inventoryLogRes.rows)) {
+        const codes = new Set<string>(inventoryLogRes.rows.map((r: any) => r.machine?.code).filter(Boolean));
+        setVerifiedCodes(codes);
+        writeMaintenanceCache('machines_verified', [...codes]);
+      } else {
+        console.warn('Failed to load inventory-log from tbsMayMoc:', inventoryLogRes.error);
+      }
+      const nextFilterOptions: FilterOptions = {
         factories: factoriesRes.success && Array.isArray(factoriesRes.data) ? factoriesRes.data : [],
         areas: areasRes.success && Array.isArray(areasRes.data) ? areasRes.data : [],
         productionLines: linesRes.success && Array.isArray(linesRes.data) ? linesRes.data : [],
         teams: teamsRes.success && Array.isArray(teamsRes.data) ? teamsRes.data : [],
         machineTypes: typesRes.success && Array.isArray(typesRes.data) ? typesRes.data : [],
         statuses: statusesRes.success && Array.isArray(statusesRes.data) ? statusesRes.data : [],
-      });
+      };
+      setFilterOptions(nextFilterOptions);
+      writeMaintenanceCache('machines_filters', nextFilterOptions);
     } catch (err) {
       console.warn('Failed to fetch machines from tbsMayMoc:', err);
-      setMachines([]);
     } finally {
       force ? setRefreshing(false) : setLoading(false);
     }
@@ -262,15 +281,22 @@ export default function MachinesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Chỉ tính "Máy đã kiểm kê" (đã xuất hiện ≥1 lần trong nhật ký Kiểm Kê) — khớp đúng cách trang
+  // Danh Sách MMTB thật đang lọc (không hiện toàn bộ máy trong hệ thống, chỉ hiện máy đã kiểm kê).
+  const verifiedMachines = useMemo(
+    () => machines.filter((m) => verifiedCodes.has(m.code)),
+    [machines, verifiedCodes]
+  );
+
   // Danh sách TÊN máy khác nhau (không trùng) — dùng cho ô lọc "Tất cả tên máy", giống hệt bộ lọc
   // bên trang Máy móc tbsMayMoc, suy ra thẳng từ danh sách máy đã tải, không cần gọi API riêng.
   const machineNameOptions = useMemo(() => {
-    return Array.from(new Set(machines.map((m) => m.name))).sort((a, b) => a.localeCompare(b, 'vi'));
-  }, [machines]);
+    return Array.from(new Set(verifiedMachines.map((m) => m.name))).sort((a, b) => a.localeCompare(b, 'vi'));
+  }, [verifiedMachines]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return machines.filter((m) => {
+    return verifiedMachines.filter((m) => {
       const matchesSearch =
         !q ||
         m.code.toLowerCase().includes(q) ||
@@ -296,7 +322,7 @@ export default function MachinesPage() {
       );
     });
   }, [
-    machines,
+    verifiedMachines,
     search,
     filterMachineName,
     filterFactoryId,
@@ -307,21 +333,31 @@ export default function MachinesPage() {
     filterMachineTypeId,
   ]);
 
+  // Phân trang 50/trang — 4489+ máy render thẳng 1 bảng rất nặng/khó cuộn, cắt trang cho nhẹ.
+  const [page, setPage] = useState(1);
+  useEffect(() => {
+    setPage(1);
+  }, [search, filterMachineName, filterFactoryId, filterAreaId, filterLineId, filterTeamId, filterStatusId, filterMachineTypeId]);
+  const pageItems = useMemo(
+    () => filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [filtered, page]
+  );
+
   // 5 ô tổng quan (giống hàng đầu trang Tổng quan bên tbsMayMoc) — tính theo ĐÚNG danh sách đang
   // lọc/tìm kiếm ở trên (không phải luôn toàn bộ), để khớp đúng số liệu đang hiển thị trong bảng.
   const statusStats = useMemo(() => {
-    let suDung = 0;
-    let chuaSuDung = 0;
-    let khongSuDung = 0;
+    let dangSuDung = 0;
+    let dangDuPhong = 0;
+    let dangHong = 0;
     let deNghiThanhLy = 0;
     for (const m of filtered) {
       const key = normalizeStatus(m.statusName);
-      if (key === 'su dung') suDung++;
-      else if (key === 'chua su dung') chuaSuDung++;
-      else if (key === 'khong su dung') khongSuDung++;
+      if (key === 'dang su dung') dangSuDung++;
+      else if (key === 'dang du phong') dangDuPhong++;
+      else if (key === 'dang hong') dangHong++;
       else if (key === 'de nghi thanh ly') deNghiThanhLy++;
     }
-    return { total: filtered.length, suDung, chuaSuDung, khongSuDung, deNghiThanhLy };
+    return { total: filtered.length, dangSuDung, dangDuPhong, dangHong, deNghiThanhLy };
   }, [filtered]);
 
   function handleExport() {
@@ -576,35 +612,10 @@ export default function MachinesPage() {
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-lg font-bold text-slate-900 tracking-tight">Danh Sách Máy Móc Thiết Bị</h1>
-            <p className="text-xs text-slate-500 font-medium mt-0.5">{filtered.length} thiết bị khả dụng trong hệ thống</p>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">{filtered.length} thiết bị đã kiểm kê trong hệ thống</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <RefreshButton onClick={() => load(true)} loading={refreshing} />
-            <button
-              onClick={openCreateForm}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#006838] text-white text-xs font-bold hover:bg-[#004d28] transition shadow-2xs cursor-pointer"
-            >
-              <IconPlus size={15} /> Thêm Máy
-            </button>
-            <input
-              ref={importInputRef}
-              type="file"
-              accept=".xlsx,.xls"
-              className="hidden"
-              onChange={handleImportFileChange}
-            />
-            <button
-              onClick={() => importInputRef.current?.click()}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition shadow-2xs cursor-pointer"
-            >
-              <IconFileSpreadsheet size={15} /> Nhập Excel
-            </button>
-            <button
-              onClick={handleDownloadTemplate}
-              className="px-2.5 py-2 text-xs font-semibold text-blue-600 hover:underline cursor-pointer"
-            >
-              Tải mẫu
-            </button>
             <button
               onClick={handleExport}
               disabled={filtered.length === 0}
@@ -618,11 +629,11 @@ export default function MachinesPage() {
         {/* Status Summary Ribbon */}
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           {[
-            { label: 'Tổng số MMTB', value: statusStats.total, icon: IconDeviceLaptop, border: 'border-blue-200', text: 'text-blue-700', bg: 'bg-blue-50/60' },
-            { label: 'Đang sử dụng', value: statusStats.suDung, icon: IconCircleCheck, border: 'border-emerald-200', text: 'text-emerald-700', bg: 'bg-emerald-50/60' },
-            { label: 'Chưa sử dụng', value: statusStats.chuaSuDung, icon: IconCircleDashed, border: 'border-slate-200', text: 'text-slate-600', bg: 'bg-slate-50' },
-            { label: 'Không sử dụng', value: statusStats.khongSuDung, icon: IconAlertTriangle, border: 'border-amber-200', text: 'text-amber-700', bg: 'bg-amber-50/60' },
-            { label: 'Đề nghị thanh lý', value: statusStats.deNghiThanhLy, icon: IconTrash, border: 'border-rose-200', text: 'text-rose-700', bg: 'bg-rose-50/60' },
+            { label: 'Máy đã kiểm kê', value: statusStats.total, icon: IconDeviceLaptop, border: 'border-blue-200', text: 'text-blue-700', bg: 'bg-blue-50/60' },
+            { label: 'Đang sử dụng', value: statusStats.dangSuDung, icon: IconCircleCheck, border: 'border-emerald-200', text: 'text-emerald-700', bg: 'bg-emerald-50/60' },
+            { label: 'Đang Dự phòng', value: statusStats.dangDuPhong, icon: IconCircleDashed, border: 'border-slate-200', text: 'text-slate-600', bg: 'bg-slate-50' },
+            { label: 'Đang Hỏng', value: statusStats.dangHong, icon: IconAlertTriangle, border: 'border-rose-200', text: 'text-rose-700', bg: 'bg-rose-50/60' },
+            { label: 'Đề nghị Thanh Lý', value: statusStats.deNghiThanhLy, icon: IconTrash, border: 'border-amber-200', text: 'text-amber-700', bg: 'bg-amber-50/60' },
           ].map((c) => (
             <div key={c.label} className={`bg-white rounded-xl border ${c.border} p-3.5 shadow-2xs`}>
               <div className="flex items-center justify-between mb-2">
@@ -749,7 +760,7 @@ export default function MachinesPage() {
                   </td>
                 </tr>
               )}
-              {filtered.map((m) => (
+              {pageItems.map((m) => (
                 <tr key={m.id} className="hover:bg-slate-50/90 transition-colors">
                   <td className="p-3 font-mono font-bold text-[#006838]">
                     <button onClick={() => setDrawerMachine(m)} className="hover:underline text-left cursor-pointer">
@@ -786,27 +797,13 @@ export default function MachinesPage() {
                       >
                         QR
                       </button>
-                      <button
-                        onClick={() => openEditForm(m)}
-                        title="Sửa"
-                        className="p-1.5 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-100 cursor-pointer"
-                      >
-                        <IconPencil size={14} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(m)}
-                        disabled={deletingId === m.id}
-                        title="Xoá"
-                        className="p-1.5 bg-rose-50 text-rose-600 border border-rose-200 rounded-lg hover:bg-rose-100 disabled:opacity-40 cursor-pointer"
-                      >
-                        <IconTrash size={14} />
-                      </button>
                     </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          <Pagination page={page} totalItems={filtered.length} pageSize={PAGE_SIZE} onPageChange={setPage} />
         </div>
 
         {/* Slide-over Drawer cho Hồ Sơ Máy */}
@@ -889,18 +886,6 @@ export default function MachinesPage() {
                 >
                   Mã QR
                 </button>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => {
-                      const m = drawerMachine;
-                      setDrawerMachine(null);
-                      openEditForm(m);
-                    }}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 cursor-pointer"
-                  >
-                    <IconPencil size={14} /> Chỉnh sửa
-                  </button>
-                </div>
               </div>
             </div>
           </div>

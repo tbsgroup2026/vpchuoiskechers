@@ -274,6 +274,1808 @@ async function ensureWorkerTables(db) {
     }
   } catch (e) {}
 }
+const SECURE_JSON_HEADERS = {
+  "Content-Type": "application/json; charset=utf-8",
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization"
+};
+
+function pphJson(payload, status, extraHeaders) {
+  return new Response(JSON.stringify(payload), {
+    status: status || 200,
+    headers: { ...SECURE_JSON_HEADERS, "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0", ...(extraHeaders || {}) },
+  });
+}
+
+// ---- Cache đọc cho MMTB — lưu tạm kết quả các lệnh GET (danh sách máy/danh mục/sự cố...) vào D1
+// RIÊNG của thkiengiangshoes (bảng pph_cache, không đụng gì tới D1 tbsMayMoc) trong vài phút, để
+// không phải gọi sang tbsMayMoc lại mỗi lần tải trang (nguồn gốc chậm/chập chờn trước đây — xem
+// commit "Fix machines/filters 500"). Nút "Làm mới dữ liệu" ở mỗi trang gửi kèm ?fresh=1 để bỏ
+// qua cache, luôn lấy dữ liệu mới nhất khi cần. KHÔNG dùng cho lệnh ghi (POST/PUT/DELETE) — tbsMayMoc
+// vẫn là nơi lưu dữ liệu thật DUY NHẤT, đây chỉ là cache đọc tạm thời phía thkiengiangshoes.
+// 20 giây (trước đây 300 = 5 phút) — rút ngắn theo yêu cầu "chuyển trang mượt mà, luôn thấy dữ
+// liệu mới" ở các trang MMTB hay dùng (Tổng Quan/Danh Sách MMTB/Nhu Cầu Sửa Chữa/Bảo Dưỡng
+// MMTB/Thống Kê). Vẫn giữ nguyên cơ chế cache (không bỏ hẳn) để chặn gọi dồn dập sang tbsMayMoc
+// nếu nhiều người bấm qua lại nhanh — chỉ đổi mốc "coi là mới" ngắn lại. Ước tính khối lượng dùng
+// thật (nhóm nhỏ tài khoản Admin, thao tác theo nhịp người) vẫn an toàn ở mức này — xem thêm
+// __pphRefreshInFlight bên dưới (chặn 2 request cùng lúc cùng làm mới 1 key, dù TTL ngắn).
+const PPH_CACHE_TTL_SECONDS = 20;
+
+let __pphCacheSchemaMigratedOnce = false;
+
+async function pphCacheEnsureTable(env) {
+  if (__pphCacheSchemaMigratedOnce) return;
+  __pphCacheSchemaMigratedOnce = true;
+  await env.DB.prepare(
+    "CREATE TABLE IF NOT EXISTS pph_cache (cache_key TEXT PRIMARY KEY, value TEXT NOT NULL, expires_at INTEGER NOT NULL)",
+  )
+    .run()
+    .catch(() => {});
+}
+
+// Cache còn "tươi" tối đa 5 phút (PPH_CACHE_TTL_SECONDS) rồi mới coi là hết hạn thật sự — nhưng
+// vẫn GIỮ LẠI dữ liệu thêm 1 khoảng "ân hạn" (đến khi hết STALE_GRACE) để phục vụ NGAY LẬP TỨC
+// (không bắt người dùng chờ gọi lại tbsMayMoc), đồng thời âm thầm làm mới ở nền — kiểu
+// "stale-while-revalidate". Qua khỏi mốc ân hạn (không ai vào trang suốt thời gian đó) mới coi
+// như không có cache, bắt buộc chờ tải mới để tránh hiện dữ liệu quá cũ.
+const PPH_CACHE_STALE_GRACE_SECONDS = PPH_CACHE_TTL_SECONDS * 6; // 30 phút
+
+async function pphCacheGetWithStaleInfo(env, key) {
+  if (!env.DB) return null;
+  try {
+    await pphCacheEnsureTable(env);
+    const row = await env.DB.prepare("SELECT value, expires_at FROM pph_cache WHERE cache_key = ?").bind(key).first();
+    if (!row) return null;
+    const now = Date.now();
+    const hardCutoff = row.expires_at + (PPH_CACHE_STALE_GRACE_SECONDS - PPH_CACHE_TTL_SECONDS) * 1000;
+    if (now > hardCutoff) return null;
+    return { value: JSON.parse(row.value), stale: now > row.expires_at };
+  } catch {
+    return null;
+  }
+}
+
+// Chặn nhiều request cùng lúc (trong lúc đang ở "ân hạn") đều tự kích làm mới nền cho CÙNG 1
+// cacheKey — chỉ giữ theo từng isolate Worker (không phải khoá toàn cục), nhưng đủ dùng vì mục
+// đích chỉ là giảm bớt số lần gọi trùng sang tbsMayMoc, không phải yêu cầu chính xác tuyệt đối.
+const __pphRefreshInFlight = new Set();
+
+async function pphRefreshCacheInBackground(env, cacheKey, buildFn) {
+  if (__pphRefreshInFlight.has(cacheKey)) return;
+  __pphRefreshInFlight.add(cacheKey);
+  try {
+    const { status: _status, ...result } = await buildFn();
+    if (result && result.success) await pphCacheSet(env, cacheKey, result, PPH_CACHE_TTL_SECONDS);
+  } catch (err) {
+    console.error(`pphRefreshCacheInBackground(${cacheKey}) failed:`, err);
+  } finally {
+    __pphRefreshInFlight.delete(cacheKey);
+  }
+}
+
+// Xoá cache sau khi ghi thành công (thêm/sửa/xoá) — để người vừa thao tác thấy kết quả ngay ở lần
+// đọc tiếp theo, không phải đợi hết 5 phút TTL. `keyPrefix` xoá TẤT CẢ cache_key bắt đầu bằng
+// chuỗi đó (dùng cho /categories vì cache theo từng loại type riêng, VD "categories:AREA:").
+async function pphCacheInvalidate(env, keyOrPrefix) {
+  if (!env.DB) return;
+  try {
+    await pphCacheEnsureTable(env);
+    await env.DB.prepare("DELETE FROM pph_cache WHERE cache_key = ? OR cache_key LIKE ?")
+      .bind(keyOrPrefix, `${keyOrPrefix}%`)
+      .run();
+  } catch {
+    // Không xoá được cache thì chấp nhận đợi hết TTL tự nhiên — không chặn thao tác ghi.
+  }
+}
+
+async function pphCacheSet(env, key, value, ttlSeconds) {
+  if (!env.DB) return;
+  try {
+    await pphCacheEnsureTable(env);
+    const expiresAt = Date.now() + (ttlSeconds || PPH_CACHE_TTL_SECONDS) * 1000;
+    await env.DB.prepare(
+      "INSERT INTO pph_cache (cache_key, value, expires_at) VALUES (?, ?, ?) ON CONFLICT(cache_key) DO UPDATE SET value = excluded.value, expires_at = excluded.expires_at",
+    )
+      .bind(key, JSON.stringify(value), expiresAt)
+      .run();
+  } catch {
+    // Cache lỗi thì bỏ qua — vẫn trả dữ liệu thật cho người dùng bình thường, không chặn gì cả.
+  }
+}
+
+// Bọc 1 payload JSON (đã build xong, dạng { success, data, ... }) qua cache đọc — dùng thay cho
+// pphJson() ở các route GET danh sách. `forceRefresh` (từ ?fresh=1) bỏ qua cache đang có, luôn
+// tính lại mới rồi ghi đè cache.
+async function pphCachedJson(env, cacheKey, forceRefresh, buildFn, ctx) {
+  if (!forceRefresh) {
+    const cached = await pphCacheGetWithStaleInfo(env, cacheKey);
+    if (cached) {
+      // Dữ liệu đã qua 5 phút (stale) nhưng còn trong 30 phút ân hạn — trả NGAY cho người dùng
+      // (không đợi gọi lại tbsMayMoc), tự âm thầm làm mới ở nền qua waitUntil() để lần vào TIẾP
+      // THEO đã có dữ liệu mới, người dùng không bao giờ cảm nhận được độ trễ này.
+      if (cached.stale && ctx && typeof ctx.waitUntil === "function") {
+        ctx.waitUntil(pphRefreshCacheInBackground(env, cacheKey, buildFn));
+      }
+      return pphJson({ ...cached.value, cached: true, stale: cached.stale });
+    }
+  }
+  // buildFn trả { success, data/..., status? } — status chỉ dùng để set mã HTTP, không lưu vào cache.
+  // try/catch Ở ĐÂY (không phải bên trong từng buildFn riêng lẻ) — trước đây chỉ 2/11 route GET
+  // (machines, tickets) tự bọc try/catch bên trong; 9 route còn lại (categories, failure-
+  // categories, schedule, logs, proposals, response-time, overview-report, employees,
+  // announcements) không có, nên hễ mmtbCall() ném lỗi (VD tbsMayMoc quá chậm trong lúc mạng
+  // Cloudflare chập chờn, vượt giới hạn CPU/thời gian chạy của Worker) là lỗi bay thẳng lên tới
+  // fetch() ở cuối file, trả về "System Error: ..." dạng CHỮ THƯỜNG (không phải JSON) với mã 500.
+  // Frontend gọi .json() trên response đó ném SyntaxError — Promise.all() ở các trang gọi nhiều
+  // API song song (VD machines/page.tsx gọi máy + 6 loại danh mục cùng lúc) sẽ REJECT TOÀN BỘ chỉ
+  // vì 1 API lỗi, xoá sạch luôn dữ liệu của các API khác đã tải thành công (đúng hiện tượng "0
+  // tổng số MMTB" dù chỉ 1 vài API bị 500). Bọc try/catch chung ở đây đảm bảo MỌI route GET luôn
+  // trả JSON hợp lệ dù tbsMayMoc lỗi/timeout, không còn kiểu 500 dạng chữ thường nữa.
+  let status, result;
+  try {
+    ({ status, ...result } = await buildFn());
+  } catch (err) {
+    console.error(`pphCachedJson(${cacheKey}) buildFn threw:`, err);
+    result = { success: false, error: (err && err.message) || "Không lấy được dữ liệu từ tbsMayMoc" };
+    status = 502;
+  }
+  if (result && result.success) await pphCacheSet(env, cacheKey, result, PPH_CACHE_TTL_SECONDS);
+  return pphJson(result, result.success ? 200 : status || 502);
+}
+
+const PPH_SLOTS = ["08:00", "08:30", "09:30", "10:30", "11:30", "13:30", "14:30", "15:30", "16:30"];
+// PPH_SLOTS (9 mốc, 8 khung số lượng thật sau khi bỏ "08:00") = đúng 8 giờ làm việc chuẩn (nghỉ
+// trưa 11:30-13:30 không tính giờ làm). "Thời gian sản xuất" (Tổ tự khai khi Cập nhật đầu ca) có
+// thể dài hơn 8 (ca tăng ca, VD 11 hay 13) — buildPphSlots() SINH THÊM khung số lượng nối tiếp
+// sau 16:30 (17:30, 18:30...), mỗi giờ tăng ca thêm đúng 1 khung, để Mục tiêu/giờ + luật nhập theo
+// giờ (pphResolveStatus) áp dụng đúng cho toàn bộ số giờ ca THẬT, không còn cố định 8.
+function buildPphSlots(productionHours) {
+  const hours = Number(productionHours);
+  const extraHours = Number.isFinite(hours) && hours > 8 ? Math.round(hours - 8) : 0;
+  if (extraHours <= 0) return PPH_SLOTS;
+  const extra = [];
+  // Tăng ca bắt đầu từ 18:00 TRÒN GIỜ (không nối tiếp 17:30/18:30... từ 16:30) — giữa ca chính
+  // (hết 16:30) và ca tăng ca có khoảng nghỉ ăn tối 16:30-18:00 không tính khung sản lượng.
+  let mins = pphSlotMinutes("17:00");
+  for (let i = 0; i < extraHours; i++) {
+    mins += 60;
+    extra.push(pphMinutesToLabel(mins));
+  }
+  return [...PPH_SLOTS, ...extra];
+}
+
+// Chạy CREATE TABLE/ALTER TABLE 1 LẦN DUY NHẤT cho mỗi Worker isolate (không phải mỗi request!) —
+// giống hệt lý do & cách làm của __schemaMigratedOnce ở ensureDatabaseColumnsAndLegacyCode() phía
+// trên. Hàm này TRƯỚC ĐÂY chạy lại trên MỌI request PPH (scan-info, scan, dashboard, tree...),
+// tốn 1 round-trip D1 thừa mỗi lần, gây độ trễ chập chờn khó lường — đúng hiện tượng "quét lại vẫn
+// xoay load chập chờn" người dùng báo cáo.
+let __pphSchemaMigratedOnce = false;
+
+async function pphEnsureTable(env) {
+  if (__pphSchemaMigratedOnce) return;
+  __pphSchemaMigratedOnce = true;
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS pph_entries (
+      id TEXT PRIMARY KEY,
+      team_id TEXT NOT NULL,
+      entry_date TEXT NOT NULL,
+      slot TEXT NOT NULL,
+      worker_count INTEGER,
+      model TEXT,
+      planned_qty INTEGER,
+      actual_qty INTEGER,
+      submitted_by TEXT,
+      submitted_at TEXT NOT NULL,
+      UNIQUE(team_id, entry_date, slot)
+    )
+  `).run().catch(() => {});
+  // Mục tiêu RFT (%) — nhập 1 lần cùng lúc cập nhật đầu ca (dòng slot='08:00'), giống worker_count/
+  // model/planned_qty. ALTER riêng vì bảng có thể đã tồn tại từ trước lúc thêm cột này.
+  await env.DB.prepare("ALTER TABLE pph_entries ADD COLUMN target_rft REAL").run().catch(() => {});
+  // Khi số lượng làm được THẤP HƠN mục tiêu/giờ (kế hoạch cả ngày chia đều 8 khung) — bắt buộc
+  // giải trình lý do + hướng khắc phục ngay tại thời điểm nộp, để không bị trôi qua mà không ai
+  // biết vì sao hụt chỉ tiêu giờ đó.
+  await env.DB.prepare("ALTER TABLE pph_entries ADD COLUMN shortfall_reason TEXT").run().catch(() => {});
+  await env.DB.prepare("ALTER TABLE pph_entries ADD COLUMN shortfall_solution TEXT").run().catch(() => {});
+  // Thời gian sản xuất (giờ, VD 8/11/13) — nhập 1 lần cùng lúc cập nhật đầu ca (dòng slot='08:00'),
+  // giống target_rft. Dùng để suy Mục tiêu/giờ (planned_qty / số khung số lượng thật, xem
+  // buildPphSlots) thay vì chia cứng 8 như trước — ca dài hơn 8 giờ (tăng ca) thì tự sinh thêm
+  // khung số lượng sau 16:30 (17:30, 18:30...), xem buildPphSlots().
+  await env.DB.prepare("ALTER TABLE pph_entries ADD COLUMN production_hours REAL").run().catch(() => {});
+}
+
+// "Ràng buộc thời gian" — giờ MỞ/ĐÓNG của từng khung trong 9 khung PPH_SLOTS, DÙNG CHUNG cho toàn
+// hệ thống (không phải riêng từng điểm quét). Giờ MỞ (startTime) giờ đây LÀ MỐC THẬT dùng để chặn
+// nộp sớm trong pphResolveStatus() (đọc qua pphOpenMinutesBySlot()) — admin chỉnh ở đây thì đúng là
+// đổi giờ được phép nhập thật, không còn chỉ để trang trí. Giờ ĐÓNG (endTime) vẫn CHỈ dùng để tắt
+// đồng hồ đếm ngược ở trang quét — KHÔNG khoá cứng việc nộp trễ, vì luật "bắt kịp" (cho nhập bù
+// khung sớm nhất còn thiếu dù đã quá giờ đóng từ lâu) vẫn giữ nguyên như trước, không đổi. Bảng để
+// TRỐNG là bình thường — GET trả về đủ 9 khung bằng cách tự suy ra giờ mặc định
+// (pphDefaultSlotWindow) cho khung nào chưa có dòng riêng.
+let __pphSlotWindowSchemaMigratedOnce = false;
+async function pphSlotWindowEnsureTable(env) {
+  if (__pphSlotWindowSchemaMigratedOnce) return;
+  __pphSlotWindowSchemaMigratedOnce = true;
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS pph_slot_windows (
+      slot TEXT PRIMARY KEY,
+      start_time TEXT NOT NULL,
+      end_time TEXT NOT NULL
+    )
+  `).run().catch(() => {});
+}
+
+// Giờ mặc định ban đầu (chưa admin chỉnh gì) — khung "08:00" (đầu ca) là NGOẠI LỆ: cửa sổ kết thúc
+// ĐÚNG lúc slot đó (chuẩn bị xong TRƯỚC khi ca chạy), lùi lại 30 phút làm giờ mở. Các khung số
+// lượng còn lại: mở đúng giờ của khung, đóng sau đúng 1 tiếng (khung kế tiếp có giờ riêng, không
+// nhất thiết nối liền — admin tự chỉnh lại ở trang "Ràng buộc thời gian" nếu cần khác đi, VD khung
+// 11:30 đụng giờ nghỉ trưa).
+function pphDefaultSlotWindow(slot) {
+  const mins = pphSlotMinutes(slot);
+  if (slot === "08:00") {
+    return { startTime: pphMinutesToLabel(mins - 30), endTime: slot };
+  }
+  return { startTime: slot, endTime: pphMinutesToLabel(mins + 60) };
+}
+
+function pphMinutesToLabel(mins) {
+  const wrapped = ((mins % 1440) + 1440) % 1440;
+  const h = Math.floor(wrapped / 60);
+  const m = wrapped % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+// Trả về đủ 9 khung {slot, startTime, endTime} — ưu tiên giá trị admin đã chỉnh (bảng
+// pph_slot_windows), khung nào chưa chỉnh thì dùng mặc định (pphDefaultSlotWindow).
+async function pphGetAllSlotWindows(env) {
+  await pphSlotWindowEnsureTable(env);
+  let rows = [];
+  try {
+    const r = await env.DB.prepare("SELECT slot, start_time, end_time FROM pph_slot_windows").all();
+    rows = r.results || [];
+  } catch {}
+  const bySlot = new Map(rows.map((r) => [r.slot, r]));
+  return PPH_SLOTS.map((slot) => {
+    const row = bySlot.get(slot);
+    const fallback = pphDefaultSlotWindow(slot);
+    return {
+      slot,
+      startTime: row ? row.start_time : fallback.startTime,
+      endTime: row ? row.end_time : fallback.endTime,
+    };
+  });
+}
+
+// Map slot -> phút-trong-ngày của giờ MỞ (startTime) đã cấu hình — dùng làm mốc chặn nộp sớm THẬT
+// trong pphResolveStatus() (thay cho công thức cố định "giờ khung - 10 phút" trước đây). Gọi 1 lần
+// rồi truyền map xuống, tránh mỗi lần resolve lại phải đọc D1.
+async function pphOpenMinutesBySlot(env) {
+  const windows = await pphGetAllSlotWindows(env);
+  return new Map(windows.map((w) => [w.slot, pphSlotMinutes(w.startTime)]));
+}
+
+// Giờ Việt Nam (UTC+7, không lệch DST) — Worker chạy theo UTC, cộng thủ công 7 tiếng rồi ĐỌC BẰNG
+// các hàm getUTC* của kết quả (không phải getHours thật) để không phụ thuộc timezone của runtime.
+function pphNowVN() {
+  return new Date(Date.now() + 7 * 60 * 60 * 1000);
+}
+function pphTodayStr() {
+  return pphNowVN().toISOString().slice(0, 10);
+}
+function pphNowMinutes() {
+  const n = pphNowVN();
+  return n.getUTCHours() * 60 + n.getUTCMinutes();
+}
+function pphSlotMinutes(s) {
+  const [h, m] = s.split(":").map(Number);
+  return h * 60 + m;
+}
+
+// setupDone=false → luôn yêu cầu làm khung 08:00 trước (bất kể đang mấy giờ — "lần quét đầu tiên
+// trong ngày" theo đúng yêu cầu, không nhất thiết đúng 8:00 nếu ai đó quét trễ).
+// setupDone=true → tìm khung SỐ LƯỢNG sớm nhất đã tới giờ MỞ (đọc từ openMinutesBySlot — cấu hình ở
+// trang "Ràng buộc thời gian", KHÔNG còn công thức cố định "-10 phút") mà CHƯA nhập — cho "bắt kịp"
+// nếu bỏ lỡ khung trước đó. Nếu mọi khung đã tới giờ đều xong, báo khung TIẾP THEO sắp tới; nếu hết
+// cả 8 khung, báo "done".
+// 🚧 CÔNG TẮC DEMO TẠM THỜI — bật (true) = BỎ QUA hẳn giới hạn "chưa tới giờ", cho phép nhập số
+// lượng ở BẤT KỲ khung giờ nào ngay lập tức (dùng để demo cho sếp xem, không phải đợi đúng giờ
+// thật). Áp dụng CHO TOÀN BỘ hệ thống (mọi Nhà máy/Xưởng/Chuyền/Tổ).
+// ĐÃ TẮT LẠI (false) — khôi phục đúng luật giờ giấc thật: quét mã lúc mấy giờ thì chỉ nhập được
+// đúng khung giờ đó (theo giờ MỞ admin cấu hình ở "Ràng buộc thời gian", mặc định = đúng giờ khung
+// nếu admin chưa chỉnh gì), ví dụ quét lúc 13:30 thì vào đúng khung 13:30 (không phải khung khác);
+// qua giờ mà chưa nhập vẫn cho "bắt kịp" ở khung sớm nhất còn thiếu.
+const PPH_DEMO_SKIP_TIME_GATE = false;
+
+// Giờ MỞ (phút-trong-ngày) của 1 khung — ưu tiên admin đã cấu hình (openMinutesBySlot, chỉ phủ
+// đúng 9 khung PPH_SLOTS gốc), khung nào không có (VD khung tăng ca tự sinh 17:30, 18:30... —
+// admin không cấu hình riêng được) thì tự suy mặc định = đúng giờ khung (pphDefaultSlotWindow).
+function pphOpenMinutesFor(slot, openMinutesBySlot) {
+  const configured = openMinutesBySlot.get(slot);
+  if (configured != null) return configured;
+  return pphSlotMinutes(pphDefaultSlotWindow(slot).startTime);
+}
+
+function pphResolveStatus(setupDone, filledSlots, openMinutesBySlot, slots) {
+  if (!setupDone) return { nextAction: "setup", targetSlot: "08:00" };
+  const nowMin = pphNowMinutes();
+  const qSlots = (slots || PPH_SLOTS).slice(1);
+  for (const s of qSlots) {
+    if ((PPH_DEMO_SKIP_TIME_GATE || nowMin >= pphOpenMinutesFor(s, openMinutesBySlot)) && !filledSlots.has(s)) {
+      return { nextAction: "quantity", targetSlot: s };
+    }
+  }
+  const next = qSlots.find((s) => pphOpenMinutesFor(s, openMinutesBySlot) > nowMin);
+  if (next) return { nextAction: "wait", targetSlot: null, nextSlot: next };
+  return { nextAction: "done", targetSlot: null };
+}
+
+// Cây Nhà máy > Xưởng > Chuyền > Tổ RIÊNG cho module PPH — lúc đầu định dùng chung danh mục MMTB
+// bên tbsMayMoc, nhưng kiểm tra thực tế mới phát hiện tbsMayMoc CHƯA có dữ liệu ở cấp TEAM (Tổ) —
+// cấp "Chuyền" (PRODUCTION_LINE) bên đó đang được đặt tên kiểu "TỔ 25" nhưng vẫn chỉ dừng ở 3 cấp
+// thật sự (Nhà máy>Khu vực>Chuyền), không có cấp Tổ độc lập. Theo yêu cầu người dùng, cây tổ chức
+// cho PPH giờ hoàn toàn RIÊNG, tự quản lý (thêm/sửa/xoá) ngay trong D1 của thkiengiangshoes, không
+// gọi sang tbsMayMoc nữa.
+// Độ sâu KHÔNG cố định theo Nhà máy — mỗi Xưởng dừng ở đúng cấp sâu nhất có dữ liệu thật: có
+// Xưởng không chia gì thêm (VD "Đầu vào" — điểm quét QR ngay ở Xưởng), có Xưởng chỉ chia Chuyền
+// (VD "Gò" — điểm quét ở Chuyền, không có Tổ bên dưới), có Xưởng nhảy thẳng xuống Tổ bỏ qua
+// Chuyền (VD "May" — điểm quét ở Tổ, KHÔNG có Chuyền ở giữa). Vì vậy TEAM được phép có cha là
+// AREA (gắn thẳng dưới Xưởng) HOẶC LINE (gắn dưới Chuyền, cho nhánh nào thật sự cần đủ 4 cấp).
+const PPH_ORG_TYPES = ["FACTORY", "AREA", "LINE", "TEAM"];
+const PPH_ORG_ALLOWED_PARENT_TYPES = { AREA: ["FACTORY"], LINE: ["AREA"], TEAM: ["AREA", "LINE"] };
+
+let __pphOrgSchemaMigratedOnce = false;
+
+async function pphOrgEnsureTable(env) {
+  if (__pphOrgSchemaMigratedOnce) return;
+  __pphOrgSchemaMigratedOnce = true;
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS pph_org (
+      id TEXT PRIMARY KEY,
+      type TEXT NOT NULL,
+      name TEXT NOT NULL,
+      parent_id TEXT,
+      order_num INTEGER DEFAULT 0,
+      created_at TEXT NOT NULL
+    )
+  `).run().catch(() => {});
+  // Ảnh sản phẩm (URL Cloudinary) gắn CỐ ĐỊNH theo từng điểm quét (Tổ/Chuyền-lá/Xưởng-lá) — Admin
+  // tải lên ở Cài Đặt, hiện thay chỗ "Mã hàng" trên thẻ Tổ (trước đây chỉ có mã hàng dạng chữ vì
+  // hệ thống chưa có ảnh theo mã hàng, xem TeamPanel).
+  await env.DB.prepare("ALTER TABLE pph_org ADD COLUMN image_url TEXT").run().catch(() => {});
+  // Tạm ngưng sản xuất (VD Chuyền hết đơn hàng, chưa có hàng để chạy) — Admin bật/tắt ở Cài Đặt
+  // (PUT /api/pph/org/:id {paused:true/false}). Điểm quét đang paused KHÔNG còn bị tính "missing"
+  // trên dashboard nữa (không chớp đỏ, không nhắc giọng đọc trên TV) — xem entryStatus ở GET
+  // /dashboard — vẫn hiện thẻ bình thường (đổi nhãn "Tạm ngưng sản xuất" thay số liệu trống), để
+  // phân biệt "quên nhập" (thật sự có vấn đề) với "chuyền nghỉ" (không có gì bất thường).
+  await env.DB.prepare("ALTER TABLE pph_org ADD COLUMN paused INTEGER NOT NULL DEFAULT 0").run().catch(() => {});
+}
+
+// Dựng cây Nhà máy > Xưởng > (Chuyền > Tổ) HOẶC (Tổ thẳng) từ bảng pph_org. Mỗi Xưởng có CẢ hai
+// mảng `lines` (Chuyền, có thể chứa Tổ con) và `teams` (Tổ gắn THẲNG dưới Xưởng, bỏ qua Chuyền) —
+// FE tự quyết định hiển thị mảng nào tuỳ nhánh có dữ liệu.
+async function pphBuildTree(env) {
+  await pphOrgEnsureTable(env);
+  const { results } = await env.DB.prepare("SELECT * FROM pph_org ORDER BY order_num ASC, created_at ASC").all();
+  const rows = results || [];
+  const factories = rows.filter((r) => r.type === "FACTORY").map((f) => ({ id: f.id, name: f.name, areas: [] }));
+  const factoryById = new Map(factories.map((f) => [f.id, f]));
+  const areas = rows.filter((r) => r.type === "AREA").map((a) => ({ id: a.id, name: a.name, factoryId: a.parent_id, imageUrl: a.image_url || null, paused: !!a.paused, lines: [], teams: [] }));
+  const areaById = new Map(areas.map((a) => [a.id, a]));
+  for (const a of areas) {
+    const f = factoryById.get(a.factoryId);
+    if (f) f.areas.push(a);
+  }
+  const lines = rows.filter((r) => r.type === "LINE").map((l) => ({ id: l.id, name: l.name, areaId: l.parent_id, imageUrl: l.image_url || null, paused: !!l.paused, teams: [] }));
+  const lineById = new Map(lines.map((l) => [l.id, l]));
+  for (const l of lines) {
+    const a = areaById.get(l.areaId);
+    if (a) a.lines.push(l);
+  }
+  for (const t of rows.filter((r) => r.type === "TEAM")) {
+    const line = lineById.get(t.parent_id);
+    if (line) {
+      line.teams.push({ id: t.id, name: t.name, imageUrl: t.image_url || null, paused: !!t.paused });
+      continue;
+    }
+    const area = areaById.get(t.parent_id);
+    if (area) area.teams.push({ id: t.id, name: t.name, imageUrl: t.image_url || null, paused: !!t.paused });
+  }
+  return factories;
+}
+
+// Liệt kê TẤT CẢ điểm quét (lá của cây) trong 1 Nhà máy đã dựng qua pphBuildTree() — đúng y hệt
+// logic quyết định QrChip ở đâu bên PphSettingsView.tsx (Xưởng trống hẳn / Tổ thẳng dưới Xưởng /
+// Chuyền không có Tổ con / Tổ dưới Chuyền) — dùng cho dashboard thật (KHÔNG còn "Chuyền 1..9" giả
+// định cứng nữa, hiện đúng tên thật + đúng số lượng điểm quét của từng Nhà máy).
+function pphCollectFactoryLeaves(factory) {
+  const leaves = [];
+  for (const a of factory.areas) {
+    // areaId/areaName: Xưởng chứa điểm quét — dashboard gộp theo Xưởng (PX MAY / PX GÒ...).
+    // Xưởng-là-lá (VD "Đầu vào" không chia gì) tự nó là điểm quét, areaId = chính nó.
+    const isLeafArea = (a.lines || []).length === 0 && (a.teams || []).length === 0;
+    if (isLeafArea) {
+      leaves.push({ id: a.id, name: a.name, path: factory.name, areaId: a.id, areaName: a.name, imageUrl: a.imageUrl || null, paused: !!a.paused });
+      continue;
+    }
+    for (const t of a.teams || []) {
+      leaves.push({ id: t.id, name: t.name, path: `${factory.name} › ${a.name}`, areaId: a.id, areaName: a.name, imageUrl: t.imageUrl || null, paused: !!t.paused });
+    }
+    for (const l of a.lines || []) {
+      if ((l.teams || []).length === 0) {
+        leaves.push({ id: l.id, name: l.name, path: `${factory.name} › ${a.name}`, areaId: a.id, areaName: a.name, imageUrl: l.imageUrl || null, paused: !!l.paused });
+      } else {
+        for (const t of l.teams) {
+          leaves.push({ id: t.id, name: t.name, path: `${factory.name} › ${a.name} › ${l.name}`, areaId: a.id, areaName: a.name, imageUrl: t.imageUrl || null, paused: !!t.paused });
+        }
+      }
+    }
+  }
+  return leaves;
+}
+
+// Tra 1 nút BẤT KỲ (Xưởng/Chuyền/Tổ đều có thể là điểm quét QR — tuỳ nhánh dừng ở cấp nào) và đi
+// ngược lên tới Nhà máy — dùng cho trang quét QR (không cần tải cả cây). ancestors KHÔNG bao gồm
+// chính node đang tra, nên area/line/factory luôn là TỔ TIÊN thật, không bị trùng với chính nó.
+async function pphFindNodeChain(env, nodeId) {
+  await pphOrgEnsureTable(env);
+  const node = await env.DB.prepare("SELECT * FROM pph_org WHERE id = ?").bind(nodeId).first();
+  if (!node) return null;
+  const ancestors = [];
+  let parentId = node.parent_id;
+  while (parentId) {
+    const parent = await env.DB.prepare("SELECT * FROM pph_org WHERE id = ?").bind(parentId).first();
+    if (!parent) break;
+    ancestors.push(parent);
+    parentId = parent.parent_id;
+  }
+  const factory = ancestors.find((a) => a.type === "FACTORY") || null;
+  const area = ancestors.find((a) => a.type === "AREA") || null;
+  const line = ancestors.find((a) => a.type === "LINE") || null;
+  return {
+    node: { id: node.id, name: node.name, type: node.type },
+    factory: factory ? { id: factory.id, name: factory.name } : null,
+    area: area ? { id: area.id, name: area.name } : null,
+    line: line ? { id: line.id, name: line.name } : null,
+  };
+}
+
+// ============ Nhóm nguyên nhân khi hụt chỉ tiêu/giờ (khung 5M1E) — DANH MỤC CHỈNH ĐƯỢC ở Cài Đặt ==========
+// 2 cấp: nhóm chính (parent_id = NULL) › nhóm phụ (parent_id = id nhóm chính). Ô "Khác (nhập tự do)"
+// KHÔNG lưu trong bảng — FE lẫn BE luôn TỰ thêm ở cuối mọi danh sách (sentinel id = "__other__"),
+// admin không xoá/sửa được nó (tránh làm hỏng đường nhập tự do). Seed lần đầu đúng khung người dùng
+// đã chốt; các lần sau admin tự chỉnh (thêm/sửa/xoá/sắp xếp cả nhóm chính lẫn nhóm phụ).
+const PPH_CAUSE_OTHER_ID = "__other__";
+const PPH_SHORTFALL_CAUSE_SEED = [
+  { name: "Con người", subs: ["Thiếu người", "Kỹ năng", "Năng suất con người"] },
+  { name: "Máy móc", subs: ["Hư máy", "Dừng máy", "Máy chạy chậm"] },
+  { name: "Nguyên vật liệu", subs: ["Thiếu liệu", "Liệu lỗi", "Cấp liệu chậm"] },
+  { name: "Phương pháp", subs: ["Thắt cổ chai (Bottleneck)", "Cân bằng chuyền", "Chuyển đổi mã hàng", "Thao tác"] },
+  { name: "Đo lường", subs: ["Mục tiêu sai", "Dữ liệu sai", "IE-SMV (Thời gian chuẩn)"] },
+];
+
+function pphNewId(prefix) {
+  return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+let __pphCauseSchemaMigratedOnce = false;
+async function pphCauseEnsureTable(env) {
+  if (__pphCauseSchemaMigratedOnce) return;
+  __pphCauseSchemaMigratedOnce = true;
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS pph_shortfall_causes (
+      id TEXT PRIMARY KEY,
+      parent_id TEXT,
+      name TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0
+    )
+  `).run().catch(() => {});
+  // Phân loại nguyên nhân hụt chỉ tiêu, LƯU KÈM tên nhóm tại thời điểm nhập (denormalized — không
+  // hỏng khi admin đổi tên/xoá nhóm về sau). ALTER rời vì bảng pph_entries có thể đã tồn tại từ trước.
+  await env.DB.prepare("ALTER TABLE pph_entries ADD COLUMN shortfall_cause_group TEXT").run().catch(() => {});
+  await env.DB.prepare("ALTER TABLE pph_entries ADD COLUMN shortfall_cause_sub TEXT").run().catch(() => {});
+  // Số lỗi (sản phẩm hỏng/lỗi) của TỪNG khung số lượng — bắt buộc nhập kèm actual_qty ở form quét,
+  // dùng tính "% Quality" theo công thức RFT (Right First Time) = (actual_qty - error_count) /
+  // actual_qty — CỘNG DỒN cả ngày cho khớp cách mọi số khác trên thẻ Tổ đang cộng dồn (SLTH, % Đạt,
+  // PPH TH). NULL cho các dòng đã nhập TRƯỚC khi có cột này (không bịa lỗi=0 cho dữ liệu cũ).
+  await env.DB.prepare("ALTER TABLE pph_entries ADD COLUMN error_count INTEGER").run().catch(() => {});
+  // Seed CHỈ khi bảng danh mục còn rỗng (lần chạy đầu tiên) — không seed đè lên chỉnh sửa của admin.
+  try {
+    const c = await env.DB.prepare("SELECT COUNT(*) AS c FROM pph_shortfall_causes").first();
+    if (!c || !c.c) {
+      let go = 0;
+      for (const g of PPH_SHORTFALL_CAUSE_SEED) {
+        const gid = pphNewId("pphcause");
+        await env.DB.prepare("INSERT INTO pph_shortfall_causes (id, parent_id, name, sort_order) VALUES (?, NULL, ?, ?)").bind(gid, g.name, go++).run();
+        let so = 0;
+        for (const s of g.subs) {
+          await env.DB.prepare("INSERT INTO pph_shortfall_causes (id, parent_id, name, sort_order) VALUES (?, ?, ?, ?)").bind(pphNewId("pphcause"), gid, s, so++).run();
+        }
+      }
+    }
+  } catch {}
+}
+
+// Trả về danh mục dạng cây: [{ id, name, subs: [{ id, name }] }] — đã sắp theo sort_order.
+async function pphGetShortfallCauses(env) {
+  await pphCauseEnsureTable(env);
+  let rows = [];
+  try {
+    const r = await env.DB.prepare("SELECT id, parent_id, name, sort_order FROM pph_shortfall_causes ORDER BY sort_order ASC, name ASC").all();
+    rows = r.results || [];
+  } catch {}
+  const groups = rows.filter((r) => !r.parent_id).map((g) => ({ id: g.id, name: g.name, subs: [] }));
+  const byId = new Map(groups.map((g) => [g.id, g]));
+  for (const r of rows.filter((r) => r.parent_id)) {
+    const g = byId.get(r.parent_id);
+    if (g) g.subs.push({ id: r.id, name: r.name });
+  }
+  return groups;
+}
+
+// ============ Dashboard "Hiệu suất nhà máy" — cấu hình LINE + cấu hình hiển thị NHÀ MÁY ============
+// LINE = nhóm hiển thị các điểm quét (Tổ/Chuyền) trong 1 Xưởng, admin GÁN TAY ở trang Cài Đặt
+// (VD Xưởng May 25 tổ -> 5 line, mỗi line 5 tổ). Chỉ phục vụ dashboard, KHÔNG đụng cây QR.
+let __pphBoardSchemaMigratedOnce = false;
+async function pphBoardEnsureTable(env) {
+  if (__pphBoardSchemaMigratedOnce) return;
+  __pphBoardSchemaMigratedOnce = true;
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS pph_dashboard_lines (
+      id TEXT PRIMARY KEY,
+      area_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0
+    )
+  `).run().catch(() => {});
+  // 1 điểm quét (leaf) thuộc TỐI ĐA 1 line — leaf_id là khoá chính.
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS pph_line_members (
+      leaf_id TEXT PRIMARY KEY,
+      line_id TEXT NOT NULL
+    )
+  `).run().catch(() => {});
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS pph_factory_config (
+      factory_id TEXT PRIMARY KEY,
+      target_pph_pct REAL,
+      title TEXT,
+      gddh TEXT,
+      qlcl TEXT,
+      th TEXT,
+      updated_at TEXT
+    )
+  `).run().catch(() => {});
+  // Link TV rút gọn — mỗi lineId GẮN CỐ ĐỊNH 1 mã ngắn (get-or-create, xem pphGetOrCreateTvShortLink),
+  // /tv/<mã> redirect sang /pph-view?lineId=... thật (route ở handleRequest, ngoài handlePph vì không
+  // có tiền tố /api/pph) — KHÔNG thay thế link dài cũ, link dài vẫn hoạt động bình thường song song.
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS pph_tv_short_links (
+      code TEXT PRIMARY KEY,
+      line_id TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )
+  `).run().catch(() => {});
+  await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_pph_tv_short_links_line_id ON pph_tv_short_links(line_id)").run().catch(() => {});
+  // "line_id" giờ là tên CŨ (giữ nguyên, tránh phải đổi tên cột) nhưng thật ra là ID chung — có thể
+  // là 1 Line HOẶC 1 Nhà máy (target_type phân biệt) — thêm để hỗ trợ "link TV cấp Nhà máy" (giống
+  // hệt link TV cấp Line đã có). Cột cũ trước khi có target_type mặc định 'line' — khớp đúng mọi mã
+  // đã tạo trước đây (toàn bộ đều là Line).
+  await env.DB.prepare("ALTER TABLE pph_tv_short_links ADD COLUMN target_type TEXT NOT NULL DEFAULT 'line'").run().catch(() => {});
+  // Chiếu ảnh/video xen kẽ theo khung giờ ở TV cấp Line (thay hẳn dashboard trong khung giờ đó, tự
+  // quay lại khi hết giờ) — target_line_ids: "ALL" (mọi Line) hoặc JSON array các DashLine.id áp
+  // dụng riêng. start_time/end_time dạng "HH:MM", lặp lại MỌI NGÀY (không có cột ngày cụ thể — xem
+  // yêu cầu người dùng, chỉ cần khung giờ cố định). File ảnh/video tải lên Cloudinary có sẵn của dự
+  // án (xem uploadCloudinaryFile ở FE) — bảng này CHỈ lưu link, không lưu file.
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS pph_tv_media_slots (
+      id TEXT PRIMARY KEY,
+      media_url TEXT NOT NULL,
+      media_type TEXT NOT NULL,
+      start_time TEXT NOT NULL,
+      end_time TEXT NOT NULL,
+      target_line_ids TEXT NOT NULL,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `).run().catch(() => {});
+}
+
+// Ký tự an toàn cho mã ngắn — bỏ 0/1/o/i/l (dễ nhầm khi đọc/gõ tay lại trên máy chiếu TV).
+const PPH_SHORT_CODE_CHARS = "23456789abcdefghjkmnpqrstuvwxyz";
+function pphNewShortCode(len) {
+  len = len || 5;
+  let s = "";
+  for (let i = 0; i < len; i++) s += PPH_SHORT_CODE_CHARS[Math.floor(Math.random() * PPH_SHORT_CODE_CHARS.length)];
+  return s;
+}
+// 1 targetId (Line hoặc Nhà máy) luôn ra ĐÚNG 1 mã cố định dù gọi lại bao nhiêu lần (tra trước khi
+// tạo mới) — khớp đúng nguyên tắc "1 Line 1 mã" đã áp dụng cho chính lineId (DashLine.id) từ trước,
+// mở rộng thêm targetType ('line' | 'factory') để route redirect biết trả về đúng dạng URL nào.
+async function pphGetOrCreateTvShortLink(env, targetId, targetType) {
+  await pphBoardEnsureTable(env);
+  const type = targetType === "factory" ? "factory" : targetType === "workshop" ? "workshop" : "line";
+  const existing = await env.DB.prepare("SELECT code FROM pph_tv_short_links WHERE line_id = ? AND target_type = ?").bind(targetId, type).first();
+  if (existing && existing.code) return existing.code;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const code = pphNewShortCode(5);
+    try {
+      await env.DB.prepare("INSERT INTO pph_tv_short_links (code, line_id, target_type, created_at) VALUES (?, ?, ?, ?)")
+        .bind(code, targetId, type, new Date().toISOString())
+        .run();
+      return code;
+    } catch {
+      // Trùng mã (hiếm) — vòng lặp tự thử mã khác.
+    }
+  }
+  throw new Error("Không tạo được mã ngắn — thử lại");
+}
+async function pphResolveTvShortLink(env, code) {
+  await pphBoardEnsureTable(env);
+  const row = await env.DB.prepare("SELECT line_id, target_type FROM pph_tv_short_links WHERE code = ?").bind(code).first();
+  if (!row) return null;
+  return {
+    targetId: row.line_id,
+    targetType: row.target_type === "factory" ? "factory" : row.target_type === "workshop" ? "workshop" : "line",
+  };
+}
+
+// ============ Ảnh theo MÃ MODEL (mã giày) — Admin tự quản lý (thêm/sửa/xoá) ở trang Cài Đặt riêng
+// (PphShoeModelsView.tsx), ƯU TIÊN hơn ảnh thủ công gắn theo điểm quét (pph_org.image_url) khi Tổ
+// hôm đó khai đúng 1 Model KHỚP 1 mã trong bảng này lúc "Cập nhật đầu ca" (field model tự do, không
+// bắt buộc khớp danh sách) — xem chỗ dùng ở GET /dashboard bên dưới. ============
+let __pphShoeModelSchemaMigratedOnce = false;
+async function pphShoeModelEnsureTable(env) {
+  if (__pphShoeModelSchemaMigratedOnce) return;
+  __pphShoeModelSchemaMigratedOnce = true;
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS pph_shoe_models (
+      code TEXT PRIMARY KEY,
+      image_url TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `).run().catch(() => {});
+}
+// Chuẩn hoá mã trước khi so khớp — cho phép Model nhập lệch hoa/thường hoặc thừa khoảng trắng vẫn
+// khớp đúng (VD "4442 " hay "4442ew" đều khớp mã đã lưu "4442EW").
+function pphNormalizeShoeCode(code) {
+  return String(code || "").trim().toUpperCase();
+}
+async function pphGetShoeModelMap(env) {
+  await pphShoeModelEnsureTable(env);
+  let rows = [];
+  try {
+    const r = await env.DB.prepare("SELECT code, image_url FROM pph_shoe_models").all();
+    rows = r.results || [];
+  } catch {}
+  return new Map(rows.map((r) => [pphNormalizeShoeCode(r.code), r.image_url]));
+}
+
+// ---- PPH CHUẨN theo mã giày (IE cung cấp, xem PphShoePphTargetsView.tsx) — CHỈ dùng để hiện ô
+// "PPH" (mục tiêu) trên thẻ Tổ ở dashboard/TV, thay cho số tự tính (Mục tiêu/giờ ÷ Số công nhân).
+// KHÔNG đụng gì tới form nhập/Mục tiêu/giờ/% PPH/PPH TH — những chỗ đó vẫn tính từ kế hoạch thật
+// công nhân nhập như cũ, xem GET /dashboard.
+let __pphPphTargetSchemaMigratedOnce = false;
+async function pphPphTargetEnsureTable(env) {
+  if (__pphPphTargetSchemaMigratedOnce) return;
+  __pphPphTargetSchemaMigratedOnce = true;
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS pph_shoe_pph_targets (
+      code TEXT PRIMARY KEY,
+      pph_dau_vao_kg12 REAL,
+      pph_dau_vao_kg3 REAL,
+      pph_may_kg12 REAL,
+      pph_may_kg3 REAL,
+      pph_go REAL,
+      updated_at TEXT NOT NULL
+    )
+  `).run().catch(() => {});
+}
+// Mã trong file IE có đuôi màu (VD "256026_CHBK") nhưng mã công nhân thực tế gõ/chọn ở form quét
+// KHÔNG có đuôi màu (xem pph_shoe_models — toàn bộ mã đã lưu đều không có đuôi màu) — cắt bỏ đoạn
+// sau dấu "_" CUỐI CÙNG để khớp theo mã gốc. Import lúc nạp file Excel cũng dùng ĐÚNG hàm này để
+// gộp/tính trung bình các màu cùng 1 mã gốc trước khi lưu (xem PUT /shoe-pph-targets).
+function pphBaseShoeCode(code) {
+  return pphNormalizeShoeCode(code).replace(/_[^_]+$/, "");
+}
+async function pphGetShoePphTargetMap(env) {
+  await pphPphTargetEnsureTable(env);
+  let rows = [];
+  try {
+    const r = await env.DB.prepare(
+      "SELECT code, pph_dau_vao_kg12, pph_dau_vao_kg3, pph_may_kg12, pph_may_kg3, pph_go FROM pph_shoe_pph_targets",
+    ).all();
+    rows = r.results || [];
+  } catch {}
+  return new Map(rows.map((r) => [r.code, r]));
+}
+// Suy đúng cột PPH áp dụng theo Xưởng (areaName) + Nhà máy (factoryName) đang xét — Gò dùng CHUNG 1
+// cột cho cả 3 Nhà máy, Đầu vào/May tách riêng KG1-2 và KG3. Xưởng khác (BP mài rửa, Phòng ban...)
+// không có trong file IE, trả null — chỗ gọi tự rớt về số tự tính như trước.
+function pphResolveStandardPph(targetMap, model, areaName, factoryName) {
+  if (!model) return null;
+  const row = targetMap.get(pphBaseShoeCode(model));
+  if (!row) return null;
+  const isKg3 = factoryName === "Kiên Giang 3";
+  if (areaName === "Đầu vào") return isKg3 ? row.pph_dau_vao_kg3 : row.pph_dau_vao_kg12;
+  if (areaName === "May") return isKg3 ? row.pph_may_kg3 : row.pph_may_kg12;
+  if (areaName === "Gò") return row.pph_go;
+  return null;
+}
+
+async function pphGetDashboardLines(env) {
+  await pphBoardEnsureTable(env);
+  let lineRows = [], memberRows = [];
+  try {
+    const r = await env.DB.prepare("SELECT id, area_id, name, sort_order FROM pph_dashboard_lines ORDER BY sort_order ASC, name ASC").all();
+    lineRows = r.results || [];
+  } catch {}
+  try {
+    const r = await env.DB.prepare("SELECT leaf_id, line_id FROM pph_line_members").all();
+    memberRows = r.results || [];
+  } catch {}
+  const byLine = new Map();
+  for (const m of memberRows) {
+    const arr = byLine.get(m.line_id) || [];
+    arr.push(m.leaf_id);
+    byLine.set(m.line_id, arr);
+  }
+  return lineRows.map((l) => ({ id: l.id, areaId: l.area_id, name: l.name, sortOrder: l.sort_order, leafIds: byLine.get(l.id) || [] }));
+}
+
+async function pphGetFactoryConfigs(env) {
+  await pphBoardEnsureTable(env);
+  let rows = [];
+  try {
+    const r = await env.DB.prepare("SELECT factory_id, target_pph_pct, title, gddh, qlcl, th FROM pph_factory_config").all();
+    rows = r.results || [];
+  } catch {}
+  return rows.map((r) => ({
+    factoryId: r.factory_id,
+    targetPphPct: r.target_pph_pct == null ? null : Number(r.target_pph_pct),
+    title: r.title || null,
+    gddh: r.gddh || null,
+    qlcl: r.qlcl || null,
+    th: r.th || null,
+  }));
+}
+
+async function handlePph(request, env, pathname, searchParams, ctx) {
+  const sub = pathname.slice("/api/pph".length) || "/";
+  await pphEnsureTable(env);
+  await pphCauseEnsureTable(env);
+  await pphBoardEnsureTable(env);
+  let m2;
+
+  // ---- Ảnh theo mã giày — đọc CÔNG KHAI (form quét /pph-scan cần gợi ý lúc nhập Model, dashboard
+  // cần để hiện ảnh), ghi ở trang Cài Đặt (trong /work, đã có RequireAuth) — xem PphShoeModelsView.tsx.
+  if (sub === "/shoe-models" && request.method === "GET") {
+    await pphShoeModelEnsureTable(env);
+    const { results } = await env.DB.prepare("SELECT code, image_url, updated_at FROM pph_shoe_models ORDER BY code ASC").all();
+    return pphJson({ success: true, models: (results || []).map((r) => ({ code: r.code, imageUrl: r.image_url, updatedAt: r.updated_at })) });
+  }
+  if (sub === "/shoe-models" && request.method === "PUT") {
+    try {
+      const body = await request.json();
+      const code = pphNormalizeShoeCode(body.code);
+      const imageUrl = String(body.imageUrl || "").trim();
+      if (!code) return pphJson({ success: false, error: "Thiếu mã giày" }, 400);
+      if (!imageUrl) return pphJson({ success: false, error: "Thiếu ảnh" }, 400);
+      await pphShoeModelEnsureTable(env);
+      await env.DB.prepare(
+        "INSERT INTO pph_shoe_models (code, image_url, updated_at) VALUES (?, ?, ?) ON CONFLICT(code) DO UPDATE SET image_url = excluded.image_url, updated_at = excluded.updated_at",
+      ).bind(code, imageUrl, new Date().toISOString()).run();
+      // Ảnh vừa đổi cần thấy NGAY ở dashboard hôm nay, không đợi hết TTL cache.
+      await pphCacheInvalidate(env, "pph:dashboard");
+      return pphJson({ success: true, model: { code, imageUrl } });
+    } catch (err) {
+      return pphJson({ success: false, error: err.message || "Không lưu được" }, 400);
+    }
+  }
+  // ---- PPH chuẩn theo mã giày — đọc CÔNG KHAI (dashboard cần để hiện ô "PPH"), ghi ở trang Cài
+  // Đặt (trong /work, đã có RequireAuth) — xem PphShoePphTargetsView.tsx. PUT nhận NGUYÊN mảng, ghi
+  // đè toàn bộ (giống /dashboard-lines) — trang Cài Đặt tự gộp/tính trung bình theo mã gốc trước khi
+  // gửi lên (nhiều màu cùng mã gốc PPH khác nhau thì lấy trung bình, xem PphShoePphTargetsView.tsx).
+  if (sub === "/shoe-pph-targets" && request.method === "GET") {
+    const map = await pphGetShoePphTargetMap(env);
+    const targets = [...map.values()].map((r) => ({
+      code: r.code,
+      dauVaoKg12: r.pph_dau_vao_kg12,
+      dauVaoKg3: r.pph_dau_vao_kg3,
+      mayKg12: r.pph_may_kg12,
+      mayKg3: r.pph_may_kg3,
+      go: r.pph_go,
+    }));
+    return pphJson({ success: true, targets });
+  }
+  if (sub === "/shoe-pph-targets" && request.method === "PUT") {
+    try {
+      const body = await request.json();
+      const targets = Array.isArray(body.targets) ? body.targets : [];
+      for (const t of targets) {
+        if (!String(t.code || "").trim()) return pphJson({ success: false, error: "Có dòng thiếu mã giày" }, 400);
+      }
+      await pphPphTargetEnsureTable(env);
+      const now = new Date().toISOString();
+      const stmts = [env.DB.prepare("DELETE FROM pph_shoe_pph_targets")];
+      const seenCode = new Set();
+      for (const t of targets) {
+        // CHỈ chuẩn hoá hoa/thường — KHÔNG cắt đuôi màu nữa ở đây: trang Cài Đặt (client) đã tự gộp
+        // theo mã gốc + tính trung bình TRƯỚC khi gửi lên (xem PphShoePphTargetsView.tsx), cắt lại
+        // lần 2 ở đây từng làm 2 mã gốc khác nhau (VD do file gốc có nhiều đuôi lồng nhau) dồn nhầm
+        // vào chung 1 dòng, mất dữ liệu.
+        const code = pphNormalizeShoeCode(t.code);
+        if (!code || seenCode.has(code)) continue; // 1 mã gốc chỉ 1 dòng
+        seenCode.add(code);
+        const toNum = (v) => (v === null || v === undefined || v === "" ? null : Number(v));
+        stmts.push(
+          env.DB
+            .prepare(
+              "INSERT INTO pph_shoe_pph_targets (code, pph_dau_vao_kg12, pph_dau_vao_kg3, pph_may_kg12, pph_may_kg3, pph_go, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            )
+            .bind(code, toNum(t.dauVaoKg12), toNum(t.dauVaoKg3), toNum(t.mayKg12), toNum(t.mayKg3), toNum(t.go), now),
+        );
+      }
+      await env.DB.batch(stmts);
+      // PPH chuẩn vừa đổi cần thấy NGAY ở dashboard hôm nay, không đợi hết TTL cache.
+      await pphCacheInvalidate(env, "pph:dashboard");
+      return pphJson({ success: true, count: seenCode.size });
+    } catch (err) {
+      return pphJson({ success: false, error: err.message || "Không lưu được" }, 500);
+    }
+  }
+
+  let shoeModelMatch = sub.match(/^\/shoe-models\/([^/]+)$/);
+  if (shoeModelMatch && request.method === "DELETE") {
+    try {
+      await pphShoeModelEnsureTable(env);
+      await env.DB.prepare("DELETE FROM pph_shoe_models WHERE code = ?").bind(pphNormalizeShoeCode(decodeURIComponent(shoeModelMatch[1]))).run();
+      await pphCacheInvalidate(env, "pph:dashboard");
+      return pphJson({ success: true });
+    } catch (err) {
+      return pphJson({ success: false, error: err.message || "Không xoá được" }, 400);
+    }
+  }
+
+  // ---- Cây Nhà máy/Xưởng/Chuyền/Tổ — dùng cho trang Cài Đặt (trong /work, đã có RequireAuth) ----
+  if (sub === "/tree" && request.method === "GET") {
+    const tree = await pphBuildTree(env);
+    return pphJson({ success: true, data: tree });
+  }
+
+  // ---- Cấu hình LINE dashboard: đọc CÔNG KHAI (dashboard cần), ghi ở trang Cài Đặt ----
+  if (sub === "/dashboard-lines" && request.method === "GET") {
+    const lines = await pphGetDashboardLines(env);
+    return pphJson({ success: true, lines });
+  }
+  if (sub === "/dashboard-lines" && request.method === "PUT") {
+    try {
+      const body = await request.json();
+      const lines = Array.isArray(body.lines) ? body.lines : [];
+      for (const l of lines) {
+        if (!String(l.areaId || "").trim()) return pphJson({ success: false, error: "Line thiếu Xưởng (areaId)" }, 400);
+        if (!String(l.name || "").trim()) return pphJson({ success: false, error: "Có Line chưa đặt tên" }, 400);
+      }
+      await pphBoardEnsureTable(env);
+      // Ghi đè toàn bộ (giống PUT /slot-windows, /shortfall-causes).
+      const stmts = [
+        env.DB.prepare("DELETE FROM pph_dashboard_lines"),
+        env.DB.prepare("DELETE FROM pph_line_members"),
+      ];
+      let so = 0;
+      const seenLeaf = new Set();
+      for (const l of lines) {
+        const lid = pphNewId("pphline");
+        stmts.push(env.DB.prepare("INSERT INTO pph_dashboard_lines (id, area_id, name, sort_order) VALUES (?, ?, ?, ?)").bind(lid, String(l.areaId).trim(), String(l.name).trim(), so++));
+        for (const leafId of (Array.isArray(l.leafIds) ? l.leafIds : [])) {
+          const lf = String(leafId || "").trim();
+          if (!lf || seenLeaf.has(lf)) continue; // 1 điểm quét chỉ vào 1 line
+          seenLeaf.add(lf);
+          stmts.push(env.DB.prepare("INSERT INTO pph_line_members (leaf_id, line_id) VALUES (?, ?)").bind(lf, lid));
+        }
+      }
+      await env.DB.batch(stmts);
+      const out = await pphGetDashboardLines(env);
+      return pphJson({ success: true, lines: out });
+    } catch (err) {
+      return pphJson({ success: false, error: err.message || "Không lưu được" }, 500);
+    }
+  }
+
+  // ---- Chiếu ảnh/video xen kẽ theo khung giờ ở TV cấp Line — đọc CÔNG KHAI (trang TV /pph-view cần
+  // để tự biết lúc nào chuyển sang chiếu media), ghi ở trang Cài Đặt (trong /work, đã có RequireAuth).
+  if (sub === "/tv-media-slots" && request.method === "GET") {
+    await pphBoardEnsureTable(env);
+    const { results } = await env.DB.prepare(
+      "SELECT id, media_url, media_type, start_time, end_time, target_line_ids, enabled, sort_order FROM pph_tv_media_slots ORDER BY sort_order ASC"
+    ).all();
+    const slots = (results || []).map((r) => ({
+      id: r.id,
+      mediaUrl: r.media_url,
+      mediaType: r.media_type,
+      startTime: r.start_time,
+      endTime: r.end_time,
+      targetLineIds: r.target_line_ids === "ALL" ? "ALL" : JSON.parse(r.target_line_ids || "[]"),
+      enabled: !!r.enabled,
+    }));
+    return pphJson({ success: true, slots });
+  }
+  if (sub === "/tv-media-slots" && request.method === "PUT") {
+    try {
+      const body = await request.json();
+      const slots = Array.isArray(body.slots) ? body.slots : [];
+      const timeRe = /^([01]\d|2[0-3]):[0-5]\d$/;
+      for (const s of slots) {
+        if (!String(s.mediaUrl || "").trim()) return pphJson({ success: false, error: "Có khung giờ chưa chọn ảnh/video" }, 400);
+        if (s.mediaType !== "image" && s.mediaType !== "video") return pphJson({ success: false, error: "mediaType không hợp lệ" }, 400);
+        if (!timeRe.test(s.startTime || "") || !timeRe.test(s.endTime || "")) {
+          return pphJson({ success: false, error: "Giờ bắt đầu/kết thúc không hợp lệ (dạng HH:MM)" }, 400);
+        }
+      }
+      await pphBoardEnsureTable(env);
+      const stmts = [env.DB.prepare("DELETE FROM pph_tv_media_slots")];
+      const nowIso = new Date().toISOString();
+      let so = 0;
+      for (const s of slots) {
+        const id = pphNewId("pphmedia");
+        const targetLineIds = s.targetLineIds === "ALL" ? "ALL" : JSON.stringify(Array.isArray(s.targetLineIds) ? s.targetLineIds : []);
+        stmts.push(
+          env.DB.prepare(
+            "INSERT INTO pph_tv_media_slots (id, media_url, media_type, start_time, end_time, target_line_ids, enabled, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+          ).bind(id, String(s.mediaUrl).trim(), s.mediaType, s.startTime, s.endTime, targetLineIds, s.enabled === false ? 0 : 1, so++, nowIso, nowIso)
+        );
+      }
+      await env.DB.batch(stmts);
+      return pphJson({ success: true });
+    } catch (err) {
+      return pphJson({ success: false, error: err.message || "Không lưu được" }, 500);
+    }
+  }
+
+  // ---- Mã phiên bản đang chạy — màn TV (PphViewClient.tsx) tự gọi định kỳ, so với mã lúc mở
+  // trang, khác thì tự window.location.reload() để lấy code/CSS mới nhất (màu sắc, cỡ chữ...) mà
+  // không cần ai đến sờ tay vào từng màn hình. version_metadata.id là ID Cloudflare TỰ GẮN cho mỗi
+  // lần deploy — không cần tự quản lý số phiên bản thủ công (xem "version_metadata" ở
+  // wrangler.jsonc). Công khai, không cần đăng nhập (màn TV không có tài khoản riêng).
+  if (sub === "/tv-version" && request.method === "GET") {
+    const version = (env.CF_VERSION_METADATA && env.CF_VERSION_METADATA.id) || null;
+    return pphJson({ success: true, version });
+  }
+
+  // ---- Cấu hình hiển thị NHÀ MÁY (Target PPH %, tiêu đề, tên GĐĐH/QLCL/TH) ----
+  if (sub === "/factory-config" && request.method === "GET") {
+    const configs = await pphGetFactoryConfigs(env);
+    return pphJson({ success: true, configs });
+  }
+  if (sub === "/factory-config" && request.method === "PUT") {
+    try {
+      const body = await request.json();
+      const configs = Array.isArray(body.configs) ? body.configs : [];
+      await pphBoardEnsureTable(env);
+      const nowIso = new Date().toISOString();
+      const stmts = [];
+      for (const c of configs) {
+        const fid = String(c.factoryId || "").trim();
+        if (!fid) continue;
+        const pct = c.targetPphPct == null || c.targetPphPct === "" ? null : Number(c.targetPphPct);
+        stmts.push(env.DB.prepare(
+          "INSERT INTO pph_factory_config (factory_id, target_pph_pct, title, gddh, qlcl, th, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(factory_id) DO UPDATE SET target_pph_pct = excluded.target_pph_pct, title = excluded.title, gddh = excluded.gddh, qlcl = excluded.qlcl, th = excluded.th, updated_at = excluded.updated_at"
+        ).bind(fid, Number.isFinite(pct) ? pct : null, String(c.title || "").trim() || null, String(c.gddh || "").trim() || null, String(c.qlcl || "").trim() || null, String(c.th || "").trim() || null, nowIso));
+      }
+      if (stmts.length) await env.DB.batch(stmts);
+      const out = await pphGetFactoryConfigs(env);
+      return pphJson({ success: true, configs: out });
+    } catch (err) {
+      return pphJson({ success: false, error: err.message || "Không lưu được" }, 500);
+    }
+  }
+
+  // ---- Link TV rút gọn — đọc/ghi CÔNG KHAI (nút "📺 Lấy link TV" ở trang Cài Đặt/Xưởng không cần
+  // đăng nhập riêng, khớp đúng cách /pph-view và link dài hiện có đang mở công khai). ----
+  if (sub === "/tv-short-link" && request.method === "POST") {
+    try {
+      const body = await request.json();
+      // Nhận 1 trong 3 — lineId (TV cấp Line) / factoryId (TV cấp Nhà máy) / areaId (TV gộp cả
+      // Xưởng, mới thêm cho Gò — xem copyTvLinkWorkshop() ở ProductionPerformanceModule.tsx) — cùng
+      // 1 route, khác targetType lúc lưu.
+      const lineId = String(body.lineId || "").trim();
+      const factoryId = String(body.factoryId || "").trim();
+      const areaId = String(body.areaId || "").trim();
+      const targetId = lineId || factoryId || areaId;
+      if (!targetId) return pphJson({ success: false, error: "Thiếu lineId/factoryId/areaId" }, 400);
+      const targetType = factoryId ? "factory" : areaId ? "workshop" : "line";
+      const code = await pphGetOrCreateTvShortLink(env, targetId, targetType);
+      return pphJson({ success: true, code });
+    } catch (err) {
+      return pphJson({ success: false, error: err.message || "Không tạo được link rút gọn" }, 500);
+    }
+  }
+
+  // ---- Dashboard THẬT (Nhà máy > từng điểm quét) — thay hẳn dữ liệu mẫu sinh phía FE trước đây.
+  // Cache đọc 5 phút (pphCachedJson, giống các route MMTB khác) nhưng MỌI lượt ghi (nộp số liệu ở
+  // /pph-scan, xoá khung nhập nhầm) đều tự invalidate cache này ngay, nên số liệu cập nhật gần như
+  // tức thời chứ không phải đợi hết TTL — FE tự poll lại mỗi 60s để cảm giác "realtime". ----
+  if (sub === "/dashboard" && request.method === "GET") {
+    const forceRefresh = searchParams.get("fresh") === "1";
+    // Bộ lọc ngày — mặc định hôm nay, không cho chọn ngày trong TƯƠNG LAI (chưa có dữ liệu). Cache
+    // key gắn theo TỪNG NGÀY (pph:dashboard:YYYY-MM-DD) để xem ngày khác không bị dính cache của
+    // ngày khác — các chỗ gọi pphCacheInvalidate(env, "pph:dashboard") vẫn xoá đúng vì so khớp
+    // theo tiền tố (LIKE "pph:dashboard%"), không cần sửa gì thêm ở đó.
+    const today = pphTodayStr();
+    const requestedDate = searchParams.get("date");
+    const date = requestedDate && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) && requestedDate <= today ? requestedDate : today;
+    const isToday = date === today;
+    return pphCachedJson(env, `pph:dashboard:${date}`, forceRefresh, async () => {
+      const factories = await pphBuildTree(env);
+      const nowMin = pphNowMinutes();
+      // Chỉ cần đọc 1 lần cho cả dashboard (giờ mở dùng chung toàn hệ thống, không riêng theo Tổ) —
+      // dùng để tính entryStatus bên dưới cho khớp đúng luật đang chặn nộp thật ở pphResolveStatus().
+      const openMinutesBySlot = isToday ? await pphOpenMinutesBySlot(env) : null;
+      // Đọc 1 LẦN cho cả dashboard (bảng nhỏ, không cần query riêng từng Tổ) — dùng ƯU TIÊN ảnh
+      // theo Model Tổ khai hôm đó, thay cho ảnh thủ công gắn theo điểm quét khi có mã khớp.
+      const shoeModelMap = await pphGetShoeModelMap(env);
+      // PPH chuẩn theo mã giày (IE cung cấp) — CHỈ để hiện ô "PPH" trên thẻ Tổ, xem
+      // pphResolveStandardPph() ở trên.
+      const pphTargetMap = await pphGetShoePphTargetMap(env);
+
+      const factoriesOut = [];
+      for (const f of factories) {
+        const leaves = pphCollectFactoryLeaves(f);
+        const leafOut = [];
+        for (const leaf of leaves) {
+          let entries = [];
+          try {
+            const r = await env.DB.prepare(
+              "SELECT slot, worker_count, model, planned_qty, target_rft, production_hours, actual_qty, error_count, submitted_by, submitted_at, shortfall_reason, shortfall_solution, shortfall_cause_group FROM pph_entries WHERE team_id = ? AND entry_date = ?"
+            ).bind(leaf.id, date).all();
+            entries = r.results || [];
+          } catch {}
+          const bySlot = new Map(entries.map((e) => [e.slot, e]));
+          const setupRow = bySlot.get("08:00");
+          // Số khung số lượng THẬT của riêng Tổ này — 8 khung chuẩn, hoặc nhiều hơn nếu Tổ khai
+          // "Thời gian sản xuất" > 8 giờ (tăng ca) lúc Cập nhật đầu ca. KHÔNG dùng chung 1 danh
+          // sách cho mọi Tổ nữa vì mỗi Tổ có thể tăng ca khác nhau.
+          const qSlots = buildPphSlots(setupRow ? setupRow.production_hours : null).slice(1);
+
+          // Chi tiết từng khung giờ — dùng cho bảng "chi tiết theo khung giờ" khi Dashboard đang lọc
+          // riêng 1 Tổ: cần thêm ai nhập (submittedBy) + lý do/giải pháp hụt chỉ tiêu để bấm xem.
+          const slotDetails = qSlots.map((s) => {
+            const row = bySlot.get(s);
+            return {
+              slot: s,
+              actualQty: row ? row.actual_qty : null,
+              // NULL cho khung nhập TRƯỚC khi có trường Số lỗi (không bịa lỗi=0 cho dữ liệu cũ) —
+              // xem cumulativeErrors/qualityPct bên dưới, chỉ cộng dồn khung nào CÓ giá trị này.
+              errorCount: row && row.error_count != null ? row.error_count : null,
+              filled: !!row,
+              submittedBy: row ? row.submitted_by : null,
+              submittedAt: row ? row.submitted_at : null,
+              shortfallReason: row ? row.shortfall_reason : null,
+              shortfallSolution: row ? row.shortfall_solution : null,
+              shortfallCauseGroup: row ? (row.shortfall_cause_group || null) : null,
+            };
+          });
+          const filledQtySlots = slotDetails.filter((s) => s.filled);
+          const latest = filledQtySlots[filledQtySlots.length - 1] || null;
+
+          // Chỉ tiêu/giờ SUY RA từ kế hoạch cả ca chia đều cho ĐÚNG số khung số lượng thật của Tổ
+          // này (8 hoặc hơn nếu tăng ca) — pph_org hiện chưa có field "chỉ tiêu/giờ" riêng, đây là
+          // cách quy đổi hợp lý nhất từ dữ liệu đầu ca thật đang có (không bịa số).
+          const plannedQty = setupRow ? setupRow.planned_qty : null;
+          const perHourTarget = plannedQty ? plannedQty / qSlots.length : 0;
+
+          const cumulativeActual = filledQtySlots.reduce((s, x) => s + (x.actualQty || 0), 0);
+          const cumulativeTarget = perHourTarget * filledQtySlots.length;
+          // % Quality (RFT — Right First Time) = (SL đạt / SL làm ra) × 100, CỘNG DỒN cả ngày —
+          // khớp cách SLTH/% Đạt/PPH TH đang cộng dồn trên thẻ Tổ. Chỉ cộng khung nào CÓ error_count
+          // (bỏ qua khung cũ trước khi có trường này) — không đủ dữ liệu (chưa khung nào có) thì
+          // null, KHÔNG hiện 100% giả (dễ hiểu lầm là đạt tuyệt đối trong khi thực ra chưa có số).
+          const qualitySlots = filledQtySlots.filter((s) => s.errorCount != null);
+          const cumulativeErrors = qualitySlots.reduce((s, x) => s + x.errorCount, 0);
+          const cumulativeQualifiedQty = qualitySlots.reduce((s, x) => s + (x.actualQty || 0), 0);
+          const qualityPct = qualitySlots.length > 0 && cumulativeQualifiedQty > 0
+            ? Math.round(((cumulativeQualifiedQty - cumulativeErrors) / cumulativeQualifiedQty) * 1000) / 10
+            : null;
+          const pphLatest = latest ? latest.actualQty : null;
+          const efficiencyPctLatest =
+            latest && perHourTarget > 0 ? Math.round((latest.actualQty / perHourTarget) * 1000) / 10 : null;
+
+          // Trạng thái nhập: so khung nào ĐÃ TỚI GIỜ MỞ (đọc từ openMinutesBySlot, khớp đúng luật
+          // đang chặn nộp thật ở pphResolveStatus) với khung đã thực sự nhập. "late" nếu có khung
+          // nhập trễ hơn 20 phút so với mốc của nó. Xem NGÀY QUÁ KHỨ thì cả ngày đã qua rồi — mọi
+          // khung đều coi là "đã tới giờ".
+          // Tạm ngưng sản xuất (leaf.paused, bật ở Cài Đặt) → LUÔN "paused", bỏ qua mọi luật
+          // missing/late/ontime bên dưới — dù có/không có setupRow cũng không còn chớp đỏ/nhắc nữa.
+          let entryStatus = "missing";
+          if (leaf.paused) {
+            entryStatus = "paused";
+          } else if (!setupRow) {
+            // CHƯA "Cập nhật đầu ca" — chỉ tính "missing" (kích hoạt chớp đỏ ở màn TV) nếu đã tới
+            // giờ khung số lượng ĐẦU TIÊN được mở (mặc định 08:30 — PPH_SLOTS[1] — tự khớp nếu
+            // admin đổi giờ ở "Ràng buộc thời gian"), KHÔNG báo đỏ giả từ sáng sớm/qua đêm trước
+            // khi ca thật sự bắt đầu. Chỉ áp cho HÔM NAY — ngày quá khứ cả ngày đã qua, chưa từng
+            // nhập gì thì vẫn tính missing như cũ (openMinutesBySlot null khi !isToday, && ngắn
+            // mạch về false đúng ý).
+            const firstQSlot = PPH_SLOTS[1];
+            const notYetDue = isToday && openMinutesBySlot && nowMin < pphOpenMinutesFor(firstQSlot, openMinutesBySlot);
+            entryStatus = notYetDue ? "ontime" : "missing";
+          } else {
+            const dueSlots = isToday ? qSlots.filter((s) => nowMin >= pphOpenMinutesFor(s, openMinutesBySlot)) : qSlots;
+            const dueFilled = dueSlots.every((s) => bySlot.has(s));
+            if (dueSlots.length === 0 || dueFilled) {
+              const anyLate = dueSlots.some((s) => {
+                const row = bySlot.get(s);
+                if (!row || !row.submitted_at) return false;
+                const subMs = new Date(row.submitted_at).getTime();
+                if (Number.isNaN(subMs)) return false;
+                const subVN = new Date(subMs + 7 * 60 * 60 * 1000);
+                const subMin = subVN.getUTCHours() * 60 + subVN.getUTCMinutes();
+                return subMin - pphSlotMinutes(s) > 20;
+              });
+              entryStatus = anyLate ? "late" : "ontime";
+            } else {
+              entryStatus = "missing";
+            }
+          }
+
+          // Ảnh theo Model Tổ khai hôm đó (nếu khớp 1 mã đã có ảnh) ƯU TIÊN hơn ảnh thủ công gắn
+          // theo điểm quét — xem pphGetShoeModelMap() ở trên. Chưa khai Model hoặc khai mã lạ
+          // (chưa có ảnh trong danh sách Cài Đặt > Ảnh Theo Mã Giày) thì vẫn dùng ảnh thủ công cũ,
+          // không có nốt thì null (FE tự hiện chữ mã hàng thay chỗ, như trước).
+          const modelImageUrl = setupRow && setupRow.model ? shoeModelMap.get(pphNormalizeShoeCode(setupRow.model)) : null;
+          // PPH chuẩn IE theo mã giày — CHỈ hiện ở ô "PPH" trên thẻ Tổ (FE tự rớt về số tự tính nếu
+          // null), xem pphResolveStandardPph() ở trên. Không tìm thấy mã/Xưởng không có trong file
+          // IE thì null như cũ.
+          const pphStandard = setupRow && setupRow.model ? pphResolveStandardPph(pphTargetMap, setupRow.model, leaf.areaName, f.name) : null;
+          leafOut.push({
+            id: leaf.id,
+            name: leaf.name,
+            path: leaf.path,
+            areaId: leaf.areaId || null,
+            areaName: leaf.areaName || null,
+            imageUrl: modelImageUrl || leaf.imageUrl || null,
+            pphStandard,
+            setup: setupRow
+              ? {
+                  workerCount: setupRow.worker_count,
+                  model: setupRow.model,
+                  plannedQty: setupRow.planned_qty,
+                  targetRft: setupRow.target_rft,
+                  productionHours: setupRow.production_hours ?? null,
+                  // Người nộp Đầu ca — dùng làm tên "nhắc giọng đọc" cho Tổ CHƯA có khung số lượng
+                  // nào (Tổ vừa vào ca, trễ ngay khung đầu tiên) — xem pphLastReporterName() ở FE.
+                  submittedBy: setupRow.submitted_by ?? null,
+                }
+              : null,
+            slots: slotDetails,
+            pphLatest,
+            efficiencyPctLatest,
+            perHourTarget: Math.round(perHourTarget * 10) / 10,
+            cumulativeActual,
+            cumulativeTarget: Math.round(cumulativeTarget),
+            cumulativeErrors: qualitySlots.length > 0 ? cumulativeErrors : null,
+            qualityPct,
+            entryStatus,
+          });
+        }
+        factoriesOut.push({ id: f.id, name: f.name, leaves: leafOut });
+      }
+
+      return { success: true, data: { date, factories: factoriesOut } };
+    }, ctx);
+  }
+
+  // ---- Thêm mục vào cây (Nhà máy/Xưởng/Chuyền/Tổ) ----
+  if (sub === "/org" && request.method === "POST") {
+    try {
+      const body = await request.json();
+      const type = body.type;
+      const name = String(body.name || "").trim();
+      const parentId = body.parentId || null;
+      if (!PPH_ORG_TYPES.includes(type)) return pphJson({ success: false, error: "Loại không hợp lệ" }, 400);
+      if (!name) return pphJson({ success: false, error: "Thiếu tên" }, 400);
+      const allowedParentTypes = PPH_ORG_ALLOWED_PARENT_TYPES[type];
+      if (allowedParentTypes && !parentId) return pphJson({ success: false, error: "Thiếu mục cha" }, 400);
+      await pphOrgEnsureTable(env);
+      if (allowedParentTypes) {
+        const parent = await env.DB.prepare("SELECT type FROM pph_org WHERE id = ?").bind(parentId).first();
+        if (!parent || !allowedParentTypes.includes(parent.type)) return pphJson({ success: false, error: "Mục cha không hợp lệ" }, 400);
+      }
+      const id = `pphorg_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+      await env.DB.prepare(
+        "INSERT INTO pph_org (id, type, name, parent_id, order_num, created_at) VALUES (?, ?, ?, ?, 0, ?)"
+      ).bind(id, type, name, allowedParentTypes ? parentId : null, new Date().toISOString()).run();
+      return pphJson({ success: true, data: { id, type, name, parentId: allowedParentTypes ? parentId : null } }, 201);
+    } catch (err) {
+      return pphJson({ success: false, error: err.message || "Không thêm được" }, 400);
+    }
+  }
+
+  // ---- Sửa tên và/hoặc ảnh sản phẩm / Xoá 1 mục ----
+  m2 = sub.match(/^\/org\/([^/]+)$/);
+  if (m2 && request.method === "PUT") {
+    try {
+      const body = await request.json();
+      await pphOrgEnsureTable(env);
+      // Cho phép sửa RIÊNG từng field (đổi tên không cần gửi kèm ảnh, và ngược lại — tải/xoá ảnh
+      // không cần gửi kèm tên) — chỉ field nào CÓ mặt trong body mới bị ghi đè.
+      const sets = [];
+      const binds = [];
+      if (body.name !== undefined) {
+        const name = String(body.name || "").trim();
+        if (!name) return pphJson({ success: false, error: "Thiếu tên" }, 400);
+        sets.push("name = ?");
+        binds.push(name);
+      }
+      if (body.imageUrl !== undefined) {
+        sets.push("image_url = ?");
+        binds.push(body.imageUrl ? String(body.imageUrl) : null);
+      }
+      if (body.paused !== undefined) {
+        sets.push("paused = ?");
+        binds.push(body.paused ? 1 : 0);
+      }
+      if (sets.length === 0) return pphJson({ success: false, error: "Không có gì để sửa" }, 400);
+      binds.push(m2[1]);
+      await env.DB.prepare(`UPDATE pph_org SET ${sets.join(", ")} WHERE id = ?`).bind(...binds).run();
+      return pphJson({ success: true });
+    } catch (err) {
+      return pphJson({ success: false, error: err.message || "Không sửa được" }, 400);
+    }
+  }
+  if (m2 && request.method === "DELETE") {
+    try {
+      await pphOrgEnsureTable(env);
+      const childRow = await env.DB.prepare("SELECT COUNT(*) as c FROM pph_org WHERE parent_id = ?").bind(m2[1]).first();
+      if (childRow && childRow.c > 0) return pphJson({ success: false, error: "Còn mục con bên trong — xoá mục con trước" }, 409);
+      await env.DB.prepare("DELETE FROM pph_org WHERE id = ?").bind(m2[1]).run();
+      return pphJson({ success: true });
+    } catch (err) {
+      return pphJson({ success: false, error: err.message || "Không xoá được" }, 400);
+    }
+  }
+
+  // ---- Thông tin cho trang quét QR (công khai) — tên Tổ/Chuyền/Xưởng/Nhà máy + khung giờ cần nhập ----
+  if (sub === "/scan-info" && request.method === "GET") {
+    const teamId = searchParams.get("teamId");
+    if (!teamId) return pphJson({ success: false, error: "Thiếu mã điểm quét trong đường dẫn QR" }, 400);
+    const found = await pphFindNodeChain(env, teamId);
+    if (!found) return pphJson({ success: false, error: "Không tìm thấy điểm quét này — mã QR có thể đã cũ" }, 404);
+
+    const date = pphTodayStr();
+    let results = [];
+    try {
+      const r = await env.DB.prepare(
+        "SELECT slot, worker_count, model, planned_qty, target_rft, production_hours, actual_qty, error_count, shortfall_reason, shortfall_solution FROM pph_entries WHERE team_id = ? AND entry_date = ?"
+      ).bind(teamId, date).all();
+      results = r.results || [];
+    } catch {}
+    const bySlot = new Map(results.map((r) => [r.slot, r]));
+    const setupDone = bySlot.has("08:00");
+    const filledSlots = new Set([...bySlot.keys()].filter((s) => s !== "08:00"));
+    const setupRow = bySlot.get("08:00");
+    // Khung số lượng THẬT trong ngày — 8 khung chuẩn, hoặc nhiều hơn nếu Tổ khai "Thời gian sản
+    // xuất" > 8 giờ (tăng ca) lúc Cập nhật đầu ca, xem buildPphSlots().
+    const slots = buildPphSlots(setupRow ? setupRow.production_hours : null);
+    const openMinutesBySlot = await pphOpenMinutesBySlot(env);
+    const resolved = pphResolveStatus(setupDone, filledSlots, openMinutesBySlot, slots);
+    // Mục tiêu/giờ — suy ra từ kế hoạch cả ca chia đều cho ĐÚNG số khung số lượng thật (8 hoặc hơn
+    // nếu tăng ca) — để FE hiện ngay trong nhãn ô nhập và tự phát hiện hụt chỉ tiêu lúc đang gõ. LÀM
+    // TRÒN NGUYÊN (không phải 1 số lẻ như trước) — khớp đúng ngưỡng bắt giải trình thật ở POST
+    // /scan (Math.round(perHourTarget) so với actualQty là số nguyên) và tránh hiện "Mục tiêu: 23,1
+    // đôi/giờ" trong khi thực tế nhập đúng 23 đã coi là đạt, gây hoang mang.
+    const perHourTarget = setupRow && setupRow.planned_qty ? Math.round(setupRow.planned_qty / (slots.length - 1)) : null;
+
+    // Dữ liệu ĐẦY ĐỦ từng khung giờ trong ngày (kể cả khung đầu ca) — cho FE dựng bảng "xem lại các
+    // khung đã quét" (chỉ xem, không sửa được) khi bấm vào ô giờ hiện tại.
+    const entries = slots.map((s) => {
+      const row = bySlot.get(s);
+      if (!row) return { slot: s, filled: false };
+      return {
+        slot: s,
+        filled: true,
+        workerCount: row.worker_count ?? null,
+        model: row.model ?? null,
+        plannedQty: row.planned_qty ?? null,
+        targetRft: row.target_rft ?? null,
+        actualQty: row.actual_qty ?? null,
+        errorCount: row.error_count ?? null,
+        shortfallReason: row.shortfall_reason ?? null,
+        shortfallSolution: row.shortfall_solution ?? null,
+      };
+    });
+
+    return pphJson({
+      success: true,
+      team: {
+        id: found.node.id,
+        name: found.node.name,
+        lineName: found.line ? found.line.name : "",
+        areaName: found.area ? found.area.name : "",
+        factoryName: found.factory ? found.factory.name : "",
+      },
+      date,
+      slots,
+      filledSlots: [...bySlot.keys()],
+      entries,
+      perHourTarget,
+      setup: setupRow
+        ? {
+            workerCount: setupRow.worker_count,
+            model: setupRow.model,
+            plannedQty: setupRow.planned_qty,
+            targetRft: setupRow.target_rft,
+            productionHours: setupRow.production_hours ?? null,
+          }
+        : null,
+      ...resolved,
+    });
+  }
+
+  // ---- Nộp dữ liệu (công khai, không cần đăng nhập) ----
+  if (sub === "/scan" && request.method === "POST") {
+    try {
+      const body = await request.json();
+      const teamId = body.teamId;
+      const submittedBy = String(body.submittedBy || "").trim();
+      if (!teamId) return pphJson({ success: false, error: "Thiếu mã điểm quét" }, 400);
+      if (!submittedBy) return pphJson({ success: false, error: "Vui lòng nhập tên người báo cáo" }, 400);
+
+      const found = await pphFindNodeChain(env, teamId);
+      if (!found) return pphJson({ success: false, error: "Không tìm thấy điểm quét này — mã QR có thể đã cũ" }, 404);
+
+      const date = pphTodayStr();
+      let results = [];
+      try {
+        // Cần thêm planned_qty + production_hours của dòng đầu ca (08:00) để suy ra Mục tiêu/giờ
+        // (và số khung số lượng thật — có thể nhiều hơn 8 nếu tăng ca), dùng kiểm tra hụt chỉ tiêu
+        // ngay dưới đây.
+        const r = await env.DB.prepare("SELECT slot, planned_qty, production_hours FROM pph_entries WHERE team_id = ? AND entry_date = ?").bind(teamId, date).all();
+        results = r.results || [];
+      } catch {}
+      const filled = new Set(results.map((r) => r.slot));
+      const setupDone = filled.has("08:00");
+      const setupRow = results.find((r) => r.slot === "08:00");
+      const slots = buildPphSlots(setupRow ? setupRow.production_hours : null);
+      const perHourTarget = setupRow && setupRow.planned_qty ? setupRow.planned_qty / (slots.length - 1) : 0;
+      const openMinutesBySlot = await pphOpenMinutesBySlot(env);
+      const resolved = pphResolveStatus(setupDone, filled, openMinutesBySlot, slots);
+
+      if (resolved.nextAction === "wait") {
+        return pphJson({ success: false, error: `Chưa tới giờ nhập — khung tiếp theo lúc ${resolved.nextSlot}` }, 409);
+      }
+      if (resolved.nextAction === "done") {
+        return pphJson({ success: false, error: "Đã cập nhật đủ các khung giờ hôm nay, cảm ơn bạn!" }, 409);
+      }
+
+      // Chống trường hợp trang đang mở bị "cũ" so với thực tế server (VD mở từ hôm qua để qua đêm
+      // mới bấm gửi, hoặc 1 tab khác vừa nộp xong khung này) — nếu dữ liệu gửi lên không khớp với
+      // hành động server ĐANG THỰC SỰ mong đợi lúc này (setup/quantity), báo rõ để tải lại trang,
+      // thay vì rơi vào lỗi "thiếu trường" khó hiểu (VD "Vui lòng nhập Số lượng công nhân" trong
+      // khi người dùng chỉ đang nộp số lượng của 1 khung giờ bình thường).
+      const bodyLooksLikeSetup = body.workerCount !== undefined || body.model !== undefined || body.plannedQty !== undefined;
+      const bodyLooksLikeQuantity = body.actualQty !== undefined;
+      if (resolved.nextAction === "setup" && bodyLooksLikeQuantity && !bodyLooksLikeSetup) {
+        return pphJson({ success: false, error: "Trang đang mở đã cũ (có thể đã sang ngày mới) — vui lòng tải lại trang rồi thử lại" }, 409);
+      }
+      if (resolved.nextAction === "quantity" && bodyLooksLikeSetup && !bodyLooksLikeQuantity) {
+        return pphJson({ success: false, error: "Trang đang mở đã cũ (đầu ca hôm nay đã có người cập nhật) — vui lòng tải lại trang rồi thử lại" }, 409);
+      }
+
+      const slot = resolved.targetSlot;
+      const id = `pph_${teamId}_${date}_${slot}`.replace(/[^a-zA-Z0-9_-]/g, "_");
+      const nowIso = new Date().toISOString();
+
+      if (resolved.nextAction === "setup") {
+        const workerCount = Number(body.workerCount);
+        const model = String(body.model || "").trim();
+        const plannedQty = Number(body.plannedQty);
+        const targetRft = Number(body.targetRft);
+        const productionHours = Number(body.productionHours);
+        if (!Number.isFinite(productionHours) || productionHours <= 0 || productionHours > 24) return pphJson({ success: false, error: "Vui lòng nhập đúng Thời gian sản xuất (giờ)" }, 400);
+        if (!Number.isFinite(workerCount) || workerCount <= 0) return pphJson({ success: false, error: "Vui lòng nhập đúng Số lượng công nhân" }, 400);
+        if (!model) return pphJson({ success: false, error: "Vui lòng nhập Model sản xuất" }, 400);
+        if (!Number.isFinite(plannedQty) || plannedQty <= 0) return pphJson({ success: false, error: "Vui lòng nhập đúng Sản lượng kế hoạch cả ca" }, 400);
+        if (!Number.isFinite(targetRft) || targetRft < 0 || targetRft > 100) return pphJson({ success: false, error: "Vui lòng nhập đúng Mục tiêu tỉ lệ đạt chất lượng RFT (0-100%)" }, 400);
+        try {
+          await env.DB.prepare(
+            "INSERT INTO pph_entries (id, team_id, entry_date, slot, worker_count, model, planned_qty, target_rft, production_hours, submitted_by, submitted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+          ).bind(id, teamId, date, slot, workerCount, model, plannedQty, targetRft, productionHours, submittedBy, nowIso).run();
+        } catch {
+          return pphJson({ success: false, error: "Đã có người cập nhật đầu giờ hôm nay rồi" }, 409);
+        }
+      } else {
+        const actualQty = Number(body.actualQty);
+        if (!Number.isFinite(actualQty) || actualQty < 0) return pphJson({ success: false, error: "Vui lòng nhập đúng Số lượng" }, 400);
+        // Số lỗi — BẮT BUỘC nhập kèm mỗi khung số lượng, dùng tính "% Quality" (RFT) ở dashboard —
+        // xem cbcPphColorBand... không, xem TeamPanel bên ProductionPerformanceModule.tsx. Không
+        // được vượt quá actualQty (không thể lỗi nhiều hơn số lượng đã làm ra).
+        const errorCount = Number(body.errorCount);
+        if (!Number.isFinite(errorCount) || errorCount < 0) return pphJson({ success: false, error: "Vui lòng nhập đúng Số lỗi" }, 400);
+        if (errorCount > actualQty) return pphJson({ success: false, error: "Số lỗi không thể lớn hơn Số lượng" }, 400);
+
+        // Hụt chỉ tiêu/giờ — bắt buộc giải trình nguyên nhân + giải pháp ngay lúc nộp. Nguyên nhân
+        // giờ chọn theo combobox 2 cấp (nhóm 5M1E › chi tiết), riêng "Khác" thì nhập tự do. Vẫn LƯU
+        // shortfall_reason là 1 CHUỖI GỘP đọc-được ("Máy móc › Máy chạy chậm") cho các chỗ hiển thị
+        // cũ, đồng thời lưu tách shortfall_cause_group / shortfall_cause_sub để sau thống kê Pareto.
+        // So với TARGET ĐÃ LÀM TRÒN (không phải số thật lẻ, VD 23,1) — target chia bình quân từ Sản
+        // lượng kế hoạch luôn ra số lẻ, trước đây nhập ĐÚNG bằng số làm tròn (VD 23,1 → nhập 23) vẫn
+        // bị bắt giải trình dù thực chất đã đạt — người dùng yêu cầu làm tròn chuẩn (dưới ,5 xuống,
+        // từ ,5 trở lên lên) trước khi so sánh. Math.round() JS đã đúng luật này.
+        const isShortfall = perHourTarget > 0 && actualQty < Math.round(perHourTarget);
+        const shortfallSolution = String(body.shortfallSolution || "").trim();
+        let shortfallReason = null;
+        let shortfallCauseGroup = null;
+        let shortfallCauseSub = null;
+
+        if (isShortfall) {
+          if (!shortfallSolution) return pphJson({ success: false, error: "Số lượng đang thấp hơn mục tiêu/giờ — vui lòng nhập Giải pháp" }, 400);
+
+          const groupId = String(body.shortfallCauseGroupId || "").trim();
+          const subId = String(body.shortfallCauseSubId || "").trim();
+          const detail = String(body.shortfallDetail || "").trim();
+          const legacyReason = String(body.shortfallReason || "").trim(); // bản trang cũ đã cache trên điện thoại
+
+          if (!groupId && legacyReason) {
+            shortfallReason = legacyReason;
+          } else if (groupId === PPH_CAUSE_OTHER_ID) {
+            if (!detail) return pphJson({ success: false, error: "Vui lòng mô tả nguyên nhân cụ thể" }, 400);
+            shortfallCauseGroup = "Khác";
+            shortfallReason = `Khác: ${detail}`;
+          } else {
+            if (!groupId) return pphJson({ success: false, error: "Số lượng đang thấp hơn mục tiêu/giờ — vui lòng chọn Nhóm nguyên nhân" }, 400);
+            const causes = await pphGetShortfallCauses(env);
+            const g = causes.find((x) => x.id === groupId);
+            if (!g) return pphJson({ success: false, error: "Nhóm nguyên nhân không còn hợp lệ — vui lòng tải lại trang" }, 400);
+            shortfallCauseGroup = g.name;
+            if (!subId) return pphJson({ success: false, error: `Vui lòng chọn chi tiết nguyên nhân cho nhóm "${g.name}"` }, 400);
+            if (subId === PPH_CAUSE_OTHER_ID) {
+              if (!detail) return pphJson({ success: false, error: "Vui lòng mô tả nguyên nhân cụ thể" }, 400);
+              shortfallCauseSub = "Khác";
+              shortfallReason = `${g.name} › Khác: ${detail}`;
+            } else {
+              const s = g.subs.find((x) => x.id === subId);
+              if (!s) return pphJson({ success: false, error: "Chi tiết nguyên nhân không còn hợp lệ — vui lòng tải lại trang" }, 400);
+              shortfallCauseSub = s.name;
+              shortfallReason = `${g.name} › ${s.name}`;
+            }
+          }
+        }
+
+        try {
+          await env.DB.prepare(
+            "INSERT INTO pph_entries (id, team_id, entry_date, slot, actual_qty, error_count, shortfall_reason, shortfall_solution, shortfall_cause_group, shortfall_cause_sub, submitted_by, submitted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+          ).bind(id, teamId, date, slot, actualQty, errorCount, shortfallReason, isShortfall ? shortfallSolution : null, shortfallCauseGroup, shortfallCauseSub, submittedBy, nowIso).run();
+        } catch {
+          return pphJson({ success: false, error: `Khung giờ ${slot} đã được cập nhật rồi` }, 409);
+        }
+      }
+
+      await pphCacheInvalidate(env, "pph:dashboard");
+      return pphJson({ success: true, slot, team: { name: found.node.name, lineName: found.line ? found.line.name : "" } });
+    } catch (err) {
+      return pphJson({ success: false, error: err.message || "Không lưu được dữ liệu" }, 500);
+    }
+  }
+
+  // ---- Sửa Model/Số lượng công nhân/Sản lượng kế hoạch cả ca của dòng Đầu ca HÔM NAY — công khai,
+  // không đăng nhập, giống hệt /scan (điện thoại tại chuyền không có tài khoản riêng). Sửa RIÊNG
+  // TỪNG field (giống PUT /org) — chỉ field nào CÓ MẶT trong body mới bị ghi đè, cho phép form sửa
+  // từng ô độc lập (xem SlotHistoryPanel ở PphScanClient.tsx). Ban đầu chỉ cho sửa Model (sợ đụng
+  // số liệu Dashboard cả ngày) nhưng theo yêu cầu người dùng, giờ CŨNG cho sửa workerCount/plannedQty
+  // — 2 số này chỉ ảnh hưởng cách suy Mục tiêu/giờ + hiển thị (tính lại ngay lúc đọc, không lưu số
+  // suy ra sẵn ở đâu khác) nên sửa xong Dashboard tự đúng ngay, không cần dọn dẹp gì thêm. Luôn tự
+  // tính "hôm nay" ở SERVER (không nhận date từ client) — khớp đúng phạm vi modal "Các khung giờ
+  // hôm nay", không cho sửa ngày cũ qua đường vòng gọi thẳng API.
+  if (sub === "/scan" && request.method === "PUT") {
+    try {
+      const body = await request.json();
+      const teamId = String(body.teamId || "").trim();
+      if (!teamId) return pphJson({ success: false, error: "Thiếu mã điểm quét" }, 400);
+
+      const sets = [];
+      const binds = [];
+      if (body.model !== undefined) {
+        const model = String(body.model || "").trim();
+        if (!model) return pphJson({ success: false, error: "Vui lòng nhập Model sản xuất" }, 400);
+        sets.push("model = ?");
+        binds.push(model);
+      }
+      if (body.workerCount !== undefined) {
+        const workerCount = Number(body.workerCount);
+        if (!Number.isFinite(workerCount) || workerCount <= 0) {
+          return pphJson({ success: false, error: "Vui lòng nhập đúng Số lượng công nhân" }, 400);
+        }
+        sets.push("worker_count = ?");
+        binds.push(workerCount);
+      }
+      if (body.plannedQty !== undefined) {
+        const plannedQty = Number(body.plannedQty);
+        if (!Number.isFinite(plannedQty) || plannedQty <= 0) {
+          return pphJson({ success: false, error: "Vui lòng nhập đúng Sản lượng kế hoạch cả ca" }, 400);
+        }
+        sets.push("planned_qty = ?");
+        binds.push(plannedQty);
+      }
+      if (sets.length === 0) return pphJson({ success: false, error: "Không có gì để sửa" }, 400);
+
+      const date = pphTodayStr();
+      binds.push(teamId, date);
+      const res = await env.DB.prepare(
+        `UPDATE pph_entries SET ${sets.join(", ")} WHERE team_id = ? AND entry_date = ? AND slot = '08:00'`
+      ).bind(...binds).run();
+      if (res.meta && res.meta.changes === 0) {
+        return pphJson({ success: false, error: "Chưa có dữ liệu Đầu ca hôm nay để sửa" }, 404);
+      }
+      await pphCacheInvalidate(env, "pph:dashboard");
+      return pphJson({ success: true });
+    } catch (err) {
+      return pphJson({ success: false, error: err.message || "Không sửa được" }, 500);
+    }
+  }
+
+  // ---- Nhóm nguyên nhân hụt chỉ tiêu (5M1E): ĐỌC công khai (trang quét /pph-scan cần để dựng
+  // combobox), GHI ở trang Cài Đặt (trong /work, đã có RequireAuth — giống /slot-windows, /org). ----
+  if (sub === "/shortfall-causes" && request.method === "GET") {
+    const groups = await pphGetShortfallCauses(env);
+    return pphJson({ success: true, groups });
+  }
+  if (sub === "/shortfall-causes" && request.method === "PUT") {
+    try {
+      const body = await request.json();
+      const groups = Array.isArray(body.groups) ? body.groups : [];
+      if (groups.length === 0) return pphJson({ success: false, error: "Cần ít nhất 1 nhóm nguyên nhân" }, 400);
+      const seen = new Set();
+      for (const g of groups) {
+        const gn = String(g.name || "").trim();
+        if (!gn) return pphJson({ success: false, error: "Có nhóm chính chưa đặt tên" }, 400);
+        if (gn.toLowerCase() === "khác") return pphJson({ success: false, error: `Không cần thêm nhóm "Khác" — hệ thống luôn tự có sẵn` }, 400);
+        if (seen.has(gn.toLowerCase())) return pphJson({ success: false, error: `Nhóm chính "${gn}" bị trùng` }, 400);
+        seen.add(gn.toLowerCase());
+        const subs = Array.isArray(g.subs) ? g.subs : [];
+        const seenSub = new Set();
+        for (const s of subs) {
+          const sn = String(s.name || "").trim();
+          if (!sn) return pphJson({ success: false, error: `Nhóm "${gn}" có mục con chưa đặt tên` }, 400);
+          if (sn.toLowerCase() === "khác") return pphJson({ success: false, error: `Nhóm "${gn}": không cần thêm mục "Khác" — luôn tự có sẵn` }, 400);
+          if (seenSub.has(sn.toLowerCase())) return pphJson({ success: false, error: `Nhóm "${gn}" có mục con "${sn}" bị trùng` }, 400);
+          seenSub.add(sn.toLowerCase());
+        }
+      }
+      await pphCauseEnsureTable(env);
+      // Ghi đè TOÀN BỘ danh mục theo đúng thứ tự mảng gửi lên (giống PUT /slot-windows là ghi đè hết).
+      // pph_entries lưu KÈM TÊN nhóm nên id sinh mới mỗi lần lưu không ảnh hưởng dữ liệu đã nhập.
+      const stmts = [env.DB.prepare("DELETE FROM pph_shortfall_causes")];
+      let go = 0;
+      for (const g of groups) {
+        const gid = pphNewId("pphcause");
+        stmts.push(env.DB.prepare("INSERT INTO pph_shortfall_causes (id, parent_id, name, sort_order) VALUES (?, NULL, ?, ?)").bind(gid, String(g.name).trim(), go++));
+        let so = 0;
+        for (const s of (Array.isArray(g.subs) ? g.subs : [])) {
+          stmts.push(env.DB.prepare("INSERT INTO pph_shortfall_causes (id, parent_id, name, sort_order) VALUES (?, ?, ?, ?)").bind(pphNewId("pphcause"), gid, String(s.name).trim(), so++));
+        }
+      }
+      await env.DB.batch(stmts);
+      const out = await pphGetShortfallCauses(env);
+      return pphJson({ success: true, groups: out });
+    } catch (err) {
+      return pphJson({ success: false, error: err.message || "Không lưu được" }, 500);
+    }
+  }
+
+  // ---- Ràng buộc thời gian: đọc (công khai, trang quét cần để hiện đếm ngược) ----
+  if (sub === "/slot-windows" && request.method === "GET") {
+    const windows = await pphGetAllSlotWindows(env);
+    return pphJson({ success: true, windows });
+  }
+
+  // ---- Ràng buộc thời gian: admin chỉnh giờ mở/đóng từng khung (trang Cài Đặt) ----
+  if (sub === "/slot-windows" && request.method === "PUT") {
+    try {
+      const body = await request.json();
+      const list = Array.isArray(body.windows) ? body.windows : [];
+      if (list.length === 0) return pphJson({ success: false, error: "Thiếu dữ liệu khung giờ" }, 400);
+      const timeRe = /^([01]\d|2[0-3]):[0-5]\d$/;
+      for (const w of list) {
+        if (!PPH_SLOTS.includes(w.slot)) return pphJson({ success: false, error: `Khung không hợp lệ: ${w.slot}` }, 400);
+        if (!timeRe.test(w.startTime) || !timeRe.test(w.endTime)) {
+          return pphJson({ success: false, error: `Giờ không hợp lệ ở khung ${w.slot} — định dạng phải là HH:MM` }, 400);
+        }
+      }
+      await pphSlotWindowEnsureTable(env);
+      for (const w of list) {
+        await env.DB.prepare(
+          "INSERT INTO pph_slot_windows (slot, start_time, end_time) VALUES (?, ?, ?) ON CONFLICT(slot) DO UPDATE SET start_time = excluded.start_time, end_time = excluded.end_time"
+        ).bind(w.slot, w.startTime, w.endTime).run();
+      }
+      const windows = await pphGetAllSlotWindows(env);
+      return pphJson({ success: true, windows });
+    } catch (err) {
+      return pphJson({ success: false, error: err.message || "Không lưu được" }, 500);
+    }
+  }
+
+  // ---- Xoá 1 khung giờ đã nhập nhầm (dùng ở trang Cài Đặt, đã có RequireAuth) — cho phép sửa sai
+  // (VD nhập nhầm số) mà không phải đợi qua ngày khác để nhập lại đúng khung đó. ----
+  if (sub === "/entry" && request.method === "DELETE") {
+    try {
+      const teamId = searchParams.get("teamId");
+      const date = searchParams.get("date");
+      const slot = searchParams.get("slot");
+      if (!teamId || !date || !slot) return pphJson({ success: false, error: "Thiếu teamId/date/slot" }, 400);
+      await env.DB.prepare("DELETE FROM pph_entries WHERE team_id = ? AND entry_date = ? AND slot = ?").bind(teamId, date, slot).run();
+      await pphCacheInvalidate(env, "pph:dashboard");
+      return pphJson({ success: true });
+    } catch (err) {
+      return pphJson({ success: false, error: err.message || "Không xoá được" }, 500);
+    }
+  }
+
+  return pphJson({ success: false, error: `Không tìm thấy endpoint PPH: ${sub}` }, 404);
+}
+
+// ════════════════════════════════════════════════════════════════
+// 🏭 MMTB-KG (Tổ hợp Kiên Giang) — CHỈ ĐỌC, xem dữ liệu máy móc/bảo trì THẬT
+// ════════════════════════════════════════════════════════════════
+// Trang /maintenance của vpchuoiskechers CHỈ XEM (không sửa/xóa/thêm) dữ liệu thật của hệ thống
+// MMTB Kiên Giang (tbs-quanlymaymoc.workers.dev) — tự đăng nhập ngầm bằng 1 tài khoản dịch vụ dùng
+// chung (MMTB_AUTO_LOGIN_EMP_CODE/PASSWORD, đã có sẵn trong wrangler.jsonc), KHÔNG cần người dùng
+// vpchuoiskechers đăng nhập gì thêm. Token đăng nhập được cache lại (dùng chung bảng pph_cache) để
+// không phải gọi login lại mỗi request.
+async function mmtbKgLogin(env) {
+  const employeeCode = env.MMTB_AUTO_LOGIN_EMP_CODE || "AMDKG";
+  const password = env.MMTB_AUTO_LOGIN_PASSWORD || "123456";
+  const res = await fetch(`${env.TBSMAYMOC_API_URL}/api/mobile/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ employeeCode, password }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.token) throw new Error((data && data.error) || "Không đăng nhập được vào hệ thống MMTB Kiên Giang");
+  await pphCacheSet(env, "mmtbkg:token", { token: data.token }, 6 * 60 * 60);
+  return data.token;
+}
+
+async function mmtbKgGetToken(env) {
+  if (!env.TBSMAYMOC_API_URL) throw new Error("Thiếu cấu hình TBSMAYMOC_API_URL");
+  const cached = await pphCacheGetWithStaleInfo(env, "mmtbkg:token");
+  if (cached && cached.value && cached.value.token) return cached.value.token;
+  return await mmtbKgLogin(env);
+}
+
+// GET-only call sang tbsMayMoc — 401 (token hết hạn) thì tự đăng nhập lại đúng 1 lần rồi thử lại.
+async function mmtbKgCall(env, path) {
+  const doFetch = async (tok) => {
+    const res = await fetch(`${env.TBSMAYMOC_API_URL}${path}`, {
+      headers: { Authorization: `Bearer ${tok}` },
+    });
+    const data = await res.json().catch(() => ({}));
+    return { ok: res.ok, status: res.status, data };
+  };
+  const token = await mmtbKgGetToken(env);
+  let result = await doFetch(token);
+  if (result.status === 401) {
+    const freshToken = await mmtbKgLogin(env);
+    result = await doFetch(freshToken);
+  }
+  return result;
+}
+
+function mmtbKgAreaLabel(area) {
+  if (!area) return "Chưa gán khu vực";
+  return area.parent ? `${area.parent.name} > ${area.name}` : area.name;
+}
+
+const MMTBKG_INCIDENT_STATUS_LABEL = { PENDING: "Chưa ai nhận", ACCEPTED: "Đang xử lý", DONE: "Đã hoàn thành" };
+
+async function mmtbKgGetMachines(env) {
+  const r = await mmtbKgCall(env, "/api/machines");
+  if (!r.ok) return { success: false, error: (r.data && r.data.error) || "Không lấy được dữ liệu máy móc từ MMTB Kiên Giang", status: r.status };
+  if (!Array.isArray(r.data)) return { success: false, error: "Dữ liệu máy móc trả về không hợp lệ, thử lại sau" };
+  const data = r.data.map((m) => ({
+    id: m.id, code: m.code, name: m.name, serial: m.serialNumber,
+    factoryId: m.area && m.area.parent ? m.area.parent.id : null,
+    factoryName: m.area && m.area.parent ? m.area.parent.name : null,
+    areaId: m.area ? m.area.id : null, areaName: m.area ? m.area.name : null,
+    zone: mmtbKgAreaLabel(m.area),
+    teamId: m.team ? m.team.id : null, teamName: m.team ? m.team.name : null,
+    lineId: m.productionLine ? m.productionLine.id : null, lineName: m.productionLine ? m.productionLine.name : null,
+    machineTypeId: m.machineType ? m.machineType.id : null, machineTypeName: m.machineType ? m.machineType.name : null,
+    statusId: m.status.id, statusName: m.status.name, statusColorHex: m.status.colorHex, status: m.status.name,
+    originalCost: m.originalCost, depreciationPercent: m.depreciationPercent, remainingValue: m.remainingValue,
+    images: Array.isArray(m.images) ? m.images : [],
+    qrData: m.code,
+  }));
+  return { success: true, data };
+}
+
+async function mmtbKgGetTickets(env) {
+  const r = await mmtbKgCall(env, "/api/incidents?limit=200");
+  if (!r.ok) return { success: false, error: (r.data && r.data.error) || "Không lấy được dữ liệu sự cố từ MMTB Kiên Giang", status: r.status };
+  if (!r.data || !Array.isArray(r.data.items)) return { success: false, error: "Dữ liệu sự cố trả về không hợp lệ, thử lại sau" };
+  const data = r.data.items
+    .filter((i) => !i.isMaintenanceDue)
+    .map((i) => ({
+      id: i.id,
+      ticketCode: `SC-${String(i.id).slice(-6).toUpperCase()}`,
+      machineCode: i.machine.code, machineName: i.machine.name,
+      zone: i.machine.areaName, factoryName: i.machine.factoryName,
+      location: i.machine.location,
+      productionLine: i.machine.productionLineName || null,
+      team: i.machine.teamName || null,
+      reporter: i.reporter ? i.reporter.name : "—",
+      mechanic: i.assignedTo ? i.assignedTo.name : null,
+      errorType: i.categoryName || i.description, description: i.description,
+      errorTypeOther: i.customCategoryText || null,
+      status: i.status, statusLabel: MMTBKG_INCIDENT_STATUS_LABEL[i.status],
+      priority: i.priority || null,
+      images: Array.isArray(i.images) ? i.images : [],
+      beforeImages: Array.isArray(i.beforeImages) ? i.beforeImages : [],
+      holdReason: i.holdReason || null,
+      holdAt: i.holdAt || null,
+      reportedAt: i.createdAt, acceptedAt: i.acceptedAt, completedAt: i.completedAt,
+      repairDetail: i.repairDetail || null,
+      partsReplaced: i.partsReplaced || null,
+      repairNote: i.repairNote || null,
+      durationMinutes: i.durationMinutes ?? null,
+    }));
+  return { success: true, data, counts: r.data.counts || null };
+}
+
+const MMTBKG_CATEGORY_TYPES = ["FACTORY", "AREA", "PRODUCTION_LINE", "TEAM", "MACHINE_TYPE", "PART", "MAINTENANCE_PERIOD", "MACHINE_STATUS"];
+
+async function mmtbKgGetCategories(env, type, parentId) {
+  if (!type || MMTBKG_CATEGORY_TYPES.indexOf(type) === -1) return { success: false, error: "Loại danh mục không hợp lệ", status: 400 };
+  const qs = `?type=${type}${parentId ? `&parentId=${encodeURIComponent(parentId)}` : ""}`;
+  const r = await mmtbKgCall(env, `/api/categories${qs}`);
+  return r.ok ? { success: true, data: r.data } : { success: false, error: (r.data && r.data.error) || "Không lấy được danh mục từ MMTB Kiên Giang", status: r.status };
+}
+
+async function mmtbKgGetFailureCategories(env) {
+  const r = await mmtbKgCall(env, "/api/failure-categories");
+  return r.ok ? { success: true, data: r.data } : { success: false, error: (r.data && r.data.error) || "Không lấy được danh mục hư từ MMTB Kiên Giang", status: r.status };
+}
+
+async function mmtbKgGetSchedule(env) {
+  const r = await mmtbKgCall(env, "/api/maintenance-schedule");
+  return r.ok ? { success: true, ...r.data } : { success: false, error: (r.data && r.data.error) || "Không lấy được lịch bảo trì từ MMTB Kiên Giang", status: r.status };
+}
+
+async function mmtbKgGetLogs(env, limit) {
+  const r = await mmtbKgCall(env, `/api/maintenance-logs?limit=${limit || 150}`);
+  return r.ok ? { success: true, data: r.data } : { success: false, error: (r.data && r.data.error) || "Không lấy được lịch sử bảo trì từ MMTB Kiên Giang", status: r.status };
+}
+
+// "Kiểm Kê" — nhật ký ai đã gán lại Khu vực/Chuyền/Tổ máy nào (chuyển từ đâu -> đâu). Mã máy XUẤT
+// HIỆN trong log này = máy đã được kiểm kê ít nhất 1 lần — dùng để tính chỉ số "Máy đã kiểm kê"
+// khớp đúng con số trang Danh Sách MMTB thật đang hiện (xem machines/page.tsx bên đó).
+async function mmtbKgGetInventoryLog(env) {
+  const r = await mmtbKgCall(env, "/api/inventory-log");
+  return r.ok ? { success: true, ...r.data } : { success: false, error: (r.data && r.data.error) || "Không lấy được nhật ký Kiểm kê từ MMTB Kiên Giang", status: r.status };
+}
+
+async function mmtbKgGetOverviewReport(env, searchParams) {
+  const qs = new URLSearchParams();
+  ["factoryId", "areaId", "lineId", "dateFrom", "dateTo"].forEach((k) => {
+    const v = searchParams.get(k);
+    if (v) qs.set(k, v);
+  });
+  const suffix = qs.toString() ? `?${qs.toString()}` : "";
+  const r = await mmtbKgCall(env, `/api/overview-report${suffix}`);
+  return r.ok ? { success: true, ...r.data } : { success: false, error: (r.data && r.data.error) || "Không lấy được dữ liệu tổng quan từ MMTB Kiên Giang", status: r.status };
+}
+
+async function mmtbKgGetProposals(env) {
+  const r = await mmtbKgCall(env, "/api/admin/proposals");
+  return r.ok ? { success: true, data: r.data } : { success: false, error: (r.data && r.data.error) || "Không lấy được đề xuất từ MMTB Kiên Giang", status: r.status };
+}
+
+async function mmtbKgGetEmployees(env) {
+  const r = await mmtbKgCall(env, "/api/employees");
+  return r.ok ? { success: true, data: r.data } : { success: false, error: (r.data && r.data.error) || "Không lấy được nhân sự từ MMTB Kiên Giang", status: r.status };
+}
 
 export default {
   async fetch(request, env, ctx) {
@@ -3349,72 +5151,13 @@ export default {
           }), { headers: CORS });
         }
 
-        if (request.method === "POST") {
-          const body = await request.json().catch(() => ({}));
-          const id = body.id || `kz_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-          
-          let code = body.code;
-          if (!code && env && env.DB) {
-            try {
-              const maxRes = await env.DB.prepare(`
-                SELECT code FROM ci_kaizen_proposals 
-                WHERE code LIKE 'CI-2026-%' 
-                ORDER BY CAST(SUBSTR(code, 9) AS INTEGER) DESC LIMIT 1
-              `).first().catch(() => null);
-
-              let maxSeq = 0;
-              if (maxRes && maxRes.code) {
-                const parts = String(maxRes.code).split("-");
-                const numStr = parts[parts.length - 1];
-                const parsedNum = parseInt(numStr, 10);
-                if (!isNaN(parsedNum)) maxSeq = parsedNum;
-              }
-              code = `CI-2026-${String(maxSeq + 1).padStart(3, "0")}`;
-            } catch (e) {
-              code = `CI-2026-${Math.floor(100 + Math.random() * 900)}`;
-            }
-          }
-          if (!code) {
-            code = `CI-2026-${Math.floor(100 + Math.random() * 900)}`;
-          }
-
-          if (env && env.DB) {
-            try {
-              await env.DB.prepare(`
-                INSERT INTO ci_kaizen_proposals (
-                  id, code, title, category, category_label, registration_type, factory, region, source_region, department, line, proposer_name, proposer_emp_code, before_description, after_solution, saved_seconds, total_savings_vnd, score_points, vote_count, view_count, status, approval_status, sub_status, trang_thai, review_status, before_image_url, after_image_url, attachments_json, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(id) DO UPDATE SET
-                  title = excluded.title,
-                  before_description = excluded.before_description,
-                  after_solution = excluded.after_solution,
-                  status = excluded.status
-              `).bind(
-                id, code, body.title || '', body.category || 'PRODUCTIVITY', body.categoryLabel || body.category_label || '3.Tăng Năng suất',
-                body.registrationType || 'THI_DUA', body.factory || 'VP CHUỖI', body.region || 'Nhà Máy Miền Đông', body.source_region || 'Văn phòng Chuỗi',
-                body.department || 'May', body.line || 'May', body.proposerName || body.proposer_name || '', body.proposerEmpCode || body.proposer_emp_code || '',
-                body.beforeDescription || body.before_description || '', body.afterSolution || body.after_solution || '',
-                body.savedSeconds || body.saved_seconds || 0, body.totalSavingsVnd || body.total_savings_vnd || 0,
-                body.scorePoints || body.score_points || 0, body.voteCount || body.vote_count || 0, body.viewCount || body.view_count || 0,
-                body.status || 'SUBMITTED', body.approvalStatus || body.approval_status || 'PENDING', body.subStatus || body.sub_status || 'CHO_DUYET',
-                body.trangThai || body.trang_thai || 'CHO_DUYET', body.reviewStatus || body.review_status || 'CHO_DUYET',
-                body.beforeImageUrl || body.before_image_url || '', body.afterImageUrl || body.after_image_url || '',
-                typeof body.attachmentsJson === 'string' ? body.attachmentsJson : JSON.stringify(body.attachmentsJson || []),
-                body.created_at || new Date().toISOString().replace('T', ' ').substring(0, 19)
-              ).run();
-            } catch (dbErr) {
-              console.error("[D1 Insert Error]:", dbErr);
-              return new Response(JSON.stringify({ success: false, error: "D1_INSERT_ERROR", message: "Lỗi ghi dữ liệu D1: " + (dbErr.message || String(dbErr)) }), { status: 500, headers: CORS });
-            }
-          }
-
-          return new Response(JSON.stringify({
-            success: true,
-            message: "Tạo/Cập nhật thẻ Kaizen thành công",
-            id,
-            code
-          }), { headers: CORS });
-        }
+        // Đăng ký mới (POST /api/ci-kaizen, KHÔNG kèm sub-path) — ĐÃ CHUYỂN sang dùng đúng 1 handler
+        // chuẩn (có tra cứu/xác thực MSNV, UPSERT đầy đủ mọi trường) ở khối handleCiKaizen phía dưới
+        // (xem "POST && pathname === /api/ci-kaizen"). Khối cũ ở đây bị xoá vì: (1) không tra cứu/
+        // xác thực MSNV — nhận thẳng bất kỳ tên/mã gửi lên, (2) ON CONFLICT chỉ cập nhật title/mô tả/
+        // status, KHÔNG cập nhật proposer_name/emp_code/region — nếu trùng id, tên/MSNV của bản ghi
+        // CŨ bị giữ lại trong khi nội dung bị đè bởi lượt gửi MỚI, gây hiện tượng trường đăng ký như
+        // tự ý đổi. KHÔNG return ở đây để request tự rơi xuống khối chuẩn phía dưới.
       } catch (err) {
         return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS });
       }
@@ -9891,14 +11634,10 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
 
       if (request.method === "GET") {
         try {
-          if (!env.DB) return new Response(JSON.stringify({ success: true, data: [] }), { headers: SECURE_JSON_HEADERS });
-          const { results } = await env.DB.prepare("SELECT * FROM machines ORDER BY code ASC").all();
-          const mapped = (results || []).map(r => ({
-            id: r.id, code: r.code, name: r.name, serial: r.serial || '', zone: r.zone, status: r.status || 'OPERATING', qrData: r.qr_data || r.code
-          }));
-          return new Response(JSON.stringify({ success: true, data: mapped }), { headers: SECURE_JSON_HEADERS });
+          const result = await mmtbKgGetMachines(env);
+          return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message || "Không lấy được dữ liệu máy móc" }), { status: 502, headers: SECURE_JSON_HEADERS });
         }
       }
 
@@ -9935,10 +11674,10 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
     if (url.pathname.startsWith("/api/maintenance/tickets")) {
       if (request.method === "GET") {
         try {
-          const { results } = await env.DB.prepare("SELECT * FROM maintenance_tickets ORDER BY created_at DESC").all();
-          return new Response(JSON.stringify({ success: true, data: results }), { headers: SECURE_JSON_HEADERS });
+          const result = await mmtbKgGetTickets(env);
+          return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: true, data: [] }), { headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message || "Không lấy được dữ liệu sự cố" }), { status: 502, headers: SECURE_JSON_HEADERS });
         }
       }
 
@@ -10023,6 +11762,92 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
         } catch (err) {
           return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
+      }
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // ⚙️ MAINTENANCE — CÁC TAB CÒN LẠI, CHỈ ĐỌC (proxy MMTB Kiên Giang, xem mmtbKg* phía trên)
+    // ════════════════════════════════════════════════════════════════
+    if (url.pathname === "/api/maintenance/schedule" && request.method === "GET") {
+      try {
+        const result = await mmtbKgGetSchedule(env);
+        return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message || "Không lấy được lịch bảo trì" }), { status: 502, headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    if (url.pathname === "/api/maintenance/logs" && request.method === "GET") {
+      try {
+        const result = await mmtbKgGetLogs(env, url.searchParams.get("limit"));
+        return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message || "Không lấy được lịch sử bảo trì" }), { status: 502, headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    if (url.pathname === "/api/maintenance/inventory-log" && request.method === "GET") {
+      try {
+        const result = await mmtbKgGetInventoryLog(env);
+        return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message || "Không lấy được nhật ký Kiểm kê" }), { status: 502, headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    if (url.pathname === "/api/maintenance/overview-report" && request.method === "GET") {
+      try {
+        const result = await mmtbKgGetOverviewReport(env, url.searchParams);
+        return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message || "Không lấy được dữ liệu tổng quan" }), { status: 502, headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    if (url.pathname === "/api/maintenance/proposals" && request.method === "GET") {
+      try {
+        const result = await mmtbKgGetProposals(env);
+        return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message || "Không lấy được đề xuất" }), { status: 502, headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    if (url.pathname === "/api/maintenance/employees" && request.method === "GET") {
+      try {
+        const result = await mmtbKgGetEmployees(env);
+        return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message || "Không lấy được nhân sự" }), { status: 502, headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    if (url.pathname === "/api/maintenance/failure-categories" && request.method === "GET") {
+      try {
+        const result = await mmtbKgGetFailureCategories(env);
+        return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message || "Không lấy được danh mục hư" }), { status: 502, headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    if (url.pathname === "/api/maintenance/categories" && request.method === "GET") {
+      try {
+        const result = await mmtbKgGetCategories(env, url.searchParams.get("type"), url.searchParams.get("parentId"));
+        return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message || "Không lấy được danh mục" }), { status: 502, headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    // CategoriesManager.tsx (5 tab Danh Mục con) gọi tiền tố /api/mmtb-kg/ (khớp đúng quy ước bên
+    // thkiengiangshoes) thay vì /api/maintenance/ — cùng 1 logic đọc, chỉ khác đường dẫn.
+    if (url.pathname === "/api/mmtb-kg/categories" && request.method === "GET") {
+      try {
+        const result = await mmtbKgGetCategories(env, url.searchParams.get("type"), url.searchParams.get("parentId"));
+        return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message || "Không lấy được danh mục" }), { status: 502, headers: SECURE_JSON_HEADERS });
       }
     }
 
@@ -11544,6 +13369,33 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
     }
 
 
+
+    // ════════════════════════════════════════════════════════════════
+    // 🏭 PPH (Hiệu Suất Nhà Máy) — xem handlePph() phía trên
+    // ════════════════════════════════════════════════════════════════
+    if (url.pathname.startsWith("/api/pph")) {
+      return await handlePph(request, env, url.pathname, url.searchParams, ctx);
+    }
+
+    // Link TV rút gọn — /tv/<mã> tra ra Line/Xưởng/Nhà máy thật rồi 302 sang đúng /pph-view,
+    // /pph-view-workshop hoặc /pph-view-factory theo targetType đã lưu (mã tạo ở POST
+    // /api/pph/tv-short-link, xem pphGetOrCreateTvShortLink).
+    {
+      const tvShortMatch = url.pathname.match(/^\/tv\/([a-zA-Z0-9]+)$/);
+      if (tvShortMatch && request.method === "GET") {
+        const resolved = await pphResolveTvShortLink(env, decodeURIComponent(tvShortMatch[1]));
+        if (resolved && resolved.targetType === "factory") {
+          return Response.redirect(new URL(`/pph-view-factory?factoryId=${encodeURIComponent(resolved.targetId)}`, request.url), 302);
+        }
+        if (resolved && resolved.targetType === "workshop") {
+          return Response.redirect(new URL(`/pph-view-workshop?areaId=${encodeURIComponent(resolved.targetId)}`, request.url), 302);
+        }
+        if (resolved) {
+          return Response.redirect(new URL(`/pph-view?lineId=${encodeURIComponent(resolved.targetId)}`, request.url), 302);
+        }
+        return Response.redirect(new URL("/pph-view", request.url), 302);
+      }
+    }
 
     // ============================================================
     // API CATCH-ALL SAFE JSON FALLBACK (Prevents 404 HTML SyntaxError on res.json())

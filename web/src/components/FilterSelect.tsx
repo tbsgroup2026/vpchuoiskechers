@@ -60,7 +60,7 @@ export default function FilterSelect({
   const filtered = q ? options.filter((o) => o.name.toLowerCase().includes(q)) : options;
 
   return (
-    <div ref={wrapRef} className="relative w-full">
+    <div ref={wrapRef} className="relative flex-1 min-w-[140px]">
       <input
         value={open ? query : (selected?.name ?? '')}
         onChange={(e) => {

@@ -22,7 +22,7 @@ import FilterSelect from '@/components/FilterSelect';
 import DateRangeFilter, { inDateRange } from '@/components/DateRangeFilter';
 import ParetoChart, { type ParetoItem } from '@/components/charts/ParetoChart';
 import TrendChart, { type TrendPoint } from '@/components/charts/TrendChart';
-import { generateMockOverviewData } from '@/lib/mmtbMockOverview';
+import { readMaintenanceCache, writeMaintenanceCache } from '@/lib/maintenanceCache';
 
 type Machine = {
   id: string;
@@ -86,15 +86,15 @@ function fmtMin(n: number | null): string {
 
 export default function OverviewPage() {
   // ---- Khối tóm tắt nhanh ----
-  const [machines, setMachines] = useState<Machine[]>([]);
-  const [scheduleMachines, setScheduleMachines] = useState<ScheduleMachine[]>([]);
-  const [proposals, setProposals] = useState<Proposal[]>([]);
-  const [quickLoading, setQuickLoading] = useState(true);
+  const [machines, setMachines] = useState<Machine[]>(() => readMaintenanceCache<Machine[]>('overview_machines') || []);
+  const [scheduleMachines, setScheduleMachines] = useState<ScheduleMachine[]>(() => readMaintenanceCache<ScheduleMachine[]>('overview_schedule') || []);
+  const [proposals, setProposals] = useState<Proposal[]>(() => readMaintenanceCache<Proposal[]>('overview_proposals') || []);
+  const [quickLoading, setQuickLoading] = useState(() => readMaintenanceCache<Machine[]>('overview_machines') === null);
 
   // ---- Bộ lọc phân tích (Nhà máy/Phân xưởng/Line + thời gian) ----
-  const [factories, setFactories] = useState<CategoryOption[]>([]);
-  const [areas, setAreas] = useState<CategoryOption[]>([]);
-  const [lines, setLines] = useState<CategoryOption[]>([]);
+  const [factories, setFactories] = useState<CategoryOption[]>(() => readMaintenanceCache<CategoryOption[]>('overview_factories') || []);
+  const [areas, setAreas] = useState<CategoryOption[]>(() => readMaintenanceCache<CategoryOption[]>('overview_areas') || []);
+  const [lines, setLines] = useState<CategoryOption[]>(() => readMaintenanceCache<CategoryOption[]>('overview_lines') || []);
   const [pFactoryId, setPFactoryId] = useState('');
   const [pAreaId, setPAreaId] = useState('');
   const [pLineId, setPLineId] = useState('');
@@ -102,20 +102,19 @@ export default function OverviewPage() {
   const [pDateTo, setPDateTo] = useState('');
 
   // ---- Dữ liệu phân tích ----
-  const [incidents, setIncidents] = useState<OverviewIncident[]>([]);
-  const [logs, setLogs] = useState<OverviewLog[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [incidents, setIncidents] = useState<OverviewIncident[]>(() => readMaintenanceCache<OverviewIncident[]>('overview_incidents') || []);
+  const [logs, setLogs] = useState<OverviewLog[]>(() => readMaintenanceCache<OverviewLog[]>('overview_logs') || []);
+  const [loading, setLoading] = useState(() => readMaintenanceCache<OverviewIncident[]>('overview_incidents') === null);
   const [, setError] = useState<string | null>(null);
   const [reliabilitySearch, setReliabilitySearch] = useState('');
   const [detailMachineCode, setDetailMachineCode] = useState<string | null>(null);
 
   // ---- Dữ liệu mẫu (bật/tắt cạnh nút Lọc) ----
-  const [testDataOn, setTestDataOn] = useState(true);
   const [appliedFilters, setAppliedFilters] = useState({ factoryId: '', areaId: '', lineId: '', dateFrom: '', dateTo: '' });
 
   async function loadOverview(params: { factoryId: string; areaId: string; lineId: string; dateFrom: string; dateTo: string }) {
     try {
-      setLoading(true);
+      // KHÔNG bật setLoading(true) — nếu đã có cache thì giữ nguyên hiện ngay, chỉ âm thầm tải mới.
       setError(null);
       const qs = new URLSearchParams();
       if (params.factoryId) qs.set('factoryId', params.factoryId);
@@ -128,6 +127,8 @@ export default function OverviewPage() {
       if (result.success) {
         setIncidents(result.incidents || []);
         setLogs(result.logs || []);
+        writeMaintenanceCache('overview_incidents', result.incidents || []);
+        writeMaintenanceCache('overview_logs', result.logs || []);
       } else {
         console.warn('Failed to load overview-report:', result.error);
         setError(result.error || 'Không lấy được dữ liệu phân tích');
@@ -142,7 +143,6 @@ export default function OverviewPage() {
   useEffect(() => {
     (async () => {
       try {
-        setQuickLoading(true);
         const settled = await Promise.allSettled([
           fetch('/api/maintenance/machines').then((r) => r.json()),
           fetch('/api/maintenance/schedule').then((r) => r.json()),
@@ -154,12 +154,30 @@ export default function OverviewPage() {
         const [machinesRes, scheduleRes, proposalsRes, facRes, areaRes, lineRes] = settled.map((s) =>
           s.status === 'fulfilled' ? s.value : { success: false },
         );
-        if (machinesRes.success) setMachines(machinesRes.data || []);
-        if (scheduleRes.success) setScheduleMachines(scheduleRes.machines || []);
-        if (proposalsRes.success) setProposals(proposalsRes.data || []);
-        if (facRes.success) setFactories(facRes.data || []);
-        if (areaRes.success) setAreas(areaRes.data || []);
-        if (lineRes.success) setLines(lineRes.data || []);
+        if (machinesRes.success) {
+          setMachines(machinesRes.data || []);
+          writeMaintenanceCache('overview_machines', machinesRes.data || []);
+        }
+        if (scheduleRes.success) {
+          setScheduleMachines(scheduleRes.machines || []);
+          writeMaintenanceCache('overview_schedule', scheduleRes.machines || []);
+        }
+        if (proposalsRes.success) {
+          setProposals(proposalsRes.data || []);
+          writeMaintenanceCache('overview_proposals', proposalsRes.data || []);
+        }
+        if (facRes.success) {
+          setFactories(facRes.data || []);
+          writeMaintenanceCache('overview_factories', facRes.data || []);
+        }
+        if (areaRes.success) {
+          setAreas(areaRes.data || []);
+          writeMaintenanceCache('overview_areas', areaRes.data || []);
+        }
+        if (lineRes.success) {
+          setLines(lineRes.data || []);
+          writeMaintenanceCache('overview_lines', lineRes.data || []);
+        }
       } catch {
         /* khối tóm tắt nhanh — lỗi không chặn phần phân tích bên dưới */
       } finally {
@@ -187,26 +205,8 @@ export default function OverviewPage() {
     loadOverview(params);
   }
 
-  const mockPool = useMemo(() => generateMockOverviewData(machines), [machines]);
-  const mockMatchIndex = useMemo(() => {
-    const idxs: number[] = [];
-    mockPool.incidents.forEach((inc, idx) => {
-      if (
-        (!appliedFilters.factoryId || inc.factoryId === appliedFilters.factoryId) &&
-        (!appliedFilters.areaId || inc.areaId === appliedFilters.areaId) &&
-        (!appliedFilters.lineId || inc.lineId === appliedFilters.lineId) &&
-        inDateRange(inc.createdAt, appliedFilters.dateFrom, appliedFilters.dateTo)
-      ) {
-        idxs.push(idx);
-      }
-    });
-    return idxs;
-  }, [mockPool, appliedFilters]);
-  const filteredMockIncidents = useMemo(() => mockMatchIndex.map((idx) => mockPool.incidents[idx]), [mockMatchIndex, mockPool]);
-  const filteredMockLogs = useMemo(() => mockMatchIndex.map((idx) => mockPool.logs[idx]), [mockMatchIndex, mockPool]);
-  const showMock = incidents.length === 0 && testDataOn;
-  const effectiveIncidents: OverviewIncident[] = incidents.length > 0 ? incidents : showMock ? filteredMockIncidents : [];
-  const effectiveLogs: OverviewLog[] = incidents.length > 0 ? logs : showMock ? filteredMockLogs : [];
+  const effectiveIncidents: OverviewIncident[] = incidents;
+  const effectiveLogs: OverviewLog[] = logs;
 
   const enriched = useMemo(
     () =>
@@ -382,110 +382,6 @@ export default function OverviewPage() {
   return (
     <MaintenanceShell title="Tổng Quan MMTB" subtitle="Phân tích MTTA/MTTR/MTTD, Pareto sự cố & độ tin cậy thiết bị — SKECHERS / TBS Group II">
       <div className="space-y-6">
-        {/* Top Header & Operational Status Ribbon */}
-        <div className="relative rounded-2xl overflow-hidden bg-slate-900 border border-emerald-800/30 p-5 sm:p-6 text-white shadow-md space-y-4 group">
-          {/* Background Real Image & Dark Emerald Gradient Overlay */}
-          <img
-            src="/images/KGLV/cdtt-2-loi-vao.png"
-            alt="Quản Lý MMTB / Bảo Trì SKECHERS"
-            className="absolute inset-0 w-full h-full object-cover opacity-35 group-hover:scale-105 transition-transform duration-700 pointer-events-none"
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#006838]/90 via-[#004d29]/80 to-slate-950/85 pointer-events-none" />
-
-          <div className="relative z-10 flex items-center justify-between flex-wrap gap-3">
-            <div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-200 bg-white/10 backdrop-blur-md px-3 py-0.5 rounded-lg border border-white/15">
-                QUẢN LÝ MÁY MÓC THIẾT BỊ (MMTB)
-              </span>
-              <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight mt-1">Tổng Quan Máy Móc Thiết Bị</h1>
-              <p className="text-xs text-emerald-100/90 font-medium mt-0.5">Báo cáo vận hành thời gian thực & phân tích độ tin cậy MMTB toàn chuỗi SKECHERS</p>
-            </div>
-            
-            {/* Live Status Summary Badges */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-xs font-semibold text-emerald-800">
-                <span className="w-2 h-2 rounded-full bg-emerald-600" />
-                <span>Hoạt động: <strong className="font-mono text-emerald-950">{machines.filter(m => normalizeStatus(m.statusName).includes('su dung') || normalizeStatus(m.statusName).includes('operating')).length || machines.length}</strong></span>
-              </div>
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-xs font-semibold text-amber-800">
-                <span className="w-2 h-2 rounded-full bg-amber-600" />
-                <span>Bảo trì: <strong className="font-mono text-amber-950">{machines.filter(m => normalizeStatus(m.statusName).includes('bao tri')).length}</strong></span>
-              </div>
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-50 border border-rose-200 text-xs font-semibold text-rose-800">
-                <span className="w-2 h-2 rounded-full bg-rose-600" />
-                <span>Sự cố / Hư: <strong className="font-mono text-rose-950">{machines.filter(m => normalizeStatus(m.statusName).includes('khong su dung') || normalizeStatus(m.statusName).includes('down')).length}</strong></span>
-              </div>
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700">
-                <span>Quá hạn: <strong className="font-mono text-slate-900">{overdueMaintenance}</strong></span>
-              </div>
-            </div>
-          </div>
-
-          {/* Single-Row Filter Toolbar */}
-          <div className="pt-3 border-t border-slate-100 flex flex-wrap xl:flex-nowrap items-end gap-2 sm:gap-2.5">
-            <label className="flex-1 min-w-[120px]">
-              <span className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Nhà máy</span>
-              <FilterSelect
-                value={pFactoryId}
-                onChange={(v) => { setPFactoryId(v); setPAreaId(''); setPLineId(''); }}
-                options={factories.map((f) => ({ id: f.id, name: f.name }))}
-                placeholder="Tất cả nhà máy"
-                className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium h-[38px]"
-              />
-            </label>
-            <label className="flex-1 min-w-[120px]">
-              <span className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Phân xưởng</span>
-              <FilterSelect
-                value={pAreaId}
-                onChange={(v) => { setPAreaId(v); setPLineId(''); }}
-                options={areaOptions}
-                placeholder="Tất cả phân xưởng"
-                className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium h-[38px]"
-              />
-            </label>
-            <label className="flex-1 min-w-[110px]">
-              <span className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Line</span>
-              <FilterSelect
-                value={pLineId}
-                onChange={setPLineId}
-                options={lineOptions}
-                placeholder="Tất cả line"
-                className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium h-[38px]"
-              />
-            </label>
-            <label className="shrink-0">
-              <span className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Khoảng thời gian</span>
-              <DateRangeFilter from={pDateFrom} to={pDateTo} onFromChange={setPDateFrom} onToChange={setPDateTo} />
-            </label>
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={() => setTestDataOn((v) => !v)}
-                title={
-                  incidents.length > 0
-                    ? 'Đã có sự cố thật khớp bộ lọc — luôn ưu tiên hiện dữ liệu thật'
-                    : testDataOn
-                      ? 'Đang hiện dữ liệu mẫu — bấm để tắt'
-                      : 'Đang tắt dữ liệu mẫu — bấm để bật lại'
-                }
-                className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border transition h-[38px] whitespace-nowrap cursor-pointer ${
-                  testDataOn ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-slate-50 border-slate-200 text-slate-500'
-                }`}
-              >
-                <IconFlask size={14} />
-                <span>Dữ liệu mẫu: {testDataOn ? 'Bật' : 'Tắt'}</span>
-              </button>
-              <button
-                onClick={handleApplyFilter}
-                disabled={loading}
-                className="flex items-center justify-center gap-1.5 px-4 sm:px-5 py-2 rounded-lg bg-[#006838] text-white text-xs font-bold hover:bg-[#004d28] disabled:opacity-50 h-[38px] whitespace-nowrap cursor-pointer transition-colors"
-              >
-                <IconFilter size={14} /> {loading ? 'Đang lọc...' : 'Lọc dữ liệu'}
-              </button>
-            </div>
-          </div>
-        </div>
-
         {/* Industrial KPI Metrics Ribbon */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           {[

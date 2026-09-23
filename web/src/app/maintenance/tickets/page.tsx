@@ -1,13 +1,31 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { IconAlertTriangle, IconClockHour4, IconCircleCheck, IconTool } from '@tabler/icons-react';
+import {
+  IconAlertTriangle,
+  IconClockHour4,
+  IconCircleCheck,
+  IconTool,
+  IconX,
+  IconMapPin,
+  IconUserCircle,
+  IconUserCheck,
+  IconClock,
+  IconPlayerPause,
+  IconFlag,
+  IconPhoto,
+} from '@tabler/icons-react';
 import MaintenanceShell from '@/components/MaintenanceShell';
 import FilterSelect from '@/components/FilterSelect';
 import DateRangeFilter, { inDateRange } from '@/components/DateRangeFilter';
 import RefreshButton from '@/components/RefreshButton';
+import Pagination from '@/components/Pagination';
+import { readMaintenanceCache, writeMaintenanceCache } from '@/lib/maintenanceCache';
+
+const PAGE_SIZE = 50;
 
 type CategoryOption = { id: string; name: string };
+type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
 
 type Ticket = {
   id: string;
@@ -16,15 +34,46 @@ type Ticket = {
   machineName: string;
   zone: string | null;
   factoryName: string | null;
+  location: string | null;
+  productionLine: string | null;
+  team: string | null;
   reporter: string;
   mechanic: string | null;
   errorType: string;
+  errorTypeOther: string | null;
+  description: string | null;
   status: 'PENDING' | 'ACCEPTED' | 'DONE';
   statusLabel: string;
+  priority: Priority | null;
+  images: string[];
+  beforeImages: string[];
+  holdReason: string | null;
+  holdAt: string | null;
   reportedAt: string;
   acceptedAt: string | null;
   completedAt: string | null;
+  repairDetail: string | null;
+  partsReplaced: string | null;
+  repairNote: string | null;
+  durationMinutes: number | null;
 };
+
+const STATUS_BADGE: Record<Ticket['status'], string> = {
+  PENDING: 'bg-rose-500/15 text-rose-700',
+  ACCEPTED: 'bg-amber-500/15 text-amber-700',
+  DONE: 'bg-emerald-500/15 text-emerald-700',
+};
+
+const PRIORITY_INFO: Record<Priority, { label: string; badge: string }> = {
+  LOW: { label: 'Thấp', badge: 'bg-slate-100 text-slate-600' },
+  MEDIUM: { label: 'Trung bình', badge: 'bg-sky-100 text-sky-700' },
+  HIGH: { label: 'Cao', badge: 'bg-amber-100 text-amber-700' },
+  URGENT: { label: 'Khẩn cấp', badge: 'bg-rose-100 text-rose-700' },
+};
+
+function priorityInfo(p: Priority | string | null): { label: string; badge: string } | null {
+  return p && p in PRIORITY_INFO ? PRIORITY_INFO[p as Priority] : null;
+}
 
 function renderTicketStatusBadge(status: Ticket['status'], label: string) {
   if (status === 'PENDING') {
@@ -58,9 +107,9 @@ function formatDateTime(iso: string | null): string {
 }
 
 export default function MaintenanceTicketsPage() {
-  const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [factories, setFactories] = useState<CategoryOption[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [tickets, setTickets] = useState<Ticket[]>(() => readMaintenanceCache<Ticket[]>('tickets') || []);
+  const [factories, setFactories] = useState<CategoryOption[]>(() => readMaintenanceCache<CategoryOption[]>('tickets_factories') || []);
+  const [loading, setLoading] = useState(() => readMaintenanceCache<Ticket[]>('tickets') === null);
   const [error, setError] = useState<string | null>(null);
 
   const [search, setSearch] = useState('');
@@ -72,7 +121,7 @@ export default function MaintenanceTicketsPage() {
 
   async function load(force = false) {
     try {
-      force ? setRefreshing(true) : setLoading(true);
+      if (force) setRefreshing(true);
       setError(null);
       const fresh = force ? '&fresh=1' : '';
       const settled = await Promise.allSettled([
@@ -82,15 +131,17 @@ export default function MaintenanceTicketsPage() {
       const [ticketsRes, facRes] = settled.map((s) => (s.status === 'fulfilled' ? s.value : { success: false, error: String(s.reason) }));
       if (ticketsRes.success && Array.isArray(ticketsRes.data)) {
         setTickets(ticketsRes.data);
+        writeMaintenanceCache('tickets', ticketsRes.data);
       } else {
-        setTickets([]);
         console.warn('Failed to load tickets from tbsMayMoc:', ticketsRes.error);
         setError(ticketsRes.error || 'Không lấy được dữ liệu');
       }
-      if (facRes.success) setFactories(facRes.data || []);
+      if (facRes.success) {
+        setFactories(facRes.data || []);
+        writeMaintenanceCache('tickets_factories', facRes.data || []);
+      }
     } catch (err) {
       console.warn('Failed to fetch tickets from tbsMayMoc:', err);
-      setTickets([]);
     } finally {
       force ? setRefreshing(false) : setLoading(false);
     }
@@ -122,6 +173,14 @@ export default function MaintenanceTicketsPage() {
     }
     return { total: filtered.length, pending, accepted, done };
   }, [filtered]);
+
+  const [page, setPage] = useState(1);
+  useEffect(() => {
+    setPage(1);
+  }, [search, filterStatus, filterFactoryId, dateFrom, dateTo]);
+  const pageItems = useMemo(() => filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [filtered, page]);
+
+  const [detailTicket, setDetailTicket] = useState<Ticket | null>(null);
 
   return (
     <MaintenanceShell title="Nhu Cầu Sửa Chữa" subtitle="Quản lý yêu cầu khắc phục sự cố MMTB (Work Orders) — SKECHERS / TBS Group II">
@@ -191,46 +250,232 @@ export default function MaintenanceTicketsPage() {
                 <th className="p-3">Mã Ticket</th>
                 <th className="p-3">Thiết Bị</th>
                 <th className="p-3">Khu Vực / Nhà Máy</th>
+                <th className="p-3">Chuyền</th>
+                <th className="p-3">Tổ</th>
+                <th className="p-3">Ưu Tiên</th>
                 <th className="p-3">Người Báo</th>
                 <th className="p-3">Bảo Trì Phụ Trách</th>
                 <th className="p-3">Loại Lỗi</th>
+                <th className="p-3">Lỗi Khác</th>
+                <th className="p-3">Nguyên Nhân Sự Cố</th>
                 <th className="p-3">Trạng Thái</th>
+                <th className="p-3">Cách Khắc Phục</th>
+                <th className="p-3">Linh Kiện Thay Thế</th>
+                <th className="p-3">Ghi Chú Thêm</th>
+                <th className="p-3 text-right">Số Phút Hoàn Thành</th>
                 <th className="p-3 text-right">Thời Gian Báo</th>
+                <th className="p-3 text-right">Thời Gian Nhận Việc</th>
+                <th className="p-3 text-right">Thời Gian Hoàn Thành</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs text-slate-700 whitespace-nowrap">
               {loading && (
                 <tr>
-                  <td className="p-4 text-slate-400 text-center" colSpan={8}>Đang tải danh sách ticket...</td>
+                  <td className="p-4 text-slate-400 text-center" colSpan={19}>Đang tải danh sách ticket...</td>
                 </tr>
               )}
               {!loading && filtered.length === 0 && !error && (
                 <tr>
-                  <td className="p-4 text-slate-400 text-center" colSpan={8}>
+                  <td className="p-4 text-slate-400 text-center" colSpan={19}>
                     {tickets.length === 0 ? 'Chưa có sự cố nào trong hệ thống' : 'Không tìm thấy sự cố phù hợp'}
                   </td>
                 </tr>
               )}
-              {filtered.map((t) => (
-                <tr key={t.id} className="hover:bg-slate-50/90 transition-colors">
+              {pageItems.map((t) => (
+                <tr key={t.id} onClick={() => setDetailTicket(t)} className="hover:bg-slate-50/90 transition-colors cursor-pointer">
                   <td className="p-3 font-mono font-bold text-[#006838]">{t.ticketCode}</td>
                   <td className="p-3">
                     <div className="font-bold text-slate-900">{t.machineName}</div>
                     <div className="font-mono text-[11px] text-slate-500">{t.machineCode}</div>
                   </td>
                   <td className="p-3 text-slate-600">{t.factoryName ? `${t.factoryName} > ${t.zone ?? '—'}` : (t.zone ?? '—')}</td>
+                  <td className="p-3 text-slate-600">{t.productionLine ?? '—'}</td>
+                  <td className="p-3 text-slate-600">{t.team ?? '—'}</td>
+                  <td className="p-3">
+                    {priorityInfo(t.priority) ? (
+                      <span className={`px-2 py-0.5 font-bold rounded ${priorityInfo(t.priority)!.badge}`}>{priorityInfo(t.priority)!.label}</span>
+                    ) : (
+                      <span className="text-slate-300">—</span>
+                    )}
+                  </td>
                   <td className="p-3 text-slate-700 font-medium">{t.reporter}</td>
                   <td className="p-3 font-semibold text-slate-900">{t.mechanic ?? '—'}</td>
                   <td className="p-3 font-medium text-rose-700">{t.errorType}</td>
+                  <td className="p-3 max-w-[200px] whitespace-normal text-slate-600">{t.errorTypeOther || '—'}</td>
+                  <td className="p-3 max-w-[200px] whitespace-normal text-slate-600">{t.description || '—'}</td>
                   <td className="p-3">{renderTicketStatusBadge(t.status, t.statusLabel)}</td>
+                  <td className="p-3 max-w-[200px] whitespace-normal text-slate-600">{t.repairDetail || '—'}</td>
+                  <td className="p-3 max-w-[180px] whitespace-normal text-slate-600">{t.partsReplaced || '—'}</td>
+                  <td className="p-3 max-w-[180px] whitespace-normal text-slate-600">{t.repairNote || '—'}</td>
+                  <td className="p-3 text-right font-mono">{t.durationMinutes != null ? t.durationMinutes : '—'}</td>
                   <td className="p-3 font-mono text-slate-500 text-right">{formatDateTime(t.reportedAt)}</td>
+                  <td className="p-3 font-mono text-slate-500 text-right">{formatDateTime(t.acceptedAt)}</td>
+                  <td className="p-3 font-mono text-slate-500 text-right">{formatDateTime(t.completedAt)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
+          <Pagination page={page} totalItems={filtered.length} pageSize={PAGE_SIZE} onPageChange={setPage} />
         </div>
       </div>
+
+      {detailTicket && <TicketDetailModal ticket={detailTicket} onClose={() => setDetailTicket(null)} />}
     </MaintenanceShell>
+  );
+}
+
+function TicketDetailModal({ ticket: t, onClose }: { ticket: Ticket; onClose: () => void }) {
+  const cover = t.images[0] || t.beforeImages[0] || null;
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
+      <div
+        className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl max-h-[88vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex flex-col sm:flex-row">
+          <div className="sm:w-64 shrink-0 bg-slate-100">
+            {cover ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={cover} alt="" className="w-full h-48 sm:h-full object-cover" />
+            ) : (
+              <div className="w-full h-48 sm:h-full flex items-center justify-center text-slate-300">
+                <IconPhoto size={40} />
+              </div>
+            )}
+          </div>
+          <div className="flex-1 min-w-0 p-5 space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${STATUS_BADGE[t.status]}`}>{t.statusLabel}</span>
+                {priorityInfo(t.priority) && (
+                  <span className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold ${priorityInfo(t.priority)!.badge}`}>
+                    <IconFlag size={12} /> Ưu tiên {priorityInfo(t.priority)!.label}
+                  </span>
+                )}
+              </div>
+              <button type="button" onClick={onClose} className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center shrink-0 cursor-pointer">
+                <IconX size={16} />
+              </button>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-extrabold text-tbs-dark">{t.machineName}</h3>
+              <p className="text-xs text-slate-400 font-mono">{t.ticketCode} · {t.machineCode}</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="flex items-start gap-2">
+                <IconMapPin size={15} className="text-[#006838] mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-slate-400 font-semibold">Khu vực / Nhà máy</p>
+                  <p className="font-bold text-tbs-dark">{t.factoryName ? `${t.factoryName} > ${t.zone ?? '—'}` : (t.zone ?? '—')}</p>
+                  {(t.productionLine || t.team) && (
+                    <p className="text-slate-500">{[t.productionLine, t.team].filter(Boolean).join(' > ')}</p>
+                  )}
+                  {t.location && <p className="text-slate-500">{t.location}</p>}
+                </div>
+              </div>
+              <div className="flex items-start gap-2">
+                <IconUserCircle size={15} className="text-[#006838] mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-slate-400 font-semibold">Người báo</p>
+                  <p className="font-bold text-tbs-dark">{t.reporter}</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-2">
+                <IconUserCheck size={15} className="text-[#006838] mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-slate-400 font-semibold">Bảo trì phụ trách</p>
+                  <p className="font-bold text-tbs-dark">{t.mechanic ?? 'Chưa ai nhận'}</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-2">
+                <IconClock size={15} className="text-[#006838] mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-slate-400 font-semibold">Thời gian</p>
+                  <p className="font-bold text-tbs-dark">Báo: {formatDateTime(t.reportedAt)}</p>
+                  {t.acceptedAt && <p className="text-slate-500">Nhận: {formatDateTime(t.acceptedAt)}</p>}
+                  {t.completedAt && <p className="text-slate-500">Xong: {formatDateTime(t.completedAt)}</p>}
+                  {t.durationMinutes != null && <p className="text-slate-500">Mất {t.durationMinutes} phút sửa</p>}
+                </div>
+              </div>
+            </div>
+
+            {(t.repairDetail || t.partsReplaced || t.repairNote) && (
+              <div className="rounded-2xl bg-emerald-50/60 border border-emerald-100 p-3 space-y-2">
+                {t.repairDetail && (
+                  <div>
+                    <p className="text-[11px] font-bold text-emerald-600 uppercase tracking-wide mb-1">Cách khắc phục</p>
+                    <p className="text-sm font-semibold text-emerald-800 whitespace-pre-wrap">{t.repairDetail}</p>
+                  </div>
+                )}
+                {t.partsReplaced && (
+                  <div>
+                    <p className="text-[11px] font-bold text-emerald-600 uppercase tracking-wide mb-1">Linh kiện thay thế</p>
+                    <p className="text-sm text-emerald-800">{t.partsReplaced}</p>
+                  </div>
+                )}
+                {t.repairNote && (
+                  <div>
+                    <p className="text-[11px] font-bold text-emerald-600 uppercase tracking-wide mb-1">Ghi chú thêm</p>
+                    <p className="text-sm text-emerald-800 whitespace-pre-wrap">{t.repairNote}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="rounded-2xl bg-rose-50/60 border border-rose-100 p-3">
+              <p className="text-[11px] font-bold text-rose-500 uppercase tracking-wide mb-1">Loại lỗi</p>
+              <p className="text-sm font-semibold text-rose-700">{t.errorType}</p>
+              {t.errorTypeOther && (
+                <p className="text-sm text-rose-600 mt-1 whitespace-pre-wrap">{t.errorTypeOther}</p>
+              )}
+              {t.description && t.description !== t.errorType && (
+                <p className="text-xs text-slate-600 mt-1.5 whitespace-pre-wrap">{t.description}</p>
+              )}
+            </div>
+
+            {t.holdReason && (
+              <div className="rounded-2xl bg-amber-50 border border-amber-100 p-3">
+                <p className="text-[11px] font-bold text-amber-600 uppercase tracking-wide mb-1 flex items-center gap-1">
+                  <IconPlayerPause size={13} /> Tạm dừng xử lý
+                </p>
+                <p className="text-xs text-amber-800">{t.holdReason}</p>
+                {t.holdAt && <p className="text-[10px] text-amber-500 mt-0.5">{formatDateTime(t.holdAt)}</p>}
+              </div>
+            )}
+
+            {t.beforeImages.length > 0 && (
+              <div>
+                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">Ảnh trước khi sửa</p>
+                <div className="grid grid-cols-4 gap-2">
+                  {t.beforeImages.map((url, i) => (
+                    <a key={i} href={url} target="_blank" rel="noreferrer">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={url} alt="" className="w-full aspect-square rounded-lg object-cover border border-slate-200" />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {t.images.length > 0 && (
+              <div>
+                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">Ảnh báo lỗi</p>
+                <div className="grid grid-cols-4 gap-2">
+                  {t.images.map((url, i) => (
+                    <a key={i} href={url} target="_blank" rel="noreferrer">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={url} alt="" className="w-full aspect-square rounded-lg object-cover border border-slate-200" />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 

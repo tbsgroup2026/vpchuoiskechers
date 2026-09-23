@@ -1916,6 +1916,167 @@ async function handlePph(request, env, pathname, searchParams, ctx) {
   return pphJson({ success: false, error: `Không tìm thấy endpoint PPH: ${sub}` }, 404);
 }
 
+// ════════════════════════════════════════════════════════════════
+// 🏭 MMTB-KG (Tổ hợp Kiên Giang) — CHỈ ĐỌC, xem dữ liệu máy móc/bảo trì THẬT
+// ════════════════════════════════════════════════════════════════
+// Trang /maintenance của vpchuoiskechers CHỈ XEM (không sửa/xóa/thêm) dữ liệu thật của hệ thống
+// MMTB Kiên Giang (tbs-quanlymaymoc.workers.dev) — tự đăng nhập ngầm bằng 1 tài khoản dịch vụ dùng
+// chung (MMTB_AUTO_LOGIN_EMP_CODE/PASSWORD, đã có sẵn trong wrangler.jsonc), KHÔNG cần người dùng
+// vpchuoiskechers đăng nhập gì thêm. Token đăng nhập được cache lại (dùng chung bảng pph_cache) để
+// không phải gọi login lại mỗi request.
+async function mmtbKgLogin(env) {
+  const employeeCode = env.MMTB_AUTO_LOGIN_EMP_CODE || "AMDKG";
+  const password = env.MMTB_AUTO_LOGIN_PASSWORD || "123456";
+  const res = await fetch(`${env.TBSMAYMOC_API_URL}/api/mobile/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ employeeCode, password }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.token) throw new Error((data && data.error) || "Không đăng nhập được vào hệ thống MMTB Kiên Giang");
+  await pphCacheSet(env, "mmtbkg:token", { token: data.token }, 6 * 60 * 60);
+  return data.token;
+}
+
+async function mmtbKgGetToken(env) {
+  if (!env.TBSMAYMOC_API_URL) throw new Error("Thiếu cấu hình TBSMAYMOC_API_URL");
+  const cached = await pphCacheGetWithStaleInfo(env, "mmtbkg:token");
+  if (cached && cached.value && cached.value.token) return cached.value.token;
+  return await mmtbKgLogin(env);
+}
+
+// GET-only call sang tbsMayMoc — 401 (token hết hạn) thì tự đăng nhập lại đúng 1 lần rồi thử lại.
+async function mmtbKgCall(env, path) {
+  const doFetch = async (tok) => {
+    const res = await fetch(`${env.TBSMAYMOC_API_URL}${path}`, {
+      headers: { Authorization: `Bearer ${tok}` },
+    });
+    const data = await res.json().catch(() => ({}));
+    return { ok: res.ok, status: res.status, data };
+  };
+  const token = await mmtbKgGetToken(env);
+  let result = await doFetch(token);
+  if (result.status === 401) {
+    const freshToken = await mmtbKgLogin(env);
+    result = await doFetch(freshToken);
+  }
+  return result;
+}
+
+function mmtbKgAreaLabel(area) {
+  if (!area) return "Chưa gán khu vực";
+  return area.parent ? `${area.parent.name} > ${area.name}` : area.name;
+}
+
+const MMTBKG_INCIDENT_STATUS_LABEL = { PENDING: "Chưa ai nhận", ACCEPTED: "Đang xử lý", DONE: "Đã hoàn thành" };
+
+async function mmtbKgGetMachines(env) {
+  const r = await mmtbKgCall(env, "/api/machines");
+  if (!r.ok) return { success: false, error: (r.data && r.data.error) || "Không lấy được dữ liệu máy móc từ MMTB Kiên Giang", status: r.status };
+  if (!Array.isArray(r.data)) return { success: false, error: "Dữ liệu máy móc trả về không hợp lệ, thử lại sau" };
+  const data = r.data.map((m) => ({
+    id: m.id, code: m.code, name: m.name, serial: m.serialNumber,
+    factoryId: m.area && m.area.parent ? m.area.parent.id : null,
+    factoryName: m.area && m.area.parent ? m.area.parent.name : null,
+    areaId: m.area ? m.area.id : null, areaName: m.area ? m.area.name : null,
+    zone: mmtbKgAreaLabel(m.area),
+    teamId: m.team ? m.team.id : null, teamName: m.team ? m.team.name : null,
+    lineId: m.productionLine ? m.productionLine.id : null, lineName: m.productionLine ? m.productionLine.name : null,
+    machineTypeId: m.machineType ? m.machineType.id : null, machineTypeName: m.machineType ? m.machineType.name : null,
+    statusId: m.status.id, statusName: m.status.name, statusColorHex: m.status.colorHex, status: m.status.name,
+    originalCost: m.originalCost, depreciationPercent: m.depreciationPercent, remainingValue: m.remainingValue,
+    images: Array.isArray(m.images) ? m.images : [],
+    qrData: m.code,
+  }));
+  return { success: true, data };
+}
+
+async function mmtbKgGetTickets(env) {
+  const r = await mmtbKgCall(env, "/api/incidents?limit=200");
+  if (!r.ok) return { success: false, error: (r.data && r.data.error) || "Không lấy được dữ liệu sự cố từ MMTB Kiên Giang", status: r.status };
+  if (!r.data || !Array.isArray(r.data.items)) return { success: false, error: "Dữ liệu sự cố trả về không hợp lệ, thử lại sau" };
+  const data = r.data.items
+    .filter((i) => !i.isMaintenanceDue)
+    .map((i) => ({
+      id: i.id,
+      ticketCode: `SC-${String(i.id).slice(-6).toUpperCase()}`,
+      machineCode: i.machine.code, machineName: i.machine.name,
+      zone: i.machine.areaName, factoryName: i.machine.factoryName,
+      location: i.machine.location,
+      productionLine: i.machine.productionLineName || null,
+      team: i.machine.teamName || null,
+      reporter: i.reporter ? i.reporter.name : "—",
+      mechanic: i.assignedTo ? i.assignedTo.name : null,
+      errorType: i.categoryName || i.description, description: i.description,
+      errorTypeOther: i.customCategoryText || null,
+      status: i.status, statusLabel: MMTBKG_INCIDENT_STATUS_LABEL[i.status],
+      priority: i.priority || null,
+      images: Array.isArray(i.images) ? i.images : [],
+      beforeImages: Array.isArray(i.beforeImages) ? i.beforeImages : [],
+      holdReason: i.holdReason || null,
+      holdAt: i.holdAt || null,
+      reportedAt: i.createdAt, acceptedAt: i.acceptedAt, completedAt: i.completedAt,
+      repairDetail: i.repairDetail || null,
+      partsReplaced: i.partsReplaced || null,
+      repairNote: i.repairNote || null,
+      durationMinutes: i.durationMinutes ?? null,
+    }));
+  return { success: true, data, counts: r.data.counts || null };
+}
+
+const MMTBKG_CATEGORY_TYPES = ["FACTORY", "AREA", "PRODUCTION_LINE", "TEAM", "MACHINE_TYPE", "PART", "MAINTENANCE_PERIOD", "MACHINE_STATUS"];
+
+async function mmtbKgGetCategories(env, type, parentId) {
+  if (!type || MMTBKG_CATEGORY_TYPES.indexOf(type) === -1) return { success: false, error: "Loại danh mục không hợp lệ", status: 400 };
+  const qs = `?type=${type}${parentId ? `&parentId=${encodeURIComponent(parentId)}` : ""}`;
+  const r = await mmtbKgCall(env, `/api/categories${qs}`);
+  return r.ok ? { success: true, data: r.data } : { success: false, error: (r.data && r.data.error) || "Không lấy được danh mục từ MMTB Kiên Giang", status: r.status };
+}
+
+async function mmtbKgGetFailureCategories(env) {
+  const r = await mmtbKgCall(env, "/api/failure-categories");
+  return r.ok ? { success: true, data: r.data } : { success: false, error: (r.data && r.data.error) || "Không lấy được danh mục hư từ MMTB Kiên Giang", status: r.status };
+}
+
+async function mmtbKgGetSchedule(env) {
+  const r = await mmtbKgCall(env, "/api/maintenance-schedule");
+  return r.ok ? { success: true, ...r.data } : { success: false, error: (r.data && r.data.error) || "Không lấy được lịch bảo trì từ MMTB Kiên Giang", status: r.status };
+}
+
+async function mmtbKgGetLogs(env, limit) {
+  const r = await mmtbKgCall(env, `/api/maintenance-logs?limit=${limit || 150}`);
+  return r.ok ? { success: true, data: r.data } : { success: false, error: (r.data && r.data.error) || "Không lấy được lịch sử bảo trì từ MMTB Kiên Giang", status: r.status };
+}
+
+// "Kiểm Kê" — nhật ký ai đã gán lại Khu vực/Chuyền/Tổ máy nào (chuyển từ đâu -> đâu). Mã máy XUẤT
+// HIỆN trong log này = máy đã được kiểm kê ít nhất 1 lần — dùng để tính chỉ số "Máy đã kiểm kê"
+// khớp đúng con số trang Danh Sách MMTB thật đang hiện (xem machines/page.tsx bên đó).
+async function mmtbKgGetInventoryLog(env) {
+  const r = await mmtbKgCall(env, "/api/inventory-log");
+  return r.ok ? { success: true, ...r.data } : { success: false, error: (r.data && r.data.error) || "Không lấy được nhật ký Kiểm kê từ MMTB Kiên Giang", status: r.status };
+}
+
+async function mmtbKgGetOverviewReport(env, searchParams) {
+  const qs = new URLSearchParams();
+  ["factoryId", "areaId", "lineId", "dateFrom", "dateTo"].forEach((k) => {
+    const v = searchParams.get(k);
+    if (v) qs.set(k, v);
+  });
+  const suffix = qs.toString() ? `?${qs.toString()}` : "";
+  const r = await mmtbKgCall(env, `/api/overview-report${suffix}`);
+  return r.ok ? { success: true, ...r.data } : { success: false, error: (r.data && r.data.error) || "Không lấy được dữ liệu tổng quan từ MMTB Kiên Giang", status: r.status };
+}
+
+async function mmtbKgGetProposals(env) {
+  const r = await mmtbKgCall(env, "/api/admin/proposals");
+  return r.ok ? { success: true, data: r.data } : { success: false, error: (r.data && r.data.error) || "Không lấy được đề xuất từ MMTB Kiên Giang", status: r.status };
+}
+
+async function mmtbKgGetEmployees(env) {
+  const r = await mmtbKgCall(env, "/api/employees");
+  return r.ok ? { success: true, data: r.data } : { success: false, error: (r.data && r.data.error) || "Không lấy được nhân sự từ MMTB Kiên Giang", status: r.status };
+}
+
 export default {
   async fetch(request, env, ctx) {
     try {
@@ -4708,72 +4869,13 @@ export default {
           }), { headers: CORS });
         }
 
-        if (request.method === "POST") {
-          const body = await request.json().catch(() => ({}));
-          const id = body.id || `kz_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-          
-          let code = body.code;
-          if (!code && env && env.DB) {
-            try {
-              const maxRes = await env.DB.prepare(`
-                SELECT code FROM ci_kaizen_proposals 
-                WHERE code LIKE 'CI-2026-%' 
-                ORDER BY CAST(SUBSTR(code, 9) AS INTEGER) DESC LIMIT 1
-              `).first().catch(() => null);
-
-              let maxSeq = 0;
-              if (maxRes && maxRes.code) {
-                const parts = String(maxRes.code).split("-");
-                const numStr = parts[parts.length - 1];
-                const parsedNum = parseInt(numStr, 10);
-                if (!isNaN(parsedNum)) maxSeq = parsedNum;
-              }
-              code = `CI-2026-${String(maxSeq + 1).padStart(3, "0")}`;
-            } catch (e) {
-              code = `CI-2026-${Math.floor(100 + Math.random() * 900)}`;
-            }
-          }
-          if (!code) {
-            code = `CI-2026-${Math.floor(100 + Math.random() * 900)}`;
-          }
-
-          if (env && env.DB) {
-            try {
-              await env.DB.prepare(`
-                INSERT INTO ci_kaizen_proposals (
-                  id, code, title, category, category_label, registration_type, factory, region, source_region, department, line, proposer_name, proposer_emp_code, before_description, after_solution, saved_seconds, total_savings_vnd, score_points, vote_count, view_count, status, approval_status, sub_status, trang_thai, review_status, before_image_url, after_image_url, attachments_json, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(id) DO UPDATE SET
-                  title = excluded.title,
-                  before_description = excluded.before_description,
-                  after_solution = excluded.after_solution,
-                  status = excluded.status
-              `).bind(
-                id, code, body.title || '', body.category || 'PRODUCTIVITY', body.categoryLabel || body.category_label || '3.Tăng Năng suất',
-                body.registrationType || 'THI_DUA', body.factory || 'VP CHUỖI', body.region || 'Nhà Máy Miền Đông', body.source_region || 'Văn phòng Chuỗi',
-                body.department || 'May', body.line || 'May', body.proposerName || body.proposer_name || '', body.proposerEmpCode || body.proposer_emp_code || '',
-                body.beforeDescription || body.before_description || '', body.afterSolution || body.after_solution || '',
-                body.savedSeconds || body.saved_seconds || 0, body.totalSavingsVnd || body.total_savings_vnd || 0,
-                body.scorePoints || body.score_points || 0, body.voteCount || body.vote_count || 0, body.viewCount || body.view_count || 0,
-                body.status || 'SUBMITTED', body.approvalStatus || body.approval_status || 'PENDING', body.subStatus || body.sub_status || 'CHO_DUYET',
-                body.trangThai || body.trang_thai || 'CHO_DUYET', body.reviewStatus || body.review_status || 'CHO_DUYET',
-                body.beforeImageUrl || body.before_image_url || '', body.afterImageUrl || body.after_image_url || '',
-                typeof body.attachmentsJson === 'string' ? body.attachmentsJson : JSON.stringify(body.attachmentsJson || []),
-                body.created_at || new Date().toISOString().replace('T', ' ').substring(0, 19)
-              ).run();
-            } catch (dbErr) {
-              console.error("[D1 Insert Error]:", dbErr);
-              return new Response(JSON.stringify({ success: false, error: "D1_INSERT_ERROR", message: "Lỗi ghi dữ liệu D1: " + (dbErr.message || String(dbErr)) }), { status: 500, headers: CORS });
-            }
-          }
-
-          return new Response(JSON.stringify({
-            success: true,
-            message: "Tạo/Cập nhật thẻ Kaizen thành công",
-            id,
-            code
-          }), { headers: CORS });
-        }
+        // Đăng ký mới (POST /api/ci-kaizen, KHÔNG kèm sub-path) — ĐÃ CHUYỂN sang dùng đúng 1 handler
+        // chuẩn (có tra cứu/xác thực MSNV, UPSERT đầy đủ mọi trường) ở khối handleCiKaizen phía dưới
+        // (xem "POST && pathname === /api/ci-kaizen"). Khối cũ ở đây bị xoá vì: (1) không tra cứu/
+        // xác thực MSNV — nhận thẳng bất kỳ tên/mã gửi lên, (2) ON CONFLICT chỉ cập nhật title/mô tả/
+        // status, KHÔNG cập nhật proposer_name/emp_code/region — nếu trùng id, tên/MSNV của bản ghi
+        // CŨ bị giữ lại trong khi nội dung bị đè bởi lượt gửi MỚI, gây hiện tượng trường đăng ký như
+        // tự ý đổi. KHÔNG return ở đây để request tự rơi xuống khối chuẩn phía dưới.
       } catch (err) {
         return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS });
       }
@@ -11250,14 +11352,10 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
 
       if (request.method === "GET") {
         try {
-          if (!env.DB) return new Response(JSON.stringify({ success: true, data: [] }), { headers: SECURE_JSON_HEADERS });
-          const { results } = await env.DB.prepare("SELECT * FROM machines ORDER BY code ASC").all();
-          const mapped = (results || []).map(r => ({
-            id: r.id, code: r.code, name: r.name, serial: r.serial || '', zone: r.zone, status: r.status || 'OPERATING', qrData: r.qr_data || r.code
-          }));
-          return new Response(JSON.stringify({ success: true, data: mapped }), { headers: SECURE_JSON_HEADERS });
+          const result = await mmtbKgGetMachines(env);
+          return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message || "Không lấy được dữ liệu máy móc" }), { status: 502, headers: SECURE_JSON_HEADERS });
         }
       }
 
@@ -11294,10 +11392,10 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
     if (url.pathname.startsWith("/api/maintenance/tickets")) {
       if (request.method === "GET") {
         try {
-          const { results } = await env.DB.prepare("SELECT * FROM maintenance_tickets ORDER BY created_at DESC").all();
-          return new Response(JSON.stringify({ success: true, data: results }), { headers: SECURE_JSON_HEADERS });
+          const result = await mmtbKgGetTickets(env);
+          return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: true, data: [] }), { headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message || "Không lấy được dữ liệu sự cố" }), { status: 502, headers: SECURE_JSON_HEADERS });
         }
       }
 
@@ -11382,6 +11480,92 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
         } catch (err) {
           return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
+      }
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // ⚙️ MAINTENANCE — CÁC TAB CÒN LẠI, CHỈ ĐỌC (proxy MMTB Kiên Giang, xem mmtbKg* phía trên)
+    // ════════════════════════════════════════════════════════════════
+    if (url.pathname === "/api/maintenance/schedule" && request.method === "GET") {
+      try {
+        const result = await mmtbKgGetSchedule(env);
+        return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message || "Không lấy được lịch bảo trì" }), { status: 502, headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    if (url.pathname === "/api/maintenance/logs" && request.method === "GET") {
+      try {
+        const result = await mmtbKgGetLogs(env, url.searchParams.get("limit"));
+        return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message || "Không lấy được lịch sử bảo trì" }), { status: 502, headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    if (url.pathname === "/api/maintenance/inventory-log" && request.method === "GET") {
+      try {
+        const result = await mmtbKgGetInventoryLog(env);
+        return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message || "Không lấy được nhật ký Kiểm kê" }), { status: 502, headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    if (url.pathname === "/api/maintenance/overview-report" && request.method === "GET") {
+      try {
+        const result = await mmtbKgGetOverviewReport(env, url.searchParams);
+        return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message || "Không lấy được dữ liệu tổng quan" }), { status: 502, headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    if (url.pathname === "/api/maintenance/proposals" && request.method === "GET") {
+      try {
+        const result = await mmtbKgGetProposals(env);
+        return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message || "Không lấy được đề xuất" }), { status: 502, headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    if (url.pathname === "/api/maintenance/employees" && request.method === "GET") {
+      try {
+        const result = await mmtbKgGetEmployees(env);
+        return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message || "Không lấy được nhân sự" }), { status: 502, headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    if (url.pathname === "/api/maintenance/failure-categories" && request.method === "GET") {
+      try {
+        const result = await mmtbKgGetFailureCategories(env);
+        return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message || "Không lấy được danh mục hư" }), { status: 502, headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    if (url.pathname === "/api/maintenance/categories" && request.method === "GET") {
+      try {
+        const result = await mmtbKgGetCategories(env, url.searchParams.get("type"), url.searchParams.get("parentId"));
+        return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message || "Không lấy được danh mục" }), { status: 502, headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    // CategoriesManager.tsx (5 tab Danh Mục con) gọi tiền tố /api/mmtb-kg/ (khớp đúng quy ước bên
+    // thkiengiangshoes) thay vì /api/maintenance/ — cùng 1 logic đọc, chỉ khác đường dẫn.
+    if (url.pathname === "/api/mmtb-kg/categories" && request.method === "GET") {
+      try {
+        const result = await mmtbKgGetCategories(env, url.searchParams.get("type"), url.searchParams.get("parentId"));
+        return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message || "Không lấy được danh mục" }), { status: 502, headers: SECURE_JSON_HEADERS });
       }
     }
 

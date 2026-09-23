@@ -6,6 +6,7 @@ import MaintenanceShell from '@/components/MaintenanceShell';
 import FilterSelect from '@/components/FilterSelect';
 import DateRangeFilter, { inDateRange } from '@/components/DateRangeFilter';
 import RefreshButton from '@/components/RefreshButton';
+import { readMaintenanceCache, writeMaintenanceCache } from '@/lib/maintenanceCache';
 
 type CategoryOption = { id: string; name: string };
 
@@ -42,9 +43,9 @@ function formatDateTime(iso: string): string {
 }
 
 export default function ProposalsPage() {
-  const [proposals, setProposals] = useState<Proposal[]>([]);
-  const [factories, setFactories] = useState<CategoryOption[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [proposals, setProposals] = useState<Proposal[]>(() => readMaintenanceCache<Proposal[]>('proposals') || []);
+  const [factories, setFactories] = useState<CategoryOption[]>(() => readMaintenanceCache<CategoryOption[]>('proposals_factories') || []);
+  const [loading, setLoading] = useState(() => readMaintenanceCache<Proposal[]>('proposals') === null);
   const [error, setError] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<'ALL' | 'PENDING' | 'RESOLVED'>('PENDING');
   const [filterFactoryId, setFilterFactoryId] = useState('');
@@ -57,7 +58,7 @@ export default function ProposalsPage() {
 
   const load = async (force = false) => {
     try {
-      force ? setRefreshing(true) : setLoading(true);
+      if (force) setRefreshing(true);
       setError(null);
       const fresh = force ? '?fresh=1' : '';
       const settled = await Promise.allSettled([
@@ -65,9 +66,14 @@ export default function ProposalsPage() {
         fetch(`/api/maintenance/categories?type=FACTORY${force ? '&fresh=1' : ''}`).then((r) => r.json()),
       ]);
       const [propRes, facRes] = settled.map((s) => (s.status === 'fulfilled' ? s.value : { success: false, error: String(s.reason) }));
-      if (propRes.success) setProposals(propRes.data || []);
-      else { console.warn('Failed to load proposals from tbsMayMoc:', propRes.error); setError(propRes.error || 'Không lấy được dữ liệu'); }
-      if (facRes.success) setFactories(facRes.data || []);
+      if (propRes.success) {
+        setProposals(propRes.data || []);
+        writeMaintenanceCache('proposals', propRes.data || []);
+      } else { console.warn('Failed to load proposals from tbsMayMoc:', propRes.error); setError(propRes.error || 'Không lấy được dữ liệu'); }
+      if (facRes.success) {
+        setFactories(facRes.data || []);
+        writeMaintenanceCache('proposals_factories', facRes.data || []);
+      }
     } catch (err) {
       console.warn('Failed to fetch proposals from tbsMayMoc:', err);
     } finally {
@@ -134,10 +140,10 @@ export default function ProposalsPage() {
   }
 
   return (
-    <MaintenanceShell title="Đề Xuất Cải Tiến" subtitle="Vật tư / đào tạo lại / đang chờ xử lý — đã Trưởng team xác nhận — Tổ hợp Kiên Giang">
+    <MaintenanceShell title="Đề Xuất" subtitle="Vật tư / đào tạo lại / đang chờ xử lý — đã Trưởng team xác nhận — Tổ hợp Kiên Giang">
       <div className="p-4 sm:p-6 space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-3">
-          <h1 className="text-2xl font-extrabold text-tbs-dark">Đề Xuất Cải Tiến</h1>
+          <h1 className="text-2xl font-extrabold text-tbs-dark">Đề Xuất</h1>
           <RefreshButton onClick={() => load(true)} loading={refreshing} />
         </div>
 
@@ -237,15 +243,13 @@ export default function ProposalsPage() {
                   <span>Gửi bởi: {p.submittedBy.name}</span>
                   <span>{formatDateTime(p.createdAt)}</span>
                 </div>
-                <button
-                  onClick={() => toggleResolved(p)}
-                  disabled={updatingId === p.id}
-                  className={`w-full py-2 rounded-xl text-xs font-bold transition disabled:opacity-50 ${
-                    p.resolved ? 'bg-gray-100 text-gray-500 hover:bg-gray-200' : 'bg-accent text-white hover:bg-accent-light'
+                <div
+                  className={`w-full py-2 rounded-xl text-xs font-bold text-center ${
+                    p.resolved ? 'bg-gray-100 text-gray-500' : 'bg-amber-50 text-amber-700'
                   }`}
                 >
-                  {updatingId === p.id ? 'Đang lưu...' : p.resolved ? 'Bỏ Đánh Dấu' : 'Đánh Dấu Đã Xử Lý'}
-                </button>
+                  {p.resolved ? 'Đã Xử Lý' : 'Chưa Xử Lý'}
+                </div>
               </div>
             );
           })}

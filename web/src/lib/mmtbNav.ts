@@ -10,7 +10,7 @@ export const MMTB_NAV: MmtbNavEntry[] = [
   { type: 'link', id: 'machines', label: 'Danh Sách MMTB', href: '/maintenance/machines', iconName: 'IconDeviceLaptop' },
   { type: 'link', id: 'schedule', label: 'Bảo Dưỡng MMTB', href: '/maintenance/schedule', iconName: 'IconTools' },
   { type: 'link', id: 'tickets', label: 'Nhu Cầu Sửa Chữa', href: '/maintenance/tickets', iconName: 'IconClipboardList' },
-  { type: 'link', id: 'proposals', label: 'Đề Xuất Cải Tiến', href: '/maintenance/proposals', iconName: 'IconBulb' },
+  { type: 'link', id: 'proposals', label: 'Đề Xuất', href: '/maintenance/proposals', iconName: 'IconBulb' },
   {
     type: 'group',
     id: 'categories',
@@ -26,7 +26,4 @@ export const MMTB_NAV: MmtbNavEntry[] = [
       { type: 'link', id: 'cat-parts', label: 'Phụ Tùng / Linh Kiện', href: '/maintenance/categories/parts', iconName: 'IconPackage' },
     ],
   },
-  { type: 'link', id: 'floor-plan', label: 'Sơ Đồ Nhà Máy', href: '/maintenance/floor-plan', iconName: 'IconMapPin' },
-  { type: 'link', id: 'response-time', label: 'Thời Gian Phản Hồi', href: '/maintenance/response-time', iconName: 'IconStopwatch' },
-  { type: 'link', id: 'announcements', label: 'Thông Báo', href: '/maintenance/announcements', iconName: 'IconSpeakerphone' },
 ];

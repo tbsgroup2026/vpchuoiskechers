@@ -5,6 +5,7 @@ import { IconPlus, IconPencil, IconTrash, IconBuildingFactory2 } from '@tabler/i
 import MaintenanceShell from '@/components/MaintenanceShell';
 import FilterSelect from '@/components/FilterSelect';
 import RefreshButton from '@/components/RefreshButton';
+import { readMaintenanceCache, writeMaintenanceCache } from '@/lib/maintenanceCache';
 
 type Category = {
   id: string;
@@ -51,8 +52,11 @@ export default function CategoriesManager({
   pageTitle: string;
   pageSubtitle: string;
 }) {
-  const [data, setData] = useState<Record<CategoryTabKey, Category[]>>(EMPTY);
-  const [loading, setLoading] = useState(true);
+  // Cache riêng theo bộ tabKeys (mỗi trang Danh Mục truyền tabKeys khác nhau) — tránh trang này
+  // hiện nhầm cache của trang khác.
+  const cacheKey = `categories_${tabKeys.join('_')}`;
+  const [data, setData] = useState<Record<CategoryTabKey, Category[]>>(() => readMaintenanceCache<Record<CategoryTabKey, Category[]>>(cacheKey) || EMPTY);
+  const [loading, setLoading] = useState(() => readMaintenanceCache<Record<CategoryTabKey, Category[]>>(cacheKey) === null);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<CategoryTabKey>(tabKeys[0]);
 
@@ -84,7 +88,7 @@ export default function CategoriesManager({
 
   const load = async (force = false) => {
     try {
-      force ? setRefreshing(true) : setLoading(true);
+      if (force) setRefreshing(true);
       setError(null);
       // Promise.allSettled — 1 loại danh mục lỗi không còn xoá sạch các loại khác đã tải xong.
       const settled = await Promise.allSettled(
@@ -97,6 +101,7 @@ export default function CategoriesManager({
         next[fetchTypes[i]] = r && r.success && Array.isArray(r.data) ? r.data : [];
       });
       setData(next);
+      writeMaintenanceCache(cacheKey, next);
     } catch (err) {
       console.warn('Failed to fetch categories from tbsMayMoc:', err);
     } finally {
@@ -222,7 +227,9 @@ export default function CategoriesManager({
     }
   }
 
-  const readOnlyTab = tabConfig.parentLevel === 'NONE';
+  // Toàn bộ danh mục MMTB giờ CHỈ ĐỌC (dữ liệu thật từ Tổ hợp Kiên Giang, xem mmtbKg* ở _worker.js)
+  // — luôn true bất kể loại tab, không còn cho tạo/sửa/xoá từ vpchuoiskechers.
+  const readOnlyTab = true;
 
   return (
     <MaintenanceShell title={pageTitle} subtitle={pageSubtitle}>

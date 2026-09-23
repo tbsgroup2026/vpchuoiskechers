@@ -13,11 +13,15 @@ import {
 import MaintenanceShell from '@/components/MaintenanceShell';
 import FilterSelect from '@/components/FilterSelect';
 import RefreshButton from '@/components/RefreshButton';
+import Pagination from '@/components/Pagination';
+
+const PAGE_SIZE = 50;
 import {
   buildMaintenanceCalendarMap,
   buildCalendarWeeks,
   type CalendarCell,
 } from '@/lib/maintenanceCalendar';
+import { readMaintenanceCache, writeMaintenanceCache } from '@/lib/maintenanceCache';
 
 type ScheduleMachine = {
   id: string;
@@ -111,11 +115,11 @@ function todayInputValue(): string {
 type Tab = 'assign' | 'track' | 'calendar';
 
 export default function MaintenanceSchedulePage() {
-  const [machines, setMachines] = useState<ScheduleMachine[]>([]);
-  const [periods, setPeriods] = useState<Period[]>([]);
-  const [completedThisMonth, setCompletedThisMonth] = useState(0);
-  const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [machines, setMachines] = useState<ScheduleMachine[]>(() => readMaintenanceCache<ScheduleMachine[]>('schedule_machines') || []);
+  const [periods, setPeriods] = useState<Period[]>(() => readMaintenanceCache<Period[]>('schedule_periods') || []);
+  const [completedThisMonth, setCompletedThisMonth] = useState(() => readMaintenanceCache<number>('schedule_completed') || 0);
+  const [logs, setLogs] = useState<LogEntry[]>(() => readMaintenanceCache<LogEntry[]>('schedule_logs') || []);
+  const [loading, setLoading] = useState(() => readMaintenanceCache<ScheduleMachine[]>('schedule_machines') === null);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('assign');
 
@@ -123,7 +127,7 @@ export default function MaintenanceSchedulePage() {
 
   const load = async (force = false) => {
     try {
-      force ? setRefreshing(true) : setLoading(true);
+      if (force) setRefreshing(true);
       setError(null);
       const fresh = force ? '?fresh=1' : '';
       const settled = await Promise.allSettled([
@@ -135,11 +139,17 @@ export default function MaintenanceSchedulePage() {
         setMachines(scheduleRes.machines || []);
         setPeriods(scheduleRes.periods || []);
         setCompletedThisMonth(scheduleRes.completedThisMonth || 0);
+        writeMaintenanceCache('schedule_machines', scheduleRes.machines || []);
+        writeMaintenanceCache('schedule_periods', scheduleRes.periods || []);
+        writeMaintenanceCache('schedule_completed', scheduleRes.completedThisMonth || 0);
       } else {
         console.warn('Failed to load schedule from tbsMayMoc:', scheduleRes.error);
         setError(scheduleRes.error || 'Không lấy được dữ liệu lịch bảo trì');
       }
-      if (logsRes.success) setLogs(logsRes.data || []);
+      if (logsRes.success) {
+        setLogs(logsRes.data || []);
+        writeMaintenanceCache('schedule_logs', logsRes.data || []);
+      }
     } catch (err) {
       console.warn('Failed to fetch schedule from tbsMayMoc:', err);
     } finally {
@@ -274,6 +284,12 @@ function AssignTab({
     });
   }, [machines, search, factoryId, areaId]);
 
+  const [page, setPage] = useState(1);
+  useEffect(() => {
+    setPage(1);
+  }, [search, factoryId, areaId]);
+  const pageItems = useMemo(() => filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [filtered, page]);
+
   function toggle(id: string) {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -344,18 +360,6 @@ function AssignTab({
           placeholder={factoryId ? 'Tất cả khu vực' : 'Chọn nhà máy trước'}
           disabled={!factoryId}
         />
-        <div className="ml-auto flex items-center gap-2">
-          {selected.size > 0 && (
-            <span className="text-xs font-bold text-accent">{selected.size} máy đã chọn</span>
-          )}
-          <button
-            onClick={() => setShowAssignForm(true)}
-            disabled={selected.size === 0}
-            className="px-4 py-2.5 rounded-xl bg-accent text-white text-xs font-bold hover:bg-accent-light disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            Gán Lịch Bảo Trì
-          </button>
-        </div>
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-xl overflow-x-auto">
@@ -377,7 +381,7 @@ function AssignTab({
             {filtered.length === 0 && (
               <tr><td className="p-4 text-gray-400" colSpan={7}>Không có máy phù hợp</td></tr>
             )}
-            {filtered.map((m) => {
+            {pageItems.map((m) => {
               return (
                 <tr key={m.id} className={`hover:bg-slate-50/90 transition-colors ${selected.has(m.id) ? 'bg-emerald-50/50' : ''}`}>
                   <td className="p-3"><input type="checkbox" checked={selected.has(m.id)} onChange={() => toggle(m.id)} className="w-4 h-4 rounded text-[#006838]" /></td>
@@ -392,6 +396,7 @@ function AssignTab({
             })}
           </tbody>
         </table>
+        <Pagination page={page} totalItems={filtered.length} pageSize={PAGE_SIZE} onPageChange={setPage} />
       </div>
 
       {showAssignForm && (
@@ -490,6 +495,24 @@ function TrackTab({
     );
   }, [logs, factoryId, factoryOptions, areaId, areaOptions]);
 
+  const [needsActionPage, setNeedsActionPage] = useState(1);
+  useEffect(() => {
+    setNeedsActionPage(1);
+  }, [factoryId, areaId]);
+  const needsActionPageItems = useMemo(
+    () => needsAction.slice((needsActionPage - 1) * PAGE_SIZE, needsActionPage * PAGE_SIZE),
+    [needsAction, needsActionPage]
+  );
+
+  const [logsPage, setLogsPage] = useState(1);
+  useEffect(() => {
+    setLogsPage(1);
+  }, [factoryId, areaId]);
+  const logsPageItems = useMemo(
+    () => filteredLogs.slice((logsPage - 1) * PAGE_SIZE, logsPage * PAGE_SIZE),
+    [filteredLogs, logsPage]
+  );
+
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex flex-wrap items-center gap-2.5">
@@ -529,7 +552,7 @@ function TrackTab({
               {needsAction.length === 0 && (
                 <tr><td className="p-4 text-gray-400" colSpan={7}>Không có máy nào cần xử lý — mọi thứ đều trong hạn 🎉</td></tr>
               )}
-              {needsAction.map((m) => {
+              {needsActionPageItems.map((m) => {
                 return (
                   <tr key={m.id} className="hover:bg-slate-50/90 transition-colors">
                     <td className="p-3 font-mono font-bold text-[#006838]">{m.code}</td>
@@ -544,6 +567,7 @@ function TrackTab({
               })}
             </tbody>
           </table>
+          <Pagination page={needsActionPage} totalItems={needsAction.length} pageSize={PAGE_SIZE} onPageChange={setNeedsActionPage} />
         </div>
       </div>
 
@@ -568,7 +592,7 @@ function TrackTab({
               {filteredLogs.length === 0 && (
                 <tr><td className="p-4 text-gray-400" colSpan={7}>Chưa có lịch sử bảo trì nào</td></tr>
               )}
-              {filteredLogs.map((l) => (
+              {logsPageItems.map((l) => (
                 <tr key={l.id} className="hover:bg-gray-50/80 transition align-top">
                   <td className="p-4 font-mono font-bold text-accent whitespace-nowrap">{l.machineCode}</td>
                   <td className="p-4 font-semibold text-tbs-dark whitespace-nowrap">{l.machineName}</td>
@@ -581,6 +605,7 @@ function TrackTab({
               ))}
             </tbody>
           </table>
+          <Pagination page={logsPage} totalItems={filteredLogs.length} pageSize={PAGE_SIZE} onPageChange={setLogsPage} />
         </div>
       </div>
     </div>

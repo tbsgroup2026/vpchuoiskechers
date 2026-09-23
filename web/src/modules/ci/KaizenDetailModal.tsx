@@ -430,28 +430,43 @@ export default function KaizenDetailModal({
         }
       }
 
+      console.log("📤 [Frontend Save] Request PUT /api/ci-kaizen:", {
+        url: "/api/ci-kaizen",
+        method: "PUT",
+        payload,
+      });
+
       const res = await fetch("/api/ci-kaizen", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
+          "Cache-Control": "no-cache, no-store",
           "X-User-Emp-Code": user?.empCode || "202608001",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
+        cache: "no-store",
         body: JSON.stringify(payload),
       });
 
       const json = await res.json();
-      if (json.success) {
+      console.log("📥 [Frontend Save] Response from /api/ci-kaizen:", {
+        status: res.status,
+        ok: res.ok,
+        json,
+      });
+
+      if (res.ok && json.success) {
         Object.assign(proposal, payload);
         setIsEditing(false);
         if (onSaveSuccess) onSaveSuccess(payload);
         if (onEvaluate) onEvaluate();
         if (onRate) onRate();
       } else {
-        setEditError(`❌ ${json.message || json.error || "Không thể cập nhật đề xuất!"}`);
+        setEditError(`❌ ${json.message || json.error || "Không thể cập nhật đề xuất trên cơ sở dữ liệu D1!"}`);
       }
     } catch (err: any) {
-      setEditError("❌ Lỗi kết nối mạng hoặc máy chủ!");
+      console.error("❌ [Frontend Save] Exception caught during PUT /api/ci-kaizen:", err);
+      setEditError(`❌ Lỗi kết nối máy chủ: ${err.message || "Vui lòng thử lại sau."}`);
     } finally {
       setSaving(false);
     }
@@ -878,55 +893,109 @@ export default function KaizenDetailModal({
 
             {/* BANNER PHÊ DUYỆT TÍNH KHẢ THI (BƯỚC 3 - QĐ-TBKG) BANNER TOP */}
             {!isEditing && isJudgeOrExecutive && (
-              <div className="mt-2 p-2.5 sm:p-3 rounded-xl bg-sky-50 border border-sky-200 flex flex-col xl:flex-row items-start xl:items-center justify-between gap-2.5 shadow-2xs">
-                <div className="flex-1 min-w-[200px] space-y-0.5">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-sky-950">
-                    <span className="text-sky-600 shrink-0">💭</span>
-                    <span className="font-bold text-sky-950">Xem xét tính khả thi sáng kiến (Bước 3 – QĐ-TBKG)</span>
+              proposal.approval_status === "PHE_DUYET" || proposal.sub_status === "CHO_DANH_GIA" || proposal.sub_status === "DA_DANH_GIA" || proposal.status === "APPROVED" || proposal.status === "UNDER_REVIEW" ? (
+                <div className="mt-2 p-2.5 sm:p-3 rounded-xl bg-emerald-50 border border-emerald-200 flex flex-col xl:flex-row items-start xl:items-center justify-between gap-2.5 shadow-2xs">
+                  <div className="flex-1 min-w-[200px] space-y-0.5">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-950">
+                      <span className="text-emerald-600 shrink-0">✅</span>
+                      <span className="font-bold text-emerald-950">Đã phê duyệt tính khảthi (Bước 3 – QĐ-TBKG)</span>
+                    </div>
+                    <p className="text-xs text-emerald-800 leading-normal font-medium">
+                      Sáng kiến đã được phê duyệt tính khả thi và chuyển sang bước thử nghiệm &amp; đánh giá hiệu quả.
+                    </p>
                   </div>
-                  <p className="text-xs text-slate-600 leading-normal">
-                    Đề xuất đang ở trạng thái <strong className="text-sky-800 font-bold">{proposal.approval_status === "TU_CHOI" || proposal.sub_status === "TU_CHOI_TRIEN_KHAI" || proposal.status === "REJECTED" ? "Từ chối" : proposal.approval_status === "PHE_DUYET" ? "Đã duyệt" : "Chờ phê duyệt"}</strong>. Bạn có muốn phê duyệt tính khả thi để cho phép thử nghiệm và đánh giá?
-                  </p>
+
+                  <div className="flex items-center gap-1.5 shrink-0 flex-wrap w-full xl:w-auto pt-0.5 xl:pt-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFeasibilityInitialDecision("APPROVE");
+                        setIsFeasibilityModalOpen(true);
+                      }}
+                      className="h-7 px-2.5 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-900 border border-emerald-300 font-bold text-xs flex items-center justify-center gap-1 transition-all cursor-pointer whitespace-nowrap shadow-2xs"
+                    >
+                      <IconEditCircle size={14} />
+                      <span>Cập nhật phê duyệt</span>
+                    </button>
+                  </div>
                 </div>
+              ) : proposal.approval_status === "TU_CHOI" || proposal.sub_status === "TU_CHOI_TRIEN_KHAI" || proposal.status === "REJECTED" ? (
+                <div className="mt-2 p-2.5 sm:p-3 rounded-xl bg-rose-50 border border-rose-200 flex flex-col xl:flex-row items-start xl:items-center justify-between gap-2.5 shadow-2xs">
+                  <div className="flex-1 min-w-[200px] space-y-0.5">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-rose-950">
+                      <span className="text-rose-600 shrink-0">❌</span>
+                      <span className="font-bold text-rose-950">Đã từ chối triển khai (Bước 3 – QĐ-TBKG)</span>
+                    </div>
+                    <p className="text-xs text-rose-800 leading-normal font-medium">
+                      Sáng kiến chưa đạt tính khả thi để triển khai thử nghiệm.
+                    </p>
+                  </div>
 
-                <div className="flex items-center gap-1.5 shrink-0 flex-wrap w-full xl:w-auto pt-0.5 xl:pt-0">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFeasibilityInitialDecision("APPROVE");
-                      setIsFeasibilityModalOpen(true);
-                    }}
-                    className="h-8 px-2.5 rounded-lg bg-[#009b55] hover:bg-[#008247] text-white font-bold text-xs shadow-2xs flex items-center justify-center gap-1 transition-all cursor-pointer whitespace-nowrap"
-                  >
-                    <IconCheck size={15} />
-                    <span>Phê Duyệt Triển Khai</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFeasibilityInitialDecision("REJECT");
-                      setIsFeasibilityModalOpen(true);
-                    }}
-                    className="h-8 px-2.5 rounded-lg bg-[#e11d48] hover:bg-[#be123c] text-white font-bold text-xs shadow-2xs flex items-center justify-center gap-1 transition-all cursor-pointer whitespace-nowrap"
-                  >
-                    <IconX size={15} />
-                    <span>Từ Chối Triển Khai</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFeasibilityInitialDecision("APPROVE");
-                      setIsFeasibilityModalOpen(true);
-                    }}
-                    className="h-8 px-2.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-2xs flex items-center justify-center gap-1 transition-all cursor-pointer whitespace-nowrap"
-                  >
-                    <IconAward size={15} />
-                    <span>Khuyến Khích</span>
-                  </button>
+                  <div className="flex items-center gap-1.5 shrink-0 flex-wrap w-full xl:w-auto pt-0.5 xl:pt-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFeasibilityInitialDecision("APPROVE");
+                        setIsFeasibilityModalOpen(true);
+                      }}
+                      className="h-7 px-2.5 rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-900 border border-rose-300 font-bold text-xs flex items-center justify-center gap-1 transition-all cursor-pointer whitespace-nowrap shadow-2xs"
+                    >
+                      <IconEditCircle size={14} />
+                      <span>Xem xét lại</span>
+                    </button>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="mt-2 p-2.5 sm:p-3 rounded-xl bg-sky-50 border border-sky-200 flex flex-col xl:flex-row items-start xl:items-center justify-between gap-2.5 shadow-2xs">
+                  <div className="flex-1 min-w-[200px] space-y-0.5">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-sky-950">
+                      <span className="text-sky-600 shrink-0">💭</span>
+                      <span className="font-bold text-sky-950">Xem xét tính khả thi sáng kiến (Bước 3 – QĐ-TBKG)</span>
+                    </div>
+                    <p className="text-xs text-slate-600 leading-normal">
+                      Đề xuất đang ở trạng thái <strong className="text-sky-800 font-bold">Chờ phê duyệt</strong>. Bạn có muốn phê duyệt tính khả thi để cho phép thử nghiệm và đánh giá?
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0 flex-wrap w-full xl:w-auto pt-0.5 xl:pt-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFeasibilityInitialDecision("APPROVE");
+                        setIsFeasibilityModalOpen(true);
+                      }}
+                      className="h-8 px-2.5 rounded-lg bg-[#009b55] hover:bg-[#008247] text-white font-bold text-xs shadow-2xs flex items-center justify-center gap-1 transition-all cursor-pointer whitespace-nowrap"
+                    >
+                      <IconCheck size={15} />
+                      <span>Phê Duyệt Triển Khai</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFeasibilityInitialDecision("REJECT");
+                        setIsFeasibilityModalOpen(true);
+                      }}
+                      className="h-8 px-2.5 rounded-lg bg-[#e11d48] hover:bg-[#be123c] text-white font-bold text-xs shadow-2xs flex items-center justify-center gap-1 transition-all cursor-pointer whitespace-nowrap"
+                    >
+                      <IconX size={15} />
+                      <span>Từ Chối Triển Khai</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFeasibilityInitialDecision("APPROVE");
+                        setIsFeasibilityModalOpen(true);
+                      }}
+                      className="h-8 px-2.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-2xs flex items-center justify-center gap-1 transition-all cursor-pointer whitespace-nowrap"
+                    >
+                      <IconAward size={15} />
+                      <span>Khuyến Khích</span>
+                    </button>
+                  </div>
+                </div>
+              )
             )}
           </div>
 

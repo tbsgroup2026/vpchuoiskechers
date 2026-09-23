@@ -23,6 +23,13 @@ import { getCurrentUser } from "@/lib/userProfiles";
 import { getValidKaizenImageUrl, getAllKaizenImageUrls } from "@/lib/kaizenImageHelper";
 import { getKaizenDisplayTitle } from "@/lib/kaizenTitleHelper";
 import { apiFetch, registerPoller, unregisterPoller } from "@/lib/apiClient";
+import {
+  STANDARD_DASHBOARD_REGIONS,
+  normalizeRegion,
+  getProposalValueVnd,
+  getProposalValueTr,
+  isTHKGRegion,
+} from "@/lib/kaizenRegionHelper";
 
 const PROPOSALS_CACHE_KEY = "vpchuoiskechers_kaizen_proposals_cache_v2";
 
@@ -324,156 +331,41 @@ export function matchRegionFilter(propRegionOrObj: any, filterRegion: string): b
   if (!filterRegion || filterRegion === "ALL") return true;
   if (!propRegionOrObj) return false;
 
-  let siteCode = "";
-  let regStr = "";
-  let factoryStr = "";
-  let sourceRegStr = "";
-  let deptStr = "";
-  let propStr = "";
-
-  if (typeof propRegionOrObj === "string") {
-    propStr = propRegionOrObj;
-  } else if (typeof propRegionOrObj === "object") {
-    siteCode = String(propRegionOrObj.site_code || "").toLowerCase();
-    regStr = String(propRegionOrObj.region || "").toLowerCase();
-    factoryStr = String(propRegionOrObj.factory || "").toLowerCase();
-    sourceRegStr = String(propRegionOrObj.source_region || "").toLowerCase();
-    deptStr = String(propRegionOrObj.department || "").toLowerCase();
-    propStr = `${propRegionOrObj.factory || ""} ${propRegionOrObj.region || ""} ${propRegionOrObj.source_region || ""} ${propRegionOrObj.department || ""} ${propRegionOrObj.area || ""}`;
-  }
-
-  const pr = propStr.toUpperCase();
+  const norm = normalizeRegion(propRegionOrObj);
   const filterClean = filterRegion.replace(/\+/g, " ").trim();
   const filterUpper = filterClean.toUpperCase();
 
-  // 1. If filter is Nhà Máy Miền Đông / Miền Đông
-  if (
-    filterUpper.includes("NHÀ MÁY MIỀN ĐÔNG") ||
-    filterUpper.includes("NHA MAY MIEN DONG") ||
-    filterUpper.includes("MIỀN ĐÔNG") ||
-    filterUpper.includes("MIEN DONG") ||
-    filterUpper.includes("NMMĐ") ||
-    filterUpper.includes("NMMD")
-  ) {
-    if (siteCode === "thkiengiangshoes") return false;
-    const isExplicitVpChuoi = factoryStr.includes("văn phòng chuỗi") || regStr.includes("văn phòng chuỗi") || sourceRegStr.includes("văn phòng chuỗi");
-    const mentionsMienDong = regStr.includes("miền đông") || factoryStr.includes("miền đông") || sourceRegStr.includes("miền đông") || pr.includes("MIỀN ĐÔNG") || pr.includes("MIEN DONG") || pr.includes("NMMĐ") || pr.includes("NMMD");
-
-    if (isExplicitVpChuoi && !regStr.includes("miền đông") && !factoryStr.includes("miền đông") && !sourceRegStr.includes("miền đông")) {
-      return false;
-    }
-    return mentionsMienDong;
+  if (filterUpper === "THKG" || filterUpper.includes("TỔ HỢP KIÊN GIANG")) {
+    return isTHKGRegion(norm);
   }
 
-  // 2. If filter is Phòng Ban THKG / THKG / Kiên Giang
-  if (
-    filterUpper.includes("PHÒNG BAN THKG") ||
-    filterUpper.includes("THKG") ||
-    filterUpper.includes("KIÊN GIANG") ||
-    filterUpper.includes("TH KIÊN GIANG") ||
-    filterUpper.includes("KIEN GIANG")
-  ) {
-    if (filterUpper.includes("1") || filterUpper.includes("2") || filterUpper.includes("3")) {
-      const numMatch = filterUpper.match(/[1-3]/)?.[0];
-      if (numMatch) {
-        return (
-          pr.includes(`KIÊN GIANG ${numMatch}`) ||
-          pr.includes(`KIEN GIANG ${numMatch}`) ||
-          pr.includes(`KG ${numMatch}`) ||
-          pr.includes(`KG${numMatch}`)
-        );
-      }
-    }
-
-    if (filterUpper.includes("PHÒNG BAN THKG") || filterUpper.includes("PHONG BAN THKG")) {
-      const isSpecificOtherUnit =
-        pr.includes("KIÊN GIANG 1") || pr.includes("KIEN GIANG 1") || pr.includes("KG 1") || pr.includes("KG1") ||
-        pr.includes("KIÊN GIANG 2") || pr.includes("KIEN GIANG 2") || pr.includes("KG 2") || pr.includes("KG2") ||
-        pr.includes("KIÊN GIANG 3") || pr.includes("KIEN GIANG 3") || pr.includes("KG 3") || pr.includes("KG3") ||
-        pr.includes("HOÀN THIỆN ĐẾ") || pr.includes("HOAN THIEN DE") || pr.includes("HTĐ") || pr.includes("HTD");
-      if (isSpecificOtherUnit) return false;
-    }
-
-    return (
-      siteCode === "thkiengiangshoes" ||
-      regStr.includes("kiên giang") ||
-      factoryStr.includes("kiên giang") ||
-      sourceRegStr.includes("kiên giang") ||
-      factoryStr.includes("hoàn thiện đế") ||
-      regStr.includes("hoàn thiện đế") ||
-      factoryStr.includes("phòng ci") ||
-      factoryStr.includes("phòng cn") ||
-      factoryStr.includes("phòng chất lượng") ||
-      factoryStr.includes("phòng kế hoạch") ||
-      factoryStr.includes("phòng nhân sự") ||
-      deptStr.includes("phòng ci") ||
-      deptStr.includes("phòng cn") ||
-      deptStr.includes("phòng chất lượng") ||
-      deptStr.includes("phòng kế hoạch") ||
-      deptStr.includes("phòng nhân sự") ||
-      deptStr.includes("kế hoạch") ||
-      deptStr.includes("nhân sự") ||
-      deptStr.includes("chuyển đổi số") ||
-      deptStr.includes("công nghệ") ||
-      pr.includes("KIÊN GIANG") ||
-      pr.includes("KIEN GIANG") ||
-      pr.includes("THKG")
-    );
+  if (filterUpper.includes("MIỀN ĐÔNG") || filterUpper.includes("NMMĐ")) {
+    return norm === "Nhà Máy Miền Đông";
   }
 
-  // 3. If filter is Văn phòng Chuỗi
-  if (filterUpper.includes("VĂN PHÒNG CHUỖI") || filterUpper.includes("VP CHUỖI") || filterUpper.includes("VAN PHONG CHUOI")) {
-    const isExcludedDept =
-      factoryStr.includes("phòng ci") ||
-      factoryStr.includes("phòng cn") ||
-      factoryStr.includes("phòng chất lượng") ||
-      factoryStr.includes("phòng kế hoạch") ||
-      factoryStr.includes("phòng nhân sự") ||
-      deptStr.includes("phòng ci") ||
-      deptStr.includes("phòng cn") ||
-      deptStr.includes("phòng chất lượng") ||
-      deptStr.includes("phòng kế hoạch") ||
-      deptStr.includes("phòng nhân sự") ||
-      deptStr.includes("kế hoạch") ||
-      deptStr.includes("nhân sự");
-
-    if (
-      siteCode === "thkiengiangshoes" ||
-      isExcludedDept ||
-      regStr.includes("kiên giang") ||
-      factoryStr.includes("kiên giang") ||
-      regStr.includes("miền đông") ||
-      factoryStr.includes("miền đông") ||
-      regStr.includes("hoàn thiện đế") ||
-      factoryStr.includes("hoàn thiện đế") ||
-      factoryStr.includes("htđ") ||
-      factoryStr.includes("htd")
-    ) {
-      return false;
-    }
-    return (
-      siteCode === "vpchuoiskechers" ||
-      regStr.includes("văn phòng chuỗi") ||
-      factoryStr.includes("văn phòng chuỗi") ||
-      sourceRegStr.includes("văn phòng chuỗi") ||
-      pr.includes("VĂN PHÒNG CHUỖI") ||
-      pr.includes("VP CHUỖI") ||
-      pr.includes("VP CHUOI")
-    );
+  if (filterUpper.includes("VĂN PHÒNG CHUỖI") || filterUpper.includes("VP CHUỖI")) {
+    return norm === "Văn phòng Chuỗi";
   }
 
-  // 4. If filter is Hoàn Thiện Đế
-  if (filterUpper.includes("HOÀN THIỆN ĐẾ") || filterUpper.includes("HOAN THIEN DE")) {
-    return (
-      regStr.includes("hoàn thiện đế") ||
-      factoryStr.includes("hoàn thiện đế") ||
-      pr.includes("HOÀN THIỆN ĐẾ") ||
-      pr.includes("HOAN THIEN DE") ||
-      pr.includes("HTĐ")
-    );
+  if (filterUpper.includes("PHÒNG BAN THKG") || filterUpper.includes("PHONG BAN THKG")) {
+    return norm === "Phòng Ban THKG";
   }
 
-  return pr.includes(filterUpper);
+  if (filterUpper.includes("HOÀN THIỆN ĐẾ") || filterUpper.includes("HOAN THIEN DE") || filterUpper.includes("HTĐ")) {
+    return norm === "Hoàn Thiện Đế";
+  }
+
+  if (filterUpper.includes("KIÊN GIANG 1") || filterUpper.includes("KG 1") || filterUpper.includes("KG1")) {
+    return norm === "Kiên Giang 1";
+  }
+  if (filterUpper.includes("KIÊN GIANG 2") || filterUpper.includes("KG 2") || filterUpper.includes("KG2")) {
+    return norm === "Kiên Giang 2";
+  }
+  if (filterUpper.includes("KIÊN GIANG 3") || filterUpper.includes("KG 3") || filterUpper.includes("KG3")) {
+    return norm === "Kiên Giang 3";
+  }
+
+  return norm.toUpperCase() === filterUpper || norm === filterRegion;
 }
 
 export function matchWorkshopFilter(p: KaizenProposal, selectedWorkshop: string): boolean {
@@ -942,7 +834,10 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
   const fetchProposals = async (silent = false) => {
     try {
       if (!silent && proposals.length === 0) setLoading(true);
-      const res = await apiFetch(`/api/ci-kaizen`);
+      const res = await fetch(`/api/ci-kaizen?t=${Date.now()}`, {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache, no-store, max-age=0" }
+      });
       if (!res.ok) {
         if (!silent && proposals.length === 0) setLoading(false);
         return;
@@ -1319,9 +1214,14 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
   const regionCounts = useMemo(() => {
     const result: Record<string, number> = {};
     for (const subItem of REGION_SUB_ITEMS) {
-      result[subItem] = normalizedProposals.filter(
-        (p) => matchRegionFilter(p, subItem) && (selectedWorkshop === "ALL" || matchWorkshopFilter(p, selectedWorkshop))
-      ).length;
+      result[subItem] = 0;
+    }
+    for (const p of normalizedProposals) {
+      if (selectedWorkshop !== "ALL" && !matchWorkshopFilter(p, selectedWorkshop)) continue;
+      const reg = normalizeRegion(p);
+      if (result[reg] !== undefined) {
+        result[reg] += 1;
+      }
     }
     result["THKG"] = (result["Phòng Ban THKG"] || 0) +
                      (result["Kiên Giang 1"] || 0) +

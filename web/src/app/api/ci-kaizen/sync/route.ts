@@ -136,7 +136,7 @@ async function upsertProposals(db: any, sourceProposals: any[], defaultSiteCode 
 
     // Check if proposal exists locally by id OR (site_code AND external_id)
     const existing: any = await db
-      .prepare('SELECT id, title, before_description, after_solution, updated_at, is_archived FROM ci_kaizen_proposals WHERE id = ? OR (site_code = ? AND external_id = ?)')
+      .prepare('SELECT id, title, before_description, after_solution, updated_at, is_archived, is_edited FROM ci_kaizen_proposals WHERE id = ? OR (site_code = ? AND external_id = ?)')
       .bind(localId, siteCode, externalId)
       .first();
 
@@ -145,6 +145,12 @@ async function upsertProposals(db: any, sourceProposals: any[], defaultSiteCode 
     );
 
     if (existing) {
+      // Do NOT overwrite locally edited records (is_edited = 1)
+      if (Number(existing.is_edited || 0) === 1) {
+        skippedCount++;
+        continue;
+      }
+
       // Compare updated_at timestamps if present
       if (existing.updated_at && item.updated_at) {
         const localTime = new Date(existing.updated_at).getTime();

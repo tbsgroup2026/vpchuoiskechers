@@ -40,14 +40,14 @@ import {
   getTosForChuyens,
 } from "./organizationTree";
 
-export const STANDARD_8_REGIONS = [
-  "Văn phòng Chuỗi",
-  "Nhà Máy Miền Đông",
-  "Kiên Giang 1",
-  "Kiên Giang 2",
-  "Kiên Giang 3",
-  "Hoàn Thiện Đế",
-];
+import {
+  STANDARD_DASHBOARD_REGIONS,
+  normalizeRegion,
+  getProposalValueTr,
+  getProposalValueVnd,
+} from "@/lib/kaizenRegionHelper";
+
+export const STANDARD_8_REGIONS = Array.from(STANDARD_DASHBOARD_REGIONS);
 
 export const STANDARD_6_REGIONS = STANDARD_8_REGIONS;
 
@@ -85,42 +85,7 @@ const formatMillion = (val: number): string => {
 };
 
 const getProposalValue = (p: any): number => {
-  if (!p) return 0;
-
-  const directTotalVnd = Number(p.total_savings_vnd || (p as any).tong_tien_tiet_kiem || 0);
-  if (directTotalVnd > 0) {
-    return directTotalVnd / 1000000;
-  }
-
-  const pairQty = Number(p.pair_quantity || (p as any).so_luong_giay || (p as any).quantity || 0);
-  const savedSecs = Number(p.saved_seconds || 0);
-  if (pairQty > 0 && savedSecs > 0) {
-    const totalVnd = Math.round(savedSecs * 12.5) * pairQty;
-    return totalVnd / 1000000;
-  }
-
-  if (p.value !== undefined && p.value !== null && Number(p.value) > 0) return Number(p.value);
-  if (p.estimated_value !== undefined && p.estimated_value !== null && Number(p.estimated_value) > 0) return Number(p.estimated_value);
-
-  return 0;
-};
-
-const normalizeRegion = (p: KaizenProposal | any): string => {
-  if (!p) return "Nhà Máy Miền Đông";
-  const regionStr = typeof p === "string" ? p : p.region;
-  const factoryStr = typeof p === "object" ? p.factory : "";
-  const deptStr = typeof p === "object" ? p.department : "";
-
-  const combined = `${regionStr || ""} ${factoryStr || ""} ${deptStr || ""}`.toUpperCase();
-  if (!combined.trim()) return "Nhà Máy Miền Đông";
-
-  if (combined.includes("MIỀN ĐÔNG") || combined.includes("MIEN DONG") || combined.includes("NMMĐ")) return "Nhà Máy Miền Đông";
-  if (combined.includes("VP") || combined.includes("VĂN PHÒNG") || combined.includes("SUPPLY CHAIN") || combined.includes("SKECHERS")) return "Văn Phòng Chuỗi";
-  if (combined.includes("KIÊN GIANG 3") || combined.includes("KIEN GIANG 3") || combined.includes("KG 3") || combined.includes("KG3")) return "Kiên Giang 3";
-  if (combined.includes("KIÊN GIANG 2") || combined.includes("KIEN GIANG 2") || combined.includes("KG 2") || combined.includes("KG2")) return "Kiên Giang 2";
-  if (combined.includes("KIÊN GIANG 1") || combined.includes("KIEN GIANG 1") || combined.includes("KG 1") || combined.includes("KG1")) return "Kiên Giang 1";
-
-  return "Nhà Máy Miền Đông";
+  return getProposalValueTr(p);
 };
 
 const matchCascadingFilter = (p: KaizenProposal, filter: CascadingFilterState): boolean => {

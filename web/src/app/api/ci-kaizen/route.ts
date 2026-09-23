@@ -7,6 +7,12 @@ import { SYSTEM_USERS } from '@/lib/userProfiles';
 import { getValidKaizenImageUrl } from '@/lib/kaizenImageHelper';
 import { getKaizenDisplayTitle } from '@/lib/kaizenTitleHelper';
 
+import {
+  STANDARD_DASHBOARD_REGIONS,
+  normalizeRegion,
+  getProposalValueVnd,
+} from '@/lib/kaizenRegionHelper';
+
 function getDbBinding(): any {
   return (process.env as any).DB || (globalThis as any).DB || null;
 }
@@ -137,12 +143,7 @@ export async function GET(request: Request) {
             INSERT INTO ci_kaizen_proposals (
               id, code, title, category, category_label, registration_type, factory, region, source_region, department, line, proposer_name, proposer_emp_code, before_description, after_solution, saved_seconds, total_savings_vnd, score_points, vote_count, view_count, status, approval_status, sub_status, trang_thai, review_status, before_image_url, after_image_url, attachments_json, created_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET
-              factory = excluded.factory,
-              region = excluded.region,
-              source_region = excluded.source_region,
-              department = excluded.department,
-              category_label = excluded.category_label
+            ON CONFLICT(id) DO NOTHING
           `).bind(
             seed.id, seed.code, seed.title, seed.category, seed.category_label, seed.registration_type,
             seed.factory, seed.region, seed.source_region, seed.department, seed.line, seed.proposer_name,
@@ -179,6 +180,76 @@ export async function GET(request: Request) {
       });
 
       const finalData = cleanedResults.length > 0 ? cleanedResults : DEFAULT_KAIZEN_PROPOSALS;
+
+      if (searchParams.get('stats') === '1' || searchParams.get('stats') === 'true' || request.url.includes('/stats')) {
+        const totalCount = finalData.length;
+        const countThiDua = finalData.filter((p: any) => p.registration_type === 'THI_DUA').length;
+        const countLuuTru = finalData.filter((p: any) => p.registration_type === 'LUU_TRU' || Number(p.is_archived) === 1).length;
+        const activeMonthCount = finalData.filter((p: any) => {
+          if (!p || !p.created_at) return false;
+          const d = new Date(p.created_at);
+          return !isNaN(d.getTime()) && d.getMonth() === 7 && d.getFullYear() === 2026;
+        }).length;
+        const countEvaluated = finalData.filter((p: any) => p.sub_status === 'DA_DANH_GIA' || Number(p.score_points || 0) > 0 || Number(p.rating_count || 0) > 0).length;
+        const totalValueVnd = finalData.reduce((sum: number, p: any) => sum + getProposalValueVnd(p), 0);
+        const totalValueTr = totalValueVnd / 1000000;
+
+        const byRegion: Record<string, { count: number; totalValueVnd: number; totalValueTr: number }> = {};
+        STANDARD_DASHBOARD_REGIONS.forEach((r) => {
+          byRegion[r] = { count: 0, totalValueVnd: 0, totalValueTr: 0 };
+        });
+
+        finalData.forEach((p: any) => {
+          const reg = normalizeRegion(p);
+          if (byRegion[reg]) {
+            const valVnd = getProposalValueVnd(p);
+            byRegion[reg].count += 1;
+            byRegion[reg].totalValueVnd += valVnd;
+            byRegion[reg].totalValueTr = byRegion[reg].totalValueVnd / 1000000;
+          }
+        });
+
+        const thkgCount = (byRegion['Phòng Ban THKG']?.count || 0) +
+                         (byRegion['Kiên Giang 1']?.count || 0) +
+                         (byRegion['Kiên Giang 2']?.count || 0) +
+                         (byRegion['Kiên Giang 3']?.count || 0) +
+                         (byRegion['Hoàn Thiện Đế']?.count || 0);
+
+        const thkgVnd = (byRegion['Phòng Ban THKG']?.totalValueVnd || 0) +
+                       (byRegion['Kiên Giang 1']?.totalValueVnd || 0) +
+                       (byRegion['Kiên Giang 2']?.totalValueVnd || 0) +
+                       (byRegion['Kiên Giang 3']?.totalValueVnd || 0) +
+                       (byRegion['Hoàn Thiện Đế']?.totalValueVnd || 0);
+
+        byRegion['THKG'] = {
+          count: thkgCount,
+          totalValueVnd: thkgVnd,
+          totalValueTr: thkgVnd / 1000000,
+        };
+
+        return NextResponse.json(
+          {
+            success: true,
+            data: {
+              summary: {
+                totalCount,
+                countThiDua,
+                countLuuTru,
+                activeMonthCount,
+                countEvaluated,
+                totalValueVnd,
+                totalValueTr,
+              },
+              byRegion,
+            },
+          },
+          {
+            headers: {
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+            },
+          }
+        );
+      }
 
       return NextResponse.json(
         {
@@ -585,8 +656,10 @@ export async function PUT(request: Request) {
       afterImageUrl,
     } = body;
 
-    const propId = id || code;
-    if (!propId) {
+    const targetId = String(id || body.proposal_id || '').trim();
+    const targetCode = String(code || body.product_code || '').trim();
+
+    if (!targetId && !targetCode) {
       return NextResponse.json({ error: 'Mã đề xuất không hợp lệ' }, { status: 400 });
     }
 
@@ -595,9 +668,9 @@ export async function PUT(request: Request) {
     if (db) {
       const inputBeforeDesc = before_description !== undefined ? before_description : beforeDescription;
       const inputAfterSol = after_solution !== undefined ? after_solution : afterSolution;
-      const finalTitle = title ? String(title).trim() : null;
-      const finalBeforeDesc = inputBeforeDesc !== undefined ? String(inputBeforeDesc).trim() : null;
-      const finalAfterSol = inputAfterSol !== undefined ? String(inputAfterSol).trim() : null;
+      const finalTitle = title !== undefined && title !== null ? String(title).trim() : null;
+      const finalBeforeDesc = inputBeforeDesc !== undefined && inputBeforeDesc !== null ? String(inputBeforeDesc).trim() : null;
+      const finalAfterSol = inputAfterSol !== undefined && inputAfterSol !== null ? String(inputAfterSol).trim() : null;
       const finalProductCode = (product_code || productCode || '').trim();
       const finalPairQty = Number(pair_quantity || pairQuantity || quantity || 0);
       const finalTimeBefore = Number(time_before_seconds || timeBeforeSeconds || 0);
@@ -618,61 +691,127 @@ export async function PUT(request: Request) {
             department = COALESCE(?, department),
             line = COALESCE(?, line),
             customer = COALESCE(?, customer),
+            pricing_direction = COALESCE(?, pricing_direction),
             product_code = COALESCE(?, product_code),
             pair_quantity = COALESCE(?, pair_quantity),
             quantity = COALESCE(?, quantity),
-            pricing_direction = COALESCE(?, pricing_direction),
-            before_description = CASE WHEN ? IS NOT NULL THEN ? ELSE before_description END,
-            after_solution = CASE WHEN ? IS NOT NULL THEN ? ELSE after_solution END,
+            before_description = COALESCE(?, before_description),
+            after_solution = COALESCE(?, after_solution),
             time_before_seconds = COALESCE(?, time_before_seconds),
             time_after_seconds = COALESCE(?, time_after_seconds),
             saved_seconds = COALESCE(?, saved_seconds),
             so_giay_tiet_kiem = COALESCE(?, so_giay_tiet_kiem),
             efficiency_value_vnd = COALESCE(?, efficiency_value_vnd),
             total_savings_vnd = COALESCE(?, total_savings_vnd),
+            total_savings_words = COALESCE(?, total_savings_words),
             cost_before = COALESCE(?, cost_before),
             cost_after = COALESCE(?, cost_after),
             before_image_url = COALESCE(?, before_image_url),
             after_image_url = COALESCE(?, after_image_url),
+            is_edited = 1,
             updated_at = CURRENT_TIMESTAMP
-        WHERE id = ? OR code = ?
+        WHERE id = ?
+           OR code = ?
+           OR (LOWER(id) = LOWER(?) AND ? != '')
+           OR (LOWER(code) = LOWER(?) AND ? != '')
       `;
 
-      await db
-        .prepare(query)
-        .bind(
-          finalTitle || null,
-          category || null,
-          category_label || categoryLabel || null,
-          region || factory || null,
-          factory || region || null,
-          department || null,
-          line || null,
-          customer || null,
-          finalProductCode || null,
-          finalPairQty || null,
-          finalPairQty || null,
-          pricing_direction || null,
-          finalBeforeDesc,
-          finalBeforeDesc,
-          finalAfterSol,
-          finalAfterSol,
-          finalTimeBefore || null,
-          finalTimeAfter || null,
-          finalSavedSecs || null,
-          finalSavedSecs || null,
-          finalEffVnd || null,
-          finalTotalSavings || null,
-          finalCostBefore || null,
-          finalCostAfter || null,
-          before_image_url || beforeImageUrl || null,
-          after_image_url || afterImageUrl || null,
-          propId,
-          propId
-        )
-        .run();
+      const stmt = db.prepare(query).bind(
+        finalTitle ?? null,
+        category ?? null,
+        category_label ?? categoryLabel ?? null,
+        region ?? factory ?? null,
+        factory ?? region ?? null,
+        department ?? null,
+        line ?? null,
+        customer ?? null,
+        pricing_direction ?? null,
+        finalProductCode || null,
+        finalPairQty || null,
+        finalPairQty || null,
+        finalBeforeDesc ?? null,
+        finalAfterSol ?? null,
+        finalTimeBefore || null,
+        finalTimeAfter || null,
+        finalSavedSecs || null,
+        finalSavedSecs || null,
+        finalEffVnd || null,
+        finalTotalSavings || null,
+        total_savings_words ?? totalSavingsWords ?? null,
+        finalCostBefore || null,
+        finalCostAfter || null,
+        before_image_url ?? beforeImageUrl ?? null,
+        after_image_url ?? afterImageUrl ?? null,
+        targetId || null,
+        targetCode || null,
+        targetId || '', targetId || '',
+        targetCode || '', targetCode || ''
+      );
 
-      db.prepare('SELECT * FROM ci_kaizen_proposals WHERE id = ? OR code = ?').bind(propId, propId).first()
+      let changes = 0;
+      try {
+        const batchResults = await db.batch([stmt]);
+        const updateRes = batchResults[0];
+        changes = updateRes?.meta?.changes || 0;
+        console.log('📊 [Next.js API PUT /api/ci-kaizen] DB batch result:', { success: updateRes?.success, changes, meta: updateRes?.meta });
+      } catch (e1) {
+        console.warn('❌ [Next.js API PUT /api/ci-kaizen] Batch UPDATE error:', e1);
+      }
+
+      if (changes === 0) {
+        const fallbackRow = await db.prepare("SELECT id, code FROM ci_kaizen_proposals WHERE id = ? OR code = ? OR LOWER(id) = LOWER(?) OR LOWER(code) = LOWER(?)").bind(targetId, targetCode, targetId, targetCode).first().catch(() => null);
+        if (fallbackRow && fallbackRow.id) {
+          const fbStmt = db.prepare(`
+            UPDATE ci_kaizen_proposals
+            SET title = COALESCE(?, title),
+                before_description = COALESCE(?, before_description),
+                after_solution = COALESCE(?, after_solution),
+                product_code = COALESCE(?, product_code),
+                pair_quantity = COALESCE(?, pair_quantity),
+                quantity = COALESCE(?, quantity),
+                region = COALESCE(?, region),
+                factory = COALESCE(?, factory),
+                department = COALESCE(?, department),
+                line = COALESCE(?, line),
+                customer = COALESCE(?, customer),
+                category = COALESCE(?, category),
+                category_label = COALESCE(?, category_label),
+                pricing_direction = COALESCE(?, pricing_direction),
+                is_edited = 1,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+          `).bind(
+            finalTitle ?? null,
+            finalBeforeDesc ?? null,
+            finalAfterSol ?? null,
+            finalProductCode || null,
+            finalPairQty || null,
+            finalPairQty || null,
+            region ?? factory ?? null,
+            factory ?? region ?? null,
+            department ?? null,
+            line ?? null,
+            customer ?? null,
+            category ?? null,
+            category_label ?? categoryLabel ?? null,
+            pricing_direction ?? null,
+            fallbackRow.id
+          );
+          const fbBatch = await db.batch([fbStmt]);
+          changes = fbBatch[0]?.meta?.changes || 0;
+          console.log('📊 [Next.js API PUT /api/ci-kaizen] Fallback UPDATE result:', { changes });
+        }
+      }
+
+      if (changes === 0) {
+        console.warn(`⚠️ [Next.js API PUT /api/ci-kaizen] WHERE id/code mismatch: 0 rows affected for targetId="${targetId}", targetCode="${targetCode}".`);
+        return NextResponse.json(
+          { success: false, error: 'NOT_FOUND', message: `Không tìm thấy bản ghi cần cập nhật trong CSDL D1 (id="${targetId}", code="${targetCode}")` },
+          { status: 404 }
+        );
+      }
+
+      db.prepare('SELECT * FROM ci_kaizen_proposals WHERE LOWER(id) = LOWER(?) OR LOWER(code) = LOWER(?)').bind(targetId || targetCode, targetCode || targetId).first()
         .then((proposalData: any) => {
           if (proposalData) triggerRealtimeSyncToWebTong(proposalData);
         }).catch(() => {});
@@ -726,3 +865,12 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+export async function PUT(request: Request) {
+  return POST(request);
+}
+
+export async function PATCH(request: Request) {
+  return POST(request);
+}
+

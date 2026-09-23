@@ -42,6 +42,7 @@ export async function ensureKaizenSchema(db: any, force = false) {
       'ALTER TABLE ci_kaizen_proposals ADD COLUMN customer TEXT',
       'ALTER TABLE ci_kaizen_proposals ADD COLUMN pricing_direction TEXT DEFAULT "THOI_GIAN"',
       'ALTER TABLE ci_kaizen_proposals ADD COLUMN total_savings_words TEXT',
+      'ALTER TABLE ci_kaizen_proposals ADD COLUMN is_edited INTEGER DEFAULT 0',
     ];
 
     for (const sql of columns) {

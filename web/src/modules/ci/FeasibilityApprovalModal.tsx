@@ -125,8 +125,26 @@ export default function FeasibilityApprovalModal({
     return "NON_FINANCIAL";
   }, [editedCategory, proposal]);
 
+  const isFormInitializedRef = useRef<boolean>(false);
+  const prevIsOpenRef = useRef<boolean>(false);
+  const prevProposalIdRef = useRef<string | null>(null);
+
   useEffect(() => {
-    if (isOpen && proposal) {
+    if (!isOpen || !proposal) {
+      isFormInitializedRef.current = false;
+      prevIsOpenRef.current = false;
+      return;
+    }
+
+    const isJustOpening = isOpen && !prevIsOpenRef.current;
+    const isProposalIdChanged = Boolean(proposal.id && proposal.id !== prevProposalIdRef.current);
+
+    prevIsOpenRef.current = isOpen;
+
+    if (!isFormInitializedRef.current || isJustOpening || isProposalIdChanged) {
+      isFormInitializedRef.current = true;
+      prevProposalIdRef.current = proposal.id || null;
+
       setDecision(initialDecision);
       setNote("");
       setErrorMsg(null);
@@ -134,9 +152,6 @@ export default function FeasibilityApprovalModal({
       setEditedCategory(
         proposal.category || proposal.category_label || (proposal as any).product_group || "INCREASE_PRODUCTIVITY"
       );
-      setNote("");
-      setErrorMsg(null);
-      setPairQtyError(null);
       setDirectSavingsVnd(proposal.total_savings_vnd || (proposal as any).tong_tien_tiet_kiem || "");
       setCostBefore((proposal as any).cost_before || (proposal as any).chi_phi_truoc || "");
       setCostAfter((proposal as any).cost_after || (proposal as any).chi_phi_sau || "");
@@ -187,7 +202,7 @@ export default function FeasibilityApprovalModal({
       }
       setAfterMediaList(initialMedia);
     }
-  }, [isOpen, initialDecision, proposal]);
+  }, [isOpen, initialDecision, proposal?.id]);
 
   const handleAddMediaFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -348,16 +363,16 @@ export default function FeasibilityApprovalModal({
           decision,
           category: editedCategory,
           note: note.trim() || (decision === "APPROVE" ? "Đã phê duyệt tính khả thi (Bước 3)" : "Không đạt tính khả thi"),
-          timeBeforeSeconds: categoryMode === "PRODUCTIVITY_TIME" && decision === "APPROVE" ? beforeVal : 0,
-          timeAfterSeconds: categoryMode === "PRODUCTIVITY_TIME" && decision === "APPROVE" ? afterVal : 0,
-          savedSeconds: categoryMode === "PRODUCTIVITY_TIME" && decision === "APPROVE" ? savedVal : 0,
-          efficiencyValueVND: categoryMode === "PRODUCTIVITY_TIME" && decision === "APPROVE" ? efficiencyVndVal : 0,
-          pairQuantity: categoryMode === "PRODUCTIVITY_TIME" && decision === "APPROVE" ? pairQtyVal : 1,
-          so_luong_giay: categoryMode === "PRODUCTIVITY_TIME" && decision === "APPROVE" ? pairQtyVal : 1,
-          totalSavingsVND: decision === "APPROVE" ? finalTotalSavings : 0,
-          tong_tien_tiet_kiem: decision === "APPROVE" ? finalTotalSavings : 0,
-          totalSavingsWords: decision === "APPROVE" ? savingsInWords : "",
-          tong_tien_bang_chu: decision === "APPROVE" ? savingsInWords : "",
+          timeBeforeSeconds: (categoryMode === "PRODUCTIVITY_TIME" && decision === "APPROVE" && beforeVal > 0) ? beforeVal : (proposal.time_before_seconds || (proposal as any).timeBeforeSeconds || 0),
+          timeAfterSeconds: (categoryMode === "PRODUCTIVITY_TIME" && decision === "APPROVE" && afterVal >= 0) ? afterVal : (proposal.time_after_seconds || (proposal as any).timeAfterSeconds || 0),
+          savedSeconds: (categoryMode === "PRODUCTIVITY_TIME" && decision === "APPROVE" && savedVal > 0) ? savedVal : (proposal.saved_seconds || (proposal as any).so_giay_tiet_kiem || (proposal as any).savedSeconds || 0),
+          efficiencyValueVND: (categoryMode === "PRODUCTIVITY_TIME" && decision === "APPROVE" && efficiencyVndVal > 0) ? efficiencyVndVal : (proposal.efficiency_value_vnd || (proposal as any).efficiencyValueVND || 0),
+          pairQuantity: (categoryMode === "PRODUCTIVITY_TIME" && decision === "APPROVE" && pairQtyVal > 0) ? pairQtyVal : (proposal.pair_quantity || (proposal as any).so_luong_giay || (proposal as any).quantity || 1),
+          so_luong_giay: (categoryMode === "PRODUCTIVITY_TIME" && decision === "APPROVE" && pairQtyVal > 0) ? pairQtyVal : (proposal.pair_quantity || (proposal as any).so_luong_giay || (proposal as any).quantity || 1),
+          totalSavingsVND: decision === "APPROVE" ? (finalTotalSavings > 0 ? finalTotalSavings : (proposal.total_savings_vnd || (proposal as any).totalSavingsVnd || 0)) : (proposal.total_savings_vnd || 0),
+          tong_tien_tiet_kiem: decision === "APPROVE" ? (finalTotalSavings > 0 ? finalTotalSavings : (proposal.total_savings_vnd || (proposal as any).totalSavingsVnd || 0)) : (proposal.total_savings_vnd || 0),
+          totalSavingsWords: decision === "APPROVE" ? (savingsInWords || (proposal as any).total_savings_words || "") : "",
+          tong_tien_bang_chu: decision === "APPROVE" ? (savingsInWords || (proposal as any).total_savings_words || "") : "",
           costBefore: finalCostBefore,
           costAfter: finalCostAfter,
           cost_before: finalCostBefore,

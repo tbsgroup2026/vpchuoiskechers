@@ -26,6 +26,7 @@ import KaizenLeaderboard from "./KaizenLeaderboard";
 
 interface KaizenDashboardProps {
   proposals: KaizenProposal[];
+  targetRegion?: string;
   onBackToLibrary?: () => void;
   onNavigateToStatus?: (regTypeStatus: string) => void;
   onSelectProposal?: (p: KaizenProposal) => void;
@@ -43,6 +44,7 @@ import {
 import {
   STANDARD_DASHBOARD_REGIONS,
   normalizeRegion,
+  matchRegionFilter,
   getProposalValueTr,
   getProposalValueVnd,
 } from "@/lib/kaizenRegionHelper";
@@ -142,7 +144,7 @@ const getCustomerCode = (p: KaizenProposal): string => {
   return "Khác";
 };
 
-export default function KaizenDashboard({ proposals, onBackToLibrary, onNavigateToStatus, onSelectProposal }: KaizenDashboardProps) {
+export default function KaizenDashboard({ proposals, targetRegion, onBackToLibrary, onNavigateToStatus, onSelectProposal }: KaizenDashboardProps) {
   const [selectedMonth, setSelectedMonth] = useState<string>("ALL");
   const [selectedQuarter, setSelectedQuarter] = useState<string>("ALL");
   const [statusScope, setStatusScope] = useState<"APPROVED" | "EVALUATED" | "ALL">("ALL");
@@ -158,6 +160,11 @@ export default function KaizenDashboard({ proposals, onBackToLibrary, onNavigate
     if (!Array.isArray(proposals)) return [];
     return proposals.filter((p) => {
       if (!p) return false;
+
+      if (targetRegion && targetRegion !== "ALL") {
+        if (!matchRegionFilter(p, targetRegion)) return false;
+      }
+
       const subStatus = String(p.sub_status || "").toUpperCase();
       const appStatus = String(p.approval_status || "").toUpperCase();
       const mainStatus = String(p.status || "").toUpperCase();
@@ -328,12 +335,20 @@ export default function KaizenDashboard({ proposals, onBackToLibrary, onNavigate
       }
     }
 
+    if (targetRegion && targetRegion !== "ALL") {
+      return {
+        chartItems: ["Đầu vào", "May", "Gò", "Khác"],
+        levelName: "XƯỞNG / CÔNG ĐOẠN",
+        contextLabel: `(${targetRegion})`,
+      };
+    }
+
     return {
       chartItems: STANDARD_8_REGIONS,
       levelName: "NHÀ MÁY / KHU VỰC",
       contextLabel: "",
     };
-  }, [cascadingFilterState]);
+  }, [cascadingFilterState, targetRegion]);
 
   const regionDataMap = useMemo(() => {
     const map: Record<string, { totalCount: number; totalValue: number; categoryCounts: Record<string, number> }> = {};
@@ -346,9 +361,20 @@ export default function KaizenDashboard({ proposals, onBackToLibrary, onNavigate
 
     filteredProposals.forEach((p) => {
       let matchedItem = "";
-      const combined = `${p.factory || ""} ${p.region || ""} ${p.department || ""}`.toUpperCase();
+      const combined = `${p.factory || ""} ${p.region || ""} ${p.department || ""} ${p.line || ""}`.toUpperCase();
 
-      if (levelName.includes("NHÀ MÁY")) {
+      if (targetRegion && targetRegion !== "ALL" && levelName.includes("XƯỞNG / CÔNG ĐOẠN")) {
+        const wsStr = [p.department, p.line, (p as any).workshop_name, (p as any).phan_xuong, (p as any).cong_doan].filter(Boolean).join(" ").toLowerCase();
+        if (wsStr.includes("đầu vào") || wsStr.includes("dau vao") || wsStr.includes("input") || wsStr.includes("chặt") || wsStr.includes("cắt")) {
+          matchedItem = "Đầu vào";
+        } else if (wsStr.includes("may") || wsStr.includes("sewing") || wsStr.includes("stitching")) {
+          matchedItem = "May";
+        } else if (wsStr.includes("gò") || wsStr.includes("go") || wsStr.includes("assembly") || wsStr.includes("dán đế") || wsStr.includes("hoàn thiện")) {
+          matchedItem = "Gò";
+        } else {
+          matchedItem = "Khác";
+        }
+      } else if (levelName.includes("NHÀ MÁY")) {
         matchedItem = normalizeRegion(p);
       } else {
         matchedItem = chartItems.find((item) => combined.includes(item.toUpperCase())) || normalizeRegion(p);
@@ -367,7 +393,7 @@ export default function KaizenDashboard({ proposals, onBackToLibrary, onNavigate
     });
 
     return map;
-  }, [filteredProposals, chartItems, levelName]);
+  }, [filteredProposals, chartItems, levelName, targetRegion]);
 
   const maxRegionCount = useMemo(() => {
     const max = Math.max(...chartItems.map((r) => regionDataMap[r]?.totalCount || 0), 0);
@@ -592,8 +618,13 @@ export default function KaizenDashboard({ proposals, onBackToLibrary, onNavigate
             <IconChartBar size={22} />
           </div>
           <div>
-            <h2 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
-              Dashboard Thống Kê Kaizen & Thi Đua
+            <h2 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2 flex-wrap">
+              <span>Dashboard Thống Kê Kaizen & Thi Đua</span>
+              {targetRegion && targetRegion !== "ALL" && (
+                <span className="text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-xl border border-emerald-200 text-xs font-black shadow-2xs flex items-center gap-1">
+                  📍 {targetRegion}
+                </span>
+              )}
             </h2>
             <p className="text-xs text-slate-500 font-medium">
               Báo cáo tổng hợp số lượng & trị giá cải tiến tự động cập nhật từ dữ liệu thực tế

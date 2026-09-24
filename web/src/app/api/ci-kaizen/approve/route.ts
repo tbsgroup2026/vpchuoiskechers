@@ -124,6 +124,9 @@ export async function POST(request: Request) {
         await db.prepare('ALTER TABLE ci_kaizen_proposals ADD COLUMN time_after_seconds REAL DEFAULT 0').run().catch(() => {});
         await db.prepare('ALTER TABLE ci_kaizen_proposals ADD COLUMN efficiency_value_vnd REAL DEFAULT 0').run().catch(() => {});
 
+        await db.prepare('ALTER TABLE ci_kaizen_proposals ADD COLUMN cost_before REAL DEFAULT 0').run().catch(() => {});
+        await db.prepare('ALTER TABLE ci_kaizen_proposals ADD COLUMN cost_after REAL DEFAULT 0').run().catch(() => {});
+
         const query = `
           UPDATE ci_kaizen_proposals
           SET approval_status = ?,
@@ -133,23 +136,28 @@ export async function POST(request: Request) {
               review_status = ?,
               category = COALESCE(?, category),
               product_code = COALESCE(?, product_code),
-              time_before_seconds = ?,
-              time_after_seconds = ?,
-              saved_seconds = ?,
-              so_giay_tiet_kiem = ?,
-              efficiency_value_vnd = ?,
-              diem_hieu_qua = ?,
-              score_points = ?,
-              diem_tong_hop = ?,
-              pair_quantity = ?,
-              total_savings_vnd = ?,
-              total_savings_words = ?,
+              time_before_seconds = CASE WHEN ? > 0 THEN ? ELSE time_before_seconds END,
+              time_after_seconds = CASE WHEN ? >= 0 THEN ? ELSE time_after_seconds END,
+              saved_seconds = CASE WHEN ? > 0 THEN ? ELSE saved_seconds END,
+              so_giay_tiet_kiem = CASE WHEN ? > 0 THEN ? ELSE so_giay_tiet_kiem END,
+              efficiency_value_vnd = CASE WHEN ? > 0 THEN ? ELSE efficiency_value_vnd END,
+              diem_hieu_qua = CASE WHEN ? > 0 THEN ? ELSE diem_hieu_qua END,
+              score_points = CASE WHEN ? > 0 THEN ? ELSE score_points END,
+              diem_tong_hop = CASE WHEN ? > 0 THEN ? ELSE diem_tong_hop END,
+              pair_quantity = CASE WHEN ? > 0 THEN ? ELSE pair_quantity END,
+              total_savings_vnd = CASE WHEN ? > 0 THEN ? ELSE total_savings_vnd END,
+              cost_before = CASE WHEN ? > 0 THEN ? ELSE cost_before END,
+              cost_after = CASE WHEN ? >= 0 THEN ? ELSE cost_after END,
+              total_savings_words = COALESCE(NULLIF(?, ''), total_savings_words),
               after_image_url = COALESCE(?, after_image_url),
               attachments_json = COALESCE(?, attachments_json),
               review_comment = COALESCE(?, review_comment),
               updated_at = CURRENT_TIMESTAMP
           WHERE id = ? OR code = ? OR LOWER(id) = LOWER(?) OR LOWER(code) = LOWER(?)
         `;
+
+        const costBeforeVal = Number(body.cost_before ?? body.costBefore ?? 0);
+        const costAfterVal = Number(body.cost_after ?? body.costAfter ?? 0);
 
         await db
           .prepare(query)
@@ -161,16 +169,18 @@ export async function POST(request: Request) {
             subStatus,
             categoryVal,
             productCodeVal,
-            timeBefore,
-            timeAfter,
-            savedSecs,
-            savedSecs,
-            efficiencyVnd,
-            diemHieuQua,
-            scorePoints,
-            diemTongHop,
-            pairQty,
-            totalSavings,
+            timeBefore, timeBefore,
+            timeAfter, timeAfter,
+            savedSecs, savedSecs,
+            savedSecs, savedSecs,
+            efficiencyVnd, efficiencyVnd,
+            diemHieuQua, diemHieuQua,
+            scorePoints, scorePoints,
+            diemTongHop, diemTongHop,
+            pairQty, pairQty,
+            totalSavings, totalSavings,
+            costBeforeVal, costBeforeVal,
+            costAfterVal, costAfterVal,
             totalSavingsWordsVal,
             afterImageUrl,
             attachmentsJson,

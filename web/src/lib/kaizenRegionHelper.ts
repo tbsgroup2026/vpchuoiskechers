@@ -168,3 +168,45 @@ export function isTHKGRegion(region: string): boolean {
     norm === "Hoàn Thiện Đế"
   );
 }
+
+export function matchRegionFilter(propRegionOrObj: any, filterRegion: string): boolean {
+  if (!filterRegion || filterRegion === "ALL") return true;
+  if (!propRegionOrObj) return false;
+
+  const norm = normalizeRegion(propRegionOrObj);
+  const filterClean = filterRegion.replace(/\+/g, " ").trim();
+  const filterUpper = filterClean.toUpperCase();
+
+  if (filterUpper === "THKG" || filterUpper.includes("TỔ HỢP KIÊN GIANG")) {
+    return isTHKGRegion(norm);
+  }
+
+  if (filterUpper.includes("MIỀN ĐÔNG") || filterUpper.includes("NMMĐ") || filterUpper.includes("NMMD")) {
+    return norm === "Nhà Máy Miền Đông";
+  }
+
+  if (filterUpper.includes("VĂN PHÒNG CHUỖI") || filterUpper.includes("VP CHUỖI") || filterUpper.includes("VP CHUOI")) {
+    return norm === "Văn phòng Chuỗi";
+  }
+
+  if (filterUpper.includes("PHÒNG BAN THKG") || filterUpper.includes("PHONG BAN THKG")) {
+    return norm === "Phòng Ban THKG";
+  }
+
+  if (filterUpper.includes("HOÀN THIỆN ĐẾ") || filterUpper.includes("HOAN THIEN DE") || filterUpper.includes("HTĐ")) {
+    return norm === "Hoàn Thiện Đế";
+  }
+
+  if (filterUpper.includes("KIÊN GIANG 1") || filterUpper.includes("KG 1") || filterUpper.includes("KG1")) {
+    return norm === "Kiên Giang 1";
+  }
+  if (filterUpper.includes("KIÊN GIANG 2") || filterUpper.includes("KG 2") || filterUpper.includes("KG2")) {
+    return norm === "Kiên Giang 2";
+  }
+  if (filterUpper.includes("KIÊN GIANG 3") || filterUpper.includes("KG 3") || filterUpper.includes("KG3")) {
+    return norm === "Kiên Giang 3";
+  }
+
+  return norm.toUpperCase() === filterUpper || norm === filterRegion;
+}
+

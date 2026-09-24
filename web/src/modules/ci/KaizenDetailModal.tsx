@@ -164,6 +164,7 @@ export default function KaizenDetailModal({
     after_solution: "",
     time_before_seconds: 0,
     time_after_seconds: 0,
+    saved_seconds: 0,
     efficiency_value_vnd: 0,
     cost_before: 0,
     cost_after: 0,
@@ -178,10 +179,33 @@ export default function KaizenDetailModal({
     const isCostCat = normCategory === "MATERIAL_SAVING" || normCategory === "COST_SAVING";
     const initialPricingDir = (proposal as any).pricing_direction || (isCostCat ? "TRI_GIA" : "THOI_GIAN");
 
+    const rawTB = Number(proposal.time_before_seconds ?? (proposal as any).timeBeforeSeconds ?? 0);
+    const rawTA = Number(proposal.time_after_seconds ?? (proposal as any).timeAfterSeconds ?? 0);
+    const rawSaved = Number(proposal.saved_seconds ?? (proposal as any).so_giay_tiet_kiem ?? (proposal as any).savedSeconds ?? 0);
+
+    let initTB = rawTB;
+    let initTA = rawTA;
+    if (initTB === 0 && initTA === 0 && rawSaved > 0) {
+      initTB = rawSaved;
+      initTA = 0;
+    }
+
+    const pairQty = Number(proposal.pair_quantity ?? (proposal as any).so_luong_giay ?? (proposal as any).quantity ?? 0);
+    const sSecs = (initTB > 0 || initTA > 0) ? Math.max(0, initTB - initTA) : rawSaved;
+    const effVal = Number(proposal.efficiency_value_vnd ?? (proposal as any).efficiencyValueVND ?? Math.round(sSecs * 12.5));
+    const costB = Number((proposal as any).cost_before ?? (proposal as any).cost_before_vnd ?? (proposal as any).costBeforeVnd ?? (proposal as any).chi_phi_truoc ?? 0);
+    const costA = Number((proposal as any).cost_after ?? (proposal as any).cost_after_vnd ?? (proposal as any).costAfterVnd ?? (proposal as any).chi_phi_sau ?? 0);
+
+    const existingTot = Number(proposal.total_savings_vnd ?? (proposal as any).tong_tien_tiet_kiem ?? (proposal as any).totalSavingsVnd ?? 0);
+    const calcTot = (isCostCat || initialPricingDir === "TRI_GIA")
+      ? Math.max(0, costB - costA)
+      : (pairQty > 0 ? effVal * pairQty : effVal);
+    const initTot = existingTot > 0 ? existingTot : calcTot;
+
     setEditForm({
       title: getKaizenDisplayTitle(proposal),
       product_code: (proposal as any).product_code || proposal.code || "",
-      pair_quantity: Number(proposal.pair_quantity || (proposal as any).so_luong_giay || (proposal as any).quantity || 0),
+      pair_quantity: pairQty,
       region: proposal.region || proposal.factory || "Nhà Máy Miền Đông",
       department: proposal.department || "",
       line: proposal.line || "",
@@ -190,21 +214,35 @@ export default function KaizenDetailModal({
       pricing_direction: initialPricingDir,
       before_description: getKaizenBeforeDescription(proposal),
       after_solution: getKaizenAfterSolution(proposal),
-      time_before_seconds: Number(proposal.time_before_seconds || (proposal as any).timeBeforeSeconds || 0),
-      time_after_seconds: Number(proposal.time_after_seconds || (proposal as any).timeAfterSeconds || 0),
-      efficiency_value_vnd: Number(proposal.efficiency_value_vnd || (proposal as any).efficiencyValueVND || 0),
-      cost_before: Number((proposal as any).cost_before || (proposal as any).chi_phi_truoc || 0),
-      cost_after: Number((proposal as any).cost_after || (proposal as any).chi_phi_sau || 0),
-      total_savings_vnd: Number(proposal.total_savings_vnd || (proposal as any).tong_tien_tiet_kiem || 0),
+      time_before_seconds: initTB,
+      time_after_seconds: initTA,
+      saved_seconds: sSecs,
+      efficiency_value_vnd: effVal,
+      cost_before: costB,
+      cost_after: costA,
+      total_savings_vnd: initTot,
       before_image_url: proposal.before_image_url || "",
       after_image_url: proposal.after_image_url || "",
     });
     setEditError(null);
   };
 
+  const isFormInitializedRef = React.useRef<boolean>(false);
+  const prevProposalIdRef = React.useRef<string | null>(null);
+
   useEffect(() => {
-    initEditForm();
-  }, [proposal]);
+    if (!proposal) {
+      isFormInitializedRef.current = false;
+      return;
+    }
+    const isProposalIdChanged = proposal.id && proposal.id !== prevProposalIdRef.current;
+
+    if (!isFormInitializedRef.current || isProposalIdChanged) {
+      isFormInitializedRef.current = true;
+      prevProposalIdRef.current = proposal.id || null;
+      initEditForm();
+    }
+  }, [proposal?.id]);
 
   const [selectedMedia, setSelectedMedia] = useState<{
     type: "image" | "video";
@@ -368,19 +406,23 @@ export default function KaizenDetailModal({
     const normCategory = normalizeCategoryId(editForm.category);
     const isCostMode = editForm.pricing_direction === "TRI_GIA" || normCategory === "MATERIAL_SAVING" || normCategory === "COST_SAVING";
 
-    const timeBefore = isCostMode ? 0 : Number(editForm.time_before_seconds || 0);
-    const timeAfter = isCostMode ? 0 : Number(editForm.time_after_seconds || 0);
-    const savedSecs = Math.max(0, timeBefore - timeAfter);
+    const timeBefore = Number(editForm.time_before_seconds ?? proposal.time_before_seconds ?? 0);
+    const timeAfter = Number(editForm.time_after_seconds ?? proposal.time_after_seconds ?? 0);
+    const savedSecs = (timeBefore > 0 || timeAfter > 0)
+      ? Math.max(0, timeBefore - timeAfter)
+      : Number(editForm.saved_seconds ?? proposal.saved_seconds ?? 0);
     const effValue = Number(editForm.efficiency_value_vnd) || Math.round(savedSecs * 12.5);
-    const pairQty = Number(editForm.pair_quantity) || 0;
+    const pairQty = Number(editForm.pair_quantity) || Number(proposal.pair_quantity) || 0;
     const costBefore = Number(editForm.cost_before || 0);
     const costAfter = Number(editForm.cost_after || 0);
 
-    let totalSavings = 0;
-    if (isCostMode) {
-      totalSavings = Number(editForm.total_savings_vnd) || Math.max(0, costBefore - costAfter);
-    } else {
-      totalSavings = pairQty > 0 ? effValue * pairQty : effValue;
+    let totalSavings = Number(editForm.total_savings_vnd || 0);
+    if (!totalSavings) {
+      if (isCostMode || (costBefore > 0 && costAfter >= 0)) {
+        totalSavings = Math.max(0, costBefore - costAfter);
+      } else {
+        totalSavings = pairQty > 0 ? effValue * pairQty : (Number(proposal.total_savings_vnd) || effValue);
+      }
     }
 
     const totalSavingsWords = totalSavings > 0 ? convertNumberToWords(totalSavings) : "";
@@ -391,11 +433,14 @@ export default function KaizenDetailModal({
 
       const payload = {
         id: proposal.id,
-        code: proposal.code,
+        code: proposal.code || proposal.id,
+        proposal_id: proposal.id,
+        proposal_code: proposal.code || proposal.id,
         title: editForm.title.trim(),
         product_code: editForm.product_code.trim(),
         pair_quantity: pairQty,
         quantity: pairQty,
+        so_luong_giay: pairQty,
         region: editForm.region,
         factory: editForm.region,
         department: editForm.department.trim(),
@@ -408,6 +453,7 @@ export default function KaizenDetailModal({
         time_before_seconds: timeBefore,
         time_after_seconds: timeAfter,
         saved_seconds: savedSecs,
+        so_giay_tiet_kiem: savedSecs,
         efficiency_value_vnd: effValue,
         cost_before: costBefore,
         cost_after: costAfter,
@@ -430,11 +476,7 @@ export default function KaizenDetailModal({
         }
       }
 
-      console.log("📤 [Frontend Save] Request PUT /api/ci-kaizen:", {
-        url: "/api/ci-kaizen",
-        method: "PUT",
-        payload,
-      });
+      console.log("📤 [Frontend Save] Request PUT /api/ci-kaizen:\n" + JSON.stringify(payload, null, 2));
 
       const res = await fetch("/api/ci-kaizen", {
         method: "PUT",
@@ -449,16 +491,33 @@ export default function KaizenDetailModal({
       });
 
       const json = await res.json();
-      console.log("📥 [Frontend Save] Response from /api/ci-kaizen:", {
-        status: res.status,
-        ok: res.ok,
-        json,
-      });
+      console.log("📥 [Frontend Save] Response from /api/ci-kaizen (status: " + res.status + "):\n" + JSON.stringify(json, null, 2));
 
       if (res.ok && json.success) {
-        Object.assign(proposal, payload);
+        const updatedData = { ...payload, ...(json.data || {}) };
+        Object.assign(proposal, updatedData);
+        (proposal as any).time_before_seconds = updatedData.time_before_seconds || timeBefore;
+        (proposal as any).time_after_seconds = updatedData.time_after_seconds || timeAfter;
+        (proposal as any).timeBeforeSeconds = updatedData.time_before_seconds || timeBefore;
+        (proposal as any).timeAfterSeconds = updatedData.time_after_seconds || timeAfter;
+        (proposal as any).saved_seconds = updatedData.saved_seconds || savedSecs;
+        (proposal as any).savedSeconds = updatedData.saved_seconds || savedSecs;
+        (proposal as any).so_giay_tiet_kiem = updatedData.saved_seconds || savedSecs;
+        (proposal as any).efficiency_value_vnd = updatedData.efficiency_value_vnd || effValue;
+        (proposal as any).efficiencyValueVND = updatedData.efficiency_value_vnd || effValue;
+        (proposal as any).cost_before = updatedData.cost_before || costBefore;
+        (proposal as any).cost_after = updatedData.cost_after || costAfter;
+        (proposal as any).chi_phi_truoc = updatedData.cost_before || costBefore;
+        (proposal as any).chi_phi_sau = updatedData.cost_after || costAfter;
+        (proposal as any).total_savings_vnd = updatedData.total_savings_vnd || totalSavings;
+        (proposal as any).totalSavingsVnd = updatedData.total_savings_vnd || totalSavings;
+        (proposal as any).tong_tien_tiet_kiem = updatedData.total_savings_vnd || totalSavings;
+        (proposal as any).pair_quantity = updatedData.pair_quantity || pairQty;
+        (proposal as any).so_luong_giay = updatedData.pair_quantity || pairQty;
+        (proposal as any).quantity = updatedData.pair_quantity || pairQty;
         setIsEditing(false);
-        if (onSaveSuccess) onSaveSuccess(payload);
+        initEditForm();
+        if (onSaveSuccess) onSaveSuccess(updatedData);
         if (onEvaluate) onEvaluate();
         if (onRate) onRate();
       } else {
@@ -482,7 +541,37 @@ export default function KaizenDetailModal({
     return isJudgeOrExecutive;
   }, [evalData, user, isJudgeOrExecutive]);
 
-  const isApprovedStep3 = proposal?.sub_status !== "CHO_REVIEW" && proposal?.approval_status !== "PENDING" && proposal?.status !== "SUBMITTED";
+  const isApprovedStatus = Boolean(
+    proposal?.approval_status === "PHE_DUYET" ||
+    proposal?.approval_status === "DA_DUYET" ||
+    proposal?.sub_status === "CHO_DANH_GIA" ||
+    proposal?.sub_status === "DA_DANH_GIA" ||
+    proposal?.sub_status === "DA_DUYET" ||
+    proposal?.trang_thai === "DA_DANH_GIA" ||
+    proposal?.trang_thai === "DA_DUYET" ||
+    proposal?.trang_thai === "PHE_DUYET" ||
+    proposal?.review_status === "DA_DUYET" ||
+    proposal?.review_status === "PHE_DUYET" ||
+    proposal?.status === "APPROVED" ||
+    proposal?.status === "UNDER_REVIEW"
+  );
+
+  const isRejectedStatus = Boolean(
+    proposal?.approval_status === "TU_CHOI" ||
+    proposal?.sub_status === "TU_CHOI_TRIEN_KHAI" ||
+    proposal?.sub_status === "TU_CHOI" ||
+    proposal?.trang_thai === "TU_CHOI_TRIEN_KHAI" ||
+    proposal?.trang_thai === "TU_CHOI" ||
+    proposal?.status === "REJECTED"
+  );
+
+  const isApprovedStep3 = isApprovedStatus || (
+    proposal?.sub_status !== "CHO_REVIEW" &&
+    proposal?.sub_status !== "CHO_DUYET" &&
+    proposal?.trang_thai !== "CHO_DUYET" &&
+    proposal?.approval_status !== "PENDING" &&
+    proposal?.status !== "SUBMITTED"
+  );
 
   const canSeeExpertTab = false;
   const canSeeAwardTab = isApprovedStep3 && isAssignedJudge;
@@ -839,26 +928,18 @@ export default function KaizenDetailModal({
 
               <span
                 className={`h-6 px-2.5 rounded-full border text-xs font-semibold inline-flex items-center gap-1 whitespace-nowrap ${
-                  proposal.approval_status === "TU_CHOI" || proposal.sub_status === "TU_CHOI_TRIEN_KHAI" || proposal.status === "REJECTED"
+                  isRejectedStatus
                     ? "bg-rose-50 text-rose-800 border-rose-300"
-                    : proposal.sub_status === "CHO_REVIEW" || proposal.approval_status === "PENDING" || proposal.status === "SUBMITTED"
-                    ? "bg-blue-50 text-blue-800 border-blue-300"
-                    : "bg-emerald-50 text-emerald-800 border-emerald-300"
+                    : isApprovedStatus
+                    ? "bg-emerald-50 text-emerald-800 border-emerald-300"
+                    : "bg-blue-50 text-blue-800 border-blue-300"
                 }`}
               >
                 <span>
-                  {proposal.approval_status === "TU_CHOI" || proposal.sub_status === "TU_CHOI_TRIEN_KHAI" || proposal.status === "REJECTED"
-                    ? "❌"
-                    : proposal.sub_status === "CHO_REVIEW" || proposal.approval_status === "PENDING" || proposal.status === "SUBMITTED"
-                    ? "⏳"
-                    : "✅"}
+                  {isRejectedStatus ? "❌" : isApprovedStatus ? "✅" : "⏳"}
                 </span>
                 <span>
-                  {proposal.approval_status === "TU_CHOI" || proposal.sub_status === "TU_CHOI_TRIEN_KHAI" || proposal.status === "REJECTED"
-                    ? "Từ chối"
-                    : proposal.sub_status === "CHO_REVIEW" || proposal.approval_status === "PENDING" || proposal.status === "SUBMITTED"
-                    ? "Chờ phê duyệt"
-                    : "Đã duyệt"}
+                  {isRejectedStatus ? "Từ chối" : isApprovedStatus ? "Đã duyệt" : "Chờ phê duyệt"}
                 </span>
               </span>
 
@@ -892,70 +973,17 @@ export default function KaizenDetailModal({
             </p>
 
             {/* BANNER PHÊ DUYỆT TÍNH KHẢ THI (BƯỚC 3 - QĐ-TBKG) BANNER TOP */}
-            {!isEditing && isJudgeOrExecutive && (
-              proposal.approval_status === "PHE_DUYET" || proposal.sub_status === "CHO_DANH_GIA" || proposal.sub_status === "DA_DANH_GIA" || proposal.status === "APPROVED" || proposal.status === "UNDER_REVIEW" ? (
-                <div className="mt-2 p-2.5 sm:p-3 rounded-xl bg-emerald-50 border border-emerald-200 flex flex-col xl:flex-row items-start xl:items-center justify-between gap-2.5 shadow-2xs">
-                  <div className="flex-1 min-w-[200px] space-y-0.5">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-950">
-                      <span className="text-emerald-600 shrink-0">✅</span>
-                      <span className="font-bold text-emerald-950">Đã phê duyệt tính khảthi (Bước 3 – QĐ-TBKG)</span>
-                    </div>
-                    <p className="text-xs text-emerald-800 leading-normal font-medium">
-                      Sáng kiến đã được phê duyệt tính khả thi và chuyển sang bước thử nghiệm &amp; đánh giá hiệu quả.
-                    </p>
+            {!isEditing && isJudgeOrExecutive && !isApprovedStatus && !isRejectedStatus && (
+              <div className="mt-2 p-2.5 sm:p-3 rounded-xl bg-sky-50 border border-sky-200 flex flex-col xl:flex-row items-start xl:items-center justify-between gap-2.5 shadow-2xs">
+                <div className="flex-1 min-w-[200px] space-y-0.5">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-sky-950">
+                    <span className="text-sky-600 shrink-0">💭</span>
+                    <span className="font-bold text-sky-950">Xem xét tính khả thi sáng kiến (Bước 3 – QĐ-TBKG)</span>
                   </div>
-
-                  <div className="flex items-center gap-1.5 shrink-0 flex-wrap w-full xl:w-auto pt-0.5 xl:pt-0">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFeasibilityInitialDecision("APPROVE");
-                        setIsFeasibilityModalOpen(true);
-                      }}
-                      className="h-7 px-2.5 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-900 border border-emerald-300 font-bold text-xs flex items-center justify-center gap-1 transition-all cursor-pointer whitespace-nowrap shadow-2xs"
-                    >
-                      <IconEditCircle size={14} />
-                      <span>Cập nhật phê duyệt</span>
-                    </button>
-                  </div>
+                  <p className="text-xs text-slate-600 leading-normal">
+                    Đề xuất đang ở trạng thái <strong className="text-sky-800 font-bold">Chờ phê duyệt</strong>. Bạn có muốn phê duyệt tính khả thi để cho phép thử nghiệm và đánh giá?
+                  </p>
                 </div>
-              ) : proposal.approval_status === "TU_CHOI" || proposal.sub_status === "TU_CHOI_TRIEN_KHAI" || proposal.status === "REJECTED" ? (
-                <div className="mt-2 p-2.5 sm:p-3 rounded-xl bg-rose-50 border border-rose-200 flex flex-col xl:flex-row items-start xl:items-center justify-between gap-2.5 shadow-2xs">
-                  <div className="flex-1 min-w-[200px] space-y-0.5">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-rose-950">
-                      <span className="text-rose-600 shrink-0">❌</span>
-                      <span className="font-bold text-rose-950">Đã từ chối triển khai (Bước 3 – QĐ-TBKG)</span>
-                    </div>
-                    <p className="text-xs text-rose-800 leading-normal font-medium">
-                      Sáng kiến chưa đạt tính khả thi để triển khai thử nghiệm.
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-1.5 shrink-0 flex-wrap w-full xl:w-auto pt-0.5 xl:pt-0">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFeasibilityInitialDecision("APPROVE");
-                        setIsFeasibilityModalOpen(true);
-                      }}
-                      className="h-7 px-2.5 rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-900 border border-rose-300 font-bold text-xs flex items-center justify-center gap-1 transition-all cursor-pointer whitespace-nowrap shadow-2xs"
-                    >
-                      <IconEditCircle size={14} />
-                      <span>Xem xét lại</span>
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="mt-2 p-2.5 sm:p-3 rounded-xl bg-sky-50 border border-sky-200 flex flex-col xl:flex-row items-start xl:items-center justify-between gap-2.5 shadow-2xs">
-                  <div className="flex-1 min-w-[200px] space-y-0.5">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-sky-950">
-                      <span className="text-sky-600 shrink-0">💭</span>
-                      <span className="font-bold text-sky-950">Xem xét tính khả thi sáng kiến (Bước 3 – QĐ-TBKG)</span>
-                    </div>
-                    <p className="text-xs text-slate-600 leading-normal">
-                      Đề xuất đang ở trạng thái <strong className="text-sky-800 font-bold">Chờ phê duyệt</strong>. Bạn có muốn phê duyệt tính khả thi để cho phép thử nghiệm và đánh giá?
-                    </p>
-                  </div>
 
                   <div className="flex items-center gap-1.5 shrink-0 flex-wrap w-full xl:w-auto pt-0.5 xl:pt-0">
                     <button
@@ -995,8 +1023,7 @@ export default function KaizenDetailModal({
                     </button>
                   </div>
                 </div>
-              )
-            )}
+              )}
           </div>
 
           <div className="flex-shrink-0 px-3.5 sm:px-4 h-[36px] border-b border-slate-200 bg-slate-50/50 flex items-center gap-2 overflow-x-auto">
@@ -1240,33 +1267,42 @@ function TabInfoContent({
 
         const tBeforeRaw = isEditing ? Number(editForm.time_before_seconds) : Number(proposal.time_before_seconds || (proposal as any).timeBeforeSeconds || 0);
         const tAfterRaw = isEditing ? Number(editForm.time_after_seconds) : Number(proposal.time_after_seconds || (proposal as any).timeAfterSeconds || 0);
-        const timeBefore = isNaN(tBeforeRaw) ? 0 : tBeforeRaw;
-        const timeAfter = isNaN(tAfterRaw) ? 0 : tAfterRaw;
-        const savedSecs = Math.max(0, timeBefore - timeAfter) || Number(proposal.saved_seconds || (proposal as any).so_giay_tiet_kiem || (proposal as any).savedSeconds || 0);
+        const rawSavedSecs = Number(proposal.saved_seconds || (proposal as any).so_giay_tiet_kiem || (proposal as any).savedSeconds || 0);
+        
+        let timeBefore = isNaN(tBeforeRaw) ? 0 : tBeforeRaw;
+        let timeAfter = isNaN(tAfterRaw) ? 0 : tAfterRaw;
+        let savedSecs = (timeBefore > 0 || timeAfter > 0) ? Math.max(0, timeBefore - timeAfter) : rawSavedSecs;
+
+        if (!isEditing && timeBefore === 0 && timeAfter === 0 && savedSecs > 0) {
+          timeBefore = savedSecs;
+          timeAfter = 0;
+        }
 
         const effRaw = isEditing
           ? (Number(editForm.efficiency_value_vnd) || Math.round(savedSecs * 12.5))
-          : Number(proposal.efficiency_value_vnd || (proposal as any).efficiencyValueVND || Math.round(savedSecs * 12.5));
+          : (Number(proposal.efficiency_value_vnd || (proposal as any).efficiencyValueVND) || (savedSecs > 0 ? Math.round(savedSecs * 12.5) : 0));
         const efficiencyVnd = isNaN(effRaw) ? 0 : effRaw;
 
         const pQtyRaw = isEditing ? Number(editForm.pair_quantity) : Number(proposal.pair_quantity || (proposal as any).so_luong_giay || (proposal as any).quantity || 0);
         const pairQty = isNaN(pQtyRaw) ? 0 : pQtyRaw;
 
-        const cBeforeRaw = isEditing ? Number(editForm.cost_before || 0) : Number((proposal as any).cost_before || (proposal as any).chi_phi_truoc || 0);
+        const mult = pairQty > 0 ? pairQty : 1;
+        const cBeforeRaw = isEditing ? Number(editForm.cost_before || 0) : (Number((proposal as any).cost_before || (proposal as any).chi_phi_truoc) || (timeBefore > 0 ? Math.round(timeBefore * 12.5 * mult) : 0));
         const costBefore = isNaN(cBeforeRaw) ? 0 : cBeforeRaw;
 
-        const cAfterRaw = isEditing ? Number(editForm.cost_after || 0) : Number((proposal as any).cost_after || (proposal as any).chi_phi_sau || 0);
+        const cAfterRaw = isEditing ? Number(editForm.cost_after || 0) : (Number((proposal as any).cost_after || (proposal as any).chi_phi_sau) || (timeAfter > 0 ? Math.round(timeAfter * 12.5 * mult) : 0));
         const costAfter = isNaN(cAfterRaw) ? 0 : cAfterRaw;
 
         let totalSavingsVnd = 0;
         if (isCostMode) {
           const totRaw = isEditing
             ? (Number(editForm.total_savings_vnd) || Math.max(0, costBefore - costAfter))
-            : Number(proposal.total_savings_vnd || (proposal as any).totalSavingsVnd || (proposal as any).tong_tien_tiet_kiem || Math.max(0, costBefore - costAfter));
+            : (Number(proposal.total_savings_vnd || (proposal as any).totalSavingsVnd || (proposal as any).tong_tien_tiet_kiem) || Math.max(0, costBefore - costAfter));
           totalSavingsVnd = isNaN(totRaw) ? 0 : totRaw;
         } else {
           const totRaw = Number(proposal.total_savings_vnd || (proposal as any).totalSavingsVnd || (proposal as any).tong_tien_tiet_kiem || 0);
-          totalSavingsVnd = totRaw > 0 ? totRaw : (pairQty > 0 ? efficiencyVnd * pairQty : efficiencyVnd);
+          const calcTot = (costBefore > 0 || costAfter > 0) ? Math.max(0, costBefore - costAfter) : (pairQty > 0 ? efficiencyVnd * pairQty : efficiencyVnd);
+          totalSavingsVnd = totRaw > 0 ? totRaw : calcTot;
         }
         if (isNaN(totalSavingsVnd)) totalSavingsVnd = 0;
 
@@ -1378,14 +1414,14 @@ function TabInfoContent({
                           const cb = Math.round(tb * 12.5 * mult);
                           const ca = Math.round(ta * 12.5 * mult);
                           const eff = Math.round(sSecs * 12.5);
-                          const tot = Math.max(0, cb - ca);
+                          const calcTot = Math.max(0, cb - ca);
                           setEditForm((prev: any) => ({
                             ...prev,
                             time_before_seconds: tb,
                             cost_before: cb,
                             cost_after: ca,
                             efficiency_value_vnd: eff,
-                            total_savings_vnd: tot,
+                            total_savings_vnd: pq > 0 ? calcTot : (prev.total_savings_vnd > 0 ? prev.total_savings_vnd : calcTot),
                           }));
                         }}
                         className="w-full p-2.5 rounded-xl border border-slate-300 text-xs font-black text-slate-900 bg-white outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 shadow-2xs"
@@ -1410,14 +1446,14 @@ function TabInfoContent({
                           const cb = Math.round(tb * 12.5 * mult);
                           const ca = Math.round(ta * 12.5 * mult);
                           const eff = Math.round(sSecs * 12.5);
-                          const tot = Math.max(0, cb - ca);
+                          const calcTot = Math.max(0, cb - ca);
                           setEditForm((prev: any) => ({
                             ...prev,
                             time_after_seconds: ta,
                             cost_before: cb,
                             cost_after: ca,
                             efficiency_value_vnd: eff,
-                            total_savings_vnd: tot,
+                            total_savings_vnd: pq > 0 ? calcTot : (prev.total_savings_vnd > 0 ? prev.total_savings_vnd : calcTot),
                           }));
                         }}
                         className="w-full p-2.5 rounded-xl border border-slate-300 text-xs font-black text-slate-900 bg-white outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 shadow-2xs"
@@ -1442,14 +1478,14 @@ function TabInfoContent({
                           const cb = Math.round(tb * 12.5 * mult);
                           const ca = Math.round(ta * 12.5 * mult);
                           const eff = Math.round(sSecs * 12.5);
-                          const tot = Math.max(0, cb - ca);
+                          const calcTot = Math.max(0, cb - ca);
                           setEditForm((prev: any) => ({
                             ...prev,
                             pair_quantity: pq,
                             cost_before: cb,
                             cost_after: ca,
                             efficiency_value_vnd: eff,
-                            total_savings_vnd: tot,
+                            total_savings_vnd: pq > 0 ? calcTot : (prev.total_savings_vnd > 0 ? prev.total_savings_vnd : calcTot),
                           }));
                         }}
                         placeholder="Nhập số đôi giày..."

@@ -64,6 +64,13 @@ export async function POST(request: Request, { params }: { params: { id: string 
     const ieConfirmedBy = (session as any).name || (session as any).empCode || 'Kỹ Sư IE';
     const nowIso = new Date().toISOString();
 
+    const pairQty = Number(existing.pair_quantity || existing.quantity || 1);
+    const mult = pairQty > 0 ? pairQty : 1;
+    const effVnd = Math.round(confirmedSavedSeconds * 12.5);
+    const cb = Math.round(confirmedTimeBefore * 12.5 * mult);
+    const ca = Math.round(confirmedTimeAfter * 12.5 * mult);
+    const totVnd = Math.max(0, cb - ca);
+
     const updateSql = `
       UPDATE ci_kaizen_proposals
       SET sub_status = 'CHO_PHE_DUYET_TRIEN_KHAI',
@@ -75,10 +82,16 @@ export async function POST(request: Request, { params }: { params: { id: string 
           ie_time_before_confirmed = ?,
           ie_time_after_original = COALESCE(ie_time_after_original, ?),
           ie_time_after_confirmed = ?,
+          time_before_seconds = ?,
+          time_after_seconds = ?,
           saved_seconds = ?,
           so_giay_tiet_kiem = ?,
+          efficiency_value_vnd = ?,
+          cost_before = ?,
+          cost_after = ?,
+          total_savings_vnd = CASE WHEN total_savings_vnd IS NULL OR total_savings_vnd <= 0 THEN ? ELSE total_savings_vnd END,
           updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
+      WHERE id = ? OR code = ?
     `;
 
     await db.prepare(updateSql).bind(
@@ -87,9 +100,16 @@ export async function POST(request: Request, { params }: { params: { id: string 
       confirmedTimeBefore,
       origTimeAfter,
       confirmedTimeAfter,
+      confirmedTimeBefore,
+      confirmedTimeAfter,
       confirmedSavedSeconds,
       confirmedSavedSeconds,
-      proposalId
+      effVnd,
+      cb,
+      ca,
+      totVnd,
+      proposalId,
+      existing.code || proposalId
     ).run();
 
     await recordAuditLog(

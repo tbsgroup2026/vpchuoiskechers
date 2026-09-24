@@ -350,7 +350,7 @@ export default function HomeNew({
                       >
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="w-9 h-9 rounded-md bg-slate-100 text-slate-700 group-hover:text-[#006838] flex items-center justify-center shrink-0 border border-slate-200 transition-colors">
-                            <MIcon size={18} />
+                            <MIcon size={18} /> 
                           </div>
                           <div className="space-y-0.5 min-w-0">
                             <div className="text-xs font-bold text-slate-900 group-hover:text-[#006838] transition-colors leading-tight">

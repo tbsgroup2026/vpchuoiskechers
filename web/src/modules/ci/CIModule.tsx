@@ -118,6 +118,8 @@ export interface KaizenProposal {
   saved_seconds: number;
   time_before_seconds?: number;
   time_after_seconds?: number;
+  cost_before?: number;
+  cost_after?: number;
   efficiency_value_vnd?: number;
   pair_quantity?: number;
   so_luong_giay?: number;
@@ -158,6 +160,7 @@ export interface KaizenProposal {
   merged_into_id?: string;
   version: number;
   created_at: string;
+  updated_at?: string;
 }
 
 export function KaizenCardImage({ src, alt, attachmentsJson }: { src?: string; alt?: string; attachmentsJson?: string }) {
@@ -609,7 +612,7 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
     }
   }, []);
   const [viewMode, setViewMode] = useState<"GRID" | "LIST">("GRID");
-  const [activeTab, setActiveTab] = useState<"LIBRARY" | "DASHBOARD" | "EARLY_WARNING">("LIBRARY");
+  const [activeTab, setActiveTab] = useState<"LIBRARY" | "DASHBOARD" | "EARLY_WARNING">(initialUnitSlug ? "DASHBOARD" : "LIBRARY");
   const [isFiveStepModalOpen, setIsFiveStepModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -832,12 +835,16 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
   };
 
   const fetchProposals = async (silent = false) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
     try {
       if (!silent && proposals.length === 0) setLoading(true);
       const res = await fetch(`/api/ci-kaizen?t=${Date.now()}`, {
         cache: "no-store",
+        signal: controller.signal,
         headers: { "Cache-Control": "no-cache, no-store, max-age=0" }
       });
+      clearTimeout(timeoutId);
       if (!res.ok) {
         if (!silent && proposals.length === 0) setLoading(false);
         return;
@@ -845,13 +852,71 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
         setProposals(json.data);
+        setActiveProposal((prevActive) => {
+          if (!prevActive) return null;
+          // Protect user editing state: if any modal is open, retain existing activeProposal reference
+          if (isDetailModalOpen || isApprovalModalOpen || isEvaluationModalOpen || isEditModalOpen || isPreliminaryModalOpen || isFiveStepModalOpen || isCreateModalOpen) {
+            return prevActive;
+          }
+          const fresh = json.data.find((item: any) => item.id === prevActive.id || (prevActive.code && item.code === prevActive.code));
+          if (!fresh) return prevActive;
+
+          const tb = Number(fresh.time_before_seconds || fresh.timeBeforeSeconds || prevActive.time_before_seconds || (prevActive as any).timeBeforeSeconds || 0);
+          const ta = Number(fresh.time_after_seconds || fresh.timeAfterSeconds || prevActive.time_after_seconds || (prevActive as any).timeAfterSeconds || 0);
+          const sSecs = (tb > 0 || ta > 0) ? Math.max(0, tb - ta) : Number(fresh.saved_seconds || fresh.savedSeconds || prevActive.saved_seconds || 0);
+          const q = Number(fresh.pair_quantity || fresh.quantity || prevActive.pair_quantity || (prevActive as any).quantity || 0);
+          const mult = q > 0 ? q : 1;
+          const eff = Number(fresh.efficiency_value_vnd || fresh.efficiencyValueVND || prevActive.efficiency_value_vnd || (sSecs > 0 ? Math.round(sSecs * 12.5) : 0));
+          const cb = Number(fresh.cost_before || fresh.costBefore || prevActive.cost_before || (tb > 0 ? Math.round(tb * 12.5 * mult) : 0));
+          const ca = Number(fresh.cost_after || fresh.costAfter || prevActive.cost_after || (ta > 0 ? Math.round(ta * 12.5 * mult) : 0));
+          const tot = Number(fresh.total_savings_vnd || fresh.totalSavingsVnd || prevActive.total_savings_vnd || (cb > 0 ? Math.max(0, cb - ca) : (q > 0 ? eff * q : eff)));
+
+          if (
+            prevActive.updated_at === fresh.updated_at &&
+            prevActive.sub_status === fresh.sub_status &&
+            prevActive.approval_status === fresh.approval_status &&
+            (prevActive as any).time_before_seconds === tb &&
+            (prevActive as any).time_after_seconds === ta &&
+            (prevActive as any).total_savings_vnd === tot &&
+            (prevActive as any).pair_quantity === q &&
+            (prevActive as any).cost_before === cb &&
+            (prevActive as any).cost_after === ca
+          ) {
+            return prevActive;
+          }
+
+          return {
+            ...prevActive,
+            ...fresh,
+            time_before_seconds: tb,
+            timeBeforeSeconds: tb,
+            time_after_seconds: ta,
+            timeAfterSeconds: ta,
+            saved_seconds: sSecs,
+            savedSeconds: sSecs,
+            so_giay_tiet_kiem: sSecs,
+            efficiency_value_vnd: eff,
+            efficiencyValueVND: eff,
+            total_savings_vnd: tot,
+            totalSavingsVnd: tot,
+            tong_tien_tiet_kiem: tot,
+            cost_before: cb,
+            costBefore: cb,
+            cost_after: ca,
+            costAfter: ca,
+            pair_quantity: q,
+            quantity: q,
+          };
+        });
         if (typeof window !== "undefined") {
           try {
             localStorage.setItem(PROPOSALS_CACHE_KEY, JSON.stringify(json.data));
           } catch (e) {}
         }
       }
-    } catch (err) {
+    } catch (err: any) {
+      clearTimeout(timeoutId);
+      if (err?.name === "AbortError") return;
       if (!silent && proposals.length === 0) {
         showToast("⚠️ Kết nối mạng yếu: Đang hiển thị bản ghi đã lưu gần nhất");
       }
@@ -860,12 +925,82 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
     }
   };
 
+  const isSameKaizenProposal = (a: any, b: any): boolean => {
+    if (!a || !b) return false;
+    const aId = String(a.id ?? a.proposal_id ?? a.code ?? "").trim();
+    const aCode = String(a.code ?? a.proposal_code ?? a.id ?? "").trim();
+    const bId = String(b.id ?? b.proposal_id ?? b.code ?? "").trim();
+    const bCode = String(b.code ?? b.proposal_code ?? b.id ?? "").trim();
+
+    if (!aId && !aCode && !bId && !bCode) return false;
+    return Boolean(
+      (aId && bId && aId === bId) ||
+      (aCode && bCode && aCode === bCode) ||
+      (aId && bCode && aId === bCode) ||
+      (aCode && bId && aCode === bId)
+    );
+  };
+
   const handleProposalUpdated = (updatedProp: any) => {
     if (!updatedProp) return;
+    setActiveProposal((prevActive) => {
+      if (prevActive && isSameKaizenProposal(prevActive, updatedProp)) {
+        const tb = Number(updatedProp.time_before_seconds ?? updatedProp.timeBeforeSeconds ?? prevActive.time_before_seconds ?? (prevActive as any).timeBeforeSeconds ?? 0);
+        const ta = Number(updatedProp.time_after_seconds ?? updatedProp.timeAfterSeconds ?? prevActive.time_after_seconds ?? (prevActive as any).timeAfterSeconds ?? 0);
+        const sSecs = (tb > 0 || ta > 0) ? Math.max(0, tb - ta) : Number(updatedProp.saved_seconds ?? updatedProp.savedSeconds ?? prevActive.saved_seconds ?? 0);
+        const q = Number(updatedProp.pair_quantity ?? updatedProp.quantity ?? prevActive.pair_quantity ?? (prevActive as any).quantity ?? 0);
+        const mult = q > 0 ? q : 1;
+        const eff = Number(updatedProp.efficiency_value_vnd ?? updatedProp.efficiencyValueVND ?? prevActive.efficiency_value_vnd ?? (sSecs > 0 ? Math.round(sSecs * 12.5) : 0));
+        const cb = Number(updatedProp.cost_before ?? updatedProp.costBefore ?? prevActive.cost_before ?? (tb > 0 ? Math.round(tb * 12.5 * mult) : 0));
+        const ca = Number(updatedProp.cost_after ?? updatedProp.costAfter ?? prevActive.cost_after ?? (ta > 0 ? Math.round(ta * 12.5 * mult) : 0));
+        const tot = Number(updatedProp.total_savings_vnd ?? updatedProp.totalSavingsVnd ?? prevActive.total_savings_vnd ?? (cb > 0 ? Math.max(0, cb - ca) : (q > 0 ? eff * q : eff)));
+
+        return {
+          ...prevActive,
+          ...updatedProp,
+          time_before_seconds: tb,
+          timeBeforeSeconds: tb,
+          time_after_seconds: ta,
+          timeAfterSeconds: ta,
+          saved_seconds: sSecs,
+          savedSeconds: sSecs,
+          so_giay_tiet_kiem: sSecs,
+          efficiency_value_vnd: eff,
+          efficiencyValueVND: eff,
+          total_savings_vnd: tot,
+          totalSavingsVnd: tot,
+          tong_tien_tiet_kiem: tot,
+          cost_before: cb,
+          costBefore: cb,
+          cost_after: ca,
+          costAfter: ca,
+          pair_quantity: q,
+          quantity: q,
+        };
+      }
+      return prevActive;
+    });
+
     setProposals((prev) => {
       const next = prev.map((p) => {
-        if (p.id === updatedProp.id || (updatedProp.code && p.code === updatedProp.code)) {
-          return { ...p, ...updatedProp };
+        if (isSameKaizenProposal(p, updatedProp)) {
+          const tb = Number(updatedProp.time_before_seconds ?? updatedProp.timeBeforeSeconds ?? p.time_before_seconds ?? (p as any).timeBeforeSeconds ?? 0);
+          const ta = Number(updatedProp.time_after_seconds ?? updatedProp.timeAfterSeconds ?? p.time_after_seconds ?? (p as any).timeAfterSeconds ?? 0);
+          const sSecs = (tb > 0 || ta > 0) ? Math.max(0, tb - ta) : Number(updatedProp.saved_seconds ?? updatedProp.savedSeconds ?? p.saved_seconds ?? 0);
+          const tot = Number(updatedProp.total_savings_vnd ?? updatedProp.totalSavingsVnd ?? p.total_savings_vnd ?? (p as any).totalSavingsVnd ?? 0);
+
+          return {
+            ...p,
+            ...updatedProp,
+            time_before_seconds: tb,
+            timeBeforeSeconds: tb,
+            time_after_seconds: ta,
+            timeAfterSeconds: ta,
+            saved_seconds: sSecs,
+            savedSeconds: sSecs,
+            total_savings_vnd: tot,
+            totalSavingsVnd: tot,
+          };
         }
         return p;
       });
@@ -876,8 +1011,11 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
       }
       return next;
     });
-    fetchProposals(true);
-    refetchStatusCounts();
+
+    setTimeout(() => {
+      fetchProposals(true);
+      refetchStatusCounts();
+    }, 300);
   };
 
   useEffect(() => {
@@ -1042,13 +1180,7 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
 
       if (!isApprovedProposal(p)) return false;
 
-      // Savings or score points MUST be > 0
-      const savingsVal = getProposalSavingsVal(p);
-      const scoreVal = Number(p.score_points || (p as any).scorePoints || 0);
-      if (savingsVal <= 0 && scoreVal <= 0) return false;
-
-      const regType = String(p.registration_type || "").toUpperCase();
-      return (regType === "THI_DUA" || Number(p.is_thi_dua) === 1 || subStatus === "CHO_DANH_GIA" || subStatus === "DA_DANH_GIA");
+      return true;
     });
 
     const sorted = [...thiDuaList].sort((a, b) => {
@@ -1790,6 +1922,7 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
         {activeTab === "DASHBOARD" ? (
           <KaizenDashboard
             proposals={normalizedProposals}
+            targetRegion={activeUnitInfo ? activeUnitInfo.regionKey : (selectedRegion !== "ALL" ? selectedRegion : undefined)}
             onBackToLibrary={() => setActiveTab("LIBRARY")}
             onSelectProposal={(p) => {
               setActiveProposal(p);
@@ -2085,34 +2218,14 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
 
 
                               {isApprovedProposal(prop) && (
-                                rankInfo ? (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setEvaluatingProposal(prop);
-                                      setIsEvaluationModalOpen(true);
-                                    }}
-                                    className={`px-2 py-0.5 rounded-lg text-[10px] font-black shadow-xs flex items-center gap-1 transition-transform hover:scale-105 cursor-pointer shrink-0 border ${rankInfo.badgeStyle}`}
-                                    title={`Xếp hạng thi đua: ${rankInfo.rankTitle} - Bấm để xem / chấm điểm`}
-                                  >
-                                    <span>{rankInfo.badgeLabel}</span>
-                                  </button>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setEvaluatingProposal(prop);
-                                      setIsEvaluationModalOpen(true);
-                                    }}
-                                    className="px-2 py-0.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-black shadow-2xs transition-colors flex items-center gap-1 cursor-pointer shrink-0"
-                                    title="Chấm điểm chuyên môn 5 tiêu chí QĐ-TBKG"
-                                  >
-                                    <IconTrophy size={13} />
-                                    <span>Chấm điểm</span>
-                                  </button>
-                                )
+                                <span
+                                  className={`px-2 py-0.5 rounded-lg text-[10px] font-black shadow-xs flex items-center gap-1 shrink-0 border ${
+                                    rankInfo ? rankInfo.badgeStyle : "bg-emerald-50 text-emerald-800 border-emerald-300"
+                                  }`}
+                                  title={rankInfo ? `Xếp hạng thi đua: ${rankInfo.rankTitle}` : "Sáng kiến đã được phê duyệt"}
+                                >
+                                  <span>{rankInfo ? rankInfo.badgeLabel : "✅ Đã duyệt"}</span>
+                                </span>
                               )}
 
                               {((currentUser?.empCode && prop.proposer_emp_code && currentUser.empCode.trim().toUpperCase() === prop.proposer_emp_code.trim().toUpperCase()) ||

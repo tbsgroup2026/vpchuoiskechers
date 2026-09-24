@@ -161,38 +161,40 @@ export async function GET(request: Request) {
     const db = getDbBinding();
     if (db) {
       try {
-        const query = `SELECT * FROM hr_employees WHERE UPPER(emp_code) = ? OR UPPER(msnv) = ? LIMIT 1`;
-        const res = await db.prepare(query).bind(msnv, msnv).first();
-        if (res) {
+        const userRes = await db.prepare(`SELECT * FROM users WHERE UPPER(emp_code) = ? OR CAST(id AS TEXT) = ? LIMIT 1`).bind(msnv, msnv).first().catch(() => null);
+        if (userRes) {
+          const facName = userRes.factory_id || (userRes.department?.includes('MĐ') || userRes.phong_ban_hien_tai?.includes('MAY') ? 'Nhà Máy Miền Đông' : 'Văn phòng Chuỗi');
+          const wsName = userRes.workshop_id || userRes.phong_ban_hien_tai || userRes.department || 'May';
           return NextResponse.json({
             success: true,
             data: {
-              emp_code: res.emp_code || res.msnv || msnv,
-              name: res.name || res.ho_ten || res.full_name,
-              factory_id: res.factory_id || res.nha_may || res.factory || 'Nhà Máy Miền Đông',
-              workshop_id: res.workshop_id || res.xuong || res.department || 'Đầu Vào',
-              line_id: res.line_id && !['NV', 'CBCNV'].includes(res.line_id) ? res.line_id : '',
-              chuyen_id: res.chuyen_id || res.chuyen || '',
-              to_id: res.to_id || res.to || '',
-              vtcv: res.vtcv || res.position || 'Công nhân',
-              position: res.position || res.vtcv || 'Công nhân',
+              emp_code: userRes.emp_code || String(userRes.id) || msnv,
+              name: userRes.name || userRes.full_name || msnv,
+              factory_id: facName,
+              workshop_id: wsName,
+              line_id: userRes.line_id && !['NV', 'CBCNV'].includes(userRes.line_id) ? userRes.line_id : (userRes.vtcv_sap_xep || ''),
+              chuyen_id: userRes.chuyen_id || '',
+              to_id: userRes.to_id || userRes.vtcv_sap || '',
+              vtcv: userRes.vtcv || userRes.vtcv_hien_tai || userRes.role_code || 'Công nhân',
+              position: userRes.position || userRes.vtcv_hien_tai || userRes.title || 'Công nhân',
             },
           });
         }
 
-        // Search users table if hr_employees has no matching row
-        const userRes = await db.prepare(`SELECT * FROM users WHERE UPPER(emp_code) = ? OR UPPER(id) = ? LIMIT 1`).bind(msnv, msnv).first();
-        if (userRes) {
+        const hrRes = await db.prepare(`SELECT * FROM hr_employees WHERE UPPER(id) = ? OR UPPER(name) = ? LIMIT 1`).bind(msnv, msnv).first().catch(() => null);
+        if (hrRes) {
           return NextResponse.json({
             success: true,
             data: {
-              emp_code: userRes.emp_code || userRes.id || msnv,
-              name: userRes.name || userRes.full_name || msnv,
-              factory_id: userRes.factory_id || 'Văn Phòng Chuỗi',
-              workshop_id: userRes.workshop_id || 'Văn phòng',
-              line_id: userRes.line_id && !['NV', 'CBCNV'].includes(userRes.line_id) ? userRes.line_id : '',
-              vtcv: userRes.vtcv || userRes.role_code || 'Cán bộ quản lý',
-              position: userRes.position || userRes.vtcv || 'Cán bộ quản lý',
+              emp_code: hrRes.id || msnv,
+              name: hrRes.name || hrRes.ho_ten || hrRes.full_name,
+              factory_id: hrRes.factory_id || hrRes.nha_may || hrRes.factory || 'Nhà Máy Miền Đông',
+              workshop_id: hrRes.workshop_id || hrRes.xuong || hrRes.department || 'Đầu Vào',
+              line_id: hrRes.line_id && !['NV', 'CBCNV'].includes(hrRes.line_id) ? hrRes.line_id : '',
+              chuyen_id: hrRes.chuyen_id || hrRes.chuyen || '',
+              to_id: hrRes.to_id || hrRes.to || '',
+              vtcv: hrRes.vtcv || hrRes.position || hrRes.title || 'Công nhân',
+              position: hrRes.position || hrRes.title || hrRes.vtcv || 'Công nhân',
             },
           });
         }

@@ -401,31 +401,56 @@ export default function KaizenPublicSubmitForm({
     return () => clearTimeout(timer);
   }, [form.proposerEmpCode, isEdit, initialData]);
 
+  const prevInitialDataIdRef = React.useRef<string | null>(null);
+
   React.useEffect(() => {
     if (isEdit && initialData) {
+      const curId = initialData.id || initialData.code;
+      if (curId && curId === prevInitialDataIdRef.current) {
+        return;
+      }
+      if (curId) prevInitialDataIdRef.current = curId;
+
+      const q = Number(initialData.pair_quantity || initialData.quantity || initialData.so_luong_giay || 0);
+      let tb = Number(initialData.time_before_seconds || initialData.timeBeforeSeconds || 0);
+      let ta = Number(initialData.time_after_seconds || initialData.timeAfterSeconds || 0);
+      const sSecs = (tb > 0 || ta > 0) ? Math.max(0, tb - ta) : Number(initialData.saved_seconds || initialData.savedSeconds || initialData.so_giay_tiet_kiem || 0);
+      if (tb === 0 && ta === 0 && sSecs > 0) {
+        tb = sSecs;
+        ta = 0;
+      }
+      const mult = q > 0 ? q : 1;
+      const eff = Number(initialData.efficiency_value_vnd || initialData.efficiencyValueVND || (sSecs > 0 ? Math.round(sSecs * 12.5) : 0));
+      const cb = Number(initialData.cost_before || initialData.costBefore || initialData.chi_phi_truoc || (tb > 0 ? Math.round(tb * 12.5 * mult) : 0));
+      const ca = Number(initialData.cost_after || initialData.costAfter || initialData.chi_phi_sau || (ta > 0 ? Math.round(ta * 12.5 * mult) : 0));
+      const tot = Number(initialData.total_savings_vnd || initialData.totalSavingsVnd || initialData.tong_tien_tiet_kiem || (cb > 0 ? Math.max(0, cb - ca) : (q > 0 ? eff * q : eff)));
+
       setForm({
-        region: initialData.region || "KG 1",
+        region: initialData.region || initialData.factory || "Nhà Máy Miền Đông",
         proposerEmpCode: initialData.proposer_emp_code || initialData.proposerEmpCode || "",
         proposerPosition: initialData.proposer_position || initialData.proposerPosition || "Công nhân",
         proposerMonth: initialData.proposer_month || new Date().getMonth() + 1,
         proposerYear: initialData.proposer_year || new Date().getFullYear(),
         proposerName: initialData.proposer_name || initialData.proposerName || "",
-        customer: "",
-        factory: initialData.factory || "KG 1",
+        customer: initialData.customer || "Skechers",
+        factory: initialData.factory || initialData.region || "Nhà Máy Miền Đông",
         department: initialData.department || "",
         title: initialData.title || "",
         category: initialData.category ? normalizeCategoryId(initialData.category) : "PRODUCTIVITY",
         categoryLabel: initialData.category_label || initialData.categoryLabel || "3.Tăng Năng suất",
-        productGroup: "",
+        productGroup: initialData.productGroup || "",
         productCode: initialData.product_code || initialData.productCode || "",
-        quantity: 0,
+        quantity: q,
         beforeDescription: initialData.before_description || initialData.beforeDescription || "",
         afterSolution: initialData.after_solution || initialData.afterSolution || "",
-        pricingDirection: "THOI_GIAN",
-        savedSeconds: 0,
-        timeBeforeSeconds: 0,
-        timeAfterSeconds: 0,
-        efficiencyValueVND: 0,
+        pricingDirection: initialData.pricing_direction || initialData.pricingDirection || "THOI_GIAN",
+        savedSeconds: sSecs,
+        timeBeforeSeconds: tb,
+        timeAfterSeconds: ta,
+        efficiencyValueVND: eff,
+        costBefore: cb,
+        costAfter: ca,
+        totalSavingsVnd: tot,
         before_image_url: initialData.before_image_url || initialData.beforeImageUrl || "",
         after_image_url: initialData.after_image_url || initialData.afterImageUrl || "",
         beforeImageUrl: initialData.before_image_url || initialData.beforeImageUrl || "",
@@ -436,7 +461,7 @@ export default function KaizenPublicSubmitForm({
         afterVideoUrl: "",
         beforeVideoLink: "",
         afterVideoLink: "",
-        registrationType: "LUU_TRU",
+        registrationType: initialData.registration_type || initialData.registrationType || "THI_DUA",
       });
     }
   }, [isEdit, initialData]);
@@ -652,6 +677,8 @@ export default function KaizenPublicSubmitForm({
           efficiency_value_vnd: effValue,
           efficiencyValueVND: effValue,
           cost_before: costBefore,
+          costBefore: costBefore,
+          cost_after: costAfter,
           costAfter: costAfter,
           total_savings_vnd: totalSavings,
           totalSavingsVnd: totalSavings,

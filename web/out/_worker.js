@@ -1924,18 +1924,33 @@ async function handlePph(request, env, pathname, searchParams, ctx) {
 // chung (MMTB_AUTO_LOGIN_EMP_CODE/PASSWORD, đã có sẵn trong wrangler.jsonc), KHÔNG cần người dùng
 // vpchuoiskechers đăng nhập gì thêm. Token đăng nhập được cache lại (dùng chung bảng pph_cache) để
 // không phải gọi login lại mỗi request.
+// Khóa đăng nhập dùng chung (single-flight) — khi prefetch bắn ~20 request song song và token cache
+// vừa hết hạn, TẤT CẢ đều thấy thiếu token cùng lúc; nếu mỗi request tự login riêng sẽ dội hàng chục
+// lượt đăng nhập cùng 1 tài khoản (AMDKG) vào backend Kiên Giang cùng lúc → backend đó quá tải/đụng
+// session, trả 500 (đã tái hiện được lỗi thật ngày 2026-09-24). Gom lại: trong cùng 1 isolate, các
+// lượt gọi chồng lấn dùng CHUNG đúng 1 promise login đang chạy thay vì tự bắn login riêng.
+let mmtbKgLoginInFlight = null;
+
 async function mmtbKgLogin(env) {
-  const employeeCode = env.MMTB_AUTO_LOGIN_EMP_CODE || "AMDKG";
-  const password = env.MMTB_AUTO_LOGIN_PASSWORD || "123456";
-  const res = await fetch(`${env.TBSMAYMOC_API_URL}/api/mobile/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ employeeCode, password }),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok || !data.token) throw new Error((data && data.error) || "Không đăng nhập được vào hệ thống MMTB Kiên Giang");
-  await pphCacheSet(env, "mmtbkg:token", { token: data.token }, 6 * 60 * 60);
-  return data.token;
+  if (mmtbKgLoginInFlight) return mmtbKgLoginInFlight;
+  mmtbKgLoginInFlight = (async () => {
+    const employeeCode = env.MMTB_AUTO_LOGIN_EMP_CODE || "AMDKG";
+    const password = env.MMTB_AUTO_LOGIN_PASSWORD || "123456";
+    const res = await fetch(`${env.TBSMAYMOC_API_URL}/api/mobile/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ employeeCode, password }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.token) throw new Error((data && data.error) || "Không đăng nhập được vào hệ thống MMTB Kiên Giang");
+    await pphCacheSet(env, "mmtbkg:token", { token: data.token }, 6 * 60 * 60);
+    return data.token;
+  })();
+  try {
+    return await mmtbKgLoginInFlight;
+  } finally {
+    mmtbKgLoginInFlight = null;
+  }
 }
 
 async function mmtbKgGetToken(env) {
@@ -1945,7 +1960,9 @@ async function mmtbKgGetToken(env) {
   return await mmtbKgLogin(env);
 }
 
-// GET-only call sang tbsMayMoc — 401 (token hết hạn) thì tự đăng nhập lại đúng 1 lần rồi thử lại.
+// GET-only call sang tbsMayMoc — 401 (token hết hạn) thì tự đăng nhập lại đúng 1 lần rồi thử lại;
+// 5xx (backend thật đang quá tải thoáng qua, VD do dội request) thì chờ ngắn rồi thử lại đúng 1 lần
+// với CÙNG token trước khi trả lỗi thật về giao diện.
 async function mmtbKgCall(env, path) {
   const doFetch = async (tok) => {
     const res = await fetch(`${env.TBSMAYMOC_API_URL}${path}`, {
@@ -1959,6 +1976,9 @@ async function mmtbKgCall(env, path) {
   if (result.status === 401) {
     const freshToken = await mmtbKgLogin(env);
     result = await doFetch(freshToken);
+  } else if (result.status >= 500) {
+    await new Promise((r) => setTimeout(r, 400));
+    result = await doFetch(token);
   }
   return result;
 }

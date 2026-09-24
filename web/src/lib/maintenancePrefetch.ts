@@ -17,6 +17,25 @@ const prefetchedScopes = new Set<EquipmentScope>();
 // cache 'machines' lẫn 'overview_machines') thành đúng 1 request thật.
 const inflight = new Map<string, Promise<any>>();
 
+// Chạy tối đa `limit` việc cùng lúc (thay vì bắn hết ~20+ request 1 lượt) — tránh dội quá nhiều
+// request cùng lúc vào backend Kiên Giang thật (đã gây lỗi 500 do quá tải/đụng session đăng nhập
+// ngày 2026-09-24). Mỗi "worker" tự rút việc tiếp theo từ hàng đợi cho tới khi hết.
+async function runPool(fns: Array<() => Promise<void>>, limit: number): Promise<void> {
+  let next = 0;
+  const worker = async () => {
+    while (next < fns.length) {
+      const fn = fns[next++];
+      try {
+        await fn();
+      } catch {
+        // đã tự bắt lỗi ở từng task (catch(() => ({success:false})) trong getJson) — chặn ở đây
+        // chỉ để 1 task lỗi bất ngờ không làm dừng cả pool.
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, fns.length) }, worker));
+}
+
 function getJson(url: string): Promise<any> {
   let p = inflight.get(url);
   if (!p) {
@@ -91,11 +110,13 @@ export function prefetchMaintenanceData(scope: EquipmentScope): void {
   prefetchedScopes.add(scope);
 
   const need = (key: string) => readMaintenanceCache(key) === null;
-  const tasks: Promise<void>[] = [];
+  // Mỗi phần tử là 1 HÀM (chưa chạy) — chỉ thực sự gọi fetch khi runPool() rút nó ra khỏi hàng đợi,
+  // nhờ vậy giới hạn được số request thật gửi đi cùng lúc (xem runPool ở trên).
+  const taskFns: Array<() => Promise<void>> = [];
 
   // ---- Danh Sách MMTB (machines) ----
   if (need(`machines_${scope}`)) {
-    tasks.push(
+    taskFns.push(() =>
       getJson(`/api/maintenance/machines?scope=${scope}`).then((r) => {
         if (r.success && Array.isArray(r.data)) writeMaintenanceCache(`machines_${scope}`, r.data);
       })
@@ -104,7 +125,7 @@ export function prefetchMaintenanceData(scope: EquipmentScope): void {
 
   // ---- Bộ lọc trang Danh Sách MMTB ----
   if (need(`machines_filters_${scope}`)) {
-    tasks.push(
+    taskFns.push(() =>
       Promise.all([
         categoryData('FACTORY', scope),
         categoryData('AREA', scope),
@@ -120,7 +141,7 @@ export function prefetchMaintenanceData(scope: EquipmentScope): void {
 
   // ---- Máy đã kiểm kê (dùng chung giữa trang Danh Sách MMTB và Bảo Dưỡng MMTB) ----
   if (need(`machines_verified_${scope}`)) {
-    tasks.push(
+    taskFns.push(() =>
       getJson(`/api/maintenance/inventory-log?scope=${scope}`).then((r) => {
         if (r.success && Array.isArray(r.rows)) {
           const codes = Array.from(new Set<string>(r.rows.map((row: any) => row.machine?.code).filter(Boolean)));
@@ -132,7 +153,7 @@ export function prefetchMaintenanceData(scope: EquipmentScope): void {
 
   // ---- Bảo Dưỡng MMTB (schedule_*) ----
   if (need(`schedule_machines_${scope}`) || need(`schedule_periods_${scope}`) || need(`schedule_completed_${scope}`)) {
-    tasks.push(
+    taskFns.push(() =>
       getJson(`/api/maintenance/schedule?scope=${scope}`).then((r) => {
         if (r.success) {
           writeMaintenanceCache(`schedule_machines_${scope}`, r.machines || []);
@@ -143,7 +164,7 @@ export function prefetchMaintenanceData(scope: EquipmentScope): void {
     );
   }
   if (need(`schedule_logs_${scope}`)) {
-    tasks.push(
+    taskFns.push(() =>
       getJson(`/api/maintenance/logs?scope=${scope}`).then((r) => {
         if (r.success) writeMaintenanceCache(`schedule_logs_${scope}`, r.data || []);
       })
@@ -152,7 +173,7 @@ export function prefetchMaintenanceData(scope: EquipmentScope): void {
 
   // ---- Nhu Cầu Sửa Chữa (tickets, tickets_counts) ----
   if (need(`tickets_${scope}`) || need(`tickets_counts_${scope}`)) {
-    tasks.push(
+    taskFns.push(() =>
       getJson(`/api/maintenance/tickets?scope=${scope}`).then((r) => {
         if (r.success && Array.isArray(r.data)) {
           writeMaintenanceCache(`tickets_${scope}`, r.data);
@@ -162,10 +183,10 @@ export function prefetchMaintenanceData(scope: EquipmentScope): void {
     );
   }
   if (need(`tickets_factories_${scope}`)) {
-    tasks.push(categoryData('FACTORY', scope).then((factories) => writeMaintenanceCache(`tickets_factories_${scope}`, factories)));
+    taskFns.push(() => categoryData('FACTORY', scope).then((factories) => writeMaintenanceCache(`tickets_factories_${scope}`, factories)));
   }
   if (need(`tickets_work_requests_${scope}`)) {
-    tasks.push(
+    taskFns.push(() =>
       getJson(`/api/maintenance/work-requests?scope=${scope}`).then((r) => {
         if (r.success) writeMaintenanceCache(`tickets_work_requests_${scope}`, r.data?.items || []);
       })
@@ -174,26 +195,26 @@ export function prefetchMaintenanceData(scope: EquipmentScope): void {
 
   // ---- Đề Xuất (proposals) ----
   if (need(`proposals_${scope}`)) {
-    tasks.push(
+    taskFns.push(() =>
       getJson(`/api/maintenance/proposals?scope=${scope}`).then((r) => {
         if (r.success && Array.isArray(r.data)) writeMaintenanceCache(`proposals_${scope}`, r.data);
       })
     );
   }
   if (need(`proposals_factories_${scope}`)) {
-    tasks.push(categoryData('FACTORY', scope).then((factories) => writeMaintenanceCache(`proposals_factories_${scope}`, factories)));
+    taskFns.push(() => categoryData('FACTORY', scope).then((factories) => writeMaintenanceCache(`proposals_factories_${scope}`, factories)));
   }
 
   // ---- Nhân Sự (employees) ----
   if (need(`employees_${scope}`)) {
-    tasks.push(
+    taskFns.push(() =>
       getJson(`/api/maintenance/employees?scope=${scope}`).then((r) => {
         if (r.success && Array.isArray(r.data)) writeMaintenanceCache(`employees_${scope}`, r.data);
       })
     );
   }
   if (need(`employees_factories_${scope}`) || need(`employees_areas_${scope}`)) {
-    tasks.push(
+    taskFns.push(() =>
       Promise.all([categoryData('FACTORY', scope), categoryData('AREA', scope)]).then(([factories, areas]) => {
         writeMaintenanceCache(`employees_factories_${scope}`, factories);
         writeMaintenanceCache(`employees_areas_${scope}`, areas);
@@ -203,7 +224,7 @@ export function prefetchMaintenanceData(scope: EquipmentScope): void {
 
   // ---- Danh Mục Hư (failure_categories) ----
   if (need(`failure_categories_${scope}`)) {
-    tasks.push(
+    taskFns.push(() =>
       getJson(`/api/maintenance/failure-categories?scope=${scope}`).then((r) => {
         if (r.success && Array.isArray(r.data)) writeMaintenanceCache(`failure_categories_${scope}`, r.data);
       })
@@ -215,7 +236,7 @@ export function prefetchMaintenanceData(scope: EquipmentScope): void {
     const cacheKey = `categories_${combo.join('_')}_${scope}`;
     if (!need(cacheKey)) continue;
     const types = categoryFetchTypes(combo);
-    tasks.push(
+    taskFns.push(() =>
       Promise.all(types.map((t) => mmtbKgCategoryData(t, scope))).then((results) => {
         const next: Record<string, any[]> = {
           FACTORY: [], AREA: [], PRODUCTION_LINE: [], TEAM: [], MACHINE_TYPE: [], PART: [], MAINTENANCE_PERIOD: [], MACHINE_STATUS: [],
@@ -229,7 +250,7 @@ export function prefetchMaintenanceData(scope: EquipmentScope): void {
   // ---- Trang Tổng Quan (scope=ALL) — Kiên Giang chi tiết + so sánh 3 khu vực ----
   if (scope === 'ALL') {
     if (need('overview_incidents') || need('overview_logs')) {
-      tasks.push(
+      taskFns.push(() =>
         getJson('/api/maintenance/overview-report?scope=KIEN_GIANG').then((r) => {
           if (r.success) {
             writeMaintenanceCache('overview_incidents', r.incidents || []);
@@ -239,28 +260,28 @@ export function prefetchMaintenanceData(scope: EquipmentScope): void {
       );
     }
     if (need('overview_machines')) {
-      tasks.push(
+      taskFns.push(() =>
         getJson('/api/maintenance/machines?scope=KIEN_GIANG').then((r) => {
           if (r.success && Array.isArray(r.data)) writeMaintenanceCache('overview_machines', r.data);
         })
       );
     }
     if (need('overview_schedule')) {
-      tasks.push(
+      taskFns.push(() =>
         getJson('/api/maintenance/schedule?scope=KIEN_GIANG').then((r) => {
           if (r.success) writeMaintenanceCache('overview_schedule', r.machines || []);
         })
       );
     }
     if (need('overview_proposals')) {
-      tasks.push(
+      taskFns.push(() =>
         getJson('/api/maintenance/proposals?scope=KIEN_GIANG').then((r) => {
           if (r.success && Array.isArray(r.data)) writeMaintenanceCache('overview_proposals', r.data);
         })
       );
     }
     if (need('overview_factories') || need('overview_areas') || need('overview_lines')) {
-      tasks.push(
+      taskFns.push(() =>
         Promise.all([
           categoryData('FACTORY', 'KIEN_GIANG'),
           categoryData('AREA', 'KIEN_GIANG'),
@@ -274,7 +295,7 @@ export function prefetchMaintenanceData(scope: EquipmentScope): void {
     }
     (['OFFICE', 'EAST'] as EquipmentScope[]).forEach((s) => {
       if (!need(`overview_kpi_${s}`)) return;
-      tasks.push(
+      taskFns.push(() =>
         getJson(`/api/maintenance/overview-report?scope=${s}`).then((r) => {
           if (r.success) writeMaintenanceCache(`overview_kpi_${s}`, computeScopeKpi(r.incidents || []));
         })
@@ -282,7 +303,7 @@ export function prefetchMaintenanceData(scope: EquipmentScope): void {
     });
   }
 
-  // Chạy nền — không await, không chặn UI trang hiện tại đang hiện (cache của nó, nếu có, đã hiện
-  // ngay từ useState initializer rồi).
-  Promise.allSettled(tasks).catch(() => {});
+  // Chạy nền tối đa 4 request cùng lúc — không await, không chặn UI trang hiện tại đang hiện (cache
+  // của nó, nếu có, đã hiện ngay từ useState initializer rồi).
+  runPool(taskFns, 4).catch(() => {});
 }

@@ -36,6 +36,7 @@ import {
   STORAGE_KEY_SCOPE,
 } from '@/lib/equipmentScope';
 import { usePermission } from '@/hooks/usePermission';
+import { prefetchMaintenanceData } from '@/lib/maintenancePrefetch';
 
 const ICONS: Record<string, any> = {
   IconTools,
@@ -98,6 +99,16 @@ function MaintenanceShellInner({
     if (typeof window !== 'undefined') {
       localStorage.setItem(STORAGE_KEY_SCOPE, effective);
     }
+
+    // Âm thầm tải trước dữ liệu các trang khác — CẢ 3 khu vực (KIEN_GIANG/OFFICE/EAST), không chỉ
+    // khu vực đang xem — để lần đầu chuyển sang 1 khu vực khác (VD từ Kiên Giang qua Văn phòng
+    // Chuỗi) cũng đã có sẵn cache, không hiện "đang tải" dù là lần đầu ghé khu vực đó trong ngày.
+    // Khu vực đang xem tải TRƯỚC (ưu tiên hiện data đúng trang đang mở nhanh nhất), 2 khu vực còn
+    // lại tải ngay sau đó ở nền — OFFICE/EAST rất rẻ (trả rỗng ngay, không gọi API ngoài thật).
+    prefetchMaintenanceData(effective);
+    (['KIEN_GIANG', 'OFFICE', 'EAST'] as EquipmentScope[])
+      .filter((s) => s !== effective)
+      .forEach((s) => prefetchMaintenanceData(s));
   }, [rawUrlScope, allowedScopes, authChecked]);
 
   const handleLogout = () => {
@@ -149,6 +160,11 @@ function MaintenanceShellInner({
 
   const currentScopeMeta = EQUIPMENT_SCOPES[activeScope] || EQUIPMENT_SCOPES.ALL;
 
+  // Scope "Tổng Quan" (ALL) là trang so sánh giữa các nhà máy, KHÔNG phải xem chi tiết 1 nhà máy —
+  // nên chỉ hiện đúng 1 mục "Tổng Quan" trong sidebar, ẩn Danh Sách MMTB/Bảo Dưỡng MMTB/Nhu Cầu
+  // Sửa Chữa/Đề Xuất/Danh Mục (các mục đó chỉ có ý nghĩa khi đang xem 1 nhà máy cụ thể).
+  const visibleNav = activeScope === 'ALL' ? MMTB_NAV.filter((entry) => entry.id === 'overview') : MMTB_NAV;
+
   return (
     <div className="min-h-screen bg-[#f8fafc] flex text-slate-800 font-sans antialiased">
       {/* SIDEBAR — TBS Industrial Dark Emerald Sidebar */}
@@ -175,6 +191,15 @@ function MaintenanceShellInner({
           </button>
         </div>
 
+        {/* Khu vực đang xem — để dữ liệu trống (Văn phòng Chuỗi/Nhà Máy Miền Đông chưa kết nối hệ
+            thống MMTB thật) không bị hiểu nhầm là lỗi tải trang. */}
+        {!collapsed && (
+          <div className={`mx-3 mt-3 px-3 py-1.5 rounded-lg border ${currentScopeMeta.badgeBg} ${currentScopeMeta.badgeBorder} flex items-center gap-1.5`}>
+            <span className="text-sm leading-none">{currentScopeMeta.icon}</span>
+            <span className={`text-[11px] font-bold ${currentScopeMeta.badgeText} truncate`}>{currentScopeMeta.label}</span>
+          </div>
+        )}
+
         {/* User Mini Profile Header */}
         {!collapsed && (
           <div className="p-3 mx-3 my-3 rounded-xl bg-white/[0.04] border border-white/10 flex items-center gap-3">
@@ -187,7 +212,7 @@ function MaintenanceShellInner({
         )}
 
         <nav className="flex-1 overflow-y-auto p-3 space-y-1 scrollbar-none">
-          {MMTB_NAV.map((entry: MmtbNavEntry) => {
+          {visibleNav.map((entry: MmtbNavEntry) => {
             const Icon = ICONS[entry.iconName] ?? IconTools;
 
             if (entry.type === 'group') {

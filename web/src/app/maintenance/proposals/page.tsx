@@ -3,10 +3,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { IconPackage, IconSchool, IconPlayerPause, IconCircleCheck, IconClipboardList, IconClock } from '@tabler/icons-react';
 import MaintenanceShell from '@/components/MaintenanceShell';
+import StatCardRow from '@/components/StatCardRow';
 import FilterSelect from '@/components/FilterSelect';
 import DateRangeFilter, { inDateRange } from '@/components/DateRangeFilter';
 import RefreshButton from '@/components/RefreshButton';
 import { readMaintenanceCache, writeMaintenanceCache } from '@/lib/maintenanceCache';
+import { getCurrentMmtbScope } from '@/lib/equipmentScope';
 
 type CategoryOption = { id: string; name: string };
 
@@ -43,9 +45,13 @@ function formatDateTime(iso: string): string {
 }
 
 export default function ProposalsPage() {
-  const [proposals, setProposals] = useState<Proposal[]>(() => readMaintenanceCache<Proposal[]>('proposals') || []);
-  const [factories, setFactories] = useState<CategoryOption[]>(() => readMaintenanceCache<CategoryOption[]>('proposals_factories') || []);
-  const [loading, setLoading] = useState(() => readMaintenanceCache<Proposal[]>('proposals') === null);
+  // Mỗi khu vực có dữ liệu MMTB riêng — cache key phải theo scope (xem machines/page.tsx).
+  const scope = getCurrentMmtbScope();
+  const ck = (key: string) => `${key}_${scope}`;
+
+  const [proposals, setProposals] = useState<Proposal[]>(() => readMaintenanceCache<Proposal[]>(ck('proposals')) || []);
+  const [factories, setFactories] = useState<CategoryOption[]>(() => readMaintenanceCache<CategoryOption[]>(ck('proposals_factories')) || []);
+  const [loading, setLoading] = useState(() => readMaintenanceCache<Proposal[]>(ck('proposals')) === null);
   const [error, setError] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<'ALL' | 'PENDING' | 'RESOLVED'>('PENDING');
   const [filterFactoryId, setFilterFactoryId] = useState('');
@@ -60,19 +66,19 @@ export default function ProposalsPage() {
     try {
       if (force) setRefreshing(true);
       setError(null);
-      const fresh = force ? '?fresh=1' : '';
+      const fresh = force ? '&fresh=1' : '';
       const settled = await Promise.allSettled([
-        fetch(`/api/maintenance/proposals${fresh}`).then((r) => r.json()),
-        fetch(`/api/maintenance/categories?type=FACTORY${force ? '&fresh=1' : ''}`).then((r) => r.json()),
+        fetch(`/api/maintenance/proposals?scope=${scope}${fresh}`).then((r) => r.json()),
+        fetch(`/api/maintenance/categories?type=FACTORY&scope=${scope}${fresh}`).then((r) => r.json()),
       ]);
       const [propRes, facRes] = settled.map((s) => (s.status === 'fulfilled' ? s.value : { success: false, error: String(s.reason) }));
       if (propRes.success) {
         setProposals(propRes.data || []);
-        writeMaintenanceCache('proposals', propRes.data || []);
+        writeMaintenanceCache(ck('proposals'), propRes.data || []);
       } else { console.warn('Failed to load proposals from tbsMayMoc:', propRes.error); setError(propRes.error || 'Không lấy được dữ liệu'); }
       if (facRes.success) {
         setFactories(facRes.data || []);
-        writeMaintenanceCache('proposals_factories', facRes.data || []);
+        writeMaintenanceCache(ck('proposals_factories'), facRes.data || []);
       }
     } catch (err) {
       console.warn('Failed to fetch proposals from tbsMayMoc:', err);
@@ -149,25 +155,17 @@ export default function ProposalsPage() {
 
         {/* Lỗi kết nối tbsMayMoc chỉ log console (F12), không hiện banner ngoài trang */}
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          {[
-            { label: 'Tổng đề xuất', value: stats.total, icon: IconClipboardList, bg: 'bg-blue-50', iconBg: 'bg-blue-100', text: 'text-blue-600' },
-            { label: 'Chưa xử lý', value: stats.unresolved, icon: IconClock, bg: 'bg-rose-50', iconBg: 'bg-rose-100', text: 'text-rose-600' },
-            { label: 'Đã xử lý', value: stats.resolved, icon: IconCircleCheck, bg: 'bg-emerald-50', iconBg: 'bg-emerald-100', text: 'text-emerald-600' },
-            { label: 'Cần bổ sung vật tư', value: stats.parts, icon: IconPackage, bg: 'bg-amber-50', iconBg: 'bg-amber-100', text: 'text-amber-600' },
-            { label: 'Đào tạo lại công nhân', value: stats.retrain, icon: IconSchool, bg: 'bg-violet-50', iconBg: 'bg-violet-100', text: 'text-violet-600' },
-          ].map((c) => (
-            <div key={c.label} className={`flex items-center gap-3 rounded-2xl ${c.bg} p-4 shadow-sm`}>
-              <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${c.iconBg}`}>
-                <c.icon size={22} className={c.text} />
-              </div>
-              <div className="min-w-0">
-                <div className="truncate text-2xl font-extrabold text-tbs-dark">{c.value}</div>
-                <div className="truncate text-xs font-semibold text-gray-500">{c.label}</div>
-              </div>
-            </div>
-          ))}
-        </div>
+        {/* Bấm "Tổng đề xuất"/"Chưa xử lý"/"Đã xử lý" để lọc thẳng bảng bên dưới (dùng chung state
+            filterStatus với 3 nút lọc sẵn có bên dưới) */}
+        <StatCardRow
+          items={[
+            { key: 'ALL', label: 'Tổng đề xuất', value: stats.total, icon: IconClipboardList, bg: 'bg-blue-50', iconBg: 'bg-blue-100', text: 'text-blue-600', ring: 'ring-blue-300', active: filterStatus === 'ALL', onClick: () => setFilterStatus('ALL') },
+            { key: 'PENDING', label: 'Chưa xử lý', value: stats.unresolved, icon: IconClock, bg: 'bg-rose-50', iconBg: 'bg-rose-100', text: 'text-rose-600', ring: 'ring-rose-300', active: filterStatus === 'PENDING', onClick: () => setFilterStatus('PENDING') },
+            { key: 'RESOLVED', label: 'Đã xử lý', value: stats.resolved, icon: IconCircleCheck, bg: 'bg-emerald-50', iconBg: 'bg-emerald-100', text: 'text-emerald-600', ring: 'ring-emerald-300', active: filterStatus === 'RESOLVED', onClick: () => setFilterStatus('RESOLVED') },
+            { key: 'parts', label: 'Cần bổ sung vật tư', value: stats.parts, icon: IconPackage, bg: 'bg-amber-50', iconBg: 'bg-amber-100', text: 'text-amber-600' },
+            { key: 'retrain', label: 'Đào tạo lại công nhân', value: stats.retrain, icon: IconSchool, bg: 'bg-violet-50', iconBg: 'bg-violet-100', text: 'text-violet-600' },
+          ]}
+        />
 
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex flex-wrap items-center gap-2.5">
           {[

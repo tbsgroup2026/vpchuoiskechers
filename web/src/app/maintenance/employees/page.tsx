@@ -8,6 +8,7 @@ import FilterSelect from '@/components/FilterSelect';
 import RefreshButton from '@/components/RefreshButton';
 import Pagination from '@/components/Pagination';
 import { readMaintenanceCache, writeMaintenanceCache } from '@/lib/maintenanceCache';
+import { getCurrentMmtbScope } from '@/lib/equipmentScope';
 
 const PAGE_SIZE = 50;
 import { logPasswordChangeEvent, logDocumentDownloadEvent } from '@/lib/webhookAuditClient';
@@ -69,10 +70,14 @@ function normLoose(s: unknown): string {
 // Nhân Sự — Thêm/Sửa/Xoá tài khoản đăng nhập App Mobile Native THẬT của nhân viên KG. Không tạo/
 // sửa được tài khoản Quản trị (ADMIN) — tbsMayMoc chặn ở server, chỉ Admin toàn quyền làm được.
 export default function EmployeesPage() {
-  const [employees, setEmployees] = useState<Employee[]>(() => readMaintenanceCache<Employee[]>('employees') || []);
-  const [factories, setFactories] = useState<CategoryOption[]>(() => readMaintenanceCache<CategoryOption[]>('employees_factories') || []);
-  const [areas, setAreas] = useState<CategoryOption[]>(() => readMaintenanceCache<CategoryOption[]>('employees_areas') || []);
-  const [loading, setLoading] = useState(() => readMaintenanceCache<Employee[]>('employees') === null);
+  // Mỗi khu vực có dữ liệu MMTB riêng — cache key phải theo scope (xem machines/page.tsx).
+  const scope = getCurrentMmtbScope();
+  const ck = (key: string) => `${key}_${scope}`;
+
+  const [employees, setEmployees] = useState<Employee[]>(() => readMaintenanceCache<Employee[]>(ck('employees')) || []);
+  const [factories, setFactories] = useState<CategoryOption[]>(() => readMaintenanceCache<CategoryOption[]>(ck('employees_factories')) || []);
+  const [areas, setAreas] = useState<CategoryOption[]>(() => readMaintenanceCache<CategoryOption[]>(ck('employees_areas')) || []);
+  const [loading, setLoading] = useState(() => readMaintenanceCache<Employee[]>(ck('employees')) === null);
   const [error, setError] = useState<string | null>(null);
 
   const [search, setSearch] = useState('');
@@ -103,22 +108,22 @@ export default function EmployeesPage() {
       setError(null);
       const fresh = force ? '&fresh=1' : '';
       const settled = await Promise.allSettled([
-        fetch(`/api/maintenance/employees${force ? '?fresh=1' : ''}`).then((r) => r.json()),
-        fetch(`/api/maintenance/categories?type=FACTORY${fresh}`).then((r) => r.json()),
-        fetch(`/api/maintenance/categories?type=AREA${fresh}`).then((r) => r.json()),
+        fetch(`/api/maintenance/employees?scope=${scope}${fresh}`).then((r) => r.json()),
+        fetch(`/api/maintenance/categories?type=FACTORY&scope=${scope}${fresh}`).then((r) => r.json()),
+        fetch(`/api/maintenance/categories?type=AREA&scope=${scope}${fresh}`).then((r) => r.json()),
       ]);
       const [empRes, facRes, areaRes] = settled.map((s) => (s.status === 'fulfilled' ? s.value : { success: false, error: String(s.reason) }));
       if (empRes.success) {
         setEmployees(empRes.data || []);
-        writeMaintenanceCache('employees', empRes.data || []);
+        writeMaintenanceCache(ck('employees'), empRes.data || []);
       } else { console.warn('Failed to load employees from tbsMayMoc:', empRes.error); setError(empRes.error || 'Không lấy được dữ liệu'); }
       if (facRes.success) {
         setFactories(facRes.data || []);
-        writeMaintenanceCache('employees_factories', facRes.data || []);
+        writeMaintenanceCache(ck('employees_factories'), facRes.data || []);
       }
       if (areaRes.success) {
         setAreas(areaRes.data || []);
-        writeMaintenanceCache('employees_areas', areaRes.data || []);
+        writeMaintenanceCache(ck('employees_areas'), areaRes.data || []);
       }
     } catch (err) {
       console.warn('Failed to fetch employees from tbsMayMoc:', err);

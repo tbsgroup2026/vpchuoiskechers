@@ -5,14 +5,19 @@ import { IconPlus, IconPencil, IconTrash } from '@tabler/icons-react';
 import MaintenanceShell from '@/components/MaintenanceShell';
 import RefreshButton from '@/components/RefreshButton';
 import { readMaintenanceCache, writeMaintenanceCache } from '@/lib/maintenanceCache';
+import { getCurrentMmtbScope } from '@/lib/equipmentScope';
 
 type FailureCategory = { id: string; name: string; isOther: boolean; order: number; scopeCategoryId: string | null };
 
 // Danh mục hư — hiện ra khi nhân viên báo sự cố trên App Mobile Native. Mục có nhãn "Chung" dùng
 // CHUNG cho mọi nhà máy (chỉ xem ở đây) — mục bạn tự thêm chỉ áp dụng riêng cho Tổ hợp KG.
 export default function FailureCategoriesPage() {
-  const [categories, setCategories] = useState<FailureCategory[]>(() => readMaintenanceCache<FailureCategory[]>('failure_categories') || []);
-  const [loading, setLoading] = useState(() => readMaintenanceCache<FailureCategory[]>('failure_categories') === null);
+  // Mỗi khu vực có dữ liệu MMTB riêng — cache key phải theo scope (xem machines/page.tsx).
+  const scope = getCurrentMmtbScope();
+  const ck = (key: string) => `${key}_${scope}`;
+
+  const [categories, setCategories] = useState<FailureCategory[]>(() => readMaintenanceCache<FailureCategory[]>(ck('failure_categories')) || []);
+  const [loading, setLoading] = useState(() => readMaintenanceCache<FailureCategory[]>(ck('failure_categories')) === null);
   const [error, setError] = useState<string | null>(null);
 
   const [showForm, setShowForm] = useState(false);
@@ -30,11 +35,11 @@ export default function FailureCategoriesPage() {
     try {
       if (force) setRefreshing(true);
       setError(null);
-      const res = await fetch(`/api/maintenance/failure-categories${force ? '?fresh=1' : ''}`);
+      const res = await fetch(`/api/maintenance/failure-categories?scope=${scope}${force ? '&fresh=1' : ''}`);
       const result = await res.json();
       if (result.success) {
         setCategories(result.data || []);
-        writeMaintenanceCache('failure_categories', result.data || []);
+        writeMaintenanceCache(ck('failure_categories'), result.data || []);
       } else { console.warn('Failed to load failure-categories from tbsMayMoc:', result.error); setError(result.error || 'Không lấy được dữ liệu'); }
     } catch (err) {
       console.warn('Failed to fetch failure-categories from tbsMayMoc:', err);

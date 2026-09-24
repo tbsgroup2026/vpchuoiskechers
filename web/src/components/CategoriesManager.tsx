@@ -6,6 +6,7 @@ import MaintenanceShell from '@/components/MaintenanceShell';
 import FilterSelect from '@/components/FilterSelect';
 import RefreshButton from '@/components/RefreshButton';
 import { readMaintenanceCache, writeMaintenanceCache } from '@/lib/maintenanceCache';
+import { getCurrentMmtbScope } from '@/lib/equipmentScope';
 
 type Category = {
   id: string;
@@ -52,9 +53,11 @@ export default function CategoriesManager({
   pageTitle: string;
   pageSubtitle: string;
 }) {
-  // Cache riêng theo bộ tabKeys (mỗi trang Danh Mục truyền tabKeys khác nhau) — tránh trang này
-  // hiện nhầm cache của trang khác.
-  const cacheKey = `categories_${tabKeys.join('_')}`;
+  // Cache riêng theo bộ tabKeys (mỗi trang Danh Mục truyền tabKeys khác nhau) VÀ theo scope (mỗi
+  // khu vực có dữ liệu MMTB riêng, xem machines/page.tsx) — tránh trang này hiện nhầm cache của
+  // trang/khu vực khác.
+  const scope = getCurrentMmtbScope();
+  const cacheKey = `categories_${tabKeys.join('_')}_${scope}`;
   const [data, setData] = useState<Record<CategoryTabKey, Category[]>>(() => readMaintenanceCache<Record<CategoryTabKey, Category[]>>(cacheKey) || EMPTY);
   const [loading, setLoading] = useState(() => readMaintenanceCache<Record<CategoryTabKey, Category[]>>(cacheKey) === null);
   const [error, setError] = useState<string | null>(null);
@@ -92,7 +95,7 @@ export default function CategoriesManager({
       setError(null);
       // Promise.allSettled — 1 loại danh mục lỗi không còn xoá sạch các loại khác đã tải xong.
       const settled = await Promise.allSettled(
-        fetchTypes.map((t) => fetch(`/api/mmtb-kg/categories?type=${t}${force ? '&fresh=1' : ''}`).then((r) => r.json())),
+        fetchTypes.map((t) => fetch(`/api/mmtb-kg/categories?type=${t}&scope=${scope}${force ? '&fresh=1' : ''}`).then((r) => r.json())),
       );
       const next = { ...EMPTY };
       settled.forEach((s, i) => {

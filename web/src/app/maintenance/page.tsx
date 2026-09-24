@@ -100,8 +100,24 @@ function round1(n: number): number {
   return Math.round(n * 10) / 10;
 }
 
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+// Số lớn (≥1000) có dấu phẩy ngăn cách hàng nghìn (VD 12,066.7) — toàn bộ số liệu trên trang này.
+function fmtInt(n: number): string {
+  return Math.round(n).toLocaleString('en-US');
+}
+
+// Riêng ô MTTD (card KPI) lấy 2 số thập phân thay vì làm tròn 1 số — tránh chênh lệch khi người
+// dùng tự nhân MTTD x Tổng Sự Cố để đối chiếu với ô Downtime (VD 27.4 x 441 ≠ tổng thật vì 27.4 đã
+// làm tròn quá thô).
+function fmtMin2(n: number | null): string {
+  return n == null ? '—' : round2(n).toLocaleString('en-US', { maximumFractionDigits: 2 });
+}
+
 function fmtMin(n: number | null): string {
-  return n == null ? '—' : `${round1(n)}`;
+  return n == null ? '—' : round1(n).toLocaleString('en-US', { maximumFractionDigits: 1 });
 }
 
 // "yyyy-mm" -> ngày 1 và ngày cuối tháng (Date.UTC, không lệch múi giờ vì chỉ cần đúng NGÀY lịch).
@@ -593,7 +609,7 @@ export default function OverviewPage() {
     const lines: string[] = [];
     lines.push(`${bestMttr.label} đang có hiệu suất tốt nhất về thời gian xử lý (${fmtMin(bestMttr.kpi.mttr)} phút).`);
     if (worstMttr.key !== bestMttr.key) lines.push(`${worstMttr.label} có thời gian xử lý cao nhất (${fmtMin(worstMttr.kpi.mttr)} phút) và đang cần ưu tiên cải thiện.`);
-    lines.push(`${mostIncidents.label} có số sự cố nhiều nhất (${mostIncidents.kpi.count} sự cố).`);
+    lines.push(`${mostIncidents.label} có số sự cố nhiều nhất (${fmtInt(mostIncidents.kpi.count)} sự cố).`);
     if (worsening) lines.push(`${worsening.label} đang có xu hướng xấu đi (thời gian xử lý tăng ${worsening.delta}% so với kỳ trước).`);
     const conclusion = `${bestMttr.label} là đơn vị hiệu quả nhất hiện tại, trong khi ${worstMttr.label} cần được ưu tiên cải thiện.`;
     return { lines, conclusion };
@@ -963,7 +979,7 @@ export default function OverviewPage() {
                             </span>
                           </td>
                           <td className="py-2.5 px-3 border border-slate-200 text-center font-mono font-bold text-slate-800">{fmtMin(d.kpi.mttr)}</td>
-                          <td className="py-2.5 px-3 border border-slate-200 text-center font-mono font-bold text-slate-800">{d.kpi.count}</td>
+                          <td className="py-2.5 px-3 border border-slate-200 text-center font-mono font-bold text-slate-800">{fmtInt(d.kpi.count)}</td>
                           <td className="py-2.5 px-3 border border-slate-200 text-center font-mono font-bold text-slate-800">{fmtMin(d.kpi.downtime)}</td>
                           <td className="py-2.5 px-3 border border-slate-200 text-center">
                             {delta === null ? <span className="text-slate-400 font-bold">—</span> : (
@@ -1065,8 +1081,8 @@ export default function OverviewPage() {
               items={[
                 { key: 'mtta', label: 'MTTA', sub: 'Chờ tiếp nhận', value: `${fmtMin(kpi.mtta)} phút`, icon: IconStopwatch, bg: 'bg-blue-50', iconBg: 'bg-blue-100', text: 'text-blue-600' },
                 { key: 'mttr', label: 'MTTR', sub: 'Thời gian xử lý', value: `${fmtMin(kpi.mttr)} phút`, icon: IconTool, bg: 'bg-indigo-50', iconBg: 'bg-indigo-100', text: 'text-indigo-600' },
-                { key: 'mttd', label: 'MTTD', sub: 'Thời gian dừng máy', value: `${fmtMin(kpi.mttd)} phút`, icon: IconGauge, bg: 'bg-amber-50', iconBg: 'bg-amber-100', text: 'text-amber-600' },
-                { key: 'count', label: 'Tổng Sự Cố', sub: 'Số vụ việc', value: `${kpi.count}`, icon: IconAlertTriangle, bg: 'bg-rose-50', iconBg: 'bg-rose-100', text: 'text-rose-600' },
+                { key: 'mttd', label: 'MTTD', sub: 'Thời gian dừng máy', value: `${fmtMin2(kpi.mttd)} phút`, icon: IconGauge, bg: 'bg-amber-50', iconBg: 'bg-amber-100', text: 'text-amber-600' },
+                { key: 'count', label: 'Tổng Sự Cố', sub: 'Số vụ việc', value: fmtInt(kpi.count), icon: IconAlertTriangle, bg: 'bg-rose-50', iconBg: 'bg-rose-100', text: 'text-rose-600' },
                 { key: 'downtime', label: 'Tổng Downtime', sub: 'Tổng dừng máy', value: `${fmtMin(kpi.downtime)} phút`, icon: IconClockHour4, bg: 'bg-emerald-50', iconBg: 'bg-emerald-100', text: 'text-emerald-600' },
               ]}
             />
@@ -1135,9 +1151,9 @@ export default function OverviewPage() {
                     <tr key={row.metric} className="hover:bg-slate-50/80 transition-colors">
                       <td className="p-3 font-semibold text-slate-900">{row.metric}</td>
                       {row.values.map((v, idx) => (
-                        <td key={idx} className="p-3 font-mono">{v == null ? '—' : v}</td>
+                        <td key={idx} className="p-3 font-mono">{fmtMin(v)}</td>
                       ))}
-                      <td className="p-3 font-mono font-bold text-[#006838] text-right">{row.mean}</td>
+                      <td className="p-3 font-mono font-bold text-[#006838] text-right">{fmtMin(row.mean)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1190,12 +1206,12 @@ export default function OverviewPage() {
                       <td className="p-3 text-slate-500 font-medium">{r.type}</td>
                       <td className="p-3 text-center">
                         <span className="inline-block px-2 py-0.5 rounded bg-rose-50 text-rose-700 font-mono font-bold text-[11px]">
-                          {r.count}
+                          {fmtInt(r.count)}
                         </span>
                       </td>
                       <td className="p-3 font-mono text-right text-slate-800">{fmtMin(r.mtbf)}</td>
                       <td className="p-3 font-mono text-right text-slate-800">{fmtMin(r.mttr)}</td>
-                      <td className="p-3 font-mono text-right font-bold text-rose-700">{r.downtime}</td>
+                      <td className="p-3 font-mono text-right font-bold text-rose-700">{fmtMin(r.downtime)}</td>
                       <td className="p-3 text-center">
                         <button onClick={() => setDetailMachineCode(r.code)} className="px-2.5 py-1 rounded-md bg-emerald-50 text-[#006838] border border-emerald-200 text-xs font-semibold hover:bg-emerald-100 transition-colors cursor-pointer">
                           Chi tiết

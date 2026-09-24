@@ -15,6 +15,7 @@ import {
   IconFlag,
   IconPhoto,
   IconBriefcase,
+  IconArrowsHorizontal,
 } from '@tabler/icons-react';
 import MaintenanceShell from '@/components/MaintenanceShell';
 import StatCardRow from '@/components/StatCardRow';
@@ -298,6 +299,14 @@ export default function MaintenanceTicketsPage() {
             className="px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium"
           />
           <DateRangeFilter from={dateFrom} to={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} />
+        </div>
+
+        {/* Gợi ý bảng cuộn ngang — bảng có nhiều cột (Loại Lỗi, Nguyên Nhân, Cách Khắc Phục...) tràn
+            khỏi màn hình, overflow-x-auto ở dưới đã cho kéo ngang được nhưng người dùng không để ý
+            có thanh cuộn, nên thêm icon + chữ nhắc ngay phía trên bảng. */}
+        <div className="flex items-center justify-end gap-1.5 px-1 text-[11px] font-semibold text-slate-400">
+          <IconArrowsHorizontal size={15} className="shrink-0" />
+          <span>Kéo ngang để xem thêm cột</span>
         </div>
 
         {/* Tickets Table */}

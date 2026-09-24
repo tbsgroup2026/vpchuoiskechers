@@ -114,3 +114,18 @@ export function isScopeAllowed(
   if (!targetScope) return false;
   return allowedScopes.includes(targetScope);
 }
+
+// Đọc ?scope= thẳng từ window.location.search — dùng ở các trang con /maintenance/* (Danh Sách
+// MMTB, Bảo Dưỡng MMTB...) để KHÔNG cần tự import useSearchParams()/bọc Suspense riêng ở từng
+// trang (Next.js static export bắt buộc useSearchParams phải nằm trong Suspense). Đọc trực tiếp
+// window.location là đủ chính xác vì trong app này, scope chỉ đổi qua 1 lượt điều hướng ĐẦY ĐỦ từ
+// trang /work (không có UI đổi scope ngay trong lúc đang đứng ở 1 trang con).
+export function getCurrentMmtbScope(): EquipmentScope {
+  if (typeof window === 'undefined') return 'ALL';
+  try {
+    const params = new URLSearchParams(window.location.search);
+    return getEffectiveScope(params.get('scope'));
+  } catch {
+    return 'ALL';
+  }
+}

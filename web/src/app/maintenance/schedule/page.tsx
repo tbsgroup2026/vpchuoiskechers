@@ -11,6 +11,7 @@ import {
   IconCalendarStats,
 } from '@tabler/icons-react';
 import MaintenanceShell from '@/components/MaintenanceShell';
+import StatCardRow from '@/components/StatCardRow';
 import FilterSelect from '@/components/FilterSelect';
 import RefreshButton from '@/components/RefreshButton';
 import Pagination from '@/components/Pagination';
@@ -22,6 +23,7 @@ import {
   type CalendarCell,
 } from '@/lib/maintenanceCalendar';
 import { readMaintenanceCache, writeMaintenanceCache } from '@/lib/maintenanceCache';
+import { getCurrentMmtbScope } from '@/lib/equipmentScope';
 
 type ScheduleMachine = {
   id: string;
@@ -115,40 +117,59 @@ function todayInputValue(): string {
 type Tab = 'assign' | 'track' | 'calendar';
 
 export default function MaintenanceSchedulePage() {
-  const [machines, setMachines] = useState<ScheduleMachine[]>(() => readMaintenanceCache<ScheduleMachine[]>('schedule_machines') || []);
-  const [periods, setPeriods] = useState<Period[]>(() => readMaintenanceCache<Period[]>('schedule_periods') || []);
-  const [completedThisMonth, setCompletedThisMonth] = useState(() => readMaintenanceCache<number>('schedule_completed') || 0);
-  const [logs, setLogs] = useState<LogEntry[]>(() => readMaintenanceCache<LogEntry[]>('schedule_logs') || []);
-  const [loading, setLoading] = useState(() => readMaintenanceCache<ScheduleMachine[]>('schedule_machines') === null);
+  // Mỗi khu vực có dữ liệu MMTB riêng — cache key phải theo scope (xem machines/page.tsx).
+  const scope = getCurrentMmtbScope();
+  const ck = (key: string) => `${key}_${scope}`;
+
+  const [machines, setMachines] = useState<ScheduleMachine[]>(() => readMaintenanceCache<ScheduleMachine[]>(ck('schedule_machines')) || []);
+  // Chỉ tính "Máy đã kiểm kê" (đã xuất hiện ≥1 lần trong nhật ký Kiểm Kê) — khớp đúng cách trang
+  // Danh Sách MMTB thật đang lọc. Dùng chung cache key với trang Máy Móc để 2 trang khớp số liệu.
+  const [verifiedCodes, setVerifiedCodes] = useState<Set<string>>(() => new Set(readMaintenanceCache<string[]>(ck('machines_verified')) || []));
+  const [periods, setPeriods] = useState<Period[]>(() => readMaintenanceCache<Period[]>(ck('schedule_periods')) || []);
+  const [completedThisMonth, setCompletedThisMonth] = useState(() => readMaintenanceCache<number>(ck('schedule_completed')) || 0);
+  const [logs, setLogs] = useState<LogEntry[]>(() => readMaintenanceCache<LogEntry[]>(ck('schedule_logs')) || []);
+  const [loading, setLoading] = useState(() => readMaintenanceCache<ScheduleMachine[]>(ck('schedule_machines')) === null);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('assign');
 
   const [refreshing, setRefreshing] = useState(false);
+  // Bấm ô "Bảo trì quá hạn"/"Sắp đến hạn" -> lọc thẳng bảng ở tab "Lên Lịch Bảo Trì" theo đúng
+  // trạng thái đó (bấm lại để bỏ lọc). Ô "Hoàn thành tháng này" không lọc theo status được (số này
+  // tính từ log bảo trì riêng) nên bấm vào sẽ chuyển sang tab "Theo Dõi Lịch Trình" thay vì lọc.
+  const [scheduleStatusFilter, setScheduleStatusFilter] = useState<'overdue' | 'upcoming' | null>(null);
 
   const load = async (force = false) => {
     try {
       if (force) setRefreshing(true);
       setError(null);
-      const fresh = force ? '?fresh=1' : '';
+      const fresh = force ? '&fresh=1' : '';
       const settled = await Promise.allSettled([
-        fetch(`/api/maintenance/schedule${fresh}`).then((r) => r.json()),
-        fetch(`/api/maintenance/logs${fresh}`).then((r) => r.json()),
+        fetch(`/api/maintenance/schedule?scope=${scope}${fresh}`).then((r) => r.json()),
+        fetch(`/api/maintenance/logs?scope=${scope}${fresh}`).then((r) => r.json()),
+        fetch(`/api/maintenance/inventory-log?scope=${scope}${fresh}`).then((r) => r.json()),
       ]);
-      const [scheduleRes, logsRes] = settled.map((s) => (s.status === 'fulfilled' ? s.value : { success: false, error: String(s.reason) }));
+      const [scheduleRes, logsRes, inventoryLogRes] = settled.map((s) => (s.status === 'fulfilled' ? s.value : { success: false, error: String(s.reason) }));
       if (scheduleRes.success) {
         setMachines(scheduleRes.machines || []);
         setPeriods(scheduleRes.periods || []);
         setCompletedThisMonth(scheduleRes.completedThisMonth || 0);
-        writeMaintenanceCache('schedule_machines', scheduleRes.machines || []);
-        writeMaintenanceCache('schedule_periods', scheduleRes.periods || []);
-        writeMaintenanceCache('schedule_completed', scheduleRes.completedThisMonth || 0);
+        writeMaintenanceCache(ck('schedule_machines'), scheduleRes.machines || []);
+        writeMaintenanceCache(ck('schedule_periods'), scheduleRes.periods || []);
+        writeMaintenanceCache(ck('schedule_completed'), scheduleRes.completedThisMonth || 0);
       } else {
         console.warn('Failed to load schedule from tbsMayMoc:', scheduleRes.error);
         setError(scheduleRes.error || 'Không lấy được dữ liệu lịch bảo trì');
       }
       if (logsRes.success) {
         setLogs(logsRes.data || []);
-        writeMaintenanceCache('schedule_logs', logsRes.data || []);
+        writeMaintenanceCache(ck('schedule_logs'), logsRes.data || []);
+      }
+      if (inventoryLogRes.success && Array.isArray(inventoryLogRes.rows)) {
+        const codes = new Set<string>(inventoryLogRes.rows.map((r: any) => r.machine?.code).filter(Boolean));
+        setVerifiedCodes(codes);
+        writeMaintenanceCache(ck('machines_verified'), [...codes]);
+      } else {
+        console.warn('Failed to load inventory-log from tbsMayMoc:', inventoryLogRes.error);
       }
     } catch (err) {
       console.warn('Failed to fetch schedule from tbsMayMoc:', err);
@@ -162,20 +183,25 @@ export default function MaintenanceSchedulePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const verifiedMachines = useMemo(
+    () => machines.filter((m) => verifiedCodes.has(m.code)),
+    [machines, verifiedCodes]
+  );
+
   const factoryOptions = useMemo(() => {
     const map = new Map<string, string>();
-    machines.forEach((m) => { if (m.factoryId && m.factoryName) map.set(m.factoryId, m.factoryName); });
+    verifiedMachines.forEach((m) => { if (m.factoryId && m.factoryName) map.set(m.factoryId, m.factoryName); });
     return Array.from(map, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name, 'vi'));
-  }, [machines]);
+  }, [verifiedMachines]);
 
   const stats = useMemo(() => {
     let overdue = 0, upcoming = 0;
-    for (const m of machines) {
+    for (const m of verifiedMachines) {
       if (m.status === 'overdue') overdue++;
       else if (m.status === 'upcoming') upcoming++;
     }
-    return { total: machines.length, overdue, upcoming, completedThisMonth };
-  }, [machines, completedThisMonth]);
+    return { total: verifiedMachines.length, overdue, upcoming, completedThisMonth };
+  }, [verifiedMachines, completedThisMonth]);
 
   return (
     <MaintenanceShell title="Bảo Dưỡng MMTB" subtitle="Kế hoạch bảo trì định kỳ, kiểm tra & lập lịch thiết bị — SKECHERS / TBS Group II">
@@ -188,25 +214,16 @@ export default function MaintenanceSchedulePage() {
           <RefreshButton onClick={() => load(true)} loading={refreshing} />
         </div>
 
-        {/* Status Ribbon */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { label: 'Tổng số thiết bị', value: stats.total, icon: IconDeviceLaptop, border: 'border-blue-200', text: 'text-blue-700', bg: 'bg-blue-50/60' },
-            { label: 'Bảo trì quá hạn', value: stats.overdue, icon: IconAlertTriangle, border: 'border-rose-200', text: 'text-rose-700', bg: 'bg-rose-50/60' },
-            { label: 'Sắp đến hạn', value: stats.upcoming, icon: IconClockHour4, border: 'border-amber-200', text: 'text-amber-700', bg: 'bg-amber-50/60' },
-            { label: 'Hoàn thành tháng này', value: stats.completedThisMonth, icon: IconCircleCheck, border: 'border-emerald-200', text: 'text-emerald-700', bg: 'bg-emerald-50/60' },
-          ].map((c) => (
-            <div key={c.label} className={`bg-white rounded-xl border ${c.border} p-3.5 shadow-2xs`}>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{c.label}</span>
-                <div className={`p-1.5 rounded-md ${c.bg}`}>
-                  <c.icon size={16} className={c.text} />
-                </div>
-              </div>
-              <div className="text-2xl font-bold font-mono text-slate-900 tracking-tight">{c.value}</div>
-            </div>
-          ))}
-        </div>
+        {/* Status Ribbon — bấm "Quá hạn"/"Sắp đến hạn" để lọc bảng tab "Lên Lịch Bảo Trì"; bấm
+            "Hoàn thành tháng này" để chuyển sang tab "Theo Dõi Lịch Trình" */}
+        <StatCardRow
+          items={[
+            { key: 'total', label: 'Tổng số thiết bị', value: stats.total, icon: IconDeviceLaptop, bg: 'bg-blue-50', iconBg: 'bg-blue-100', text: 'text-blue-600', ring: 'ring-blue-300', active: tab === 'assign' && !scheduleStatusFilter, onClick: () => { setTab('assign'); setScheduleStatusFilter(null); } },
+            { key: 'overdue', label: 'Bảo trì quá hạn', value: stats.overdue, icon: IconAlertTriangle, bg: 'bg-rose-50', iconBg: 'bg-rose-100', text: 'text-rose-600', ring: 'ring-rose-300', active: tab === 'assign' && scheduleStatusFilter === 'overdue', onClick: () => { setTab('assign'); setScheduleStatusFilter((prev) => (prev === 'overdue' ? null : 'overdue')); } },
+            { key: 'upcoming', label: 'Sắp đến hạn', value: stats.upcoming, icon: IconClockHour4, bg: 'bg-amber-50', iconBg: 'bg-amber-100', text: 'text-amber-600', ring: 'ring-amber-300', active: tab === 'assign' && scheduleStatusFilter === 'upcoming', onClick: () => { setTab('assign'); setScheduleStatusFilter((prev) => (prev === 'upcoming' ? null : 'upcoming')); } },
+            { key: 'completed', label: 'Hoàn thành tháng này', value: stats.completedThisMonth, icon: IconCircleCheck, bg: 'bg-emerald-50', iconBg: 'bg-emerald-100', text: 'text-emerald-600', ring: 'ring-emerald-300', active: tab === 'track', onClick: () => setTab('track') },
+          ]}
+        />
 
         {/* Navigation Tabs */}
         <div className="flex flex-wrap gap-2 pt-1 border-t border-slate-200/60">
@@ -232,10 +249,10 @@ export default function MaintenanceSchedulePage() {
         ) : (
           <>
             {tab === 'assign' && (
-              <AssignTab machines={machines} periods={periods} factoryOptions={factoryOptions} onAssigned={load} />
+              <AssignTab machines={verifiedMachines} periods={periods} factoryOptions={factoryOptions} onAssigned={load} statusFilter={scheduleStatusFilter} />
             )}
-            {tab === 'track' && <TrackTab machines={machines} logs={logs} factoryOptions={factoryOptions} />}
-            {tab === 'calendar' && <CalendarTab machines={machines} factoryOptions={factoryOptions} />}
+            {tab === 'track' && <TrackTab machines={verifiedMachines} logs={logs} factoryOptions={factoryOptions} />}
+            {tab === 'calendar' && <CalendarTab machines={verifiedMachines} factoryOptions={factoryOptions} />}
           </>
         )}
       </div>
@@ -250,11 +267,13 @@ function AssignTab({
   periods,
   factoryOptions,
   onAssigned,
+  statusFilter,
 }: {
   machines: ScheduleMachine[];
   periods: Period[];
   factoryOptions: { id: string; name: string }[];
   onAssigned: () => Promise<void>;
+  statusFilter: 'overdue' | 'upcoming' | null;
 }) {
   const [search, setSearch] = useState('');
   const [factoryId, setFactoryId] = useState('');
@@ -280,14 +299,15 @@ function AssignTab({
       const matchesQ = !q || m.code.toLowerCase().includes(q) || m.name.toLowerCase().includes(q);
       const matchesFactory = !factoryId || m.factoryId === factoryId;
       const matchesArea = !areaId || m.areaId === areaId;
-      return matchesQ && matchesFactory && matchesArea;
+      const matchesStatus = !statusFilter || m.status === statusFilter;
+      return matchesQ && matchesFactory && matchesArea && matchesStatus;
     });
-  }, [machines, search, factoryId, areaId]);
+  }, [machines, search, factoryId, areaId, statusFilter]);
 
   const [page, setPage] = useState(1);
   useEffect(() => {
     setPage(1);
-  }, [search, factoryId, areaId]);
+  }, [search, factoryId, areaId, statusFilter]);
   const pageItems = useMemo(() => filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [filtered, page]);
 
   function toggle(id: string) {

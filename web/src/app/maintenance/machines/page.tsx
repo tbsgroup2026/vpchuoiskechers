@@ -5,10 +5,12 @@ import * as XLSX from 'xlsx';
 import QRCode from 'qrcode';
 import { IconDeviceLaptop, IconCircleCheck, IconCircleDashed, IconAlertTriangle, IconTrash, IconPlus, IconPencil, IconFileSpreadsheet, IconSearch, IconX } from '@tabler/icons-react';
 import MaintenanceShell from '@/components/MaintenanceShell';
+import StatCardRow from '@/components/StatCardRow';
 import FilterSelect from '@/components/FilterSelect';
 import RefreshButton from '@/components/RefreshButton';
 import Pagination from '@/components/Pagination';
 import { readMaintenanceCache, writeMaintenanceCache } from '@/lib/maintenanceCache';
+import { getCurrentMmtbScope } from '@/lib/equipmentScope';
 
 const PAGE_SIZE = 50;
 
@@ -162,13 +164,19 @@ function normLoose(s: unknown): string {
 }
 
 export default function MachinesPage() {
-  const [machines, setMachines] = useState<Machine[]>(() => readMaintenanceCache<Machine[]>('machines') || []);
-  const [filterOptions, setFilterOptions] = useState<FilterOptions>(() => readMaintenanceCache<FilterOptions>('machines_filters') || EMPTY_FILTERS);
-  const [loading, setLoading] = useState(() => readMaintenanceCache<Machine[]>('machines') === null);
+  // Mỗi khu vực (Văn phòng Chuỗi/Nhà Máy Miền Đông/Tổ Hợp Kiên Giang) có dữ liệu MMTB RIÊNG —
+  // cache key phải theo scope, không thì chuyển qua lại giữa các khu vực sẽ hiện lộn cache của
+  // nhau (VD đang xem cache Kiên Giang rồi bấm sang Văn phòng Chuỗi vẫn thấy số liệu Kiên Giang).
+  const scope = getCurrentMmtbScope();
+  const ck = (key: string) => `${key}_${scope}`;
+
+  const [machines, setMachines] = useState<Machine[]>(() => readMaintenanceCache<Machine[]>(ck('machines')) || []);
+  const [filterOptions, setFilterOptions] = useState<FilterOptions>(() => readMaintenanceCache<FilterOptions>(ck('machines_filters')) || EMPTY_FILTERS);
+  const [loading, setLoading] = useState(() => readMaintenanceCache<Machine[]>(ck('machines')) === null);
   // "Kiểm Kê" — mã máy đã xuất hiện trong nhật ký kiểm kê ít nhất 1 lần (xem /api/maintenance/
   // inventory-log) — chỉ tính là "Máy đã kiểm kê", khớp đúng cách trang Danh Sách MMTB thật đang
   // tính (chỉ hiện/đếm máy đã kiểm kê, không phải toàn bộ máy trong hệ thống).
-  const [verifiedCodes, setVerifiedCodes] = useState<Set<string>>(() => new Set(readMaintenanceCache<string[]>('machines_verified') || []));
+  const [verifiedCodes, setVerifiedCodes] = useState<Set<string>>(() => new Set(readMaintenanceCache<string[]>(ck('machines_verified')) || []));
   const [error, setError] = useState<string | null>(null);
   const [selectedQR, setSelectedQR] = useState<string | null>(null);
   const [qrImageUrl, setQrImageUrl] = useState<string | null>(null);
@@ -233,21 +241,21 @@ export default function MachinesPage() {
       // làm CẢ 7 cùng bị coi là lỗi, xoá sạch dữ liệu máy móc lẫn toàn bộ danh mục lọc dù đa số đã
       // tải thành công. Giờ mỗi lệnh độc lập — 1 cái lỗi không kéo sập các cái còn lại.
       const settled = await Promise.allSettled([
-        fetch(`/api/maintenance/machines${force ? '?fresh=1' : ''}`).then((r) => r.json()),
-        fetch(`/api/maintenance/categories?type=FACTORY${fresh}`).then((r) => r.json()),
-        fetch(`/api/maintenance/categories?type=AREA${fresh}`).then((r) => r.json()),
-        fetch(`/api/maintenance/categories?type=PRODUCTION_LINE${fresh}`).then((r) => r.json()),
-        fetch(`/api/maintenance/categories?type=TEAM${fresh}`).then((r) => r.json()),
-        fetch(`/api/maintenance/categories?type=MACHINE_TYPE${fresh}`).then((r) => r.json()),
-        fetch(`/api/maintenance/categories?type=MACHINE_STATUS${fresh}`).then((r) => r.json()),
-        fetch(`/api/maintenance/inventory-log${force ? '?fresh=1' : ''}`).then((r) => r.json()),
+        fetch(`/api/maintenance/machines?scope=${scope}${force ? '&fresh=1' : ''}`).then((r) => r.json()),
+        fetch(`/api/maintenance/categories?type=FACTORY&scope=${scope}${fresh}`).then((r) => r.json()),
+        fetch(`/api/maintenance/categories?type=AREA&scope=${scope}${fresh}`).then((r) => r.json()),
+        fetch(`/api/maintenance/categories?type=PRODUCTION_LINE&scope=${scope}${fresh}`).then((r) => r.json()),
+        fetch(`/api/maintenance/categories?type=TEAM&scope=${scope}${fresh}`).then((r) => r.json()),
+        fetch(`/api/maintenance/categories?type=MACHINE_TYPE&scope=${scope}${fresh}`).then((r) => r.json()),
+        fetch(`/api/maintenance/categories?type=MACHINE_STATUS&scope=${scope}${fresh}`).then((r) => r.json()),
+        fetch(`/api/maintenance/inventory-log?scope=${scope}${force ? '&fresh=1' : ''}`).then((r) => r.json()),
       ]);
       const asResult = (s: PromiseSettledResult<any>) =>
         s.status === 'fulfilled' ? s.value : { success: false, error: String(s.reason) };
       const [machinesRes, factoriesRes, areasRes, linesRes, teamsRes, typesRes, statusesRes, inventoryLogRes] = settled.map(asResult);
       if (machinesRes.success && Array.isArray(machinesRes.data)) {
         setMachines(machinesRes.data);
-        writeMaintenanceCache('machines', machinesRes.data);
+        writeMaintenanceCache(ck('machines'), machinesRes.data);
       } else {
         console.warn('Failed to load machines from tbsMayMoc:', machinesRes.error);
         setError(machinesRes.error || 'Không lấy được dữ liệu');
@@ -255,7 +263,7 @@ export default function MachinesPage() {
       if (inventoryLogRes.success && Array.isArray(inventoryLogRes.rows)) {
         const codes = new Set<string>(inventoryLogRes.rows.map((r: any) => r.machine?.code).filter(Boolean));
         setVerifiedCodes(codes);
-        writeMaintenanceCache('machines_verified', [...codes]);
+        writeMaintenanceCache(ck('machines_verified'), [...codes]);
       } else {
         console.warn('Failed to load inventory-log from tbsMayMoc:', inventoryLogRes.error);
       }
@@ -268,7 +276,7 @@ export default function MachinesPage() {
         statuses: statusesRes.success && Array.isArray(statusesRes.data) ? statusesRes.data : [],
       };
       setFilterOptions(nextFilterOptions);
-      writeMaintenanceCache('machines_filters', nextFilterOptions);
+      writeMaintenanceCache(ck('machines_filters'), nextFilterOptions);
     } catch (err) {
       console.warn('Failed to fetch machines from tbsMayMoc:', err);
     } finally {
@@ -359,6 +367,26 @@ export default function MachinesPage() {
     }
     return { total: filtered.length, dangSuDung, dangDuPhong, dangHong, deNghiThanhLy };
   }, [filtered]);
+
+  // Tra ngược tên trạng thái (chuẩn hoá, khớp key statusStats ở trên) -> id thật để 5 ô tổng quan
+  // bấm được, lọc thẳng bảng theo ĐÚNG trạng thái đó (dùng lại filterStatusId đã có sẵn).
+  const statusIdByKey = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const s of filterOptions.statuses) map[normalizeStatus(s.name)] = s.id;
+    return map;
+  }, [filterOptions.statuses]);
+
+  // Bấm 1 ô tổng quan -> lọc bảng theo đúng trạng thái đó; bấm lại ô ĐANG lọc -> bỏ lọc; ô "Máy đã
+  // kiểm kê" (statusKey=null) luôn bỏ lọc trạng thái.
+  function handleStatusTileClick(statusKey: string | null) {
+    if (statusKey === null) {
+      setFilterStatusId('');
+      return;
+    }
+    const id = statusIdByKey[statusKey];
+    if (!id) return;
+    setFilterStatusId((prev) => (prev === id ? '' : id));
+  }
 
   function handleExport() {
     const rows = filtered.map((m) => ({
@@ -626,26 +654,16 @@ export default function MachinesPage() {
           </div>
         </div>
 
-        {/* Status Summary Ribbon */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-          {[
-            { label: 'Máy đã kiểm kê', value: statusStats.total, icon: IconDeviceLaptop, border: 'border-blue-200', text: 'text-blue-700', bg: 'bg-blue-50/60' },
-            { label: 'Đang sử dụng', value: statusStats.dangSuDung, icon: IconCircleCheck, border: 'border-emerald-200', text: 'text-emerald-700', bg: 'bg-emerald-50/60' },
-            { label: 'Đang Dự phòng', value: statusStats.dangDuPhong, icon: IconCircleDashed, border: 'border-slate-200', text: 'text-slate-600', bg: 'bg-slate-50' },
-            { label: 'Đang Hỏng', value: statusStats.dangHong, icon: IconAlertTriangle, border: 'border-rose-200', text: 'text-rose-700', bg: 'bg-rose-50/60' },
-            { label: 'Đề nghị Thanh Lý', value: statusStats.deNghiThanhLy, icon: IconTrash, border: 'border-amber-200', text: 'text-amber-700', bg: 'bg-amber-50/60' },
-          ].map((c) => (
-            <div key={c.label} className={`bg-white rounded-xl border ${c.border} p-3.5 shadow-2xs`}>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{c.label}</span>
-                <div className={`p-1.5 rounded-md ${c.bg}`}>
-                  <c.icon size={16} className={c.text} />
-                </div>
-              </div>
-              <div className="text-2xl font-bold font-mono text-slate-900 tracking-tight">{c.value}</div>
-            </div>
-          ))}
-        </div>
+        {/* Status Summary Ribbon — bấm để lọc thẳng bảng bên dưới theo đúng trạng thái đó */}
+        <StatCardRow
+          items={[
+            { key: 'total', label: 'Máy đã kiểm kê', value: statusStats.total, icon: IconDeviceLaptop, bg: 'bg-blue-50', iconBg: 'bg-blue-100', text: 'text-blue-600', ring: 'ring-blue-300', active: !filterStatusId, onClick: () => handleStatusTileClick(null) },
+            { key: 'dang su dung', label: 'Đang sử dụng', value: statusStats.dangSuDung, icon: IconCircleCheck, bg: 'bg-emerald-50', iconBg: 'bg-emerald-100', text: 'text-emerald-600', ring: 'ring-emerald-300', active: !!filterStatusId && filterStatusId === statusIdByKey['dang su dung'], onClick: () => handleStatusTileClick('dang su dung') },
+            { key: 'dang du phong', label: 'Đang Dự phòng', value: statusStats.dangDuPhong, icon: IconCircleDashed, bg: 'bg-slate-100', iconBg: 'bg-slate-200', text: 'text-slate-500', ring: 'ring-slate-300', active: !!filterStatusId && filterStatusId === statusIdByKey['dang du phong'], onClick: () => handleStatusTileClick('dang du phong') },
+            { key: 'dang hong', label: 'Đang Hỏng', value: statusStats.dangHong, icon: IconAlertTriangle, bg: 'bg-rose-50', iconBg: 'bg-rose-100', text: 'text-rose-600', ring: 'ring-rose-300', active: !!filterStatusId && filterStatusId === statusIdByKey['dang hong'], onClick: () => handleStatusTileClick('dang hong') },
+            { key: 'de nghi thanh ly', label: 'Đề nghị Thanh Lý', value: statusStats.deNghiThanhLy, icon: IconTrash, bg: 'bg-amber-50', iconBg: 'bg-amber-100', text: 'text-amber-600', ring: 'ring-amber-300', active: !!filterStatusId && filterStatusId === statusIdByKey['de nghi thanh ly'], onClick: () => handleStatusTileClick('de nghi thanh ly') },
+          ]}
+        />
 
         {/* Filter Toolbar */}
         <div className="bg-white rounded-xl border border-slate-200/80 p-3.5 shadow-2xs flex flex-wrap items-center gap-2">

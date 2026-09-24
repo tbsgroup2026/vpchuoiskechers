@@ -14,13 +14,16 @@ import {
   IconPlayerPause,
   IconFlag,
   IconPhoto,
+  IconBriefcase,
 } from '@tabler/icons-react';
 import MaintenanceShell from '@/components/MaintenanceShell';
+import StatCardRow from '@/components/StatCardRow';
 import FilterSelect from '@/components/FilterSelect';
 import DateRangeFilter, { inDateRange } from '@/components/DateRangeFilter';
 import RefreshButton from '@/components/RefreshButton';
 import Pagination from '@/components/Pagination';
 import { readMaintenanceCache, writeMaintenanceCache } from '@/lib/maintenanceCache';
+import { getCurrentMmtbScope } from '@/lib/equipmentScope';
 
 const PAGE_SIZE = 50;
 
@@ -62,6 +65,33 @@ const STATUS_BADGE: Record<Ticket['status'], string> = {
   PENDING: 'bg-rose-500/15 text-rose-700',
   ACCEPTED: 'bg-amber-500/15 text-amber-700',
   DONE: 'bg-emerald-500/15 text-emerald-700',
+};
+
+// "Việc khác" — phiếu việc phát sinh KHÔNG gắn máy cụ thể (khác ticket sự cố ở trên, luôn gắn 1
+// máy). Chỉ xem (đọc) — khớp đúng phạm vi READ-ONLY của toàn bộ khu vực /maintenance.
+type WorkRequestItem = {
+  id: string;
+  area: { id: string; name: string };
+  productionLine: { id: string; name: string } | null;
+  team: { id: string; name: string } | null;
+  description: string;
+  status: 'PENDING' | 'ACCEPTED' | 'DONE';
+  reporter: { name: string };
+  assignedTo: { name: string } | null;
+  createdAt: string;
+  acceptedAt: string | null;
+  completedAt: string | null;
+};
+
+const WORK_REQUEST_STATUS_BADGE: Record<WorkRequestItem['status'], string> = {
+  PENDING: 'bg-rose-500/15 text-rose-700',
+  ACCEPTED: 'bg-amber-500/15 text-amber-700',
+  DONE: 'bg-emerald-500/15 text-emerald-700',
+};
+const WORK_REQUEST_STATUS_LABEL: Record<WorkRequestItem['status'], string> = {
+  PENDING: 'Chưa ai nhận',
+  ACCEPTED: 'Đang xử lý',
+  DONE: 'Đã hoàn thành',
 };
 
 const PRIORITY_INFO: Record<Priority, { label: string; badge: string }> = {
@@ -106,11 +136,23 @@ function formatDateTime(iso: string | null): string {
   return d.toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
 }
 
+// Số ĐẾM THẬT từ tbsMayMoc (groupBy, không bị cắt bởi limit=200 an toàn D1 phía trên) — dùng cho
+// các ô thống kê đầu trang KHI CHƯA lọc gì, tránh hiện sai kiểu "dừng ở 90" trong khi tổng thật
+// lớn hơn nhiều (VD 370).
+type TicketCounts = { PENDING: number; ACCEPTED: number; DONE: number; total: number };
+
 export default function MaintenanceTicketsPage() {
-  const [tickets, setTickets] = useState<Ticket[]>(() => readMaintenanceCache<Ticket[]>('tickets') || []);
-  const [factories, setFactories] = useState<CategoryOption[]>(() => readMaintenanceCache<CategoryOption[]>('tickets_factories') || []);
-  const [loading, setLoading] = useState(() => readMaintenanceCache<Ticket[]>('tickets') === null);
+  // Mỗi khu vực có dữ liệu MMTB riêng — cache key phải theo scope (xem machines/page.tsx).
+  const scope = getCurrentMmtbScope();
+  const ck = (key: string) => `${key}_${scope}`;
+
+  const [tickets, setTickets] = useState<Ticket[]>(() => readMaintenanceCache<Ticket[]>(ck('tickets')) || []);
+  const [ticketCounts, setTicketCounts] = useState<TicketCounts | null>(() => readMaintenanceCache<TicketCounts>(ck('tickets_counts')) || null);
+  const [factories, setFactories] = useState<CategoryOption[]>(() => readMaintenanceCache<CategoryOption[]>(ck('tickets_factories')) || []);
+  const [workRequests, setWorkRequests] = useState<WorkRequestItem[]>(() => readMaintenanceCache<WorkRequestItem[]>(ck('tickets_work_requests')) || []);
+  const [loading, setLoading] = useState(() => readMaintenanceCache<Ticket[]>(ck('tickets')) === null);
   const [error, setError] = useState<string | null>(null);
+  const [showWorkRequests, setShowWorkRequests] = useState(false);
 
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -125,20 +167,28 @@ export default function MaintenanceTicketsPage() {
       setError(null);
       const fresh = force ? '&fresh=1' : '';
       const settled = await Promise.allSettled([
-        fetch(`/api/maintenance/tickets${force ? '?fresh=1' : ''}`).then((r) => r.json()),
-        fetch(`/api/maintenance/categories?type=FACTORY${fresh}`).then((r) => r.json()),
+        fetch(`/api/maintenance/tickets?scope=${scope}${force ? '&fresh=1' : ''}`).then((r) => r.json()),
+        fetch(`/api/maintenance/categories?type=FACTORY&scope=${scope}${fresh}`).then((r) => r.json()),
+        fetch(`/api/maintenance/work-requests?scope=${scope}${fresh}`).then((r) => r.json()),
       ]);
-      const [ticketsRes, facRes] = settled.map((s) => (s.status === 'fulfilled' ? s.value : { success: false, error: String(s.reason) }));
+      const [ticketsRes, facRes, workRequestRes] = settled.map((s) => (s.status === 'fulfilled' ? s.value : { success: false, error: String(s.reason) }));
       if (ticketsRes.success && Array.isArray(ticketsRes.data)) {
         setTickets(ticketsRes.data);
-        writeMaintenanceCache('tickets', ticketsRes.data);
+        writeMaintenanceCache(ck('tickets'), ticketsRes.data);
+        setTicketCounts(ticketsRes.counts || null);
+        writeMaintenanceCache(ck('tickets_counts'), ticketsRes.counts || null);
       } else {
         console.warn('Failed to load tickets from tbsMayMoc:', ticketsRes.error);
         setError(ticketsRes.error || 'Không lấy được dữ liệu');
       }
       if (facRes.success) {
         setFactories(facRes.data || []);
-        writeMaintenanceCache('tickets_factories', facRes.data || []);
+        writeMaintenanceCache(ck('tickets_factories'), facRes.data || []);
+      }
+      if (workRequestRes.success) {
+        const items = workRequestRes.data?.items || [];
+        setWorkRequests(items);
+        writeMaintenanceCache(ck('tickets_work_requests'), items);
       }
     } catch (err) {
       console.warn('Failed to fetch tickets from tbsMayMoc:', err);
@@ -164,6 +214,11 @@ export default function MaintenanceTicketsPage() {
     });
   }, [tickets, search, filterStatus, filterFactoryId, dateFrom, dateTo]);
 
+  // Chưa bấm lọc gì -> dùng ĐÚNG số thật đếm từ server (ticketCounts, không bị giới hạn 200 dòng
+  // an toàn D1) thay vì suy từ `filtered` (= tickets khi chưa lọc, đã bị cắt tối đa 200 dòng nên
+  // "Tổng số sự cố" không bao giờ vượt quá 200 dù tổng thật lớn hơn, VD 370). Đã lọc thì không có
+  // cách nào server đếm hộ đúng theo đúng bộ lọc đó -> vẫn suy từ `filtered` như cũ.
+  const noFilterActive = !search.trim() && !filterStatus && !filterFactoryId && !dateFrom && !dateTo;
   const stats = useMemo(() => {
     let pending = 0, accepted = 0, done = 0;
     for (const t of filtered) {
@@ -171,8 +226,11 @@ export default function MaintenanceTicketsPage() {
       else if (t.status === 'ACCEPTED') accepted++;
       else done++;
     }
+    if (noFilterActive && ticketCounts) {
+      return { total: ticketCounts.total, pending: ticketCounts.PENDING, accepted: ticketCounts.ACCEPTED, done: ticketCounts.DONE };
+    }
     return { total: filtered.length, pending, accepted, done };
-  }, [filtered]);
+  }, [filtered, noFilterActive, ticketCounts]);
 
   const [page, setPage] = useState(1);
   useEffect(() => {
@@ -188,30 +246,22 @@ export default function MaintenanceTicketsPage() {
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-lg font-bold text-slate-900 tracking-tight">Nhu Cầu Sửa Chữa Thiết Bị</h1>
-            <p className="text-xs text-slate-500 font-medium mt-0.5">{filtered.length} ticket sự cố trong hệ thống</p>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">{stats.total} ticket sự cố trong hệ thống</p>
           </div>
           <RefreshButton onClick={() => load(true)} loading={refreshing} />
         </div>
 
-        {/* Status Stats Ribbon */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { label: 'Tổng số sự cố', value: stats.total, icon: IconTool, border: 'border-blue-200', text: 'text-blue-700', bg: 'bg-blue-50/60' },
-            { label: 'Chưa tiếp nhận', value: stats.pending, icon: IconAlertTriangle, border: 'border-rose-200', text: 'text-rose-700', bg: 'bg-rose-50/60' },
-            { label: 'Đang xử lý', value: stats.accepted, icon: IconClockHour4, border: 'border-amber-200', text: 'text-amber-700', bg: 'bg-amber-50/60' },
-            { label: 'Đã hoàn thành', value: stats.done, icon: IconCircleCheck, border: 'border-emerald-200', text: 'text-emerald-700', bg: 'bg-emerald-50/60' },
-          ].map((c) => (
-            <div key={c.label} className={`bg-white rounded-xl border ${c.border} p-3.5 shadow-2xs`}>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{c.label}</span>
-                <div className={`p-1.5 rounded-md ${c.bg}`}>
-                  <c.icon size={16} className={c.text} />
-                </div>
-              </div>
-              <div className="text-2xl font-bold font-mono text-slate-900 tracking-tight">{c.value}</div>
-            </div>
-          ))}
-        </div>
+        {/* Status Stats Ribbon — bấm để lọc thẳng bảng bên dưới theo đúng trạng thái đó, bấm lại ô
+            đang lọc để bỏ lọc, giống hệt cách trang thật đang làm. */}
+        <StatCardRow
+          items={[
+            { key: 'total', label: 'Tổng số sự cố', value: stats.total, icon: IconTool, bg: 'bg-blue-50', iconBg: 'bg-blue-100', text: 'text-blue-600', ring: 'ring-blue-300', active: !filterStatus, onClick: () => setFilterStatus('') },
+            { key: 'PENDING', label: 'Chưa tiếp nhận', value: stats.pending, icon: IconAlertTriangle, bg: 'bg-rose-50', iconBg: 'bg-rose-100', text: 'text-rose-600', ring: 'ring-rose-300', active: filterStatus === 'PENDING', onClick: () => setFilterStatus((prev) => (prev === 'PENDING' ? '' : 'PENDING')) },
+            { key: 'ACCEPTED', label: 'Đang xử lý', value: stats.accepted, icon: IconClockHour4, bg: 'bg-amber-50', iconBg: 'bg-amber-100', text: 'text-amber-600', ring: 'ring-amber-300', active: filterStatus === 'ACCEPTED', onClick: () => setFilterStatus((prev) => (prev === 'ACCEPTED' ? '' : 'ACCEPTED')) },
+            { key: 'DONE', label: 'Đã hoàn thành', value: stats.done, icon: IconCircleCheck, bg: 'bg-emerald-50', iconBg: 'bg-emerald-100', text: 'text-emerald-600', ring: 'ring-emerald-300', active: filterStatus === 'DONE', onClick: () => setFilterStatus((prev) => (prev === 'DONE' ? '' : 'DONE')) },
+            { key: 'WORK_REQUEST', label: 'Việc khác', value: workRequests.length, icon: IconBriefcase, bg: 'bg-violet-50', iconBg: 'bg-violet-100', text: 'text-violet-600', ring: 'ring-violet-300', onClick: () => setShowWorkRequests(true) },
+          ]}
+        />
 
         {/* Filter Toolbar */}
         <div className="bg-white rounded-xl border border-slate-200/80 p-3.5 shadow-2xs flex flex-wrap items-center gap-2">
@@ -320,7 +370,56 @@ export default function MaintenanceTicketsPage() {
       </div>
 
       {detailTicket && <TicketDetailModal ticket={detailTicket} onClose={() => setDetailTicket(null)} />}
+      {showWorkRequests && <WorkRequestListModal items={workRequests} onClose={() => setShowWorkRequests(false)} />}
     </MaintenanceShell>
+  );
+}
+
+// Khung XEM danh sách "Việc khác" — mở từ ô thống kê "Việc khác". Chỉ xem (đọc), không có nút
+// "Tạo mới" — khớp đúng phạm vi READ-ONLY đã chốt cho toàn bộ khu vực /maintenance.
+function WorkRequestListModal({ items, onClose }: { items: WorkRequestItem[]; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
+      <div
+        className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between gap-3 p-5 border-b border-gray-100">
+          <div>
+            <h3 className="text-lg font-extrabold text-tbs-dark">Việc Khác</h3>
+            <p className="text-xs text-gray-400 mt-0.5">Việc phát sinh không gắn máy cụ thể — Tổ Hợp Kiên Giang</p>
+          </div>
+          <button type="button" onClick={onClose} className="w-8 h-8 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-500 flex items-center justify-center shrink-0 cursor-pointer">
+            <IconX size={16} />
+          </button>
+        </div>
+
+        <div className="overflow-y-auto p-5 space-y-2.5">
+          {items.length === 0 && (
+            <p className="py-8 text-center text-sm text-gray-400">Chưa có việc khác nào được ghi nhận</p>
+          )}
+          {items.map((w) => {
+            const location = [w.area.name, w.productionLine?.name, w.team?.name].filter(Boolean).join(' > ');
+            return (
+              <div key={w.id} className="rounded-2xl border border-gray-100 p-3.5">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="truncate text-sm font-bold text-tbs-dark">{location}</span>
+                  <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${WORK_REQUEST_STATUS_BADGE[w.status]}`}>
+                    {WORK_REQUEST_STATUS_LABEL[w.status]}
+                  </span>
+                </div>
+                <p className="mt-1.5 text-sm text-gray-700">{w.description}</p>
+                <p className="mt-1.5 text-xs text-gray-400">
+                  Báo bởi {w.reporter.name} · {formatDateTime(w.createdAt)}
+                  {w.assignedTo && ` · Đang xử lý: ${w.assignedTo.name}`}
+                  {w.status === 'DONE' && w.completedAt && ` · Xong: ${formatDateTime(w.completedAt)}`}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
   );
 }
 

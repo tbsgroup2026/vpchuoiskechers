@@ -2072,9 +2072,26 @@ async function mmtbKgGetProposals(env) {
   return r.ok ? { success: true, data: r.data } : { success: false, error: (r.data && r.data.error) || "Không lấy được đề xuất từ MMTB Kiên Giang", status: r.status };
 }
 
+// "Việc khác" — phiếu việc phát sinh KHÔNG gắn máy cụ thể (khác ticket sự cố ở trên, luôn gắn 1
+// máy) — xem GET /api/mobile/work-requests bên tbsMayMoc. CHỈ xem (đọc), không tạo mới — khớp
+// đúng phạm vi READ-ONLY đã chốt cho toàn bộ khu vực /maintenance.
+async function mmtbKgGetWorkRequests(env) {
+  const r = await mmtbKgCall(env, "/api/mobile/work-requests");
+  return r.ok ? { success: true, data: r.data } : { success: false, error: (r.data && r.data.error) || "Không lấy được dữ liệu Việc khác từ MMTB Kiên Giang", status: r.status };
+}
+
 async function mmtbKgGetEmployees(env) {
   const r = await mmtbKgCall(env, "/api/employees");
   return r.ok ? { success: true, data: r.data } : { success: false, error: (r.data && r.data.error) || "Không lấy được nhân sự từ MMTB Kiên Giang", status: r.status };
+}
+
+// Văn phòng Chuỗi (OFFICE) và Nhà Máy Miền Đông (EAST) CHƯA có hệ thống MMTB thật nào kết nối —
+// chỉ Tổ Hợp Kiên Giang (KIEN_GIANG) có dữ liệu thật từ tbs-quanlymaymoc.workers.dev. Khi FE gọi
+// API kèm ?scope=OFFICE|EAST, các route /api/maintenance/* bên dưới trả rỗng ngay (KHÔNG gọi
+// backend Kiên Giang) để dữ liệu Kiên Giang không bị lẫn sang 2 khu vực chưa kết nối này.
+function mmtbScopeIsUnconnected(url) {
+  const scope = (url.searchParams.get("scope") || "").toUpperCase();
+  return scope === "OFFICE" || scope === "EAST";
 }
 
 export default {
@@ -11836,6 +11853,9 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
       }
 
       if (request.method === "GET") {
+        if (mmtbScopeIsUnconnected(url)) {
+          return new Response(JSON.stringify({ success: true, data: [] }), { headers: SECURE_JSON_HEADERS });
+        }
         try {
           const result = await mmtbKgGetMachines(env);
           return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
@@ -11876,6 +11896,9 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
     // ════════════════════════════════════════════════════════════════
     if (url.pathname.startsWith("/api/maintenance/tickets")) {
       if (request.method === "GET") {
+        if (mmtbScopeIsUnconnected(url)) {
+          return new Response(JSON.stringify({ success: true, data: [], counts: { PENDING: 0, ACCEPTED: 0, DONE: 0, total: 0 } }), { headers: SECURE_JSON_HEADERS });
+        }
         try {
           const result = await mmtbKgGetTickets(env);
           return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
@@ -11972,6 +11995,9 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
     // ⚙️ MAINTENANCE — CÁC TAB CÒN LẠI, CHỈ ĐỌC (proxy MMTB Kiên Giang, xem mmtbKg* phía trên)
     // ════════════════════════════════════════════════════════════════
     if (url.pathname === "/api/maintenance/schedule" && request.method === "GET") {
+      if (mmtbScopeIsUnconnected(url)) {
+        return new Response(JSON.stringify({ success: true, machines: [], periods: [], completedThisMonth: 0 }), { headers: SECURE_JSON_HEADERS });
+      }
       try {
         const result = await mmtbKgGetSchedule(env);
         return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
@@ -11981,6 +12007,9 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
     }
 
     if (url.pathname === "/api/maintenance/logs" && request.method === "GET") {
+      if (mmtbScopeIsUnconnected(url)) {
+        return new Response(JSON.stringify({ success: true, data: [] }), { headers: SECURE_JSON_HEADERS });
+      }
       try {
         const result = await mmtbKgGetLogs(env, url.searchParams.get("limit"));
         return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
@@ -11990,6 +12019,9 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
     }
 
     if (url.pathname === "/api/maintenance/inventory-log" && request.method === "GET") {
+      if (mmtbScopeIsUnconnected(url)) {
+        return new Response(JSON.stringify({ success: true, rows: [] }), { headers: SECURE_JSON_HEADERS });
+      }
       try {
         const result = await mmtbKgGetInventoryLog(env);
         return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
@@ -11999,6 +12031,9 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
     }
 
     if (url.pathname === "/api/maintenance/overview-report" && request.method === "GET") {
+      if (mmtbScopeIsUnconnected(url)) {
+        return new Response(JSON.stringify({ success: true, incidents: [], logs: [] }), { headers: SECURE_JSON_HEADERS });
+      }
       try {
         const result = await mmtbKgGetOverviewReport(env, url.searchParams);
         return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
@@ -12008,6 +12043,9 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
     }
 
     if (url.pathname === "/api/maintenance/proposals" && request.method === "GET") {
+      if (mmtbScopeIsUnconnected(url)) {
+        return new Response(JSON.stringify({ success: true, data: [] }), { headers: SECURE_JSON_HEADERS });
+      }
       try {
         const result = await mmtbKgGetProposals(env);
         return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
@@ -12016,7 +12054,22 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
       }
     }
 
+    if (url.pathname === "/api/maintenance/work-requests" && request.method === "GET") {
+      if (mmtbScopeIsUnconnected(url)) {
+        return new Response(JSON.stringify({ success: true, data: { items: [] } }), { headers: SECURE_JSON_HEADERS });
+      }
+      try {
+        const result = await mmtbKgGetWorkRequests(env);
+        return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message || "Không lấy được dữ liệu Việc khác" }), { status: 502, headers: SECURE_JSON_HEADERS });
+      }
+    }
+
     if (url.pathname === "/api/maintenance/employees" && request.method === "GET") {
+      if (mmtbScopeIsUnconnected(url)) {
+        return new Response(JSON.stringify({ success: true, data: [] }), { headers: SECURE_JSON_HEADERS });
+      }
       try {
         const result = await mmtbKgGetEmployees(env);
         return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
@@ -12026,6 +12079,9 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
     }
 
     if (url.pathname === "/api/maintenance/failure-categories" && request.method === "GET") {
+      if (mmtbScopeIsUnconnected(url)) {
+        return new Response(JSON.stringify({ success: true, data: [] }), { headers: SECURE_JSON_HEADERS });
+      }
       try {
         const result = await mmtbKgGetFailureCategories(env);
         return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
@@ -12035,6 +12091,9 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
     }
 
     if (url.pathname === "/api/maintenance/categories" && request.method === "GET") {
+      if (mmtbScopeIsUnconnected(url)) {
+        return new Response(JSON.stringify({ success: true, data: [] }), { headers: SECURE_JSON_HEADERS });
+      }
       try {
         const result = await mmtbKgGetCategories(env, url.searchParams.get("type"), url.searchParams.get("parentId"));
         return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
@@ -12046,6 +12105,9 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
     // CategoriesManager.tsx (5 tab Danh Mục con) gọi tiền tố /api/mmtb-kg/ (khớp đúng quy ước bên
     // thkiengiangshoes) thay vì /api/maintenance/ — cùng 1 logic đọc, chỉ khác đường dẫn.
     if (url.pathname === "/api/mmtb-kg/categories" && request.method === "GET") {
+      if (mmtbScopeIsUnconnected(url)) {
+        return new Response(JSON.stringify({ success: true, data: [] }), { headers: SECURE_JSON_HEADERS });
+      }
       try {
         const result = await mmtbKgGetCategories(env, url.searchParams.get("type"), url.searchParams.get("parentId"));
         return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });

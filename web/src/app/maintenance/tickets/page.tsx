@@ -173,10 +173,18 @@ export default function MaintenanceTicketsPage() {
       ]);
       const [ticketsRes, facRes, workRequestRes] = settled.map((s) => (s.status === 'fulfilled' ? s.value : { success: false, error: String(s.reason) }));
       if (ticketsRes.success && Array.isArray(ticketsRes.data)) {
-        setTickets(ticketsRes.data);
-        writeMaintenanceCache(ck('tickets'), ticketsRes.data);
-        setTicketCounts(ticketsRes.counts || null);
-        writeMaintenanceCache(ck('tickets_counts'), ticketsRes.counts || null);
+        // Backend thoáng qua trả "success:true, data:[]" khi quá tải — nếu tin ngay sẽ xoá trắng
+        // danh sách đang có mỗi lần rời trang rồi quay lại (xem machines/page.tsx). CHỈ ghi đè bằng
+        // mảng rỗng khi trước đó thật sự chưa có gì.
+        const prevTickets = readMaintenanceCache<Ticket[]>(ck('tickets'));
+        if (ticketsRes.data.length > 0 || !prevTickets || prevTickets.length === 0) {
+          setTickets(ticketsRes.data);
+          writeMaintenanceCache(ck('tickets'), ticketsRes.data);
+          setTicketCounts(ticketsRes.counts || null);
+          writeMaintenanceCache(ck('tickets_counts'), ticketsRes.counts || null);
+        } else {
+          console.warn('Bỏ qua kết quả rỗng bất thường từ tbsMayMoc (tickets) — giữ dữ liệu cũ');
+        }
       } else {
         console.warn('Failed to load tickets from tbsMayMoc:', ticketsRes.error);
         setError(ticketsRes.error || 'Không lấy được dữ liệu');

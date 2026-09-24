@@ -254,8 +254,17 @@ export default function MachinesPage() {
         s.status === 'fulfilled' ? s.value : { success: false, error: String(s.reason) };
       const [machinesRes, factoriesRes, areasRes, linesRes, teamsRes, typesRes, statusesRes, inventoryLogRes] = settled.map(asResult);
       if (machinesRes.success && Array.isArray(machinesRes.data)) {
-        setMachines(machinesRes.data);
-        writeMaintenanceCache(ck('machines'), machinesRes.data);
+        // Backend MMTB Kiên Giang thoáng qua trả "success:true, data:[]" (rỗng nhưng không phải lỗi
+        // hẳn) khi quá tải — nếu tin ngay sẽ xoá trắng danh sách đang có mỗi lần rời trang rồi quay
+        // lại (component dựng lại, load() chạy lại). CHỈ ghi đè bằng mảng rỗng khi trước đó THẬT SỰ
+        // chưa có gì (lần đầu tải) — còn lại giữ nguyên dữ liệu cũ, coi như 1 lượt tải lỗi thoáng qua.
+        const prevMachines = readMaintenanceCache<Machine[]>(ck('machines'));
+        if (machinesRes.data.length > 0 || !prevMachines || prevMachines.length === 0) {
+          setMachines(machinesRes.data);
+          writeMaintenanceCache(ck('machines'), machinesRes.data);
+        } else {
+          console.warn('Bỏ qua kết quả rỗng bất thường từ tbsMayMoc (machines) — giữ dữ liệu cũ');
+        }
       } else {
         console.warn('Failed to load machines from tbsMayMoc:', machinesRes.error);
         setError(machinesRes.error || 'Không lấy được dữ liệu');
@@ -267,13 +276,18 @@ export default function MachinesPage() {
       } else {
         console.warn('Failed to load inventory-log from tbsMayMoc:', inventoryLogRes.error);
       }
+      // Từng danh mục lọc: nếu lượt tải mới rỗng/lỗi NHƯNG đang có sẵn danh mục cũ không rỗng, giữ
+      // nguyên cái cũ thay vì xoá trắng dropdown đó (cùng lý do như "machines" ở trên).
+      const prevFilters = readMaintenanceCache<FilterOptions>(ck('machines_filters'));
+      const keepIfEmpty = (next: CategoryOption[], prev: CategoryOption[] | undefined) =>
+        next.length > 0 || !prev || prev.length === 0 ? next : prev;
       const nextFilterOptions: FilterOptions = {
-        factories: factoriesRes.success && Array.isArray(factoriesRes.data) ? factoriesRes.data : [],
-        areas: areasRes.success && Array.isArray(areasRes.data) ? areasRes.data : [],
-        productionLines: linesRes.success && Array.isArray(linesRes.data) ? linesRes.data : [],
-        teams: teamsRes.success && Array.isArray(teamsRes.data) ? teamsRes.data : [],
-        machineTypes: typesRes.success && Array.isArray(typesRes.data) ? typesRes.data : [],
-        statuses: statusesRes.success && Array.isArray(statusesRes.data) ? statusesRes.data : [],
+        factories: keepIfEmpty(factoriesRes.success && Array.isArray(factoriesRes.data) ? factoriesRes.data : [], prevFilters?.factories),
+        areas: keepIfEmpty(areasRes.success && Array.isArray(areasRes.data) ? areasRes.data : [], prevFilters?.areas),
+        productionLines: keepIfEmpty(linesRes.success && Array.isArray(linesRes.data) ? linesRes.data : [], prevFilters?.productionLines),
+        teams: keepIfEmpty(teamsRes.success && Array.isArray(teamsRes.data) ? teamsRes.data : [], prevFilters?.teams),
+        machineTypes: keepIfEmpty(typesRes.success && Array.isArray(typesRes.data) ? typesRes.data : [], prevFilters?.machineTypes),
+        statuses: keepIfEmpty(statusesRes.success && Array.isArray(statusesRes.data) ? statusesRes.data : [], prevFilters?.statuses),
       };
       setFilterOptions(nextFilterOptions);
       writeMaintenanceCache(ck('machines_filters'), nextFilterOptions);

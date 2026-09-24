@@ -150,10 +150,19 @@ export default function MaintenanceSchedulePage() {
       ]);
       const [scheduleRes, logsRes, inventoryLogRes] = settled.map((s) => (s.status === 'fulfilled' ? s.value : { success: false, error: String(s.reason) }));
       if (scheduleRes.success) {
-        setMachines(scheduleRes.machines || []);
+        // Backend thoáng qua trả "success:true" nhưng machines rỗng khi quá tải — nếu tin ngay sẽ
+        // xoá trắng danh sách đang có mỗi lần rời trang rồi quay lại (xem machines/page.tsx). CHỈ
+        // ghi đè bằng mảng rỗng khi trước đó thật sự chưa có gì.
+        const newMachines: ScheduleMachine[] = scheduleRes.machines || [];
+        const prevMachines = readMaintenanceCache<ScheduleMachine[]>(ck('schedule_machines'));
+        if (newMachines.length > 0 || !prevMachines || prevMachines.length === 0) {
+          setMachines(newMachines);
+          writeMaintenanceCache(ck('schedule_machines'), newMachines);
+        } else {
+          console.warn('Bỏ qua kết quả rỗng bất thường từ tbsMayMoc (schedule_machines) — giữ dữ liệu cũ');
+        }
         setPeriods(scheduleRes.periods || []);
         setCompletedThisMonth(scheduleRes.completedThisMonth || 0);
-        writeMaintenanceCache(ck('schedule_machines'), scheduleRes.machines || []);
         writeMaintenanceCache(ck('schedule_periods'), scheduleRes.periods || []);
         writeMaintenanceCache(ck('schedule_completed'), scheduleRes.completedThisMonth || 0);
       } else {

@@ -50,7 +50,14 @@ export default function CNCIWrapper() {
   const handleSelectMmtbScope = (scope: EquipmentScope) => {
     setMmtbScope(scope);
     if (typeof window !== "undefined") {
-      localStorage.setItem(STORAGE_KEY_SCOPE, scope);
+      // Chỉ để tiện nhớ lần sau — KHÔNG được để lỗi ở đây (VD tràn quota) chặn mất router.push() gọi
+      // ngay sau hàm này ở nơi bấm nút (đã có ca thật: QuotaExceededError làm 4 nút Tổng Quan/Văn
+      // phòng Chuỗi/Nhà Máy Miền Đông/Tổ Hợp Kiên Giang bấm không vào trang).
+      try {
+        localStorage.setItem(STORAGE_KEY_SCOPE, scope);
+      } catch {
+        /* bỏ qua */
+      }
     }
   };
 

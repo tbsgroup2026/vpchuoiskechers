@@ -96,9 +96,15 @@ function MaintenanceShellInner({
     const effective = getEffectiveScope(rawUrlScope, allowedScopes);
     setActiveScope(effective);
 
-    // Lưu localStorage
+    // Lưu localStorage — chỉ để tiện nhớ lần sau, KHÔNG được để lỗi ở đây (VD tràn quota) chặn mất
+    // phần chuyển trang/tải dữ liệu thật sự quan trọng bên dưới (đã có ca thật: QuotaExceededError
+    // làm cả nút chọn khu vực ở /work lẫn sidebar trong /maintenance bấm không ăn).
     if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEY_SCOPE, effective);
+      try {
+        localStorage.setItem(STORAGE_KEY_SCOPE, effective);
+      } catch {
+        /* localStorage đầy/bị chặn — bỏ qua, scope vẫn hoạt động đúng qua URL query param */
+      }
     }
 
     // Âm thầm tải trước dữ liệu các trang khác — CẢ 3 khu vực (KIEN_GIANG/OFFICE/EAST), không chỉ
@@ -128,7 +134,11 @@ function MaintenanceShellInner({
     if (!canAccessScope(scopeKey)) return;
     setActiveScope(scopeKey);
     if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEY_SCOPE, scopeKey);
+      try {
+        localStorage.setItem(STORAGE_KEY_SCOPE, scopeKey);
+      } catch {
+        /* localStorage đầy/bị chặn — bỏ qua, không chặn chuyển trang bên dưới */
+      }
     }
     const params = new URLSearchParams(searchParams?.toString() || '');
     params.set('scope', scopeKey);

@@ -64,6 +64,43 @@ function getEntry(key: string): Entry | undefined {
   return entry;
 }
 
+// Dọn 1 LẦN DUY NHẤT các key cache CŨ (localStorage prefix "mmtb_cache_v1_", xem lib/maintenanceCache.ts)
+// của đúng 4 trang vừa chuyển sang mmtbTabCache — sau khi migrate, dữ liệu (danh sách ~2500 máy, sự
+// cố...) bị lưu TRÙNG LẶP ở cả 2 nơi cùng lúc (cache cũ không tự mất, cache mới ghi thêm bên cạnh),
+// từng làm đầy quota localStorage và gây QuotaExceededError chặn cả việc chuyển trang ở nơi khác
+// (VD 4 nút chọn khu vực ở /work, xem CNCIWrapper.tsx) — dù chỗ đó không hề đọc/ghi cache MMTB.
+// Đánh dấu bằng 1 cờ riêng để chỉ quét localStorage đúng 1 lần trên mỗi trình duyệt, không lặp lại
+// mỗi lần tải trang.
+const LEGACY_PREFIX = 'mmtb_cache_v1_';
+const LEGACY_CLEANUP_FLAG = STORAGE_PREFIX + 'legacy-cleanup-done';
+const LEGACY_KEY_PREFIXES_TO_REMOVE = [
+  'machines_', // gồm cả machines_filters_*, machines_verified_* (cùng tiền tố)
+  'schedule_', // schedule_machines_*, schedule_periods_*, schedule_completed_*, schedule_logs_*
+  'tickets_', // gồm cả tickets_counts_*, tickets_factories_*, tickets_work_requests_*
+  'overview_machines', 'overview_schedule', 'overview_proposals', 'overview_factories',
+  'overview_areas', 'overview_incidents', 'overview_logs', 'overview_lines', // "overview_lines" chết
+  // hẳn — đã bỏ lọc theo Line, không còn nơi nào ghi/đọc key này nữa dù cũ hay mới.
+];
+
+function cleanupLegacyCache() {
+  if (typeof window === 'undefined') return;
+  try {
+    if (window.localStorage.getItem(LEGACY_CLEANUP_FLAG)) return;
+    const toRemove: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const k = window.localStorage.key(i);
+      if (!k || !k.startsWith(LEGACY_PREFIX)) continue;
+      const rest = k.slice(LEGACY_PREFIX.length);
+      if (LEGACY_KEY_PREFIXES_TO_REMOVE.some((p) => rest.startsWith(p))) toRemove.push(k);
+    }
+    toRemove.forEach((k) => window.localStorage.removeItem(k));
+    window.localStorage.setItem(LEGACY_CLEANUP_FLAG, '1');
+  } catch {
+    // Tràn quota/bị chặn ngay cả lúc dọn — bỏ qua, không phải lỗi nghiêm trọng.
+  }
+}
+cleanupLegacyCache();
+
 export const mmtbTabCache = {
   get<T>(key: string): T | undefined {
     return getEntry(key)?.value as T | undefined;

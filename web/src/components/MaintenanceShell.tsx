@@ -37,6 +37,7 @@ import {
 } from '@/lib/equipmentScope';
 import { usePermission } from '@/hooks/usePermission';
 import { prefetchMaintenanceData } from '@/lib/maintenancePrefetch';
+import { mmtbTabCache } from '@/lib/mmtbTabCache';
 
 const ICONS: Record<string, any> = {
   IconTools,
@@ -112,6 +113,9 @@ function MaintenanceShellInner({
   }, [rawUrlScope, allowedScopes, authChecked]);
 
   const handleLogout = () => {
+    // Xoá sạch cache MMTB (bộ nhớ + localStorage) — tránh máy dùng chung hiện tạm dữ liệu của người
+    // vừa đăng xuất cho người đăng nhập kế tiếp (xem lib/mmtbTabCache.ts).
+    mmtbTabCache.clear();
     logoutUserProfile();
     router.replace('/login');
   };

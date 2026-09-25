@@ -23,7 +23,7 @@ import FilterSelect from '@/components/FilterSelect';
 import DateRangeFilter, { inDateRange } from '@/components/DateRangeFilter';
 import RefreshButton from '@/components/RefreshButton';
 import Pagination from '@/components/Pagination';
-import { readMaintenanceCache, writeMaintenanceCache } from '@/lib/maintenanceCache';
+import { mmtbTabCache } from '@/lib/mmtbTabCache';
 import { getCurrentMmtbScope } from '@/lib/equipmentScope';
 
 const PAGE_SIZE = 50;
@@ -147,11 +147,11 @@ export default function MaintenanceTicketsPage() {
   const scope = getCurrentMmtbScope();
   const ck = (key: string) => `${key}_${scope}`;
 
-  const [tickets, setTickets] = useState<Ticket[]>(() => readMaintenanceCache<Ticket[]>(ck('tickets')) || []);
-  const [ticketCounts, setTicketCounts] = useState<TicketCounts | null>(() => readMaintenanceCache<TicketCounts>(ck('tickets_counts')) || null);
-  const [factories, setFactories] = useState<CategoryOption[]>(() => readMaintenanceCache<CategoryOption[]>(ck('tickets_factories')) || []);
-  const [workRequests, setWorkRequests] = useState<WorkRequestItem[]>(() => readMaintenanceCache<WorkRequestItem[]>(ck('tickets_work_requests')) || []);
-  const [loading, setLoading] = useState(() => readMaintenanceCache<Ticket[]>(ck('tickets')) === null);
+  const [tickets, setTickets] = useState<Ticket[]>(() => mmtbTabCache.get<Ticket[]>(ck('tickets')) ?? []);
+  const [ticketCounts, setTicketCounts] = useState<TicketCounts | null>(() => mmtbTabCache.get<TicketCounts>(ck('tickets_counts')) ?? null);
+  const [factories, setFactories] = useState<CategoryOption[]>(() => mmtbTabCache.get<CategoryOption[]>(ck('tickets_factories')) ?? []);
+  const [workRequests, setWorkRequests] = useState<WorkRequestItem[]>(() => mmtbTabCache.get<WorkRequestItem[]>(ck('tickets_work_requests')) ?? []);
+  const [loading, setLoading] = useState(() => !mmtbTabCache.has(ck('tickets')));
   const [error, setError] = useState<string | null>(null);
   const [showWorkRequests, setShowWorkRequests] = useState(false);
 
@@ -177,12 +177,12 @@ export default function MaintenanceTicketsPage() {
         // Backend thoáng qua trả "success:true, data:[]" khi quá tải — nếu tin ngay sẽ xoá trắng
         // danh sách đang có mỗi lần rời trang rồi quay lại (xem machines/page.tsx). CHỈ ghi đè bằng
         // mảng rỗng khi trước đó thật sự chưa có gì.
-        const prevTickets = readMaintenanceCache<Ticket[]>(ck('tickets'));
+        const prevTickets = mmtbTabCache.get<Ticket[]>(ck('tickets'));
         if (ticketsRes.data.length > 0 || !prevTickets || prevTickets.length === 0) {
           setTickets(ticketsRes.data);
-          writeMaintenanceCache(ck('tickets'), ticketsRes.data);
+          mmtbTabCache.set(ck('tickets'), ticketsRes.data);
           setTicketCounts(ticketsRes.counts || null);
-          writeMaintenanceCache(ck('tickets_counts'), ticketsRes.counts || null);
+          mmtbTabCache.set(ck('tickets_counts'), ticketsRes.counts || null);
         } else {
           console.warn('Bỏ qua kết quả rỗng bất thường từ tbsMayMoc (tickets) — giữ dữ liệu cũ');
         }
@@ -192,12 +192,12 @@ export default function MaintenanceTicketsPage() {
       }
       if (facRes.success) {
         setFactories(facRes.data || []);
-        writeMaintenanceCache(ck('tickets_factories'), facRes.data || []);
+        mmtbTabCache.set(ck('tickets_factories'), facRes.data || []);
       }
       if (workRequestRes.success) {
         const items = workRequestRes.data?.items || [];
         setWorkRequests(items);
-        writeMaintenanceCache(ck('tickets_work_requests'), items);
+        mmtbTabCache.set(ck('tickets_work_requests'), items);
       }
     } catch (err) {
       console.warn('Failed to fetch tickets from tbsMayMoc:', err);
@@ -207,7 +207,8 @@ export default function MaintenanceTicketsPage() {
   }
 
   useEffect(() => {
-    load();
+    // Cache còn mới (<2 phút) -> bỏ hẳn lượt tải nền (xem lib/mmtbTabCache.ts).
+    if (!mmtbTabCache.isFresh(ck('tickets'))) load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

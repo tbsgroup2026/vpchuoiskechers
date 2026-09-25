@@ -9,6 +9,7 @@
 // cache key và URL gọi API ở đây đều phải kèm scope (xem lib/equipmentScope.ts), khớp đúng cách
 // từng trang con tự làm, tránh prefetch nhầm cache của khu vực này sang khu vực khác.
 import { readMaintenanceCache, writeMaintenanceCache } from './maintenanceCache';
+import { mmtbTabCache } from './mmtbTabCache';
 import { EquipmentScope } from './equipmentScope';
 
 const prefetchedScopes = new Set<EquipmentScope>();
@@ -110,21 +111,25 @@ export function prefetchMaintenanceData(scope: EquipmentScope): void {
   prefetchedScopes.add(scope);
 
   const need = (key: string) => readMaintenanceCache(key) === null;
+  // Danh Sách MMTB/Bảo Dưỡng MMTB/Nhu Cầu Sửa Chữa/Tổng Quan giờ đọc qua mmtbTabCache (xem
+  // lib/mmtbTabCache.ts) — prefetch phải ghi ĐÚNG chỗ trang thật đọc, không thì prefetch chạy xong
+  // mà trang vẫn không thấy gì (2 kho lưu trữ khác nhau).
+  const needTab = (key: string) => !mmtbTabCache.has(key);
   // Mỗi phần tử là 1 HÀM (chưa chạy) — chỉ thực sự gọi fetch khi runPool() rút nó ra khỏi hàng đợi,
   // nhờ vậy giới hạn được số request thật gửi đi cùng lúc (xem runPool ở trên).
   const taskFns: Array<() => Promise<void>> = [];
 
   // ---- Danh Sách MMTB (machines) ----
-  if (need(`machines_${scope}`)) {
+  if (needTab(`machines_${scope}`)) {
     taskFns.push(() =>
       getJson(`/api/maintenance/machines?scope=${scope}`).then((r) => {
-        if (r.success && Array.isArray(r.data)) writeMaintenanceCache(`machines_${scope}`, r.data);
+        if (r.success && Array.isArray(r.data)) mmtbTabCache.set(`machines_${scope}`, r.data);
       })
     );
   }
 
   // ---- Bộ lọc trang Danh Sách MMTB ----
-  if (need(`machines_filters_${scope}`)) {
+  if (needTab(`machines_filters_${scope}`)) {
     taskFns.push(() =>
       Promise.all([
         categoryData('FACTORY', scope),
@@ -134,61 +139,61 @@ export function prefetchMaintenanceData(scope: EquipmentScope): void {
         categoryData('MACHINE_TYPE', scope),
         categoryData('MACHINE_STATUS', scope),
       ]).then(([factories, areas, productionLines, teams, machineTypes, statuses]) => {
-        writeMaintenanceCache(`machines_filters_${scope}`, { factories, areas, productionLines, teams, machineTypes, statuses });
+        mmtbTabCache.set(`machines_filters_${scope}`, { factories, areas, productionLines, teams, machineTypes, statuses });
       })
     );
   }
 
   // ---- Máy đã kiểm kê (dùng chung giữa trang Danh Sách MMTB và Bảo Dưỡng MMTB) ----
-  if (need(`machines_verified_${scope}`)) {
+  if (needTab(`machines_verified_${scope}`)) {
     taskFns.push(() =>
       getJson(`/api/maintenance/inventory-log?scope=${scope}`).then((r) => {
         if (r.success && Array.isArray(r.rows)) {
           const codes = Array.from(new Set<string>(r.rows.map((row: any) => row.machine?.code).filter(Boolean)));
-          writeMaintenanceCache(`machines_verified_${scope}`, codes);
+          mmtbTabCache.set(`machines_verified_${scope}`, codes);
         }
       })
     );
   }
 
   // ---- Bảo Dưỡng MMTB (schedule_*) ----
-  if (need(`schedule_machines_${scope}`) || need(`schedule_periods_${scope}`) || need(`schedule_completed_${scope}`)) {
+  if (needTab(`schedule_machines_${scope}`) || needTab(`schedule_periods_${scope}`) || needTab(`schedule_completed_${scope}`)) {
     taskFns.push(() =>
       getJson(`/api/maintenance/schedule?scope=${scope}`).then((r) => {
         if (r.success) {
-          writeMaintenanceCache(`schedule_machines_${scope}`, r.machines || []);
-          writeMaintenanceCache(`schedule_periods_${scope}`, r.periods || []);
-          writeMaintenanceCache(`schedule_completed_${scope}`, r.completedThisMonth || 0);
+          mmtbTabCache.set(`schedule_machines_${scope}`, r.machines || []);
+          mmtbTabCache.set(`schedule_periods_${scope}`, r.periods || []);
+          mmtbTabCache.set(`schedule_completed_${scope}`, r.completedThisMonth || 0);
         }
       })
     );
   }
-  if (need(`schedule_logs_${scope}`)) {
+  if (needTab(`schedule_logs_${scope}`)) {
     taskFns.push(() =>
       getJson(`/api/maintenance/logs?scope=${scope}`).then((r) => {
-        if (r.success) writeMaintenanceCache(`schedule_logs_${scope}`, r.data || []);
+        if (r.success) mmtbTabCache.set(`schedule_logs_${scope}`, r.data || []);
       })
     );
   }
 
   // ---- Nhu Cầu Sửa Chữa (tickets, tickets_counts) ----
-  if (need(`tickets_${scope}`) || need(`tickets_counts_${scope}`)) {
+  if (needTab(`tickets_${scope}`) || needTab(`tickets_counts_${scope}`)) {
     taskFns.push(() =>
       getJson(`/api/maintenance/tickets?scope=${scope}`).then((r) => {
         if (r.success && Array.isArray(r.data)) {
-          writeMaintenanceCache(`tickets_${scope}`, r.data);
-          writeMaintenanceCache(`tickets_counts_${scope}`, r.counts || null);
+          mmtbTabCache.set(`tickets_${scope}`, r.data);
+          mmtbTabCache.set(`tickets_counts_${scope}`, r.counts || null);
         }
       })
     );
   }
-  if (need(`tickets_factories_${scope}`)) {
-    taskFns.push(() => categoryData('FACTORY', scope).then((factories) => writeMaintenanceCache(`tickets_factories_${scope}`, factories)));
+  if (needTab(`tickets_factories_${scope}`)) {
+    taskFns.push(() => categoryData('FACTORY', scope).then((factories) => mmtbTabCache.set(`tickets_factories_${scope}`, factories)));
   }
-  if (need(`tickets_work_requests_${scope}`)) {
+  if (needTab(`tickets_work_requests_${scope}`)) {
     taskFns.push(() =>
       getJson(`/api/maintenance/work-requests?scope=${scope}`).then((r) => {
-        if (r.success) writeMaintenanceCache(`tickets_work_requests_${scope}`, r.data?.items || []);
+        if (r.success) mmtbTabCache.set(`tickets_work_requests_${scope}`, r.data?.items || []);
       })
     );
   }
@@ -248,48 +253,48 @@ export function prefetchMaintenanceData(scope: EquipmentScope): void {
   }
 
   // ---- Trang Tổng Quan (scope=ALL) — Kiên Giang chi tiết + so sánh 3 khu vực ----
+  // LƯU Ý tên key PHẢI có hậu tố "_KIEN_GIANG" — khớp đúng dck('overview_...') trang Tổng Quan thật
+  // đang đọc (dck = `${key}_${detailScope}`, detailScope luôn là KIEN_GIANG kể cả khi scope=ALL).
   if (scope === 'ALL') {
-    if (need('overview_incidents') || need('overview_logs')) {
+    if (needTab('overview_incidents_KIEN_GIANG') || needTab('overview_logs_KIEN_GIANG')) {
       taskFns.push(() =>
         getJson('/api/maintenance/overview-report?scope=KIEN_GIANG').then((r) => {
           if (r.success) {
-            writeMaintenanceCache('overview_incidents', r.incidents || []);
-            writeMaintenanceCache('overview_logs', r.logs || []);
+            mmtbTabCache.set('overview_incidents_KIEN_GIANG', r.incidents || []);
+            mmtbTabCache.set('overview_logs_KIEN_GIANG', r.logs || []);
           }
         })
       );
     }
-    if (need('overview_machines')) {
+    if (needTab('overview_machines_KIEN_GIANG')) {
       taskFns.push(() =>
         getJson('/api/maintenance/machines?scope=KIEN_GIANG').then((r) => {
-          if (r.success && Array.isArray(r.data)) writeMaintenanceCache('overview_machines', r.data);
+          if (r.success && Array.isArray(r.data)) mmtbTabCache.set('overview_machines_KIEN_GIANG', r.data);
         })
       );
     }
-    if (need('overview_schedule')) {
+    if (needTab('overview_schedule_KIEN_GIANG')) {
       taskFns.push(() =>
         getJson('/api/maintenance/schedule?scope=KIEN_GIANG').then((r) => {
-          if (r.success) writeMaintenanceCache('overview_schedule', r.machines || []);
+          if (r.success) mmtbTabCache.set('overview_schedule_KIEN_GIANG', r.machines || []);
         })
       );
     }
-    if (need('overview_proposals')) {
+    if (needTab('overview_proposals_KIEN_GIANG')) {
       taskFns.push(() =>
         getJson('/api/maintenance/proposals?scope=KIEN_GIANG').then((r) => {
-          if (r.success && Array.isArray(r.data)) writeMaintenanceCache('overview_proposals', r.data);
+          if (r.success && Array.isArray(r.data)) mmtbTabCache.set('overview_proposals_KIEN_GIANG', r.data);
         })
       );
     }
-    if (need('overview_factories') || need('overview_areas') || need('overview_lines')) {
+    if (needTab('overview_factories_KIEN_GIANG') || needTab('overview_areas_KIEN_GIANG')) {
       taskFns.push(() =>
         Promise.all([
           categoryData('FACTORY', 'KIEN_GIANG'),
           categoryData('AREA', 'KIEN_GIANG'),
-          categoryData('PRODUCTION_LINE', 'KIEN_GIANG'),
-        ]).then(([factories, areas, lines]) => {
-          writeMaintenanceCache('overview_factories', factories);
-          writeMaintenanceCache('overview_areas', areas);
-          writeMaintenanceCache('overview_lines', lines);
+        ]).then(([factories, areas]) => {
+          mmtbTabCache.set('overview_factories_KIEN_GIANG', factories);
+          mmtbTabCache.set('overview_areas_KIEN_GIANG', areas);
         })
       );
     }

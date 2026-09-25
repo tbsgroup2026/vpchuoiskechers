@@ -2079,10 +2079,6 @@ video {
   min-width: 1100px;
 }
 
-.min-w-\[110px\] {
-  min-width: 110px;
-}
-
 .min-w-\[120px\] {
   min-width: 120px;
 }
@@ -2897,6 +2893,10 @@ video {
 
 .self-center {
   align-self: center;
+}
+
+.self-stretch {
+  align-self: stretch;
 }
 
 .overflow-auto {

@@ -22,7 +22,7 @@ import {
   buildCalendarWeeks,
   type CalendarCell,
 } from '@/lib/maintenanceCalendar';
-import { readMaintenanceCache, writeMaintenanceCache } from '@/lib/maintenanceCache';
+import { mmtbTabCache } from '@/lib/mmtbTabCache';
 import { getCurrentMmtbScope } from '@/lib/equipmentScope';
 
 type ScheduleMachine = {
@@ -121,14 +121,14 @@ export default function MaintenanceSchedulePage() {
   const scope = getCurrentMmtbScope();
   const ck = (key: string) => `${key}_${scope}`;
 
-  const [machines, setMachines] = useState<ScheduleMachine[]>(() => readMaintenanceCache<ScheduleMachine[]>(ck('schedule_machines')) || []);
+  const [machines, setMachines] = useState<ScheduleMachine[]>(() => mmtbTabCache.get<ScheduleMachine[]>(ck('schedule_machines')) ?? []);
   // Chỉ tính "Máy đã kiểm kê" (đã xuất hiện ≥1 lần trong nhật ký Kiểm Kê) — khớp đúng cách trang
   // Danh Sách MMTB thật đang lọc. Dùng chung cache key với trang Máy Móc để 2 trang khớp số liệu.
-  const [verifiedCodes, setVerifiedCodes] = useState<Set<string>>(() => new Set(readMaintenanceCache<string[]>(ck('machines_verified')) || []));
-  const [periods, setPeriods] = useState<Period[]>(() => readMaintenanceCache<Period[]>(ck('schedule_periods')) || []);
-  const [completedThisMonth, setCompletedThisMonth] = useState(() => readMaintenanceCache<number>(ck('schedule_completed')) || 0);
-  const [logs, setLogs] = useState<LogEntry[]>(() => readMaintenanceCache<LogEntry[]>(ck('schedule_logs')) || []);
-  const [loading, setLoading] = useState(() => readMaintenanceCache<ScheduleMachine[]>(ck('schedule_machines')) === null);
+  const [verifiedCodes, setVerifiedCodes] = useState<Set<string>>(() => new Set(mmtbTabCache.get<string[]>(ck('machines_verified')) ?? []));
+  const [periods, setPeriods] = useState<Period[]>(() => mmtbTabCache.get<Period[]>(ck('schedule_periods')) ?? []);
+  const [completedThisMonth, setCompletedThisMonth] = useState(() => mmtbTabCache.get<number>(ck('schedule_completed')) ?? 0);
+  const [logs, setLogs] = useState<LogEntry[]>(() => mmtbTabCache.get<LogEntry[]>(ck('schedule_logs')) ?? []);
+  const [loading, setLoading] = useState(() => !mmtbTabCache.has(ck('schedule_machines')));
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('assign');
 
@@ -154,29 +154,29 @@ export default function MaintenanceSchedulePage() {
         // xoá trắng danh sách đang có mỗi lần rời trang rồi quay lại (xem machines/page.tsx). CHỈ
         // ghi đè bằng mảng rỗng khi trước đó thật sự chưa có gì.
         const newMachines: ScheduleMachine[] = scheduleRes.machines || [];
-        const prevMachines = readMaintenanceCache<ScheduleMachine[]>(ck('schedule_machines'));
+        const prevMachines = mmtbTabCache.get<ScheduleMachine[]>(ck('schedule_machines'));
         if (newMachines.length > 0 || !prevMachines || prevMachines.length === 0) {
           setMachines(newMachines);
-          writeMaintenanceCache(ck('schedule_machines'), newMachines);
+          mmtbTabCache.set(ck('schedule_machines'), newMachines);
         } else {
           console.warn('Bỏ qua kết quả rỗng bất thường từ tbsMayMoc (schedule_machines) — giữ dữ liệu cũ');
         }
         setPeriods(scheduleRes.periods || []);
         setCompletedThisMonth(scheduleRes.completedThisMonth || 0);
-        writeMaintenanceCache(ck('schedule_periods'), scheduleRes.periods || []);
-        writeMaintenanceCache(ck('schedule_completed'), scheduleRes.completedThisMonth || 0);
+        mmtbTabCache.set(ck('schedule_periods'), scheduleRes.periods || []);
+        mmtbTabCache.set(ck('schedule_completed'), scheduleRes.completedThisMonth || 0);
       } else {
         console.warn('Failed to load schedule from tbsMayMoc:', scheduleRes.error);
         setError(scheduleRes.error || 'Không lấy được dữ liệu lịch bảo trì');
       }
       if (logsRes.success) {
         setLogs(logsRes.data || []);
-        writeMaintenanceCache(ck('schedule_logs'), logsRes.data || []);
+        mmtbTabCache.set(ck('schedule_logs'), logsRes.data || []);
       }
       if (inventoryLogRes.success && Array.isArray(inventoryLogRes.rows)) {
         const codes = new Set<string>(inventoryLogRes.rows.map((r: any) => r.machine?.code).filter(Boolean));
         setVerifiedCodes(codes);
-        writeMaintenanceCache(ck('machines_verified'), [...codes]);
+        mmtbTabCache.set(ck('machines_verified'), [...codes]);
       } else {
         console.warn('Failed to load inventory-log from tbsMayMoc:', inventoryLogRes.error);
       }
@@ -188,7 +188,8 @@ export default function MaintenanceSchedulePage() {
   };
 
   useEffect(() => {
-    load();
+    // Cache còn mới (<2 phút) -> bỏ hẳn lượt tải nền (xem lib/mmtbTabCache.ts).
+    if (!mmtbTabCache.isFresh(ck('schedule_machines'))) load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

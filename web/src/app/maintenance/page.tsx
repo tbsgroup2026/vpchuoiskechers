@@ -23,6 +23,7 @@ import {
   IconBuildingSkyscraper,
   IconBuildingCommunity,
   IconBuilding,
+  IconMapPin,
   IconTrophy,
   IconBulbFilled,
   IconTrendingUp,
@@ -34,7 +35,6 @@ import {
 } from '@tabler/icons-react';
 import MaintenanceShell from '@/components/MaintenanceShell';
 import StatCardRow from '@/components/StatCardRow';
-import FilterSelect from '@/components/FilterSelect';
 import DateRangeFilter, { inDateRange } from '@/components/DateRangeFilter';
 import ParetoChart, { type ParetoItem } from '@/components/charts/ParetoChart';
 import TrendChart, { type TrendPoint } from '@/components/charts/TrendChart';
@@ -42,6 +42,7 @@ import Sparkline from '@/components/charts/Sparkline';
 import MultiLineComparisonChart, { type ComparisonSeries } from '@/components/charts/MultiLineComparisonChart';
 import UnitBarChart from '@/components/charts/UnitBarChart';
 import { readMaintenanceCache, writeMaintenanceCache } from '@/lib/maintenanceCache';
+import { mmtbTabCache } from '@/lib/mmtbTabCache';
 import { EquipmentScope, getCurrentMmtbScope } from '@/lib/equipmentScope';
 
 type Machine = {
@@ -183,6 +184,11 @@ const COMPARISON_UNIT_DEFS: CompUnitDef[] = [
   { key: 'EAST', label: 'SK MD', scope: 'EAST', factoryNameMatch: null, icon: IconBuildingSkyscraper, color: '#e11d48' },
   { key: 'OFFICE', label: 'VP2', scope: 'OFFICE', factoryNameMatch: null, icon: IconBuilding, color: '#9333ea' },
 ];
+
+// Màu icon nhà máy ở hàng bộ lọc Tổng Quan riêng từng nhà máy (KHÁC danh sách cố định
+// COMPARISON_UNIT_DEFS ở trên — đây là `factories` tải động từ API, số lượng/tên tuỳ theo scope
+// đang xem, VD Kiên Giang có 5) — gán màu theo VỊ TRÍ trong mảng, lặp lại bảng màu nếu nhiều hơn.
+const FACTORY_CHIP_COLORS = ['#2563eb', '#7c3aed', '#d97706', '#0d9488', '#e11d48', '#059669', '#c026d3', '#0891b2'];
 
 type CompDailyPoint = { day: string; mttr: number; count: number; downtime: number };
 type CompUnitData = { kpi: ScopeKpi; prevKpi: ScopeKpi; daily: CompDailyPoint[] };
@@ -328,27 +334,25 @@ export default function OverviewPage() {
   const dck = (key: string) => `${key}_${detailScope}`;
 
   // ---- Khối tóm tắt nhanh ----
-  const [machines, setMachines] = useState<Machine[]>(() => readMaintenanceCache<Machine[]>(dck('overview_machines')) || []);
-  const [scheduleMachines, setScheduleMachines] = useState<ScheduleMachine[]>(() => readMaintenanceCache<ScheduleMachine[]>(dck('overview_schedule')) || []);
-  const [proposals, setProposals] = useState<Proposal[]>(() => readMaintenanceCache<Proposal[]>(dck('overview_proposals')) || []);
-  const [quickLoading, setQuickLoading] = useState(() => readMaintenanceCache<Machine[]>(dck('overview_machines')) === null);
+  const [machines, setMachines] = useState<Machine[]>(() => mmtbTabCache.get<Machine[]>(dck('overview_machines')) ?? []);
+  const [scheduleMachines, setScheduleMachines] = useState<ScheduleMachine[]>(() => mmtbTabCache.get<ScheduleMachine[]>(dck('overview_schedule')) ?? []);
+  const [proposals, setProposals] = useState<Proposal[]>(() => mmtbTabCache.get<Proposal[]>(dck('overview_proposals')) ?? []);
+  const [quickLoading, setQuickLoading] = useState(() => !mmtbTabCache.has(dck('overview_machines')));
 
   // ---- Bộ lọc phân tích (Nhà máy/Phân xưởng/Line + thời gian) — mặc định THÁNG HIỆN TẠI, khớp
   // đúng trang Tổng Quan thật bên thkiengiangshoes. ----
-  const [factories, setFactories] = useState<CategoryOption[]>(() => readMaintenanceCache<CategoryOption[]>(dck('overview_factories')) || []);
-  const [areas, setAreas] = useState<CategoryOption[]>(() => readMaintenanceCache<CategoryOption[]>(dck('overview_areas')) || []);
-  const [lines, setLines] = useState<CategoryOption[]>(() => readMaintenanceCache<CategoryOption[]>(dck('overview_lines')) || []);
+  const [factories, setFactories] = useState<CategoryOption[]>(() => mmtbTabCache.get<CategoryOption[]>(dck('overview_factories')) ?? []);
+  const [areas, setAreas] = useState<CategoryOption[]>(() => mmtbTabCache.get<CategoryOption[]>(dck('overview_areas')) ?? []);
   const [pFactoryId, setPFactoryId] = useState('');
   const [pAreaId, setPAreaId] = useState('');
-  const [pLineId, setPLineId] = useState('');
   const [pMonth, setPMonth] = useState(currentMonthVN());
   const [pDateFrom, setPDateFrom] = useState(() => monthToDateRange(pMonth).from);
   const [pDateTo, setPDateTo] = useState(() => monthToDateRange(pMonth).to);
 
   // ---- Dữ liệu phân tích ----
-  const [incidents, setIncidents] = useState<OverviewIncident[]>(() => readMaintenanceCache<OverviewIncident[]>(dck('overview_incidents')) || []);
-  const [logs, setLogs] = useState<OverviewLog[]>(() => readMaintenanceCache<OverviewLog[]>(dck('overview_logs')) || []);
-  const [loading, setLoading] = useState(() => readMaintenanceCache<OverviewIncident[]>(dck('overview_incidents')) === null);
+  const [incidents, setIncidents] = useState<OverviewIncident[]>(() => mmtbTabCache.get<OverviewIncident[]>(dck('overview_incidents')) ?? []);
+  const [logs, setLogs] = useState<OverviewLog[]>(() => mmtbTabCache.get<OverviewLog[]>(dck('overview_logs')) ?? []);
+  const [loading, setLoading] = useState(() => !mmtbTabCache.has(dck('overview_incidents')));
   const [, setError] = useState<string | null>(null);
   const [reliabilitySearch, setReliabilitySearch] = useState('');
   const [detailMachineCode, setDetailMachineCode] = useState<string | null>(null);
@@ -392,10 +396,19 @@ export default function OverviewPage() {
       const res = await fetch(`/api/maintenance/overview-report?${qs}`);
       const result = await res.json();
       if (result.success) {
-        setIncidents(result.incidents || []);
-        setLogs(result.logs || []);
-        writeMaintenanceCache(dck('overview_incidents'), result.incidents || []);
-        writeMaintenanceCache(dck('overview_logs'), result.logs || []);
+        // Backend thoáng qua trả "success:true" nhưng rỗng khi quá tải — nếu tin ngay sẽ xoá trắng
+        // dữ liệu đang có mỗi lần rời trang rồi quay lại (xem machines/page.tsx). CHỈ ghi đè bằng
+        // mảng rỗng khi trước đó thật sự chưa có gì.
+        const newIncidents: OverviewIncident[] = result.incidents || [];
+        const prevIncidents = mmtbTabCache.get<OverviewIncident[]>(dck('overview_incidents'));
+        if (newIncidents.length > 0 || !prevIncidents || prevIncidents.length === 0) {
+          setIncidents(newIncidents);
+          setLogs(result.logs || []);
+          mmtbTabCache.set(dck('overview_incidents'), newIncidents);
+          mmtbTabCache.set(dck('overview_logs'), result.logs || []);
+        } else {
+          console.warn('Bỏ qua kết quả rỗng bất thường từ tbsMayMoc (overview) — giữ dữ liệu cũ');
+        }
       } else {
         console.warn('Failed to load overview-report:', result.error);
         setError(result.error || 'Không lấy được dữ liệu phân tích');
@@ -407,8 +420,20 @@ export default function OverviewPage() {
     }
   }
 
+  // Giữ dữ liệu cũ nếu lượt tải mới rỗng bất thường nhưng trước đó đã có sẵn (xem machines/page.tsx).
+  function keepListIfEmpty<T>(key: string, next: T[]): T[] {
+    if (next.length > 0) return next;
+    const prev = mmtbTabCache.get<T[]>(key);
+    return prev && prev.length > 0 ? prev : next;
+  }
+
   useEffect(() => {
     (async () => {
+      // Cache còn mới (<2 phút) -> bỏ hẳn lượt tải nền của khối tóm tắt nhanh (xem lib/mmtbTabCache.ts).
+      if (mmtbTabCache.isFresh(dck('overview_machines'))) {
+        setQuickLoading(false);
+        return;
+      }
       try {
         const settled = await Promise.allSettled([
           fetch(`/api/maintenance/machines?scope=${detailScope}`).then((r) => r.json()),
@@ -416,34 +441,34 @@ export default function OverviewPage() {
           fetch(`/api/maintenance/proposals?scope=${detailScope}`).then((r) => r.json()),
           fetch(`/api/maintenance/categories?type=FACTORY&scope=${detailScope}`).then((r) => r.json()),
           fetch(`/api/maintenance/categories?type=AREA&scope=${detailScope}`).then((r) => r.json()),
-          fetch(`/api/maintenance/categories?type=PRODUCTION_LINE&scope=${detailScope}`).then((r) => r.json()),
         ]);
-        const [machinesRes, scheduleRes, proposalsRes, facRes, areaRes, lineRes] = settled.map((s) =>
+        const [machinesRes, scheduleRes, proposalsRes, facRes, areaRes] = settled.map((s) =>
           s.status === 'fulfilled' ? s.value : { success: false },
         );
         if (machinesRes.success) {
-          setMachines(machinesRes.data || []);
-          writeMaintenanceCache(dck('overview_machines'), machinesRes.data || []);
+          const next = keepListIfEmpty(dck('overview_machines'), machinesRes.data || []);
+          setMachines(next);
+          mmtbTabCache.set(dck('overview_machines'), next);
         }
         if (scheduleRes.success) {
-          setScheduleMachines(scheduleRes.machines || []);
-          writeMaintenanceCache(dck('overview_schedule'), scheduleRes.machines || []);
+          const next = keepListIfEmpty(dck('overview_schedule'), scheduleRes.machines || []);
+          setScheduleMachines(next);
+          mmtbTabCache.set(dck('overview_schedule'), next);
         }
         if (proposalsRes.success) {
-          setProposals(proposalsRes.data || []);
-          writeMaintenanceCache(dck('overview_proposals'), proposalsRes.data || []);
+          const next = keepListIfEmpty(dck('overview_proposals'), proposalsRes.data || []);
+          setProposals(next);
+          mmtbTabCache.set(dck('overview_proposals'), next);
         }
         if (facRes.success) {
-          setFactories(facRes.data || []);
-          writeMaintenanceCache(dck('overview_factories'), facRes.data || []);
+          const next = keepListIfEmpty(dck('overview_factories'), facRes.data || []);
+          setFactories(next);
+          mmtbTabCache.set(dck('overview_factories'), next);
         }
         if (areaRes.success) {
-          setAreas(areaRes.data || []);
-          writeMaintenanceCache(dck('overview_areas'), areaRes.data || []);
-        }
-        if (lineRes.success) {
-          setLines(lineRes.data || []);
-          writeMaintenanceCache(dck('overview_lines'), lineRes.data || []);
+          const next = keepListIfEmpty(dck('overview_areas'), areaRes.data || []);
+          setAreas(next);
+          mmtbTabCache.set(dck('overview_areas'), next);
         }
       } catch {
         /* khối tóm tắt nhanh — lỗi không chặn phần phân tích bên dưới */
@@ -451,7 +476,12 @@ export default function OverviewPage() {
         setQuickLoading(false);
       }
     })();
-    loadOverview({ factoryId: '', areaId: '', lineId: '', dateFrom: pDateFrom, dateTo: pDateTo });
+    // Cache còn mới (<2 phút) -> bỏ hẳn lượt tải nền của phần phân tích chính (xem lib/mmtbTabCache.ts).
+    if (!mmtbTabCache.isFresh(dck('overview_incidents'))) {
+      loadOverview({ factoryId: '', areaId: '', lineId: '', dateFrom: pDateFrom, dateTo: pDateTo });
+    } else {
+      setLoading(false);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -525,7 +555,7 @@ export default function OverviewPage() {
     const { from, to } = monthToDateRange(monthStr);
     setPDateFrom(from);
     setPDateTo(to);
-    const params = { factoryId: pFactoryId, areaId: pAreaId, lineId: pLineId, dateFrom: from, dateTo: to };
+    const params = { factoryId: pFactoryId, areaId: pAreaId, lineId: '', dateFrom: from, dateTo: to };
     setAppliedFilters(params);
     loadOverview(params);
   }
@@ -534,16 +564,37 @@ export default function OverviewPage() {
     () => areas.filter((a) => !pFactoryId || a.parent?.id === pFactoryId).map((a) => ({ id: a.id, name: a.name })),
     [areas, pFactoryId]
   );
-  const lineOptions = useMemo(
-    () =>
-      lines
-        .filter((l) => (!pAreaId || l.parent?.id === pAreaId) && (!pFactoryId || l.parent?.parent?.id === pFactoryId))
-        .map((l) => ({ id: l.id, name: l.name })),
-    [lines, pAreaId, pFactoryId]
-  );
 
-  function handleApplyFilter() {
-    const params = { factoryId: pFactoryId, areaId: pAreaId, lineId: pLineId, dateFrom: pDateFrom, dateTo: pDateTo };
+
+  // Chọn nhà máy/xưởng bằng icon -> lọc ngay lập tức, không cần bấm nút "Lọc" (khớp đúng cách
+  // handlePickMonth đã làm cho icon lịch chọn tháng).
+  function handleSelectFactory(factoryId: string) {
+    setPFactoryId(factoryId);
+    setPAreaId('');
+    const params = { factoryId, areaId: '', lineId: '', dateFrom: pDateFrom, dateTo: pDateTo };
+    setAppliedFilters(params);
+    loadOverview(params);
+  }
+  function handleSelectArea(areaId: string) {
+    setPAreaId(areaId);
+    const params = { factoryId: pFactoryId, areaId, lineId: '', dateFrom: pDateFrom, dateTo: pDateTo };
+    setAppliedFilters(params);
+    loadOverview(params);
+  }
+
+  // Đổi khoảng ngày tuỳ chỉnh -> lọc ngay (không còn nút "Lọc" riêng) — dùng thẳng giá trị `v` mới
+  // thay vì đọc lại pDateFrom/pDateTo (state chưa kịp cập nhật lúc hàm này chạy).
+  function handleDateFromChange(v: string) {
+    setPMonth('');
+    setPDateFrom(v);
+    const params = { factoryId: pFactoryId, areaId: pAreaId, lineId: '', dateFrom: v, dateTo: pDateTo };
+    setAppliedFilters(params);
+    loadOverview(params);
+  }
+  function handleDateToChange(v: string) {
+    setPMonth('');
+    setPDateTo(v);
+    const params = { factoryId: pFactoryId, areaId: pAreaId, lineId: '', dateFrom: pDateFrom, dateTo: v };
     setAppliedFilters(params);
     loadOverview(params);
   }
@@ -1026,55 +1077,71 @@ export default function OverviewPage() {
           </div>
         ) : (
           /* Tab "Tổng Quan" RIÊNG trong sidebar từng nhà máy (Kiên Giang/Miền Đông/Văn phòng) —
-             giữ nguyên như trước khi có bảng so sánh: bộ lọc Nhà máy/Phân xưởng/Line/Chọn theo
-             tháng/Khoảng thời gian tuỳ chỉnh + 5 ô KPI, khớp đúng trang Tổng Quan thật bên
-             thkiengiangshoes. */
+             giữ nguyên như trước khi có bảng so sánh, chỉ đổi cách chọn Nhà máy/Xưởng từ 3 combobox
+             sang icon nổi bấm là lọc ngay (không cần bấm nút "Lọc" — giống hệt cách icon lịch chọn
+             tháng đã làm từ trước). Bỏ hẳn cấp lọc theo Line, chỉ còn Nhà máy -> Xưởng. */
           <>
-            <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs p-3 flex flex-wrap items-center gap-2">
-              <FilterSelect
-                value={pFactoryId}
-                onChange={(v) => { setPFactoryId(v); setPAreaId(''); setPLineId(''); }}
-                options={factories.map((f) => ({ id: f.id, name: f.name }))}
-                placeholder="Tất cả nhà máy"
-                className="flex-1 min-w-[130px] px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold"
-              />
-              <FilterSelect
-                value={pAreaId}
-                onChange={(v) => { setPAreaId(v); setPLineId(''); }}
-                options={areaOptions}
-                placeholder="Tất cả phân xưởng"
-                className="flex-1 min-w-[130px] px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold"
-              />
-              <FilterSelect
-                value={pLineId}
-                onChange={setPLineId}
-                options={lineOptions}
-                placeholder="Tất cả line"
-                className="flex-1 min-w-[110px] px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold"
-              />
-              <div className="relative shrink-0">
-                <IconCalendar size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="month"
-                  value={pMonth}
-                  onChange={(e) => handlePickMonth(e.target.value)}
-                  title="Chọn theo tháng"
-                  className="pl-7 pr-2 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold h-[34px] w-[132px]"
+            <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs p-3 space-y-2.5">
+              {/* Chọn Nhà máy + Chọn Xưởng + Khoảng thời gian — TẤT CẢ trên CÙNG 1 hàng (bọc
+                  flex-wrap để tự xuống dòng khi màn hình hẹp, không tách riêng nhiều hàng). Chọn gì
+                  cũng lọc ngay (không còn nút "Lọc"). Mặc định (chưa chọn gì) = TẤT CẢ nhà máy/xưởng,
+                  không có nút riêng cho việc này — bấm vào 1 nhà máy (hoặc 1 xưởng) thì các lựa chọn
+                  còn lại cùng cấp ẩn đi, chỉ còn đúng cái đang chọn hiện ra; bấm lại đúng cái đang
+                  chọn đó thì quay về trạng thái ban đầu (hiện lại hết = tất cả). */}
+              <div className="flex flex-wrap items-center gap-2">
+                {factories
+                  // Gán màu theo vị trí gốc trong `factories` TRƯỚC khi filter — để mỗi nhà máy giữ
+                  // đúng 1 màu cố định của riêng nó, không đổi màu khi ẩn bớt các nhà máy khác lúc
+                  // đang chọn (nếu tính index sau filter thì nhà máy đang chọn luôn rơi vào index 0).
+                  .map((f, idx) => ({ ...f, color: FACTORY_CHIP_COLORS[idx % FACTORY_CHIP_COLORS.length] }))
+                  .filter((f) => !pFactoryId || pFactoryId === f.id)
+                  .map((f) => {
+                    const active = pFactoryId === f.id;
+                    return (
+                      <button
+                        key={f.id}
+                        onClick={() => handleSelectFactory(active ? '' : f.id)}
+                        style={active ? { backgroundColor: f.color, borderColor: f.color } : { backgroundColor: `${f.color}17`, borderColor: `${f.color}40`, color: f.color }}
+                        className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl border text-sm font-bold transition-colors cursor-pointer ${active ? 'text-white' : 'hover:brightness-95'}`}
+                      >
+                        <IconBuildingFactory size={22} /> {f.name}
+                      </button>
+                    );
+                  })}
+
+                {/* Chọn Xưởng — chỉ hiện sau khi đã chọn 1 nhà máy cụ thể, cùng hàng luôn */}
+                {pFactoryId && areaOptions
+                  .filter((a) => !pAreaId || pAreaId === a.id)
+                  .map((a) => (
+                    <button
+                      key={a.id}
+                      onClick={() => handleSelectArea(pAreaId === a.id ? '' : a.id)}
+                      className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-[11px] font-semibold transition-colors cursor-pointer ${
+                        pAreaId === a.id ? 'bg-emerald-50 border-emerald-300 text-emerald-800' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
+                      }`}
+                    >
+                      <IconMapPin size={13} /> {a.name}
+                    </button>
+                  ))}
+
+                <div className="w-px self-stretch bg-slate-200 mx-0.5" />
+                <div className="relative shrink-0">
+                  <IconCalendar size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="month"
+                    value={pMonth}
+                    onChange={(e) => handlePickMonth(e.target.value)}
+                    title="Chọn theo tháng"
+                    className="pl-7 pr-2 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold h-[34px] w-[132px]"
+                  />
+                </div>
+                <DateRangeFilter
+                  from={pDateFrom}
+                  to={pDateTo}
+                  onFromChange={handleDateFromChange}
+                  onToChange={handleDateToChange}
                 />
               </div>
-              <DateRangeFilter
-                from={pDateFrom}
-                to={pDateTo}
-                onFromChange={(v) => { setPMonth(''); setPDateFrom(v); }}
-                onToChange={(v) => { setPMonth(''); setPDateTo(v); }}
-              />
-              <button
-                onClick={handleApplyFilter}
-                disabled={loading}
-                className="flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#006838] text-white text-xs font-bold hover:bg-[#00552d] disabled:opacity-50 h-[34px] shrink-0 cursor-pointer"
-              >
-                <IconFilter size={13} /> {loading ? 'Đang lọc...' : 'Lọc'}
-              </button>
             </div>
 
             <StatCardRow

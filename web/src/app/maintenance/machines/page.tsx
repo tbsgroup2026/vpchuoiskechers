@@ -9,7 +9,7 @@ import StatCardRow from '@/components/StatCardRow';
 import FilterSelect from '@/components/FilterSelect';
 import RefreshButton from '@/components/RefreshButton';
 import Pagination from '@/components/Pagination';
-import { readMaintenanceCache, writeMaintenanceCache } from '@/lib/maintenanceCache';
+import { mmtbTabCache } from '@/lib/mmtbTabCache';
 import { getCurrentMmtbScope } from '@/lib/equipmentScope';
 
 const PAGE_SIZE = 50;
@@ -170,13 +170,13 @@ export default function MachinesPage() {
   const scope = getCurrentMmtbScope();
   const ck = (key: string) => `${key}_${scope}`;
 
-  const [machines, setMachines] = useState<Machine[]>(() => readMaintenanceCache<Machine[]>(ck('machines')) || []);
-  const [filterOptions, setFilterOptions] = useState<FilterOptions>(() => readMaintenanceCache<FilterOptions>(ck('machines_filters')) || EMPTY_FILTERS);
-  const [loading, setLoading] = useState(() => readMaintenanceCache<Machine[]>(ck('machines')) === null);
+  const [machines, setMachines] = useState<Machine[]>(() => mmtbTabCache.get<Machine[]>(ck('machines')) ?? []);
+  const [filterOptions, setFilterOptions] = useState<FilterOptions>(() => mmtbTabCache.get<FilterOptions>(ck('machines_filters')) ?? EMPTY_FILTERS);
+  const [loading, setLoading] = useState(() => !mmtbTabCache.has(ck('machines')));
   // "Kiểm Kê" — mã máy đã xuất hiện trong nhật ký kiểm kê ít nhất 1 lần (xem /api/maintenance/
   // inventory-log) — chỉ tính là "Máy đã kiểm kê", khớp đúng cách trang Danh Sách MMTB thật đang
   // tính (chỉ hiện/đếm máy đã kiểm kê, không phải toàn bộ máy trong hệ thống).
-  const [verifiedCodes, setVerifiedCodes] = useState<Set<string>>(() => new Set(readMaintenanceCache<string[]>(ck('machines_verified')) || []));
+  const [verifiedCodes, setVerifiedCodes] = useState<Set<string>>(() => new Set(mmtbTabCache.get<string[]>(ck('machines_verified')) ?? []));
   const [error, setError] = useState<string | null>(null);
   const [selectedQR, setSelectedQR] = useState<string | null>(null);
   const [qrImageUrl, setQrImageUrl] = useState<string | null>(null);
@@ -258,10 +258,10 @@ export default function MachinesPage() {
         // hẳn) khi quá tải — nếu tin ngay sẽ xoá trắng danh sách đang có mỗi lần rời trang rồi quay
         // lại (component dựng lại, load() chạy lại). CHỈ ghi đè bằng mảng rỗng khi trước đó THẬT SỰ
         // chưa có gì (lần đầu tải) — còn lại giữ nguyên dữ liệu cũ, coi như 1 lượt tải lỗi thoáng qua.
-        const prevMachines = readMaintenanceCache<Machine[]>(ck('machines'));
+        const prevMachines = mmtbTabCache.get<Machine[]>(ck('machines'));
         if (machinesRes.data.length > 0 || !prevMachines || prevMachines.length === 0) {
           setMachines(machinesRes.data);
-          writeMaintenanceCache(ck('machines'), machinesRes.data);
+          mmtbTabCache.set(ck('machines'), machinesRes.data);
         } else {
           console.warn('Bỏ qua kết quả rỗng bất thường từ tbsMayMoc (machines) — giữ dữ liệu cũ');
         }
@@ -272,13 +272,13 @@ export default function MachinesPage() {
       if (inventoryLogRes.success && Array.isArray(inventoryLogRes.rows)) {
         const codes = new Set<string>(inventoryLogRes.rows.map((r: any) => r.machine?.code).filter(Boolean));
         setVerifiedCodes(codes);
-        writeMaintenanceCache(ck('machines_verified'), [...codes]);
+        mmtbTabCache.set(ck('machines_verified'), [...codes]);
       } else {
         console.warn('Failed to load inventory-log from tbsMayMoc:', inventoryLogRes.error);
       }
       // Từng danh mục lọc: nếu lượt tải mới rỗng/lỗi NHƯNG đang có sẵn danh mục cũ không rỗng, giữ
       // nguyên cái cũ thay vì xoá trắng dropdown đó (cùng lý do như "machines" ở trên).
-      const prevFilters = readMaintenanceCache<FilterOptions>(ck('machines_filters'));
+      const prevFilters = mmtbTabCache.get<FilterOptions>(ck('machines_filters'));
       const keepIfEmpty = (next: CategoryOption[], prev: CategoryOption[] | undefined) =>
         next.length > 0 || !prev || prev.length === 0 ? next : prev;
       const nextFilterOptions: FilterOptions = {
@@ -290,7 +290,7 @@ export default function MachinesPage() {
         statuses: keepIfEmpty(statusesRes.success && Array.isArray(statusesRes.data) ? statusesRes.data : [], prevFilters?.statuses),
       };
       setFilterOptions(nextFilterOptions);
-      writeMaintenanceCache(ck('machines_filters'), nextFilterOptions);
+      mmtbTabCache.set(ck('machines_filters'), nextFilterOptions);
     } catch (err) {
       console.warn('Failed to fetch machines from tbsMayMoc:', err);
     } finally {
@@ -299,7 +299,9 @@ export default function MachinesPage() {
   };
 
   useEffect(() => {
-    load();
+    // Cache còn mới (<2 phút) -> bỏ hẳn lượt tải nền, đỡ gọi lại 8 API mỗi lần bấm qua lại các trang
+    // MMTB liên tục (xem lib/mmtbTabCache.ts).
+    if (!mmtbTabCache.isFresh(ck('machines'))) load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

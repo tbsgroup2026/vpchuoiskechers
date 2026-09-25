@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { getValidKaizenImageUrl } from "@/lib/kaizenImageHelper";
+import { formatMax2Decimals, formatVND } from "@/lib/formatNumber";
 import { getKaizenDisplayTitle, getKaizenBeforeDescription, getKaizenAfterSolution } from "@/lib/kaizenTitleHelper";
 import {
   IconX,
@@ -682,7 +683,7 @@ export default function KaizenDetailModal({
               <div className="p-2 rounded-xl bg-white border border-slate-200 shadow-2xs text-center space-y-0.5">
                 <span className="text-[10px] font-semibold uppercase text-slate-500 block">ĐIỂM TB</span>
                 <span className="text-xs font-bold text-amber-600 block">
-                  {(proposal.avg_rating || 0).toFixed(1)} ⭐
+                  {formatMax2Decimals(proposal.avg_rating || 0)} ⭐
                 </span>
                 <span className="text-[9.5px] text-slate-400 block">
                   {proposal.rating_count || 0} lượt đánh giá
@@ -1563,36 +1564,36 @@ function TabInfoContent({
                   <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-1">
                     <div className="p-2 rounded-xl bg-white border border-slate-200 space-y-0.5 shadow-2xs">
                       <span className="text-[9px] font-extrabold uppercase text-slate-400 block">TRƯỚC</span>
-                      <span className="text-xs sm:text-sm font-black text-slate-900 block">{timeBefore}</span>
+                      <span className="text-xs sm:text-sm font-black text-slate-900 block">{formatMax2Decimals(timeBefore)}</span>
                       <span className="text-[9px] font-bold text-slate-500 block">giây</span>
                     </div>
 
                     <div className="p-2 rounded-xl bg-white border border-slate-200 space-y-0.5 shadow-2xs">
                       <span className="text-[9px] font-extrabold uppercase text-slate-400 block">SAU</span>
-                      <span className="text-xs sm:text-sm font-black text-slate-900 block">{timeAfter}</span>
+                      <span className="text-xs sm:text-sm font-black text-slate-900 block">{formatMax2Decimals(timeAfter)}</span>
                       <span className="text-[9px] font-bold text-slate-500 block">giây</span>
                     </div>
 
                     <div className="p-2 rounded-xl bg-purple-50 border border-purple-200 space-y-0.5 shadow-2xs">
                       <span className="text-[9px] font-extrabold uppercase text-purple-700 block">TIẾT KIỆM</span>
-                      <span className="text-xs sm:text-sm font-black text-purple-900 block">{savedSecs}s</span>
+                      <span className="text-xs sm:text-sm font-black text-purple-900 block">{formatMax2Decimals(savedSecs)}s</span>
                       <span className="text-[8.5px] font-bold text-purple-600 block truncate">
-                        {timeBefore > 0 ? `${Math.round((savedSecs / timeBefore) * 100)}%` : "0%"}
+                        {timeBefore > 0 ? `${formatMax2Decimals((savedSecs / timeBefore) * 100)}%` : "0%"}
                       </span>
                     </div>
 
                     <div className="p-2 rounded-xl bg-[#006838] text-white space-y-0.5 shadow-xs">
                       <span className="text-[9px] font-extrabold uppercase text-emerald-200 block">HIỆU QUẢ</span>
-                      <span className="text-xs font-black text-white block truncate" title={`${efficiencyVnd.toLocaleString("vi-VN")} VNĐ`}>
-                        {efficiencyVnd.toLocaleString("vi-VN")}
+                      <span className="text-xs font-black text-white block truncate" title={`${formatVND(efficiencyVnd)} VNĐ`}>
+                        {formatVND(efficiencyVnd)}
                       </span>
                       <span className="text-[8.5px] font-bold text-emerald-200 block">VNĐ / đôi</span>
                     </div>
 
                     <div className="p-2 rounded-xl bg-[#00522c] text-white space-y-0.5 shadow-sm border border-emerald-500/30 col-span-2 sm:col-span-1">
                       <span className="text-[9px] font-extrabold uppercase text-amber-300 block">TỔNG TIẾT KIỆM</span>
-                      <span className="text-xs font-black text-white block truncate" title={`${totalSavingsVnd.toLocaleString("vi-VN")} VNĐ`}>
-                        {totalSavingsVnd.toLocaleString("vi-VN")}
+                      <span className="text-xs font-black text-white block truncate" title={`${formatVND(totalSavingsVnd)} VNĐ`}>
+                        {formatVND(totalSavingsVnd)}
                       </span>
                       <span className="text-[8.5px] font-bold text-emerald-200 block">VNĐ</span>
                     </div>
@@ -1604,21 +1605,21 @@ function TabInfoContent({
                 <div className="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-1">
                   <span className="text-[10px] font-extrabold uppercase text-slate-400 block">CHI PHÍ TRƯỚC</span>
                   <span className="text-lg font-black text-slate-900 block truncate">
-                    {costBefore > 0 ? `${costBefore.toLocaleString("vi-VN")} VNĐ` : "---"}
+                    {costBefore > 0 ? `${formatVND(costBefore)} VNĐ` : "---"}
                   </span>
                 </div>
 
                 <div className="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-1">
                   <span className="text-[10px] font-extrabold uppercase text-slate-400 block">CHI PHÍ SAU</span>
                   <span className="text-lg font-black text-slate-900 block truncate">
-                    {costAfter > 0 ? `${costAfter.toLocaleString("vi-VN")} VNĐ` : "---"}
+                    {costAfter > 0 ? `${formatVND(costAfter)} VNĐ` : "---"}
                   </span>
                 </div>
 
                 <div className="p-3.5 rounded-2xl bg-[#00522c] text-white space-y-1 shadow-md border border-emerald-400/30">
                   <span className="text-[10px] font-extrabold uppercase text-amber-300 block">TỔNG TIẾT KIỆM</span>
                   <span className="text-lg font-black text-white block truncate">
-                    {totalSavingsVnd > 0 ? `${totalSavingsVnd.toLocaleString("vi-VN")} VNĐ` : "0 VNĐ"}
+                    {totalSavingsVnd > 0 ? `${formatVND(totalSavingsVnd)} VNĐ` : "0 VNĐ"}
                   </span>
                   <span className="text-[10px] font-bold text-emerald-200 block truncate">Tiết kiệm trực tiếp</span>
                 </div>
@@ -1627,28 +1628,28 @@ function TabInfoContent({
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                 <div className="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-1">
                   <span className="text-[10px] font-extrabold uppercase text-slate-400 block">TRƯỚC</span>
-                  <span className="text-xl font-black text-slate-900 block">{timeBefore}</span>
+                  <span className="text-xl font-black text-slate-900 block">{formatMax2Decimals(timeBefore)}</span>
                   <span className="text-[10px] font-bold text-slate-500 block">giây</span>
                 </div>
 
                 <div className="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-1">
                   <span className="text-[10px] font-extrabold uppercase text-slate-400 block">SAU</span>
-                  <span className="text-xl font-black text-slate-900 block">{timeAfter}</span>
+                  <span className="text-xl font-black text-slate-900 block">{formatMax2Decimals(timeAfter)}</span>
                   <span className="text-[10px] font-bold text-slate-500 block">giây</span>
                 </div>
 
                 <div className="p-3.5 rounded-2xl bg-purple-50 border border-purple-200 shadow-2xs space-y-1">
                   <span className="text-[10px] font-extrabold uppercase text-purple-700 block">TIẾT KIỆM</span>
-                  <span className="text-xl font-black text-purple-900 block">{savedSecs}</span>
+                  <span className="text-xl font-black text-purple-900 block">{formatMax2Decimals(savedSecs)}</span>
                   <span className="text-[10px] font-bold text-purple-600 block">
-                    giây {timeBefore && savedSecs ? `(${Math.round((savedSecs / timeBefore) * 100)}%)` : ""}
+                    giây {timeBefore && savedSecs ? `(${formatMax2Decimals((savedSecs / timeBefore) * 100)}%)` : ""}
                   </span>
                 </div>
 
                 <div className="p-3.5 rounded-2xl bg-[#006838] text-white space-y-1 shadow-md">
                   <span className="text-[10px] font-extrabold uppercase text-emerald-200 block">HIỆU QUẢ</span>
                   <span className="text-base sm:text-lg font-black text-white block truncate">
-                    {efficiencyVnd.toLocaleString("vi-VN")} VNĐ
+                    {formatVND(efficiencyVnd)} VNĐ
                   </span>
                   <span className="text-[10px] font-bold text-emerald-200 block">quy đổi / đôi</span>
                 </div>
@@ -1656,7 +1657,7 @@ function TabInfoContent({
                 <div className="p-3.5 rounded-2xl bg-blue-50 border border-blue-200 shadow-2xs space-y-1">
                   <span className="text-[10px] font-extrabold uppercase text-blue-700 block">SỐ LƯỢNG GIÀY</span>
                   <span className="text-base sm:text-lg font-black text-blue-950 block truncate">
-                    {pairQty > 0 ? pairQty.toLocaleString("vi-VN") : "0"}
+                    {pairQty > 0 ? formatVND(pairQty) : "0"}
                   </span>
                   <span className="text-[10px] font-bold text-blue-600 block">đôi / đơn hàng</span>
                 </div>
@@ -1664,10 +1665,10 @@ function TabInfoContent({
                 <div className="p-3.5 rounded-2xl bg-[#00522c] text-white space-y-1 shadow-md border border-emerald-400/30">
                   <span className="text-[10px] font-extrabold uppercase text-amber-300 block">TỔNG TIẾT KIỆM</span>
                   <span className="text-base sm:text-lg font-black text-white block truncate">
-                    {totalSavingsVnd > 0 ? `${totalSavingsVnd.toLocaleString("vi-VN")} VNĐ` : "0 VNĐ"}
+                    {totalSavingsVnd > 0 ? `${formatVND(totalSavingsVnd)} VNĐ` : "0 VNĐ"}
                   </span>
                   <span className="text-[10px] font-bold text-emerald-200 block truncate">
-                    {pairQty > 0 ? `cho ${pairQty.toLocaleString("vi-VN")} đôi` : "tính quy đổi"}
+                    {pairQty > 0 ? `cho ${formatVND(pairQty)} đôi` : "tính quy đổi"}
                   </span>
                 </div>
               </div>

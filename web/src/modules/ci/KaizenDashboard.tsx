@@ -23,6 +23,7 @@ import {
 } from "@tabler/icons-react";
 import { KaizenProposal } from "./CIModule";
 import KaizenLeaderboard from "./KaizenLeaderboard";
+import { formatFormattedNumber } from "@/lib/formatNumber";
 
 interface KaizenDashboardProps {
   proposals: KaizenProposal[];
@@ -83,7 +84,7 @@ export function getAwardValueTrByRank(rank: number): number {
 
 const formatMillion = (val: number): string => {
   const num = isNaN(val) ? 0 : val;
-  return `${num.toLocaleString("vi-VN", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} Tr`;
+  return `${formatFormattedNumber(num)} Tr`;
 };
 
 const getProposalValue = (p: any): number => {

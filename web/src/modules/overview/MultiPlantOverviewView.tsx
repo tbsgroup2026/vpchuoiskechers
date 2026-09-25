@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import NavLink from "@/components/NavLink";
+import { formatFormattedNumber } from "@/lib/formatNumber";
 import {
   IconChartBar,
   IconSparkles,
@@ -144,7 +145,7 @@ export default function MultiPlantOverviewView() {
             <div className="p-3 bg-blue-50 rounded-xl border border-blue-100 flex items-center justify-between">
               <span className="text-xs font-semibold text-blue-800">Tổng TG Tiết Kiệm:</span>
               <span className="text-sm font-black text-blue-700 font-mono">
-                ⏱️ {loading ? "..." : (kaizenStats?.total_saved_seconds || 0).toLocaleString()} giây
+                ⏱️ {loading ? "..." : formatFormattedNumber(kaizenStats?.total_saved_seconds || 0)} giây
               </span>
             </div>
           </div>

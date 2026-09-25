@@ -16,6 +16,7 @@ import {
 } from "@tabler/icons-react";
 import { KaizenProposal } from "./CIModule";
 import { getValidKaizenImageUrl } from "@/lib/kaizenImageHelper";
+import { formatMax2Decimals } from "@/lib/formatNumber";
 
 interface PreliminaryReviewModalProps {
   proposal: KaizenProposal;
@@ -269,7 +270,7 @@ export default function PreliminaryReviewModal({
               <div className="text-[11px] font-extrabold text-emerald-900 bg-white p-2.5 rounded-xl border border-emerald-200 flex items-center justify-between">
                 <span>Điểm tổng hợp tính tự động:</span>
                 <span className="text-sm font-black text-[#006838]">
-                  {((savedSeconds || 0) + (efficiencyScore || 0)).toFixed(1)} Điểm
+                  {formatMax2Decimals((savedSeconds || 0) + (efficiencyScore || 0))} Điểm
                 </span>
               </div>
             </div>

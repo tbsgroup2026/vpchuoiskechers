@@ -18,6 +18,7 @@ import { convertNumberToWords } from "@/lib/numberToWords";
 import { KaizenProposal, CATEGORIES } from "./CIModule";
 import { getValidKaizenImageUrl } from "@/lib/kaizenImageHelper";
 import { getKaizenDisplayTitle } from "@/lib/kaizenTitleHelper";
+import { formatMax2Decimals, formatVND } from "@/lib/formatNumber";
 
 interface FeasibilityApprovalModalProps {
   isOpen: boolean;
@@ -843,36 +844,36 @@ export default function FeasibilityApprovalModal({
                   <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-1">
                     <div className="p-2 rounded-xl bg-white border border-slate-200 space-y-0.5 shadow-2xs">
                       <span className="text-[9px] font-extrabold uppercase text-slate-400 block">TRƯỚC</span>
-                      <span className="text-xs sm:text-sm font-black text-slate-900 block">{beforeVal}</span>
+                      <span className="text-xs sm:text-sm font-black text-slate-900 block">{formatMax2Decimals(beforeVal)}</span>
                       <span className="text-[9px] font-bold text-slate-500 block">giây</span>
                     </div>
 
                     <div className="p-2 rounded-xl bg-white border border-slate-200 space-y-0.5 shadow-2xs">
                       <span className="text-[9px] font-extrabold uppercase text-slate-400 block">SAU</span>
-                      <span className="text-xs sm:text-sm font-black text-slate-900 block">{afterVal}</span>
+                      <span className="text-xs sm:text-sm font-black text-slate-900 block">{formatMax2Decimals(afterVal)}</span>
                       <span className="text-[9px] font-bold text-slate-500 block">giây</span>
                     </div>
 
                     <div className="p-2 rounded-xl bg-purple-50 border border-purple-200 space-y-0.5 shadow-2xs">
                       <span className="text-[9px] font-extrabold uppercase text-purple-700 block">TIẾT KIỆM</span>
-                      <span className="text-xs sm:text-sm font-black text-purple-900 block">{savedVal}s</span>
+                      <span className="text-xs sm:text-sm font-black text-purple-900 block">{formatMax2Decimals(savedVal)}s</span>
                       <span className="text-[8.5px] font-bold text-purple-600 block truncate">
-                        {beforeVal > 0 ? `${Math.round((savedVal / beforeVal) * 100)}%` : "0%"}
+                        {beforeVal > 0 ? `${formatMax2Decimals((savedVal / beforeVal) * 100)}%` : "0%"}
                       </span>
                     </div>
 
                     <div className="p-2 rounded-xl bg-[#006838] text-white space-y-0.5 shadow-xs">
                       <span className="text-[9px] font-extrabold uppercase text-emerald-200 block">HIỆU QUẢ</span>
-                      <span className="text-xs font-black text-white block truncate" title={`${efficiencyVndVal.toLocaleString("vi-VN")} VNĐ`}>
-                        {efficiencyVndVal.toLocaleString("vi-VN")}
+                      <span className="text-xs font-black text-white block truncate" title={`${formatVND(efficiencyVndVal)} VNĐ`}>
+                        {formatVND(efficiencyVndVal)}
                       </span>
                       <span className="text-[8.5px] font-bold text-emerald-200 block">VNĐ / đôi</span>
                     </div>
 
                     <div className="p-2 rounded-xl bg-[#00522c] text-white space-y-0.5 shadow-sm border border-emerald-500/30 col-span-2 sm:col-span-1">
                       <span className="text-[9px] font-extrabold uppercase text-amber-300 block">TỔNG TIẾT KIỆM</span>
-                      <span className="text-xs font-black text-white block truncate" title={`${(Number(directSavingsVnd) || totalSavingsVndVal).toLocaleString("vi-VN")} VNĐ`}>
-                        {(Number(directSavingsVnd) || totalSavingsVndVal).toLocaleString("vi-VN")}
+                      <span className="text-xs font-black text-white block truncate" title={`${formatVND(Number(directSavingsVnd) || totalSavingsVndVal)} VNĐ`}>
+                        {formatVND(Number(directSavingsVnd) || totalSavingsVndVal)}
                       </span>
                       <span className="text-[8.5px] font-bold text-emerald-200 block">VNĐ</span>
                     </div>

@@ -13,6 +13,7 @@ import {
   IconShieldCheck,
 } from "@tabler/icons-react";
 import { KaizenProposal } from "./CIModule";
+import { formatMax2Decimals } from "@/lib/formatNumber";
 
 interface EvaluationModalProps {
   isOpen: boolean;
@@ -67,7 +68,7 @@ export default function EvaluationModal({
     scores.an_toan;
 
   const avgScore =
-    validScoresCount === 5 ? (totalScoreSum / 5).toFixed(1) : "0.0";
+    validScoresCount === 5 ? formatMax2Decimals(totalScoreSum / 5) : "0";
 
   const handleStarClick = (criterion: keyof typeof scores, star: number) => {
     setScores((prev) => ({ ...prev, [criterion]: star }));

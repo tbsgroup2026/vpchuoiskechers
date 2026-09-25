@@ -21,6 +21,7 @@ const KaizenLeaderboard = dynamic(() => import("./KaizenLeaderboard"), { ssr: fa
 import UserAvatar from "@/components/UserAvatar";
 import { getCurrentUser } from "@/lib/userProfiles";
 import { getValidKaizenImageUrl, getAllKaizenImageUrls } from "@/lib/kaizenImageHelper";
+import { formatMax2Decimals } from "@/lib/formatNumber";
 import { getKaizenDisplayTitle } from "@/lib/kaizenTitleHelper";
 import { apiFetch, registerPoller, unregisterPoller } from "@/lib/apiClient";
 import {
@@ -314,7 +315,7 @@ export function HalfStarRating({ value, onChange, readOnly = false, size = 22 }:
         })}
       </div>
       <span className="text-xs font-black text-amber-600 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200 min-w-[40px] text-center">
-        {displayVal > 0 ? `${displayVal.toFixed(1)} ⭐` : "Chưa chấm"}
+        {displayVal > 0 ? `${formatMax2Decimals(displayVal)} ⭐` : "Chưa chấm"}
       </span>
     </div>
   );

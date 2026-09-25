@@ -12,6 +12,7 @@ import {
   IconSparkles,
 } from "@tabler/icons-react";
 import { KaizenProposal } from "./CIModule";
+import { formatMax2Decimals } from "@/lib/formatNumber";
 
 interface KaizenLeaderboardProps {
   proposals?: KaizenProposal[];
@@ -233,18 +234,18 @@ export default function KaizenLeaderboard({
 
                     {/* Savings Seconds */}
                     <td className="py-3.5 px-4 text-center font-black text-blue-700 text-xs">
-                      ⚡ {item.so_giay_tiet_kiem || item.saved_seconds || 0}s
+                      ⚡ {formatMax2Decimals(item.so_giay_tiet_kiem || item.saved_seconds || 0)}s
                     </td>
 
                     {/* Efficiency Score */}
                     <td className="py-3.5 px-4 text-center font-black text-amber-600 text-xs">
-                      ⭐ {item.diem_hieu_qua || item.score_points || 0}đ
+                      ⭐ {formatMax2Decimals(item.diem_hieu_qua || item.score_points || 0)}đ
                     </td>
 
                     {/* Composite Score */}
                     <td className="py-3.5 px-4 text-right font-black text-emerald-600 text-sm">
                       <span className="px-2.5 py-1 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800">
-                        {item.diem_tong_hop || (item.so_giay_tiet_kiem || 0) + (item.diem_hieu_qua || 0)}đ
+                        {formatMax2Decimals(item.diem_tong_hop || (Number(item.so_giay_tiet_kiem || 0) + Number(item.diem_hieu_qua || 0)))}đ
                       </span>
                     </td>
                   </tr>

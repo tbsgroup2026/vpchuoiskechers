@@ -22,6 +22,7 @@ import {
 import { INITIAL_ORG_TREE } from "./organizationTree";
 import KaizenDuplicateCompareModal from "./KaizenDuplicateCompareModal";
 import { getValidKaizenImageUrl, getAllKaizenImageUrls } from "@/lib/kaizenImageHelper";
+import { formatMax2Decimals, formatVND } from "@/lib/formatNumber";
 
 export const CATEGORIES = [
   { id: "MATERIAL_SAVING", label: "1.Tiết kiệm Vật tư", color: "bg-amber-600 text-white" },
@@ -1245,8 +1246,8 @@ export default function KaizenPublicSubmitForm({
                   <div className="space-y-1">
                     <label className="font-bold text-slate-700 text-[11px]">Tiết kiệm &amp; Quy đổi VNĐ</label>
                     <div className="px-3 py-1.5 rounded-xl border border-emerald-300 bg-emerald-50 text-[#006838] font-black text-xs flex items-center justify-between">
-                      <span>{Math.max(0, (form.timeBeforeSeconds || 0) - (form.timeAfterSeconds || 0))}s</span>
-                      <span>{(form.efficiencyValueVND || 0).toLocaleString("vi-VN")} VNĐ/đôi</span>
+                      <span>{formatMax2Decimals(Math.max(0, (form.timeBeforeSeconds || 0) - (form.timeAfterSeconds || 0)))}s</span>
+                      <span>{formatVND(form.efficiencyValueVND || 0)} VNĐ/đôi</span>
                     </div>
                   </div>
                 </div>

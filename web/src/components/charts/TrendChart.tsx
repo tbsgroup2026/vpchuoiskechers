@@ -71,14 +71,28 @@ export default function TrendChart({ data, height = 340 }: { data: TrendPoint[];
           <Legend wrapperStyle={{ fontSize: 11 }} />
 
           {mode === 'bar' ? (
-            <Bar yAxisId="left" dataKey="downtime" name="Tổng Downtime" fill="#a7d9c4" radius={[6, 6, 0, 0]} maxBarSize={40} />
+            <Bar yAxisId="left" dataKey="downtime" name="Tổng Downtime" fill="#a7d9c4" radius={[6, 6, 0, 0]} maxBarSize={26} />
           ) : (
             <Line yAxisId="left" type="monotone" dataKey="downtime" name="Tổng Downtime" stroke="#0d7a5c" strokeWidth={2.5} dot={{ r: 3 }} />
           )}
 
-          {visible.mtta && <Line yAxisId="right" type="monotone" dataKey="mtta" name="MTTA" stroke="#f59e0b" strokeWidth={2} dot={{ r: 2.5 }} />}
-          {visible.mttr && <Line yAxisId="right" type="monotone" dataKey="mttr" name="MTTR" stroke="#e11d48" strokeWidth={2} dot={{ r: 2.5 }} />}
-          {visible.mttd && <Line yAxisId="right" type="monotone" dataKey="mttd" name="MTTD" stroke="#6366f1" strokeWidth={2} dot={{ r: 2.5 }} />}
+          {/* Chế độ "Cột" -> đổi luôn cả 3 đường KPI này thành cột (không chỉ mỗi Tổng Downtime như
+              trước) — bấm 1 nút là toàn bộ biểu đồ chuyển kiểu, khớp đúng yêu cầu. */}
+          {visible.mtta && (mode === 'bar' ? (
+            <Bar yAxisId="right" dataKey="mtta" name="MTTA" fill="#f59e0b" radius={[4, 4, 0, 0]} maxBarSize={22} />
+          ) : (
+            <Line yAxisId="right" type="monotone" dataKey="mtta" name="MTTA" stroke="#f59e0b" strokeWidth={2} dot={{ r: 2.5 }} />
+          ))}
+          {visible.mttr && (mode === 'bar' ? (
+            <Bar yAxisId="right" dataKey="mttr" name="MTTR" fill="#e11d48" radius={[4, 4, 0, 0]} maxBarSize={22} />
+          ) : (
+            <Line yAxisId="right" type="monotone" dataKey="mttr" name="MTTR" stroke="#e11d48" strokeWidth={2} dot={{ r: 2.5 }} />
+          ))}
+          {visible.mttd && (mode === 'bar' ? (
+            <Bar yAxisId="right" dataKey="mttd" name="MTTD" fill="#6366f1" radius={[4, 4, 0, 0]} maxBarSize={22} />
+          ) : (
+            <Line yAxisId="right" type="monotone" dataKey="mttd" name="MTTD" stroke="#6366f1" strokeWidth={2} dot={{ r: 2.5 }} />
+          ))}
 
           {visible.mtta && <ReferenceLine yAxisId="right" y={TARGETS.mtta} stroke="#f59e0b" strokeDasharray="4 4" strokeOpacity={0.5} />}
           {visible.mttr && <ReferenceLine yAxisId="right" y={TARGETS.mttr} stroke="#e11d48" strokeDasharray="4 4" strokeOpacity={0.5} />}

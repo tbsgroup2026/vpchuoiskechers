@@ -24,6 +24,7 @@ export const MMTB_NAV: MmtbNavEntry[] = [
       { type: 'link', id: 'cat-status', label: 'Trạng Thái Máy', href: '/maintenance/categories/machine-status', iconName: 'IconCircleCheck' },
       { type: 'link', id: 'cat-types', label: 'Phân Loại Máy', href: '/maintenance/categories/machine-types', iconName: 'IconDeviceLaptop' },
       { type: 'link', id: 'cat-parts', label: 'Phụ Tùng / Linh Kiện', href: '/maintenance/categories/parts', iconName: 'IconPackage' },
+      { type: 'link', id: 'qr-gemba', label: 'QR Gemba', href: '/maintenance/categories/qr-gemba', iconName: 'IconQrcode' },
     ],
   },
 ];

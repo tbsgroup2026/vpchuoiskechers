@@ -38,10 +38,19 @@ export default function ParetoChart({
   const chartData = useMemo(() => {
     const sorted = [...data].sort((a, b) => b.value - a.value).slice(0, maxItems);
     const total = sorted.reduce((s, d) => s + d.value, 0);
+    // Mục có giá trị > 0 nhưng quá nhỏ so với mục lớn nhất thì gần như không thấy cột đâu — cho
+    // "nhú lên" tối thiểu ~2% chiều cao mục lớn nhất (chỉ áp dụng cho displayValue vẽ cột, KHÔNG đổi
+    // giá trị thật dùng cho nhãn/tooltip/% tích luỹ).
+    const maxValue = sorted.reduce((m, d) => Math.max(m, d.value), 0);
+    const minVisible = maxValue * 0.02;
     let running = 0;
     return sorted.map((d) => {
       running += d.value;
-      return { ...d, cumulativePct: total ? Math.round((running / total) * 1000) / 10 : 0 };
+      return {
+        ...d,
+        displayValue: d.value > 0 && d.value < minVisible ? minVisible : d.value,
+        cumulativePct: total ? Math.round((running / total) * 1000) / 10 : 0,
+      };
     });
   }, [data, maxItems]);
 
@@ -80,13 +89,20 @@ export default function ParetoChart({
           <YAxis yAxisId="right" orientation="right" domain={[0, 100]} tick={{ fontSize: 10, fill: '#6b7c73' }} tickFormatter={(v) => `${v}%`} />
           <Tooltip
             contentStyle={{ borderRadius: 12, border: '1px solid #e7ede9', fontSize: 11, boxShadow: '0 8px 24px rgba(12,31,25,0.12)' }}
-            formatter={(value, name) => (name === 'Tích luỹ (%)' ? [`${value}%`, name] : [value, name])}
+            formatter={(value, name, entry: any) => {
+              if (name === 'Tích luỹ (%)') return [`${value}%`, name];
+              // Cột dùng "displayValue" (đã nhú lên tối thiểu) để vẽ — tooltip vẫn phải hiện đúng
+              // giá trị THẬT (entry.payload.value), không phải giá trị đã nhú lên.
+              return [entry?.payload?.value ?? value, name];
+            }}
           />
           <Legend wrapperStyle={{ fontSize: 11 }} />
-          <Bar yAxisId="left" dataKey="value" name={valueLabel} fill={barColor} radius={[6, 6, 0, 0]} maxBarSize={44}>
+          <Bar yAxisId="left" dataKey="displayValue" name={valueLabel} fill={barColor} radius={[6, 6, 0, 0]} maxBarSize={44}>
             {showValues && <LabelList dataKey="value" position="top" style={{ fontSize: 10, fill: '#4b5f56', fontWeight: 700 }} />}
           </Bar>
-          <Line yAxisId="right" type="monotone" dataKey="cumulativePct" name="Tích luỹ (%)" stroke="#6366f1" strokeWidth={2.5} dot={{ r: 3, fill: '#6366f1' }} />
+          {/* Đường bậc thang (stepAfter) thay vì cong mềm — rõ từng mức tăng khi cộng thêm 1 hạng
+              mục, dễ đọc hơn đường cong mượt trước đây. */}
+          <Line yAxisId="right" type="stepAfter" dataKey="cumulativePct" name="Tích luỹ (%)" stroke="#6366f1" strokeWidth={2.5} dot={{ r: 3, fill: '#6366f1' }} />
         </ComposedChart>
       </ResponsiveContainer>
     </div>

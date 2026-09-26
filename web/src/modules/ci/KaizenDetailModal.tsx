@@ -129,7 +129,28 @@ export function normalizeCategoryId(catRaw?: string): string {
   if (cat === "EQUIPMENT" || cat === "MMTB_CCDC" || cat.includes("7.") || cat.includes("MMTB") || cat.includes("CCDC")) {
     return "EQUIPMENT";
   }
+  if (cat === "OTHER" || cat.includes("8.") || cat.includes("Khác") || cat.includes("Khac")) {
+    return "OTHER";
+  }
   return "PRODUCTIVITY";
+}
+
+// Phân loại nào tự động khoá về đúng 1 Nhóm chấm điểm (ẩn 2 nhóm còn lại) trong tab "Đánh giá
+// chuyên môn" — 3 phân loại KHÔNG rõ khớp đúng nhóm nào ("6.Tự động hoá", "7.MMTB CCDC", "8.Khác")
+// thì KHÔNG khoá, vẫn hiện đủ cả 3 nhóm để giám khảo tự chọn như trước đây.
+export function getLockedScoreGroup(normCategory: string): "GROUP1" | "GROUP2" | "GROUP3" | null {
+  switch (normCategory) {
+    case "PRODUCTIVITY":
+      return "GROUP1";
+    case "MATERIAL_SAVING":
+    case "COST_SAVING":
+      return "GROUP2";
+    case "SAFETY":
+    case "5S":
+      return "GROUP3";
+    default:
+      return null;
+  }
 }
 
 export default function KaizenDetailModal({
@@ -1926,9 +1947,12 @@ function TabExpertReviewContent({ proposal, isOwner, initialEvalData }: { propos
   const normCategory = normalizeCategoryId(proposal.category || (proposal as any).category_label);
   const isCostCat = normCategory === "MATERIAL_SAVING" || normCategory === "COST_SAVING";
   const initialPricingDir = (proposal as any).pricing_direction || (isCostCat ? "TRI_GIA" : "THOI_GIAN");
-  
+  // Thẻ có Phân Loại rõ ràng khớp đúng 1 Nhóm chấm điểm -> khoá cứng về nhóm đó, ẩn 2 nhóm còn lại ở
+  // Tiêu Chí 1 (xem getLockedScoreGroup) — chỉ "8.Khác" là không khoá, vẫn cho chọn tự do như trước.
+  const lockedScoreGroup = getLockedScoreGroup(normCategory);
+
   const [c1Group, setC1Group] = useState<"GROUP1" | "GROUP2" | "GROUP3">(
-    initialPricingDir === "TRI_GIA" || isCostCat ? "GROUP2" : "GROUP1"
+    lockedScoreGroup ?? (initialPricingDir === "TRI_GIA" || isCostCat ? "GROUP2" : "GROUP1")
   );
   const [quantPct, setQuantPct] = useState<number | "">(15);
 
@@ -2550,31 +2574,40 @@ function TabExpertReviewContent({ proposal, isOwner, initialEvalData }: { propos
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-            <button
-              type="button"
-              disabled={isReadOnly || isLocked}
-              onClick={() => setC1Group("GROUP1")}
-              className={`p-2 rounded-xl font-bold border cursor-pointer ${c1Group === "GROUP1" ? "bg-[#006838] text-white border-[#006838]" : "bg-white text-slate-700 border-slate-300"}`}
-            >
-              Nhóm 1: Năng suất / Thời gian
-            </button>
-            <button
-              type="button"
-              disabled={isReadOnly || isLocked}
-              onClick={() => setC1Group("GROUP2")}
-              className={`p-2 rounded-xl font-bold border cursor-pointer ${c1Group === "GROUP2" ? "bg-[#006838] text-white border-[#006838]" : "bg-white text-slate-700 border-slate-300"}`}
-            >
-              Nhóm 2: Tiết kiệm Chi phí / Vật tư
-            </button>
-            <button
-              type="button"
-              disabled={isReadOnly || isLocked}
-              onClick={() => setC1Group("GROUP3")}
-              className={`p-2 rounded-xl font-bold border cursor-pointer ${c1Group === "GROUP3" ? "bg-[#006838] text-white border-[#006838]" : "bg-white text-slate-700 border-slate-300"}`}
-            >
-              Nhóm 3: An toàn lao động / 5S
-            </button>
+          {/* Phân Loại của thẻ khớp rõ đúng 1 Nhóm -> chỉ hiện đúng nhóm đó, ẩn 2 nhóm còn lại
+              (khoá cứng, không cho đổi). Chỉ "8.Khác" (lockedScoreGroup=null) mới hiện đủ cả 3 nhóm
+              để giám khảo tự chọn như trước đây. */}
+          <div className={`grid grid-cols-1 ${lockedScoreGroup ? "" : "sm:grid-cols-3"} gap-2 text-xs`}>
+            {(!lockedScoreGroup || lockedScoreGroup === "GROUP1") && (
+              <button
+                type="button"
+                disabled={isReadOnly || isLocked}
+                onClick={() => setC1Group("GROUP1")}
+                className={`p-2 rounded-xl font-bold border cursor-pointer ${c1Group === "GROUP1" ? "bg-[#006838] text-white border-[#006838]" : "bg-white text-slate-700 border-slate-300"}`}
+              >
+                Nhóm 1: Năng suất / Thời gian
+              </button>
+            )}
+            {(!lockedScoreGroup || lockedScoreGroup === "GROUP2") && (
+              <button
+                type="button"
+                disabled={isReadOnly || isLocked}
+                onClick={() => setC1Group("GROUP2")}
+                className={`p-2 rounded-xl font-bold border cursor-pointer ${c1Group === "GROUP2" ? "bg-[#006838] text-white border-[#006838]" : "bg-white text-slate-700 border-slate-300"}`}
+              >
+                Nhóm 2: Tiết kiệm Chi phí / Vật tư
+              </button>
+            )}
+            {(!lockedScoreGroup || lockedScoreGroup === "GROUP3") && (
+              <button
+                type="button"
+                disabled={isReadOnly || isLocked}
+                onClick={() => setC1Group("GROUP3")}
+                className={`p-2 rounded-xl font-bold border cursor-pointer ${c1Group === "GROUP3" ? "bg-[#006838] text-white border-[#006838]" : "bg-white text-slate-700 border-slate-300"}`}
+              >
+                Nhóm 3: An toàn lao động / 5S
+              </button>
+            )}
           </div>
 
           {/* BAREM DẠNG RADIO NODES THEO NHÓM */}

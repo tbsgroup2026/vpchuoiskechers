@@ -24,6 +24,7 @@ import {
   IconPackage,
   IconStopwatch,
   IconSpeakerphone,
+  IconQrcode,
 } from '@tabler/icons-react';
 import { MMTB_NAV, MmtbNavEntry } from '@/lib/mmtbNav';
 import { getCurrentUser, getUserDisplayBadgeTitle, logoutUserProfile, UserProfile } from '@/lib/userProfiles';
@@ -54,6 +55,7 @@ const ICONS: Record<string, any> = {
   IconPackage,
   IconStopwatch,
   IconSpeakerphone,
+  IconQrcode,
 };
 
 function MaintenanceShellInner({

@@ -1,6 +1,6 @@
 'use client';
 
-import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, CartesianGrid, Cell, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 export type UnitBarItem = { label: string; value: number; color: string };
 
@@ -13,7 +13,9 @@ export default function UnitBarChart({ data, valueLabel = 'Số sự cố', heig
   }
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <BarChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
+      {/* margin.top chừa chỗ cho số hiện trên đỉnh cột (LabelList) — cột cao nhất chạm sát mép trên
+          sẽ bị che số nếu không chừa đủ khoảng trống này. */}
+      <BarChart data={data} margin={{ top: 26, right: 16, left: 0, bottom: 8 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#e7ede9" vertical={false} />
         <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#6b7c73' }} />
         <YAxis tick={{ fontSize: 10, fill: '#6b7c73' }} label={{ value: valueLabel, angle: -90, position: 'insideLeft', fontSize: 10, fill: '#6b7c73' }} />
@@ -22,6 +24,7 @@ export default function UnitBarChart({ data, valueLabel = 'Số sự cố', heig
           {data.map((d, i) => (
             <Cell key={i} fill={d.color} />
           ))}
+          <LabelList dataKey="value" position="top" style={{ fontSize: 11, fontWeight: 700, fill: '#334155' }} />
         </Bar>
       </BarChart>
     </ResponsiveContainer>

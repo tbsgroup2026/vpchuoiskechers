@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import NavLink from "@/components/NavLink";
 import {
   IconDeviceLaptop,
@@ -12,11 +12,11 @@ import {
   IconStopwatch,
   IconTool,
   IconGauge,
-  IconFilter,
   IconSearch,
   IconX,
   IconFlask,
   IconCalendar,
+  IconCalendarWeek,
   IconBuildingFactory,
   IconBuildingFactory2,
   IconBuildingWarehouse,
@@ -32,6 +32,8 @@ import {
   IconChartLine,
   IconChartBar,
   IconClipboardList,
+  IconMaximize,
+  IconMinimize,
 } from '@tabler/icons-react';
 import MaintenanceShell from '@/components/MaintenanceShell';
 import StatCardRow from '@/components/StatCardRow';
@@ -132,6 +134,31 @@ function monthToDateRange(monthStr: string): { from: string; to: string } {
 function currentMonthVN(): string {
   const vn = new Date(Date.now() + 7 * 60 * 60 * 1000);
   return `${vn.getUTCFullYear()}-${String(vn.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+// "yyyy-Www" (giá trị <input type="week">, tuần ISO Thứ 2 -> Chủ Nhật) -> ngày đầu/cuối tuần đó.
+function weekToDateRange(weekStr: string): { from: string; to: string } {
+  const [yStr, wStr] = weekStr.split('-W');
+  const y = Number(yStr);
+  const w = Number(wStr);
+  const jan4 = new Date(Date.UTC(y, 0, 4));
+  const jan4IsoDay = jan4.getUTCDay() || 7;
+  const monday = new Date(jan4);
+  monday.setUTCDate(jan4.getUTCDate() - (jan4IsoDay - 1) + (w - 1) * 7);
+  const sunday = new Date(monday);
+  sunday.setUTCDate(monday.getUTCDate() + 6);
+  const fmt = (d: Date) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+  return { from: fmt(monday), to: fmt(sunday) };
+}
+// Tuần hiện tại theo giờ VN dạng "yyyy-Www" — dùng làm giá trị mặc định cho ô chọn tuần.
+function currentWeekVN(): string {
+  const vn = new Date(Date.now() + 7 * 60 * 60 * 1000);
+  const d = new Date(Date.UTC(vn.getUTCFullYear(), vn.getUTCMonth(), vn.getUTCDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+  return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
 }
 
 // Tổng Quan = so sánh GIỮA CÁC NHÀ MÁY (Tổ Hợp Kiên Giang / Nhà Máy Miền Đông / Văn Phòng Chuỗi),
@@ -348,6 +375,13 @@ export default function OverviewPage() {
   const [pMonth, setPMonth] = useState(currentMonthVN());
   const [pDateFrom, setPDateFrom] = useState(() => monthToDateRange(pMonth).from);
   const [pDateTo, setPDateTo] = useState(() => monthToDateRange(pMonth).to);
+  // Nhớ bộ lọc của lượt tải GẦN NHẤT — để phân biệt "tải lại nền CÙNG 1 view" (áp dụng bảo vệ chống
+  // rỗng bất thường trong loadOverview) với "người dùng VỪA đổi sang bộ lọc khác" (kết quả rỗng lúc
+  // này là hợp lệ — đơn vị/kỳ đó thật sự không có sự cố — phải tin ngay, không giữ số liệu của bộ
+  // lọc CŨ lại).
+  const lastAppliedFilterKeyRef = useRef(
+    JSON.stringify({ factoryId: '', areaId: '', lineId: '', dateFrom: monthToDateRange(currentMonthVN()).from, dateTo: monthToDateRange(currentMonthVN()).to })
+  );
 
   // ---- Dữ liệu phân tích ----
   const [incidents, setIncidents] = useState<OverviewIncident[]>(() => mmtbTabCache.get<OverviewIncident[]>(dck('overview_incidents')) ?? []);
@@ -361,7 +395,11 @@ export default function OverviewPage() {
   const [appliedFilters, setAppliedFilters] = useState({ factoryId: '', areaId: '', lineId: '', dateFrom: pDateFrom, dateTo: pDateTo });
 
   // ---- Tổng Quan Hiệu Suất 6 Đơn Vị (KG1/KG2/KG3/HTĐ/Miền Đông/Văn Phòng Chuỗi) — CHỈ dùng khi
-  // scope=ALL. Mặc định khoảng ngày = tháng hiện tại, khớp đúng ảnh mẫu.
+  // scope=ALL. Mặc định khoảng ngày = tháng hiện tại, khớp đúng ảnh mẫu. Chọn Tuần/Tháng bằng icon
+  // riêng (không còn khoảng ngày tuỳ chỉnh/nút "Lọc" — chọn là tự lọc ngay, xem handlePickCompWeek/
+  // handlePickCompMonth).
+  const [compWeek, setCompWeek] = useState(() => currentWeekVN());
+  const [compMonth, setCompMonth] = useState(() => currentMonthVN());
   const [compDateFrom, setCompDateFrom] = useState(() => monthToDateRange(currentMonthVN()).from);
   const [compDateTo, setCompDateTo] = useState(() => monthToDateRange(currentMonthVN()).to);
   const compCacheKey = `overview_comparison_${compDateFrom}_${compDateTo}`;
@@ -377,12 +415,48 @@ export default function OverviewPage() {
   // Nút "Xem Dữ Liệu Mẫu" — bật tạm dữ liệu giả lập đủ 6 đơn vị để test giao diện (KHÔNG lưu cache,
   // KHÔNG ảnh hưởng compData thật) — xem generateMockCompData phía trên.
   const [compTestMode, setCompTestMode] = useState(false);
-  // Tăng lên mỗi lần bấm "Lọc" để ép tải lại dù khoảng ngày không đổi (VD dữ liệu tbsMayMoc vừa
-  // cập nhật) — khoảng ngày tự động tải lại ngay khi đổi rồi (không cần bấm), nút này chỉ để làm
-  // mới thủ công.
-  const [compRefreshNonce, setCompRefreshNonce] = useState(0);
+
+  // Chọn Tuần/Tháng bằng icon -> lọc ngay lập tức (đổi compDateFrom/compDateTo là effect bên dưới tự
+  // tải lại, không còn nút "Lọc" riêng — khớp đúng cách handlePickMonth đã làm ở trang Tổng Quan
+  // riêng từng nhà máy).
+  function handlePickCompWeek(weekStr: string) {
+    setCompWeek(weekStr);
+    if (!weekStr) return;
+    const { from, to } = weekToDateRange(weekStr);
+    setCompDateFrom(from);
+    setCompDateTo(to);
+  }
+  function handlePickCompMonth(monthStr: string) {
+    setCompMonth(monthStr);
+    if (!monthStr) return;
+    const { from, to } = monthToDateRange(monthStr);
+    setCompDateFrom(from);
+    setCompDateTo(to);
+  }
+
+  // Nút phóng to toàn màn hình (Fullscreen API thật của trình duyệt, ẩn cả thanh địa chỉ lẫn sidebar
+  // — chỉ còn lại đúng nội dung trang Tổng Quan) — áp dụng cho CẢ trang, không riêng từng khung.
+  const dashboardRef = useRef<HTMLDivElement>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  }, []);
+  function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+      dashboardRef.current?.requestFullscreen?.();
+    } else {
+      document.exitFullscreen?.();
+    }
+  }
 
   async function loadOverview(params: { factoryId: string; areaId: string; lineId: string; dateFrom: string; dateTo: string }) {
+    // Bộ lọc CÓ đổi so với lượt tải gần nhất hay không — quyết định có áp dụng "bảo vệ chống rỗng
+    // bất thường" bên dưới hay không (xem lastAppliedFilterKeyRef ở trên).
+    const filterKey = JSON.stringify(params);
+    const isSameFilterAsBefore = filterKey === lastAppliedFilterKeyRef.current;
+    lastAppliedFilterKeyRef.current = filterKey;
     try {
       // KHÔNG bật setLoading(true) — nếu đã có cache thì giữ nguyên hiện ngay, chỉ âm thầm tải mới.
       setError(null);
@@ -397,11 +471,14 @@ export default function OverviewPage() {
       const result = await res.json();
       if (result.success) {
         // Backend thoáng qua trả "success:true" nhưng rỗng khi quá tải — nếu tin ngay sẽ xoá trắng
-        // dữ liệu đang có mỗi lần rời trang rồi quay lại (xem machines/page.tsx). CHỈ ghi đè bằng
-        // mảng rỗng khi trước đó thật sự chưa có gì.
+        // dữ liệu đang có mỗi lần rời trang rồi quay lại (xem machines/page.tsx). CHỈ áp dụng bảo vệ
+        // này khi đang tải lại CÙNG 1 bộ lọc — nếu người dùng VỪA đổi sang nhà máy/xưởng/khoảng ngày
+        // khác, kết quả rỗng lúc này là hợp lệ (đơn vị đó thật sự không có sự cố trong kỳ), phải tin
+        // ngay, không được giữ lại số liệu của bộ lọc CŨ (đã xảy ra thật: chọn KG1 > MAY 1 vẫn hiện
+        // nguyên số liệu chưa lọc vì KG1 tháng đó thật sự không có sự cố nào).
         const newIncidents: OverviewIncident[] = result.incidents || [];
         const prevIncidents = mmtbTabCache.get<OverviewIncident[]>(dck('overview_incidents'));
-        if (newIncidents.length > 0 || !prevIncidents || prevIncidents.length === 0) {
+        if (newIncidents.length > 0 || !isSameFilterAsBefore || !prevIncidents || prevIncidents.length === 0) {
           setIncidents(newIncidents);
           setLogs(result.logs || []);
           mmtbTabCache.set(dck('overview_incidents'), newIncidents);
@@ -544,7 +621,7 @@ export default function OverviewPage() {
       setCompLoading(false);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scope, compDateFrom, compDateTo, compUnits, compRefreshNonce]);
+  }, [scope, compDateFrom, compDateTo, compUnits]);
 
   // Bấm 1 tháng ở icon lịch -> set khoảng ngày trọn tháng đó + lọc ngay (không cần bấm nút "Lọc"
   // thêm). Đổi qua khoảng ngày tuỳ chỉnh (DateRangeFilter) thì bỏ chọn tháng (setPMonth rỗng) —
@@ -721,12 +798,23 @@ export default function OverviewPage() {
       }));
   }, [enriched]);
 
+  // Tách hẳn 2 cấp — KHÔNG dùng chung fallback nữa: sự cố không có Tổ/Chuyền thì không tính vào
+  // paretoByLine (chỉ hiện ở paretoByArea theo đúng Phân Xưởng của nó), tránh chồng chéo dữ liệu
+  // giữa 2 biểu đồ.
   const paretoByLine: ParetoItem[] = useMemo(() => {
     const map = new Map<string, number>();
     for (const i of enriched) {
-      if (i.mttd == null) continue;
-      const key = i.lineName || i.areaName || 'Khác';
-      map.set(key, (map.get(key) ?? 0) + i.mttd);
+      if (i.mttd == null || !i.lineName) continue;
+      map.set(i.lineName, (map.get(i.lineName) ?? 0) + i.mttd);
+    }
+    return Array.from(map, ([label, value]) => ({ label, value: Math.round(value) }));
+  }, [enriched]);
+
+  const paretoByArea: ParetoItem[] = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const i of enriched) {
+      if (i.mttd == null || !i.areaName) continue;
+      map.set(i.areaName, (map.get(i.areaName) ?? 0) + i.mttd);
     }
     return Array.from(map, ([label, value]) => ({ label, value: Math.round(value) }));
   }, [enriched]);
@@ -848,7 +936,17 @@ export default function OverviewPage() {
              KG3/HTĐ trong Tổ Hợp Kiên Giang + Nhà Máy Miền Đông + Văn Phòng Chuỗi), KHÔNG phải chi
              tiết 1 nhà máy. Miền Đông/Văn Phòng Chuỗi chưa có hệ thống MMTB thật kết nối nên luôn
              hiện 0 — khung sẵn sàng tự hiện số thật ngay khi 2 khu vực đó có dữ liệu. */
-          <div>
+          <div ref={dashboardRef} className="relative bg-slate-50 p-3">
+            {/* Nút phóng to/thu nhỏ toàn màn hình — góc trên phải, nổi trên mọi thứ. Icon đổi theo
+                trạng thái đang/không fullscreen (xem toggleFullscreen ở trên). */}
+            <button
+              onClick={toggleFullscreen}
+              title={isFullscreen ? 'Thoát toàn màn hình' : 'Phóng to toàn màn hình'}
+              className="absolute top-2 right-2 z-10 w-6 h-6 rounded-md bg-white/90 hover:bg-white border border-slate-200 shadow-md flex items-center justify-center cursor-pointer text-slate-600 hover:text-[#006838] transition-colors"
+            >
+              {isFullscreen ? <IconMinimize size={13} /> : <IconMaximize size={13} />}
+            </button>
+
             {/* Header + bộ lọc khoảng ngày — rộng bằng đúng hàng 6 ô bên dưới (không kéo margin âm
                 ra ngoài lề trang, khớp đúng ảnh mẫu: header vẫn nằm trong lề trang bình thường,
                 chỉ bo góc nhẹ thay vì bo tròn lớn), sát luôn xuống hàng 6 ô bên dưới (mt-2). */}
@@ -863,14 +961,28 @@ export default function OverviewPage() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <DateRangeFilter from={compDateFrom} to={compDateTo} onFromChange={setCompDateFrom} onToChange={setCompDateTo} />
-                <button
-                  onClick={() => setCompRefreshNonce((n) => n + 1)}
-                  disabled={compLoading}
-                  className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#006838] text-white text-sm font-bold hover:bg-[#00552d] disabled:opacity-50 h-[42px] shrink-0 cursor-pointer"
-                >
-                  <IconFilter size={14} /> {compLoading ? 'Đang lọc...' : 'Lọc'}
-                </button>
+                {/* Chọn Tuần/Tháng bằng icon — chọn là lọc ngay, không còn khoảng ngày tuỳ chỉnh/nút
+                    "Lọc" (xem handlePickCompWeek/handlePickCompMonth). */}
+                <div className="relative shrink-0">
+                  <IconCalendarWeek size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="week"
+                    value={compWeek}
+                    onChange={(e) => handlePickCompWeek(e.target.value)}
+                    title="Chọn theo tuần"
+                    className="pl-7 pr-2 py-2 bg-white border border-white/40 rounded-lg text-xs font-semibold h-[42px] w-[138px] text-slate-700"
+                  />
+                </div>
+                <div className="relative shrink-0">
+                  <IconCalendar size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="month"
+                    value={compMonth}
+                    onChange={(e) => handlePickCompMonth(e.target.value)}
+                    title="Chọn theo tháng"
+                    className="pl-7 pr-2 py-2 bg-white border border-white/40 rounded-lg text-xs font-semibold h-[42px] w-[132px] text-slate-700"
+                  />
+                </div>
                 <button
                   onClick={() => setCompTestMode((v) => !v)}
                   title="Bật/tắt dữ liệu mẫu để test giao diện — không phải dữ liệu thật"
@@ -893,21 +1005,21 @@ export default function OverviewPage() {
                 const delta = deltaPercent(d.kpi.mttr, d.prevKpi.mttr);
                 const spark = d.daily.map((p) => ({ value: p.mttr }));
                 return (
-                  <div key={u.key} className="rounded-2xl p-3" style={{ backgroundColor: `${u.color}1f` }}>
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: u.color }}>
-                        <u.icon size={20} className="text-white" />
+                  <div key={u.key} className="rounded-xl p-2.5" style={{ backgroundColor: `${u.color}1f` }}>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: u.color }}>
+                        <u.icon size={16} className="text-white" />
                       </div>
-                      <span className="text-lg font-extrabold text-slate-800 truncate">{u.label}</span>
+                      <span className="text-sm font-extrabold text-slate-800 truncate">{u.label}</span>
                     </div>
-                    <div className="flex items-baseline gap-1.5">
-                      <span className="text-4xl font-extrabold text-slate-900 tracking-tight">{fmtMin(d.kpi.mttr)}</span>
-                      <span className="text-2xl font-bold text-slate-500">phút</span>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-2xl font-extrabold text-slate-900 tracking-tight">{fmtMin(d.kpi.mttr)}</span>
+                      <span className="text-base font-bold text-slate-500">phút</span>
                     </div>
-                    <p className="text-sm text-slate-600 font-bold">Thời gian xử lý TB</p>
+                    <p className="text-xs text-slate-600 font-bold">Thời gian xử lý TB</p>
                     <div className="flex items-end justify-between gap-2 mt-1">
                       <DeltaBadge percent={delta} />
-                      <div className="w-20 shrink-0"><Sparkline data={spark} color={u.color} height={30} /></div>
+                      <div className="w-16 shrink-0"><Sparkline data={spark} color={u.color} height={24} /></div>
                     </div>
                   </div>
                 );
@@ -1053,22 +1165,22 @@ export default function OverviewPage() {
 
               <div className="bg-emerald-50/60 rounded-2xl border border-emerald-100 p-4 sm:p-5">
                 <div className="flex items-center gap-2 mb-3">
-                  <IconBulbFilled size={16} className="text-emerald-600" />
-                  <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Nhận Xét Nhanh</h2>
+                  <IconBulbFilled size={24} className="text-emerald-600" />
+                  <h2 className="text-lg font-bold text-slate-900 uppercase tracking-wider">Nhận Xét Nhanh</h2>
                 </div>
                 {compInsights.lines.length === 0 ? (
-                  <p className="text-xs text-slate-400">Chưa đủ dữ liệu để nhận xét trong kỳ này.</p>
+                  <p className="text-sm text-slate-400">Chưa đủ dữ liệu để nhận xét trong kỳ này.</p>
                 ) : (
                   <>
-                    <ul className="space-y-2 text-xs text-slate-700">
+                    <ul className="space-y-3 text-base text-slate-700 font-medium">
                       {compInsights.lines.map((line, idx) => (
                         <li key={idx} className="flex items-start gap-2">
-                          <IconArrowRight size={13} className="text-emerald-500 shrink-0 mt-0.5" />
+                          <IconArrowRight size={19} className="text-emerald-500 shrink-0 mt-0.5" />
                           <span>{line}</span>
                         </li>
                       ))}
                     </ul>
-                    <p className="text-xs font-bold text-emerald-800 mt-3 pt-3 border-t border-emerald-200/70">{compInsights.conclusion}</p>
+                    <p className="text-base font-bold text-emerald-800 mt-3 pt-3 border-t border-emerald-200/70">{compInsights.conclusion}</p>
                   </>
                 )}
               </div>
@@ -1177,20 +1289,26 @@ export default function OverviewPage() {
         {/* Pareto Charts Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="bg-white rounded-xl border border-slate-200/80 p-4 sm:p-5 shadow-2xs">
-            <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3">Pareto — Downtime Theo Line / Phân Xưởng</h2>
+            <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3">Pareto — Downtime Theo Tổ / Chuyền</h2>
             {loading ? <div className="p-8 text-center text-xs text-slate-400">Đang tải...</div> : <ParetoChart data={paretoByLine} valueLabel="Downtime (phút)" barColor="#006838" />}
           </div>
           <div className="bg-white rounded-xl border border-slate-200/80 p-4 sm:p-5 shadow-2xs">
-            <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3">Pareto — Top Máy Gặp Sự Cố Nhiều Nhất</h2>
-            {loading ? <div className="p-8 text-center text-xs text-slate-400">Đang tải...</div> : <ParetoChart data={paretoByMachine} valueLabel="Số lượng sự cố" barColor="#1d4ed8" />}
+            <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3">Pareto — Downtime Theo Phân Xưởng</h2>
+            {loading ? <div className="p-8 text-center text-xs text-slate-400">Đang tải...</div> : <ParetoChart data={paretoByArea} valueLabel="Downtime (phút)" barColor="#0d9488" />}
           </div>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="bg-white rounded-xl border border-slate-200/80 p-4 sm:p-5 shadow-2xs">
+            <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3">Pareto — Top Máy Gặp Sự Cố Nhiều Nhất</h2>
+            {loading ? <div className="p-8 text-center text-xs text-slate-400">Đang tải...</div> : <ParetoChart data={paretoByMachine} valueLabel="Số lượng sự cố" barColor="#1d4ed8" />}
+          </div>
+          <div className="bg-white rounded-xl border border-slate-200/80 p-4 sm:p-5 shadow-2xs">
             <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3">Pareto — Phân Loại Danh Mục Hư hỏng</h2>
             {loading ? <div className="p-8 text-center text-xs text-slate-400">Đang tải...</div> : <ParetoChart data={paretoByCategory} valueLabel="Số lượng sự cố" barColor="#b91c1c" />}
           </div>
-          <div className="bg-white rounded-xl border border-slate-200/80 p-4 sm:p-5 shadow-2xs">
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="bg-white rounded-xl border border-slate-200/80 p-4 sm:p-5 shadow-2xs lg:col-span-2">
             <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3">Pareto — Linh Kiện & Phụ Tùng Thay Thế Nhiều Nhất</h2>
             {loading ? <div className="p-8 text-center text-xs text-slate-400">Đang tải...</div> : <ParetoChart data={paretoByParts} valueLabel="Số lượng thay thế" barColor="#b45309" />}
           </div>

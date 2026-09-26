@@ -63,8 +63,13 @@ export default function JudgeWorkspace({ magicToken: propMagicToken }: JudgeWork
     if (typeof window !== "undefined") return localStorage.getItem("tbs_real_scorer_name") || "";
     return "";
   });
-  const [realScorerPhone, setRealScorerPhone] = useState("");
+  const [realScorerPhone, setRealScorerPhone] = useState(() => {
+    if (typeof window !== "undefined") return localStorage.getItem("tbs_real_scorer_phone") || "";
+    return "";
+  });
   const [realScorerEmail, setRealScorerEmail] = useState("");
+  const [activeConfirmedProposalId, setActiveConfirmedProposalId] = useState<string | null>(null);
+  const [showIdentityModal, setShowIdentityModal] = useState(false);
 
   // Form Chấm Điểm State
   const [p1Pass, setP1Pass] = useState(true);
@@ -247,6 +252,11 @@ export default function JudgeWorkspace({ magicToken: propMagicToken }: JudgeWork
     setErrorMsg(null);
     setSubmitSuccessMsg(null);
 
+    const isShared = isGuest || Boolean(guestUserObj?.dungChung ?? true);
+    if (isShared && activeConfirmedProposalId !== asgn.submission_id) {
+      setShowIdentityModal(true);
+    }
+
     // Fetch existing score if already scored
     try {
       let token = typeof window !== "undefined" ? (localStorage.getItem("tbs_jwt_token") || "") : "";
@@ -406,6 +416,7 @@ export default function JudgeWorkspace({ magicToken: propMagicToken }: JudgeWork
         } else {
           setSubmitSuccessMsg(`✅ Đã nộp bảng chấm điểm thành công! Tổng điểm của bạn: ${json.judgeTotalScore} điểm.`);
         }
+        setActiveConfirmedProposalId(null);
         loadData();
       } else {
         setErrorMsg(`❌ ${json.error || "Không thể nộp bảng chấm điểm"}`);
@@ -1056,6 +1067,83 @@ export default function JudgeWorkspace({ magicToken: propMagicToken }: JudgeWork
                 {submittingDecl ? "Đang lưu thông tin & Backup Google Drive..." : "🚀 Gửi Khai Báo & Mở Không Gian Chấm Điểm"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* MODAL XÁC NHẬN DANH TÍNH NGUỜI CHẤM THỰC CHO TÀI KHOẢN DÙNG CHUNG */}
+      {showIdentityModal && selectedAssignment && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-indigo-200">
+            <div className="flex items-center gap-3 text-indigo-950">
+              <div className="p-3 rounded-2xl bg-indigo-100 text-indigo-700">
+                <IconUser size={24} />
+              </div>
+              <div>
+                <span className="px-2 py-0.5 rounded-full bg-indigo-900 text-indigo-100 font-mono font-black text-[10px] uppercase">
+                  👥 TÀI KHOẢN DÙNG CHUNG (#923)
+                </span>
+                <h3 className="text-base font-black text-slate-900 mt-1">Xác nhận Danh tính Người Chấm Thực</h3>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Tài khoản này được dùng chung bởi nhiều Giám Khảo. Trước khi bắt đầu chấm điểm cho sáng kiến{" "}
+              <strong className="text-indigo-950 font-black">{selectedAssignment.submission_id}</strong>,
+              vui lòng xác nhận Họ và tên của bạn để hệ thống ghi nhận chính xác lượt chấm này.
+            </p>
+
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-xs font-black text-slate-800 block">1. Họ và tên người chấm (*)</label>
+                <input
+                  type="text"
+                  value={realScorerName}
+                  onChange={(e) => {
+                    setRealScorerName(e.target.value);
+                    if (typeof window !== "undefined") {
+                      localStorage.setItem("tbs_real_scorer_name", e.target.value);
+                    }
+                  }}
+                  placeholder="Nhập họ và tên đầy đủ của bạn..."
+                  className="w-full p-2.5 rounded-xl border border-slate-300 text-xs font-bold bg-slate-50 focus:ring-2 focus:ring-indigo-500 outline-none"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-black text-slate-800 block">2. SĐT hoặc Email liên hệ (Tuỳ chọn)</label>
+                <input
+                  type="text"
+                  value={realScorerPhone}
+                  onChange={(e) => {
+                    setRealScorerPhone(e.target.value);
+                    if (typeof window !== "undefined") {
+                      localStorage.setItem("tbs_real_scorer_phone", e.target.value);
+                    }
+                  }}
+                  placeholder="Nhập SĐT hoặc Email liên hệ..."
+                  className="w-full p-2.5 rounded-xl border border-slate-300 text-xs font-bold bg-slate-50 focus:ring-2 focus:ring-indigo-500 outline-none"
+                />
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (!realScorerName.trim()) {
+                  setErrorMsg("⚠️ Vui lòng nhập Họ và tên người chấm thực!");
+                  return;
+                }
+                if (typeof window !== "undefined") {
+                  localStorage.setItem("tbs_real_scorer_name", realScorerName.trim());
+                  if (realScorerPhone.trim()) localStorage.setItem("tbs_real_scorer_phone", realScorerPhone.trim());
+                }
+                setActiveConfirmedProposalId(selectedAssignment.submission_id);
+                setShowIdentityModal(false);
+              }}
+              className="w-full py-3 rounded-2xl bg-[#006838] hover:bg-[#00522c] text-white font-black text-xs shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2"
+            >
+              <span>🚀 Bắt đầu chấm điểm sáng kiến này ➔</span>
+            </button>
           </div>
         </div>
       )}

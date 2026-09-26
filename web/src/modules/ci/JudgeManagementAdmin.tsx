@@ -34,6 +34,7 @@ export default function JudgeManagementAdmin() {
   const [guestName, setGuestName] = useState("");
   const [guestContact, setGuestContact] = useState("");
   const [guestRoundId, setGuestRoundId] = useState("");
+  const [isSharedAccount, setIsSharedAccount] = useState(true);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
 
   // Flag Resolution Form
@@ -139,6 +140,7 @@ export default function JudgeManagementAdmin() {
         body: JSON.stringify({
           roundId: finalRoundId,
           validDays: 7,
+          dungChung: isSharedAccount ? 1 : 0,
         }),
       });
       const json = await res.json();
@@ -351,6 +353,16 @@ export default function JudgeManagementAdmin() {
                   ))}
                 </select>
 
+                <label className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-800/80 border border-slate-700 text-xs font-bold cursor-pointer text-slate-200">
+                  <input
+                    type="checkbox"
+                    checked={isSharedAccount}
+                    onChange={(e) => setIsSharedAccount(e.target.checked)}
+                    className="w-4 h-4 accent-amber-500 rounded"
+                  />
+                  <span>Tài khoản Dùng Chung (Nhiều người dùng chung 1 link)</span>
+                </label>
+
                 <button
                   onClick={() => handleCreateGuest()}
                   disabled={loading}
@@ -382,6 +394,11 @@ export default function JudgeManagementAdmin() {
                         <span className="px-2.5 py-1 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-950 font-mono font-black text-xs">
                           🔑 Pass: {passDisplay}
                         </span>
+                        {Boolean(g.dung_chung ?? 1) && (
+                          <span className="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-900 border border-indigo-200 text-[10px] font-black flex items-center gap-1">
+                            👥 DÙNG CHUNG (Xác nhận tên từng sáng kiến)
+                          </span>
+                        )}
                         {isDeclSubmitted ? (
                           <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black flex items-center gap-1">
                             <IconCheck size={12} /> Đã khai báo: {g.full_name} ({g.organization || "Chuyên gia"})

@@ -60,6 +60,7 @@ export async function GET(request: Request) {
         isGuest: true,
         declarationSubmitted: Boolean(guest.declaration_submitted),
         username: guest.username || '',
+        dungChung: Boolean(guest.dung_chung ?? 1),
       };
 
       const authToken = await signToken(jwtPayload);
@@ -131,6 +132,7 @@ export async function POST(request: Request) {
         isGuest: true,
         declarationSubmitted: Boolean(guest.declaration_submitted),
         username: guest.username || '',
+        dungChung: Boolean(guest.dung_chung ?? 1),
       };
 
       const authToken = await signToken(jwtPayload);
@@ -150,7 +152,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Chỉ Admin/Ban 2.2 mới có quyền tạo BGK khách' }, { status: 403 });
     }
 
-    const { fullName, emailPhone, roundId, validDays = 7 } = body;
+    const { fullName, emailPhone, roundId, validDays = 7, dungChung = 1 } = body;
 
     const bgkUsername = `BGK-${Math.floor(1000 + Math.random() * 9000)}`;
     const bgkPasscode = Math.floor(100000 + Math.random() * 900000).toString();
@@ -163,11 +165,12 @@ export async function POST(request: Request) {
     const guestId = `guest_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
     const tokenRaw = `magic_${Date.now()}_${Math.random().toString(36).substring(2, 12)}`;
     const expiresDays = Math.max(1, Math.min(30, Number(validDays) || 7));
+    const isShared = dungChung ? 1 : 0;
 
     await db.prepare(`
       INSERT INTO ci_kaizen_judge_guest_accounts (
-        id, username, one_time_passcode, full_name, email_phone, round_id, token_hash, expires_at, created_by
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now', '+${expiresDays} days'), ?)
+        id, username, one_time_passcode, full_name, email_phone, round_id, token_hash, expires_at, created_by, dung_chung
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now', '+${expiresDays} days'), ?, ?)
     `).bind(
       guestId,
       bgkUsername,
@@ -176,7 +179,8 @@ export async function POST(request: Request) {
       emailPhone || '',
       roundToSave,
       tokenRaw,
-      user.empCode || user.name
+      user.empCode || user.name,
+      isShared
     ).run();
 
     const magicLink = `/work/kaizen/judge?bgkUser=${bgkUsername}&pass=${bgkPasscode}`;

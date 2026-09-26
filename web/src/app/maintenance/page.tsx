@@ -37,7 +37,6 @@ import {
 } from '@tabler/icons-react';
 import MaintenanceShell from '@/components/MaintenanceShell';
 import StatCardRow from '@/components/StatCardRow';
-import DateRangeFilter, { inDateRange } from '@/components/DateRangeFilter';
 import ParetoChart, { type ParetoItem } from '@/components/charts/ParetoChart';
 import TrendChart, { type TrendPoint } from '@/components/charts/TrendChart';
 import Sparkline from '@/components/charts/Sparkline';
@@ -372,9 +371,13 @@ export default function OverviewPage() {
   const [areas, setAreas] = useState<CategoryOption[]>(() => mmtbTabCache.get<CategoryOption[]>(dck('overview_areas')) ?? []);
   const [pFactoryId, setPFactoryId] = useState('');
   const [pAreaId, setPAreaId] = useState('');
+  const [pWeek, setPWeek] = useState('');
   const [pMonth, setPMonth] = useState(currentMonthVN());
   const [pDateFrom, setPDateFrom] = useState(() => monthToDateRange(pMonth).from);
   const [pDateTo, setPDateTo] = useState(() => monthToDateRange(pMonth).to);
+  // Dữ liệu kỳ LIỀN TRƯỚC (cùng độ dài, tự bám theo tuần/tháng đang chọn) — CHỈ dùng để tính đường
+  // "TB kỳ trước" trên 2 biểu đồ Pareto Tổ/Chuyền + Phân Xưởng, không ảnh hưởng số liệu chính.
+  const [prevPeriodIncidents, setPrevPeriodIncidents] = useState<OverviewIncident[]>([]);
   // Nhớ bộ lọc của lượt tải GẦN NHẤT — để phân biệt "tải lại nền CÙNG 1 view" (áp dụng bảo vệ chống
   // rỗng bất thường trong loadOverview) với "người dùng VỪA đổi sang bộ lọc khác" (kết quả rỗng lúc
   // này là hợp lệ — đơn vị/kỳ đó thật sự không có sự cố — phải tin ngay, không giữ số liệu của bộ
@@ -467,7 +470,27 @@ export default function OverviewPage() {
       if (params.dateFrom) qs.set('dateFrom', params.dateFrom);
       if (params.dateTo) qs.set('dateTo', params.dateTo);
       qs.set('scope', detailScope);
-      const res = await fetch(`/api/maintenance/overview-report?${qs}`);
+
+      // Kỳ liền trước (cùng độ dài, ngay trước kỳ đang xem) — chỉ để tính đường "TB kỳ trước" trên
+      // Pareto Tổ/Chuyền + Phân Xưởng; tự bám theo tuần/tháng đang chọn vì previousPeriod() tính theo
+      // đúng số ngày của dateFrom/dateTo hiện tại.
+      const prevQs = new URLSearchParams(qs);
+      if (params.dateFrom && params.dateTo) {
+        const { from: prevFrom, to: prevTo } = previousPeriod(params.dateFrom, params.dateTo);
+        prevQs.set('dateFrom', prevFrom);
+        prevQs.set('dateTo', prevTo);
+      }
+
+      const [res, prevRes] = await Promise.all([
+        fetch(`/api/maintenance/overview-report?${qs}`),
+        params.dateFrom && params.dateTo ? fetch(`/api/maintenance/overview-report?${prevQs}`) : Promise.resolve(null),
+      ]);
+      if (prevRes) {
+        prevRes
+          .json()
+          .then((prevResult) => { if (prevResult.success) setPrevPeriodIncidents(prevResult.incidents || []); })
+          .catch(() => {});
+      }
       const result = await res.json();
       if (result.success) {
         // Backend thoáng qua trả "success:true" nhưng rỗng khi quá tải — nếu tin ngay sẽ xoá trắng
@@ -624,12 +647,27 @@ export default function OverviewPage() {
   }, [scope, compDateFrom, compDateTo, compUnits]);
 
   // Bấm 1 tháng ở icon lịch -> set khoảng ngày trọn tháng đó + lọc ngay (không cần bấm nút "Lọc"
-  // thêm). Đổi qua khoảng ngày tuỳ chỉnh (DateRangeFilter) thì bỏ chọn tháng (setPMonth rỗng) —
-  // tránh icon lịch hiện sai tháng không khớp bộ lọc đang áp dụng thật.
+  // thêm). Bỏ chọn tuần (setPWeek rỗng) — tránh 2 icon lịch hiện lệch nhau, không khớp bộ lọc đang
+  // áp dụng thật.
   function handlePickMonth(monthStr: string) {
     setPMonth(monthStr);
+    setPWeek('');
     if (!monthStr) return;
     const { from, to } = monthToDateRange(monthStr);
+    setPDateFrom(from);
+    setPDateTo(to);
+    const params = { factoryId: pFactoryId, areaId: pAreaId, lineId: '', dateFrom: from, dateTo: to };
+    setAppliedFilters(params);
+    loadOverview(params);
+  }
+
+  // Bấm 1 tuần ở icon lịch -> set khoảng ngày trọn tuần đó (Thứ 2 -> Chủ Nhật) + lọc ngay. Bỏ chọn
+  // tháng (setPMonth rỗng) — cùng lý do như trên.
+  function handlePickWeek(weekStr: string) {
+    setPWeek(weekStr);
+    setPMonth('');
+    if (!weekStr) return;
+    const { from, to } = weekToDateRange(weekStr);
     setPDateFrom(from);
     setPDateTo(to);
     const params = { factoryId: pFactoryId, areaId: pAreaId, lineId: '', dateFrom: from, dateTo: to };
@@ -655,23 +693,6 @@ export default function OverviewPage() {
   function handleSelectArea(areaId: string) {
     setPAreaId(areaId);
     const params = { factoryId: pFactoryId, areaId, lineId: '', dateFrom: pDateFrom, dateTo: pDateTo };
-    setAppliedFilters(params);
-    loadOverview(params);
-  }
-
-  // Đổi khoảng ngày tuỳ chỉnh -> lọc ngay (không còn nút "Lọc" riêng) — dùng thẳng giá trị `v` mới
-  // thay vì đọc lại pDateFrom/pDateTo (state chưa kịp cập nhật lúc hàm này chạy).
-  function handleDateFromChange(v: string) {
-    setPMonth('');
-    setPDateFrom(v);
-    const params = { factoryId: pFactoryId, areaId: pAreaId, lineId: '', dateFrom: v, dateTo: pDateTo };
-    setAppliedFilters(params);
-    loadOverview(params);
-  }
-  function handleDateToChange(v: string) {
-    setPMonth('');
-    setPDateTo(v);
-    const params = { factoryId: pFactoryId, areaId: pAreaId, lineId: '', dateFrom: pDateFrom, dateTo: v };
     setAppliedFilters(params);
     loadOverview(params);
   }
@@ -818,6 +839,38 @@ export default function OverviewPage() {
     }
     return Array.from(map, ([label, value]) => ({ label, value: Math.round(value) }));
   }, [enriched]);
+
+  // Dữ liệu kỳ liền trước (tuần/tháng trước, tự bám theo bộ lọc đang chọn) — dùng riêng để tính
+  // đường "TB kỳ trước" (1 mức trung bình chung duy nhất) trên 2 biểu đồ Pareto Tổ/Chuyền + Phân
+  // Xưởng, KHÔNG hiện lên bảng/thẻ nào khác.
+  const enrichedPrev = useMemo(
+    () =>
+      prevPeriodIncidents.map((i) => ({
+        ...i,
+        mttd: i.completedAt ? minutesBetween(i.createdAt, i.completedAt) : null,
+      })),
+    [prevPeriodIncidents]
+  );
+
+  const avgDowntimeByLinePrev = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const i of enrichedPrev) {
+      if (i.mttd == null || !i.lineName) continue;
+      map.set(i.lineName, (map.get(i.lineName) ?? 0) + i.mttd);
+    }
+    const values = Array.from(map.values());
+    return values.length ? Math.round(values.reduce((s, v) => s + v, 0) / values.length) : null;
+  }, [enrichedPrev]);
+
+  const avgDowntimeByAreaPrev = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const i of enrichedPrev) {
+      if (i.mttd == null || !i.areaName) continue;
+      map.set(i.areaName, (map.get(i.areaName) ?? 0) + i.mttd);
+    }
+    const values = Array.from(map.values());
+    return values.length ? Math.round(values.reduce((s, v) => s + v, 0) / values.length) : null;
+  }, [enrichedPrev]);
 
   const paretoByMachine: ParetoItem[] = useMemo(() => {
     const map = new Map<string, number>();
@@ -1238,6 +1291,16 @@ export default function OverviewPage() {
 
                 <div className="w-px self-stretch bg-slate-200 mx-0.5" />
                 <div className="relative shrink-0">
+                  <IconCalendarWeek size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="week"
+                    value={pWeek}
+                    onChange={(e) => handlePickWeek(e.target.value)}
+                    title="Chọn theo tuần"
+                    className="pl-7 pr-2 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold h-[34px] w-[132px]"
+                  />
+                </div>
+                <div className="relative shrink-0">
                   <IconCalendar size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="month"
@@ -1247,12 +1310,6 @@ export default function OverviewPage() {
                     className="pl-7 pr-2 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold h-[34px] w-[132px]"
                   />
                 </div>
-                <DateRangeFilter
-                  from={pDateFrom}
-                  to={pDateTo}
-                  onFromChange={handleDateFromChange}
-                  onToChange={handleDateToChange}
-                />
               </div>
             </div>
 
@@ -1290,11 +1347,11 @@ export default function OverviewPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="bg-white rounded-xl border border-slate-200/80 p-4 sm:p-5 shadow-2xs">
             <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3">Pareto — Downtime Theo Tổ / Chuyền</h2>
-            {loading ? <div className="p-8 text-center text-xs text-slate-400">Đang tải...</div> : <ParetoChart data={paretoByLine} valueLabel="Downtime (phút)" barColor="#006838" />}
+            {loading ? <div className="p-8 text-center text-xs text-slate-400">Đang tải...</div> : <ParetoChart data={paretoByLine} valueLabel="Downtime (phút)" barColor="#006838" showShareLine avgBenchmark={avgDowntimeByLinePrev} avgLabel="TB kỳ trước" />}
           </div>
           <div className="bg-white rounded-xl border border-slate-200/80 p-4 sm:p-5 shadow-2xs">
             <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3">Pareto — Downtime Theo Phân Xưởng</h2>
-            {loading ? <div className="p-8 text-center text-xs text-slate-400">Đang tải...</div> : <ParetoChart data={paretoByArea} valueLabel="Downtime (phút)" barColor="#0d9488" />}
+            {loading ? <div className="p-8 text-center text-xs text-slate-400">Đang tải...</div> : <ParetoChart data={paretoByArea} valueLabel="Downtime (phút)" barColor="#0d9488" showShareLine avgBenchmark={avgDowntimeByAreaPrev} avgLabel="TB kỳ trước" />}
           </div>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

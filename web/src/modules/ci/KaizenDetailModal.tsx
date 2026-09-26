@@ -1888,13 +1888,23 @@ function TabExpertReviewContent({ proposal, isOwner, initialEvalData }: { propos
   const [declNoConflict, setDeclNoConflict] = useState(false);
   const [submittingDecl, setSubmittingDecl] = useState(false);
 
-  // Real Scorer Identity State for Shared Guest Accounts
+  // Real Scorer Identity State for Shared Guest Accounts / BGK
   const [realScorerName, setRealScorerName] = useState(() => {
     if (typeof window !== "undefined") return localStorage.getItem("tbs_real_scorer_name") || "";
     return "";
   });
-  const [realScorerPhone, setRealScorerPhone] = useState("");
-  const [realScorerEmail, setRealScorerEmail] = useState("");
+  const [realScorerOrg, setRealScorerOrg] = useState(() => {
+    if (typeof window !== "undefined") return localStorage.getItem("tbs_real_scorer_org") || "";
+    return "";
+  });
+  const [realScorerPhone, setRealScorerPhone] = useState(() => {
+    if (typeof window !== "undefined") return localStorage.getItem("tbs_real_scorer_phone") || "";
+    return "";
+  });
+  const [realScorerEmail, setRealScorerEmail] = useState(() => {
+    if (typeof window !== "undefined") return localStorage.getItem("tbs_real_scorer_email") || "";
+    return "";
+  });
 
   // Conflict modal state
   const [showConflictModal, setShowConflictModal] = useState(false);
@@ -2074,16 +2084,16 @@ function TabExpertReviewContent({ proposal, isOwner, initialEvalData }: { propos
   };
 
   const handleScoreSubmit = async () => {
-    if (!c1Basis.trim() || !c2Basis.trim() || !c3Basis.trim() || !c4Basis.trim() || !c5Basis.trim()) {
-      setErrorMsg("⚠️ Bắt buộc phải nhập căn cứ/minh chứng cho cả 5 tiêu chí trước khi nộp điểm!");
+    if (!realScorerName.trim()) {
+      setErrorMsg("⚠️ Bắt buộc phải nhập Họ và tên Giám Khảo / Người chấm thực trước khi nộp điểm!");
       return;
     }
     if (!noConflictDeclared) {
       setErrorMsg("⚠️ Bạn phải xác nhận cam kết không có xung đột lợi ích!");
       return;
     }
-    if (evalMeta?.isGuest && !realScorerName.trim()) {
-      setErrorMsg("⚠️ Tài khoản dùng chung: Bắt buộc phải nhập Họ và tên người chấm thực trước khi nộp điểm!");
+    if (!c1Basis.trim() || !c2Basis.trim() || !c3Basis.trim() || !c4Basis.trim() || !c5Basis.trim()) {
+      setErrorMsg("⚠️ Bắt buộc phải nhập căn cứ/minh chứng cho cả 5 tiêu chí trước khi nộp điểm!");
       return;
     }
 
@@ -2093,8 +2103,11 @@ function TabExpertReviewContent({ proposal, isOwner, initialEvalData }: { propos
       setSuccessMsg(null);
       let token = getClientAuthToken();
 
-      if (typeof window !== "undefined" && realScorerName.trim()) {
-        localStorage.setItem("tbs_real_scorer_name", realScorerName.trim());
+      if (typeof window !== "undefined") {
+        if (realScorerName.trim()) localStorage.setItem("tbs_real_scorer_name", realScorerName.trim());
+        if (realScorerOrg.trim()) localStorage.setItem("tbs_real_scorer_org", realScorerOrg.trim());
+        if (realScorerPhone.trim()) localStorage.setItem("tbs_real_scorer_phone", realScorerPhone.trim());
+        if (realScorerEmail.trim()) localStorage.setItem("tbs_real_scorer_email", realScorerEmail.trim());
       }
 
       const res = await fetch("/api/ci-kaizen/expert-evaluations", {
@@ -2125,6 +2138,7 @@ function TabExpertReviewContent({ proposal, isOwner, initialEvalData }: { propos
           isVerifiedData,
           noConflictDeclared: true,
           realScorerName: realScorerName.trim(),
+          realScorerOrg: realScorerOrg.trim(),
           realScorerPhone: realScorerPhone.trim(),
           realScorerEmail: realScorerEmail.trim(),
         }),
@@ -2354,39 +2368,47 @@ function TabExpertReviewContent({ proposal, isOwner, initialEvalData }: { propos
         </div>
       </div>
 
-      {/* 👤 REAL SCORER IDENTITY SECTION FOR SHARED GUEST ACCOUNTS */}
-      {evalMeta?.isGuest && (
-        <div className="p-4 rounded-2xl bg-indigo-50/90 border-2 border-indigo-200 space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="px-2.5 py-0.5 rounded-full bg-indigo-900 text-indigo-100 font-mono font-black text-[10px]">
-                👤 TÀI KHOẢN DÙNG CHUNG
-              </span>
-              <h4 className="text-xs font-black text-indigo-950 uppercase">
-                Định danh người chấm thực cho lượt chấm này (*)
-              </h4>
-            </div>
-            {realScorerName && (
-              <button
-                type="button"
-                onClick={() => {
-                  setRealScorerName('');
-                  setRealScorerPhone('');
-                  setRealScorerEmail('');
-                }}
-                className="text-[11px] font-bold text-indigo-700 hover:text-indigo-900 underline cursor-pointer"
-              >
-                ✏️ Nhập tên người chấm khác
-              </button>
-            )}
+      {/* 👤 FORM KHAI BÁO THÔNG TIN BAN GIÁM KHẢO / NGUỜI CHẤM THỰC */}
+      <div className="p-4 sm:p-5 rounded-2xl bg-indigo-50/90 border-2 border-indigo-200 space-y-3 shadow-xs">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <span className="px-2.5 py-0.5 rounded-full bg-indigo-900 text-indigo-100 font-mono font-black text-[10px] uppercase">
+              📋 THÔNG TIN GIÁM KHẢO
+            </span>
+            <h4 className="text-xs font-black text-indigo-950 uppercase tracking-wide">
+              Khai báo thông tin Ban Giám Khảo &amp; Người Chấm Thực (*)
+            </h4>
           </div>
-          <p className="text-[11px] text-indigo-900">
-            Tài khoản này được dùng chung bởi Hội Đồng Giám Khảo. Vui lòng nhập Họ và tên của bạn để hệ thống ghi nhận chính xác lượt chấm và xuất báo cáo live Google Sheet.
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {realScorerName && (
+            <button
+              type="button"
+              onClick={() => {
+                setRealScorerName("");
+                setRealScorerOrg("");
+                setRealScorerPhone("");
+                setRealScorerEmail("");
+                if (typeof window !== "undefined") {
+                  localStorage.removeItem("tbs_real_scorer_name");
+                  localStorage.removeItem("tbs_real_scorer_org");
+                  localStorage.removeItem("tbs_real_scorer_phone");
+                  localStorage.removeItem("tbs_real_scorer_email");
+                }
+              }}
+              className="text-[11px] font-bold text-indigo-700 hover:text-indigo-900 underline cursor-pointer"
+            >
+              ✏️ Đổi thông tin BGK khác
+            </button>
+          )}
+        </div>
+        <p className="text-[11px] text-indigo-900">
+          Thông tin này bắt buộc đối với mỗi lượt chấm điểm để hệ thống ghi nhận chính xác giám khảo chấm, xuất biên bản tổng hợp và lưu vết D1 / Google Drive.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div>
+            <label className="text-[10px] font-black text-indigo-900 uppercase block mb-1">1. Họ và tên Giám Khảo (*)</label>
             <input
               type="text"
-              placeholder="Họ và tên người chấm thực (*)"
+              placeholder="Nhập đầy đủ họ và tên..."
               value={realScorerName}
               onChange={(e) => {
                 setRealScorerName(e.target.value);
@@ -2394,25 +2416,68 @@ function TabExpertReviewContent({ proposal, isOwner, initialEvalData }: { propos
                   localStorage.setItem("tbs_real_scorer_name", e.target.value);
                 }
               }}
-              className="p-2.5 rounded-xl border border-indigo-300 font-bold text-xs bg-white text-indigo-950 shadow-xs"
+              className="w-full p-2.5 rounded-xl border border-indigo-300 font-bold text-xs bg-white text-indigo-950 shadow-xs focus:ring-2 focus:ring-indigo-500 outline-none"
             />
+          </div>
+          <div>
+            <label className="text-[10px] font-black text-indigo-900 uppercase block mb-1">2. Chức vụ / Đơn vị (*)</label>
             <input
               type="text"
-              placeholder="SĐT liên hệ (không bắt buộc)"
+              placeholder="Ví dụ: BGK Tập đoàn / Phòng CI..."
+              value={realScorerOrg}
+              onChange={(e) => {
+                setRealScorerOrg(e.target.value);
+                if (typeof window !== "undefined") {
+                  localStorage.setItem("tbs_real_scorer_org", e.target.value);
+                }
+              }}
+              className="w-full p-2.5 rounded-xl border border-indigo-300 font-bold text-xs bg-white text-indigo-950 shadow-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] font-black text-indigo-900 uppercase block mb-1">3. SĐT liên hệ</label>
+            <input
+              type="text"
+              placeholder="Nhập SĐT..."
               value={realScorerPhone}
-              onChange={(e) => setRealScorerPhone(e.target.value)}
-              className="p-2.5 rounded-xl border border-indigo-300 font-bold text-xs bg-white shadow-xs"
+              onChange={(e) => {
+                setRealScorerPhone(e.target.value);
+                if (typeof window !== "undefined") {
+                  localStorage.setItem("tbs_real_scorer_phone", e.target.value);
+                }
+              }}
+              className="w-full p-2.5 rounded-xl border border-indigo-300 font-bold text-xs bg-white text-indigo-950 shadow-xs focus:ring-2 focus:ring-indigo-500 outline-none"
             />
+          </div>
+          <div>
+            <label className="text-[10px] font-black text-indigo-900 uppercase block mb-1">4. Email liên hệ</label>
             <input
               type="text"
-              placeholder="Email liên hệ (không bắt buộc)"
+              placeholder="Nhập Email..."
               value={realScorerEmail}
-              onChange={(e) => setRealScorerEmail(e.target.value)}
-              className="p-2.5 rounded-xl border border-indigo-300 font-bold text-xs bg-white shadow-xs"
+              onChange={(e) => {
+                setRealScorerEmail(e.target.value);
+                if (typeof window !== "undefined") {
+                  localStorage.setItem("tbs_real_scorer_email", e.target.value);
+                }
+              }}
+              className="w-full p-2.5 rounded-xl border border-indigo-300 font-bold text-xs bg-white text-indigo-950 shadow-xs focus:ring-2 focus:ring-indigo-500 outline-none"
             />
           </div>
         </div>
-      )}
+
+        <label className="p-2.5 rounded-xl bg-indigo-100/70 border border-indigo-300 flex items-center gap-2 cursor-pointer text-xs font-bold text-indigo-950 mt-1">
+          <input
+            type="checkbox"
+            checked={noConflictDeclared}
+            onChange={(e) => setNoConflictDeclared(e.target.checked)}
+            className="w-4 h-4 accent-indigo-700 rounded cursor-pointer shrink-0"
+          />
+          <span>
+            Tôi cam kết không có xung đột lợi ích cá nhân (không phải đồng tác giả / không quản lý trực tiếp) đối với sáng kiến này. (*)
+          </span>
+        </label>
+      </div>
 
       {/* STEP 0: PREREQUISITE CHECKLIST (BƯỚC 0 - ĐIỀU KIỆN TIÊN QUYẾT) */}
       <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200 space-y-3">

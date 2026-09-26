@@ -4927,6 +4927,10 @@ video {
   background-color: rgb(224 231 255 / var(--tw-bg-opacity, 1));
 }
 
+.bg-indigo-100\/70 {
+  background-color: rgb(224 231 255 / 0.7);
+}
+
 .bg-indigo-200 {
   --tw-bg-opacity: 1;
   background-color: rgb(199 210 254 / var(--tw-bg-opacity, 1));
@@ -7856,6 +7860,10 @@ video {
   accent-color: #4f46e5;
 }
 
+.accent-indigo-700 {
+  accent-color: #4338ca;
+}
+
 .opacity-0 {
   opacity: 0;
 }
@@ -10413,6 +10421,11 @@ body {
 .focus\:ring-emerald-600:focus {
   --tw-ring-opacity: 1;
   --tw-ring-color: rgb(5 150 105 / var(--tw-ring-opacity, 1));
+}
+
+.focus\:ring-indigo-500:focus {
+  --tw-ring-opacity: 1;
+  --tw-ring-color: rgb(99 102 241 / var(--tw-ring-opacity, 1));
 }
 
 .focus\:ring-purple-600:focus {

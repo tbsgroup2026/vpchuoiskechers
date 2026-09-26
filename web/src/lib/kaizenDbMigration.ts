@@ -647,6 +647,7 @@ export async function ensureKaizenSchema(db: any, force = false) {
         contact_info TEXT,
         declaration_submitted INTEGER DEFAULT 0,
         no_conflict_declared INTEGER DEFAULT 0,
+        dung_chung INTEGER DEFAULT 1,
         created_by TEXT NOT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )

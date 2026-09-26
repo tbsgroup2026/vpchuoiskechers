@@ -64,23 +64,38 @@ export async function uploadCloudinaryFile(
   const siteInfo = getSiteFolder();
   const targetFolder = options.folder || siteInfo.folder;
 
+  const fileName = typeof file === "string" ? "dataurl" : file.name;
+  const uniquePublicId = generateUniquePublicId(category, fileName, siteInfo.prefix);
+
+  const endpoint = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/${fileType === "video" ? "video" : "image"}/upload`;
+
+  // Attempt 1: With folder & custom public_id
   const formData = new FormData();
   formData.append("file", file);
   formData.append("upload_preset", CLOUDINARY_PRESET);
   formData.append("folder", targetFolder);
-
-  const fileName = typeof file === "string" ? "dataurl" : file.name;
-  const uniquePublicId = generateUniquePublicId(category, fileName, siteInfo.prefix);
   formData.append("public_id", uniquePublicId);
 
-  const endpoint = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/${fileType === "video" ? "video" : "image"}/upload`;
-
-  const res = await fetch(endpoint, {
+  let res = await fetch(endpoint, {
     method: "POST",
     body: formData,
   });
 
-  const data = await res.json();
+  let data = await res.json();
+
+  // Attempt 2: If failed due to public_id restriction in unsigned preset, retry without public_id
+  if (!res.ok && (data.error?.message?.includes("public_id") || data.error?.message?.includes("preset"))) {
+    const fallbackFormData = new FormData();
+    fallbackFormData.append("file", file);
+    fallbackFormData.append("upload_preset", CLOUDINARY_PRESET);
+
+    res = await fetch(endpoint, {
+      method: "POST",
+      body: fallbackFormData,
+    });
+    data = await res.json();
+  }
+
   if (!res.ok || !data.secure_url) {
     throw new Error(data.error?.message || "Không thể tải tệp lên Cloudinary!");
   }

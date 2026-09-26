@@ -36,6 +36,7 @@ import { convertNumberToWords } from "@/lib/numberToWords";
 import { KaizenProposal } from "./CIModule";
 import { usePermission } from "@/hooks/usePermission";
 import FeasibilityApprovalModal from "./FeasibilityApprovalModal";
+import { uploadCloudinaryFile } from "@/lib/cloudinary";
 
 interface KaizenDetailModalProps {
   proposal: KaizenProposal;
@@ -292,14 +293,14 @@ export default function KaizenDetailModal({
     const uRoles = Array.isArray((user as any)?.roles) ? (user as any).roles : [];
     
     const isExplicitApprover =
-      ["202608001", "202608010", "222102020", "210602002", "201711002", "2026080001"].includes(uEmp) ||
+      ["202608001", "202608010", "222102020", "202112003", "202608002", "210602002", "201711002", "2026080001", "LEKHAI", "DUTHITHANHTINH"].includes(uEmp) ||
       uName.includes("anh huy") || uName.includes("lê khải") || uName.includes("le khai") ||
-      uName.includes("thanh tình") || uName.includes("thanh tinh") ||
+      uName.includes("thanh tình") || uName.includes("thanh tinh") || uName.includes("dư thị thanh tình") ||
       uName.includes("trần thị ngoan") || uName.includes("ngoan") ||
-      uRoles.includes("ci_lead") || uRoles.includes("ci") || uRoles.includes("ie");
+      uRoles.includes("ci_lead") || uRoles.includes("ci") || uRoles.includes("ie") || uRoles.includes("judge") || uRoles.includes("internal_judge");
 
-    if (isExecutiveOrAdmin || isExplicitApprover || levelRank >= 3) return true;
-    return ["TONG_GIAM_DOC", "PHO_TONG_GIAM_DOC", "GIAM_DOC", "PHO_GIAM_DOC", "TRUONG_PHONG", "CI_LEAD", "IE", "QC", "ADMIN"].includes(rc);
+    if (isExecutiveOrAdmin || isExplicitApprover || levelRank >= 2 || (user as any)?.isGuest) return true;
+    return ["TONG_GIAM_DOC", "PHO_TONG_GIAM_DOC", "GIAM_DOC", "PHO_GIAM_DOC", "TRUONG_PHONG", "CI_LEAD", "IE", "QC", "ADMIN", "JUDGE", "INTERNAL_JUDGE"].includes(rc);
   }, [user, isExecutiveOrAdmin, levelRank]);
 
   const [evalData, setEvalData] = useState<any>(null);
@@ -358,33 +359,27 @@ export default function KaizenDetailModal({
       setMarkingThiDua(false);
     }
   };
-
   const handleImageUpload = async (file: File, field: "before_image_url" | "after_image_url") => {
     try {
       setUploadingImage(field === "before_image_url" ? "before" : "after");
       setEditError(null);
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("upload_preset", "vpchuoisk");
-      formData.append("folder", "vpchuoiskechers");
 
-      const res = await fetch("https://api.cloudinary.com/v1_1/dwl2xtbqa/image/upload", {
-        method: "POST",
-        body: formData,
+      const uploadRes = await uploadCloudinaryFile(file, {
+        category: field === "after_image_url" ? "kaizen_after" : "kaizen_before",
+        fileType: "image",
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        if (data.secure_url) {
-          setEditForm((prev) => ({ ...prev, [field]: data.secure_url }));
-        } else {
-          setEditError("❌ Lỗi không nhận được URL từ Cloudinary");
+      if (uploadRes.secure_url) {
+        setEditForm((prev) => ({ ...prev, [field]: uploadRes.secure_url }));
+        const cleanUrl = getValidKaizenImageUrl(uploadRes.secure_url);
+        if (cleanUrl) {
+          setSelectedMedia({ type: "image", url: cleanUrl });
         }
       } else {
-        setEditError("❌ Upload Cloudinary thất bại");
+        setEditError("❌ Lỗi không nhận được URL từ Cloudinary");
       }
     } catch (err: any) {
-      setEditError(`❌ Lỗi upload ảnh: ${err.message}`);
+      setEditError(`❌ Lỗi upload ảnh: ${err.message || "Không thể kết nối Cloudinary"}`);
     } finally {
       setUploadingImage(null);
     }
@@ -516,6 +511,21 @@ export default function KaizenDetailModal({
         (proposal as any).pair_quantity = updatedData.pair_quantity || pairQty;
         (proposal as any).so_luong_giay = updatedData.pair_quantity || pairQty;
         (proposal as any).quantity = updatedData.pair_quantity || pairQty;
+
+        const finalAfterImg = updatedData.after_image_url || editForm.after_image_url;
+        if (finalAfterImg) {
+          proposal.after_image_url = finalAfterImg;
+          (proposal as any).afterImageUrl = finalAfterImg;
+        }
+        const finalBeforeImg = updatedData.before_image_url || editForm.before_image_url;
+        if (finalBeforeImg) {
+          proposal.before_image_url = finalBeforeImg;
+          (proposal as any).beforeImageUrl = finalBeforeImg;
+        }
+        if (updatedData.attachments_json) {
+          proposal.attachments_json = updatedData.attachments_json;
+        }
+
         setIsEditing(false);
         initEditForm();
         if (onSaveSuccess) onSaveSuccess(updatedData);
@@ -574,8 +584,56 @@ export default function KaizenDetailModal({
     proposal?.status !== "SUBMITTED"
   );
 
-  const canSeeExpertTab = false;
+  const [canSeeExpertTab, setCanSeeExpertTab] = useState(false);
+  const [expertEvalMeta, setExpertEvalMeta] = useState<any>(null);
   const canSeeAwardTab = isApprovedStep3 && isAssignedJudge;
+
+  useEffect(() => {
+    if (!proposal?.id) {
+      setCanSeeExpertTab(false);
+      setExpertEvalMeta(null);
+      return;
+    }
+    let isMounted = true;
+    let token = typeof window !== "undefined"
+      ? (localStorage.getItem("tbs_token") || localStorage.getItem("tbs_jwt_token") || sessionStorage.getItem("tbs_token") || "")
+      : "";
+    if (!token && typeof document !== "undefined") {
+      const match = document.cookie.match(/(?:^|; )tbs_token=([^;]*)/);
+      if (match && match[1]) token = decodeURIComponent(match[1]);
+    }
+
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
+    }
+    if (user?.empCode) {
+      headers["X-User-Emp-Code"] = user.empCode;
+    }
+
+    fetch(`/api/ci-kaizen/expert-evaluations?proposalId=${proposal.id}`, { headers })
+      .then((res) => res.json())
+      .then((json) => {
+        if (isMounted) {
+          setExpertEvalMeta(json);
+          if ((json.success && json.canSeeExpertTab) || isJudgeOrExecutive) {
+            setCanSeeExpertTab(true);
+          } else {
+            setCanSeeExpertTab(false);
+          }
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          if (isJudgeOrExecutive) {
+            setCanSeeExpertTab(true);
+          } else {
+            setCanSeeExpertTab(false);
+          }
+          setExpertEvalMeta(null);
+        }
+      });
+  }, [proposal?.id, user, isJudgeOrExecutive]);
 
   useEffect(() => {
     if (activeTab === "expert_review" && !canSeeExpertTab) {
@@ -654,21 +712,21 @@ export default function KaizenDetailModal({
                   </button>
                 ) : null}
 
-                {getValidKaizenImageUrl(isEditing ? editForm.after_image_url : proposal.after_image_url) ? (
+                {getValidKaizenImageUrl(isEditing ? editForm.after_image_url : (proposal.after_image_url || (proposal as any).afterImageUrl), proposal.attachments_json, "AFTER", isEditing ? editForm.before_image_url : proposal.before_image_url) ? (
                   <button
                     type="button"
                     onClick={() => {
-                      const url = getValidKaizenImageUrl(isEditing ? editForm.after_image_url : proposal.after_image_url);
+                      const url = getValidKaizenImageUrl(isEditing ? editForm.after_image_url : (proposal.after_image_url || (proposal as any).afterImageUrl), proposal.attachments_json, "AFTER", isEditing ? editForm.before_image_url : proposal.before_image_url);
                       if (url) setSelectedMedia({ type: "image", url });
                     }}
                     className={`w-10 h-10 rounded-lg overflow-hidden border-2 transition-all cursor-pointer bg-slate-100 ${
-                      selectedMedia?.url === getValidKaizenImageUrl(isEditing ? editForm.after_image_url : proposal.after_image_url) && selectedMedia?.type === "image"
+                      selectedMedia?.url === getValidKaizenImageUrl(isEditing ? editForm.after_image_url : (proposal.after_image_url || (proposal as any).afterImageUrl), proposal.attachments_json, "AFTER", isEditing ? editForm.before_image_url : proposal.before_image_url) && selectedMedia?.type === "image"
                         ? "border-[#006838] ring-2 ring-[#006838]/30"
                         : "border-slate-200 hover:border-slate-300 opacity-80 hover:opacity-100"
                     }`}
                     title="Ảnh Sau"
                   >
-                    <img src={getValidKaizenImageUrl(isEditing ? editForm.after_image_url : proposal.after_image_url)} alt="" className="w-full h-full object-cover" />
+                    <img src={getValidKaizenImageUrl(isEditing ? editForm.after_image_url : (proposal.after_image_url || (proposal as any).afterImageUrl), proposal.attachments_json, "AFTER", isEditing ? editForm.before_image_url : proposal.before_image_url)} alt="" className="w-full h-full object-cover" />
                   </button>
                 ) : null}
               </div>
@@ -693,10 +751,10 @@ export default function KaizenDetailModal({
               <div className="p-2 rounded-xl bg-white border border-slate-200 shadow-2xs text-center space-y-0.5">
                 <span className="text-[10px] font-semibold uppercase text-slate-500 block">CHUYÊN MÔN</span>
                 <span className="text-xs font-bold text-emerald-600 block">
-                  {proposal.score_points || proposal.average_score ? `${proposal.score_points || proposal.average_score}/100` : "---"}
+                  {proposal.judge_final_score || proposal.score_points || expertEvalMeta?.data?.judgeFinalScore ? `${proposal.judge_final_score || proposal.score_points || expertEvalMeta.data.judgeFinalScore}/100` : "---"}
                 </span>
                 <span className="text-[9.5px] text-slate-400 block">
-                  {proposal.sub_status === "DA_DANH_GIA" ? "Đã tổng hợp" : "Chờ tổng hợp"}
+                  {(proposal.judge_final_score || proposal.score_points || expertEvalMeta?.data?.judgeFinalScore) ? "Đã tổng hợp" : "Chờ tổng hợp"}
                 </span>
               </div>
             </div>
@@ -1046,11 +1104,11 @@ export default function KaizenDetailModal({
                 onClick={() => setActiveTab("expert_review")}
                 className={`h-7 px-3.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
                   activeTab === "expert_review"
-                    ? "bg-[#0b1739] text-white shadow-2xs"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900"
+                    ? "bg-[#0b1739] text-[#ffd700] shadow-2xs"
+                    : "bg-amber-50 text-amber-900 border border-amber-300 hover:bg-amber-100"
                 }`}
               >
-                <span>♛ Đánh giá chuyên môn</span>
+                <span>♛ Đánh giá chuyên môn {expertEvalMeta?.data?.totalJudgesScored ? `(${expertEvalMeta.data.totalJudgesScored})` : ""}</span>
               </button>
             )}
 
@@ -1097,7 +1155,15 @@ export default function KaizenDetailModal({
 
       <FeasibilityApprovalModal
         isOpen={isFeasibilityModalOpen}
-        proposal={proposal}
+        proposal={
+          proposal
+            ? {
+                ...proposal,
+                after_image_url: (isEditing && editForm.after_image_url) ? editForm.after_image_url : (proposal.after_image_url || (proposal as any).afterImageUrl || ""),
+                before_image_url: (isEditing && editForm.before_image_url) ? editForm.before_image_url : (proposal.before_image_url || (proposal as any).beforeImageUrl || ""),
+              }
+            : null
+        }
         initialDecision={feasibilityInitialDecision}
         onClose={() => setIsFeasibilityModalOpen(false)}
         onSuccess={(updated) => {
@@ -1107,6 +1173,16 @@ export default function KaizenDetailModal({
           if (updated.time_before_seconds !== undefined) proposal.time_before_seconds = updated.time_before_seconds;
           if (updated.time_after_seconds !== undefined) proposal.time_after_seconds = updated.time_after_seconds;
           if (updated.saved_seconds !== undefined) proposal.saved_seconds = updated.saved_seconds;
+          if (updated.after_image_url) {
+            proposal.after_image_url = updated.after_image_url;
+            (proposal as any).afterImageUrl = updated.after_image_url;
+            setEditForm((prev) => ({ ...prev, after_image_url: updated.after_image_url }));
+            const cleanUrl = getValidKaizenImageUrl(updated.after_image_url);
+            if (cleanUrl) setSelectedMedia({ type: "image", url: cleanUrl });
+          }
+          if (updated.attachments_json) {
+            proposal.attachments_json = updated.attachments_json;
+          }
           setStep3Msg(
             updated.approval_status === "PHE_DUYET"
               ? "✅ Đã phê duyệt tính khả thi (Bước 3) thành công!"
@@ -1717,10 +1793,10 @@ function TabInfoContent({
               )}
             </div>
 
-            {getValidKaizenImageUrl(isEditing ? editForm.before_image_url : proposal.before_image_url, proposal.attachments_json) ? (
+            {getValidKaizenImageUrl(isEditing ? editForm.before_image_url : proposal.before_image_url, proposal.attachments_json, "BEFORE") ? (
               <div className="relative group">
                 <img
-                  src={getValidKaizenImageUrl(isEditing ? editForm.before_image_url : proposal.before_image_url, proposal.attachments_json)}
+                  src={getValidKaizenImageUrl(isEditing ? editForm.before_image_url : proposal.before_image_url, proposal.attachments_json, "BEFORE")}
                   alt="Before"
                   className="w-full h-44 sm:h-52 object-contain rounded-xl border border-rose-200 bg-white"
                 />
@@ -1766,10 +1842,10 @@ function TabInfoContent({
               )}
             </div>
 
-            {getValidKaizenImageUrl(isEditing ? editForm.after_image_url : proposal.after_image_url) ? (
+            {getValidKaizenImageUrl(isEditing ? editForm.after_image_url : (proposal.after_image_url || (proposal as any).afterImageUrl), proposal.attachments_json, "AFTER", isEditing ? editForm.before_image_url : proposal.before_image_url) ? (
               <div className="relative group">
                 <img
-                  src={getValidKaizenImageUrl(isEditing ? editForm.after_image_url : proposal.after_image_url)}
+                  src={getValidKaizenImageUrl(isEditing ? editForm.after_image_url : (proposal.after_image_url || (proposal as any).afterImageUrl), proposal.attachments_json, "AFTER", isEditing ? editForm.before_image_url : proposal.before_image_url)}
                   alt="After"
                   className="w-full h-44 sm:h-52 object-contain rounded-xl border border-emerald-200 bg-white"
                 />
@@ -1800,9 +1876,998 @@ function TabInfoContent({
 }
 
 function TabExpertReviewContent({ proposal, isOwner, initialEvalData }: { proposal: KaizenProposal; isOwner: boolean; initialEvalData: any }) {
+  const [loading, setLoading] = useState(true);
+  const [evalMeta, setEvalMeta] = useState<any>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Guest declaration state
+  const [declFullName, setDeclFullName] = useState("");
+  const [declOrg, setDeclOrg] = useState("");
+  const [declContact, setDeclContact] = useState("");
+  const [declNoConflict, setDeclNoConflict] = useState(false);
+  const [submittingDecl, setSubmittingDecl] = useState(false);
+
+  // Real Scorer Identity State for Shared Guest Accounts
+  const [realScorerName, setRealScorerName] = useState(() => {
+    if (typeof window !== "undefined") return localStorage.getItem("tbs_real_scorer_name") || "";
+    return "";
+  });
+  const [realScorerPhone, setRealScorerPhone] = useState("");
+  const [realScorerEmail, setRealScorerEmail] = useState("");
+
+  // Conflict modal state
+  const [showConflictModal, setShowConflictModal] = useState(false);
+  const [conflictReason, setConflictReason] = useState("");
+  const [submittingConflict, setSubmittingConflict] = useState(false);
+
+  // Step 0 Prerequisite checklist
+  const [p1Pass, setP1Pass] = useState(true);
+  const [p2Pass, setP2Pass] = useState(true);
+  const [p3Pass, setP3Pass] = useState(true);
+  const [p4Pass, setP4Pass] = useState(true);
+  const [prereqNote, setPrereqNote] = useState("");
+
+  // Data verification check (60% cap if false)
+  const [isVerifiedData, setIsVerifiedData] = useState(true);
+  const [noConflictDeclared, setNoConflictDeclared] = useState(true);
+
+  // 5 Criteria state
+  const normCategory = normalizeCategoryId(proposal.category || (proposal as any).category_label);
+  const isCostCat = normCategory === "MATERIAL_SAVING" || normCategory === "COST_SAVING";
+  const initialPricingDir = (proposal as any).pricing_direction || (isCostCat ? "TRI_GIA" : "THOI_GIAN");
+  
+  const [c1Group, setC1Group] = useState<"GROUP1" | "GROUP2" | "GROUP3">(
+    initialPricingDir === "TRI_GIA" || isCostCat ? "GROUP2" : "GROUP1"
+  );
+  const [quantPct, setQuantPct] = useState<number | "">(15);
+
+  const [c1Score, setC1Score] = useState<number>(30);
+  const [c2Score, setC2Score] = useState<number>(15);
+  const [c3Score, setC3Score] = useState<number>(15);
+  const [c4Score, setC4Score] = useState<number>(11);
+  const [c5Score, setC5Score] = useState<number>(7);
+
+  const [c1Basis, setC1Basis] = useState("");
+  const [c2Basis, setC2Basis] = useState("");
+  const [c3Basis, setC3Basis] = useState("");
+  const [c4Basis, setC4Basis] = useState("");
+  const [c5Basis, setC5Basis] = useState("");
+
+  const [submittingScore, setSubmittingScore] = useState(false);
+
+  const getClientAuthToken = () => {
+    if (typeof window === "undefined") return "";
+    let token = localStorage.getItem("tbs_token") || localStorage.getItem("tbs_jwt_token") || sessionStorage.getItem("tbs_token") || "";
+    if (!token && typeof document !== "undefined") {
+      const match = document.cookie.match(/(?:^|; )tbs_token=([^;]*)/);
+      if (match && match[1]) token = decodeURIComponent(match[1]);
+    }
+    return token;
+  };
+
+  useEffect(() => {
+    loadEvalData();
+  }, [proposal?.id]);
+
+  const loadEvalData = async () => {
+    if (!proposal?.id) return;
+    try {
+      setLoading(true);
+      setErrorMsg(null);
+      let token = getClientAuthToken();
+
+      const res = await fetch(`/api/ci-kaizen/expert-evaluations?proposalId=${proposal.id}`, {
+        headers: {
+          ...(token ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` } : {}),
+          ...(user?.empCode ? { "X-User-Emp-Code": user.empCode } : {}),
+        },
+      });
+      const json = await res.json();
+      if (json.success) {
+        setEvalMeta(json);
+        if (json.data?.prereqCheck) {
+          setP1Pass(Boolean(json.data.prereqCheck.p1_pass));
+          setP2Pass(Boolean(json.data.prereqCheck.p2_pass));
+          setP3Pass(Boolean(json.data.prereqCheck.p3_pass));
+          setP4Pass(Boolean(json.data.prereqCheck.p4_pass));
+          setPrereqNote(json.data.prereqCheck.note || "");
+        }
+
+        if (json.data?.myScore) {
+          const s = json.data.myScore;
+          setC1Group(s.c1_group || "GROUP1");
+          setC1Score(s.c1_score || 30);
+          setC2Score(s.c2_score || 15);
+          setC3Score(s.c3_score || 15);
+          setC4Score(s.c4_score || 11);
+          setC5Score(s.c5_score || 7);
+          setC1Basis(s.c1_basis || "");
+          setC2Basis(s.c2_basis || "");
+          setC3Basis(s.c3_basis || "");
+          setC4Basis(s.c4_basis || "");
+          setC5Basis(s.c5_basis || "");
+          setIsVerifiedData(Boolean(s.is_verified_data));
+        } else {
+          // Defaults for new score
+          setC1Basis("Hiệu quả cải tiến rõ ràng tại hiện trường sản xuất.");
+          setC2Basis("Chi phí đầu tư thấp, thời gian hoàn vốn nhanh.");
+          setC3Basis("Có thể nhân rộng cho các chuyền sản xuất tương tự.");
+          setC4Basis("Có tính sáng tạo và chủ động cải tiến.");
+          setC5Basis("Chia sẻ và lan tỏa tích cực cho tổ đồng nghiệp.");
+        }
+      } else {
+        setErrorMsg(json.error || "Không thể tải dữ liệu đánh giá chuyên môn.");
+      }
+    } catch (e) {
+      setErrorMsg("Lỗi kết nối máy chủ đánh giá.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAutoSuggestC1 = (pctVal: number) => {
+    setQuantPct(pctVal);
+    if (c1Group === "GROUP1") {
+      if (pctVal >= 25) setC1Score(35);
+      else if (pctVal >= 18) setC1Score(33);
+      else if (pctVal >= 15) setC1Score(30);
+      else if (pctVal >= 12) setC1Score(29);
+      else if (pctVal >= 9) setC1Score(24);
+      else if (pctVal >= 8) setC1Score(20);
+      else if (pctVal >= 5) setC1Score(19);
+      else setC1Score(14);
+    } else if (c1Group === "GROUP2") {
+      if (pctVal >= 45) setC1Score(35);
+      else if (pctVal >= 35) setC1Score(33);
+      else if (pctVal >= 30) setC1Score(30);
+      else if (pctVal >= 25) setC1Score(29);
+      else if (pctVal >= 19) setC1Score(24);
+      else if (pctVal >= 15) setC1Score(20);
+      else setC1Score(14);
+    }
+  };
+
+  const handleDeclarationSubmit = async () => {
+    if (!declFullName.trim()) {
+      setErrorMsg("⚠️ Vui lòng nhập Họ và tên!");
+      return;
+    }
+    if (!declNoConflict) {
+      setErrorMsg("⚠️ Vui lòng tick chọn cam kết không có xung đột lợi ích!");
+      return;
+    }
+
+    try {
+      setSubmittingDecl(true);
+      setErrorMsg(null);
+      let token = getClientAuthToken();
+
+      const res = await fetch("/api/ci-kaizen/expert-evaluations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          action: "SUBMIT_DECLARATION",
+          proposalId: proposal.id,
+          fullName: declFullName.trim(),
+          organization: declOrg.trim(),
+          contactInfo: declContact.trim(),
+          noConflictDeclared: true,
+        }),
+      });
+
+      const json = await res.json();
+      if (json.success) {
+        setSuccessMsg("✅ Khai báo thông tin BGK khách mời thành công!");
+        loadEvalData();
+      } else {
+        setErrorMsg(`❌ ${json.error || "Không thể lưu khai báo"}`);
+      }
+    } catch (e) {
+      setErrorMsg("❌ Lỗi kết nối khi gửi khai báo.");
+    } finally {
+      setSubmittingDecl(false);
+    }
+  };
+
+  const handleScoreSubmit = async () => {
+    if (!c1Basis.trim() || !c2Basis.trim() || !c3Basis.trim() || !c4Basis.trim() || !c5Basis.trim()) {
+      setErrorMsg("⚠️ Bắt buộc phải nhập căn cứ/minh chứng cho cả 5 tiêu chí trước khi nộp điểm!");
+      return;
+    }
+    if (!noConflictDeclared) {
+      setErrorMsg("⚠️ Bạn phải xác nhận cam kết không có xung đột lợi ích!");
+      return;
+    }
+    if (evalMeta?.isGuest && !realScorerName.trim()) {
+      setErrorMsg("⚠️ Tài khoản dùng chung: Bắt buộc phải nhập Họ và tên người chấm thực trước khi nộp điểm!");
+      return;
+    }
+
+    try {
+      setSubmittingScore(true);
+      setErrorMsg(null);
+      setSuccessMsg(null);
+      let token = getClientAuthToken();
+
+      if (typeof window !== "undefined" && realScorerName.trim()) {
+        localStorage.setItem("tbs_real_scorer_name", realScorerName.trim());
+      }
+
+      const res = await fetch("/api/ci-kaizen/expert-evaluations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          action: "SUBMIT_SCORE",
+          proposalId: proposal.id,
+          p1Pass,
+          p2Pass,
+          p3Pass,
+          p4Pass,
+          prereqNote,
+          c1Group,
+          c1Score,
+          c2Score,
+          c3Score,
+          c4Score,
+          c5Score,
+          c1Basis,
+          c2Basis,
+          c3Basis,
+          c4Basis,
+          c5Basis,
+          isVerifiedData,
+          noConflictDeclared: true,
+          realScorerName: realScorerName.trim(),
+          realScorerPhone: realScorerPhone.trim(),
+          realScorerEmail: realScorerEmail.trim(),
+        }),
+      });
+
+      const json = await res.json();
+      if (json.success) {
+        if (json.isDisqualified) {
+          setSuccessMsg("❌ Hồ sơ không đạt điều kiện tiên quyết (Bước 0) và đã bị chuyển sang trạng thái Không đạt điều kiện.");
+        } else {
+          setSuccessMsg(`✅ Đã nộp điểm chuyên môn thành công! Tổng điểm của bạn: ${json.judgeTotalScore}đ.`);
+          proposal.judge_final_score = json.judgeTotalScore;
+          proposal.score_points = json.judgeTotalScore;
+        }
+        loadEvalData();
+      } else {
+        setErrorMsg(`❌ ${json.error || "Không thể nộp bảng chấm điểm"}`);
+      }
+    } catch (e: any) {
+      setErrorMsg("❌ Lỗi kết nối khi nộp điểm");
+    } finally {
+      setSubmittingScore(false);
+    }
+  };
+
+  const handleReportConflict = async () => {
+    if (!conflictReason.trim()) {
+      setErrorMsg("⚠️ Vui lòng chọn/nhập lý do xung đột lợi ích!");
+      return;
+    }
+    try {
+      setSubmittingConflict(true);
+      let token = getClientAuthToken();
+      const res = await fetch("/api/ci-kaizen/expert-evaluations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          action: "REPORT_CONFLICT",
+          proposalId: proposal.id,
+          conflictReason: conflictReason.trim(),
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setShowConflictModal(false);
+        setSuccessMsg("✅ Đã ghi nhận báo cáo xung đột lợi ích và rút khỏi danh sách chấm.");
+        loadEvalData();
+      } else {
+        setErrorMsg(`❌ ${json.error || "Lỗi báo cáo xung đột"}`);
+      }
+    } catch (e) {
+      setErrorMsg("❌ Lỗi kết nối máy chủ");
+    } finally {
+      setSubmittingConflict(false);
+    }
+  };
+
+  const currentCapFactor = isVerifiedData ? 1.0 : 0.6;
+  const effectiveC1 = Math.min(c1Score, 35 * currentCapFactor);
+  const effectiveC2 = Math.min(c2Score, 20 * currentCapFactor);
+  const effectiveC3 = Math.min(c3Score, 20 * currentCapFactor);
+  const effectiveC4 = Math.min(c4Score, 15 * currentCapFactor);
+  const effectiveC5 = Math.min(c5Score, 10 * currentCapFactor);
+  const liveTotalScore = Math.round((effectiveC1 + effectiveC2 + effectiveC3 + effectiveC4 + effectiveC5) * 10) / 10;
+
+  const isLocked = Boolean(evalMeta?.data?.myScore?.is_locked);
+  const isReadOnly = Boolean(evalMeta?.readOnly);
+
+  if (loading) {
+    return (
+      <div className="p-12 text-center text-slate-500 space-y-3">
+        <div className="w-8 h-8 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+        <p className="font-extrabold text-xs">Đang tải bảng Đánh Giá Chuyên Môn BGK...</p>
+      </div>
+    );
+  }
+
+  // Requirement 3: Guest Declaration Form
+  if (evalMeta?.declarationRequired) {
+    return (
+      <div className="p-6 max-w-2xl mx-auto space-y-6 animate-in fade-in">
+        <div className="bg-gradient-to-r from-slate-900 to-indigo-950 p-6 rounded-3xl text-white shadow-xl space-y-2">
+          <span className="px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-black uppercase tracking-wider">
+            🔑 KHAI BÁO THÔNG TIN BGK KHÁCH MỜI
+          </span>
+          <h3 className="text-lg font-black mt-1">Xác nhận thông tin Giám Khảo Khách Mời</h3>
+          <p className="text-xs text-slate-300">
+            Theo quy định V QĐ-TBKG/2026, Giám Khảo Khách Mời cần hoàn thành khai báo thông tin ban đầu trước khi xem và chấm điểm sáng kiến.
+          </p>
+        </div>
+
+        {errorMsg && (
+          <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 font-bold text-xs">
+            {errorMsg}
+          </div>
+        )}
+
+        <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-xl space-y-4">
+          <div className="space-y-1">
+            <label className="text-xs font-black text-slate-800 block">1. Họ và tên Giám Khảo (*)</label>
+            <input
+              type="text"
+              value={declFullName}
+              onChange={(e) => setDeclFullName(e.target.value)}
+              placeholder="Nhập đầy đủ họ tên của bạn..."
+              className="w-full p-2.5 rounded-xl border border-slate-300 text-xs font-bold bg-slate-50"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-black text-slate-800 block">2. Chức vụ / Đơn vị công tác</label>
+            <input
+              type="text"
+              value={declOrg}
+              onChange={(e) => setDeclOrg(e.target.value)}
+              placeholder="Ví dụ: Chuyên gia CI Tập đoàn / Trưởng phòng Kỹ thuật..."
+              className="w-full p-2.5 rounded-xl border border-slate-300 text-xs font-bold bg-slate-50"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-black text-slate-800 block">3. SĐT / Email liên hệ</label>
+            <input
+              type="text"
+              value={declContact}
+              onChange={(e) => setDeclContact(e.target.value)}
+              placeholder="Nhập SĐT hoặc Email của bạn..."
+              className="w-full p-2.5 rounded-xl border border-slate-300 text-xs font-bold bg-slate-50"
+            />
+          </div>
+
+          <label className="p-3 rounded-2xl bg-amber-50 border border-amber-200 flex items-start gap-2 cursor-pointer text-xs font-bold text-amber-950">
+            <input
+              type="checkbox"
+              checked={declNoConflict}
+              onChange={(e) => setDeclNoConflict(e.target.checked)}
+              className="w-4 h-4 accent-amber-600 rounded mt-0.5"
+            />
+            <span>
+              Tôi cam kết không có xung đột lợi ích cá nhân (không phải đồng tác giả/người quản lý trực tiếp) đối với sáng kiến này.
+            </span>
+          </label>
+
+          <button
+            type="button"
+            disabled={submittingDecl}
+            onClick={handleDeclarationSubmit}
+            className="w-full py-3 rounded-2xl bg-[#006838] hover:bg-[#00522c] text-white font-black text-xs shadow-lg transition-all cursor-pointer disabled:opacity-50"
+          >
+            {submittingDecl ? "Đang xử lý..." : "Xác nhận & Vào màn hình chấm điểm ➔"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="p-5 md:p-6 text-xs text-slate-500">
-      <p>Chức năng đánh giá chuyên môn khả dụng cho hội đồng.</p>
+    <div className="p-5 md:p-6 space-y-6 text-xs animate-in fade-in">
+      {/* MESSAGES */}
+      {errorMsg && (
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 font-bold text-xs flex items-center gap-2">
+          <IconAlertTriangle size={18} className="text-rose-600 shrink-0" />
+          <span>{errorMsg}</span>
+        </div>
+      )}
+
+      {successMsg && (
+        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 font-bold text-xs flex items-center gap-2">
+          <IconCheck size={18} className="text-emerald-600 shrink-0" />
+          <span>{successMsg}</span>
+        </div>
+      )}
+
+      {/* READONLY WARNING BANNER */}
+      {isReadOnly && (
+        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 font-bold text-xs flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <IconLock size={18} className="text-amber-700 shrink-0" />
+            <span>⚠️ {evalMeta?.readOnlyReason || "Sáng kiến ngoài phạm vi phân công - Chế độ chỉ đọc"}</span>
+          </div>
+          <span className="px-2.5 py-1 rounded-full bg-amber-200 text-amber-950 text-[10px] uppercase font-black">
+            CHỈ ĐỌC
+          </span>
+        </div>
+      )}
+
+      {/* HEADER SCORES OVERVIEW */}
+      <div className="p-4 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-md">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-black uppercase tracking-wider">
+              ⚖️ ĐÁNH GIÁ CHUYÊN MÔN
+            </span>
+            {isLocked && (
+              <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold">
+                🔒 ĐÃ KHÓA ĐIỂM
+              </span>
+            )}
+          </div>
+          <h3 className="text-base font-black mt-1.5">
+            Bảng Chấm Điểm 5 Tiêu Chí Chuyên Môn
+          </h3>
+          <p className="text-[11px] text-slate-300">
+            Chủ trì bởi Ban Giám Khảo &amp; Hội Đồng Chuyên Môn TBS Group
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="text-right">
+            <span className="text-[10px] uppercase text-slate-400 font-extrabold block">ĐIỂM TB TỔNG HỢP BGK</span>
+            <span className="text-xl font-black text-amber-300 block">
+              {evalMeta?.data?.judgeFinalScore ? `${evalMeta.data.judgeFinalScore}/100` : "Chờ chốt điểm"}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowConflictModal(true)}
+            className="px-3 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+          >
+            <IconAlertTriangle size={15} />
+            <span>Báo cáo xung đột</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 👤 REAL SCORER IDENTITY SECTION FOR SHARED GUEST ACCOUNTS */}
+      {evalMeta?.isGuest && (
+        <div className="p-4 rounded-2xl bg-indigo-50/90 border-2 border-indigo-200 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-0.5 rounded-full bg-indigo-900 text-indigo-100 font-mono font-black text-[10px]">
+                👤 TÀI KHOẢN DÙNG CHUNG
+              </span>
+              <h4 className="text-xs font-black text-indigo-950 uppercase">
+                Định danh người chấm thực cho lượt chấm này (*)
+              </h4>
+            </div>
+            {realScorerName && (
+              <button
+                type="button"
+                onClick={() => {
+                  setRealScorerName('');
+                  setRealScorerPhone('');
+                  setRealScorerEmail('');
+                }}
+                className="text-[11px] font-bold text-indigo-700 hover:text-indigo-900 underline cursor-pointer"
+              >
+                ✏️ Nhập tên người chấm khác
+              </button>
+            )}
+          </div>
+          <p className="text-[11px] text-indigo-900">
+            Tài khoản này được dùng chung bởi Hội Đồng Giám Khảo. Vui lòng nhập Họ và tên của bạn để hệ thống ghi nhận chính xác lượt chấm và xuất báo cáo live Google Sheet.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <input
+              type="text"
+              placeholder="Họ và tên người chấm thực (*)"
+              value={realScorerName}
+              onChange={(e) => {
+                setRealScorerName(e.target.value);
+                if (typeof window !== "undefined") {
+                  localStorage.setItem("tbs_real_scorer_name", e.target.value);
+                }
+              }}
+              className="p-2.5 rounded-xl border border-indigo-300 font-bold text-xs bg-white text-indigo-950 shadow-xs"
+            />
+            <input
+              type="text"
+              placeholder="SĐT liên hệ (không bắt buộc)"
+              value={realScorerPhone}
+              onChange={(e) => setRealScorerPhone(e.target.value)}
+              className="p-2.5 rounded-xl border border-indigo-300 font-bold text-xs bg-white shadow-xs"
+            />
+            <input
+              type="text"
+              placeholder="Email liên hệ (không bắt buộc)"
+              value={realScorerEmail}
+              onChange={(e) => setRealScorerEmail(e.target.value)}
+              className="p-2.5 rounded-xl border border-indigo-300 font-bold text-xs bg-white shadow-xs"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* STEP 0: PREREQUISITE CHECKLIST (BƯỚC 0 - ĐIỀU KIỆN TIÊN QUYẾT) */}
+      <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200 space-y-3">
+        <h4 className="text-xs font-black text-amber-950 uppercase tracking-wider flex items-center gap-2">
+          <span>📌</span>
+          <span>BƯỚC 0: ĐIỀU KIỆN TIÊN QUYẾT (PASS/FAIL)</span>
+        </h4>
+        <p className="text-[11px] text-amber-900">
+          Hồ sơ phải đạt cả 4 điều kiện dưới đây. Nếu không đạt bất kỳ điều kiện nào, hồ sơ bị loại và không được đưa vào bảng xếp hạng.
+        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-bold">
+          <label className={`p-2.5 rounded-xl border flex items-center gap-2 cursor-pointer ${p1Pass ? 'bg-white border-emerald-300 text-emerald-900' : 'bg-rose-50 border-rose-300 text-rose-800'}`}>
+            <input type="checkbox" disabled={isReadOnly || isLocked} checked={p1Pass} onChange={(e) => setP1Pass(e.target.checked)} className="w-4 h-4 accent-emerald-600 rounded" />
+            <span>1. Đã triển khai thực tế tại hiện trường</span>
+          </label>
+
+          <label className={`p-2.5 rounded-xl border flex items-center gap-2 cursor-pointer ${p2Pass ? 'bg-white border-emerald-300 text-emerald-900' : 'bg-rose-50 border-rose-300 text-rose-800'}`}>
+            <input type="checkbox" disabled={isReadOnly || isLocked} checked={p2Pass} onChange={(e) => setP2Pass(e.target.checked)} className="w-4 h-4 accent-emerald-600 rounded" />
+            <span>2. Có minh chứng trước-sau đầy đủ</span>
+          </label>
+
+          <label className={`p-2.5 rounded-xl border flex items-center gap-2 cursor-pointer ${p3Pass ? 'bg-white border-emerald-300 text-emerald-900' : 'bg-rose-50 border-rose-300 text-rose-800'}`}>
+            <input type="checkbox" disabled={isReadOnly || isLocked} checked={p3Pass} onChange={(e) => setP3Pass(e.target.checked)} className="w-4 h-4 accent-emerald-600 rounded" />
+            <span>3. Không vi phạm An toàn lao động</span>
+          </label>
+
+          <label className={`p-2.5 rounded-xl border flex items-center gap-2 cursor-pointer ${p4Pass ? 'bg-white border-emerald-300 text-emerald-900' : 'bg-rose-50 border-rose-300 text-rose-800'}`}>
+            <input type="checkbox" disabled={isReadOnly || isLocked} checked={p4Pass} onChange={(e) => setP4Pass(e.target.checked)} className="w-4 h-4 accent-emerald-600 rounded" />
+            <span>4. Không trùng lặp đề tài đạt giải trước</span>
+          </label>
+        </div>
+      </div>
+
+      {/* DATA VERIFICATION CHECKBOX (60% CAP IF UNVERIFIED) */}
+      <div className="p-3.5 rounded-2xl bg-indigo-50/70 border border-indigo-200 flex items-center justify-between gap-3 text-xs">
+        <div>
+          <span className="font-black text-indigo-950 block">🔍 Xác minh minh chứng độc lập</span>
+          <span className="text-[11px] text-indigo-800 block">
+            Số liệu chưa có xác nhận độc lập chỉ được chấm tối đa 60% thang điểm của mỗi tiêu chí.
+          </span>
+        </div>
+        <label className="flex items-center gap-2 cursor-pointer shrink-0 bg-white border border-indigo-300 px-3 py-1.5 rounded-xl">
+          <input
+            type="checkbox"
+            disabled={isReadOnly || isLocked}
+            checked={isVerifiedData}
+            onChange={(e) => setIsVerifiedData(e.target.checked)}
+            className="w-4 h-4 accent-indigo-600 rounded"
+          />
+          <span className="font-bold text-indigo-950">Đã xác nhận độc lập</span>
+        </label>
+      </div>
+
+      {/* 5 CRITERIA FORM */}
+      <div className="space-y-5">
+        <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
+          <span>⭐</span>
+          <span>BỘ 5 TIÊU CHÍ CHẤM ĐIỂM CHUYÊN MÔN</span>
+        </h4>
+
+        {/* CRITERION 1: HIỆU QUẢ THỰC TẾ (35 PTS MAX) */}
+        <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="font-black text-xs text-slate-900">
+              TIÊU CHÍ 1: HIỆU QUẢ THỰC TẾ ĐẠT ĐƯỢC (Tối đa 35đ)
+            </span>
+            <span className="text-xs font-black text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full">
+              {effectiveC1} / 35đ
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+            <button
+              type="button"
+              disabled={isReadOnly || isLocked}
+              onClick={() => setC1Group("GROUP1")}
+              className={`p-2 rounded-xl font-bold border cursor-pointer ${c1Group === "GROUP1" ? "bg-[#006838] text-white border-[#006838]" : "bg-white text-slate-700 border-slate-300"}`}
+            >
+              Nhóm 1: Năng suất / Thời gian
+            </button>
+            <button
+              type="button"
+              disabled={isReadOnly || isLocked}
+              onClick={() => setC1Group("GROUP2")}
+              className={`p-2 rounded-xl font-bold border cursor-pointer ${c1Group === "GROUP2" ? "bg-[#006838] text-white border-[#006838]" : "bg-white text-slate-700 border-slate-300"}`}
+            >
+              Nhóm 2: Tiết kiệm Chi phí / Vật tư
+            </button>
+            <button
+              type="button"
+              disabled={isReadOnly || isLocked}
+              onClick={() => setC1Group("GROUP3")}
+              className={`p-2 rounded-xl font-bold border cursor-pointer ${c1Group === "GROUP3" ? "bg-[#006838] text-white border-[#006838]" : "bg-white text-slate-700 border-slate-300"}`}
+            >
+              Nhóm 3: An toàn lao động / 5S
+            </button>
+          </div>
+
+          {/* BAREM DẠNG RADIO NODES THEO NHÓM */}
+          <div className="space-y-2">
+            <span className="text-[11px] font-bold text-slate-700 block">Chọn mốc điểm phù hợp nhất (Bắt buộc chọn mốc, không nhập điểm tự do):</span>
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2 text-xs">
+              {(c1Group === "GROUP1"
+                ? [
+                    { score: 35, desc: "35đ — Tối đa/SOP (Giảm thời gian ≥25%)" },
+                    { score: 33, desc: "33đ — Vượt ngưỡng cao (18–24%)" },
+                    { score: 30, desc: "30đ — Đạt ngưỡng cao (15–17%)" },
+                    { score: 29, desc: "29đ — Tiệm cận cao (12–14%)" },
+                    { score: 24, desc: "24đ — Đạt mức giữa (9–11%)" },
+                    { score: 20, desc: "20đ — Đạt ngưỡng thấp (8%)" },
+                    { score: 19, desc: "19đ — Đã xác nhận độc lập (5–7%)" },
+                    { score: 14, desc: "14đ — Số liệu sơ bộ (<5%)" },
+                    { score: 10, desc: "10đ — Định tính sơ lược" },
+                    { score: 9, desc: "9đ — Chưa đủ tin cậy" },
+                    { score: 4, desc: "4đ — Thiếu minh chứng" },
+                    { score: 0, desc: "0đ — Không rõ hiệu quả" },
+                  ]
+                : c1Group === "GROUP2"
+                ? [
+                    { score: 35, desc: "35đ — Tiết kiệm chi phí ≥45%" },
+                    { score: 33, desc: "33đ — Tiết kiệm chi phí 35–44%" },
+                    { score: 30, desc: "30đ — Tiết kiệm chi phí 30–34%" },
+                    { score: 29, desc: "29đ — Tiết kiệm chi phí 25–29%" },
+                    { score: 24, desc: "24đ — Tiết kiệm chi phí 19–24%" },
+                    { score: 20, desc: "20đ — Tiết kiệm chi phí 15–18%" },
+                    { score: 19, desc: "19đ — Đã xác nhận độc lập" },
+                    { score: 14, desc: "14đ — Số liệu sơ bộ (<15%)" },
+                    { score: 10, desc: "10đ — Định tính sơ lược" },
+                    { score: 9, desc: "9đ — Chưa đủ tin cậy" },
+                    { score: 4, desc: "4đ — Thiếu minh chứng" },
+                    { score: 0, desc: "0đ — Không rõ hiệu quả" },
+                  ]
+                : [
+                    { score: 35, desc: "35đ — Triệt tiêu hoàn toàn mối nguy nghiêm trọng" },
+                    { score: 33, desc: "33đ — Đạt chuẩn an toàn mở rộng" },
+                    { score: 30, desc: "30đ — Loại bỏ nguy cơ mất an toàn cao" },
+                    { score: 29, desc: "29đ — Giảm rủi ro mối nguy cao" },
+                    { score: 24, desc: "24đ — Giảm rủi ro mối nguy trung bình" },
+                    { score: 20, desc: "20đ — Giảm rủi ro mối nguy thấp" },
+                    { score: 19, desc: "19đ — Có số liệu xác nhận rủi ro" },
+                    { score: 14, desc: "14đ — Đã đánh giá rủi ro sơ bộ" },
+                    { score: 10, desc: "10đ — Định tính cải thiện an toàn/5S" },
+                    { score: 9, desc: "9đ — Đề cập nguy cơ nhưng thiếu minh chứng" },
+                    { score: 4, desc: "4đ — Đề cập sơ lược" },
+                    { score: 0, desc: "0đ — Không rõ cải thiện" },
+                  ]
+              ).map((opt) => (
+                <label
+                  key={opt.score}
+                  className={`p-2 rounded-xl border-2 transition-all cursor-pointer flex flex-col justify-between space-y-1 ${
+                    isReadOnly || isLocked ? "opacity-60 cursor-not-allowed" : ""
+                  } ${
+                    c1Score === opt.score
+                      ? "border-[#006838] bg-emerald-50 shadow-xs font-black text-emerald-950"
+                      : "border-slate-200 bg-white hover:border-slate-300 text-slate-700 font-semibold"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded">
+                      {opt.score}đ
+                    </span>
+                    <input
+                      type="radio"
+                      name="c1_score_radio"
+                      disabled={isReadOnly || isLocked}
+                      checked={c1Score === opt.score}
+                      onChange={() => setC1Score(opt.score)}
+                      className="w-3.5 h-3.5 accent-emerald-600 cursor-pointer"
+                    />
+                  </div>
+                  <span className="text-[10.5px] leading-tight block text-slate-800">{opt.desc}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <textarea
+            rows={2}
+            disabled={isReadOnly || isLocked}
+            value={c1Basis}
+            onChange={(e) => setC1Basis(e.target.value)}
+            placeholder="Bắt buộc: Nhập căn cứ/minh chứng chấm điểm cho Tiêu chí 1..."
+            className="w-full p-2.5 rounded-xl border border-slate-300 text-xs font-medium bg-white"
+          />
+        </div>
+
+        {/* CRITERION 2: TÍNH KHẢ THI & ĐẦU TƯ (20 PTS MAX) */}
+        <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="font-black text-xs text-slate-900">
+              TIÊU CHÍ 2: TÍNH KHẢ THI &amp; HIỆU QUẢ ĐẦU TƯ (Tối đa 20đ)
+            </span>
+            <span className="text-xs font-black text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full">
+              {effectiveC2} / 20đ
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 text-xs font-bold">
+            {[
+              { score: 20, desc: "20đ — Rất khả thi / không tốn chi phí" },
+              { score: 15, desc: "15đ — Khả thi cao / thu hồi <6 tháng" },
+              { score: 10, desc: "10đ — Khả thi TB / thu hồi 6–12 tháng" },
+              { score: 5, desc: "5đ — Ít khả thi / thu hồi 1–2 năm" },
+              { score: 0, desc: "0đ — Không khả thi / thu hồi >2 năm" },
+            ].map((opt) => (
+              <label
+                key={opt.score}
+                className={`p-2.5 rounded-xl border-2 transition-all cursor-pointer flex flex-col justify-between space-y-1 ${
+                  isReadOnly || isLocked ? "opacity-60 cursor-not-allowed" : ""
+                } ${
+                  c2Score === opt.score
+                    ? "border-[#006838] bg-emerald-50 shadow-xs font-black text-emerald-950"
+                    : "border-slate-200 bg-white hover:border-slate-300 text-slate-700 font-semibold"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded">{opt.score}đ</span>
+                  <input type="radio" name="c2_score_radio" disabled={isReadOnly || isLocked} checked={c2Score === opt.score} onChange={() => setC2Score(opt.score)} className="w-3.5 h-3.5 accent-emerald-600" />
+                </div>
+                <span className="text-[10.5px] leading-tight block text-slate-800">{opt.desc}</span>
+              </label>
+            ))}
+          </div>
+
+          <textarea
+            rows={2}
+            disabled={isReadOnly || isLocked}
+            value={c2Basis}
+            onChange={(e) => setC2Basis(e.target.value)}
+            placeholder="Bắt buộc: Nhập căn cứ chấm điểm Tiêu chí 2..."
+            className="w-full p-2.5 rounded-xl border border-slate-300 text-xs font-medium bg-white"
+          />
+        </div>
+
+        {/* CRITERION 3: KHẢ NĂNG NHÂN RỘNG (20 PTS MAX) */}
+        <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="font-black text-xs text-slate-900">
+              TIÊU CHÍ 3: KHẢ NĂNG NHÂN RỘNG (Tối đa 20đ)
+            </span>
+            <span className="text-xs font-black text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full">
+              {effectiveC3} / 20đ
+            </span>
+          </div>
+
+          <p className="text-[11px] text-slate-500 italic">
+            💡 Tooltip BGK: "Nếu đơn vị mình có vấn đề tương tự, có áp dụng ngay được cải tiến này không?"
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 text-xs font-bold">
+            {[
+              { score: 20, desc: "20đ — Nhân rộng toàn Tập đoàn TBS" },
+              { score: 15, desc: "15đ — Nhân rộng toàn nhà máy/xưởng" },
+              { score: 10, desc: "10đ — Nhân rộng toàn dây chuyền" },
+              { score: 5, desc: "5đ — Nhân rộng 1 chuyền/công đoạn nhỏ" },
+              { score: 0, desc: "0đ — Chỉ áp dụng đơn lẻ 1 vị trí" },
+            ].map((opt) => (
+              <label
+                key={opt.score}
+                className={`p-2.5 rounded-xl border-2 transition-all cursor-pointer flex flex-col justify-between space-y-1 ${
+                  isReadOnly || isLocked ? "opacity-60 cursor-not-allowed" : ""
+                } ${
+                  c3Score === opt.score
+                    ? "border-[#006838] bg-emerald-50 shadow-xs font-black text-emerald-950"
+                    : "border-slate-200 bg-white hover:border-slate-300 text-slate-700 font-semibold"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded">{opt.score}đ</span>
+                  <input type="radio" name="c3_score_radio" disabled={isReadOnly || isLocked} checked={c3Score === opt.score} onChange={() => setC3Score(opt.score)} className="w-3.5 h-3.5 accent-emerald-600" />
+                </div>
+                <span className="text-[10.5px] leading-tight block text-slate-800">{opt.desc}</span>
+              </label>
+            ))}
+          </div>
+
+          <textarea
+            rows={2}
+            disabled={isReadOnly || isLocked}
+            value={c3Basis}
+            onChange={(e) => setC3Basis(e.target.value)}
+            placeholder="Bắt buộc: Nhập căn cứ chấm điểm Tiêu chí 3..."
+            className="w-full p-2.5 rounded-xl border border-slate-300 text-xs font-medium bg-white"
+          />
+        </div>
+
+        {/* CRITERION 4: SÁNG TẠO & CHỦ ĐỘNG (15 PTS MAX) */}
+        <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="font-black text-xs text-slate-900">
+              TIÊU CHÍ 4: SÁNG TẠO &amp; CHỦ ĐỘNG (Tối đa 15đ)
+            </span>
+            <span className="text-xs font-black text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full">
+              {effectiveC4} / 15đ
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 text-xs font-bold">
+            {[
+              { score: 15, desc: "15đ — Sáng kiến xuất sắc, đột phá" },
+              { score: 11, desc: "11đ — Giải pháp độc đáo/tự chế" },
+              { score: 7, desc: "7đ — Ý tưởng sáng tạo độc lập" },
+              { score: 3, desc: "3đ — Cải tiến nhỏ trên quy trình cũ" },
+              { score: 0, desc: "0đ — Sao chép nguyên mẫu bên ngoài" },
+            ].map((opt) => (
+              <label
+                key={opt.score}
+                className={`p-2.5 rounded-xl border-2 transition-all cursor-pointer flex flex-col justify-between space-y-1 ${
+                  isReadOnly || isLocked ? "opacity-60 cursor-not-allowed" : ""
+                } ${
+                  c4Score === opt.score
+                    ? "border-[#006838] bg-emerald-50 shadow-xs font-black text-emerald-950"
+                    : "border-slate-200 bg-white hover:border-slate-300 text-slate-700 font-semibold"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded">{opt.score}đ</span>
+                  <input type="radio" name="c4_score_radio" disabled={isReadOnly || isLocked} checked={c4Score === opt.score} onChange={() => setC4Score(opt.score)} className="w-3.5 h-3.5 accent-emerald-600" />
+                </div>
+                <span className="text-[10.5px] leading-tight block text-slate-800">{opt.desc}</span>
+              </label>
+            ))}
+          </div>
+
+          <textarea
+            rows={2}
+            disabled={isReadOnly || isLocked}
+            value={c4Basis}
+            onChange={(e) => setC4Basis(e.target.value)}
+            placeholder="Bắt buộc: Nhập căn cứ chấm điểm Tiêu chí 4..."
+            className="w-full p-2.5 rounded-xl border border-slate-300 text-xs font-medium bg-white"
+          />
+        </div>
+
+        {/* CRITERION 5: LAN TỎA & ĐỘI NHÓM (10 PTS MAX) */}
+        <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="font-black text-xs text-slate-900">
+              TIÊU CHÍ 5: LAN TỎA &amp; TINH THẦN ĐỘI NHÓM (Tối đa 10đ)
+            </span>
+            <span className="text-xs font-black text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full">
+              {effectiveC5} / 10đ
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 text-xs font-bold">
+            {[
+              { score: 10, desc: "10đ — Truyền cảm hứng phong trào Gemba" },
+              { score: 8, desc: "8đ — Phối hợp liên phòng ban xuất sắc" },
+              { score: 5, desc: "5đ — Phối hợp nhóm trong bộ phận" },
+              { score: 2, desc: "2đ — Phối hợp nhỏ 2 người" },
+              { score: 0, desc: "0đ — Cá nhân làm độc lập" },
+            ].map((opt) => (
+              <label
+                key={opt.score}
+                className={`p-2.5 rounded-xl border-2 transition-all cursor-pointer flex flex-col justify-between space-y-1 ${
+                  isReadOnly || isLocked ? "opacity-60 cursor-not-allowed" : ""
+                } ${
+                  c5Score === opt.score
+                    ? "border-[#006838] bg-emerald-50 shadow-xs font-black text-emerald-950"
+                    : "border-slate-200 bg-white hover:border-slate-300 text-slate-700 font-semibold"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded">{opt.score}đ</span>
+                  <input type="radio" name="c5_score_radio" disabled={isReadOnly || isLocked} checked={c5Score === opt.score} onChange={() => setC5Score(opt.score)} className="w-3.5 h-3.5 accent-emerald-600" />
+                </div>
+                <span className="text-[10.5px] leading-tight block text-slate-800">{opt.desc}</span>
+              </label>
+            ))}
+          </div>
+
+          <textarea
+            rows={2}
+            disabled={isReadOnly || isLocked}
+            value={c5Basis}
+            onChange={(e) => setC5Basis(e.target.value)}
+            placeholder="Bắt buộc: Nhập căn cứ chấm điểm Tiêu chí 5..."
+            className="w-full p-2.5 rounded-xl border border-slate-300 text-xs font-medium bg-white"
+          />
+        </div>
+      </div>
+
+      {/* TOTAL SCORE SUMMARY & SUBMIT BUTTON */}
+      <div className="p-5 rounded-2xl bg-[#006838] text-white flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl sticky bottom-0 z-20 backdrop-blur-md border border-emerald-600/40">
+        <div>
+          <span className="text-xs uppercase font-extrabold text-emerald-200 block">TỔNG ĐIỂM CHẤM CỦA BẠN</span>
+          <span className="text-2xl font-black text-amber-300">{liveTotalScore} / 100đ</span>
+        </div>
+
+        {!isReadOnly && !isLocked && (
+          <button
+            type="button"
+            disabled={submittingScore}
+            onClick={handleScoreSubmit}
+            className="px-6 py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs shadow-md transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50"
+          >
+            <IconSend size={16} />
+            <span>{submittingScore ? "Đang nộp..." : "Gửi Điểm Chuyên Môn & Khóa Bảng Điểm"}</span>
+          </button>
+        )}
+
+        {isLocked && (
+          <div className="px-4 py-2 rounded-xl bg-emerald-900/60 border border-emerald-400/40 text-emerald-200 text-xs font-bold flex items-center gap-1.5">
+            <IconCheck size={16} />
+            <span>Đã gửi điểm &amp; khóa bảng điểm</span>
+          </div>
+        )}
+      </div>
+
+      {/* CONFLICT MODAL */}
+      {showConflictModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-slate-200">
+            <h3 className="text-base font-black text-rose-900 flex items-center gap-2">
+              <IconAlertTriangle size={20} className="text-rose-600" />
+              <span>Báo Cáo Xung Đột Lợi Ích</span>
+            </h3>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Nếu bạn là người phụ trách/đồng tác giả hoặc có xung đột lợi ích với hồ sơ này, hãy chọn lý do để xin rút khỏi danh sách chấm điểm.
+            </p>
+
+            <select
+              value={conflictReason}
+              onChange={(e) => setConflictReason(e.target.value)}
+              className="w-full p-2.5 rounded-xl border border-slate-300 text-xs font-bold bg-slate-50"
+            >
+              <option value="">-- Chọn lý do xin rút --</option>
+              <option value="Hồ sơ thuộc đơn vị/chuyền do tôi trực tiếp quản lý">Hồ sơ thuộc đơn vị/chuyền do tôi quản lý</option>
+              <option value="Tôi là thành viên tham gia thực hiện cải tiến này">Tôi là thành viên thực hiện cải tiến này</option>
+              <option value="Có quan hệ thân nhân/đồng nghiệp trực tiếp với người nộp">Có quan hệ trực tiếp với người nộp</option>
+              <option value="Lý do khách quan khác">Lý do khách quan khác</option>
+            </select>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowConflictModal(false)}
+                className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                disabled={submittingConflict}
+                onClick={handleReportConflict}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-black shadow-md cursor-pointer"
+              >
+                {submittingConflict ? "Đang xử lý..." : "Xác nhận xin rút"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

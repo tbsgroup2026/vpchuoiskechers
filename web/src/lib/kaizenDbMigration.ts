@@ -570,6 +570,320 @@ export async function ensureKaizenSchema(db: any, force = false) {
       }
     } catch (e) {}
 
+    // BGK / Jury System Tables & Proposal Extended Columns
+    const bgkProposalColumns = [
+      'ALTER TABLE ci_kaizen_proposals ADD COLUMN published_at DATETIME',
+      'ALTER TABLE ci_kaizen_proposals ADD COLUMN is_score_flagged INTEGER DEFAULT 0',
+      'ALTER TABLE ci_kaizen_proposals ADD COLUMN judge_final_score REAL DEFAULT 0.0',
+      'ALTER TABLE ci_kaizen_proposals ADD COLUMN c1_score_final REAL DEFAULT 0.0',
+      'ALTER TABLE ci_kaizen_proposals ADD COLUMN c3_score_final REAL DEFAULT 0.0',
+      'ALTER TABLE ci_kaizen_proposals ADD COLUMN is_opex_verified INTEGER DEFAULT 0',
+      'ALTER TABLE ci_kaizen_proposals ADD COLUMN opex_verified_by TEXT',
+      'ALTER TABLE ci_kaizen_proposals ADD COLUMN opex_verified_at DATETIME',
+      'ALTER TABLE ci_kaizen_proposals ADD COLUMN is_disqualified INTEGER DEFAULT 0',
+      'ALTER TABLE ci_kaizen_proposals ADD COLUMN disqualified_reason TEXT',
+      'ALTER TABLE ci_kaizen_proposals ADD COLUMN disqualified_by TEXT',
+    ];
+    for (const sql of bgkProposalColumns) {
+      await db.prepare(sql).run().catch(() => {});
+    }
+
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS ci_kaizen_judging_rounds (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        region TEXT DEFAULT 'ALL',
+        fiscal_year INTEGER DEFAULT 2026,
+        nsld_unit_price REAL DEFAULT 50000,
+        start_date DATETIME,
+        end_date DATETIME,
+        status TEXT DEFAULT 'ACTIVE',
+        is_locked INTEGER DEFAULT 0,
+        published_at DATETIME,
+        created_by TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run().catch(() => {});
+
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS ci_kaizen_criteria_config (
+        id TEXT PRIMARY KEY,
+        round_id TEXT NOT NULL,
+        criterion_key TEXT NOT NULL,
+        name TEXT NOT NULL,
+        max_score REAL NOT NULL,
+        brackets_json TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run().catch(() => {});
+
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS ci_kaizen_judge_assignments (
+        id TEXT PRIMARY KEY,
+        round_id TEXT NOT NULL,
+        judge_id TEXT NOT NULL,
+        judge_name TEXT,
+        submission_id TEXT NOT NULL,
+        status TEXT DEFAULT 'PENDING',
+        is_conflict INTEGER DEFAULT 0,
+        conflict_reason TEXT,
+        assigned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run().catch(() => {});
+
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS ci_kaizen_judge_guest_accounts (
+        id TEXT PRIMARY KEY,
+        full_name TEXT NOT NULL,
+        email_phone TEXT NOT NULL,
+        round_id TEXT NOT NULL,
+        token_hash TEXT NOT NULL,
+        expires_at DATETIME NOT NULL,
+        used_at DATETIME,
+        is_revoked INTEGER DEFAULT 0,
+        organization TEXT,
+        contact_info TEXT,
+        declaration_submitted INTEGER DEFAULT 0,
+        no_conflict_declared INTEGER DEFAULT 0,
+        created_by TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run().catch(() => {});
+
+    const guestCols = [
+      'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN organization TEXT',
+      'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN contact_info TEXT',
+      'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN declaration_submitted INTEGER DEFAULT 0',
+      'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN no_conflict_declared INTEGER DEFAULT 0',
+      'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN username TEXT',
+      'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN one_time_passcode TEXT',
+      'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN dung_chung INTEGER DEFAULT 1',
+      'ALTER TABLE ci_kaizen_scores ADD COLUMN guest_scoring_session_id TEXT',
+      'ALTER TABLE ci_kaizen_scores ADD COLUMN nguoi_cham_thuc_ho_ten TEXT',
+      'ALTER TABLE ci_kaizen_score_audit_log ADD COLUMN nguoi_cham_thuc_ho_ten TEXT',
+      'ALTER TABLE sys_audit_logs ADD COLUMN nguoi_cham_thuc_ho_ten TEXT',
+    ];
+    for (const sql of guestCols) {
+      await db.prepare(sql).run().catch(() => {});
+    }
+
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS ci_kaizen_guest_scoring_sessions (
+        id TEXT PRIMARY KEY,
+        judge_account_id TEXT NOT NULL,
+        submission_id TEXT NOT NULL,
+        nguoi_cham_thuc_ho_ten TEXT NOT NULL,
+        nguoi_cham_thuc_sdt TEXT,
+        nguoi_cham_thuc_email TEXT,
+        thoi_diem_bat_dau DATETIME DEFAULT CURRENT_TIMESTAMP,
+        thoi_diem_gui DATETIME,
+        ip_thiet_bi TEXT,
+        da_gui INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run().catch(() => {});
+
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS ci_kaizen_prerequisite_checks (
+        id TEXT PRIMARY KEY,
+        submission_id TEXT NOT NULL,
+        round_id TEXT,
+        p1_pass INTEGER DEFAULT 1,
+        p2_pass INTEGER DEFAULT 1,
+        p3_pass INTEGER DEFAULT 1,
+        p4_pass INTEGER DEFAULT 1,
+        is_all_pass INTEGER DEFAULT 1,
+        checked_by TEXT NOT NULL,
+        note TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run().catch(() => {});
+
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS ci_kaizen_scores (
+        id TEXT PRIMARY KEY,
+        round_id TEXT NOT NULL,
+        submission_id TEXT NOT NULL,
+        judge_id TEXT NOT NULL,
+        judge_name TEXT,
+        c1_group TEXT DEFAULT 'GROUP1',
+        c1_score REAL DEFAULT 0,
+        c2_score REAL DEFAULT 0,
+        c3_score REAL DEFAULT 0,
+        c4_score REAL DEFAULT 0,
+        c5_score REAL DEFAULT 0,
+        total_score REAL DEFAULT 0,
+        c1_basis TEXT,
+        c2_basis TEXT,
+        c3_basis TEXT,
+        c4_basis TEXT,
+        c5_basis TEXT,
+        is_verified_data INTEGER DEFAULT 1,
+        is_locked INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run().catch(() => {});
+
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS ci_kaizen_score_flags (
+        id TEXT PRIMARY KEY,
+        submission_id TEXT NOT NULL,
+        round_id TEXT NOT NULL,
+        flag_type TEXT NOT NULL,
+        flag_message TEXT NOT NULL,
+        is_resolved INTEGER DEFAULT 0,
+        resolved_by TEXT,
+        resolution_note TEXT,
+        resolved_score REAL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run().catch(() => {});
+
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS ci_kaizen_judge_whitelist_msnv (
+        id TEXT PRIMARY KEY,
+        emp_code TEXT UNIQUE NOT NULL,
+        emp_name TEXT,
+        created_by TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run().catch(() => {});
+
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS ci_kaizen_classification_group_map (
+        id TEXT PRIMARY KEY,
+        phan_loai TEXT UNIQUE NOT NULL,
+        nhom_barem TEXT,
+        tu_dong INTEGER DEFAULT 1,
+        ghi_chu TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run().catch(() => {});
+
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS ci_kaizen_score_audit_log (
+        id TEXT PRIMARY KEY,
+        judge_account_id TEXT,
+        submission_id TEXT,
+        hanh_dong TEXT,
+        gia_tri_truoc TEXT,
+        gia_tri_sau TEXT,
+        thoi_gian DATETIME DEFAULT CURRENT_TIMESTAMP,
+        ip_thiet_bi TEXT
+      )
+    `).run().catch(() => {});
+
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS ci_kaizen_scoring_criteria (
+        id TEXT PRIMARY KEY,
+        ten_tieu_chi TEXT NOT NULL,
+        diem_toi_da REAL NOT NULL,
+        thu_tu_hien_thi INTEGER NOT NULL,
+        loai_thang TEXT DEFAULT 'co_dinh'
+      )
+    `).run().catch(() => {});
+
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS ci_kaizen_scoring_bands (
+        id TEXT PRIMARY KEY,
+        criteria_id TEXT NOT NULL,
+        hang_muc_ap_dung TEXT,
+        diem REAL NOT NULL,
+        mo_ta_ngan TEXT NOT NULL
+      )
+    `).run().catch(() => {});
+
+    // Seed MSNV whitelist
+    try {
+      const seedMsnv = [
+        { code: "202608001", name: "Phạm Nguyễn Anh Huy" },
+        { code: "202608010", name: "Lê Khải" },
+        { code: "222102020", name: "Dư Thị Thanh Tình" },
+        { code: "202608002", name: "Trần Ngọc Huy" },
+        { code: "202112003", name: "Cán Bộ IE / Bảo Trì" },
+      ];
+      for (const m of seedMsnv) {
+        await db.prepare(
+          "INSERT OR IGNORE INTO ci_kaizen_judge_whitelist_msnv (id, emp_code, emp_name, created_by) VALUES (?, ?, ?, 'SYSTEM_SEED')"
+        ).bind(`wh_${m.code}`, m.code, m.name).run().catch(() => {});
+      }
+    } catch (e) {}
+
+    // Seed classification group map (Phase 1)
+    try {
+      const classMapSeed = [
+        { pl: "Tiết kiệm Vật tư", nhom: "Nhóm 2", auto: 1, note: "Khớp trực tiếp" },
+        { pl: "Tiết kiệm Chi phí", nhom: "Nhóm 2", auto: 1, note: "Cùng công thức với Vật tư" },
+        { pl: "Tăng Năng suất", nhom: "Nhóm 1", auto: 1, note: "Khớp trực tiếp" },
+        { pl: "An toàn lao động", nhom: "Nhóm 3", auto: 1, note: "Khớp trực tiếp" },
+        { pl: "5S", nhom: "Nhóm 1", auto: 1, note: "Giả định Nhóm 1 - Cần Ban 2.2 xác nhận lại" },
+        { pl: "Tự động hoá", nhom: "Nhóm 1", auto: 1, note: "Tương tự tăng năng suất" },
+        { pl: "MMTB CCDC", nhom: "Nhóm 1", auto: 1, note: "Tương tự thiết bị công nghệ" },
+        { pl: "Khác", nhom: null, auto: 0, note: "Hiện 3 nút chọn Nhóm thủ công + bắt buộc ghi rõ lý do vào ô minh chứng" },
+      ];
+      for (const c of classMapSeed) {
+        await db.prepare(
+          "INSERT OR IGNORE INTO ci_kaizen_classification_group_map (id, phan_loai, nhom_barem, tu_dong, ghi_chu) VALUES (?, ?, ?, ?, ?)"
+        ).bind(`cmap_${Date.now()}_${Math.random().toString(36).substring(2,6)}`, c.pl, c.nhom, c.auto, c.note).run().catch(() => {});
+      }
+    } catch (e) {}
+
+    // Seed Scoring Criteria & Bands
+    try {
+      const criteriaSeed = [
+        { id: "c1", name: "1. Hiệu quả thực tế đạt được", max: 35, order: 1, loai: "dong_theo_hang_muc" },
+        { id: "c2", name: "2. Tính khả thi & hiệu quả đầu tư", max: 20, order: 2, loai: "co_dinh" },
+        { id: "c3", name: "3. Khả năng nhân rộng", max: 20, order: 3, loai: "co_dinh" },
+        { id: "c4", name: "4. Tính sáng tạo & chủ động", max: 15, order: 4, loai: "co_dinh" },
+        { id: "c5", name: "5. Lan tỏa & tinh thần đội nhóm", max: 10, order: 5, loai: "co_dinh" },
+      ];
+      for (const cr of criteriaSeed) {
+        await db.prepare(
+          "INSERT OR IGNORE INTO ci_kaizen_scoring_criteria (id, ten_tieu_chi, diem_toi_da, thu_tu_hien_thi, loai_thang) VALUES (?, ?, ?, ?, ?)"
+        ).bind(cr.id, cr.name, cr.max, cr.order, cr.loai).run().catch(() => {});
+      }
+
+      const bandsSeed = [
+        // Criteria 2
+        { id: "b2_0", cid: "c2", hang: null, pts: 0, desc: "0đ: Không khả thi / Chi phí đầu tư vượt xa hiệu quả thu hồi" },
+        { id: "b2_5", cid: "c2", hang: null, pts: 5, desc: "5đ: Khả thi thấp / Thời gian hoàn vốn > 2 năm" },
+        { id: "b2_10", cid: "c2", hang: null, pts: 10, desc: "10đ: Khả thi trung bình / Thời gian hoàn vốn 1 - 2 năm" },
+        { id: "b2_15", cid: "c2", hang: null, pts: 15, desc: "15đ: Khả thi cao / Thời gian hoàn vốn 6 tháng - 1 năm" },
+        { id: "b2_20", cid: "c2", hang: null, pts: 20, desc: "20đ: Rất khả thi / Hoàn vốn < 6 tháng hoặc không tốn chi phí đầu tư" },
+
+        // Criteria 3
+        { id: "b3_0", cid: "c3", hang: null, pts: 0, desc: "0đ: Không thể nhân rộng (chỉ áp dụng duy nhất 1 vị trí/chuyền)" },
+        { id: "b3_5", cid: "c3", hang: null, pts: 5, desc: "5đ: Nhân rộng cấp Tổ/Chuyền (2 - 3 chuyền tương tự)" },
+        { id: "b3_10", cid: "c3", hang: null, pts: 10, desc: "10đ: Nhân rộng toàn Xưởng (4 - 10 chuyền/khu vực)" },
+        { id: "b3_15", cid: "c3", hang: null, pts: 15, desc: "15đ: Nhân rộng toàn Nhà máy (tất cả xưởng thuộc NM)" },
+        { id: "b3_20", cid: "c3", hang: null, pts: 20, desc: "20đ: Nhân rộng toàn Tập đoàn/Chuỗi (áp dụng cho tất cả NM & Văn phòng)" },
+
+        // Criteria 4
+        { id: "b4_0", cid: "c4", hang: null, pts: 0, desc: "0đ: Sao chép hoàn toàn giải pháp có sẵn không có cải tiến" },
+        { id: "b4_3", cid: "c4", hang: null, pts: 3, desc: "3đ: Áp dụng giải pháp quen thuộc với tinh chỉnh nhỏ" },
+        { id: "b4_7", cid: "c4", hang: null, pts: 7, desc: "7đ: Giải pháp có cải tiến sáng tạo tự nghiên cứu" },
+        { id: "b4_11", cid: "c4", hang: null, pts: 11, desc: "11đ: Giải pháp mới áp dụng lần đầu tại Nhà máy" },
+        { id: "b4_15", cid: "c4", hang: null, pts: 15, desc: "15đ: Giải pháp đột phá/Sáng chế mới lần đầu áp dụng tại Tập đoàn" },
+
+        // Criteria 5
+        { id: "b5_0", cid: "c5", hang: null, pts: 0, desc: "0đ: Cá nhân tự làm, không chia sẻ/lan tỏa" },
+        { id: "b5_2", cid: "c5", hang: null, pts: 2, desc: "2đ: Nhóm 2 người, lan tỏa trong tổ" },
+        { id: "b5_5", cid: "c5", hang: null, pts: 5, desc: "5đ: Phối hợp liên tổ/bộ phận (3-5 người)" },
+        { id: "b5_8", cid: "c5", hang: null, pts: 8, desc: "8đ: Phối hợp liên phòng ban/xưởng (6-10 người)" },
+        { id: "b5_10", cid: "c5", hang: null, pts: 10, desc: "10đ: Phong trào thi đua cấp Nhà máy/Tập đoàn (>10 người tham gia)" },
+      ];
+      for (const bd of bandsSeed) {
+        await db.prepare(
+          "INSERT OR IGNORE INTO ci_kaizen_scoring_bands (id, criteria_id, hang_muc_ap_dung, diem, mo_ta_ngan) VALUES (?, ?, ?, ?, ?)"
+        ).bind(bd.id, bd.cid, bd.hang, bd.pts, bd.desc).run().catch(() => {});
+      }
+    } catch (e) {}
+
     isSchemaMigrated = true;
   } catch (err) {
     console.error("[ensureKaizenSchema] Migration error:", err);

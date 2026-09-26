@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import { convertNumberToWords } from '@/lib/numberToWords';
+import { getValidKaizenImageUrl } from '@/lib/kaizenImageHelper';
 
 
 
@@ -104,28 +105,21 @@ export async function POST(request: Request) {
 
     if (db) {
       try {
-        await db.prepare('ALTER TABLE ci_kaizen_proposals ADD COLUMN product_code TEXT').run().catch(() => {});
-        await db.prepare('ALTER TABLE ci_kaizen_proposals ADD COLUMN pair_quantity INTEGER DEFAULT 0').run().catch(() => {});
-        await db.prepare('ALTER TABLE ci_kaizen_proposals ADD COLUMN total_savings_vnd REAL DEFAULT 0').run().catch(() => {});
-        await db.prepare('ALTER TABLE ci_kaizen_proposals ADD COLUMN total_savings_words TEXT').run().catch(() => {});
-        await db.prepare('ALTER TABLE ci_kaizen_proposals ADD COLUMN after_image_url TEXT').run().catch(() => {});
-        await db.prepare('ALTER TABLE ci_kaizen_proposals ADD COLUMN attachments_json TEXT').run().catch(() => {});
-        await db.prepare('ALTER TABLE ci_kaizen_proposals ADD COLUMN category TEXT').run().catch(() => {});
-        await db.prepare('ALTER TABLE ci_kaizen_proposals ADD COLUMN trang_thai TEXT DEFAULT "CHO_DUYET"').run().catch(() => {});
-        await db.prepare('ALTER TABLE ci_kaizen_proposals ADD COLUMN review_status TEXT DEFAULT "CHO_DUYET"').run().catch(() => {});
-        await db.prepare('ALTER TABLE ci_kaizen_proposals ADD COLUMN so_giay_tiet_kiem REAL DEFAULT 0').run().catch(() => {});
-        await db.prepare('ALTER TABLE ci_kaizen_proposals ADD COLUMN diem_hieu_qua REAL DEFAULT 0').run().catch(() => {});
-        await db.prepare('ALTER TABLE ci_kaizen_proposals ADD COLUMN score_points REAL DEFAULT 0').run().catch(() => {});
-        await db.prepare('ALTER TABLE ci_kaizen_proposals ADD COLUMN diem_tong_hop REAL DEFAULT 0').run().catch(() => {});
-        await db.prepare('ALTER TABLE ci_kaizen_proposals ADD COLUMN hang_xep INTEGER DEFAULT 0').run().catch(() => {});
-        await db.prepare('ALTER TABLE ci_kaizen_proposals ADD COLUMN review_comment TEXT').run().catch(() => {});
-        await db.prepare('ALTER TABLE ci_kaizen_proposals ADD COLUMN saved_seconds REAL DEFAULT 0').run().catch(() => {});
-        await db.prepare('ALTER TABLE ci_kaizen_proposals ADD COLUMN time_before_seconds REAL DEFAULT 0').run().catch(() => {});
-        await db.prepare('ALTER TABLE ci_kaizen_proposals ADD COLUMN time_after_seconds REAL DEFAULT 0').run().catch(() => {});
-        await db.prepare('ALTER TABLE ci_kaizen_proposals ADD COLUMN efficiency_value_vnd REAL DEFAULT 0').run().catch(() => {});
+        let existingRow: any = null;
+        try {
+          existingRow = await db.prepare(`
+            SELECT * FROM ci_kaizen_proposals
+            WHERE (id = ? AND id != '')
+               OR (code = ? AND code != '')
+               OR (LOWER(id) = LOWER(?) AND id != '')
+               OR (LOWER(code) = LOWER(?) AND code != '')
+               OR (proposer_emp_code = ? AND proposer_emp_code != '')
+            LIMIT 1
+          `).bind(proposalId, body.code || proposalId, proposalId, body.code || proposalId, proposalId).first();
+        } catch (e) {}
 
-        await db.prepare('ALTER TABLE ci_kaizen_proposals ADD COLUMN cost_before REAL DEFAULT 0').run().catch(() => {});
-        await db.prepare('ALTER TABLE ci_kaizen_proposals ADD COLUMN cost_after REAL DEFAULT 0').run().catch(() => {});
+        const targetId = existingRow?.id || proposalId;
+        const targetCode = existingRow?.code || body.code || proposalId;
 
         const query = `
           UPDATE ci_kaizen_proposals
@@ -149,8 +143,8 @@ export async function POST(request: Request) {
               cost_before = CASE WHEN ? > 0 THEN ? ELSE cost_before END,
               cost_after = CASE WHEN ? >= 0 THEN ? ELSE cost_after END,
               total_savings_words = COALESCE(NULLIF(?, ''), total_savings_words),
-              after_image_url = COALESCE(?, after_image_url),
-              attachments_json = COALESCE(?, attachments_json),
+              after_image_url = COALESCE(NULLIF(?, ''), after_image_url),
+              attachments_json = COALESCE(NULLIF(?, ''), attachments_json),
               review_comment = COALESCE(?, review_comment),
               updated_at = CURRENT_TIMESTAMP
           WHERE id = ? OR code = ? OR LOWER(id) = LOWER(?) OR LOWER(code) = LOWER(?)
@@ -185,10 +179,10 @@ export async function POST(request: Request) {
             afterImageUrl,
             attachmentsJson,
             note || null,
-            proposalId,
-            body.code || proposalId,
-            proposalId,
-            body.code || proposalId
+            targetId,
+            targetCode,
+            targetId,
+            targetCode
           )
           .run();
 
@@ -260,6 +254,9 @@ export async function POST(request: Request) {
       pair_quantity: pairQty,
       total_savings_vnd: totalSavings,
       total_savings_words: totalSavingsWordsVal,
+      after_image_url: afterImageUrl,
+      afterImageUrl: afterImageUrl,
+      attachments_json: attachmentsJson,
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Lỗi xử lý phê duyệt';

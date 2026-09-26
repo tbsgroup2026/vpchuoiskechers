@@ -125,17 +125,45 @@ export async function GET(request: Request) {
     const rankedList = filteredResults.map((p: any) => {
       const savingsSecs = Number(p.so_giay_tiet_kiem || p.saved_seconds || 0);
       const efficiencyScore = Number(p.diem_hieu_qua || p.score_points || 0);
-      const totalScore = Math.round((savingsSecs * weightSavings + efficiencyScore * weightEfficiency) * 10) / 10;
+      const judgeScore = Number(p.judge_final_score || 0);
+      const c1Score = Number(p.c1_score_final || 0);
+      const c3Score = Number(p.c3_score_final || 0);
+
+      const totalScore = judgeScore > 0
+        ? judgeScore
+        : Math.round((savingsSecs * weightSavings + efficiencyScore * weightEfficiency) * 10) / 10;
+
+      let isAppealOpen = false;
+      if (p.published_at) {
+        const pubTime = new Date(p.published_at).getTime();
+        const nowTime = Date.now();
+        if (!isNaN(pubTime) && (nowTime - pubTime) <= 3 * 24 * 3600 * 1000) {
+          isAppealOpen = true;
+        }
+      }
 
       return {
         ...p,
         so_giay_tiet_kiem: savingsSecs,
         diem_hieu_qua: efficiencyScore,
         diem_tong_hop: totalScore,
+        c1_score_final: c1Score,
+        c3_score_final: c3Score,
+        is_appeal_open: isAppealOpen,
       };
     });
 
-    rankedList.sort((a: any, b: any) => b.diem_tong_hop - a.diem_tong_hop);
+    // ⚡ Tie-breaking sort rule (Requirements 4.7.7 & 5.6):
+    // Primary: Total score DESC -> Secondary: C1 score DESC -> Tertiary: C3 score DESC
+    rankedList.sort((a: any, b: any) => {
+      if (b.diem_tong_hop !== a.diem_tong_hop) {
+        return b.diem_tong_hop - a.diem_tong_hop;
+      }
+      if ((b.c1_score_final || 0) !== (a.c1_score_final || 0)) {
+        return (b.c1_score_final || 0) - (a.c1_score_final || 0);
+      }
+      return (b.c3_score_final || 0) - (a.c3_score_final || 0);
+    });
 
     const batchStatements: any[] = [];
     const updateStmt = db.prepare(`

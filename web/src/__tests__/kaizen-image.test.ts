@@ -47,4 +47,19 @@ describe('Kaizen Image Helper Tests', () => {
       'https://res.cloudinary.com/demo/img2.jpg'
     ]);
   });
+
+  it('should resolve AFTER image correctly using beforeUrlFallback and attachments_json', () => {
+    const beforeUrl = 'https://res.cloudinary.com/demo/before.jpg';
+    const attachments = JSON.stringify([
+      { url: 'https://res.cloudinary.com/demo/before.jpg', tag: 'BEFORE' },
+      { url: 'https://res.cloudinary.com/demo/after.jpg', tag: 'AFTER' }
+    ]);
+    expect(getValidKaizenImageUrl('', attachments, 'AFTER', beforeUrl)).toBe('https://res.cloudinary.com/demo/after.jpg');
+
+    const untaggedAttachments = JSON.stringify([
+      'https://res.cloudinary.com/demo/before.jpg',
+      'https://res.cloudinary.com/demo/after.jpg'
+    ]);
+    expect(getValidKaizenImageUrl('', untaggedAttachments, 'AFTER', beforeUrl)).toBe('https://res.cloudinary.com/demo/after.jpg');
+  });
 });

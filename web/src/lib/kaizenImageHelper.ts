@@ -3,7 +3,12 @@
  * Handles Cloudinary URLs, Google Drive links, comma-separated lists, and attachments_json fallbacks.
  */
 
-export function getValidKaizenImageUrl(rawUrl?: string, attachmentsJson?: string): string {
+export function getValidKaizenImageUrl(
+  rawUrl?: string,
+  attachmentsJson?: string,
+  tagFilter?: "BEFORE" | "AFTER",
+  beforeUrlFallback?: string
+): string {
   let candidate = "";
 
   if (rawUrl && typeof rawUrl === "string" && rawUrl.trim()) {
@@ -21,11 +26,65 @@ export function getValidKaizenImageUrl(rawUrl?: string, attachmentsJson?: string
     try {
       const parsed = typeof attachmentsJson === "string" ? JSON.parse(attachmentsJson) : attachmentsJson;
       if (Array.isArray(parsed) && parsed.length > 0) {
-        for (const item of parsed) {
-          const u = typeof item === "string" ? item : item?.url;
-          if (u && typeof u === "string" && u.trim()) {
-            candidate = u.trim().replace(/^["']|["']$/g, '');
-            break;
+        if (tagFilter) {
+          const targetTag = tagFilter.toUpperCase();
+          const taggedItem = parsed.find((item: any) => {
+            if (typeof item === "object" && item !== null) {
+              const tag = item?.tag || item?.type || item?.category || "";
+              return String(tag).toUpperCase() === targetTag;
+            }
+            return false;
+          });
+          if (taggedItem) {
+            const u = typeof taggedItem === "string" ? taggedItem : taggedItem?.url;
+            if (u && typeof u === "string" && u.trim()) {
+              candidate = u.trim().replace(/^["']|["']$/g, '');
+            }
+          }
+          if (!candidate && targetTag === "AFTER") {
+            const cleanBeforeFallback = beforeUrlFallback ? beforeUrlFallback.trim().replace(/^["']|["']$/g, '') : "";
+            const fallbackAfter = parsed.find((item: any, idx: number) => {
+              const u = typeof item === "string" ? item : item?.url;
+              const cleanU = u && typeof u === "string" ? u.trim().replace(/^["']|["']$/g, '') : "";
+              const tag = typeof item === "object" && item !== null ? String(item?.tag || item?.type || item?.category || "").toUpperCase() : "";
+              
+              if (!cleanU) return false;
+              if (tag === "BEFORE") return false;
+              if (cleanBeforeFallback && cleanU === cleanBeforeFallback) return false;
+              if (parsed.length > 1 && idx === 0 && tag !== "AFTER") return false;
+              return true;
+            });
+            if (fallbackAfter) {
+              const u = typeof fallbackAfter === "string" ? fallbackAfter : fallbackAfter?.url;
+              if (u && typeof u === "string" && u.trim()) {
+                candidate = u.trim().replace(/^["']|["']$/g, '');
+              }
+            }
+          }
+          if (!candidate && targetTag === "BEFORE") {
+            const fallbackBefore = parsed.find((item: any) => {
+              const u = typeof item === "string" ? item : item?.url;
+              const cleanU = u && typeof u === "string" ? u.trim().replace(/^["']|["']$/g, '') : "";
+              const tag = typeof item === "object" && item !== null ? String(item?.tag || item?.type || item?.category || "").toUpperCase() : "";
+              
+              if (!cleanU) return false;
+              if (tag === "AFTER") return false;
+              return true;
+            });
+            if (fallbackBefore) {
+              const u = typeof fallbackBefore === "string" ? fallbackBefore : fallbackBefore?.url;
+              if (u && typeof u === "string" && u.trim()) {
+                candidate = u.trim().replace(/^["']|["']$/g, '');
+              }
+            }
+          }
+        } else {
+          for (const item of parsed) {
+            const u = typeof item === "string" ? item : item?.url;
+            if (u && typeof u === "string" && u.trim()) {
+              candidate = u.trim().replace(/^["']|["']$/g, '');
+              break;
+            }
           }
         }
       }

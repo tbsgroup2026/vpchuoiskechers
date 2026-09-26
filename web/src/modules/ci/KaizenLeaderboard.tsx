@@ -143,14 +143,28 @@ export default function KaizenLeaderboard({
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={fetchLeaderboard}
-          className="px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-all flex items-center gap-1.5 border border-white/20 cursor-pointer"
-        >
-          <IconRefresh size={15} className={loading ? "animate-spin" : ""} />
-          <span>Làm mới xếp hạng</span>
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <a
+            href="/work/kaizen/judge"
+            className="px-3.5 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-black transition-all flex items-center gap-1.5 shadow-xs"
+          >
+            ⚖️ Khống Gian BGK Chấm Điểm
+          </a>
+          <a
+            href="/work/kaizen/admin/judging"
+            className="px-3.5 py-1.5 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-bold transition-all flex items-center gap-1.5 border border-white/30"
+          >
+            👑 Admin Quản Lý BGK
+          </a>
+          <button
+            type="button"
+            onClick={fetchLeaderboard}
+            className="px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-all flex items-center gap-1.5 border border-white/20 cursor-pointer"
+          >
+            <IconRefresh size={15} className={loading ? "animate-spin" : ""} />
+            <span>Làm mới</span>
+          </button>
+        </div>
       </div>
 
       {/* Leaderboard Table */}
@@ -223,13 +237,32 @@ export default function KaizenLeaderboard({
                     </td>
 
                     {/* Proposal Title */}
-                    <td className="py-3.5 px-4 max-w-xs">
-                      <span className="font-extrabold text-slate-900 text-xs line-clamp-1" title={item.title}>
-                        {item.title}
-                      </span>
-                      <span className="text-[10px] font-bold text-emerald-700">
-                        {item.category_label || item.category}
-                      </span>
+                    <td className="py-3.5 px-4 max-w-xs space-y-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-extrabold text-slate-900 text-xs line-clamp-1" title={item.title}>
+                          {item.title}
+                        </span>
+                        {item.is_appeal_open && (
+                          <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 font-bold text-[9px] animate-pulse">
+                            📢 Đang mở khiếu nại (3 ngày)
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-bold text-emerald-700">
+                          {item.category_label || item.category}
+                        </span>
+                        {item.c1_score_final > 0 && (
+                          <span className="text-[9.5px] font-mono font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded">
+                            TC1: {item.c1_score_final}đ
+                          </span>
+                        )}
+                        {item.c3_score_final > 0 && (
+                          <span className="text-[9.5px] font-mono font-bold text-purple-700 bg-purple-50 border border-purple-200 px-1.5 py-0.5 rounded">
+                            TC3: {item.c3_score_final}đ
+                          </span>
+                        )}
+                      </div>
                     </td>
 
                     {/* Savings Seconds */}

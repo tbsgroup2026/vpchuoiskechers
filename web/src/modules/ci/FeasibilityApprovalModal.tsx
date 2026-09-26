@@ -19,6 +19,7 @@ import { KaizenProposal, CATEGORIES } from "./CIModule";
 import { getValidKaizenImageUrl } from "@/lib/kaizenImageHelper";
 import { getKaizenDisplayTitle } from "@/lib/kaizenTitleHelper";
 import { formatMax2Decimals, formatVND } from "@/lib/formatNumber";
+import { uploadCloudinaryFile } from "@/lib/cloudinary";
 
 interface FeasibilityApprovalModalProps {
   isOpen: boolean;
@@ -38,6 +39,7 @@ interface FeasibilityApprovalModalProps {
     total_savings_vnd?: number;
     total_savings_words?: string;
     after_image_url?: string;
+    attachments_json?: string;
   }) => void;
 }
 
@@ -100,6 +102,7 @@ export default function FeasibilityApprovalModal({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [submitting, setSubmitting] = useState<boolean>(false);
+  const [uploadingMedia, setUploadingMedia] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [pairQtyError, setPairQtyError] = useState<string | null>(null);
 
@@ -178,10 +181,11 @@ export default function FeasibilityApprovalModal({
 
       let initialMedia: { id: string; type: "image" | "video"; url: string }[] = [];
       const beforeUrl = proposal.before_image_url ? proposal.before_image_url.trim() : "";
+      const rawAfterStr = proposal.after_image_url || (proposal as any).afterImageUrl || "";
 
-      if (proposal.after_image_url) {
-        const urls = proposal.after_image_url.split(",").map((s) => s.trim()).filter(Boolean);
-        urls.forEach((u, idx) => {
+      if (rawAfterStr) {
+        const urls = rawAfterStr.split(",").map((s: string) => s.trim()).filter(Boolean);
+        urls.forEach((u: string, idx: number) => {
           if (u !== beforeUrl) {
             const isVid = u.endsWith(".mp4") || u.endsWith(".mov") || u.endsWith(".webm") || u.startsWith("data:video");
             initialMedia.push({ id: `existing-after-${idx}`, type: isVid ? "video" : "image", url: u });
@@ -192,10 +196,15 @@ export default function FeasibilityApprovalModal({
         try {
           const parsed = JSON.parse(proposal.attachments_json);
           if (Array.isArray(parsed)) {
-            parsed.forEach((u: string, idx: number) => {
-              if (typeof u === "string" && u !== beforeUrl && !initialMedia.some((m) => m.url === u)) {
+            parsed.forEach((item: any, idx: number) => {
+              const u = typeof item === "string" ? item : (item?.url || "");
+              const tag = typeof item === "object" ? (item?.tag || item?.type || "") : "";
+              const isAfterTag = String(tag).toUpperCase() === "AFTER";
+              if (u && typeof u === "string" && u !== beforeUrl && (isAfterTag || !initialMedia.some((m) => m.url === u))) {
                 const isVid = u.endsWith(".mp4") || u.endsWith(".mov") || u.endsWith(".webm") || u.startsWith("data:video");
-                initialMedia.push({ id: `att-${idx}`, type: isVid ? "video" : "image", url: u });
+                if (!initialMedia.some((m) => m.url === u)) {
+                  initialMedia.push({ id: `att-${idx}`, type: isVid ? "video" : "image", url: u });
+                }
               }
             });
           }
@@ -205,26 +214,47 @@ export default function FeasibilityApprovalModal({
     }
   }, [isOpen, initialDecision, proposal?.id]);
 
-  const handleAddMediaFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAddMediaFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    Array.from(files).forEach((file) => {
-      const reader = new FileReader();
-      const isVid = file.type.startsWith("video/") || file.name.endsWith(".mp4") || file.name.endsWith(".mov") || file.name.endsWith(".webm");
-      reader.onload = (event) => {
-        const url = event.target?.result as string;
-        if (url) {
+    try {
+      setUploadingMedia(true);
+      setErrorMsg(null);
+      const fileList = Array.from(files);
+
+      for (const file of fileList) {
+        const isVid = file.type.startsWith("video/") || file.name.endsWith(".mp4") || file.name.endsWith(".mov") || file.name.endsWith(".webm");
+        if (!isVid && !file.type.startsWith("image/")) {
+          setErrorMsg("⚠️ Vui lòng chọn tệp hình ảnh (JPG, PNG, WEBP) hoặc video (MP4, MOV, WEBM)");
+          continue;
+        }
+
+        if (file.size > (isVid ? 50 : 15) * 1024 * 1024) {
+          setErrorMsg(`❌ Dung lượng ${isVid ? "video" : "ảnh"} vượt quá giới hạn tối đa (${isVid ? "50MB" : "15MB"})`);
+          continue;
+        }
+
+        const uploadRes = await uploadCloudinaryFile(file, {
+          category: "kaizen_after",
+          fileType: isVid ? "video" : "image",
+        });
+
+        if (uploadRes.secure_url) {
           const fileId = `${isVid ? 'video' : 'image'}-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
           setAfterMediaList((prev) => [
             ...prev,
-            { id: fileId, type: isVid ? "video" : "image", url, name: file.name },
+            { id: fileId, type: isVid ? "video" : "image", url: uploadRes.secure_url, name: file.name },
           ]);
         }
-      };
-      reader.readAsDataURL(file);
-    });
-    if (fileInputRef.current) fileInputRef.current.value = "";
+      }
+    } catch (err: any) {
+      console.error("Lỗi tải tệp Sau cải tiến:", err);
+      setErrorMsg(`❌ Lỗi tải tệp Sau cải tiến: ${err.message || "Không thể kết nối đến máy chủ lưu trữ"}`);
+    } finally {
+      setUploadingMedia(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   };
 
   const handleRemoveMedia = (id: string) => {
@@ -336,9 +366,49 @@ export default function FeasibilityApprovalModal({
         : totalSavingsVndVal;
       const savingsInWords = convertNumberToWords(finalTotalSavings);
 
-      const mediaUrls = afterMediaList.map((m) => m.url);
-      const afterImgUrlStr = mediaUrls.length > 0 ? mediaUrls[0] : "";
-      const attachmentsJsonStr = JSON.stringify(mediaUrls);
+      // Ensure base64 data URLs are converted to Cloudinary URLs before submission
+      const sanitizedMediaUrls: string[] = [];
+      for (const m of afterMediaList) {
+        if (m.url.startsWith("data:")) {
+          try {
+            const uploaded = await uploadCloudinaryFile(m.url, {
+              category: "kaizen_after",
+              fileType: m.type,
+            });
+            if (uploaded.secure_url) sanitizedMediaUrls.push(uploaded.secure_url);
+          } catch (e) {
+            console.warn("Failed converting legacy base64 data URL:", e);
+          }
+        } else if (m.url) {
+          sanitizedMediaUrls.push(m.url);
+        }
+      }
+
+      const mediaUrls = sanitizedMediaUrls;
+      const afterImgUrlStr = mediaUrls.length > 0 ? mediaUrls.join(",") : "";
+
+      const attachmentsList: any[] = mediaUrls.map((url) => ({
+        url,
+        tag: "AFTER",
+        type: url.endsWith(".mp4") || url.endsWith(".mov") || url.endsWith(".webm") ? "video" : "image",
+      }));
+
+      if (proposal.attachments_json) {
+        try {
+          const existingParsed = JSON.parse(proposal.attachments_json);
+          if (Array.isArray(existingParsed)) {
+            existingParsed.forEach((item: any) => {
+              const u = typeof item === "string" ? item : item?.url;
+              const tag = typeof item === "object" && item !== null ? String(item?.tag || item?.type || item?.category || "").toUpperCase() : "";
+              if (tag === "BEFORE" && u && !attachmentsList.some((a) => a.url === u)) {
+                attachmentsList.unshift(typeof item === "object" ? item : { url: u, tag: "BEFORE", type: "image" });
+              }
+            });
+          }
+        } catch (e) {}
+      }
+
+      const attachmentsJsonStr = JSON.stringify(attachmentsList);
 
       let token = "";
       if (typeof window !== "undefined") {
@@ -406,6 +476,7 @@ export default function FeasibilityApprovalModal({
           total_savings_vnd: json.total_savings_vnd !== undefined ? json.total_savings_vnd : finalTotalSavings,
           total_savings_words: json.total_savings_words !== undefined ? json.total_savings_words : savingsInWords,
           after_image_url: afterImgUrlStr,
+          attachments_json: attachmentsJsonStr,
         });
         onClose();
       } else {
@@ -581,14 +652,21 @@ export default function FeasibilityApprovalModal({
                 <IconPhoto size={14} className="text-emerald-600" />
                 <span>Hình ảnh (nhiều ảnh) / Video Sau Cải Tiến</span>
               </span>
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="px-2.5 py-1 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-[#006838] border border-emerald-200 font-extrabold text-[11px] flex items-center gap-1 transition-colors cursor-pointer"
-              >
-                <IconPlus size={13} />
-                <span>Thêm ảnh / video</span>
-              </button>
+              {uploadingMedia ? (
+                <div className="flex items-center gap-1.5 text-emerald-700 font-bold text-xs bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-xl animate-pulse">
+                  <IconLoader2 size={14} className="animate-spin" />
+                  <span>Đang tải tệp lên...</span>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="px-2.5 py-1 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-[#006838] border border-emerald-200 font-extrabold text-[11px] flex items-center gap-1 transition-colors cursor-pointer"
+                >
+                  <IconPlus size={13} />
+                  <span>Thêm ảnh / video</span>
+                </button>
+              )}
             </div>
 
             <input

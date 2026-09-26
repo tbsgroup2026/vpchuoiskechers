@@ -149,31 +149,18 @@ export async function GET(request: Request) {
     const db = getDbBinding();
 
     if (db) {
-      await ensureKaizenSchema(db);
-
-      // Seed/Upsert core proposals into D1 database and force restore original titles
+      let results: any[] = [];
       try {
-        for (const seed of DEFAULT_KAIZEN_PROPOSALS) {
-          await db.prepare(`
-            INSERT INTO ci_kaizen_proposals (
-              id, code, title, category, category_label, registration_type, factory, region, source_region, department, line, proposer_name, proposer_emp_code, before_description, after_solution, saved_seconds, total_savings_vnd, score_points, vote_count, view_count, status, approval_status, sub_status, trang_thai, review_status, before_image_url, after_image_url, attachments_json, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(id) DO NOTHING
-          `).bind(
-            seed.id, seed.code, seed.title, seed.category, seed.category_label, seed.registration_type,
-            seed.factory, seed.region, seed.source_region, seed.department, seed.line, seed.proposer_name,
-            seed.proposer_emp_code, seed.before_description, seed.after_solution, seed.saved_seconds,
-            seed.total_savings_vnd, seed.score_points, seed.vote_count, seed.view_count, seed.status,
-            seed.approval_status, seed.sub_status, seed.trang_thai, seed.review_status, seed.before_image_url,
-            seed.after_image_url, seed.attachments_json, seed.created_at
-          ).run();
-        }
-      } catch (seedErr) {
-        console.warn('[ci-kaizen GET] Seed error:', seedErr);
+        const queryRes = await db.prepare(`SELECT * FROM ci_kaizen_proposals ORDER BY created_at DESC LIMIT 500`).all();
+        results = queryRes?.results || [];
+      } catch (err) {
+        // Fallback: If table doesn't exist yet, run schema creation once
+        await ensureKaizenSchema(db).catch(() => {});
+        try {
+          const retryRes = await db.prepare(`SELECT * FROM ci_kaizen_proposals ORDER BY created_at DESC LIMIT 500`).all();
+          results = retryRes?.results || [];
+        } catch (e) {}
       }
-      // Fetch ALL proposals in System B database (vpchuoiskechers-db)
-      const query = `SELECT * FROM ci_kaizen_proposals ORDER BY created_at DESC LIMIT 500`;
-      const { results } = await db.prepare(query).all();
 
       let userMap: Record<string, string> = {};
       try {
@@ -198,9 +185,6 @@ export async function GET(request: Request) {
 
         if ((!resolvedName || resolvedName.startsWith('Nhân viên (')) && pEmpCode && userMap[pEmpCode]) {
           resolvedName = userMap[pEmpCode];
-          if (db && p.id) {
-            db.prepare(`UPDATE ci_kaizen_proposals SET proposer_name = ? WHERE id = ?`).bind(resolvedName, p.id).run().catch(() => {});
-          }
         }
 
         let tb = Number(p.time_before_seconds || p.timeBeforeSeconds || 0);
@@ -224,15 +208,6 @@ export async function GET(request: Request) {
           mult = q > 0 ? q : 1;
           cb = Math.round(tb * 12.5 * mult);
           ca = Math.round(ta * 12.5 * mult);
-
-          // Self-healing update query to D1 database in background
-          if (db && p.id) {
-            db.prepare(`
-              UPDATE ci_kaizen_proposals
-              SET time_before_seconds = ?, time_after_seconds = ?, saved_seconds = ?, so_giay_tiet_kiem = ?, efficiency_value_vnd = ?, total_savings_vnd = ?
-              WHERE id = ? OR code = ?
-            `).bind(tb, ta, sSecs, sSecs, eff, tot, p.id, p.code || p.id).run().catch(() => {});
-          }
         }
 
         // If still 0 for non-seed proposals with missing figures, derive fallback values from saved_seconds or default
@@ -270,8 +245,8 @@ export async function GET(request: Request) {
           pair_quantity: q > 0 ? q : 1,
           quantity: q > 0 ? q : 1,
           so_luong_giay: q > 0 ? q : 1,
-          before_image_url: getValidKaizenImageUrl(p.before_image_url, p.attachments_json) || p.before_image_url || '',
-          after_image_url: getValidKaizenImageUrl(p.after_image_url) || p.after_image_url || '',
+          before_image_url: getValidKaizenImageUrl(p.before_image_url, p.attachments_json, "BEFORE") || p.before_image_url || '',
+          after_image_url: getValidKaizenImageUrl(p.after_image_url, p.attachments_json, "AFTER") || p.after_image_url || '',
         };
       });
 
@@ -868,10 +843,29 @@ export async function PUT(request: Request) {
             cost_after = ?,
             before_image_url = ?,
             after_image_url = ?,
+            attachments_json = COALESCE(NULLIF(?, ''), attachments_json),
             is_edited = 1,
             updated_at = CURRENT_TIMESTAMP
         WHERE id = ? OR code = ? OR id = ? OR code = ? OR LOWER(id) = LOWER(?) OR LOWER(code) = LOWER(?) OR LOWER(id) = LOWER(?) OR LOWER(code) = LOWER(?)
       `;
+
+      const finalBeforeImg = before_image_url || beforeImageUrl || existingRow?.before_image_url || '';
+      const finalAfterImg = after_image_url || afterImageUrl || existingRow?.after_image_url || '';
+
+      let updatedAttachments: any[] = [];
+      if (existingRow?.attachments_json) {
+        try {
+          const parsed = JSON.parse(existingRow.attachments_json);
+          if (Array.isArray(parsed)) updatedAttachments = [...parsed];
+        } catch (e) {}
+      }
+      if (finalBeforeImg && !updatedAttachments.some((item) => (typeof item === 'string' ? item : item?.url) === finalBeforeImg)) {
+        updatedAttachments.push({ url: finalBeforeImg, tag: "BEFORE", type: "image" });
+      }
+      if (finalAfterImg && !updatedAttachments.some((item) => (typeof item === 'string' ? item : item?.url) === finalAfterImg)) {
+        updatedAttachments.push({ url: finalAfterImg, tag: "AFTER", type: "image" });
+      }
+      const finalAttachmentsJson = JSON.stringify(updatedAttachments);
 
       let updateRes: any = null;
       try {
@@ -899,8 +893,9 @@ export async function PUT(request: Request) {
           total_savings_words || totalSavingsWords || existingRow?.total_savings_words || '',
           finalCostBefore,
           finalCostAfter,
-          before_image_url || beforeImageUrl || existingRow?.before_image_url || '',
-          after_image_url || afterImageUrl || existingRow?.after_image_url || '',
+          finalBeforeImg,
+          finalAfterImg,
+          finalAttachmentsJson,
           rowId,
           rowCode,
           targetId,
@@ -1011,6 +1006,11 @@ export async function PUT(request: Request) {
         costAfter: finalCostAfter ?? updatedRow?.cost_after ?? body.cost_after ?? 0,
         pair_quantity: finalPairQty ?? updatedRow?.pair_quantity ?? body.pair_quantity ?? 0,
         quantity: finalPairQty ?? updatedRow?.pair_quantity ?? body.pair_quantity ?? 0,
+        before_image_url: finalBeforeImg || updatedRow?.before_image_url || body.before_image_url || '',
+        beforeImageUrl: finalBeforeImg || updatedRow?.before_image_url || body.before_image_url || '',
+        after_image_url: finalAfterImg || updatedRow?.after_image_url || body.after_image_url || '',
+        afterImageUrl: finalAfterImg || updatedRow?.after_image_url || body.after_image_url || '',
+        attachments_json: finalAttachmentsJson || updatedRow?.attachments_json || body.attachments_json || JSON.stringify([]),
       };
 
       if (updatedRow) {

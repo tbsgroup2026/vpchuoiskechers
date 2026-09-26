@@ -568,3 +568,49 @@ export function formatAuditLogsForGoogleSheets(rows: any[]) {
   };
 }
 
+/**
+ * Sync guest scoring session with Real Scorer Identity to Google Drive backup
+ */
+export async function syncGuestScoringSessionToGDrive(env: any, sessionPayload: {
+  sessionId: string;
+  judgeAccountId: string;
+  username: string;
+  submissionId: string;
+  proposalTitle?: string;
+  plantName?: string;
+  realScorerName: string;
+  realScorerPhone?: string;
+  realScorerEmail?: string;
+  c1Score: number;
+  c2Score: number;
+  c3Score: number;
+  c4Score: number;
+  c5Score: number;
+  totalScore: number;
+  submittedAt: string;
+  ip?: string;
+}) {
+  try {
+    const clientEmail = env.GDRIVE_CLIENT_EMAIL || env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+    const privateKey = env.GDRIVE_PRIVATE_KEY || env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY;
+    if (!clientEmail || !privateKey) {
+      console.warn('[SyncScoring] Google Drive credentials not configured.');
+      return { success: false, reason: 'No credentials' };
+    }
+
+    const accessToken = await getGoogleAccessToken(clientEmail, privateKey);
+    const folderId = await resolveGDriveFolder(accessToken, 'Backup-TBS-System', 'guest_scoring_logs');
+    const fileName = `score_session_${sessionPayload.submissionId}_${sessionPayload.sessionId}_${Date.now()}.json`;
+
+    const content = JSON.stringify(sessionPayload, null, 2);
+    const fileId = await uploadFileToGDrive(accessToken, fileName, content, folderId);
+    console.log(`✓ Guest scoring session backed up to Google Drive: ${fileName} (${fileId})`);
+
+    return { success: true, fileId };
+  } catch (err: any) {
+    console.warn('[SyncScoring] Google Drive backup warning:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+

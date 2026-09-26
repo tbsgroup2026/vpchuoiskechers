@@ -585,6 +585,14 @@ export const UNIT_SLUG_MAP: Record<string, { label: string; regionKey: string; s
   "hoan-thien-de": { label: "Hoàn Thiện Đế", regionKey: "Hoàn Thiện Đế", slug: "hoan-thien-de" },
 };
 
+export function getProposalMonthYearKey(p: any): string {
+  if (!p) return "";
+  const m = p.proposer_month || p.proposerMonth || (p.created_at ? new Date(p.created_at).getMonth() + 1 : null);
+  const y = p.proposer_year || p.proposerYear || (p.created_at ? new Date(p.created_at).getFullYear() : null);
+  if (m && y) return `${m}/${y}`;
+  return "";
+}
+
 interface CIModuleProps {
   initialUnitSlug?: string;
 }
@@ -617,12 +625,14 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
   const [isFiveStepModalOpen, setIsFiveStepModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Filters State
+  // Filters & Sorting State
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("ALL");
   const [selectedRegion, setSelectedRegion] = useState("ALL");
   const [selectedWorkshop, setSelectedWorkshop] = useState("ALL");
   const [selectedRegType, setSelectedRegType] = useState("ALL");
+  const [selectedMonthYear, setSelectedMonthYear] = useState("ALL");
+  const [selectedSortBy, setSelectedSortBy] = useState("DEFAULT");
   const [selectedSubStatus, setSelectedSubStatus] = useState("CHO_DANH_GIA");
   const [selectedStatus, setSelectedStatus] = useState("ALL");
 
@@ -1253,6 +1263,30 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
     return map;
   }, [normalizedProposals, selectedRegion]);
 
+  const availableMonthYearOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of normalizedProposals) {
+      const key = getProposalMonthYearKey(p);
+      if (key) set.add(key);
+    }
+    const now = new Date();
+    set.add(`${now.getMonth() + 1}/${now.getFullYear()}`);
+    set.add("8/2026");
+    set.add("7/2026");
+
+    const list = Array.from(set).sort((a, b) => {
+      const [mA, yA] = a.split("/").map(Number);
+      const [mB, yB] = b.split("/").map(Number);
+      if (yB !== yA) return yB - yA;
+      return mB - mA;
+    });
+
+    return list.map((val) => {
+      const [m, y] = val.split("/");
+      return { value: val, label: `T${m}/${y}` };
+    });
+  }, [normalizedProposals]);
+
   const filteredProposals = useMemo(() => {
     const filtered = normalizedProposals.filter((p) => {
       if (selectedRegion !== "ALL" && !matchRegionFilter(p, selectedRegion)) {
@@ -1266,6 +1300,10 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
       }
       if (!matchRegTypeFilter(p, selectedRegType)) {
         return false;
+      }
+      if (selectedMonthYear !== "ALL") {
+        const myKey = getProposalMonthYearKey(p);
+        if (myKey !== selectedMonthYear) return false;
       }
 
       if (searchQuery) {
@@ -1281,6 +1319,51 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
     });
 
     return [...filtered].sort((a, b) => {
+      if (selectedSortBy === "SCORE_DESC") {
+        const sA = Number(a.judge_final_score || a.score_points || (a as any).scorePoints || 0);
+        const sB = Number(b.judge_final_score || b.score_points || (b as any).scorePoints || 0);
+        if (sB !== sA) return sB - sA;
+
+        const c1A = Number((a as any).c1_score_final || 0);
+        const c1B = Number((b as any).c1_score_final || 0);
+        if (c1B !== c1A) return c1B - c1A;
+
+        const c3A = Number((a as any).c3_score_final || 0);
+        const c3B = Number((b as any).c3_score_final || 0);
+        if (c3B !== c3A) return c3B - c3A;
+
+        const valA = getProposalSavingsVal(a);
+        const valB = getProposalSavingsVal(b);
+        return valB - valA;
+      }
+
+      if (selectedSortBy === "SAVINGS_DESC") {
+        const valA = getProposalSavingsVal(a);
+        const valB = getProposalSavingsVal(b);
+        if (valB !== valA) return valB - valA;
+        return Number(b.vote_count || 0) - Number(a.vote_count || 0);
+      }
+
+      if (selectedSortBy === "VOTE_DESC") {
+        const vA = Number(a.vote_count || 0);
+        const vB = Number(b.vote_count || 0);
+        if (vB !== vA) return vB - vA;
+        return getProposalSavingsVal(b) - getProposalSavingsVal(a);
+      }
+
+      if (selectedSortBy === "NEWEST") {
+        const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return dateB - dateA;
+      }
+
+      if (selectedSortBy === "OLDEST") {
+        const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return dateA - dateB;
+      }
+
+      // Default: Sắp xếp theo Thứ hạng thi đua
       if (selectedRegType === "CHO_PHE_DUYET" || selectedRegType === "CHO_DUYET") {
         const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
         const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
@@ -1301,7 +1384,7 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
       const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
       return dateB - dateA;
     });
-  }, [normalizedProposals, selectedRegion, selectedWorkshop, selectedCategory, selectedRegType, searchQuery, proposalRanksMap]);
+  }, [normalizedProposals, selectedRegion, selectedWorkshop, selectedCategory, selectedRegType, selectedMonthYear, selectedSortBy, searchQuery, proposalRanksMap]);
 
   const regTypeCounts = useMemo(() => {
     const targetRegion = activeUnitInfo ? activeUnitInfo.regionKey : selectedRegion;
@@ -2111,10 +2194,32 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
                   <option value="Gò">Gò</option>
                 </select>
 
-                <select className="w-full px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 text-[11px] font-bold text-slate-700 outline-none focus:border-[#006838]">
-                  <option value="ALL">📅 Tháng/Năm</option>
-                  <option value="8/2026">T8/2026</option>
-                  <option value="7/2026">T7/2026</option>
+                <select
+                  value={selectedMonthYear}
+                  onChange={(e) => setSelectedMonthYear(e.target.value)}
+                  className="w-full px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 text-[11px] font-bold text-slate-700 outline-none focus:border-[#006838]"
+                  title="Lọc theo Tháng/Năm"
+                >
+                  <option value="ALL">📅 Tháng/Năm (Tất cả)</option>
+                  {availableMonthYearOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={selectedSortBy}
+                  onChange={(e) => setSelectedSortBy(e.target.value)}
+                  className="w-full px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 text-[11px] font-bold text-slate-700 outline-none focus:border-[#006838]"
+                  title="Sắp xếp danh sách"
+                >
+                  <option value="DEFAULT">🔃 Sắp xếp: Thứ hạng</option>
+                  <option value="SCORE_DESC">⭐ Điểm BGK (Cao ➔ Thấp)</option>
+                  <option value="SAVINGS_DESC">💰 Tiết kiệm (Cao ➔ Thấp)</option>
+                  <option value="VOTE_DESC">👍 Bình chọn (Nhiều ➔ Ít)</option>
+                  <option value="NEWEST">🕒 Mới nhất</option>
+                  <option value="OLDEST">⏳ Cũ nhất</option>
                 </select>
 
                 <button
@@ -2124,6 +2229,8 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
                     setSelectedRegion("ALL");
                     setSelectedWorkshop("ALL");
                     setSelectedRegType("ALL");
+                    setSelectedMonthYear("ALL");
+                    setSelectedSortBy("DEFAULT");
                     setSelectedSubStatus("ALL");
                     setSelectedStatus("ALL");
                   }}
@@ -2217,6 +2324,16 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
                               </span>
 
 
+
+                              {Number((prop as any).judge_final_score || prop.score_points || 0) > 0 && (
+                                <span
+                                  className="px-2 py-0.5 rounded-lg text-[10px] font-black bg-amber-50 text-amber-950 border border-amber-300 shadow-2xs flex items-center gap-0.5 shrink-0"
+                                  title={`Điểm chuyên môn BGK: ${(prop as any).judge_final_score || prop.score_points}đ`}
+                                >
+                                  <IconAward size={12} className="text-amber-600" />
+                                  <span>{Number((prop as any).judge_final_score || prop.score_points).toFixed(1).replace(/\.0$/, "")}đ BGK</span>
+                                </span>
+                              )}
 
                               {isApprovedProposal(prop) && (
                                 <span

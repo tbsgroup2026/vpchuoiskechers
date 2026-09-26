@@ -2299,7 +2299,7 @@ function TabExpertReviewContent({ proposal, isOwner, initialEvalData }: { propos
   }
 
   return (
-    <div className="p-5 md:p-6 space-y-6 text-xs animate-in fade-in">
+    <div className="p-5 md:p-6 pb-28 flex flex-col gap-6 text-xs animate-in fade-in relative min-h-full">
       {/* MESSAGES */}
       {errorMsg && (
         <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 font-bold text-xs flex items-center gap-2">
@@ -2489,7 +2489,7 @@ function TabExpertReviewContent({ proposal, isOwner, initialEvalData }: { propos
           Hồ sơ phải đạt cả 4 điều kiện dưới đây. Nếu không đạt bất kỳ điều kiện nào, hồ sơ bị loại và không được đưa vào bảng xếp hạng.
         </p>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-bold">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs font-bold items-stretch">
           <label className={`p-2.5 rounded-xl border flex items-center gap-2 cursor-pointer ${p1Pass ? 'bg-white border-emerald-300 text-emerald-900' : 'bg-rose-50 border-rose-300 text-rose-800'}`}>
             <input type="checkbox" disabled={isReadOnly || isLocked} checked={p1Pass} onChange={(e) => setP1Pass(e.target.checked)} className="w-4 h-4 accent-emerald-600 rounded" />
             <span>1. Đã triển khai thực tế tại hiện trường</span>
@@ -2533,7 +2533,7 @@ function TabExpertReviewContent({ proposal, isOwner, initialEvalData }: { propos
       </div>
 
       {/* 5 CRITERIA FORM */}
-      <div className="space-y-5">
+      <div className="flex flex-col gap-5">
         <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
           <span>⭐</span>
           <span>BỘ 5 TIÊU CHÍ CHẤM ĐIỂM CHUYÊN MÔN</span>
@@ -2580,7 +2580,7 @@ function TabExpertReviewContent({ proposal, isOwner, initialEvalData }: { propos
           {/* BAREM DẠNG RADIO NODES THEO NHÓM */}
           <div className="space-y-2">
             <span className="text-[11px] font-bold text-slate-700 block">Chọn mốc điểm phù hợp nhất (Bắt buộc chọn mốc, không nhập điểm tự do):</span>
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2 text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5 text-xs items-stretch">
               {(c1Group === "GROUP1"
                 ? [
                     { score: 35, desc: "35đ — Tối đa/SOP (Giảm thời gian ≥25%)" },
@@ -2676,7 +2676,7 @@ function TabExpertReviewContent({ proposal, isOwner, initialEvalData }: { propos
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 text-xs font-bold">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2.5 text-xs font-bold items-stretch">
             {[
               { score: 20, desc: "20đ — Rất khả thi / không tốn chi phí" },
               { score: 15, desc: "15đ — Khả thi cao / thu hồi <6 tháng" },
@@ -2728,7 +2728,7 @@ function TabExpertReviewContent({ proposal, isOwner, initialEvalData }: { propos
             💡 Tooltip BGK: "Nếu đơn vị mình có vấn đề tương tự, có áp dụng ngay được cải tiến này không?"
           </p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 text-xs font-bold">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2.5 text-xs font-bold items-stretch">
             {[
               { score: 20, desc: "20đ — Nhân rộng toàn Tập đoàn TBS" },
               { score: 15, desc: "15đ — Nhân rộng toàn nhà máy/xưởng" },
@@ -2776,7 +2776,7 @@ function TabExpertReviewContent({ proposal, isOwner, initialEvalData }: { propos
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 text-xs font-bold">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2.5 text-xs font-bold items-stretch">
             {[
               { score: 15, desc: "15đ — Sáng kiến xuất sắc, đột phá" },
               { score: 11, desc: "11đ — Giải pháp độc đáo/tự chế" },
@@ -2824,7 +2824,7 @@ function TabExpertReviewContent({ proposal, isOwner, initialEvalData }: { propos
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 text-xs font-bold">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2.5 text-xs font-bold items-stretch">
             {[
               { score: 10, desc: "10đ — Truyền cảm hứng phong trào Gemba" },
               { score: 8, desc: "8đ — Phối hợp liên phòng ban xuất sắc" },
@@ -2863,7 +2863,7 @@ function TabExpertReviewContent({ proposal, isOwner, initialEvalData }: { propos
       </div>
 
       {/* TOTAL SCORE SUMMARY & SUBMIT BUTTON */}
-      <div className="p-5 rounded-2xl bg-[#006838] text-white flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl sticky bottom-0 z-20 backdrop-blur-md border border-emerald-600/40">
+      <div className="p-5 rounded-2xl bg-[#006838] text-white flex flex-col sm:flex-row items-center justify-between gap-4 shadow-2xl sticky bottom-4 z-30 border border-emerald-500/40">
         <div>
           <span className="text-xs uppercase font-extrabold text-emerald-200 block">TỔNG ĐIỂM CHẤM CỦA BẠN</span>
           <span className="text-2xl font-black text-amber-300">{liveTotalScore} / 100đ</span>

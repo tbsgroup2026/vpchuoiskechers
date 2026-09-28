@@ -174,6 +174,27 @@ export async function GET(request: Request) {
         }
       } catch (e) {}
 
+      // Get real-time average scores from ci_kaizen_scores
+      let scoreAggMap: Record<string, { avgScore: number; judgeCount: number }> = {};
+      try {
+        const { results: scoreAggRows } = await db.prepare(`
+          SELECT submission_id, AVG(total_score) as avg_score, COUNT(*) as cnt
+          FROM ci_kaizen_scores
+          GROUP BY submission_id
+        `).all();
+        if (scoreAggRows) {
+          for (const r of scoreAggRows as any[]) {
+            if (r.submission_id) {
+              const key = String(r.submission_id).trim().toUpperCase();
+              scoreAggMap[key] = {
+                avgScore: Math.round(Number(r.avg_score || 0) * 10) / 10,
+                judgeCount: Number(r.cnt || 0),
+              };
+            }
+          }
+        }
+      } catch (e) {}
+
       const cleanedResults = (results || []).map((p: any) => {
         const computedTitle = getKaizenDisplayTitle(p);
         const seedMatch = DEFAULT_KAIZEN_PROPOSALS.find(
@@ -219,6 +240,22 @@ export async function GET(request: Request) {
           tot = (cb > 0 || ca > 0) ? Math.max(0, cb - ca) : (q > 0 ? eff * q : (eff > 0 ? eff : 15000000));
         }
 
+        const idKey = String(p.id || '').trim().toUpperCase();
+        const codeKey = String(p.code || '').trim().toUpperCase();
+        const agg = scoreAggMap[idKey] || scoreAggMap[codeKey];
+
+        let finalJudgeScore = Number(p.judge_final_score || p.score_points || 0);
+        let updatedSubStatus = p.sub_status;
+        let updatedTrangThai = p.trang_thai;
+
+        if (agg && agg.avgScore > 0) {
+          finalJudgeScore = agg.avgScore;
+          if (!updatedSubStatus || updatedSubStatus === 'CHO_DUYET' || updatedSubStatus === 'CHO_DANH_GIA') {
+            updatedSubStatus = 'DA_DANH_GIA';
+            updatedTrangThai = 'DA_DANH_GIA';
+          }
+        }
+
         return {
           ...p,
           proposer_name: resolvedName || p.proposer_name || '',
@@ -245,6 +282,11 @@ export async function GET(request: Request) {
           pair_quantity: q > 0 ? q : 1,
           quantity: q > 0 ? q : 1,
           so_luong_giay: q > 0 ? q : 1,
+          judge_final_score: finalJudgeScore,
+          judgeFinalScore: finalJudgeScore,
+          score_points: finalJudgeScore || p.score_points || 0,
+          sub_status: updatedSubStatus,
+          trang_thai: updatedTrangThai,
           before_image_url: getValidKaizenImageUrl(p.before_image_url, p.attachments_json, "BEFORE") || p.before_image_url || '',
           after_image_url: getValidKaizenImageUrl(p.after_image_url, p.attachments_json, "AFTER") || p.after_image_url || '',
         };

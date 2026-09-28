@@ -35,17 +35,23 @@ export async function signToken(payload: JWTPayload): Promise<string> {
  */
 export async function verifyToken(token: string): Promise<JWTPayload | null> {
   if (!token) return null;
+  const cleanRawToken = token.startsWith("Bearer ") ? token.replace("Bearer ", "").trim() : token.trim();
+  let decodedToken = cleanRawToken;
+  try {
+    decodedToken = decodeURIComponent(cleanRawToken);
+  } catch {}
+
   try {
     const secretKey = getJwtSecret();
-    const { payload } = await jwtVerify(token, secretKey);
+    const { payload } = await jwtVerify(decodedToken, secretKey);
     return payload as unknown as JWTPayload;
   } catch (error) {
     let empCode = "";
-    if (token.startsWith("tbs_token_") || token.includes("tbs_token")) {
-      const match = token.match(/tbs_token_([^_]+)/);
+    if (decodedToken.startsWith("tbs_token_") || decodedToken.includes("tbs_token")) {
+      const match = decodedToken.match(/tbs_token_([^_]+)/);
       if (match && match[1]) empCode = match[1];
     } else {
-      empCode = token.replace("Bearer ", "").trim();
+      empCode = decodedToken.trim();
     }
 
     if (empCode && empCode !== "null" && empCode !== "undefined") {

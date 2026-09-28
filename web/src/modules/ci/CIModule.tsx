@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -132,7 +132,7 @@ export interface KaizenProposal {
   after_image_url?: string;
   attachments_json?: string;
   status: string; // SUBMITTED, UNDER_REVIEW, APPROVED, REJECTED, IMPLEMENTED
-  award_title?: string; // Giải Nhất, Giải Nhì, Giải Ba, Giải Khuyến Khích
+  award_title?: string; // Giải Nhất, Giải Nhì, Giải Ba, Ý tưởng
   score_points: number;
   review_comment?: string;
   avg_rating: number;
@@ -598,6 +598,17 @@ interface CIModuleProps {
 }
 
 export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
+  const getClientAuthToken = () => {
+    if (typeof window === "undefined") return "";
+    let token = localStorage.getItem("tbs_token") || localStorage.getItem("tbs_jwt_token") || sessionStorage.getItem("tbs_token") || "";
+    if (!token && typeof document !== "undefined") {
+      const match = document.cookie.match(/(?:^|; )tbs_token=([^;]*)/);
+      if (match && match[1]) token = match[1];
+    }
+    const cleanToken = token.startsWith("Bearer ") ? token.replace("Bearer ", "").trim() : token.trim();
+    const safeToken = cleanToken.replace(/[^\x00-\xFF]/g, (c) => encodeURIComponent(c));
+    return safeToken ? `Bearer ${safeToken}` : "";
+  };
   const activeUnitInfo = initialUnitSlug ? UNIT_SLUG_MAP[initialUnitSlug] : null;
   const { isExecutiveOrAdmin } = usePermission();
   const [proposals, setProposals] = useState<KaizenProposal[]>([]);
@@ -635,10 +646,13 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
   const [selectedSortBy, setSelectedSortBy] = useState("DEFAULT");
   const [selectedSubStatus, setSelectedSubStatus] = useState("CHO_DANH_GIA");
   const [selectedStatus, setSelectedStatus] = useState("ALL");
+  const [judgeScoringFilter, setJudgeScoringFilter] = useState<"ALL" | "UNSCORED" | "SCORED">("ALL");
+  const [myScoresMap, setMyScoresMap] = useState<Record<string, { totalScore: number; isLocked: boolean }>>({});
 
   // Evaluation Modal State
   const [isEvaluationModalOpen, setIsEvaluationModalOpen] = useState(false);
   const [evaluatingProposal, setEvaluatingProposal] = useState<KaizenProposal | null>(null);
+  const [detailModalInitialTab, setDetailModalInitialTab] = useState<"info" | "expert_review" | "star_review">("info");
 
   // Sidebar States
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -686,6 +700,66 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
       return () => window.removeEventListener("tbs_profile_updated", loadUser);
     }
   }, []);
+
+  const fetchMyScores = useCallback(() => {
+    if (typeof window === "undefined") return;
+    let token = getClientAuthToken();
+    let empCode = currentUser?.empCode || "";
+
+    let guestUser = "";
+    try {
+      const guestData = localStorage.getItem("tbs_guest_session") || sessionStorage.getItem("tbs_guest_session");
+      if (guestData) {
+        const g = JSON.parse(guestData);
+        if (g.username || g.empCode || g.id) {
+          guestUser = g.username || g.empCode || g.id;
+        }
+      }
+    } catch (e) {}
+
+    const finalEmp = empCode || guestUser;
+    let headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = token;
+    if (finalEmp) {
+      headers["X-User-Emp-Code"] = finalEmp.replace(/[^\x00-\xFF]/g, (c) => encodeURIComponent(c));
+    }
+
+    fetch(`/api/ci-kaizen/judging/my-scores?t=${Date.now()}&empCode=${encodeURIComponent(finalEmp)}`, { headers })
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success && json.myScores) {
+          setMyScoresMap(json.myScores);
+        }
+      })
+      .catch(() => {});
+  }, [currentUser?.empCode]);
+
+  useEffect(() => {
+    fetchMyScores();
+  }, [fetchMyScores]);
+
+  const getMyScoreForProposal = useCallback((prop: KaizenProposal) => {
+    if (!myScoresMap || !prop) return null;
+    const idStr = String(prop.id || "").trim();
+    const codeStr = String(prop.code || "").trim();
+    const cleanId = idStr.replace(/^ci_/i, "").replace(/^CI-/i, "");
+    const cleanCode = codeStr.replace(/^CI-/i, "");
+    const candidateKeys = [
+      idStr,
+      codeStr,
+      idStr.toLowerCase(),
+      codeStr.toLowerCase(),
+      cleanId,
+      cleanCode,
+      `ci_${cleanId}`,
+      `CI-${cleanCode}`,
+    ].filter(Boolean);
+
+    for (const k of candidateKeys) {
+      if (myScoresMap[k]) return myScoresMap[k];
+    }
+    return null;
+  }, [myScoresMap]);
 
   const searchParams = useSearchParams();
 
@@ -1047,6 +1121,7 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
     const pollInterval = registerPoller(
       setInterval(() => {
         fetchProposals(true);
+        fetchMyScores();
       }, 8000)
     );
 
@@ -1128,8 +1203,8 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
       const res = await fetch(`/api/ci-kaizen?id=${proposalId}`, {
         method: "DELETE",
         headers: {
-          "X-User-Emp-Code": currentUser?.empCode || "202608001",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          "X-User-Emp-Code": String(currentUser?.empCode || "202608001").replace(/[^\x00-\xFF]/g, (c) => encodeURIComponent(c)),
+          ...(token ? { Authorization: token.startsWith("Bearer ") ? token.replace(/[^\x00-\xFF]/g, (c) => encodeURIComponent(c)) : `Bearer ${token.replace(/[^\x00-\xFF]/g, (c) => encodeURIComponent(c))}` } : {}),
         },
       });
       const json = await res.json();
@@ -1213,48 +1288,36 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
     });
 
     sorted.forEach((item, index) => {
-      let rank = 1;
-      let rankTitle = "Hạng Nhất";
-      let badgeLabel = "🥇 Hạng 1";
-      let badgeStyle = "bg-amber-400 text-amber-950 font-black border border-amber-300 shadow-md";
-      let icon = "🥇";
+      let rank = index + 1;
+      let rankTitle = "Ý tưởng";
+      let badgeLabel = "💡 Ý tưởng";
+      let badgeStyle = "bg-emerald-100 text-emerald-900 font-extrabold border border-emerald-300 shadow-2xs";
+      let icon = "💡";
 
       if (index === 0) {
         rank = 1;
-        rankTitle = "Hạng Nhất";
-        badgeLabel = "🥇 Hạng 1";
+        rankTitle = "Giải Nhất";
+        badgeLabel = "🏆 Giải Nhất";
         badgeStyle = "bg-amber-400 text-amber-950 font-black border border-amber-300 shadow-md";
-        icon = "🥇";
-      } else if (index >= 1 && index <= 2) {
+        icon = "🏆";
+      } else if (index === 1) {
         rank = 2;
-        rankTitle = "Hạng Nhì";
-        badgeLabel = "🥈 Hạng 2";
+        rankTitle = "Giải Nhì";
+        badgeLabel = "🥈 Giải Nhì";
         badgeStyle = "bg-slate-200 text-slate-900 font-black border border-slate-300 shadow-xs";
         icon = "🥈";
-      } else if (index >= 3 && index <= 7) {
+      } else if (index === 2) {
         rank = 3;
-        rankTitle = "Hạng Ba";
-        badgeLabel = "🥉 Hạng 3";
+        rankTitle = "Giải Ba";
+        badgeLabel = "🥉 Giải Ba";
         badgeStyle = "bg-amber-800 text-amber-100 font-black border border-amber-600 shadow-xs";
         icon = "🥉";
-      } else if (index >= 8 && index <= 17) {
-        rank = 4;
-        rankTitle = "Hạng 4";
-        badgeLabel = "🎖️ Hạng 4";
-        badgeStyle = "bg-blue-100 text-blue-900 font-extrabold border border-blue-300 shadow-2xs";
-        icon = "🎖️";
-      } else if (index >= 18 && index <= 37) {
-        rank = 5;
-        rankTitle = "Hạng 5";
-        badgeLabel = "🎗️ Hạng 5";
-        badgeStyle = "bg-emerald-100 text-emerald-900 font-extrabold border border-emerald-300 shadow-2xs";
-        icon = "🎗️";
       } else {
         rank = index + 1;
-        rankTitle = `Hạng ${index + 1}`;
-        badgeLabel = `#${index + 1}`;
-        badgeStyle = "bg-slate-100 text-slate-700 font-bold border border-slate-200";
-        icon = "#";
+        rankTitle = "Ý tưởng";
+        badgeLabel = "💡 Ý tưởng";
+        badgeStyle = "bg-emerald-100 text-emerald-900 font-extrabold border border-emerald-300 shadow-2xs";
+        icon = "💡";
       }
 
       map[item.id] = { rank, rankIndex: index, rankTitle, badgeLabel, badgeStyle, icon };
@@ -1304,6 +1367,12 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
       if (selectedMonthYear !== "ALL") {
         const myKey = getProposalMonthYearKey(p);
         if (myKey !== selectedMonthYear) return false;
+      }
+
+      if (judgeScoringFilter !== "ALL") {
+        const isScored = Boolean(getMyScoreForProposal(p));
+        if (judgeScoringFilter === "SCORED" && !isScored) return false;
+        if (judgeScoringFilter === "UNSCORED" && isScored) return false;
       }
 
       if (searchQuery) {
@@ -1384,7 +1453,7 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
       const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
       return dateB - dateA;
     });
-  }, [normalizedProposals, selectedRegion, selectedWorkshop, selectedCategory, selectedRegType, selectedMonthYear, selectedSortBy, searchQuery, proposalRanksMap]);
+  }, [normalizedProposals, selectedRegion, selectedWorkshop, selectedCategory, selectedRegType, selectedMonthYear, selectedSortBy, searchQuery, proposalRanksMap, judgeScoringFilter, myScoresMap]);
 
   const regTypeCounts = useMemo(() => {
     const targetRegion = activeUnitInfo ? activeUnitInfo.regionKey : selectedRegion;
@@ -2133,6 +2202,17 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
                   <option value="LUU_TRU">📦 Lưu trữ</option>
                 </select>
 
+                <select
+                  value={judgeScoringFilter}
+                  onChange={(e) => setJudgeScoringFilter(e.target.value as any)}
+                  className="w-full px-2.5 py-1.5 rounded-xl bg-emerald-50 border border-emerald-300 text-[11px] font-black text-emerald-950 outline-none focus:border-[#006838]"
+                  title="Lọc mục đã chấm/chưa chấm của chính bạn"
+                >
+                  <option value="ALL">⚖️ Trạng thái chấm của bạn (Tất cả)</option>
+                  <option value="UNSCORED">🔴 Chỉ hiện mục chưa chấm</option>
+                  <option value="SCORED">🟢 Chỉ hiện mục đã chấm</option>
+                </select>
+
                 <div className="relative col-span-2 sm:col-span-1 md:col-span-2">
                   <input
                     type="text"
@@ -2325,26 +2405,37 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
 
 
 
-                              {Number((prop as any).judge_final_score || prop.score_points || 0) > 0 && (
-                                <span
-                                  className="px-2 py-0.5 rounded-lg text-[10px] font-black bg-amber-50 text-amber-950 border border-amber-300 shadow-2xs flex items-center gap-0.5 shrink-0"
-                                  title={`Điểm chuyên môn BGK: ${(prop as any).judge_final_score || prop.score_points}đ`}
-                                >
-                                  <IconAward size={12} className="text-amber-600" />
-                                  <span>{Number((prop as any).judge_final_score || prop.score_points).toFixed(1).replace(/\.0$/, "")}đ BGK</span>
-                                </span>
-                              )}
-
-                              {isApprovedProposal(prop) && (
-                                <span
-                                  className={`px-2 py-0.5 rounded-lg text-[10px] font-black shadow-xs flex items-center gap-1 shrink-0 border ${
-                                    rankInfo ? rankInfo.badgeStyle : "bg-emerald-50 text-emerald-800 border-emerald-300"
-                                  }`}
-                                  title={rankInfo ? `Xếp hạng thi đua: ${rankInfo.rankTitle}` : "Sáng kiến đã được phê duyệt"}
-                                >
-                                  <span>{rankInfo ? rankInfo.badgeLabel : "✅ Đã duyệt"}</span>
-                                </span>
-                              )}
+                              {(() => {
+                                const myScoreInfo = getMyScoreForProposal(prop);
+                                if (myScoreInfo) {
+                                  return (
+                                    <span
+                                      className="px-2 py-0.5 rounded-lg text-[10px] font-black bg-emerald-600 text-white shadow-2xs flex items-center gap-0.5 shrink-0"
+                                      title="Bạn đã gửi điểm và khóa cho sáng kiến này"
+                                    >
+                                      <span>🟢 Đã chấm ({myScoreInfo.totalScore}đ)</span>
+                                    </span>
+                                  );
+                                } else if (Number((prop as any).judge_final_score || prop.score_points || 0) > 0 || prop.sub_status === "DA_DANH_GIA") {
+                                  return (
+                                    <span
+                                      className="px-2 py-0.5 rounded-lg text-[10px] font-black bg-emerald-700 text-white shadow-2xs flex items-center gap-0.5 shrink-0"
+                                      title="Sáng kiến đã được Ban Giám Khảo đánh giá chuyên môn"
+                                    >
+                                      <span>🟢 Đã chấm ({Number((prop as any).judge_final_score || prop.score_points || 0).toFixed(1).replace(/\.0$/, "")}đ)</span>
+                                    </span>
+                                  );
+                                } else {
+                                  return (
+                                    <span
+                                      className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-[#fff0f0] text-rose-700 border border-rose-200 shadow-2xs flex items-center gap-0.5 shrink-0"
+                                      title="Sáng kiến này chưa được nộp điểm chấm"
+                                    >
+                                      <span>🔴 Chưa chấm</span>
+                                    </span>
+                                  );
+                                }
+                              })()}
 
                               {((currentUser?.empCode && prop.proposer_emp_code && currentUser.empCode.trim().toUpperCase() === prop.proposer_emp_code.trim().toUpperCase()) ||
                                 (currentUser?.name && prop.proposer_name && currentUser.name.trim().toLowerCase() === prop.proposer_name.trim().toLowerCase()) ||
@@ -2450,8 +2541,9 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        setEvaluatingProposal(prop);
-                                        setIsEvaluationModalOpen(true);
+                                        setActiveProposal(prop);
+                                        setDetailModalInitialTab("expert_review");
+                                        setIsDetailModalOpen(true);
                                       }}
                                       className="w-7 h-7 rounded-lg bg-amber-500 hover:bg-amber-600 text-white transition-colors cursor-pointer flex items-center justify-center"
                                       title="Chấm điểm chuyên môn 5 tiêu chí QĐ-TBKG"
@@ -2510,7 +2602,12 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
         <KaizenDetailModal
           proposal={activeProposal}
           isOpen={isDetailModalOpen}
-          onClose={() => setIsDetailModalOpen(false)}
+          initialTab={detailModalInitialTab}
+          onClose={() => {
+            setIsDetailModalOpen(false);
+            setDetailModalInitialTab("info");
+            fetchMyScores();
+          }}
           onEdit={() => {
             setEditingProposal(activeProposal);
             setIsDetailModalOpen(false);
@@ -2519,6 +2616,7 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
           onDelete={() => handleDeleteProposal(activeProposal.id)}
           onEvaluate={() => {
             fetchProposals();
+            fetchMyScores();
           }}
           onRate={() => {
             fetchProposals();

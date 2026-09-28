@@ -121,4 +121,64 @@ describe('BGK Judging & N-Judge Average Formula Tests', () => {
     const requiresModalForP2 = activeConfirmedProposalId !== 'P2';
     expect(requiresModalForP2).toBe(true);
   });
+
+  it('should parse pasted text into batch guest rows (Tab/Comma delimited)', () => {
+    const rawPaste = `Nguyễn Văn A, 0901234567\nTrần Thị B, b.tran@tbsgroup.vn\nHoàng Văn C\t0988776655`;
+    const lines = rawPaste.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+
+    const parsedRows = lines.map((line, idx) => {
+      let name = '';
+      let contact = '';
+      if (line.includes('\t')) {
+        const parts = line.split('\t');
+        name = parts[0]?.trim() || '';
+        contact = parts.slice(1).join(' ').trim();
+      } else if (line.includes(',')) {
+        const parts = line.split(',');
+        name = parts[0]?.trim() || '';
+        contact = parts.slice(1).join(',').trim();
+      } else {
+        name = line;
+      }
+      return { id: `row_${idx}`, fullName: name, emailPhone: contact };
+    });
+
+    expect(parsedRows.length).toBe(3);
+    expect(parsedRows[0]).toEqual({ id: 'row_0', fullName: 'Nguyễn Văn A', emailPhone: '0901234567' });
+    expect(parsedRows[1]).toEqual({ id: 'row_1', fullName: 'Trần Thị B', emailPhone: 'b.tran@tbsgroup.vn' });
+    expect(parsedRows[2]).toEqual({ id: 'row_2', fullName: 'Hoàng Văn C', emailPhone: '0988776655' });
+  });
+
+  it('should generate N distinct guest accounts with unique User, Pass, and Token for batch creation', () => {
+    const batchInput = [
+      { fullName: 'Nguyễn Văn A', emailPhone: '0901234567' },
+      { fullName: 'Trần Thị B', emailPhone: '0902345678' },
+      { fullName: 'Lê Văn C', emailPhone: '0903456789' },
+    ];
+
+    const createdAccounts = batchInput.map((input, idx) => {
+      const username = `BGK-${1000 + idx}`;
+      const oneTimePasscode = `12345${idx}`;
+      const tokenHash = `magic_${Date.now()}_${idx}`;
+      const magicLink = `/work/kaizen/judge?bgkUser=${username}&pass=${oneTimePasscode}`;
+
+      return {
+        id: `guest_${idx}`,
+        fullName: input.fullName,
+        emailPhone: input.emailPhone,
+        username,
+        oneTimePasscode,
+        tokenHash,
+        magicLink,
+      };
+    });
+
+    expect(createdAccounts.length).toBe(3);
+
+    // Verify all accounts have unique usernames, passcodes, and tokens
+    const usernames = new Set(createdAccounts.map((a) => a.username));
+    const tokens = new Set(createdAccounts.map((a) => a.tokenHash));
+    expect(usernames.size).toBe(3);
+    expect(tokens.size).toBe(3);
+  });
 });

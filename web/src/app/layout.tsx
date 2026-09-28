@@ -44,6 +44,7 @@ export const metadata: Metadata = {
 
 import { PerformanceProvider } from "@/components/PerformanceProvider";
 import PerfDebugOverlay from "@/components/PerfDebugOverlay";
+import GuestRouteGuard from "@/components/GuestRouteGuard";
 
 export default function RootLayout({
   children,
@@ -65,30 +66,44 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
+                function autoRecoverChunkError(err) {
+                  var str = String((err && (err.message || err.name || err.reason || err)) || '');
+                  if (str.indexOf('ChunkLoadError') !== -1 || str.indexOf('Loading chunk') !== -1 || str.indexOf('Unexpected token') !== -1) {
+                    console.warn('Detected stale deploy chunk load error, reloading fresh build assets...', str);
+                    if (!sessionStorage.getItem('tbs_chunk_auto_reloaded')) {
+                      sessionStorage.setItem('tbs_chunk_auto_reloaded', '1');
+                      if ('serviceWorker' in navigator) {
+                        navigator.serviceWorker.getRegistrations().then(function(regs) {
+                          for (var i = 0; i < regs.length; i++) { regs[i].unregister(); }
+                          window.location.reload(true);
+                        });
+                      } else {
+                        window.location.reload(true);
+                      }
+                    }
+                  }
+                }
+
                 window.addEventListener('unhandledrejection', function(e) {
+                  autoRecoverChunkError(e.reason);
                   console.warn('Silenced unhandled promise rejection:', e.reason);
                   if (e.preventDefault) e.preventDefault();
                 });
+
                 window.addEventListener('error', function(e) {
+                  autoRecoverChunkError(e.error || e.message);
                   var target = e.target;
                   if (target && (target.tagName === 'LINK' || target.tagName === 'SCRIPT')) {
                     var url = target.src || target.href || '';
                     if (url.indexOf('/_next/static/') !== -1) {
-                      console.warn('Detected 404 missing chunk or CSS, clearing cache & reloading...', url);
-                      if (!sessionStorage.getItem('tbs_chunk_auto_reloaded')) {
-                        sessionStorage.setItem('tbs_chunk_auto_reloaded', '1');
-                        if ('serviceWorker' in navigator) {
-                          navigator.serviceWorker.getRegistrations().then(function(regs) {
-                            for (var i = 0; i < regs.length; i++) { regs[i].unregister(); }
-                            window.location.reload(true);
-                          });
-                        } else {
-                          window.location.reload(true);
-                        }
-                      }
+                      autoRecoverChunkError('ChunkLoadError static asset missing: ' + url);
                     }
                   }
                 }, true);
+
+                setTimeout(function() {
+                  sessionStorage.removeItem('tbs_chunk_auto_reloaded');
+                }, 10000);
               })();
             `,
           }}
@@ -96,6 +111,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col font-sans bg-canvas text-ink pb-16 sm:pb-0">
         <PerformanceProvider>
+          <GuestRouteGuard />
           <DevToolsShield />
           <NotificationInitializer />
           {children}

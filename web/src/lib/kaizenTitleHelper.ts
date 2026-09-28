@@ -65,4 +65,46 @@ export function getKaizenAfterSolution(p: any): string {
   return sol;
 }
 
+export function getAutoBaremGroupForCategory(catRaw?: string): "GROUP1" | "GROUP2" | "GROUP3" {
+  if (!catRaw) return "GROUP1";
+  const catUpper = String(catRaw).trim().toUpperCase();
+
+  // GROUP 3: An toàn lao động / 5S
+  if (
+    catUpper === "SAFETY" ||
+    catUpper === "5S" ||
+    catUpper.includes("AN TOÀN") ||
+    catUpper.includes("AN TOAN") ||
+    catUpper.includes("5S") ||
+    catUpper.includes("MÔI TRƯỜNG") ||
+    catUpper.includes("MOI TRUONG") ||
+    catUpper.startsWith("4.") ||
+    catUpper.startsWith("5.")
+  ) {
+    return "GROUP3";
+  }
+
+  // GROUP 2: Tiết kiệm Chi phí / Vật tư
+  if (
+    catUpper === "MATERIAL_SAVING" ||
+    catUpper === "COST_SAVING" ||
+    catUpper.includes("VẬT TƯ") ||
+    catUpper.includes("VAT TU") ||
+    catUpper.includes("CHI PHÍ") ||
+    catUpper.includes("CHI PHI") ||
+    catUpper.includes("MATERIAL") ||
+    catUpper.includes("COST") ||
+    catUpper.startsWith("1.") ||
+    catUpper.startsWith("2.")
+  ) {
+    if (!catUpper.includes("AUTOMATION") && !catUpper.includes("TỰ ĐỘNG") && !catUpper.includes("TU DONG")) {
+      return "GROUP2";
+    }
+  }
+
+  // GROUP 1: Năng suất / Thời gian / Tự động hoá / MMTB CCDC / Default
+  return "GROUP1";
+}
+
+
 

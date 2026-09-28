@@ -795,17 +795,16 @@ export function loginUserProfile(empCodeOrRole: string, password?: string): User
   if (SYSTEM_USERS[targetEmpCode]) {
     baseProfile = { ...SYSTEM_USERS[targetEmpCode] };
   } else {
-    const isMgmt = targetEmpCode.length > 0;
     baseProfile = {
       userId: 888,
-      empCode: targetEmpCode || "202608001",
-      name: `Cán Bộ Quản Lý (${targetEmpCode})`,
-      title: "Trưởng Phòng / Cán Bộ Quản Lý",
+      empCode: targetEmpCode || "GUEST",
+      name: `Cán Bộ Công Nhân Viên (${targetEmpCode})`,
+      title: "Chuyên Viên Vận Hành",
       department: "Văn Phòng Chuỗi SKECHERS",
       email: `${targetEmpCode.toLowerCase()}@tbsgroup.vn`,
-      roleCode: isMgmt ? "TRUONG_PHONG" : "CBCNV",
-      roles: isMgmt ? ["employee", "department_head", "ci", "admin"] : ["employee"],
-      roleLevel: isMgmt ? 3 : 4,
+      roleCode: "CBCNV",
+      roles: ["employee"],
+      roleLevel: 4,
       avatar: "",
       redirectUrl: "/work",
     };
@@ -877,15 +876,23 @@ export async function loginWithD1Database(
           email: u.email || sysUser?.email || `${mappedCode}@tbsgroup.vn`,
           phone: u.phone || sysUser?.phone || "",
           roleCode: u.roleCode || u.role_code || sysUser?.roleCode || "CBCNV",
-          roles: sysUser?.roles || (u.roleCode === "SUPER_ADMIN" ? ["admin"] : ["employee"]),
-          roleLevel: u.roleLevel || sysUser?.roleLevel || 3,
+          roles: u.roles || sysUser?.roles || (u.roleCode === "SUPER_ADMIN" ? ["admin"] : ["employee"]),
+          roleLevel: u.roleLevel || sysUser?.roleLevel || 4,
           avatar: resolvedAvatar,
           redirectUrl: u.redirectUrl || sysUser?.redirectUrl || "/work",
-        };
+          isGuest: Boolean(u.isGuest || u.roleCode === "JUDGE_GUEST"),
+          username: u.username || "",
+        } as UserProfile;
       }
+    } else {
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(errJson.error || "Tên đăng nhập hoặc Mật khẩu không chính xác!");
     }
   } catch (err) {
-    console.warn("D1 /api/auth/login sync error:", err);
+    if (err instanceof Error) {
+      throw err;
+    }
+    throw new Error("Lỗi kết nối máy chủ khi đăng nhập!");
   }
 
   const finalProfile = d1Profile || loginUserProfile(normalized, password);

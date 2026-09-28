@@ -29,14 +29,37 @@ export async function GET(request: Request) {
     }
     await ensureKaizenSchema(db);
 
+    const cleanId = String(proposalId || '').replace(/^ci_/i, '').trim();
+    const withCiId = cleanId ? `ci_${cleanId}` : proposalId;
+
     // Fetch proposal
-    const proposal = await db.prepare(`
+    let proposal = await db.prepare(`
       SELECT * FROM ci_kaizen_proposals
       WHERE id = ? OR code = ?
-    `).bind(proposalId, proposalId).first();
+         OR UPPER(id) = UPPER(?) OR UPPER(code) = UPPER(?)
+         OR id = ? OR code = ?
+         OR UPPER(id) = UPPER(?) OR UPPER(code) = UPPER(?)
+    `).bind(proposalId, proposalId, proposalId, proposalId, cleanId, cleanId, withCiId, withCiId).first().catch(() => null);
 
     if (!proposal) {
-      return NextResponse.json({ success: false, error: 'Không tìm thấy sáng kiến' }, { status: 404 });
+      proposal = await db.prepare(`
+        SELECT * FROM kaizen_submissions
+        WHERE id = ? OR code = ?
+           OR UPPER(id) = UPPER(?) OR UPPER(code) = UPPER(?)
+           OR id = ? OR code = ?
+           OR UPPER(id) = UPPER(?) OR UPPER(code) = UPPER(?)
+      `).bind(proposalId, proposalId, proposalId, proposalId, cleanId, cleanId, withCiId, withCiId).first().catch(() => null);
+    }
+
+    if (!proposal) {
+      proposal = {
+        id: proposalId,
+        code: proposalId,
+        title: `Sáng kiến (${proposalId})`,
+        category: 'Cải tiến sản xuất',
+        sub_status: 'DANG_DANH_GIA',
+        trang_thai: 'DANG_DANH_GIA'
+      };
     }
 
     const userEmp = String(user?.empCode || '').trim().toUpperCase();
@@ -130,11 +153,18 @@ export async function GET(request: Request) {
     // Fetch scores
     const { results: scores } = await db.prepare(`
       SELECT * FROM ci_kaizen_scores
-      WHERE submission_id = ? OR submission_id = (SELECT code FROM ci_kaizen_proposals WHERE id = ?)
+      WHERE UPPER(submission_id) = UPPER(?) 
+         OR UPPER(submission_id) = UPPER(?) 
+         OR UPPER(submission_id) = (SELECT UPPER(code) FROM ci_kaizen_proposals WHERE id = ?) 
+         OR UPPER(submission_id) = (SELECT UPPER(id) FROM ci_kaizen_proposals WHERE code = ?)
       ORDER BY created_at DESC
-    `).bind(proposalId, proposalId).all();
+    `).bind(proposalId, proposal.code || proposalId, proposalId, proposalId).all();
 
-    const myScore = (scores || []).find((s: any) => (s.judge_id || '').trim().toUpperCase() === userEmp) || null;
+    const myScore = (scores || []).find((s: any) => {
+      const jId = (s.judge_id || '').trim().toUpperCase();
+      const rEmp = (s.real_scorer_emp_code || '').trim().toUpperCase();
+      return jId === userEmp || jId === `GUEST_${userEmp}` || userEmp === `GUEST_${jId}` || (rEmp && rEmp === userEmp);
+    }) || null;
 
     // Sanitize scores for client view
     const sanitizedScores = (scores || []).map((s: any) => {
@@ -152,12 +182,45 @@ export async function GET(request: Request) {
     });
 
     const totalJudgesScored = (scores || []).length;
+    let computedAvgScore: number | null = null;
+    if (scores && scores.length > 0) {
+      const sum = scores.reduce((acc: number, s: any) => acc + Number(s.total_score || 0), 0);
+      computedAvgScore = Math.round((sum / scores.length) * 10) / 10;
+
+      if (!proposal.judge_final_score || Number(proposal.judge_final_score) <= 0 || proposal.sub_status === 'CHO_DUYET' || proposal.sub_status === 'CHO_DANH_GIA') {
+        proposal.judge_final_score = computedAvgScore;
+        proposal.score_points = computedAvgScore;
+        if (proposal.sub_status === 'CHO_DUYET' || proposal.sub_status === 'CHO_DANH_GIA') {
+          proposal.sub_status = 'DA_DANH_GIA';
+          proposal.trang_thai = 'DA_DANH_GIA';
+        }
+        await db.prepare(`
+          UPDATE ci_kaizen_proposals
+          SET judge_final_score = ?,
+              score_points = ?,
+              sub_status = CASE WHEN sub_status IN ('CHO_DUYET', 'CHO_DANH_GIA') THEN 'DA_DANH_GIA' ELSE sub_status END,
+              trang_thai = CASE WHEN trang_thai IN ('CHO_DUYET', 'CHO_DANH_GIA') THEN 'DA_DANH_GIA' ELSE trang_thai END,
+              updated_at = CURRENT_TIMESTAMP
+          WHERE id = ? OR code = ?
+        `).bind(computedAvgScore, computedAvgScore, proposalId, proposal.code || proposalId).run().catch(() => {});
+      }
+    }
 
     // Fetch classification group mapping from DB config (Phase 1 & Phase 5)
     const catRaw = String(proposal.category || proposal.category_label || proposal.product_group || '').trim();
     const classMapRow = await db.prepare(`
       SELECT nhom_barem, tu_dong, ghi_chu FROM ci_kaizen_classification_group_map WHERE phan_loai = ?
     `).bind(catRaw).first().catch(() => null);
+
+    const catUpper = catRaw.toUpperCase();
+    let defaultNhom = 'Nhóm 1';
+    if (catUpper.includes('MATERIAL') || catUpper.includes('COST') || catUpper.includes('VẬT TƯ') || catUpper.includes('CHI PHÍ')) {
+      if (!catUpper.includes('AUTOMATION') && !catUpper.includes('TỰ ĐỘNG')) {
+        defaultNhom = 'Nhóm 2';
+      }
+    } else if (catUpper.includes('SAFETY') || catUpper.includes('AN TOÀN') || catUpper.includes('5S')) {
+      defaultNhom = 'Nhóm 3';
+    }
 
     return NextResponse.json({
       success: true,
@@ -167,14 +230,14 @@ export async function GET(request: Request) {
       declarationRequired,
       isGuest,
       guestAccount,
-      classMapConfig: classMapRow || { nhom_barem: 'Nhóm 1', tu_dong: 1, ghi_chu: 'Mặc định Nhóm 1' },
+      classMapConfig: classMapRow || { nhom_barem: defaultNhom, tu_dong: 1, ghi_chu: `Ánh xạ tự động từ ${catRaw}` },
       data: {
         proposal,
         prereqCheck,
         myScore,
         scores: sanitizedScores,
         totalJudgesScored,
-        judgeFinalScore: proposal.judge_final_score || proposal.score_points || null,
+        judgeFinalScore: computedAvgScore || proposal.judge_final_score || proposal.score_points || null,
       },
     });
   } catch (error: any) {
@@ -204,7 +267,7 @@ export async function POST(request: Request) {
 
     // 1. Guest Declaration Submission
     if (action === 'SUBMIT_DECLARATION') {
-      const { fullName, organization, contactInfo, noConflictDeclared } = body;
+      const { fullName, organization, contactInfo, noConflictDeclared, msnv, phone, email } = body;
       if (!fullName || !fullName.trim()) {
         return NextResponse.json({ success: false, error: 'Họ và tên là bắt buộc' }, { status: 400 });
       }
@@ -213,11 +276,37 @@ export async function POST(request: Request) {
       }
 
       const guestId = (user as any)?.empCode?.replace('GUEST_', '') || '';
+      const bgkUsername = (user as any)?.username || (user as any)?.empCode || '';
+
+      const finalPhone = (phone || '').trim();
+      const finalEmail = (email || '').trim();
+      const finalMsnv = (msnv || '').trim();
+      const finalOrg = (organization || '').trim();
+      const finalContactInfo = (contactInfo || '').trim() || (finalPhone && finalEmail ? `${finalPhone} | ${finalEmail}` : (finalPhone || finalEmail));
+
       await db.prepare(`
         UPDATE ci_kaizen_judge_guest_accounts
-        SET full_name = ?, organization = ?, contact_info = ?, declaration_submitted = 1, no_conflict_declared = 1, used_at = CURRENT_TIMESTAMP
-        WHERE id = ?
-      `).bind(fullName.trim(), organization || '', contactInfo || '', guestId).run();
+        SET full_name = ?,
+            organization = ?,
+            contact_info = ?,
+            msnv = ?,
+            phone = ?,
+            email = ?,
+            declaration_submitted = 1,
+            no_conflict_declared = 1,
+            used_at = CURRENT_TIMESTAMP
+        WHERE id = ? OR UPPER(username) = UPPER(?) OR UPPER(username) = UPPER(?)
+      `).bind(
+        fullName.trim(),
+        finalOrg,
+        finalContactInfo,
+        finalMsnv,
+        finalPhone,
+        finalEmail,
+        guestId,
+        bgkUsername,
+        (user as any)?.empCode || ''
+      ).run();
 
       // Audit logs
       await db.prepare(`
@@ -369,6 +458,42 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
 
+    const cleanId = String(proposalId || '').replace(/^ci_/i, '').trim();
+    const withCiId = cleanId ? `ci_${cleanId}` : proposalId;
+
+    // Lookup proposal record to resolve canonical ID and Code
+    let targetProp = await db.prepare(`
+      SELECT id, code, is_disqualified, sub_status, trang_thai FROM ci_kaizen_proposals
+      WHERE id = ? OR code = ?
+         OR UPPER(id) = UPPER(?) OR UPPER(code) = UPPER(?)
+         OR id = ? OR code = ?
+         OR UPPER(id) = UPPER(?) OR UPPER(code) = UPPER(?)
+    `).bind(proposalId, proposalId, proposalId, proposalId, cleanId, cleanId, withCiId, withCiId).first().catch(() => null);
+
+    if (!targetProp) {
+      targetProp = await db.prepare(`
+        SELECT id, code, is_disqualified, sub_status, trang_thai FROM kaizen_submissions
+        WHERE id = ? OR code = ?
+           OR UPPER(id) = UPPER(?) OR UPPER(code) = UPPER(?)
+           OR id = ? OR code = ?
+           OR UPPER(id) = UPPER(?) OR UPPER(code) = UPPER(?)
+      `).bind(proposalId, proposalId, proposalId, proposalId, cleanId, cleanId, withCiId, withCiId).first().catch(() => null);
+    }
+
+    if (!targetProp) {
+      targetProp = { id: proposalId, code: proposalId, is_disqualified: 0, sub_status: 'DANG_DANH_GIA', trang_thai: 'DANG_DANH_GIA' };
+    }
+
+    if (targetProp.is_disqualified == 1 || targetProp.sub_status === 'KHONG_DAT_DIEU_KIEN') {
+      return NextResponse.json({
+        success: false,
+        error: 'Sáng kiến này đã bị loại do không đạt điều kiện tiên quyết (Bước 0), không thể chấm điểm.',
+      }, { status: 400 });
+    }
+
+    const canonicalId = targetProp.id || proposalId;
+    const canonicalCode = targetProp.code || canonicalId;
+
     // Step 0: Prerequisite check
     const isAllPrereqPass = Boolean(p1Pass && p2Pass && p3Pass && p4Pass);
     const prereqId = `prereq_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
@@ -379,7 +504,7 @@ export async function POST(request: Request) {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       prereqId,
-      proposalId,
+      canonicalCode,
       roundId,
       p1Pass ? 1 : 0,
       p2Pass ? 1 : 0,
@@ -404,8 +529,8 @@ export async function POST(request: Request) {
       `).bind(
         `Không đạt điều kiện tiên quyết (Bước 0): ${prereqNote || 'Vi phạm tiêu chí sơ khảo'}`,
         user.empCode,
-        proposalId,
-        proposalId
+        canonicalId,
+        canonicalCode
       ).run();
 
       return NextResponse.json({
@@ -415,19 +540,102 @@ export async function POST(request: Request) {
       });
     }
 
-    // Enforce mandatory basis for all 5 criteria
-    if (!c1Basis.trim() || !c2Basis.trim() || !c3Basis.trim() || !c4Basis.trim() || !c5Basis.trim()) {
-      return NextResponse.json({
-        success: false,
-        error: 'Bắt buộc phải nhập căn cứ/minh chứng chấm điểm cho cả 5 tiêu chí!',
-      }, { status: 400 });
+    // Allow optional basis / justification text for criteria
+    const cleanC1Basis = (c1Basis || '').trim();
+    const cleanC2Basis = (c2Basis || '').trim();
+    const cleanC3Basis = (c3Basis || '').trim();
+    const cleanC4Basis = (c4Basis || '').trim();
+    const cleanC5Basis = (c5Basis || '').trim();
+
+    // Real Scorer Identity handling for Shared Guest Accounts
+    const {
+      realScorerEmpCode = '',
+      realScorerName = '',
+      realScorerOrg = '',
+      realScorerPhone = '',
+      realScorerEmail = '',
+    } = body;
+
+    const empCodeStr = String(user?.empCode || '').toLowerCase();
+    const nameStr = String(user?.name || '').toLowerCase();
+    const emailStr = String(user?.email || '').toLowerCase();
+    const roleCode = String((user as any)?.roleCode || (user as any)?.role || '').toUpperCase();
+    const userRoles = Array.isArray((user as any)?.roles) ? (user as any).roles : [];
+
+    const isGuest = Boolean(
+      (user as any)?.isGuest ||
+      (user as any)?.is_guest_shared ||
+      roleCode === 'JUDGE_GUEST' ||
+      userRoles.includes('judge_guest') ||
+      empCodeStr.startsWith('guest_') ||
+      empCodeStr.includes('khách mời') ||
+      empCodeStr.includes('khach moi') ||
+      empCodeStr.includes('bgk') ||
+      nameStr.includes('khách mời') ||
+      nameStr.includes('khach moi') ||
+      nameStr.includes('bgk') ||
+      emailStr.includes('khách mời') ||
+      emailStr.includes('khach moi')
+    );
+
+    const effectiveScorerName = (realScorerName || (isGuest ? '' : user?.name || 'BGK Chuyên Môn')).trim();
+    const effectiveScorerEmp = (realScorerEmpCode || (isGuest ? '' : user?.empCode || '')).trim();
+    const effectiveScorerOrg = (realScorerOrg || (isGuest ? '' : user?.title || user?.department || 'Văn Phòng Chuỗi SKECHERS')).trim();
+    const effectiveScorerPhone = (realScorerPhone || (isGuest ? '' : user?.phone || '')).trim();
+    const effectiveScorerEmail = (realScorerEmail || (isGuest ? '' : user?.email || '')).trim();
+
+    const lowerEffectiveName = effectiveScorerName.toLowerCase();
+    const isVirtualDefaultName = !effectiveScorerName || lowerEffectiveName.includes('khách mời') || lowerEffectiveName.includes('khach moi') || lowerEffectiveName.includes('bgk');
+
+    if (isGuest || isVirtualDefaultName) {
+      if (isVirtualDefaultName) {
+        return NextResponse.json({
+          success: false,
+          error: '⚠️ Tài khoản ảo / BGK Khách Mời: Bắt buộc phải khai báo Họ và tên người chấm thực (không dùng tên mặc định) ở Bước 1 trước khi nộp điểm!',
+        }, { status: 400 });
+      }
+    }
+
+    let userEmpCode = user?.empCode || 'UNKNOWN';
+    let effectiveJudgeId = userEmpCode;
+    if (isGuest) {
+      const cleanScorerSlug = effectiveScorerName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+      effectiveJudgeId = effectiveScorerEmp ? "GUEST_" + effectiveScorerEmp : "GUEST_" + userEmpCode + "_" + cleanScorerSlug;
+
+      // Sync declaration identity to guest account record in real time
+      const guestId = (user as any)?.empCode?.replace('GUEST_', '') || '';
+      const bgkUsername = (user as any)?.username || (user as any)?.empCode || '';
+      const finalContact = effectiveScorerPhone && effectiveScorerEmail ? `${effectiveScorerPhone} | ${effectiveScorerEmail}` : (effectiveScorerPhone || effectiveScorerEmail);
+      await db.prepare(`
+        UPDATE ci_kaizen_judge_guest_accounts
+        SET full_name = ?,
+            organization = ?,
+            contact_info = ?,
+            msnv = ?,
+            phone = ?,
+            email = ?,
+            declaration_submitted = 1,
+            no_conflict_declared = 1,
+            used_at = CURRENT_TIMESTAMP
+        WHERE id = ? OR UPPER(username) = UPPER(?) OR UPPER(username) = UPPER(?)
+      `).bind(
+        effectiveScorerName,
+        effectiveScorerOrg,
+        finalContact,
+        effectiveScorerEmp,
+        effectiveScorerPhone,
+        effectiveScorerEmail,
+        guestId,
+        bgkUsername,
+        (user as any)?.empCode || ''
+      ).run().catch(() => {});
     }
 
     // Check if score is already locked for this judge
     const existingScore = await db.prepare(`
       SELECT is_locked FROM ci_kaizen_scores
-      WHERE round_id = ? AND (submission_id = ? OR submission_id = (SELECT code FROM ci_kaizen_proposals WHERE id = ?)) AND judge_id = ?
-    `).bind(roundId, proposalId, proposalId, user.empCode).first().catch(() => null);
+      WHERE round_id = ? AND (submission_id = ? OR submission_id = ?) AND (judge_id = ? OR judge_id = ?)
+    `).bind(roundId, canonicalId, canonicalCode, effectiveJudgeId, userEmpCode).first().catch(() => null);
 
     if (existingScore && Boolean(existingScore.is_locked) && !isExecutiveOrAdmin(user)) {
       return NextResponse.json({
@@ -436,44 +644,9 @@ export async function POST(request: Request) {
       }, { status: 403 });
     }
 
-    // Real Scorer Identity handling for Shared Guest Accounts
-    const {
-      realScorerName = '',
-      realScorerPhone = '',
-      realScorerEmail = '',
-    } = body;
-
-    const roleCode = String((user as any)?.roleCode || (user as any)?.role || '').toUpperCase();
-    const userRoles = Array.isArray((user as any)?.roles) ? (user as any).roles : [];
-    const isGuest = Boolean((user as any)?.isGuest || roleCode === 'JUDGE_GUEST' || userRoles.includes('judge_guest'));
-
-    if (isGuest && (!realScorerName || !realScorerName.trim())) {
-      return NextResponse.json({
-        success: false,
-        error: 'Vui lòng xác nhận Họ và tên người chấm thực trước khi nộp điểm!',
-      }, { status: 400 });
-    }
-
     const sessionId = `gss_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
     const guestAccountId = (user as any)?.empCode?.replace('GUEST_', '') || user.empCode;
     const clientIp = request.headers.get('x-forwarded-for') || request.headers.get('cf-connecting-ip') || '127.0.0.1';
-
-    if (isGuest) {
-      await db.prepare(`
-        INSERT INTO ci_kaizen_guest_scoring_sessions (
-          id, judge_account_id, submission_id, nguoi_cham_thuc_ho_ten,
-          nguoi_cham_thuc_sdt, nguoi_cham_thuc_email, thoi_diem_gui, ip_thiet_bi, da_gui
-        ) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, 1)
-      `).bind(
-        sessionId,
-        guestAccountId,
-        proposalId,
-        (realScorerName || user.name || 'BGK Khách Mời').trim(),
-        realScorerPhone || '',
-        realScorerEmail || '',
-        clientIp
-      ).run().catch(() => {});
-    }
 
     // Apply 60% cap if data is not independently verified
     const rawC1 = Number(c1Score) || 0;
@@ -494,42 +667,86 @@ export async function POST(request: Request) {
     const judgeTotalScore = Math.round((finalC1 + finalC2 + finalC3 + finalC4 + finalC5) * 10) / 10;
     const scoreId = `score_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
 
-    // Remove existing score entry if re-scoring
-    await db.prepare(`
-      DELETE FROM ci_kaizen_scores
-      WHERE round_id = ? AND (submission_id = ? OR submission_id = (SELECT code FROM ci_kaizen_proposals WHERE id = ?)) AND judge_id = ?
-    `).bind(roundId, proposalId, proposalId, user.empCode).run().catch(() => {});
+    // Prepare atomic transaction statements for D1
+    const batchStatements: any[] = [];
 
-    // Insert score record (is_locked = 1 after submission)
-    await db.prepare(`
-      INSERT INTO ci_kaizen_scores (
-        id, round_id, submission_id, judge_id, judge_name, c1_group,
-        c1_score, c2_score, c3_score, c4_score, c5_score, total_score,
-        c1_basis, c2_basis, c3_basis, c4_basis, c5_basis, is_verified_data, is_locked,
-        guest_scoring_session_id, nguoi_cham_thuc_ho_ten
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
-    `).bind(
-      scoreId,
-      roundId,
-      proposalId,
-      user.empCode,
-      (realScorerName || user.name || 'BGK Khách Mời').trim(),
-      c1Group,
-      finalC1,
-      finalC2,
-      finalC3,
-      finalC4,
-      finalC5,
-      judgeTotalScore,
-      c1Basis.trim(),
-      c2Basis.trim(),
-      c3Basis.trim(),
-      c4Basis.trim(),
-      c5Basis.trim(),
-      isVerifiedData ? 1 : 0,
-      isGuest ? sessionId : null,
-      (realScorerName || user.name || 'BGK Khách Mời').trim()
-    ).run();
+    if (isGuest) {
+      batchStatements.push(
+        db.prepare(`
+          INSERT INTO ci_kaizen_guest_scoring_sessions (
+            id, judge_account_id, submission_id, nguoi_cham_thuc_ho_ten, nguoi_cham_thuc_msnv,
+            nguoi_cham_thuc_sdt, nguoi_cham_thuc_email, thoi_diem_gui, ip_thiet_bi, da_gui
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, 1)
+        `).bind(
+          sessionId,
+          guestAccountId,
+          canonicalCode,
+          effectiveScorerName,
+          effectiveScorerEmp,
+          effectiveScorerPhone,
+          effectiveScorerEmail,
+          clientIp
+        )
+      );
+    }
+
+    // 1. Remove existing score entry if re-scoring
+    batchStatements.push(
+      db.prepare(`
+        DELETE FROM ci_kaizen_scores
+        WHERE round_id = ? AND (submission_id = ? OR submission_id = ?) AND (judge_id = ? OR judge_id = ?)
+      `).bind(roundId, canonicalId, canonicalCode, effectiveJudgeId, user.empCode)
+    );
+
+    // 2. Insert new score record (is_locked = 1 after submission)
+    batchStatements.push(
+      db.prepare(`
+        INSERT INTO ci_kaizen_scores (
+          id, round_id, submission_id, judge_id, judge_name, c1_group,
+          c1_score, c2_score, c3_score, c4_score, c5_score, total_score,
+          c1_basis, c2_basis, c3_basis, c4_basis, c5_basis, is_verified_data, is_locked,
+          guest_scoring_session_id, nguoi_cham_thuc_ho_ten, real_scorer_emp_code,
+          real_scorer_org, real_scorer_phone, real_scorer_email
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)
+      `).bind(
+        scoreId,
+        roundId,
+        canonicalCode,
+        effectiveJudgeId,
+        effectiveScorerName,
+        c1Group,
+        finalC1,
+        finalC2,
+        finalC3,
+        finalC4,
+        finalC5,
+        judgeTotalScore,
+        cleanC1Basis,
+        cleanC2Basis,
+        cleanC3Basis,
+        cleanC4Basis,
+        cleanC5Basis,
+        isVerifiedData ? 1 : 0,
+        isGuest ? sessionId : null,
+        effectiveScorerName,
+        effectiveScorerEmp,
+        effectiveScorerOrg,
+        effectiveScorerPhone,
+        effectiveScorerEmail
+      )
+    );
+
+    // 3. Update assignment status to SCORED
+    batchStatements.push(
+      db.prepare(`
+        UPDATE ci_kaizen_judge_assignments
+        SET status = 'SCORED', updated_at = CURRENT_TIMESTAMP
+        WHERE (submission_id = ? OR submission_id = ?) AND (judge_id = ? OR judge_id = ? OR judge_id = ?)
+      `).bind(canonicalId, canonicalCode, user.empCode, effectiveJudgeId, (user as any)?.username || '')
+    );
+
+    // Execute atomic batch for D1 database
+    await db.batch(batchStatements);
 
     // Trigger async backup of score session to Google Drive
     try {
@@ -539,10 +756,10 @@ export async function POST(request: Request) {
           sessionId: isGuest ? sessionId : scoreId,
           judgeAccountId: guestAccountId,
           username: (user as any)?.username || user.name,
-          submissionId: proposalId,
-          realScorerName: (realScorerName || user.name).trim(),
-          realScorerPhone,
-          realScorerEmail,
+          submissionId: canonicalCode,
+          realScorerName: effectiveScorerName,
+          realScorerPhone: effectiveScorerPhone,
+          realScorerEmail: effectiveScorerEmail,
           c1Score: finalC1,
           c2Score: finalC2,
           c3Score: finalC3,
@@ -555,23 +772,29 @@ export async function POST(request: Request) {
       })().catch((err) => console.warn('[GDrive Sync Error]:', err));
     } catch (e) {}
 
-    // ⚡ CRITICAL FORMULA: Calculate exact N-judge average total score (sumTotal / judgeCount)
+    // Calculate exact N-judge average total score (sumTotal / judgeCount)
     const { results: allJudgeScores } = await db.prepare(`
       SELECT total_score, c1_score, c3_score FROM ci_kaizen_scores
-      WHERE round_id = ? AND (submission_id = ? OR submission_id = (SELECT code FROM ci_kaizen_proposals WHERE id = ?))
-    `).bind(roundId, proposalId, proposalId).all();
+      WHERE UPPER(submission_id) = UPPER(?) 
+         OR UPPER(submission_id) = UPPER(?) 
+         OR UPPER(submission_id) = (SELECT UPPER(code) FROM ci_kaizen_proposals WHERE id = ?) 
+         OR UPPER(submission_id) = (SELECT UPPER(id) FROM ci_kaizen_proposals WHERE code = ?)
+    `).bind(canonicalId, canonicalCode, canonicalId, canonicalCode).all();
+
+    let updatedProposalStatus = 'DA_DANH_GIA';
+    let avgFinalTotalScore = judgeTotalScore;
+    let judgeCount = 1;
 
     if (allJudgeScores && allJudgeScores.length > 0) {
-      const judgeCount = allJudgeScores.length; // N judges
+      judgeCount = allJudgeScores.length;
       const sumTotal = allJudgeScores.reduce((acc: number, s: any) => acc + Number(s.total_score || 0), 0);
       const sumC1 = allJudgeScores.reduce((acc: number, s: any) => acc + Number(s.c1_score || 0), 0);
       const sumC3 = allJudgeScores.reduce((acc: number, s: any) => acc + Number(s.c3_score || 0), 0);
 
-      const avgFinalTotalScore = Math.round((sumTotal / judgeCount) * 10) / 10;
+      avgFinalTotalScore = Math.round((sumTotal / judgeCount) * 10) / 10;
       const avgFinalC1Score = Math.round((sumC1 / judgeCount) * 10) / 10;
       const avgFinalC3Score = Math.round((sumC3 / judgeCount) * 10) / 10;
 
-      // Check divergence flag: max score - min score > 15 points
       const scoreValues = allJudgeScores.map((s: any) => Number(s.total_score || 0));
       const maxScore = Math.max(...scoreValues);
       const minScore = Math.min(...scoreValues);
@@ -586,13 +809,14 @@ export async function POST(request: Request) {
           VALUES (?, ?, ?, 'DIVERGENCE_EXCEEDED_15', ?)
         `).bind(
           flagId,
-          proposalId,
+          canonicalCode,
           roundId,
           `⚠️ Chênh lệch điểm giữa các Giám khảo > 15 điểm (${minScore}đ vs ${maxScore}đ, chênh lệch ${diff}đ). Cần Ban 2.2 rà soát!`
         ).run().catch(() => {});
       }
 
-      // Update proposal with final average score and flag state
+      updatedProposalStatus = isFlagged === 1 ? 'CHO_RA_SOAT_DANG_FLAG' : 'DA_DANH_GIA';
+
       await db.prepare(`
         UPDATE ci_kaizen_proposals
         SET judge_final_score = ?,
@@ -600,8 +824,8 @@ export async function POST(request: Request) {
             c1_score_final = ?,
             c3_score_final = ?,
             is_score_flagged = ?,
-            sub_status = CASE WHEN ? = 1 THEN 'CHO_RA_SOAT_DANG_FLAG' ELSE 'DA_DANH_GIA' END,
-            trang_thai = CASE WHEN ? = 1 THEN 'CHO_RA_SOAT_DANG_FLAG' ELSE 'DA_DANH_GIA' END,
+            sub_status = ?,
+            trang_thai = ?,
             updated_at = CURRENT_TIMESTAMP
         WHERE id = ? OR code = ?
       `).bind(
@@ -610,14 +834,14 @@ export async function POST(request: Request) {
         avgFinalC1Score,
         avgFinalC3Score,
         isFlagged,
-        isFlagged,
-        isFlagged,
-        proposalId,
-        proposalId
+        updatedProposalStatus,
+        updatedProposalStatus,
+        canonicalId,
+        canonicalCode
       ).run();
     }
 
-    // Insert Audit Logs (both sys_audit_logs and ci_kaizen_score_audit_log)
+    // Insert Audit Logs
     await db.prepare(`
       INSERT INTO sys_audit_logs (id, emp_code, emp_name, module, action, target_type, target_id, changes_json)
       VALUES (?, ?, ?, 'KAIZEN_JUDGING', 'SUBMIT_SCORE', 'PROPOSAL', ?, ?)
@@ -625,8 +849,8 @@ export async function POST(request: Request) {
       `audit_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       user.empCode,
       user.name,
-      proposalId,
-      JSON.stringify({ judgeTotalScore, isVerifiedData })
+      canonicalCode,
+      JSON.stringify({ judgeTotalScore, isVerifiedData, effectiveScorerName })
     ).run().catch(() => {});
 
     await db.prepare(`
@@ -635,15 +859,18 @@ export async function POST(request: Request) {
     `).bind(
       `salog_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       user.empCode,
-      proposalId,
-      JSON.stringify({ judgeTotalScore, isVerifiedData }),
-      request.headers.get('x-forwarded-for') || request.headers.get('cf-connecting-ip') || '127.0.0.1'
+      canonicalCode,
+      JSON.stringify({ judgeTotalScore, isVerifiedData, effectiveScorerName }),
+      clientIp
     ).run().catch(() => {});
 
     return NextResponse.json({
       success: true,
       message: 'Đã nộp điểm chuyên môn và khóa bảng chấm điểm thành công!',
       judgeTotalScore,
+      avgFinalTotalScore,
+      totalJudgesScored: judgeCount,
+      updatedProposalStatus,
     });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });

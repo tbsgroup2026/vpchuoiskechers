@@ -975,7 +975,7 @@ export default function KaizenFiveStepSubmitForm({ onSuccessClose, onCancel }: K
                       {form.registrationType === "THI_DUA" && <IconCheck size={18} className="text-amber-600 stroke-[3]" />}
                     </div>
                     <p className="text-xs text-slate-700 font-medium">
-                      Hồ sơ được đưa vào danh sách chấm điểm 5 tiêu chí của Ban Đánh Giá để tham gia xét Giải Nhất, Nhì, Ba, Khuyến Khích hàng tháng.
+                      Hồ sơ được đưa vào danh sách chấm điểm 5 tiêu chí của Ban Đánh Giá để tham gia xét Giải Nhất, Nhì, Ba, và Ý tưởng hàng tháng.
                     </p>
                   </div>
 

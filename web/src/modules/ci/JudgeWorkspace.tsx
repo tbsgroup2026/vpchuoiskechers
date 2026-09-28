@@ -21,6 +21,7 @@ import {
 } from "@tabler/icons-react";
 import { getValidKaizenImageUrl } from "@/lib/kaizenImageHelper";
 import { formatVND } from "@/lib/formatNumber";
+import { getAutoBaremGroupForCategory } from "@/lib/kaizenTitleHelper";
 
 interface JudgeWorkspaceProps {
   magicToken?: string;
@@ -52,8 +53,11 @@ export default function JudgeWorkspace({ magicToken: propMagicToken }: JudgeWork
   const [declarationSubmitted, setDeclarationSubmitted] = useState<boolean>(true);
 
   // Mandatory Guest Declaration Form State
+  const [declMsnv, setDeclMsnv] = useState("");
   const [declFullName, setDeclFullName] = useState("");
   const [declOrg, setDeclOrg] = useState("");
+  const [declPhone, setDeclPhone] = useState("");
+  const [declEmail, setDeclEmail] = useState("");
   const [declContact, setDeclContact] = useState("");
   const [declNoConflict, setDeclNoConflict] = useState(false);
   const [submittingDecl, setSubmittingDecl] = useState(false);
@@ -208,6 +212,10 @@ export default function JudgeWorkspace({ magicToken: propMagicToken }: JudgeWork
       setErrorMsg("⚠️ Vui lòng nhập Họ và tên đầy đủ của Giám Khảo!");
       return;
     }
+    if (!declOrg.trim()) {
+      setErrorMsg("⚠️ Vui lòng nhập Chức vụ / Đơn vị công tác!");
+      return;
+    }
     if (!declNoConflict) {
       setErrorMsg("⚠️ Bạn phải tích chọn cam kết không có xung đột lợi ích cá nhân trước khi nộp!");
       return;
@@ -226,9 +234,12 @@ export default function JudgeWorkspace({ magicToken: propMagicToken }: JudgeWork
         },
         body: JSON.stringify({
           action: "SUBMIT_DECLARATION",
+          msnv: declMsnv.trim(),
           fullName: declFullName.trim(),
           organization: declOrg.trim(),
-          contactInfo: declContact.trim(),
+          phone: declPhone.trim(),
+          email: declEmail.trim(),
+          contactInfo: declPhone.trim() && declEmail.trim() ? `${declPhone.trim()} | ${declEmail.trim()}` : (declPhone.trim() || declEmail.trim() || declContact.trim()),
           noConflictDeclared: true,
         }),
       });
@@ -257,6 +268,9 @@ export default function JudgeWorkspace({ magicToken: propMagicToken }: JudgeWork
       setShowIdentityModal(true);
     }
 
+    const catStr = asgn?.category || asgn?.category_label || asgn?.product_group || asgn?.phan_loai || "";
+    const autoGroup = getAutoBaremGroupForCategory(catStr);
+
     // Fetch existing score if already scored
     try {
       let token = typeof window !== "undefined" ? (localStorage.getItem("tbs_jwt_token") || "") : "";
@@ -274,7 +288,7 @@ export default function JudgeWorkspace({ magicToken: propMagicToken }: JudgeWork
           setPrereqNote(json.prerequisiteCheck.note || "");
         }
         if (json.myScore) {
-          setC1Group(json.myScore.c1_group || "GROUP1");
+          setC1Group(json.myScore.c1_group || autoGroup);
           setC1Score(json.myScore.c1_score || 30);
           setC2Score(json.myScore.c2_score || 15);
           setC3Score(json.myScore.c3_score || 15);
@@ -287,7 +301,8 @@ export default function JudgeWorkspace({ magicToken: propMagicToken }: JudgeWork
           setC5Basis(json.myScore.c5_basis || "");
           setIsVerifiedData(Boolean(json.myScore.is_verified_data));
         } else {
-          // Reset defaults
+          // Reset defaults & auto-select barem group based on Phân Loại
+          setC1Group(autoGroup);
           setC1Basis("Hồ sơ thể hiện rõ cải tiến hiệu quả thực tế.");
           setC2Basis("Chi phí đầu tư hợp lý, thời gian hoàn vốn nhanh.");
           setC3Basis("Có thể áp dụng ngay cho các chuyền sản xuất cùng ngành.");
@@ -358,12 +373,10 @@ export default function JudgeWorkspace({ magicToken: propMagicToken }: JudgeWork
   };
 
   const handleScoreSubmit = async () => {
-    if (!c1Basis.trim() || !c2Basis.trim() || !c3Basis.trim() || !c4Basis.trim() || !c5Basis.trim()) {
-      setErrorMsg("⚠️ Bắt buộc phải nhập nội dung căn cứ đánh giá cho cả 5 tiêu chí trước khi nộp điểm!");
-      return;
-    }
-    if (isGuest && !realScorerName.trim()) {
-      setErrorMsg("⚠️ Tài khoản dùng chung: Bắt buộc phải nhập Họ và tên người chấm thực trước khi nộp điểm!");
+    const lowerScorer = realScorerName.trim().toLowerCase();
+    if (isGuest && (!realScorerName.trim() || lowerScorer.includes("khách mời") || lowerScorer.includes("khach moi") || lowerScorer.includes("bgk"))) {
+      setErrorMsg("⚠️ Tài khoản ảo / Khách mời: Bắt buộc phải nhập Họ và tên người chấm thực (không dùng tên mặc định) trước khi nộp điểm!");
+      setShowIdentityModal(true);
       return;
     }
 
@@ -414,7 +427,7 @@ export default function JudgeWorkspace({ magicToken: propMagicToken }: JudgeWork
         if (json.isDisqualified) {
           setSubmitSuccessMsg("❌ Hồ sơ không đạt điều kiện tiên quyết (Bước 0) và đã bị chuyển trạng thái Loại.");
         } else {
-          setSubmitSuccessMsg(`✅ Đã nộp bảng chấm điểm thành công! Tổng điểm của bạn: ${json.judgeTotalScore} điểm.`);
+          setSubmitSuccessMsg(`✅ Đã nộp bảng chấm điểm thành công! Tổng điểm của bạn: ${json.judgeTotalScore} điểm${json.avgFinalTotalScore ? ` (Điểm TB tổng hợp: ${json.avgFinalTotalScore}đ)` : ''}.`);
         }
         setActiveConfirmedProposalId(null);
         loadData();
@@ -681,206 +694,349 @@ export default function JudgeWorkspace({ magicToken: propMagicToken }: JudgeWork
                 </label>
               </div>
 
-              {/* 5 CRITERIA FORM */}
-              <div className="space-y-5">
-                <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                  <span>⭐</span>
-                  <span>CHẤM ĐIỂM THEO 5 TIÊU CHÍ CHUẨN HOÁ</span>
-                </h3>
+              {/* 5 CRITERIA FORM - TABLE LAYOUT MATCHING SPEC IMAGE 2 */}
+              <div className="overflow-x-auto border border-slate-200 rounded-2xl shadow-xs bg-white">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead className="bg-slate-100/90 text-slate-700 font-bold border-b border-slate-200 uppercase text-[11px] tracking-wider">
+                    <tr>
+                      <th className="p-3 text-center w-12 border-r border-slate-200">STT</th>
+                      <th className="p-3 w-40 border-r border-slate-200">TIÊU CHÍ</th>
+                      <th className="p-3 w-44 border-r border-slate-200">MÔ TẢ NGẮN</th>
+                      <th className="p-3 text-center w-24 border-r border-slate-200">ĐIỂM TỐI ĐA</th>
+                      <th className="p-3">BGK CHỌN ĐIỂM</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 text-xs">
+                    {/* ROW 1: TIÊU CHÍ 1 */}
+                    <tr className="border-l-4 border-l-blue-600 hover:bg-slate-50/50 transition-colors">
+                      <td className="p-3 text-center font-bold text-slate-500 border-r border-slate-200">1</td>
+                      <td className="p-3 font-extrabold text-slate-900 border-r border-slate-200">
+                        Hiệu quả thực tế đạt được
+                      </td>
+                      <td className="p-3 text-slate-600 border-r border-slate-200">
+                        Mức độ hiệu quả mang lại (tùy danh mục)
+                      </td>
+                      <td className="p-3 text-center font-black text-slate-900 text-sm border-r border-slate-200">
+                        35
+                      </td>
+                      <td className="p-3 space-y-3">
+                        {/* DẢI THÔNG TIN BAREM ĐỘNG THEO PHÂN LOẠI */}
+                        <div className="p-2.5 rounded-xl bg-emerald-50/80 border border-emerald-200/80 flex items-center justify-between flex-wrap gap-2 text-xs">
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-0.5 rounded-md bg-[#006838] text-white font-mono font-black text-[10px] uppercase">
+                              BAREM ĐỘNG
+                            </span>
+                            <span className="font-bold text-emerald-950">
+                              Đang áp dụng: <strong className="text-[#006838]">{c1Group === "GROUP1" ? "Nhóm 1 – Tăng Năng Suất / Thời Gian" : c1Group === "GROUP2" ? "Nhóm 2 – Tiết Kiệm Chi Phí / Vật Tư" : "Nhóm 3 – An Toàn Lao Động / 5S"}</strong>
+                            </span>
+                          </div>
+                          <span className="text-[11px] font-semibold text-emerald-800">
+                            (Hệ thống tự động ánh xạ từ Phân Loại: <strong className="text-slate-900">{activeProposal.category || (activeProposal as any).category_label || "Tăng Năng Suất"}</strong>)
+                          </span>
+                        </div>
 
-                {/* CRITERION 1: HIỆU QUẢ THỰC TẾ (35 PTS MAX) */}
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="font-black text-xs text-slate-900">
-                      TIÊU CHÍ 1: HIỆU QUẢ THỰC TẾ ĐẠT ĐƯỢC (Tối đa 35đ)
-                    </span>
-                    <span className="text-xs font-black text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full">
-                      {effectiveC1} / 35đ
-                    </span>
-                  </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                          <button
+                            type="button"
+                            onClick={() => setC1Group("GROUP1")}
+                            className={`p-2 rounded-xl font-bold border cursor-pointer ${c1Group === "GROUP1" ? "bg-[#006838] text-white border-[#006838]" : "bg-white text-slate-700 border-slate-300"}`}
+                          >
+                            Nhóm 1: Năng suất / Thời gian
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setC1Group("GROUP2")}
+                            className={`p-2 rounded-xl font-bold border cursor-pointer ${c1Group === "GROUP2" ? "bg-[#006838] text-white border-[#006838]" : "bg-white text-slate-700 border-slate-300"}`}
+                          >
+                            Nhóm 2: Tiết kiệm Chi phí / Vật tư
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setC1Group("GROUP3")}
+                            className={`p-2 rounded-xl font-bold border cursor-pointer ${c1Group === "GROUP3" ? "bg-[#006838] text-white border-[#006838]" : "bg-white text-slate-700 border-slate-300"}`}
+                          >
+                            Nhóm 3: An toàn lao động / 5S
+                          </button>
+                        </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => setC1Group("GROUP1")}
-                      className={`p-2 rounded-xl font-bold border cursor-pointer ${c1Group === "GROUP1" ? "bg-[#006838] text-white border-[#006838]" : "bg-white text-slate-700 border-slate-300"}`}
-                    >
-                      Nhóm 1: Năng suất / Thời gian
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setC1Group("GROUP2")}
-                      className={`p-2 rounded-xl font-bold border cursor-pointer ${c1Group === "GROUP2" ? "bg-[#006838] text-white border-[#006838]" : "bg-white text-slate-700 border-slate-300"}`}
-                    >
-                      Nhóm 2: Tiết kiệm Chi phí / Vật tư
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setC1Group("GROUP3")}
-                      className={`p-2 rounded-xl font-bold border cursor-pointer ${c1Group === "GROUP3" ? "bg-[#006838] text-white border-[#006838]" : "bg-white text-slate-700 border-slate-300"}`}
-                    >
-                      Nhóm 3: An toàn lao động
-                    </button>
-                  </div>
+                        {/* BAREM DẠNG RADIO NODES THEO NHÓM */}
+                        <div className="space-y-1.5">
+                          <span className="text-[11px] font-bold text-slate-700 block">Chọn mốc điểm phù hợp nhất (Bắt buộc chọn mốc, không nhập điểm tự do):</span>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 text-xs items-stretch">
+                            {(c1Group === "GROUP1"
+                              ? [
+                                  { score: 35, desc: "35đ — Đạt ≥25% (Tối đa/SOP)" },
+                                  { score: 33, desc: "33đ — Đạt 18–24%" },
+                                  { score: 30, desc: "30đ — Đạt ≥15%" },
+                                  { score: 29, desc: "29đ — Đạt sát 14%" },
+                                  { score: 24, desc: "24đ — Đạt 9–11%" },
+                                  { score: 20, desc: "20đ — Đạt 8%" },
+                                  { score: 19, desc: "19đ — Số liệu <8%, đã xác nhận độc lập" },
+                                  { score: 14, desc: "14đ — Số liệu sơ bộ <8% (chưa xác nhận độc lập)" },
+                                  { score: 10, desc: "10đ — Chỉ mô tả định tính, không số đo" },
+                                  { score: 9, desc: "9đ — Đề cập rõ hơn, chưa đủ tin cậy" },
+                                  { score: 4, desc: "4đ — Đề cập sơ lược, thiếu minh chứng" },
+                                  { score: 0, desc: "0đ — Hiệu quả không rõ ràng" },
+                                ]
+                              : c1Group === "GROUP2"
+                              ? [
+                                  { score: 35, desc: "35đ — Giảm ≥45% lãng phí, kiểm chứng ổn định" },
+                                  { score: 33, desc: "33đ — Giảm 35–44%, xác nhận rõ" },
+                                  { score: 30, desc: "30đ — Giảm ≥30% lãng phí, có đối chứng" },
+                                  { score: 29, desc: "29đ — Giảm sát 29% lãng phí" },
+                                  { score: 24, desc: "24đ — Giảm 19–22% lãng phí" },
+                                  { score: 20, desc: "20đ — Giảm 15% lãng phí, có số liệu" },
+                                  { score: 19, desc: "19đ — Số liệu <15%, đã xác nhận độc lập" },
+                                  { score: 14, desc: "14đ — Số liệu sơ bộ <15% (chưa xác nhận độc lập)" },
+                                  { score: 10, desc: "10đ — Chỉ mô tả định tính" },
+                                  { score: 9, desc: "9đ — Đề cập rõ hơn, chưa đủ tin cậy" },
+                                  { score: 4, desc: "4đ — Đề cập sơ lược, thiếu minh chứng" },
+                                  { score: 0, desc: "0đ — Không có căn cứ" },
+                                ]
+                              : [
+                                  { score: 35, desc: "35đ — Triệt tiêu mối nguy nghiêm trọng + SOP mới" },
+                                  { score: 33, desc: "33đ — Áp dụng thử vị trí tương tự khác" },
+                                  { score: 30, desc: "30đ — Loại bỏ hoàn toàn nguy cơ Cao/Nghiêm trọng" },
+                                  { score: 29, desc: "29đ — Giảm rủi ro + Ổn định ≥1 tháng" },
+                                  { score: 24, desc: "24đ — Giảm rủi ro + Có giải pháp kỹ thuật rõ" },
+                                  { score: 20, desc: "20đ — Giảm rủi ro Cao→Trung bình (Risk Assessment)" },
+                                  { score: 19, desc: "19đ — Giải pháp kỹ thuật rõ, chưa đo mức giảm" },
+                                  { score: 14, desc: "14đ — Đánh giá lại nhưng mức giảm chưa rõ" },
+                                  { score: 10, desc: "10đ — Cải thiện nhỏ, chưa đánh giá lại rủi ro" },
+                                  { score: 9, desc: "9đ — Đề cập nhưng chưa đủ căn cứ" },
+                                  { score: 4, desc: "4đ — Chỉ ở mức nhắc nhở / biển báo" },
+                                  { score: 0, desc: "0đ — Không chứng minh được mức giảm rủi ro" },
+                                ]
+                            ).map((opt) => (
+                              <label
+                                key={opt.score}
+                                className={`p-2 rounded-xl border-2 transition-all cursor-pointer flex flex-col justify-between space-y-1 ${
+                                  c1Score === opt.score
+                                    ? "border-[#006838] bg-emerald-50 shadow-xs font-black text-emerald-950"
+                                    : "border-slate-200 bg-white hover:border-slate-300 text-slate-700 font-semibold"
+                                }`}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs font-black text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded">
+                                    {opt.score}đ
+                                  </span>
+                                  <input
+                                    type="radio"
+                                    name="judge_c1_score_radio"
+                                    checked={c1Score === opt.score}
+                                    onChange={() => setC1Score(opt.score)}
+                                    className="w-3.5 h-3.5 accent-emerald-600 cursor-pointer"
+                                  />
+                                </div>
+                                <span className="text-[10.5px] leading-tight block text-slate-800">{opt.desc}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
 
+                    {/* ROW 2: TIÊU CHÍ 2 */}
+                    <tr className="border-l-4 border-l-emerald-600 hover:bg-slate-50/50 transition-colors">
+                      <td className="p-3 text-center font-bold text-slate-500 border-r border-slate-200">2</td>
+                      <td className="p-3 font-extrabold text-slate-900 border-r border-slate-200">
+                        Tính khả thi &amp; hiệu quả đầu tư
+                      </td>
+                      <td className="p-3 text-slate-600 border-r border-slate-200">
+                        Chi phí đầu tư so với lợi ích.
+                      </td>
+                      <td className="p-3 text-center font-black text-slate-900 text-sm border-r border-slate-200">
+                        20
+                      </td>
+                      <td className="p-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 text-xs font-bold items-stretch">
+                          {[
+                            { score: 20, desc: "20đ — Rất khả thi / không tốn chi phí" },
+                            { score: 15, desc: "15đ — Khả thi cao / thu hồi <6 tháng" },
+                            { score: 10, desc: "10đ — Khả thi TB / thu hồi 6–12 tháng" },
+                            { score: 5, desc: "5đ — Ít khả thi / thu hồi 1–2 năm" },
+                            { score: 0, desc: "0đ — Không khả thi / thu hồi >2 năm" },
+                          ].map((opt) => (
+                            <label
+                              key={opt.score}
+                              className={`p-2.5 rounded-xl border-2 transition-all cursor-pointer flex flex-col justify-between space-y-1 ${
+                                c2Score === opt.score
+                                  ? "border-[#006838] bg-emerald-50 shadow-xs font-black text-emerald-950"
+                                  : "border-slate-200 bg-white hover:border-slate-300 text-slate-700 font-semibold"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-black text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded">{opt.score}đ</span>
+                                <input type="radio" name="judge_c2_score_radio" checked={c2Score === opt.score} onChange={() => setC2Score(opt.score)} className="w-3.5 h-3.5 accent-emerald-600" />
+                              </div>
+                              <span className="text-[10.5px] leading-tight block text-slate-800">{opt.desc}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+
+                    {/* ROW 3: TIÊU CHÍ 3 */}
+                    <tr className="border-l-4 border-l-purple-600 hover:bg-slate-50/50 transition-colors">
+                      <td className="p-3 text-center font-bold text-slate-500 border-r border-slate-200">3</td>
+                      <td className="p-3 font-extrabold text-slate-900 border-r border-slate-200">
+                        Khả năng nhân rộng
+                      </td>
+                      <td className="p-3 text-slate-600 border-r border-slate-200">
+                        Mức độ áp dụng cho nhiều vị trí / đơn vị.
+                      </td>
+                      <td className="p-3 text-center font-black text-slate-900 text-sm border-r border-slate-200">
+                        20
+                      </td>
+                      <td className="p-3 space-y-1.5">
+                        <p className="text-[11px] text-slate-500 italic">
+                          💡 Tooltip BGK: "Nếu đơn vị mình có vấn đề tương tự, có áp dụng ngay được cải tiến này không?"
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 text-xs font-bold items-stretch">
+                          {[
+                            { score: 20, desc: "20đ — Nhân rộng toàn Tập đoàn TBS" },
+                            { score: 15, desc: "15đ — Nhân rộng toàn nhà máy / xưởng" },
+                            { score: 10, desc: "10đ — Nhân rộng toàn bộ dây chuyền" },
+                            { score: 5, desc: "5đ — Nhân rộng 1 chuyền / công đoạn nhỏ" },
+                            { score: 0, desc: "0đ — Chỉ áp dụng đơn lẻ 1 vị trí" },
+                          ].map((opt) => (
+                            <label
+                              key={opt.score}
+                              className={`p-2.5 rounded-xl border-2 transition-all cursor-pointer flex flex-col justify-between space-y-1 ${
+                                c3Score === opt.score
+                                  ? "border-[#006838] bg-emerald-50 shadow-xs font-black text-emerald-950"
+                                  : "border-slate-200 bg-white hover:border-slate-300 text-slate-700 font-semibold"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-black text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded">{opt.score}đ</span>
+                                <input type="radio" name="judge_c3_score_radio" checked={c3Score === opt.score} onChange={() => setC3Score(opt.score)} className="w-3.5 h-3.5 accent-emerald-600" />
+                              </div>
+                              <span className="text-[10.5px] leading-tight block text-slate-800">{opt.desc}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+
+                    {/* ROW 4: TIÊU CHÍ 4 */}
+                    <tr className="border-l-4 border-l-amber-500 hover:bg-slate-50/50 transition-colors">
+                      <td className="p-3 text-center font-bold text-slate-500 border-r border-slate-200">4</td>
+                      <td className="p-3 font-extrabold text-slate-900 border-r border-slate-200">
+                        Tính sáng tạo &amp; chủ động
+                      </td>
+                      <td className="p-3 text-slate-600 border-r border-slate-200">
+                        Mức độ sáng tạo và chủ động đề xuất.
+                      </td>
+                      <td className="p-3 text-center font-black text-slate-900 text-sm border-r border-slate-200">
+                        15
+                      </td>
+                      <td className="p-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 text-xs font-bold items-stretch">
+                          {[
+                            { score: 15, desc: "15đ — Sáng kiến xuất sắc, đột phá" },
+                            { score: 11, desc: "11đ — Giải pháp độc đáo / tự chế dụng cụ" },
+                            { score: 7, desc: "7đ — Ý tưởng sáng tạo độc lập" },
+                            { score: 3, desc: "3đ — Cải tiến nhỏ trên quy trình cũ" },
+                            { score: 0, desc: "0đ — Sao chép nguyên mẫu bên ngoài" },
+                          ].map((opt) => (
+                            <label
+                              key={opt.score}
+                              className={`p-2.5 rounded-xl border-2 transition-all cursor-pointer flex flex-col justify-between space-y-1 ${
+                                c4Score === opt.score
+                                  ? "border-[#006838] bg-emerald-50 shadow-xs font-black text-emerald-950"
+                                  : "border-slate-200 bg-white hover:border-slate-300 text-slate-700 font-semibold"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-black text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded">{opt.score}đ</span>
+                                <input type="radio" name="judge_c4_score_radio" checked={c4Score === opt.score} onChange={() => setC4Score(opt.score)} className="w-3.5 h-3.5 accent-emerald-600" />
+                              </div>
+                              <span className="text-[10.5px] leading-tight block text-slate-800">{opt.desc}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+
+                    {/* ROW 5: TIÊU CHÍ 5 */}
+                    <tr className="border-l-4 border-l-cyan-600 hover:bg-slate-50/50 transition-colors">
+                      <td className="p-3 text-center font-bold text-slate-500 border-r border-slate-200">5</td>
+                      <td className="p-3 font-extrabold text-slate-900 border-r border-slate-200">
+                        Lan tỏa &amp; tinh thần đội nhóm
+                      </td>
+                      <td className="p-3 text-slate-600 border-r border-slate-200">
+                        Mức độ lan tỏa, hỗ trợ phối hợp.
+                      </td>
+                      <td className="p-3 text-center font-black text-slate-900 text-sm border-r border-slate-200">
+                        10
+                      </td>
+                      <td className="p-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 text-xs font-bold items-stretch">
+                          {[
+                            { score: 10, desc: "10đ — Truyền cảm hứng phong trào Gemba" },
+                            { score: 8, desc: "8đ — Phối hợp liên phòng ban xuất sắc" },
+                            { score: 5, desc: "5đ — Phối hợp nhóm trong bộ phận" },
+                            { score: 2, desc: "2đ — Phối hợp nhỏ 2 người" },
+                            { score: 0, desc: "0đ — Cá nhân làm độc lập" },
+                          ].map((opt) => (
+                            <label
+                              key={opt.score}
+                              className={`p-2.5 rounded-xl border-2 transition-all cursor-pointer flex flex-col justify-between space-y-1 ${
+                                c5Score === opt.score
+                                  ? "border-[#006838] bg-emerald-50 shadow-xs font-black text-emerald-950"
+                                  : "border-slate-200 bg-white hover:border-slate-300 text-slate-700 font-semibold"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-black text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded">{opt.score}đ</span>
+                                <input type="radio" name="judge_c5_score_radio" checked={c5Score === opt.score} onChange={() => setC5Score(opt.score)} className="w-3.5 h-3.5 accent-emerald-600" />
+                              </div>
+                              <span className="text-[10.5px] leading-tight block text-slate-800">{opt.desc}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                {/* BOTTOM FOOTER BAR MATCHING SPEC IMAGE 2 */}
+                <div className="p-4 bg-[#0b1739] text-white flex flex-col sm:flex-row items-center justify-between gap-3 font-black uppercase text-xs rounded-b-2xl border-t border-slate-700 shadow-xl">
                   <div className="flex items-center gap-3">
-                    <span className="text-xs font-bold text-slate-700">Gợi ý điểm theo % cải thiện:</span>
-                    <input
-                      type="number"
-                      value={quantPct}
-                      onChange={(e) => handleAutoSuggestC1(parseFloat(e.target.value) || 0)}
-                      placeholder="% Cải thiện (vd 15%)"
-                      className="px-3 py-1 rounded-xl bg-white border border-slate-300 text-xs font-bold w-36"
-                    />
-                    <span className="text-[11px] text-slate-500 italic">Nhập % để tự động gợi ý điểm mốc</span>
+                    <span className="tracking-wider text-slate-200">TỔNG ĐIỂM TỐI ĐA: 100</span>
                   </div>
 
-                  <input
-                    type="range"
-                    min={0}
-                    max={35}
-                    value={c1Score}
-                    onChange={(e) => setC1Score(parseInt(e.target.value) || 0)}
-                    className="w-full accent-emerald-600 cursor-pointer"
-                  />
+                  <div className="flex items-center gap-3 flex-wrap justify-end">
+                    {errorMsg && (
+                      <div className="px-3 py-1.5 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-300 font-bold text-xs flex items-center gap-1.5 max-w-md animate-in fade-in">
+                        <IconAlertTriangle size={15} className="shrink-0 text-rose-400" />
+                        <span className="truncate">{errorMsg}</span>
+                      </div>
+                    )}
 
-                  <textarea
-                    rows={2}
-                    value={c1Basis}
-                    onChange={(e) => setC1Basis(e.target.value)}
-                    placeholder="Bắt buộc: Nhập căn cứ/minh chứng chấm điểm cho Tiêu chí 1..."
-                    className="w-full p-2.5 rounded-xl border border-slate-300 text-xs font-medium bg-white"
-                  />
-                </div>
+                    {submitSuccessMsg && (
+                      <div className="px-3 py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-bold text-xs flex items-center gap-1.5 max-w-md animate-in fade-in">
+                        <IconCheck size={15} className="shrink-0 text-emerald-400" />
+                        <span className="truncate">{submitSuccessMsg}</span>
+                      </div>
+                    )}
 
-                {/* CRITERION 2: TÍNH KHẢ THI & ĐẦU TƯ (20 PTS MAX) */}
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="font-black text-xs text-slate-900">
-                      TIÊU CHÍ 2: TÍNH KHẢ THI &amp; HIỆU QUẢ ĐẦU TƯ (Tối đa 20đ)
+                    <span className="tracking-wider text-slate-200">
+                      TỔNG ĐIỂM BGK: <strong className="text-emerald-400 text-base font-black ml-1">{totalScorePreview}/100</strong>
                     </span>
-                    <span className="text-xs font-black text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full">
-                      {effectiveC2} / 20đ
-                    </span>
+
+                    <button
+                      type="button"
+                      disabled={submittingScore}
+                      onClick={handleScoreSubmit}
+                      className="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs shadow-md transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50"
+                    >
+                      <IconSend size={15} />
+                      <span>{submittingScore ? "Đang nộp..." : "Gửi Bảng Điểm"}</span>
+                    </button>
                   </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={20}
-                    value={c2Score}
-                    onChange={(e) => setC2Score(parseInt(e.target.value) || 0)}
-                    className="w-full accent-emerald-600 cursor-pointer"
-                  />
-                  <textarea
-                    rows={2}
-                    value={c2Basis}
-                    onChange={(e) => setC2Basis(e.target.value)}
-                    placeholder="Bắt buộc: Nhập căn cứ chấm điểm Tiêu chí 2..."
-                    className="w-full p-2.5 rounded-xl border border-slate-300 text-xs font-medium bg-white"
-                  />
                 </div>
-
-                {/* CRITERION 3: KHẢ NĂNG NHÂN RỘNG (20 PTS MAX) */}
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="font-black text-xs text-slate-900">
-                      TIÊU CHÍ 3: KHẢ NĂNG NHÂN RỘNG (Tối đa 20đ)
-                    </span>
-                    <span className="text-xs font-black text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full">
-                      {effectiveC3} / 20đ
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-500 italic">
-                    💡 Tooltip BGK: "Nếu đơn vị mình có vấn đề tương tự, có áp dụng ngay được cải tiến này không?"
-                  </p>
-                  <input
-                    type="range"
-                    min={0}
-                    max={20}
-                    value={c3Score}
-                    onChange={(e) => setC3Score(parseInt(e.target.value) || 0)}
-                    className="w-full accent-emerald-600 cursor-pointer"
-                  />
-                  <textarea
-                    rows={2}
-                    value={c3Basis}
-                    onChange={(e) => setC3Basis(e.target.value)}
-                    placeholder="Bắt buộc: Nhập căn cứ chấm điểm Tiêu chí 3..."
-                    className="w-full p-2.5 rounded-xl border border-slate-300 text-xs font-medium bg-white"
-                  />
-                </div>
-
-                {/* CRITERION 4: SÁNG TẠO & CHỦ ĐỘNG (15 PTS MAX) */}
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="font-black text-xs text-slate-900">
-                      TIÊU CHÍ 4: SÁNG TẠO &amp; CHỦ ĐỘNG (Tối đa 15đ)
-                    </span>
-                    <span className="text-xs font-black text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full">
-                      {effectiveC4} / 15đ
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={15}
-                    value={c4Score}
-                    onChange={(e) => setC4Score(parseInt(e.target.value) || 0)}
-                    className="w-full accent-emerald-600 cursor-pointer"
-                  />
-                  <textarea
-                    rows={2}
-                    value={c4Basis}
-                    onChange={(e) => setC4Basis(e.target.value)}
-                    placeholder="Bắt buộc: Nhập căn cứ chấm điểm Tiêu chí 4..."
-                    className="w-full p-2.5 rounded-xl border border-slate-300 text-xs font-medium bg-white"
-                  />
-                </div>
-
-                {/* CRITERION 5: LAN TỎA & ĐỘI NHÓM (10 PTS MAX) */}
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="font-black text-xs text-slate-900">
-                      TIÊU CHÍ 5: LAN TỎA &amp; TINH THẦN ĐỘI NHÓM (Tối đa 10đ)
-                    </span>
-                    <span className="text-xs font-black text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full">
-                      {effectiveC5} / 10đ
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={10}
-                    value={c5Score}
-                    onChange={(e) => setC5Score(parseInt(e.target.value) || 0)}
-                    className="w-full accent-emerald-600 cursor-pointer"
-                  />
-                  <textarea
-                    rows={2}
-                    value={c5Basis}
-                    onChange={(e) => setC5Basis(e.target.value)}
-                    placeholder="Bắt buộc: Nhập căn cứ chấm điểm Tiêu chí 5..."
-                    className="w-full p-2.5 rounded-xl border border-slate-300 text-xs font-medium bg-white"
-                  />
-                </div>
-              </div>
-
-              {/* TOTAL SCORE SUMMARY & SUBMIT BUTTON */}
-              <div className="p-5 rounded-2xl bg-[#006838] text-white flex items-center justify-between shadow-lg">
-                <div>
-                  <span className="text-xs uppercase font-extrabold text-emerald-200 block">TỔNG ĐIỂM CHẤM CỦA BẠN</span>
-                  <span className="text-2xl font-black text-amber-300">{totalScorePreview} / 100đ</span>
-                </div>
-
-                <button
-                  type="button"
-                  disabled={submittingScore}
-                  onClick={handleScoreSubmit}
-                  className="px-6 py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs shadow-md transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50"
-                >
-                  <IconSend size={16} />
-                  <span>{submittingScore ? "Đang nộp..." : "Nộp Bảng Chấm Điểm"}</span>
-                </button>
               </div>
             </div>
           ) : (
@@ -1013,37 +1169,67 @@ export default function JudgeWorkspace({ magicToken: propMagicToken }: JudgeWork
             )}
 
             <div className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-xs font-black text-slate-800 block">1. Họ và tên đầy đủ Giám Khảo (*)</label>
-                <input
-                  type="text"
-                  placeholder="Nhập họ và tên của bạn..."
-                  value={declFullName}
-                  onChange={(e) => setDeclFullName(e.target.value)}
-                  className="w-full p-3 rounded-xl border border-slate-300 text-xs font-bold bg-slate-50"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-black text-slate-800 block">1. Mã số nhân viên (MSNV)</label>
+                  <input
+                    type="text"
+                    placeholder="Nhập MSNV (vd: 212184843)..."
+                    value={declMsnv}
+                    onChange={(e) => setDeclMsnv(e.target.value)}
+                    className="w-full p-2.5 rounded-xl border border-slate-300 text-xs font-bold bg-slate-50"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-black text-slate-800 block">
+                    2. Họ và tên đầy đủ Giám Khảo <span className="text-rose-600">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Nhập họ và tên của bạn..."
+                    value={declFullName}
+                    onChange={(e) => setDeclFullName(e.target.value)}
+                    className="w-full p-2.5 rounded-xl border border-slate-300 text-xs font-bold bg-slate-50"
+                  />
+                </div>
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-black text-slate-800 block">2. Chức vụ / Đơn vị công tác (*)</label>
+                <label className="text-xs font-black text-slate-800 block">
+                  3. Chức vụ / Đơn vị công tác <span className="text-rose-600">*</span>
+                </label>
                 <input
                   type="text"
                   placeholder="Ví dụ: Giám đốc Chất lượng / Chuyên gia IE Tập đoàn..."
                   value={declOrg}
                   onChange={(e) => setDeclOrg(e.target.value)}
-                  className="w-full p-3 rounded-xl border border-slate-300 text-xs font-bold bg-slate-50"
+                  className="w-full p-2.5 rounded-xl border border-slate-300 text-xs font-bold bg-slate-50"
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-black text-slate-800 block">3. SĐT / Email liên hệ (*)</label>
-                <input
-                  type="text"
-                  placeholder="Nhập SĐT hoặc Email để liên hệ khi cần..."
-                  value={declContact}
-                  onChange={(e) => setDeclContact(e.target.value)}
-                  className="w-full p-3 rounded-xl border border-slate-300 text-xs font-bold bg-slate-50"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-black text-slate-800 block">4. SĐT liên hệ</label>
+                  <input
+                    type="text"
+                    placeholder="Nhập SĐT..."
+                    value={declPhone}
+                    onChange={(e) => setDeclPhone(e.target.value)}
+                    className="w-full p-2.5 rounded-xl border border-slate-300 text-xs font-bold bg-slate-50"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-black text-slate-800 block">5. Email liên hệ</label>
+                  <input
+                    type="text"
+                    placeholder="Nhập Email..."
+                    value={declEmail}
+                    onChange={(e) => setDeclEmail(e.target.value)}
+                    className="w-full p-2.5 rounded-xl border border-slate-300 text-xs font-bold bg-slate-50"
+                  />
+                </div>
               </div>
 
               <label className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 flex items-start gap-2.5 cursor-pointer text-xs font-bold text-amber-950">
@@ -1080,7 +1266,7 @@ export default function JudgeWorkspace({ magicToken: propMagicToken }: JudgeWork
               </div>
               <div>
                 <span className="px-2 py-0.5 rounded-full bg-indigo-900 text-indigo-100 font-mono font-black text-[10px] uppercase">
-                  👥 TÀI KHOẢN DÙNG CHUNG (#923)
+                  👥 TÀI KHOẢN DÙNG CHUNG ({guestUserObj?.username || guestUserObj?.empCode?.replace('GUEST_', '') || 'BGK'})
                 </span>
                 <h3 className="text-base font-black text-slate-900 mt-1">Xác nhận Danh tính Người Chấm Thực</h3>
               </div>
@@ -1129,8 +1315,9 @@ export default function JudgeWorkspace({ magicToken: propMagicToken }: JudgeWork
             <button
               type="button"
               onClick={() => {
-                if (!realScorerName.trim()) {
-                  setErrorMsg("⚠️ Vui lòng nhập Họ và tên người chấm thực!");
+                const lowerScorer = realScorerName.trim().toLowerCase();
+                if (!realScorerName.trim() || lowerScorer.includes("khách mời") || lowerScorer.includes("khach moi") || lowerScorer.includes("bgk")) {
+                  setErrorMsg("⚠️ Vui lòng nhập Họ và tên thực của bạn (không dùng tên tài khoản ảo/khách mời mặc định)!");
                   return;
                 }
                 if (typeof window !== "undefined") {

@@ -661,14 +661,28 @@ export async function ensureKaizenSchema(db: any, force = false) {
       'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN username TEXT',
       'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN one_time_passcode TEXT',
       'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN dung_chung INTEGER DEFAULT 1',
+      'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN msnv TEXT',
+      'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN phone TEXT',
+      'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN email TEXT',
+      'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN position_unit TEXT',
+      'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN declaration_date DATETIME',
+      'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN created_at DATETIME',
       'ALTER TABLE ci_kaizen_scores ADD COLUMN guest_scoring_session_id TEXT',
       'ALTER TABLE ci_kaizen_scores ADD COLUMN nguoi_cham_thuc_ho_ten TEXT',
+      'ALTER TABLE ci_kaizen_scores ADD COLUMN real_scorer_emp_code TEXT',
+      'ALTER TABLE ci_kaizen_scores ADD COLUMN real_scorer_org TEXT',
+      'ALTER TABLE ci_kaizen_scores ADD COLUMN real_scorer_phone TEXT',
+      'ALTER TABLE ci_kaizen_scores ADD COLUMN real_scorer_email TEXT',
+      'ALTER TABLE ci_kaizen_scores ADD COLUMN is_locked INTEGER DEFAULT 1',
       'ALTER TABLE ci_kaizen_score_audit_log ADD COLUMN nguoi_cham_thuc_ho_ten TEXT',
       'ALTER TABLE sys_audit_logs ADD COLUMN nguoi_cham_thuc_ho_ten TEXT',
+      'ALTER TABLE ci_kaizen_guest_scoring_sessions ADD COLUMN nguoi_cham_thuc_msnv TEXT',
     ];
     for (const sql of guestCols) {
       await db.prepare(sql).run().catch(() => {});
     }
+
+    await db.prepare('UPDATE ci_kaizen_scores SET is_locked = 1 WHERE is_locked IS NULL OR is_locked = 0').run().catch(() => {});
 
     await db.prepare(`
       CREATE TABLE IF NOT EXISTS ci_kaizen_guest_scoring_sessions (

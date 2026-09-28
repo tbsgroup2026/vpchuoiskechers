@@ -426,7 +426,7 @@ export default function FeasibilityApprovalModal({
         headers: {
           "Content-Type": "application/json",
           "X-User-Emp-Code": "202608001",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(token ? { Authorization: token.startsWith("Bearer ") ? token.replace(/[^\x00-\xFF]/g, (c) => encodeURIComponent(c)) : `Bearer ${token.replace(/[^\x00-\xFF]/g, (c) => encodeURIComponent(c))}` } : {}),
         },
         body: JSON.stringify({
           proposalId: propId,
@@ -457,7 +457,12 @@ export default function FeasibilityApprovalModal({
 
       let json: any = {};
       try {
-        json = await res.json();
+        const rawText = await res.text();
+        try {
+          json = JSON.parse(rawText);
+        } catch (parseErr) {
+          json = { success: false, message: `Máy chủ phản hồi lỗi (HTTP ${res.status}): ${rawText.slice(0, 150) || "Không thể đọc dữ liệu phản hồi"}` };
+        }
       } catch (e) {
         json = { success: false, message: `Lỗi kết nối máy chủ (HTTP ${res.status})` };
       }

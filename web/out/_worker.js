@@ -66,10 +66,10 @@ function parseSessionWorker(token) {
       userId: empCode,
       empCode: empCode,
       name: matchedUser?.name || `Cán bộ (${empCode})`,
-      roleCode: matchedUser?.roleCode || 'TRUONG_PHONG',
-      roleLevel: matchedUser?.roleLevel || 3,
+      roleCode: matchedUser?.roleCode || 'CBCNV',
+      roleLevel: matchedUser?.roleLevel || 4,
       departmentCode: matchedUser?.departmentCode || 'TBS',
-      title: matchedUser?.title || 'Trưởng Phòng / Cán Bộ Quản Lý',
+      title: matchedUser?.title || 'Chuyên Viên Vận Hành',
     };
   }
 
@@ -5196,7 +5196,13 @@ export default {
     // ============================================================
     // API ROUTE: /api/ci-kaizen (Kaizen Proposals & Management)
     // ============================================================
-    if (url.pathname === "/api/ci-kaizen" || url.pathname === "/api/ci-kaizen/" || url.pathname.startsWith("/api/ci-kaizen/")) {
+    if (
+      url.pathname === "/api/ci-kaizen" ||
+      url.pathname === "/api/ci-kaizen/" ||
+      url.pathname === "/api/ci-kaizen/check-duplicate" ||
+      url.pathname === "/api/ci-kaizen/sync" ||
+      url.pathname === "/api/ci-kaizen/status-counts"
+    ) {
       const CORS = {
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*",
@@ -8811,7 +8817,11 @@ export default {
     }
 
     // 3.5. API Route: CN-CI Kaizen / Gemba / Continuous Improvement (/api/ci-kaizen)
-    if (url.pathname.startsWith("/api/ci-kaizen")) {
+    if (
+      url.pathname === "/api/ci-kaizen" ||
+      url.pathname === "/api/ci-kaizen/" ||
+      url.pathname.endsWith("/approve")
+    ) {
       if (!env.DB) {
         return new Response(
           JSON.stringify({ success: false, error: "D1 Database binding env.DB missing" }),
@@ -13679,6 +13689,1219 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           return Response.redirect(new URL(`/pph-view?lineId=${encodeURIComponent(resolved.targetId)}`, request.url), 302);
         }
         return Response.redirect(new URL("/pph-view", request.url), 302);
+      }
+    }
+
+    async function ensureKaizenTables(env) {
+      if (!env.DB) return;
+      try {
+        await env.DB.prepare(`
+          CREATE TABLE IF NOT EXISTS ci_kaizen_scores (
+            id TEXT PRIMARY KEY,
+            round_id TEXT NOT NULL,
+            submission_id TEXT NOT NULL,
+            judge_id TEXT NOT NULL,
+            judge_name TEXT,
+            c1_group TEXT DEFAULT 'GROUP1',
+            c1_score REAL DEFAULT 0,
+            c2_score REAL DEFAULT 0,
+            c3_score REAL DEFAULT 0,
+            c4_score REAL DEFAULT 0,
+            c5_score REAL DEFAULT 0,
+            total_score REAL DEFAULT 0,
+            c1_basis TEXT,
+            c2_basis TEXT,
+            c3_basis TEXT,
+            c4_basis TEXT,
+            c5_basis TEXT,
+            is_verified_data INTEGER DEFAULT 1,
+            is_locked INTEGER DEFAULT 1,
+            guest_scoring_session_id TEXT,
+            nguoi_cham_thuc_ho_ten TEXT,
+            real_scorer_emp_code TEXT,
+            real_scorer_org TEXT,
+            real_scorer_phone TEXT,
+            real_scorer_email TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          )
+        `).run().catch(() => {});
+
+        await env.DB.prepare(`
+          CREATE TABLE IF NOT EXISTS ci_kaizen_score_audit_log (
+            id TEXT PRIMARY KEY,
+            score_id TEXT,
+            judge_account_id TEXT,
+            submission_id TEXT,
+            hanh_dong TEXT NOT NULL,
+            ly_do TEXT,
+            gia_tri_truoc TEXT,
+            gia_tri_sau TEXT,
+            ip_thiet_bi TEXT,
+            created_by TEXT,
+            nguoi_cham_thuc_ho_ten TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          )
+        `).run().catch(() => {});
+
+        await env.DB.prepare(`
+          CREATE TABLE IF NOT EXISTS ci_kaizen_judge_guest_accounts (
+            id TEXT PRIMARY KEY,
+            username TEXT,
+            one_time_passcode TEXT,
+            full_name TEXT,
+            email_phone TEXT,
+            round_id TEXT NOT NULL DEFAULT 'ROUND_2026',
+            token_hash TEXT,
+            expires_at DATETIME,
+            used_at DATETIME,
+            is_revoked INTEGER DEFAULT 0,
+            organization TEXT,
+            contact_info TEXT,
+            declaration_submitted INTEGER DEFAULT 0,
+            no_conflict_declared INTEGER DEFAULT 0,
+            dung_chung INTEGER DEFAULT 1,
+            msnv TEXT,
+            phone TEXT,
+            email TEXT,
+            position_unit TEXT,
+            declaration_date DATETIME,
+            created_by TEXT DEFAULT 'ADMIN',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          )
+        `).run().catch(() => {});
+
+        const alterGuestCols = [
+          'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN username TEXT',
+          'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN one_time_passcode TEXT',
+          'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN email_phone TEXT',
+          'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN token_hash TEXT',
+          'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN expires_at DATETIME',
+          'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN is_revoked INTEGER DEFAULT 0',
+          'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN created_by TEXT DEFAULT "ADMIN"',
+          'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN organization TEXT',
+          'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN contact_info TEXT',
+          'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN declaration_submitted INTEGER DEFAULT 0',
+          'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN no_conflict_declared INTEGER DEFAULT 0',
+          'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN dung_chung INTEGER DEFAULT 1',
+          'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN msnv TEXT',
+          'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN phone TEXT',
+          'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN email TEXT',
+          'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN position_unit TEXT',
+          'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN declaration_date DATETIME',
+        ];
+        for (const sql of alterGuestCols) {
+          await env.DB.prepare(sql).run().catch(() => {});
+        }
+      } catch (e) {}
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // 💡 MAIN KAIZEN PROPOSALS & REALTIME SCORE AGGREGATION ENDPOINT
+    // ════════════════════════════════════════════════════════════════
+    if (url.pathname === "/api/ci-kaizen") {
+      const CORS = {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      };
+      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+      await ensureKaizenTables(env);
+
+      if (request.method === "GET") {
+        try {
+          let results = [];
+          try {
+            const queryRes = await env.DB.prepare(`SELECT * FROM ci_kaizen_proposals ORDER BY created_at DESC LIMIT 500`).all();
+            results = queryRes?.results || [];
+          } catch (e) {}
+
+          let scoreAggMap = {};
+          try {
+            const { results: scoreAggRows } = await env.DB.prepare(`
+              SELECT submission_id, AVG(total_score) as avg_score, COUNT(*) as cnt
+              FROM ci_kaizen_scores
+              GROUP BY submission_id
+            `).all();
+            if (scoreAggRows) {
+              for (const r of scoreAggRows) {
+                if (r.submission_id) {
+                  const key = String(r.submission_id).trim().toUpperCase();
+                  scoreAggMap[key] = {
+                    avgScore: Math.round(Number(r.avg_score || 0) * 10) / 10,
+                    judgeCount: Number(r.cnt || 0),
+                  };
+                }
+              }
+            }
+          } catch (e) {}
+
+          const cleanedResults = (results || []).map((p) => {
+            const pId = String(p.id || '').trim().toUpperCase();
+            const pCode = String(p.code || '').trim().toUpperCase();
+            const pEmp = String(p.proposer_emp_code || '').trim().toUpperCase();
+            const scoreInfo = scoreAggMap[pId] || scoreAggMap[pCode] || scoreAggMap[pEmp];
+
+            return {
+              ...p,
+              judge_final_score: scoreInfo?.avgScore ?? p.judge_final_score ?? p.score_points ?? null,
+              judge_count: scoreInfo?.judgeCount ?? p.rating_count ?? 0,
+            };
+          });
+
+          return new Response(JSON.stringify({ success: true, data: cleanedResults, count: cleanedResults.length }), { headers: CORS });
+        } catch (e) {
+          return new Response(JSON.stringify({ success: false, error: e.message || 'Lỗi lấy danh sách sáng kiến' }), { status: 500, headers: CORS });
+        }
+      }
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // 🏷️ MY SCORES ENDPOINT FOR JUDGES / GUESTS
+    // ════════════════════════════════════════════════════════════════
+    if (url.pathname === "/api/ci-kaizen/judging/my-scores") {
+      const CORS = {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-User-Emp-Code, X-Emp-Code",
+      };
+      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+      await ensureKaizenTables(env);
+
+      try {
+        let userEmp = (request.headers.get('x-user-emp-code') || request.headers.get('x-emp-code') || url.searchParams.get('empCode') || url.searchParams.get('judgeId') || url.searchParams.get('user') || '').trim().toUpperCase();
+        const authHeader = request.headers.get('authorization') || '';
+        let tokenStr = authHeader.replace('Bearer ', '').trim();
+
+        if (tokenStr && tokenStr.startsWith('tbs_token_')) {
+          const parts = tokenStr.split('_');
+          if (parts[2]) userEmp = parts[2].trim().toUpperCase();
+        } else if (tokenStr && tokenStr.includes('.')) {
+          try {
+            const payloadSeg = tokenStr.split('.')[1];
+            if (payloadSeg) {
+              const base64 = payloadSeg.replace(/-/g, '+').replace(/_/g, '/');
+              const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+              const parsed = JSON.parse(jsonPayload);
+              const empCandidate = parsed.empCode || parsed.emp_code || parsed.userEmp || parsed.sub || parsed.username || parsed.id;
+              if (empCandidate) userEmp = String(empCandidate).trim().toUpperCase();
+            }
+          } catch (err) {}
+        }
+
+        const myScoresMap = {};
+        if (userEmp) {
+          const cleanEmp = userEmp.replace(/^GUEST_/i, '').trim().toUpperCase();
+          const guestEmp = `GUEST_${cleanEmp}`;
+
+          const { results: scores } = await env.DB.prepare(`
+            SELECT 
+              s.submission_id,
+              s.total_score,
+              COALESCE(s.is_locked, 1) AS is_locked,
+              p.id AS prop_id,
+              p.code AS prop_code
+            FROM ci_kaizen_scores s
+            LEFT JOIN ci_kaizen_proposals p ON (
+              TRIM(s.submission_id) = TRIM(p.id) OR 
+              UPPER(TRIM(s.submission_id)) = UPPER(TRIM(p.code)) OR
+              s.submission_id = p.id OR
+              s.submission_id = p.code
+            )
+            WHERE UPPER(s.judge_id) = UPPER(?)
+               OR UPPER(s.judge_id) = UPPER(?)
+               OR UPPER(s.real_scorer_emp_code) = UPPER(?)
+               OR UPPER(s.real_scorer_emp_code) = UPPER(?)
+          `).bind(userEmp, guestEmp, userEmp, cleanEmp).all().catch(() => ({ results: [] }));
+
+          if (scores && scores.length > 0) {
+            for (const s of scores) {
+              const scoreObj = {
+                totalScore: Number(s.total_score || 0),
+                isLocked: Boolean(s.is_locked ?? 1)
+              };
+              const idsToMap = new Set();
+              if (s.submission_id) {
+                const subId = String(s.submission_id).trim();
+                const cleanSub = subId.replace(/^ci_/i, '').replace(/^CI-/i, '');
+                idsToMap.add(subId);
+                idsToMap.add(subId.toUpperCase());
+                idsToMap.add(subId.toLowerCase());
+                idsToMap.add(cleanSub);
+                idsToMap.add(`ci_${cleanSub}`);
+                idsToMap.add(`CI-${cleanSub}`);
+              }
+              if (s.prop_id) {
+                const pId = String(s.prop_id).trim();
+                const cleanPId = pId.replace(/^ci_/i, '').replace(/^CI-/i, '');
+                idsToMap.add(pId);
+                idsToMap.add(cleanPId);
+                idsToMap.add(`ci_${cleanPId}`);
+              }
+              if (s.prop_code) {
+                const pCode = String(s.prop_code).trim();
+                const cleanPCode = pCode.replace(/^CI-/i, '');
+                idsToMap.add(pCode);
+                idsToMap.add(cleanPCode);
+                idsToMap.add(`CI-${cleanPCode}`);
+              }
+
+              for (const k of idsToMap) {
+                if (k) myScoresMap[k] = scoreObj;
+              }
+            }
+          }
+        }
+
+        return new Response(JSON.stringify({ success: true, userEmp, myScores: myScoresMap }), { headers: CORS });
+      } catch (e) {
+        return new Response(JSON.stringify({ success: false, error: e.message || 'Lỗi tải danh sách điểm của bạn' }), { status: 500, headers: CORS });
+      }
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // 📊 KAIZEN EXPERT EVALUATIONS & JUDGING REPORTS ENDPOINTS
+    // ════════════════════════════════════════════════════════════════
+    if (url.pathname === "/api/ci-kaizen/judging/reports") {
+      const CORS = {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      };
+      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+      await ensureKaizenTables(env);
+
+      if (request.method === "GET") {
+        try {
+          const query = (url.searchParams.get('query') || url.searchParams.get('q') || '').trim().toLowerCase();
+          const region = (url.searchParams.get('region') || '').trim();
+          const isLockedParam = url.searchParams.get('isLocked') || url.searchParams.get('locked');
+
+          const { results: scores } = await env.DB.prepare(`
+            SELECT 
+              s.id AS score_id,
+              s.round_id,
+              s.submission_id,
+              COALESCE(p.code, p.id, s.submission_id) AS proposal_code,
+              COALESCE(p.title, (SELECT title FROM ci_kaizen_proposals WHERE TRIM(id) = TRIM(s.submission_id) OR UPPER(TRIM(code)) = UPPER(TRIM(s.submission_id)) OR UPPER(TRIM(proposer_emp_code)) = UPPER(TRIM(s.submission_id)) LIMIT 1), 'Sáng kiến #' || s.submission_id) AS proposal_title,
+              COALESCE(p.region, p.factory, 'Nhà Máy Miền Đông') AS proposal_region,
+              COALESCE(p.department, '---') AS proposal_dept,
+              s.judge_id,
+              s.judge_name,
+              s.c1_group,
+              s.c1_score,
+              s.c2_score,
+              s.c3_score,
+              s.c4_score,
+              s.c5_score,
+              s.total_score,
+              s.c1_basis,
+              s.c2_basis,
+              s.c3_basis,
+              s.c4_basis,
+              s.c5_basis,
+              s.is_verified_data,
+              COALESCE(s.is_locked, 1) AS is_locked,
+              s.guest_scoring_session_id,
+              COALESCE(s.nguoi_cham_thuc_ho_ten, s.judge_name, 'BGK') AS nguoi_cham_thuc_ho_ten,
+              COALESCE(s.real_scorer_emp_code, '') AS real_scorer_emp_code,
+              COALESCE(s.real_scorer_org, '') AS real_scorer_org,
+              COALESCE(s.real_scorer_phone, '') AS real_scorer_phone,
+              COALESCE(s.real_scorer_email, '') AS real_scorer_email,
+              s.created_at,
+              s.updated_at,
+              g.username AS guest_username,
+              g.full_name AS guest_account_name,
+              g.dung_chung AS is_guest_shared
+            FROM ci_kaizen_scores s
+            LEFT JOIN ci_kaizen_proposals p ON (TRIM(s.submission_id) = TRIM(p.id) OR UPPER(TRIM(s.submission_id)) = UPPER(TRIM(p.code)) OR UPPER(TRIM(s.submission_id)) = UPPER(TRIM(p.proposer_emp_code)) OR s.submission_id = p.id OR s.submission_id = p.code)
+            LEFT JOIN ci_kaizen_judge_guest_accounts g ON (s.judge_id = g.id OR s.judge_id = ('GUEST_' || g.id) OR s.judge_id = g.username OR UPPER(s.judge_id) = UPPER(g.username))
+            ORDER BY s.created_at DESC
+          `).all();
+
+          let filtered = scores || [];
+          if (query) {
+            filtered = filtered.filter((s) => {
+              const fullTxt = [s.nguoi_cham_thuc_ho_ten, s.real_scorer_emp_code, s.real_scorer_org, s.proposal_code, s.proposal_title, s.judge_id, s.guest_username].filter(Boolean).join(' ').toLowerCase();
+              return fullTxt.includes(query);
+            });
+          }
+          if (region && region !== 'ALL') {
+            filtered = filtered.filter((s) => {
+              const r = (s.proposal_region || '').toUpperCase();
+              return r.includes(region.toUpperCase());
+            });
+          }
+          if (isLockedParam && isLockedParam !== 'ALL') {
+            const lockVal = isLockedParam === '1' ? 1 : 0;
+            filtered = filtered.filter((s) => Number(s.is_locked ?? 1) === lockVal);
+          }
+
+          return new Response(JSON.stringify({ success: true, count: filtered.length, scores: filtered }), { headers: CORS });
+        } catch (e) {
+          return new Response(JSON.stringify({ success: false, error: e.message || 'Lỗi hệ thống' }), { status: 500, headers: CORS });
+        }
+      }
+
+      if (request.method === "POST") {
+        try {
+          const body = await request.json().catch(() => ({}));
+          const { action, scoreId } = body;
+
+          if (action === 'GET_AUDIT_LOGS') {
+            const { results: logs } = await env.DB.prepare(`
+              SELECT * FROM ci_kaizen_score_audit_log
+              WHERE score_id = ? OR submission_id = ?
+              ORDER BY created_at DESC
+            `).bind(scoreId || '', scoreId || '').all().catch(() => ({ results: [] }));
+            return new Response(JSON.stringify({ success: true, logs: logs || [] }), { headers: CORS });
+          }
+
+          if (action === 'UNLOCK_SCORE') {
+            if (!scoreId) return new Response(JSON.stringify({ success: false, error: 'Mã lượt chấm điểm không hợp lệ' }), { status: 400, headers: CORS });
+            await env.DB.prepare(`UPDATE ci_kaizen_scores SET is_locked = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).bind(scoreId).run();
+            return new Response(JSON.stringify({ success: true, message: '✅ Đã mở khóa lượt chấm điểm thành công. Giám khảo có thể chỉnh sửa lại điểm.' }), { headers: CORS });
+          }
+
+          return new Response(JSON.stringify({ success: false, error: 'Hành động không hợp lệ' }), { status: 400, headers: CORS });
+        } catch (e) {
+          return new Response(JSON.stringify({ success: false, error: e.message || 'Lỗi xử lý' }), { status: 500, headers: CORS });
+        }
+      }
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // ⚖️ KAIZEN EXPERT EVALUATIONS & SCORING ENDPOINT
+    // ════════════════════════════════════════════════════════════════
+    if (url.pathname === "/api/ci-kaizen/expert-evaluations") {
+      const CORS = {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-User-Emp-Code, X-Emp-Code",
+      };
+      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+      await ensureKaizenTables(env);
+
+      if (request.method === "GET") {
+        try {
+          const proposalId = url.searchParams.get('proposalId');
+          if (!proposalId) {
+            return new Response(JSON.stringify({ success: false, error: 'Thiếu proposalId' }), { status: 400, headers: CORS });
+          }
+
+          let userEmp = (request.headers.get('x-user-emp-code') || request.headers.get('x-emp-code') || '').trim().toUpperCase();
+          const authHeader = request.headers.get('authorization') || '';
+          let tokenStr = authHeader.replace('Bearer ', '').trim();
+          let isGuest = false;
+
+          if (tokenStr && tokenStr.startsWith('tbs_token_')) {
+            const parts = tokenStr.split('_');
+            if (parts[2]) userEmp = parts[2].trim().toUpperCase();
+          } else if (tokenStr && tokenStr.includes('.')) {
+            try {
+              const payloadSeg = tokenStr.split('.')[1];
+              if (payloadSeg) {
+                const base64 = payloadSeg.replace(/-/g, '+').replace(/_/g, '/');
+                const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+                const parsed = JSON.parse(jsonPayload);
+                const empCandidate = parsed.empCode || parsed.emp_code || parsed.userEmp || parsed.sub || parsed.username || parsed.id;
+                if (empCandidate) userEmp = String(empCandidate).trim().toUpperCase();
+              }
+            } catch (err) {}
+          }
+
+          if (userEmp.startsWith('BGK') || userEmp.includes('GUEST')) {
+            isGuest = true;
+          }
+
+          const cleanId = String(proposalId || '').replace(/^ci_/i, '').trim();
+          const withCiId = cleanId ? `ci_${cleanId}` : proposalId;
+
+          let proposal = await env.DB.prepare(`
+            SELECT * FROM ci_kaizen_proposals
+            WHERE id = ? OR code = ?
+               OR UPPER(id) = UPPER(?) OR UPPER(code) = UPPER(?)
+               OR id = ? OR code = ?
+               OR UPPER(id) = UPPER(?) OR UPPER(code) = UPPER(?)
+          `).bind(proposalId, proposalId, proposalId, proposalId, cleanId, cleanId, withCiId, withCiId).first().catch(() => null);
+
+          if (!proposal) {
+            proposal = await env.DB.prepare(`
+              SELECT * FROM kaizen_submissions
+              WHERE id = ? OR code = ?
+                 OR UPPER(id) = UPPER(?) OR UPPER(code) = UPPER(?)
+                 OR id = ? OR code = ?
+                 OR UPPER(id) = UPPER(?) OR UPPER(code) = UPPER(?)
+            `).bind(proposalId, proposalId, proposalId, proposalId, cleanId, cleanId, withCiId, withCiId).first().catch(() => null);
+          }
+
+          if (!proposal) {
+            proposal = {
+              id: proposalId,
+              code: proposalId,
+              title: `Sáng kiến (${proposalId})`,
+              category: 'Cải tiến sản xuất',
+              sub_status: 'DANG_DANH_GIA',
+              trang_thai: 'DANG_DANH_GIA'
+            };
+          }
+
+          const { results: scores } = await env.DB.prepare(`
+            SELECT * FROM ci_kaizen_scores
+            WHERE UPPER(submission_id) = UPPER(?) 
+               OR UPPER(submission_id) = UPPER(?) 
+               OR UPPER(submission_id) = (SELECT UPPER(code) FROM ci_kaizen_proposals WHERE id = ?) 
+               OR UPPER(submission_id) = (SELECT UPPER(id) FROM ci_kaizen_proposals WHERE code = ?)
+            ORDER BY created_at DESC
+          `).bind(proposalId, proposal.code || proposalId, proposalId, proposalId).all().catch(() => ({ results: [] }));
+
+          let myScore = null;
+          if (scores && scores.length > 0 && userEmp) {
+            myScore = scores.find(s => {
+              const jId = String(s.judge_id || '').trim().toUpperCase();
+              const rEmp = String(s.real_scorer_emp_code || '').trim().toUpperCase();
+              const reqEmp = userEmp.trim().toUpperCase();
+              return jId === reqEmp || jId === `GUEST_${reqEmp}` || reqEmp === `GUEST_${jId}` || rEmp === reqEmp;
+            }) || null;
+          }
+
+          const sanitizedScores = (scores || []).map(s => {
+            const jId = String(s.judge_id || '').trim().toUpperCase();
+            const rEmp = String(s.real_scorer_emp_code || '').trim().toUpperCase();
+            const reqEmp = userEmp ? userEmp.trim().toUpperCase() : '';
+            const isMine = reqEmp && (jId === reqEmp || jId === `GUEST_${reqEmp}` || reqEmp === `GUEST_${jId}` || rEmp === reqEmp);
+            if (!isMine) {
+              return {
+                id: s.id,
+                judge_id: '***',
+                judge_name: 'Giám Khảo',
+                total_score: s.total_score,
+                is_locked: s.is_locked,
+                created_at: s.created_at,
+              };
+            }
+            return s;
+          });
+
+          let computedAvgScore = null;
+          if (scores && scores.length > 0) {
+            const sum = scores.reduce((acc, s) => acc + Number(s.total_score || 0), 0);
+            computedAvgScore = Math.round((sum / scores.length) * 10) / 10;
+          }
+
+          const catRaw = String(proposal.category || proposal.category_label || proposal.product_group || '').trim();
+          const catUpper = catRaw.toUpperCase();
+          let defaultNhom = 'Nhóm 1';
+          if (catUpper.includes('MATERIAL') || catUpper.includes('COST') || catUpper.includes('VẬT TƯ') || catUpper.includes('CHI PHÍ')) {
+            if (!catUpper.includes('AUTOMATION') && !catUpper.includes('TỰ ĐỘNG')) defaultNhom = 'Nhóm 2';
+          } else if (catUpper.includes('SAFETY') || catUpper.includes('AN TOÀN') || catUpper.includes('5S')) {
+            defaultNhom = 'Nhóm 3';
+          }
+
+          return new Response(JSON.stringify({
+            success: true,
+            canSeeExpertTab: true,
+            readOnly: false,
+            readOnlyReason: '',
+            declarationRequired: false,
+            isGuest,
+            classMapConfig: { nhom_barem: defaultNhom, tu_dong: 1, ghi_chu: `Ánh xạ tự động từ ${catRaw}` },
+            data: {
+              proposal,
+              prereqCheck: null,
+              myScore,
+              scores: sanitizedScores,
+              totalJudgesScored: (scores || []).length,
+              judgeFinalScore: computedAvgScore || proposal.judge_final_score || proposal.score_points || null,
+            },
+          }), { headers: CORS });
+        } catch (e) {
+          return new Response(JSON.stringify({ success: false, error: e.message || 'Lỗi tải thông tin chấm điểm' }), { status: 500, headers: CORS });
+        }
+      }
+
+      if (request.method === "POST") {
+        try {
+          const body = await request.json().catch(() => ({}));
+          const { action = 'SUBMIT_SCORE', proposalId, roundId = 'ROUND_2026' } = body;
+
+          if (!proposalId && action !== 'SUBMIT_DECLARATION') {
+            return new Response(JSON.stringify({ success: false, error: 'Vui lòng cung cấp proposalId' }), { status: 400, headers: CORS });
+          }
+
+          let userEmp = (request.headers.get('x-user-emp-code') || request.headers.get('x-emp-code') || '').trim().toUpperCase();
+          const authHeader = request.headers.get('authorization') || '';
+          let tokenStr = authHeader.replace('Bearer ', '').trim();
+          if (tokenStr && tokenStr.startsWith('tbs_token_')) {
+            const parts = tokenStr.split('_');
+            if (parts[2]) userEmp = parts[2].trim().toUpperCase();
+          } else if (tokenStr && tokenStr.includes('.')) {
+            try {
+              const payloadSeg = tokenStr.split('.')[1];
+              if (payloadSeg) {
+                const base64 = payloadSeg.replace(/-/g, '+').replace(/_/g, '/');
+                const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+                const parsed = JSON.parse(jsonPayload);
+                const empCandidate = parsed.empCode || parsed.emp_code || parsed.userEmp || parsed.sub || parsed.username || parsed.id;
+                if (empCandidate) userEmp = String(empCandidate).trim().toUpperCase();
+              }
+            } catch (err) {}
+          }
+
+          const cleanId = String(proposalId || '').replace(/^ci_/i, '').trim();
+          const withCiId = cleanId ? `ci_${cleanId}` : proposalId;
+
+          let targetProp = await env.DB.prepare(`
+            SELECT id, code, is_disqualified, sub_status, trang_thai FROM ci_kaizen_proposals
+            WHERE id = ? OR code = ?
+               OR UPPER(id) = UPPER(?) OR UPPER(code) = UPPER(?)
+               OR id = ? OR code = ?
+               OR UPPER(id) = UPPER(?) OR UPPER(code) = UPPER(?)
+          `).bind(proposalId, proposalId, proposalId, proposalId, cleanId, cleanId, withCiId, withCiId).first().catch(() => null);
+
+          if (!targetProp) {
+            targetProp = await env.DB.prepare(`
+              SELECT id, code, is_disqualified, sub_status, trang_thai FROM kaizen_submissions
+              WHERE id = ? OR code = ?
+                 OR UPPER(id) = UPPER(?) OR UPPER(code) = UPPER(?)
+                 OR id = ? OR code = ?
+                 OR UPPER(id) = UPPER(?) OR UPPER(code) = UPPER(?)
+            `).bind(proposalId, proposalId, proposalId, proposalId, cleanId, cleanId, withCiId, withCiId).first().catch(() => null);
+          }
+
+          if (!targetProp) {
+            targetProp = { id: proposalId, code: proposalId, is_disqualified: 0, sub_status: 'DANG_DANH_GIA', trang_thai: 'DANG_DANH_GIA' };
+          }
+
+          const canonicalId = targetProp.id || proposalId;
+          const canonicalCode = targetProp.code || canonicalId;
+
+          const {
+            p1Pass = true,
+            p2Pass = true,
+            p3Pass = true,
+            p4Pass = true,
+            prereqNote = '',
+            c1Group = 'GROUP1',
+            c1Score = 0,
+            c2Score = 0,
+            c3Score = 0,
+            c4Score = 0,
+            c5Score = 0,
+            c1Basis = '',
+            c2Basis = '',
+            c3Basis = '',
+            c4Basis = '',
+            c5Basis = '',
+            isVerifiedData = true,
+            realScorerEmpCode = '',
+            realScorerName = '',
+            realScorerOrg = '',
+            realScorerPhone = '',
+            realScorerEmail = '',
+          } = body;
+
+          const effectiveScorerName = (realScorerName || 'BGK Khách Mời').trim();
+          const effectiveScorerEmp = (realScorerEmpCode || userEmp || 'BGK').trim();
+          const effectiveScorerOrg = (realScorerOrg || 'BGK Khách Mời').trim();
+
+          const effectiveJudgeId = userEmp ? userEmp : (effectiveScorerEmp ? `GUEST_${effectiveScorerEmp}` : `GUEST_${Date.now()}`);
+
+          const rawC1 = Number(c1Score) || 0;
+          const rawC2 = Number(c2Score) || 0;
+          const rawC3 = Number(c3Score) || 0;
+          const rawC4 = Number(c4Score) || 0;
+          const rawC5 = Number(c5Score) || 0;
+
+          const maxCaps = { c1: 35, c2: 20, c3: 20, c4: 15, c5: 10 };
+          const capFactor = isVerifiedData ? 1.0 : 0.6;
+
+          const finalC1 = Math.min(rawC1, maxCaps.c1 * capFactor);
+          const finalC2 = Math.min(rawC2, maxCaps.c2 * capFactor);
+          const finalC3 = Math.min(rawC3, maxCaps.c3 * capFactor);
+          const finalC4 = Math.min(rawC4, maxCaps.c4 * capFactor);
+          const finalC5 = Math.min(rawC5, maxCaps.c5 * capFactor);
+
+          const judgeTotalScore = Math.round((finalC1 + finalC2 + finalC3 + finalC4 + finalC5) * 10) / 10;
+          const scoreId = `score_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+
+          // 1. Delete previous score for THIS judge only
+          await env.DB.prepare(`
+            DELETE FROM ci_kaizen_scores
+            WHERE round_id = ? AND (submission_id = ? OR submission_id = ?) AND (judge_id = ? OR UPPER(judge_id) = UPPER(?))
+          `).bind(roundId, canonicalId, canonicalCode, effectiveJudgeId, effectiveJudgeId).run().catch(() => {});
+
+          // 2. Insert new score record for THIS judge
+          await env.DB.prepare(`
+            INSERT INTO ci_kaizen_scores (
+              id, round_id, submission_id, judge_id, judge_name, c1_group,
+              c1_score, c2_score, c3_score, c4_score, c5_score, total_score,
+              c1_basis, c2_basis, c3_basis, c4_basis, c5_basis, is_verified_data, is_locked,
+              nguoi_cham_thuc_ho_ten, real_scorer_emp_code, real_scorer_org, real_scorer_phone, real_scorer_email
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?)
+          `).bind(
+            scoreId,
+            roundId,
+            canonicalCode,
+            effectiveJudgeId,
+            effectiveScorerName,
+            c1Group,
+            finalC1,
+            finalC2,
+            finalC3,
+            finalC4,
+            finalC5,
+            judgeTotalScore,
+            c1Basis,
+            c2Basis,
+            c3Basis,
+            c4Basis,
+            c5Basis,
+            isVerifiedData ? 1 : 0,
+            effectiveScorerName,
+            effectiveScorerEmp,
+            effectiveScorerOrg,
+            realScorerPhone || '',
+            realScorerEmail || ''
+          ).run();
+
+          // Calculate aggregate average score across all judges for proposal table
+          const { results: allScores } = await env.DB.prepare(`
+            SELECT total_score FROM ci_kaizen_scores
+            WHERE UPPER(submission_id) = UPPER(?) OR UPPER(submission_id) = UPPER(?)
+          `).bind(canonicalId, canonicalCode).all().catch(() => ({ results: [] }));
+
+          let avgFinalTotalScore = judgeTotalScore;
+          if (allScores && allScores.length > 0) {
+            const sumTotal = allScores.reduce((acc, s) => acc + Number(s.total_score || 0), 0);
+            avgFinalTotalScore = Math.round((sumTotal / allScores.length) * 10) / 10;
+          }
+
+          await env.DB.prepare(`
+            UPDATE ci_kaizen_proposals
+            SET judge_final_score = ?, score_points = ?, sub_status = 'DA_DANH_GIA', trang_thai = 'DA_DANH_GIA', updated_at = CURRENT_TIMESTAMP
+            WHERE id = ? OR code = ?
+          `).bind(avgFinalTotalScore, avgFinalTotalScore, canonicalId, canonicalCode).run().catch(() => {});
+
+          return new Response(JSON.stringify({
+            success: true,
+            judgeTotalScore,
+            avgFinalTotalScore,
+            message: `Đã nộp điểm chuyên môn thành công! Tổng điểm của bạn: ${judgeTotalScore}đ.`,
+          }), { headers: CORS });
+        } catch (e) {
+          return new Response(JSON.stringify({ success: false, error: e.message || 'Lỗi lưu bảng chấm điểm' }), { status: 500, headers: CORS });
+        }
+      }
+    }
+
+async function ensureKaizenGuestTable(env) {
+  if (!env || !env.DB) return;
+  try {
+    await env.DB.prepare(`
+      CREATE TABLE IF NOT EXISTS ci_kaizen_judge_guest_accounts (
+        id TEXT PRIMARY KEY,
+        username TEXT,
+        one_time_passcode TEXT,
+        full_name TEXT,
+        email_phone TEXT,
+        round_id TEXT,
+        token_hash TEXT,
+        expires_at DATETIME,
+        created_by TEXT,
+        used_at DATETIME,
+        is_revoked INTEGER DEFAULT 0,
+        dung_chung INTEGER DEFAULT 1,
+        declaration_submitted INTEGER DEFAULT 0,
+        no_conflict_declared INTEGER DEFAULT 0,
+        organization TEXT,
+        contact_info TEXT,
+        msnv TEXT,
+        phone TEXT,
+        email TEXT,
+        position_unit TEXT,
+        declaration_date DATETIME,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run().catch(() => {});
+
+    const cols = [
+      'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN username TEXT',
+      'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN one_time_passcode TEXT',
+      'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN full_name TEXT',
+      'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN email_phone TEXT',
+      'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN round_id TEXT',
+      'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN token_hash TEXT',
+      'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN expires_at DATETIME',
+      'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN created_by TEXT',
+      'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN used_at DATETIME',
+      'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN is_revoked INTEGER DEFAULT 0',
+      'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN dung_chung INTEGER DEFAULT 1',
+      'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN declaration_submitted INTEGER DEFAULT 0',
+      'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN no_conflict_declared INTEGER DEFAULT 0',
+      'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN organization TEXT',
+      'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN contact_info TEXT',
+      'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN msnv TEXT',
+      'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN phone TEXT',
+      'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN email TEXT',
+      'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN position_unit TEXT',
+      'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN declaration_date DATETIME',
+      'ALTER TABLE ci_kaizen_judge_guest_accounts ADD COLUMN created_at DATETIME',
+    ];
+    for (const sql of cols) {
+      await env.DB.prepare(sql).run().catch(() => {});
+    }
+  } catch (e) {}
+}
+
+    // ════════════════════════════════════════════════════════════════
+    // 👥 KAIZEN GUEST JUDGE ACCOUNTS & AUTHENTICATION ENDPOINT
+    // ════════════════════════════════════════════════════════════════
+    if (url.pathname === "/api/ci-kaizen/judging/guests") {
+      const CORS = {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      };
+      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+      await ensureKaizenGuestTable(env);
+
+      // GET: Get list of guest accounts OR authenticate via query parameters
+      if (request.method === "GET") {
+        try {
+          const action = url.searchParams.get('action') || url.searchParams.get('mode');
+          const token = url.searchParams.get('token') || url.searchParams.get('magicToken');
+          const bgkUser = url.searchParams.get('bgkUser') || url.searchParams.get('user') || url.searchParams.get('username');
+          const bgkPass = url.searchParams.get('pass') || url.searchParams.get('password') || url.searchParams.get('passcode');
+
+          if (action !== 'LIST' && (token || (bgkUser && bgkPass))) {
+            let guest = null;
+            if (token) {
+              guest = await env.DB.prepare(`
+                SELECT * FROM ci_kaizen_judge_guest_accounts
+                WHERE token_hash = ? AND is_revoked = 0 AND datetime(expires_at) > datetime('now')
+              `).bind(token).first();
+            } else if (bgkUser && bgkPass) {
+              guest = await env.DB.prepare(`
+                SELECT * FROM ci_kaizen_judge_guest_accounts
+                WHERE UPPER(username) = UPPER(?) AND one_time_passcode = ? AND is_revoked = 0 AND datetime(expires_at) > datetime('now')
+              `).bind(bgkUser.trim(), bgkPass.trim()).first();
+            }
+
+            if (!guest) {
+              return new Response(JSON.stringify({
+                success: false,
+                error: 'Tên đăng nhập / Mật khẩu hoặc Token không hợp lệ, hoặc tài khoản đã hết hạn / bị thu hồi',
+              }), { status: 401, headers: CORS });
+            }
+
+            await env.DB.prepare(`
+              UPDATE ci_kaizen_judge_guest_accounts
+              SET used_at = CURRENT_TIMESTAMP
+              WHERE id = ?
+            `).bind(guest.id).run().catch(() => {});
+
+            const tokenEmp = (guest.username || guest.id).trim().toUpperCase();
+            const authToken = `tbs_token_${tokenEmp}_${Date.now()}`;
+
+            const guestUser = {
+              userId: 99000 + Math.floor(Math.random() * 900),
+              empCode: tokenEmp.startsWith('GUEST') ? tokenEmp : `GUEST_${tokenEmp}`,
+              name: `${guest.full_name || guest.username || 'BGK Khách Mời'} (BGK Khách Mời)`,
+              roleId: 5,
+              roleCode: 'JUDGE_GUEST',
+              roleLevel: 3,
+              roles: ['judge', 'judge_guest'],
+              roundId: guest.round_id,
+              isGuest: true,
+              declarationSubmitted: Boolean(guest.declaration_submitted),
+              username: guest.username || '',
+              dungChung: Boolean(guest.dung_chung ?? 1),
+            };
+
+            return new Response(JSON.stringify({
+              success: true,
+              message: 'Xác thực tài khoản BGK khách thành công!',
+              authToken,
+              guestUser,
+              declarationSubmitted: Boolean(guest.declaration_submitted),
+            }), { headers: CORS });
+          }
+
+          let guests = [];
+          try {
+            const res = await env.DB.prepare(`
+              SELECT * FROM ci_kaizen_judge_guest_accounts ORDER BY created_at DESC
+            `).all();
+            guests = res.results || [];
+          } catch (err) {
+            const res = await env.DB.prepare(`
+              SELECT * FROM ci_kaizen_judge_guest_accounts ORDER BY rowid DESC
+            `).all().catch(() => ({ results: [] }));
+            guests = res.results || [];
+          }
+
+          return new Response(JSON.stringify({
+            success: true,
+            guests: guests || [],
+          }), { headers: CORS });
+        } catch (e) {
+          return new Response(JSON.stringify({ success: false, error: e.message || 'Lỗi lấy danh sách BGK khách' }), { status: 500, headers: CORS });
+        }
+      }
+
+      // POST: Guest direct login OR Admin creation (single or batch)
+      if (request.method === "POST") {
+        try {
+          const body = await request.json().catch(() => ({}));
+          await ensureKaizenGuestTable(env);
+
+          // 1. Guest direct login attempt
+          if (body.action === 'LOGIN') {
+            const username = String(body.username || '').trim();
+            const passcode = String(body.passcode || '').trim();
+
+            if (!username || !passcode) {
+              return new Response(JSON.stringify({
+                success: false,
+                error: 'Vui lòng nhập Tên đăng nhập và Mật khẩu!',
+              }), { status: 400, headers: CORS });
+            }
+
+            const guest = await env.DB.prepare(`
+              SELECT * FROM ci_kaizen_judge_guest_accounts
+              WHERE UPPER(username) = UPPER(?) AND one_time_passcode = ? AND is_revoked = 0
+            `).bind(username, passcode).first().catch(() => null);
+
+            if (!guest) {
+              return new Response(JSON.stringify({
+                success: false,
+                error: 'Tên đăng nhập (User) hoặc Mật khẩu không chính xác, hoặc đã bị thu hồi!',
+              }), { status: 401, headers: CORS });
+            }
+
+            let isExpired = false;
+            if (guest.expires_at) {
+              const expTime = new Date(String(guest.expires_at).replace(' ', 'T')).getTime();
+              if (!isNaN(expTime) && expTime < Date.now()) {
+                isExpired = true;
+              }
+            }
+
+            if (isExpired) {
+              return new Response(JSON.stringify({
+                success: false,
+                error: '❌ Tài khoản BGK Khách Mời đã hết hạn. Vui lòng liên hệ Admin để cấp lại!',
+              }), { status: 401, headers: CORS });
+            }
+
+            await env.DB.prepare(`
+              UPDATE ci_kaizen_judge_guest_accounts
+              SET used_at = CURRENT_TIMESTAMP
+              WHERE id = ?
+            `).bind(guest.id).run().catch(() => {});
+
+            const tokenEmp = String(guest.username || guest.id).trim().toUpperCase();
+            const authToken = `tbs_token_${tokenEmp}_${Date.now()}`;
+
+            const guestUser = {
+              userId: 99000 + Math.floor(Math.random() * 900),
+              empCode: tokenEmp.startsWith('GUEST') ? tokenEmp : `GUEST_${tokenEmp}`,
+              name: `${guest.full_name || guest.username || 'BGK Khách Mời'} (BGK Khách Mời)`,
+              roleId: 5,
+              roleCode: 'JUDGE_GUEST',
+              roleLevel: 3,
+              roles: ['judge', 'judge_guest'],
+              roundId: guest.round_id || 'ROUND_2026',
+              isGuest: true,
+              declarationSubmitted: Boolean(guest.declaration_submitted),
+              username: guest.username || '',
+              dungChung: Boolean(guest.dung_chung ?? 1),
+              redirectUrl: '/work/kaizen/van-phong-chuoi',
+            };
+
+            return new Response(JSON.stringify({
+              success: true,
+              message: 'Đăng nhập BGK Khách Mời thành công!',
+              authToken,
+              guestUser,
+              declarationSubmitted: Boolean(guest.declaration_submitted),
+              redirectUrl: '/work/kaizen/van-phong-chuoi',
+            }), { headers: CORS });
+          }
+
+          // 1.5. Admin updating existing guest account: Username & Passcode
+          if (body.action === 'UPDATE' || body.action === 'EDIT') {
+            const guestId = body.guestId || body.id;
+            const newUsername = String(body.username || '').trim();
+            const newPasscode = String(body.passcode || body.password || body.oneTimePasscode || '').trim();
+            const newFullName = String(body.fullName || body.full_name || '').trim();
+
+            if (!guestId || !newUsername || !newPasscode) {
+              return new Response(JSON.stringify({
+                success: false,
+                error: 'Vui lòng cung cấp đầy đủ guestId, Username và Passcode!',
+              }), { status: 400, headers: CORS });
+            }
+
+            const existingWithSameUser = await env.DB.prepare(`
+              SELECT id FROM ci_kaizen_judge_guest_accounts
+              WHERE UPPER(username) = UPPER(?) AND id != ?
+            `).bind(newUsername, guestId).first().catch(() => null);
+
+            if (existingWithSameUser) {
+              return new Response(JSON.stringify({
+                success: false,
+                error: `Username '${newUsername}' đã tồn tại ở tài khoản khác. Vui lòng chọn Username khác!`,
+              }), { status: 400, headers: CORS });
+            }
+
+            await env.DB.prepare(`
+              UPDATE ci_kaizen_judge_guest_accounts
+              SET username = ?,
+                  one_time_passcode = ?,
+                  full_name = CASE WHEN ? != '' THEN ? ELSE full_name END,
+                  is_revoked = 0
+              WHERE id = ?
+            `).bind(newUsername, newPasscode, newFullName, newFullName, guestId).run().catch(() => {});
+
+            return new Response(JSON.stringify({
+              success: true,
+              message: `✅ Cập nhật tài khoản BGK '${newUsername}' thành công!`,
+              guestId,
+              username: newUsername,
+              oneTimePasscode: newPasscode,
+              fullName: newFullName,
+            }), { headers: CORS });
+          }
+
+          // 2. Admin creating guest account (Single or Batch or Quick Generate)
+          const defaultRoundId = body.roundId || 'ROUND_2026';
+          const validDaysInput = Number(body.validDays) || 7;
+          const expiresDays = Math.max(1, Math.min(30, validDaysInput));
+          const expiresIso = new Date(Date.now() + expiresDays * 86400000).toISOString();
+          const defaultDungChung = body.dungChung !== undefined ? (body.dungChung ? 1 : 0) : 1;
+
+          if (body.action === 'BATCH_CREATE' || Array.isArray(body.guests) || Array.isArray(body.guestsList)) {
+            const guestsInput = Array.isArray(body.guests) ? body.guests : (body.guestsList || []);
+            if (!guestsInput || guestsInput.length === 0) {
+              return new Response(JSON.stringify({ success: false, error: 'Danh sách giám khảo rỗng' }), { status: 400, headers: CORS });
+            }
+
+            let nextIndex = 1;
+            try {
+              const { results: allBgk } = await env.DB.prepare(`
+                SELECT username FROM ci_kaizen_judge_guest_accounts WHERE username LIKE 'BGK%'
+              `).all().catch(() => ({ results: [] }));
+              if (allBgk && allBgk.length > 0) {
+                let maxIdx = 0;
+                for (const row of allBgk) {
+                  const m = String(row.username || '').match(/BGK-?(\d+)/i);
+                  if (m && m[1]) {
+                    const idx = parseInt(m[1], 10);
+                    if (idx > maxIdx) maxIdx = idx;
+                  }
+                }
+                nextIndex = maxIdx + 1;
+              }
+            } catch (e) {}
+
+            const createdGuests = [];
+
+            for (let i = 0; i < guestsInput.length; i++) {
+              const item = guestsInput[i];
+              const autoUser = `BGK${String(nextIndex + i).padStart(3, '0')}`;
+              const bgkUsername = (item.username && String(item.username).trim()) ? String(item.username).trim() : autoUser;
+              const bgkPasscode = (item.passcode && String(item.passcode).trim()) ? String(item.passcode).trim() : ((item.password && String(item.password).trim()) ? String(item.password).trim() : Math.floor(100000 + Math.random() * 900000).toString());
+
+              const nameToSave = (item.fullName && String(item.fullName).trim()) ? String(item.fullName).trim() : ((item.name && String(item.name).trim()) ? String(item.name).trim() : `BGK Khách Mời (${bgkUsername})`);
+              const contactToSave = (item.emailPhone && String(item.emailPhone).trim()) ? String(item.emailPhone).trim() : ((item.contact && String(item.contact).trim()) ? String(item.contact).trim() : '');
+              const roundToSave = item.roundId || defaultRoundId;
+              const isShared = item.dungChung !== undefined ? (item.dungChung ? 1 : 0) : defaultDungChung;
+
+              const guestId = `guest_${Date.now()}_${i}_${Math.random().toString(36).substring(2, 6)}`;
+              const tokenRaw = `magic_${Date.now()}_${i}_${Math.random().toString(36).substring(2, 12)}`;
+
+              await env.DB.prepare(`
+                INSERT INTO ci_kaizen_judge_guest_accounts (
+                  id, username, one_time_passcode, full_name, email_phone, round_id, token_hash, expires_at, created_by, dung_chung
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'ADMIN', ?)
+              `).bind(
+                guestId,
+                bgkUsername,
+                bgkPasscode,
+                nameToSave,
+                contactToSave,
+                roundToSave,
+                tokenRaw,
+                expiresIso,
+                isShared
+              ).run().catch(async () => {
+                await env.DB.prepare(`
+                  UPDATE ci_kaizen_judge_guest_accounts
+                  SET one_time_passcode = ?, expires_at = ?, is_revoked = 0, dung_chung = ?
+                  WHERE UPPER(username) = UPPER(?)
+                `).bind(bgkPasscode, expiresIso, isShared, bgkUsername).run().catch(() => {});
+              });
+
+              createdGuests.push({
+                guestId,
+                fullName: nameToSave,
+                emailPhone: contactToSave,
+                roundId: roundToSave,
+                username: bgkUsername,
+                oneTimePasscode: bgkPasscode,
+                dungChung: isShared,
+                validHours: expiresDays * 24,
+              });
+            }
+
+            return new Response(JSON.stringify({
+              success: true,
+              message: `Đã tạo thành công ${createdGuests.length} tài khoản BGK khách mời!`,
+              count: createdGuests.length,
+              createdGuests,
+            }), { headers: CORS });
+          }
+
+          // Single creation mode / 1-Click Quick Generation
+          const { fullName, emailPhone, roundId, dungChung = 1, username: customUser, passcode: customPass } = body;
+
+          let bgkUsername = (customUser && String(customUser).trim()) ? String(customUser).trim() : '';
+          if (!bgkUsername) {
+            let nextIndex = 1;
+            try {
+              const { results: allBgk } = await env.DB.prepare(`
+                SELECT username FROM ci_kaizen_judge_guest_accounts WHERE username LIKE 'BGK%'
+              `).all().catch(() => ({ results: [] }));
+              if (allBgk && allBgk.length > 0) {
+                let maxIdx = 0;
+                for (const row of allBgk) {
+                  const m = String(row.username || '').match(/BGK-?(\d+)/i);
+                  if (m && m[1]) {
+                    const idx = parseInt(m[1], 10);
+                    if (idx > maxIdx) maxIdx = idx;
+                  }
+                }
+                nextIndex = maxIdx + 1;
+              }
+            } catch (e) {}
+            bgkUsername = `BGK${String(nextIndex).padStart(3, '0')}`;
+          }
+
+          const bgkPasscode = (customPass && String(customPass).trim())
+            ? String(customPass).trim()
+            : Math.floor(100000 + Math.random() * 900000).toString();
+
+          const nameToSave = (fullName && String(fullName).trim())
+            ? String(fullName).trim()
+            : `BGK Khách Mời (${bgkUsername})`;
+          const roundToSave = roundId || defaultRoundId;
+          const isShared = dungChung ? 1 : 0;
+
+          // Check if username already exists in DB -> UPSERT instead of failing
+          const existing = await env.DB.prepare(`
+            SELECT id FROM ci_kaizen_judge_guest_accounts WHERE UPPER(username) = UPPER(?)
+          `).bind(bgkUsername).first().catch(() => null);
+
+          if (existing) {
+            await env.DB.prepare(`
+              UPDATE ci_kaizen_judge_guest_accounts
+              SET one_time_passcode = ?,
+                  expires_at = ?,
+                  is_revoked = 0,
+                  dung_chung = ?,
+                  full_name = CASE WHEN ? != '' THEN ? ELSE full_name END
+              WHERE id = ?
+            `).bind(bgkPasscode, expiresIso, isShared, nameToSave, nameToSave, existing.id).run().catch(() => {});
+
+            return new Response(JSON.stringify({
+              success: true,
+              message: `✅ Đã cập nhật Mật khẩu mới cho tài khoản BGK '${bgkUsername}'! Pass: ${bgkPasscode}`,
+              guestId: existing.id,
+              username: bgkUsername,
+              oneTimePasscode: bgkPasscode,
+              validHours: expiresDays * 24,
+            }), { headers: CORS });
+          }
+
+          const guestId = `guest_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+          const tokenRaw = `magic_${Date.now()}_${Math.random().toString(36).substring(2, 12)}`;
+
+          await env.DB.prepare(`
+            INSERT INTO ci_kaizen_judge_guest_accounts (
+              id, username, one_time_passcode, full_name, email_phone, round_id, token_hash, expires_at, created_by, dung_chung
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'ADMIN', ?)
+          `).bind(
+            guestId,
+            bgkUsername,
+            bgkPasscode,
+            nameToSave,
+            emailPhone || '',
+            roundToSave,
+            tokenRaw,
+            expiresIso,
+            isShared
+          ).run().catch(async () => {
+            await env.DB.prepare(`
+              UPDATE ci_kaizen_judge_guest_accounts
+              SET one_time_passcode = ?, expires_at = ?, is_revoked = 0, dung_chung = ?
+              WHERE UPPER(username) = UPPER(?)
+            `).bind(bgkPasscode, expiresIso, isShared, bgkUsername).run().catch(() => {});
+          });
+
+          return new Response(JSON.stringify({
+            success: true,
+            message: `✅ Tạo tài khoản BGK Khách Mời thành công! Username: ${bgkUsername} | Pass: ${bgkPasscode}`,
+            guestId,
+            username: bgkUsername,
+            oneTimePasscode: bgkPasscode,
+            validHours: expiresDays * 24,
+          }), { headers: CORS });
+        } catch (e) {
+          return new Response(JSON.stringify({ success: false, error: e.message || 'Lỗi tạo tài khoản BGK khách' }), { status: 500, headers: CORS });
+        }
+      }
+
+      // DELETE: Revoke or Hard Delete guest account
+      if (request.method === "DELETE") {
+        try {
+          const guestId = url.searchParams.get('id');
+          const isHard = url.searchParams.get('hard') === 'true' || url.searchParams.get('mode') === 'delete';
+          if (!guestId) {
+            return new Response(JSON.stringify({ success: false, error: 'Thiếu guestId' }), { status: 400, headers: CORS });
+          }
+
+          if (isHard) {
+            await env.DB.prepare(`
+              DELETE FROM ci_kaizen_judge_guest_accounts
+              WHERE id = ? OR username = ?
+            `).bind(guestId, guestId).run().catch(() => {});
+
+            return new Response(JSON.stringify({
+              success: true,
+              message: 'Đã xóa vĩnh viễn tài khoản BGK khỏi hệ thống!',
+            }), { headers: CORS });
+          }
+
+          await env.DB.prepare(`
+            UPDATE ci_kaizen_judge_guest_accounts
+            SET is_revoked = 1
+            WHERE id = ?
+          `).bind(guestId).run().catch(() => {});
+
+          return new Response(JSON.stringify({
+            success: true,
+            message: 'Đã thu hồi tài khoản BGK khách mời!',
+          }), { headers: CORS });
+        } catch (e) {
+          return new Response(JSON.stringify({ success: false, error: e.message || 'Lỗi xử lý tài khoản BGK' }), { status: 500, headers: CORS });
+        }
       }
     }
 

@@ -70,16 +70,15 @@ const DASHBOARD_CATEGORIES = [
 
 export const KAIZEN_AWARD_STRUCTURE = [
   { maxRank: 1, amountVnd: 1000000, valueTr: 1.0, title: "Giải Nhất" },
-  { maxRank: 3, amountVnd: 500000, valueTr: 0.5, title: "Giải Nhì" },
-  { maxRank: 8, amountVnd: 300000, valueTr: 0.3, title: "Giải Ba" },
-  { maxRank: 18, amountVnd: 200000, valueTr: 0.2, title: "Giải Tư" },
-  { maxRank: 38, amountVnd: 100000, valueTr: 0.1, title: "Giải Khuyến Khích" },
+  { maxRank: 2, amountVnd: 500000, valueTr: 0.5, title: "Giải Nhì" },
+  { maxRank: 3, amountVnd: 300000, valueTr: 0.3, title: "Giải Ba" },
+  { maxRank: 999999, amountVnd: 100000, valueTr: 0.1, title: "Ý tưởng" },
 ];
 
 export function getAwardValueTrByRank(rank: number): number {
   if (rank <= 0) return 0;
   const award = KAIZEN_AWARD_STRUCTURE.find((item) => rank <= item.maxRank);
-  return award ? award.valueTr : 0;
+  return award ? award.valueTr : 0.1;
 }
 
 const formatMillion = (val: number): string => {
@@ -536,59 +535,46 @@ export default function KaizenDashboard({ proposals, targetRegion, onBackToLibra
         const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
         const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
         return dateB - dateA;
-      })
-      .slice(0, 38);
+      });
 
     return sorted.map((item, index) => {
-      let rank = 1;
-      let rankTitle = "Hạng Nhất";
-      let prizeValueTr = 1.0;
-      let badgeLabel = "🏆 Hạng 1";
-      let badgeStyle = "bg-amber-100 text-amber-900 border-amber-300 font-black";
+      let rank = index + 1;
+      let rankTitle = "Ý tưởng";
+      let prizeValueTr = 0.1;
+      let badgeLabel = "💡 Ý tưởng";
+      let badgeStyle = "bg-emerald-50 text-emerald-900 border-emerald-200 font-extrabold";
 
       if (index === 0) {
         rank = 1;
-        rankTitle = "Hạng Nhất";
+        rankTitle = "Giải Nhất";
         prizeValueTr = 1.0;
-        badgeLabel = "🏆 Hạng 1";
+        badgeLabel = "🏆 Giải Nhất";
         badgeStyle = "bg-amber-100 text-amber-900 border-amber-300 font-black";
-      } else if (index >= 1 && index <= 2) {
+      } else if (index === 1) {
         rank = 2;
-        rankTitle = "Hạng Nhì";
+        rankTitle = "Giải Nhì";
         prizeValueTr = 0.5;
-        badgeLabel = "🥈 Hạng 2";
+        badgeLabel = "🥈 Giải Nhì";
         badgeStyle = "bg-slate-100 text-slate-800 border-slate-300 font-black";
-      } else if (index >= 3 && index <= 7) {
+      } else if (index === 2) {
         rank = 3;
-        rankTitle = "Hạng Ba";
+        rankTitle = "Giải Ba";
         prizeValueTr = 0.3;
-        badgeLabel = "🥉 Hạng 3";
+        badgeLabel = "🥉 Giải Ba";
         badgeStyle = "bg-amber-900/10 text-amber-900 border-amber-800/30 font-black";
-      } else if (index >= 8 && index <= 17) {
-        rank = 4;
-        rankTitle = "Hạng 4";
-        prizeValueTr = 0.2;
-        badgeLabel = "🎖️ Hạng 4";
-        badgeStyle = "bg-blue-50 text-blue-900 border-blue-200 font-black";
-      } else if (index >= 18 && index <= 37) {
-        rank = 5;
-        rankTitle = "Hạng 5";
-        prizeValueTr = 0.1;
-        badgeLabel = "🎗️ Hạng 5";
-        badgeStyle = "bg-emerald-50 text-emerald-900 border-emerald-200 font-black";
       } else {
         rank = index + 1;
-        rankTitle = `Hạng ${index + 1}`;
-        prizeValueTr = 0;
-        badgeLabel = `#${index + 1}`;
-        badgeStyle = "bg-slate-100 text-slate-600 border-slate-200 font-bold";
+        rankTitle = "Ý tưởng";
+        prizeValueTr = 0.1;
+        badgeLabel = "💡 Ý tưởng";
+        badgeStyle = "bg-emerald-50 text-emerald-900 border-emerald-200 font-extrabold";
       }
 
       const curVal = getProposalValue(item);
       const curScore = Number(item?.score_points || (item as any)?.scorePoints || 0);
 
       let isTied = false;
-      if (rank !== 1) {
+      if (rank <= 3 && rank !== 1) {
         if (index > 0) {
           const prevItem = sorted[index - 1];
           if (getProposalValue(prevItem) === curVal && Number(prevItem.score_points || 0) === curScore) {
@@ -1236,10 +1222,10 @@ export default function KaizenDashboard({ proposals, targetRegion, onBackToLibra
                 </div>
                 <div>
                   <h2 className="text-base sm:text-lg font-black tracking-tight flex items-center gap-2">
-                    🏆 BẢNG XẾP HẠNG THI ĐUA KHEN THƯỞNG KAIZEN {selectedMonth !== "ALL" ? `(THÁNG ${selectedMonth.replace("T", "")})` : "(38 GIẢI)"}
+                    🏆 BẢNG XẾP HẠNG THI ĐUA KHEN THƯỞNG KAIZEN {selectedMonth !== "ALL" ? `(THÁNG ${selectedMonth.replace("T", "")})` : ""}
                   </h2>
                   <p className="text-xs text-slate-300 font-medium mt-0.5">
-                    1 Hạng Nhất &bull; 2 Hạng Nhì &bull; 5 Hạng Ba &bull; 10 Hạng 4 &bull; 20 Hạng 5
+                    1 Giải Nhất &bull; 1 Giải Nhì &bull; 1 Giải Ba &bull; Ý tưởng (100k/ý tưởng)
                   </p>
                 </div>
               </div>
@@ -1259,7 +1245,7 @@ export default function KaizenDashboard({ proposals, targetRegion, onBackToLibra
                 <div className="flex items-center gap-2">
                   <span className="text-base">💡</span>
                   <span>
-                    <strong>Cơ cấu Giải Khen Thưởng:</strong> 1 Hạng Nhất (1,0 Tr), 2 Hạng Nhì (0,5 Tr), 5 Hạng Ba (0,3 Tr), 10 Hạng 4 (0,2 Tr), 20 Hạng 5 (0,1 Tr).
+                    <strong>Cơ cấu Giải Khen Thưởng:</strong> 1 Giải Nhất (1,0 Tr), 1 Giải Nhì (0,5 Tr), 1 Giải Ba (0,3 Tr), Các Ý tưởng còn lại (100k/ý tưởng).
                   </span>
                 </div>
 
@@ -1353,7 +1339,7 @@ export default function KaizenDashboard({ proposals, targetRegion, onBackToLibra
 
             <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
               <span className="text-xs text-slate-500 font-bold">
-                Hiển thị {ranked11Proposals.length} / 38 sáng kiến khen thưởng thi đua
+                Hiển thị {ranked11Proposals.length} sáng kiến khen thưởng thi đua
               </span>
               <button
                 type="button"

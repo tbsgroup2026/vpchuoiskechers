@@ -196,20 +196,20 @@ export default function KaizenLeaderboard({
                     {/* Rank Badge */}
                     <td className="py-3.5 px-4 text-center">
                       {rank === 1 ? (
-                        <span className="w-8 h-8 rounded-full bg-amber-100 text-amber-600 font-black text-sm flex items-center justify-center mx-auto border border-amber-300 shadow-2xs">
+                        <span className="w-8 h-8 rounded-full bg-amber-100 text-amber-600 font-black text-sm flex items-center justify-center mx-auto border border-amber-300 shadow-2xs" title="Giải Nhất">
                           🏆 1
                         </span>
                       ) : rank === 2 ? (
-                        <span className="w-8 h-8 rounded-full bg-slate-200 text-slate-700 font-black text-sm flex items-center justify-center mx-auto border border-slate-300 shadow-2xs">
+                        <span className="w-8 h-8 rounded-full bg-slate-200 text-slate-700 font-black text-sm flex items-center justify-center mx-auto border border-slate-300 shadow-2xs" title="Giải Nhì">
                           🥈 2
                         </span>
                       ) : rank === 3 ? (
-                        <span className="w-8 h-8 rounded-full bg-amber-900/10 text-amber-800 font-black text-sm flex items-center justify-center mx-auto border border-amber-800/30 shadow-2xs">
+                        <span className="w-8 h-8 rounded-full bg-amber-900/10 text-amber-800 font-black text-sm flex items-center justify-center mx-auto border border-amber-800/30 shadow-2xs" title="Giải Ba">
                           🥉 3
                         </span>
                       ) : (
-                        <span className="font-extrabold text-slate-600 text-xs">
-                          #{rank}
+                        <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 font-extrabold text-[11px] border border-emerald-200 shadow-2xs">
+                          💡 Ý tưởng
                         </span>
                       )}
                     </td>

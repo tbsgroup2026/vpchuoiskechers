@@ -288,6 +288,68 @@ export async function POST(request: Request) {
 
     const cleanEmpCode = (empCode || role || '').trim();
 
+    // Check if logging in with a Guest Judge account (BGK001, BGK01, BGK-001, etc.)
+    const db = getDbBinding();
+    if (db && cleanEmpCode.toUpperCase().startsWith('BGK')) {
+      const guest = await db.prepare(`
+        SELECT * FROM ci_kaizen_judge_guest_accounts
+        WHERE UPPER(username) = UPPER(?) AND one_time_passcode = ? AND is_revoked = 0
+      `).bind(cleanEmpCode, (password || '').trim()).first().catch(() => null);
+
+      if (guest) {
+        // Expiration check
+        let isExpired = false;
+        if (guest.expires_at) {
+          const expTime = new Date(String(guest.expires_at).replace(' ', 'T')).getTime();
+          if (!isNaN(expTime) && expTime < Date.now()) {
+            isExpired = true;
+          }
+        }
+
+        if (isExpired) {
+          return NextResponse.json({
+            error: '❌ Tài khoản BGK Khách Mời đã hết hạn. Vui lòng liên hệ Admin để cấp lại!',
+          }, { status: 401 });
+        }
+
+        // Mark token used timestamp
+        await db.prepare(`
+          UPDATE ci_kaizen_judge_guest_accounts
+          SET used_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+        `).bind(guest.id).run().catch(() => {});
+
+        const payload = {
+          userId: 99000 + Math.floor(Math.random() * 900),
+          empCode: `GUEST_${guest.id}`,
+          name: `${guest.full_name || guest.username || 'BGK Khách Mời'} (BGK Khách Mời)`,
+          roleId: 5,
+          roleCode: 'JUDGE_GUEST',
+          roleLevel: 3,
+          roles: ['judge', 'judge_guest'],
+          roundId: guest.round_id || 'ROUND_2026',
+          isGuest: true,
+          declarationSubmitted: Boolean(guest.declaration_submitted),
+          username: guest.username || '',
+          dungChung: Boolean(guest.dung_chung ?? 1),
+          redirectUrl: '/work/kaizen/van-phong-chuoi',
+        };
+
+        const token = await signToken(payload);
+
+        return NextResponse.json({
+          success: true,
+          token,
+          user: payload,
+          redirectUrl: '/work/kaizen/van-phong-chuoi',
+        });
+      } else {
+        return NextResponse.json({
+          error: 'Tên đăng nhập BGK hoặc Mật khẩu không chính xác, hoặc tài khoản đã bị thu hồi / hết hạn!',
+        }, { status: 401 });
+      }
+    }
+
     // Map role alias if role code provided instead of MSNV
     const ROLE_ALIAS_MAP: Record<string, string> = {
       ceo: '202608001',

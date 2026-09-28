@@ -177,7 +177,7 @@ export function matchRegionFilter(propRegionOrObj: any, filterRegion: string): b
   const filterClean = filterRegion.replace(/\+/g, " ").trim();
   const filterUpper = filterClean.toUpperCase();
 
-  if (filterUpper === "THKG" || filterUpper.includes("TỔ HỢP KIÊN GIANG")) {
+  if (filterUpper === "THKG" || filterUpper.includes("TỔ HỢP KIÊN GIANG") || filterUpper.includes("TỔ HỢP MIỀN NAM") || filterUpper.includes("TO HOP MIEN NAM")) {
     return isTHKGRegion(norm);
   }
 

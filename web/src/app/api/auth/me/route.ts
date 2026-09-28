@@ -23,8 +23,31 @@ export async function GET(request: Request) {
     }
 
     const empCode = verified.empCode;
-    const user = SYSTEM_USERS[empCode];
+    let user = SYSTEM_USERS[empCode];
     if (!user) {
+      if (verified.isGuest || verified.roleCode === 'JUDGE_GUEST' || empCode?.startsWith('GUEST_')) {
+        return NextResponse.json({
+          success: true,
+          user: {
+            userId: verified.userId || 99999,
+            empCode: verified.empCode,
+            name: verified.name || 'BGK Khách Mời',
+            title: 'BGK Khách Mời chấm thi',
+            department: 'Hội Đồng BGK',
+            departmentCode: 'BGK_GUEST',
+            roleCode: verified.roleCode || 'JUDGE_GUEST',
+            roles: verified.roles || ['judge_guest'],
+            roleLevel: 3,
+            managementLevel: 3,
+            isGuest: true,
+            username: verified.username || '',
+            redirectUrl: '/work/kaizen/van-phong-chuoi',
+            allowedScopes: ['GUEST'],
+          },
+          permissions: {},
+          allowedModules: ['kaizen'],
+        });
+      }
       return NextResponse.json(
         { success: false, error: 'Unauthorized: User profile not found' },
         { status: 401 }

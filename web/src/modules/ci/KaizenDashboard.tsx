@@ -520,14 +520,26 @@ export default function KaizenDashboard({ proposals, targetRegion, onBackToLibra
 
     const sorted = [...thiDuaList]
       .sort((a, b) => {
+        // 1. Primary: Sort by BGK (Judge) score DESC
+        const scoreA = Number(a.judge_final_score || a.score_points || a.diem_tong_hop || (a as any).scorePoints || 0);
+        const scoreB = Number(b.judge_final_score || b.score_points || b.diem_tong_hop || (b as any).scorePoints || 0);
+        if (scoreB !== scoreA) return scoreB - scoreA;
+
+        // 2. Secondary: Criteria C1 (Hiệu quả) and C3 (Tính sáng tạo)
+        const c1A = Number((a as any).c1_score_final || 0);
+        const c1B = Number((b as any).c1_score_final || 0);
+        if (c1B !== c1A) return c1B - c1A;
+
+        const c3A = Number((a as any).c3_score_final || 0);
+        const c3B = Number((b as any).c3_score_final || 0);
+        if (c3B !== c3A) return c3B - c3A;
+
+        // 3. Tertiary: Savings value tie-breaker
         const valA = getProposalValue(a);
         const valB = getProposalValue(b);
         if (valB !== valA) return valB - valA;
 
-        const scoreA = Number(a.score_points || (a as any).scorePoints || 0);
-        const scoreB = Number(b.score_points || (b as any).scorePoints || 0);
-        if (scoreB !== scoreA) return scoreB - scoreA;
-
+        // 4. Quaternary: Vote count tie-breaker
         const voteA = Number(a.vote_count || 0);
         const voteB = Number(b.vote_count || 0);
         if (voteB !== voteA) return voteB - voteA;
@@ -1356,6 +1368,7 @@ export default function KaizenDashboard({ proposals, targetRegion, onBackToLibra
       <KaizenLeaderboard
         proposals={filteredProposals}
         onSelectProposal={onSelectProposal}
+        selectedRegion={targetRegion}
       />
 
       <button

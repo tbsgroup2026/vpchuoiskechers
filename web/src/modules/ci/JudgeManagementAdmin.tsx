@@ -1,5 +1,7 @@
 "use client";
 
+import { getCurrentUser } from "@/lib/userProfiles";
+
 import React, { useState, useEffect, useMemo } from "react";
 import {
   IconAward,

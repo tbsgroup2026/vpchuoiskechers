@@ -52,6 +52,8 @@ export function formatCloudinaryUrl(url: string | undefined | null, versionTag?:
   return `${trimmed}${separator}v=${tag}`;
 }
 
+import { compressImage } from "./imageCompressor";
+
 /**
  * Upload a file directly to Cloudinary with unique public_id and folder isolation for SKECHERS
  */
@@ -61,17 +63,29 @@ export async function uploadCloudinaryFile(
 ): Promise<{ secure_url: string; public_id: string; folder: string }> {
   const { category = "general", fileType = "image" } = options;
 
+  let uploadPayload: File | string = file;
+
+  // Auto-compress large image files on client before upload
+  if (typeof file !== "string" && file.type && file.type.startsWith("image/")) {
+    try {
+      const compressed = await compressImage(file, { maxWidth: 1600, maxHeight: 1600, quality: 0.8 });
+      uploadPayload = compressed.file;
+    } catch (err) {
+      console.warn("Client compression fallback, uploading original:", err);
+    }
+  }
+
   const siteInfo = getSiteFolder();
   const targetFolder = options.folder || siteInfo.folder;
 
-  const fileName = typeof file === "string" ? "dataurl" : file.name;
+  const fileName = typeof uploadPayload === "string" ? "dataurl" : uploadPayload.name;
   const uniquePublicId = generateUniquePublicId(category, fileName, siteInfo.prefix);
 
   const endpoint = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/${fileType === "video" ? "video" : "image"}/upload`;
 
   // Attempt 1: With folder & custom public_id
   const formData = new FormData();
-  formData.append("file", file);
+  formData.append("file", uploadPayload);
   formData.append("upload_preset", CLOUDINARY_PRESET);
   formData.append("folder", targetFolder);
   formData.append("public_id", uniquePublicId);

@@ -41,6 +41,8 @@ import { usePermission } from "@/hooks/usePermission";
 import { PERMISSIONS } from "@/lib/permissions";
 import { getCurrentUser, getUserDisplayBadgeTitle } from "@/lib/userProfiles";
 import { broadcastNotification } from "@/lib/browserNotifications";
+import AuthReLoginModal from "@/components/AuthReLoginModal";
+import { useAutoSave } from "@/lib/autoSaveManager";
 
 export interface TripAttachment {
   id: string;
@@ -242,6 +244,83 @@ export default function BusinessTripRegistrationPage() {
       location: locations[0] || ""
     }));
   }, []);
+
+  // Auth Re-login Modal State for non-destructive form saving
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
+  // Fleet availability state
+  const [fleetInfo, setFleetInfo] = useState<{ total: number; available: number; booked: number } | null>(null);
+
+  // Auto-Save Draft for Business Trip Registration Form
+  const { draft: savedDraft, clearDraft, hasDraft } = useAutoSave("tbs_business_trip_form_draft", {
+    proposalForm,
+    participants,
+  });
+
+  const handleRestoreDraft = () => {
+    if (savedDraft?.proposalForm) {
+      setProposalForm(savedDraft.proposalForm);
+    }
+    if (savedDraft?.participants) {
+      setParticipants(savedDraft.participants);
+    }
+    showToast("✅ Đã khôi phục bản nháp form công tác thành công!");
+  };
+
+  // Fetch Fleet Availability when transport is "Xe công ty" or dates change
+  useEffect(() => {
+    if (proposalForm.transport === "Xe công ty") {
+      fetch(`/api/business-trips/fleet-availability?startDate=${proposalForm.startDate}&endDate=${proposalForm.endDate}`)
+        .then((res) => res.json())
+        .then((json) => {
+          if (json.success && json.fleet) {
+            setFleetInfo(json.fleet);
+          }
+        })
+        .catch(() => {});
+    } else {
+      setFleetInfo(null);
+    }
+  }, [proposalForm.transport, proposalForm.startDate, proposalForm.endDate]);
+
+  // Recall pending business trip
+  const handleRecallTrip = async (id: string) => {
+    const reason = prompt("Nhập lý do rút lại đề xuất công tác:");
+    if (reason === null) return;
+    const target = records.find((r) => r.id === id);
+    if (!target) return;
+
+    try {
+      setIsLoading(true);
+      const res = await fetch("/api/business-trips", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id,
+          actionLevel: "RECALL",
+          version: target.version || 1,
+          recallReason: reason || "Người tạo chủ động rút lại đơn",
+        }),
+      });
+
+      const data = await res.json();
+      if (res.status === 401) {
+        setShowAuthModal(true);
+        return;
+      }
+      if (!res.ok || !data.success) {
+        showToast(`❌ ${data.message || data.error || "Không thể rút lại đơn"}`);
+        return;
+      }
+
+      showToast("✅ Đã rút lại đề xuất công tác thành công!");
+      await fetchD1Records();
+    } catch (err) {
+      showToast("❌ Lỗi kết nối máy chủ");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Sequential Approval Handlers with Real D1 Persistence
   const handleApproveTrip = async (id: string, level: "department_head" | "executive_board") => {
@@ -1235,6 +1314,34 @@ export default function BusinessTripRegistrationPage() {
            ════════════════════════════════════════════════════════════════ */}
         {activeTab === "FORM" && (
           <form onSubmit={handleSubmitForm} className="space-y-6 animate-in fade-in duration-200">
+            {hasDraft && (
+              <div className="p-4 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 flex items-center justify-between gap-3 text-xs shadow-xs">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">📝</span>
+                  <div>
+                    <span className="font-extrabold block">Phát hiện dữ liệu nháp chưa lưu từ phiên trước!</span>
+                    <span className="text-[11px] text-amber-800">Hệ thống đã tự động sao lưu an toàn nội dung bạn đang nhập.</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleRestoreDraft}
+                    className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-xs shadow-2xs transition-all cursor-pointer"
+                  >
+                    Khôi phục nháp
+                  </button>
+                  <button
+                    type="button"
+                    onClick={clearDraft}
+                    className="px-3 py-1.5 rounded-xl bg-white border border-amber-300 text-amber-800 hover:bg-amber-100 font-bold text-xs transition-all cursor-pointer"
+                  >
+                    Bỏ qua
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* 📋 SECTION 1: THÔNG TIN ĐỀ XUẤT CÔNG TÁC */}
             <div className="p-5 sm:p-6 rounded-2xl bg-white border border-slate-200/90 shadow-xs space-y-5">
               <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
@@ -1391,6 +1498,12 @@ export default function BusinessTripRegistrationPage() {
                     </select>
                     <IconCar size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   </div>
+                  {fleetInfo && (
+                    <div className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 flex items-center justify-between">
+                      <span>🚘 Lịch xe:</span>
+                      <span>Còn {fleetInfo.available}/{fleetInfo.total} xe trống ({fleetInfo.booked} giữ chỗ)</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Ngày bắt đầu */}
@@ -2929,6 +3042,16 @@ export default function BusinessTripRegistrationPage() {
             </div>
           </div>
         )}
+
+        {/* AUTH RE-LOGIN MODAL */}
+        <AuthReLoginModal
+          isOpen={showAuthModal}
+          onSuccess={() => {
+            setShowAuthModal(false);
+            showToast("✅ Đã khôi phục phiên làm việc! Vui lòng bấm lưu lại dữ liệu.");
+          }}
+          onCancel={() => setShowAuthModal(false)}
+        />
       </main>
 
       {/* TOAST NOTIFICATION */}

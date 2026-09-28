@@ -362,10 +362,115 @@ export async function ensureKaizenSchema(db: any, force = false) {
         budget_status TEXT DEFAULT 'pending_dept_budget',
         budget_amount REAL DEFAULT 0,
         budget_rejection_reason TEXT,
+        is_emergency INTEGER DEFAULT 0,
+        emergency_reason TEXT,
+        delegated_by_emp_code TEXT,
+        delegated_by_name TEXT,
+        recall_reason TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `).run().catch(() => {});
+
+    // Alter table additions for business_trips
+    const tripExtraCols = [
+      "ALTER TABLE business_trips ADD COLUMN is_emergency INTEGER DEFAULT 0",
+      "ALTER TABLE business_trips ADD COLUMN emergency_reason TEXT",
+      "ALTER TABLE business_trips ADD COLUMN delegated_by_emp_code TEXT",
+      "ALTER TABLE business_trips ADD COLUMN delegated_by_name TEXT",
+      "ALTER TABLE business_trips ADD COLUMN recall_reason TEXT",
+    ];
+    for (const sql of tripExtraCols) {
+      await db.prepare(sql).run().catch(() => {});
+    }
+
+    // Delegated Approvals Table
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS business_trip_delegations (
+        id TEXT PRIMARY KEY,
+        delegator_emp_code TEXT NOT NULL,
+        delegator_name TEXT,
+        delegate_to_emp_code TEXT NOT NULL,
+        delegate_to_name TEXT,
+        start_date TEXT NOT NULL,
+        end_date TEXT NOT NULL,
+        scope TEXT DEFAULT 'ALL',
+        department_id TEXT,
+        is_active INTEGER DEFAULT 1,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run().catch(() => {});
+
+    // Internal Employee Directory Table for Autocomplete & Seeding
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS employees (
+        id TEXT PRIMARY KEY,
+        emp_code TEXT UNIQUE NOT NULL,
+        full_name TEXT NOT NULL,
+        department TEXT NOT NULL,
+        department_id TEXT,
+        position TEXT,
+        phone TEXT,
+        email TEXT,
+        pickup_location TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run().catch(() => {});
+
+    // Company Fleet Vehicles Table
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS company_fleet (
+        id TEXT PRIMARY KEY,
+        vehicle_code TEXT UNIQUE NOT NULL,
+        vehicle_name TEXT NOT NULL,
+        license_plate TEXT NOT NULL,
+        capacity INTEGER DEFAULT 4,
+        status TEXT DEFAULT 'AVAILABLE',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run().catch(() => {});
+
+    // Seed Sample Employees if empty
+    try {
+      const empCount = await db.prepare("SELECT COUNT(*) as cnt FROM employees").first().catch(() => null);
+      if (!empCount || Number(empCount.cnt) === 0) {
+        const seedEmps = [
+          ["emp_1", "202608001", "Nguyễn Văn Anh", "Văn Phòng Chuỗi SKECHERS", "VPCHUOI", "Trưởng Phòng CI", "0901234567", "anhnv@tbsgroup.vn", "VP Chuỗi SKECHERS - Cổng chính"],
+          ["emp_2", "202608002", "Trần Thị Mai", "Nhà Máy Miền Đông", "MIEN_DONG", "Phó Phòng Sản Xuất", "0902345678", "maitt@tbsgroup.vn", "Nhà máy Miền Đông - Cổng A"],
+          ["emp_3", "202608010", "Lê Văn Hùng", "Kiên Giang 1", "KG1", "Chuyên Viên IE", "0903456789", "hunglv@tbsgroup.vn", "Kiên Giang 1 - Phụ Lô"],
+          ["emp_4", "210602002", "Phạm Quốc Tuấn", "Kiên Giang 2", "KG2", "Trưởng Xưởng May", "0904567890", "tuanpq@tbsgroup.vn", "Kiên Giang 2 - Cụm B"],
+          ["emp_5", "222102020", "Đỗ Minh Đức", "Hoàn Thiện Đế", "HTD", "Kỹ Sư R&D", "0905678901", "ducdm@tbsgroup.vn", "Tổ hợp Đế Giày TTPP"],
+          ["emp_6", "201711002", "Lê Khải", "Văn Phòng Chuỗi SKECHERS", "VPCHUOI", "Giám Đốc Chuỗi Cung Ứng", "0906789012", "khaile@tbsgroup.vn", "VP Chuỗi - Trụ sở chính"],
+        ];
+        for (const e of seedEmps) {
+          await db.prepare(`
+            INSERT OR IGNORE INTO employees (id, emp_code, full_name, department, department_id, position, phone, email, pickup_location)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `).bind(...e).run().catch(() => {});
+        }
+      }
+    } catch (e) {}
+
+    // Seed Sample Fleet Vehicles if empty
+    try {
+      const fleetCount = await db.prepare("SELECT COUNT(*) as cnt FROM company_fleet").first().catch(() => null);
+      if (!fleetCount || Number(fleetCount.cnt) === 0) {
+        const seedFleet = [
+          ["fleet_1", "XE-01", "Toyota Fortuner (7 chỗ)", "61A-123.45", 7, "AVAILABLE"],
+          ["fleet_2", "XE-02", "Ford Transit (16 chỗ)", "61B-678.90", 16, "AVAILABLE"],
+          ["fleet_3", "XE-03", "Kia Carnival (7 chỗ)", "61A-999.88", 7, "AVAILABLE"],
+          ["fleet_4", "XE-04", "Hyundai Solati (16 chỗ)", "61B-555.44", 16, "AVAILABLE"],
+          ["fleet_5", "XE-05", "Toyota Innova (7 chỗ)", "61A-333.22", 7, "AVAILABLE"],
+        ];
+        for (const f of seedFleet) {
+          await db.prepare(`
+            INSERT OR IGNORE INTO company_fleet (id, vehicle_code, vehicle_name, license_plate, capacity, status)
+            VALUES (?, ?, ?, ?, ?, ?)
+          `).bind(...f).run().catch(() => {});
+        }
+      }
+    } catch (e) {}
 
     // D1 Notifications Table
     await db.prepare(`

@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import { ensureKaizenSchema } from '@/lib/kaizenDbMigration';
 import { triggerRealtimeSyncToWebTong } from '@/lib/kaizenSyncHelper';
+import { getDbKgBinding, upsertProposals } from './sync/route';
 import { SYSTEM_USERS } from '@/lib/userProfiles';
 import { getValidKaizenImageUrl } from '@/lib/kaizenImageHelper';
 import { getKaizenDisplayTitle, isGenericTitle } from '@/lib/kaizenTitleHelper';
@@ -16,6 +17,7 @@ import {
 function getDbBinding(): any {
   return (process.env as any).DB || (globalThis as any).DB || null;
 }
+
 
 const DEFAULT_KAIZEN_PROPOSALS = [
   {
@@ -149,6 +151,22 @@ export async function GET(request: Request) {
     const db = getDbBinding();
 
     if (db) {
+      // Auto-sync from DB_KG binding if present (zero latency D1 cross-query on Cloudflare Workers)
+      const currentSite = (process.env.SITE_ID || (globalThis as any).SITE_ID || (globalThis as any).env?.SITE_ID || '').toLowerCase();
+      if (currentSite === 'vpchuoiskechers' || !currentSite) {
+        const dbKg = getDbKgBinding();
+        if (dbKg) {
+          try {
+            const kgRes = await dbKg.prepare(`SELECT * FROM ci_kaizen_proposals ORDER BY created_at DESC LIMIT 500`).all();
+            if (kgRes?.results && Array.isArray(kgRes.results) && kgRes.results.length > 0) {
+              await upsertProposals(db, kgRes.results, 'thkiengiangshoes').catch(() => {});
+            }
+          } catch (kgSyncErr) {
+            // Ignore DB_KG read error
+          }
+        }
+      }
+
       let results: any[] = [];
       try {
         const queryRes = await db.prepare(`SELECT * FROM ci_kaizen_proposals ORDER BY created_at DESC LIMIT 500`).all();
@@ -175,10 +193,14 @@ export async function GET(request: Request) {
       } catch (e) {}
 
       // Get real-time average scores from ci_kaizen_scores
-      let scoreAggMap: Record<string, { avgScore: number; judgeCount: number }> = {};
+      let scoreAggMap: Record<string, { avgScore: number; avgC1: number; avgC3: number; judgeCount: number }> = {};
       try {
         const { results: scoreAggRows } = await db.prepare(`
-          SELECT submission_id, AVG(total_score) as avg_score, COUNT(*) as cnt
+          SELECT submission_id,
+                 AVG(total_score) as avg_score,
+                 AVG(c1_score) as avg_c1,
+                 AVG(c3_score) as avg_c3,
+                 COUNT(*) as cnt
           FROM ci_kaizen_scores
           GROUP BY submission_id
         `).all();
@@ -188,6 +210,8 @@ export async function GET(request: Request) {
               const key = String(r.submission_id).trim().toUpperCase();
               scoreAggMap[key] = {
                 avgScore: Math.round(Number(r.avg_score || 0) * 10) / 10,
+                avgC1: Math.round(Number(r.avg_c1 || 0) * 10) / 10,
+                avgC3: Math.round(Number(r.avg_c3 || 0) * 10) / 10,
                 judgeCount: Number(r.cnt || 0),
               };
             }
@@ -242,14 +266,20 @@ export async function GET(request: Request) {
 
         const idKey = String(p.id || '').trim().toUpperCase();
         const codeKey = String(p.code || '').trim().toUpperCase();
-        const agg = scoreAggMap[idKey] || scoreAggMap[codeKey];
+        const extIdKey = String(p.external_id || '').trim().toUpperCase();
+        const cleanIdKey = idKey.replace(/^TKG_/i, '');
+        const agg = scoreAggMap[idKey] || scoreAggMap[codeKey] || scoreAggMap[extIdKey] || scoreAggMap[cleanIdKey] || scoreAggMap[`TKG_${cleanIdKey}`];
 
-        let finalJudgeScore = Number(p.judge_final_score || p.score_points || 0);
+        let finalJudgeScore = Number(p.judge_final_score || p.score_points || p.diem_hieu_qua || p.diem_tong_hop || 0);
+        let finalC1Score = Number(p.c1_score_final || 0);
+        let finalC3Score = Number(p.c3_score_final || 0);
         let updatedSubStatus = p.sub_status;
         let updatedTrangThai = p.trang_thai;
 
         if (agg && agg.avgScore > 0) {
           finalJudgeScore = agg.avgScore;
+          if (agg.avgC1 > 0) finalC1Score = agg.avgC1;
+          if (agg.avgC3 > 0) finalC3Score = agg.avgC3;
           if (!updatedSubStatus || updatedSubStatus === 'CHO_DUYET' || updatedSubStatus === 'CHO_DANH_GIA') {
             updatedSubStatus = 'DA_DANH_GIA';
             updatedTrangThai = 'DA_DANH_GIA';
@@ -284,7 +314,12 @@ export async function GET(request: Request) {
           so_luong_giay: q > 0 ? q : 1,
           judge_final_score: finalJudgeScore,
           judgeFinalScore: finalJudgeScore,
-          score_points: finalJudgeScore || p.score_points || 0,
+          score_points: finalJudgeScore,
+          scorePoints: finalJudgeScore,
+          diem_hieu_qua: finalJudgeScore,
+          diem_tong_hop: finalJudgeScore,
+          c1_score_final: finalC1Score,
+          c3_score_final: finalC3Score,
           sub_status: updatedSubStatus,
           trang_thai: updatedTrangThai,
           before_image_url: getValidKaizenImageUrl(p.before_image_url, p.attachments_json, "BEFORE") || p.before_image_url || '',
@@ -694,10 +729,14 @@ export async function POST(request: Request) {
       }
 
       // Trigger real-time background sync to web tong
-      db.prepare('SELECT * FROM ci_kaizen_proposals WHERE id = ?').bind(id).first()
-        .then((proposalData: any) => {
-          if (proposalData) triggerRealtimeSyncToWebTong(proposalData);
-        }).catch(() => {});
+      try {
+        const proposalData = await db.prepare('SELECT * FROM ci_kaizen_proposals WHERE id = ?').bind(id).first();
+        if (proposalData) {
+          await triggerRealtimeSyncToWebTong(proposalData);
+        }
+      } catch (syncErr) {
+        console.warn('[POST KAIZEN SYNC WARN]', syncErr);
+      }
     }
 
     return NextResponse.json({
@@ -1056,7 +1095,7 @@ export async function PUT(request: Request) {
       };
 
       if (updatedRow) {
-        triggerRealtimeSyncToWebTong(updatedData);
+        await triggerRealtimeSyncToWebTong(updatedData);
       }
 
       return NextResponse.json({

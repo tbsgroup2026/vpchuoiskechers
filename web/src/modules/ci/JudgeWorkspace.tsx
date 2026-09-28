@@ -731,7 +731,7 @@ export default function JudgeWorkspace({ magicToken: propMagicToken }: JudgeWork
                             </span>
                           </div>
                           <span className="text-[11px] font-semibold text-emerald-800">
-                            (Hệ thống tự động ánh xạ từ Phân Loại: <strong className="text-slate-900">{activeProposal.category || (activeProposal as any).category_label || "Tăng Năng Suất"}</strong>)
+                            (Hệ thống tự động ánh xạ từ Phân Loại: <strong className="text-slate-900">{selectedAssignment.category || (selectedAssignment as any).category_label || "Tăng Năng Suất"}</strong>)
                           </span>
                         </div>
 

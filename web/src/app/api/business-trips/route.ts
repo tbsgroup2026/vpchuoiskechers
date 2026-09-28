@@ -208,9 +208,83 @@ export async function PUT(request: Request) {
       return NextResponse.json({ success: false, error: 'Không tìm thấy đơn công tác chỉ định' }, { status: 404 });
     }
 
+    // Optimistic locking check if version provided
+    if (body.version && existing.version && Number(body.version) !== Number(existing.version)) {
+      return NextResponse.json(
+        { success: false, error: 'OPTIMISTIC_LOCK_CONFLICT', message: 'Đơn đã được người khác cập nhật! Vui lòng tải lại trang.' },
+        { status: 409 }
+      );
+    }
+
+    // ACTION 1. RECALL (Rút đơn)
+    if (body.actionLevel === 'RECALL') {
+      const isL1Approved = existing.status === 'PENDING_L2' || existing.approved_level === 'L1';
+      if (isL1Approved) {
+        return NextResponse.json(
+          { success: false, error: 'Đơn đã được Trưởng phòng phê duyệt Cấp 1, không thể tự rút! Vui lòng liên hệ quản lý để từ chối.' },
+          { status: 400 }
+        );
+      }
+
+      existing.status = 'RECALLED';
+      existing.recall_reason = body.reason || 'Người tạo tự rút đơn';
+
+      if (db) {
+        await db.prepare(`
+          UPDATE business_trips
+          SET status = 'RECALLED', recall_reason = ?, version = version + 1, updated_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+        `).bind(body.reason || 'Người tạo tự rút đơn', id).run();
+
+        // Audit Log
+        try {
+          const logId = `log_${Date.now()}`;
+          await db.prepare(`
+            INSERT INTO sys_audit_logs (id, emp_code, emp_name, role_code, module, action, target_type, target_id, changes_json)
+            VALUES (?, ?, ?, ?, 'BUSINESS_TRIP', 'RECALL_TRIP', 'TRIP', ?, ?)
+          `).bind(
+            logId,
+            session.empCode,
+            session.name,
+            session.roleCode || 'USER',
+            id,
+            JSON.stringify({ reason: body.reason || 'Rút đơn', status_before: existing.status, status_after: 'RECALLED' })
+          ).run().catch(() => {});
+        } catch (e) {}
+      } else {
+        MEMORY_TRIPS.set(id, existing);
+      }
+
+      return NextResponse.json({ success: true, message: 'Đã rút đơn công tác thành công! Đơn chuyển về trạng thái Rút đơn.' });
+    }
+
+    // ACTION 2. APPROVE_L1 (Trưởng phòng)
     if (body.actionLevel === 'APPROVE_L1') {
-      // Check Level 1 Approver Permission (Trưởng phòng / Admin / BGĐ)
-      if (!isDepartmentHead(session)) {
+      // Check Segregation of Duties: Creator cannot approve their own trip
+      if (session.empCode && existing.creator && session.empCode.trim().toUpperCase() === existing.creator.trim().toUpperCase()) {
+        return NextResponse.json(
+          { success: false, error: 'SEGREGATION_OF_DUTIES_VIOLATION', message: 'Bảo mật & Phân tách nhiệm vụ: Bạn không thể tự phê duyệt đơn công tác do chính mình tạo!' },
+          { status: 403 }
+        );
+      }
+
+      // Check Active Delegation
+      let isDelegated = false;
+      let delegatorName = "";
+      if (db) {
+        const todayStr = new Date().toISOString().split("T")[0];
+        const delRes = await db.prepare(`
+          SELECT * FROM business_trip_delegations
+          WHERE delegate_to_emp_code = ? AND is_active = 1 AND start_date <= ? AND end_date >= ?
+        `).bind(session.empCode, todayStr, todayStr).first().catch(() => null);
+
+        if (delRes) {
+          isDelegated = true;
+          delegatorName = delRes.delegator_name || delRes.delegator_emp_code;
+        }
+      }
+
+      if (!isDepartmentHead(session) && !isDelegated) {
         return NextResponse.json(
           { success: false, error: 'Bạn không có quyền phê duyệt đơn công tác cấp 1 (Trưởng phòng)!' },
           { status: 403 }
@@ -224,11 +298,29 @@ export async function PUT(request: Request) {
       if (db) {
         await db.prepare(`
           UPDATE business_trips
-          SET status = 'PENDING_L2', approved_level = 'L1', version = version + 1, updated_at = CURRENT_TIMESTAMP
+          SET status = 'PENDING_L2', approved_level = 'L1',
+              delegated_by_emp_code = ?, delegated_by_name = ?,
+              version = version + 1, updated_at = CURRENT_TIMESTAMP
           WHERE id = ?
-        `).bind(id).run();
+        `).bind(isDelegated ? session.empCode : null, isDelegated ? delegatorName : null, id).run();
 
-        // High #5: Push notification to Ban Giám Đốc for Level 2 approval
+        // Audit Log
+        try {
+          const logId = `log_${Date.now()}`;
+          await db.prepare(`
+            INSERT INTO sys_audit_logs (id, emp_code, emp_name, role_code, module, action, target_type, target_id, changes_json)
+            VALUES (?, ?, ?, ?, 'BUSINESS_TRIP', 'APPROVE_L1', 'TRIP', ?, ?)
+          `).bind(
+            logId,
+            session.empCode,
+            session.name,
+            session.roleCode || 'TRUONG_PHONG',
+            id,
+            JSON.stringify({ is_delegated: isDelegated, delegator: delegatorName })
+          ).run().catch(() => {});
+        } catch (e) {}
+
+        // Push notification to Ban Giám Đốc for Level 2 approval
         try {
           const notifId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
           await db.prepare(`
@@ -237,15 +329,14 @@ export async function PUT(request: Request) {
           `).bind(
             notifId,
             `👑 Đơn công tác cần duyệt cấp 2 (BGĐ): ${existing.code}`,
-            `Đơn công tác "${existing.title}" của ${existing.creator} đã được Trưởng phòng duyệt cấp 1, đang chờ BGĐ phê duyệt cấp 2.`
+            `Đơn công tác "${existing.title}" của ${existing.creator} đã được ${isDelegated ? `Duyệt thay bởi ${session.name} (Ủy quyền của ${delegatorName})` : 'Trưởng phòng duyệt Cấp 1'}, đang chờ BGĐ duyệt Cấp 2.`
           ).run().catch(() => {});
         } catch (e) {}
       } else {
         MEMORY_TRIPS.set(id, existing);
       }
 
-    } else if (body.actionLevel === 'APPROVE_L2') {
-      // High #4: Check Level 2 Approver Permission & Sequential Workflow Guard
+    } else if (body.actionLevel === 'APPROVE_L2' || body.actionLevel === 'APPROVE_EMERGENCY') {
       if (!isExecutiveOrAdmin(session)) {
         return NextResponse.json(
           { success: false, error: 'Chỉ Ban Giám Đốc / Tổng Giám Đốc mới có quyền phê duyệt cấp 2 (403 Forbidden)!' },
@@ -253,30 +344,49 @@ export async function PUT(request: Request) {
         );
       }
 
-      // High #4 Guard: Ensure trip has ALREADY passed L1 approval (status must be PENDING_L2 or approved_level === 'L1')
+      const isEmergencyBypass = body.actionLevel === 'APPROVE_EMERGENCY';
       const isL1Approved = existing.status === 'PENDING_L2' || existing.approved_level === 'L1' || existing.approvedLevel === 'L1';
-      if (!isL1Approved) {
+      
+      if (!isL1Approved && !isEmergencyBypass) {
         return NextResponse.json(
           {
             success: false,
-            error: 'BẢO MẬT & QUY TRÌNH: Đơn công tác này chưa được Trưởng phòng phê duyệt cấp 1! Không thể phê duyệt cấp 2 trực tiếp.',
+            error: 'INVALID_STATE_TRANSITION',
+            message: 'BẢO MẬT & QUY TRÌNH: Đơn công tác này chưa được Trưởng phòng phê duyệt cấp 1! Chọn "Duyệt Khẩn" nếu cần bỏ qua Cấp 1.',
           },
           { status: 400 }
         );
       }
 
       existing.status = 'APPROVED';
-      existing.approved_level = 'L2';
-      existing.approvedLevel = 'L2';
+      existing.approved_level = isEmergencyBypass ? 'EMERGENCY_L2' : 'L2';
+      existing.approvedLevel = isEmergencyBypass ? 'EMERGENCY_L2' : 'L2';
 
       if (db) {
         await db.prepare(`
           UPDATE business_trips
-          SET status = 'APPROVED', approved_level = 'L2', version = version + 1, updated_at = CURRENT_TIMESTAMP
+          SET status = 'APPROVED', approved_level = ?, version = version + 1, updated_at = CURRENT_TIMESTAMP
           WHERE id = ?
-        `).bind(id).run();
+        `).bind(isEmergencyBypass ? 'EMERGENCY_L2' : 'L2', id).run();
 
-        // High #5: Notify Creator that trip is FULLY APPROVED
+        // Audit Log
+        try {
+          const logId = `log_${Date.now()}`;
+          await db.prepare(`
+            INSERT INTO sys_audit_logs (id, emp_code, emp_name, role_code, module, action, target_type, target_id, changes_json)
+            VALUES (?, ?, ?, ?, 'BUSINESS_TRIP', ?, 'TRIP', ?, ?)
+          `).bind(
+            logId,
+            session.empCode,
+            session.name,
+            session.roleCode || 'BAN_GIAM_DOC',
+            isEmergencyBypass ? 'APPROVE_EMERGENCY_BYPASS_L1' : 'APPROVE_L2',
+            id,
+            JSON.stringify({ audit_note: isEmergencyBypass ? 'Duyệt khẩn – bỏ qua cấp 1' : 'Duyệt cấp 2 hoàn tất' })
+          ).run().catch(() => {});
+        } catch (e) {}
+
+        // Notify Creator
         try {
           const notifId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
           await db.prepare(`
@@ -286,7 +396,7 @@ export async function PUT(request: Request) {
             notifId,
             existing.creator,
             `✅ Đơn công tác ${existing.code} đã được Ban Giám Đốc duyệt chính thức!`,
-            `Đơn công tác "${existing.title}" của bạn đã được phê duyệt 100%. Bạn có thể tiến hành di chuyển.`
+            `Đơn công tác "${existing.title}" của bạn đã được phê duyệt 100%${isEmergencyBypass ? ' (Duyệt khẩn)' : ''}. Bạn có thể di chuyển.`
           ).run().catch(() => {});
         } catch (e) {}
       } else {

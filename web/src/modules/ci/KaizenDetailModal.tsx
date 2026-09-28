@@ -1932,7 +1932,19 @@ function TabInfoContent({
   );
 }
 
-function TabExpertReviewContent({ proposal, isOwner, initialEvalData }: { proposal: KaizenProposal; isOwner: boolean; initialEvalData: any }) {
+function TabExpertReviewContent({
+  proposal,
+  isOwner,
+  initialEvalData,
+  onEvaluate,
+  onRate,
+}: {
+  proposal: KaizenProposal;
+  isOwner: boolean;
+  initialEvalData: any;
+  onEvaluate?: () => void;
+  onRate?: () => void;
+}) {
   const { user } = usePermission();
   const [loading, setLoading] = useState(true);
   const [evalMeta, setEvalMeta] = useState<any>(null);
@@ -2037,20 +2049,7 @@ function TabExpertReviewContent({ proposal, isOwner, initialEvalData }: { propos
       emailStr.includes("khách mời") ||
       emailStr.includes("khach moi");
 
-<<<<<<< HEAD
-  // 5 Criteria state
-  const normCategory = normalizeCategoryId(proposal.category || (proposal as any).category_label);
-  const isCostCat = normCategory === "MATERIAL_SAVING" || normCategory === "COST_SAVING";
-  const initialPricingDir = (proposal as any).pricing_direction || (isCostCat ? "TRI_GIA" : "THOI_GIAN");
-  // Thẻ có Phân Loại rõ ràng khớp đúng 1 Nhóm chấm điểm -> khoá cứng về nhóm đó, ẩn 2 nhóm còn lại ở
-  // Tiêu Chí 1 (xem getLockedScoreGroup) — chỉ "8.Khác" là không khoá, vẫn cho chọn tự do như trước.
-  const lockedScoreGroup = getLockedScoreGroup(normCategory);
-
-  const [c1Group, setC1Group] = useState<"GROUP1" | "GROUP2" | "GROUP3">(
-    lockedScoreGroup ?? (initialPricingDir === "TRI_GIA" || isCostCat ? "GROUP2" : "GROUP1")
-  );
-=======
-    return isExplicitGuest || isVirtualPattern;
+      return isExplicitGuest || isVirtualPattern;
   }, [user]);
 
   const isInternalUser = useMemo(() => {
@@ -2093,9 +2092,10 @@ function TabExpertReviewContent({ proposal, isOwner, initialEvalData }: { propos
   // 5 Criteria state & Category auto-mapping
   const catRawStr = proposal?.category || (proposal as any)?.category_label || (proposal as any)?.product_group || "";
   const autoMappedGroup = getAutoBaremGroupForCategory(catRawStr);
+  const normCategory = normalizeCategoryId(proposal?.category || (proposal as any)?.category_label);
+  const lockedScoreGroup = getLockedScoreGroup(normCategory);
   
-  const [c1Group, setC1Group] = useState<"GROUP1" | "GROUP2" | "GROUP3">(autoMappedGroup);
->>>>>>> dd2b85d5 (fix(ci-kaizen): add real-time search support for BGK accounts and report scores)
+  const [c1Group, setC1Group] = useState<"GROUP1" | "GROUP2" | "GROUP3">(lockedScoreGroup ?? autoMappedGroup);
   const [quantPct, setQuantPct] = useState<number | "">(15);
 
   const [c1Score, setC1Score] = useState<number>(30);
@@ -2968,8 +2968,6 @@ function TabExpertReviewContent({ proposal, isOwner, initialEvalData }: { propos
           <span>Đã xác nhận độc lập</span>
         </label>
       </div>
-
-<<<<<<< HEAD
       {/* 5 CRITERIA FORM */}
       <div className="flex flex-col gap-5">
         <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
@@ -3086,7 +3084,23 @@ function TabExpertReviewContent({ proposal, isOwner, initialEvalData }: { propos
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-black text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded">
                       {opt.score}đ
-=======
+                    </span>
+                    <input
+                      type="radio"
+                      name="c1_score_radio"
+                      disabled={isReadOnly || isLocked}
+                      checked={c1Score === opt.score}
+                      onChange={() => setC1Score(opt.score)}
+                      className="w-3.5 h-3.5 accent-emerald-600 cursor-pointer"
+                    />
+                  </div>
+                  <span className="text-[10.5px] leading-tight block text-slate-800">{opt.desc}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+
       {/* SUMMARY CARD WHEN SCORE HAS BEEN SUBMITTED & BAREM IS COLLAPSED */}
       {(() => {
         const hasSubmittedScore = Boolean(evalMeta?.data?.myScore || isLocked || (successMsg && successMsg.includes("thành công")));
@@ -3102,7 +3116,6 @@ function TabExpertReviewContent({ proposal, isOwner, initialEvalData }: { propos
                     </span>
                     <span className="text-xs text-emerald-800 font-bold">
                       (Đã khoá điểm & tự động ẩn barem chi tiết)
->>>>>>> dd2b85d5 (fix(ci-kaizen): add real-time search support for BGK accounts and report scores)
                     </span>
                   </div>
                   <h4 className="text-lg font-black text-slate-900 mt-2 flex items-center gap-2">
@@ -3519,6 +3532,7 @@ function TabExpertReviewContent({ proposal, isOwner, initialEvalData }: { propos
             </tr>
           </tbody>
         </table>
+      </div>
 
         {/* BOTTOM FOOTER BAR MATCHING SPEC IMAGE 2 */}
         <div
@@ -3577,9 +3591,9 @@ function TabExpertReviewContent({ proposal, isOwner, initialEvalData }: { propos
             )}
           </div>
         </div>
-        </div>
-        </div>
-      )}
+      </div>
+    )}
+  </div>
 
       {/* CONFLICT MODAL */}
       {showConflictModal && (

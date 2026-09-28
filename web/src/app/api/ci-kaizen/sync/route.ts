@@ -3,7 +3,11 @@ import { ensureKaizenSchema } from '@/lib/kaizenDbMigration';
 import { verifyToken } from '@/lib/auth';
 
 function getDbBinding(): any {
-  return (process.env as any).DB || (globalThis as any).DB || null;
+  return (process.env as any).DB || (globalThis as any).DB || (globalThis as any).env?.DB || null;
+}
+
+export function getDbKgBinding(): any {
+  return (process.env as any).DB_KG || (globalThis as any).DB_KG || (globalThis as any).env?.DB_KG || null;
 }
 
 const SOURCE_API_URL = 'https://thkiengiangshoes.tbsgroup2026.workers.dev/api/ci-kaizen?sync=1';
@@ -106,7 +110,7 @@ async function checkD1RateLimit(db: any, siteCode: string): Promise<boolean> {
   }
 }
 
-async function upsertProposals(db: any, sourceProposals: any[], defaultSiteCode = 'thkiengiangshoes') {
+export async function upsertProposals(db: any, sourceProposals: any[], defaultSiteCode = 'thkiengiangshoes') {
   let createdCount = 0;
   let updatedCount = 0;
   let skippedCount = 0;
@@ -122,7 +126,8 @@ async function upsertProposals(db: any, sourceProposals: any[], defaultSiteCode 
       ? (String(item.id).startsWith('tkg_') ? String(item.id) : `tkg_${externalId}`)
       : String(item.id);
 
-    const itemRegion = 'TH Kiên Giang Shoes';
+    const itemRegion = item.region || item.factory || 'TH Kiên Giang Shoes';
+    const sourceRegion = item.source_region || item.region || 'TH Kiên Giang Shoes';
 
     const isSoftDeleted = Boolean(
       Number(item.is_archived) === 1 ||
@@ -175,9 +180,9 @@ async function upsertProposals(db: any, sourceProposals: any[], defaultSiteCode 
             category = COALESCE(?, category),
             category_label = COALESCE(?, category_label),
             registration_type = COALESCE(?, registration_type),
-            region = ?,
+            region = COALESCE(?, region),
             department = COALESCE(?, department),
-            factory = ?,
+            factory = COALESCE(?, factory),
             line = COALESCE(?, line),
             proposer_name = COALESCE(?, proposer_name),
             proposer_emp_code = COALESCE(?, proposer_emp_code),
@@ -203,7 +208,7 @@ async function upsertProposals(db: any, sourceProposals: any[], defaultSiteCode 
             approval_status = COALESCE(?, approval_status),
             site_code = COALESCE(?, site_code),
             external_id = COALESCE(?, external_id),
-            source_region = ?,
+            source_region = COALESCE(?, source_region),
             is_archived = ?,
             updated_at = COALESCE(?, CURRENT_TIMESTAMP)
         WHERE id = ?
@@ -219,7 +224,7 @@ async function upsertProposals(db: any, sourceProposals: any[], defaultSiteCode 
           item.registration_type,
           itemRegion,
           item.department,
-          itemRegion,
+          item.factory || itemRegion,
           item.line,
           item.proposer_name,
           item.proposer_emp_code,
@@ -245,7 +250,7 @@ async function upsertProposals(db: any, sourceProposals: any[], defaultSiteCode 
           item.approval_status,
           siteCode,
           externalId,
-          itemRegion,
+          sourceRegion,
           isSoftDeleted ? 1 : 0,
           item.updated_at || new Date().toISOString(),
           existing.id
@@ -287,7 +292,7 @@ async function upsertProposals(db: any, sourceProposals: any[], defaultSiteCode 
           item.registration_type || 'THI_DUA',
           itemRegion,
           item.department || '',
-          itemRegion,
+          item.factory || itemRegion,
           item.line || '',
           item.proposer_name,
           item.proposer_emp_code || 'SK-KG-EMP',
@@ -313,7 +318,7 @@ async function upsertProposals(db: any, sourceProposals: any[], defaultSiteCode 
           item.approval_status || 'PHE_DUYET',
           siteCode,
           externalId,
-          itemRegion,
+          sourceRegion,
           isSoftDeleted ? 1 : 0,
           item.created_at || new Date().toISOString(),
           item.updated_at || new Date().toISOString()
@@ -348,23 +353,39 @@ async function performKaizenSync(payload?: any) {
   } else if (Array.isArray(payload?.proposals)) {
     sourceProposals = payload.proposals;
   } else {
-    // Fetch all proposals from Kiên Giang Shoes with Exponential Backoff Retry
-    try {
-      const res = await fetchWithRetry(SOURCE_API_URL, {}, 3, 1000);
-      const json = await res.json();
-      sourceProposals = json.data || json.proposals || [];
-    } catch (err: any) {
-      await writeSyncLog(db, {
-        source_site: siteCode,
-        status: 'ERROR',
-        message: 'Lỗi gọi API nguồn Kiên Giang',
-        error_detail: err.message || String(err),
-      });
-      return {
-        success: false,
-        error: `Không thể kết nối API Kiên Giang (${err.message || 'Lỗi mạng'}). Đã ghi log hệ thống.`,
-        synced_count: 0,
-      };
+    // 1. First try reading directly from D1 binding DB_KG if available (0ms cross-D1 sync on Workers)
+    const dbKg = getDbKgBinding();
+    if (dbKg) {
+      try {
+        const kgRes = await dbKg.prepare(`SELECT * FROM ci_kaizen_proposals ORDER BY created_at DESC LIMIT 500`).all();
+        if (kgRes && Array.isArray(kgRes.results) && kgRes.results.length > 0) {
+          sourceProposals = kgRes.results;
+          console.log(`[SYNC D1_KG] Successfully fetched ${sourceProposals.length} proposals directly from DB_KG binding!`);
+        }
+      } catch (kgErr: any) {
+        console.warn('[SYNC D1_KG WARN] Could not query DB_KG directly:', kgErr);
+      }
+    }
+
+    // 2. Fall back to HTTP fetch if DB_KG binding returned no results
+    if (!sourceProposals || sourceProposals.length === 0) {
+      try {
+        const res = await fetchWithRetry(SOURCE_API_URL, {}, 3, 1000);
+        const json = await res.json();
+        sourceProposals = json.data || json.proposals || [];
+      } catch (err: any) {
+        await writeSyncLog(db, {
+          source_site: siteCode,
+          status: 'ERROR',
+          message: 'Lỗi gọi API nguồn Kiên Giang',
+          error_detail: err.message || String(err),
+        });
+        return {
+          success: false,
+          error: `Không thể kết nối API Kiên Giang (${err.message || 'Lỗi mạng'}). Đã ghi log hệ thống.`,
+          synced_count: 0,
+        };
+      }
     }
   }
 

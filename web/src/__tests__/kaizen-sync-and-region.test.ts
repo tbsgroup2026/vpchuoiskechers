@@ -60,28 +60,7 @@ function isApprovedAndValidForRanking(p: KaizenTestProposal): boolean {
   return secs > 0 || vnd > 0 || score > 0;
 }
 
-// 2. Region filter matcher
-function matchRegionFilter(p: KaizenTestProposal, filterRegion: string): boolean {
-  if (!filterRegion || filterRegion === 'ALL') return true;
-
-  const siteCode = String(p.site_code || 'vpchuoiskechers').toLowerCase();
-  const regStr = String(p.region || '').toLowerCase();
-  const factoryStr = String(p.factory || '').toLowerCase();
-  const filterUpper = filterRegion.toUpperCase();
-
-  if (filterUpper.includes('VĂN PHÒNG CHUỖI') || filterUpper.includes('VP CHUỖI') || filterUpper.includes('VP CHUOI')) {
-    if (siteCode === 'thkiengiangshoes' || regStr.includes('kiên giang') || factoryStr.includes('kiên giang')) {
-      return false;
-    }
-    return siteCode === 'vpchuoiskechers' || regStr.includes('văn phòng chuỗi') || factoryStr.includes('văn phòng chuỗi') || regStr.includes('vp chuỗi');
-  }
-
-  if (filterUpper.includes('TH KIÊN GIANG') || filterUpper.includes('KIÊN GIANG SHOES')) {
-    return siteCode === 'thkiengiangshoes' || regStr.includes('kiên giang') || factoryStr.includes('kiên giang');
-  }
-
-  return regStr.includes(filterRegion.toLowerCase()) || factoryStr.includes(filterRegion.toLowerCase());
-}
+import { matchRegionFilter, normalizeRegion, isTHKGRegion } from '../lib/kaizenRegionHelper';
 
 // 3. Simulated Secret Auth Check
 function verifySyncSecret(headerValue: string | null, expectedSecret = 'tbs_ii_secure_jwt_secret_key_2026'): boolean {
@@ -352,6 +331,19 @@ describe('Kaizen Ranking & Dual-Channel Sync Test Suite', () => {
       expect(matchRegionFilter(localProp, 'ALL')).toBe(true);
       expect(matchRegionFilter(syncedProp, 'ALL')).toBe(true);
     });
+
+    it('should match Phòng Ban THKG filter for THKG synced initiatives', () => {
+      const thkgDeptProp: KaizenTestProposal = {
+        id: 'tkg_kz_101',
+        code: 'KZ-THKG-101',
+        title: 'Số hóa quản lý kho THKG',
+        site_code: 'thkiengiangshoes',
+        region: 'Phòng Ban THKG',
+        factory: 'TH Kiên Giang Shoes',
+      };
+      expect(matchRegionFilter(thkgDeptProp, 'Phòng Ban THKG')).toBe(true);
+      expect(matchRegionFilter(syncedProp, 'Phòng Ban THKG')).toBe(true);
+    });
   });
 
   describe('Test Case 10: Retry Backoff for Source Network Failures', () => {
@@ -370,4 +362,34 @@ describe('Kaizen Ranking & Dual-Channel Sync Test Suite', () => {
       expect(res.result?.ok).toBe(true);
     });
   });
+
+  describe('Test Case 11: Real-Time Dual-Channel Push & Direct D1 Binding Sync', () => {
+    it('should support direct DB_KG D1 binding cross-query sync without network HTTP latency', async () => {
+      const mockDbKgData = [
+        {
+          id: 'kz_kg_realtime_001',
+          code: 'KZ-2026-9999',
+          title: 'Cải tiến thời gian thực từ Kiên Giang',
+          site_code: 'thkiengiangshoes',
+          region: 'Phòng Ban THKG',
+          created_at: '2026-09-28T14:00:00.000Z',
+        },
+      ];
+
+      const simulatedDbKg = {
+        prepare: () => ({
+          all: async () => ({ results: mockDbKgData }),
+        }),
+      };
+
+      const kgResults = await simulatedDbKg.prepare().all();
+      expect(kgResults.results).toHaveLength(1);
+      expect(kgResults.results[0].title).toBe('Cải tiến thời gian thực từ Kiên Giang');
+
+      const res = resolveUpsert(null, kgResults.results[0]);
+      expect(res.action).toBe('INSERT');
+      expect(res.id).toBe('tkg_kz_kg_realtime_001');
+    });
+  });
 });
+

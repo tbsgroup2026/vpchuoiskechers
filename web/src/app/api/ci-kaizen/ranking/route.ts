@@ -13,34 +13,13 @@ function isApprovedAndValid(p: any): boolean {
   const subStatus = (p.sub_status || '').toUpperCase();
   const status = (p.status || '').toUpperCase();
   const appStatus = (p.approval_status || '').toUpperCase();
-  const trangThai = (p.trang_thai || '').toUpperCase();
 
   // EXCLUDE Rejected proposals from ranking (they stay visible on list with badge, but not on leaderboard)
   if (appStatus === 'TU_CHOI' || appStatus === 'REJECTED' || subStatus === 'TU_CHOI_TRIEN_KHAI' || subStatus === 'TU_CHOI_DUYET' || status === 'REJECTED') {
     return false;
   }
 
-  // EXCLUDE Pending approval proposals from ranking
-  if (['CHO_REVIEW', 'CHO_DUYET', 'SO_DUYET', 'SO_BO', 'CHO_PHE_DUYET', 'CAN_CHINH_SUA'].includes(subStatus)) return false;
-  if (['SUBMITTED', 'PENDING', 'DRAFT', 'CHO_DUYET'].includes(status)) return false;
-  if (['PENDING', 'CHO_DUYET', 'CHO_PHE_DUYET'].includes(appStatus)) return false;
-
-  // MUST BE officially approved
-  const isOfficiallyApproved =
-    appStatus === 'PHE_DUYET' ||
-    appStatus === 'APPROVED' ||
-    ['DA_DANH_GIA', 'DA_DUYET', 'DA_XEP_HANG'].includes(subStatus) ||
-    ['DA_DANH_GIA', 'DA_XEP_HANG'].includes(trangThai) ||
-    ['APPROVED', 'COMPLETED', 'IMPLEMENTED'].includes(status);
-
-  if (!isOfficiallyApproved) return false;
-
-  // MUST HAVE actual savings or efficiency score > 0
-  const savingsSecs = Number(p.so_giay_tiet_kiem || p.saved_seconds || 0);
-  const savingsVnd = Number(p.tong_tien_tiet_kiem || p.total_savings_vnd || 0);
-  const score = Number(p.diem_hieu_qua || p.score_points || 0);
-
-  return savingsSecs > 0 || savingsVnd > 0 || score > 0;
+  return true;
 }
 
 export async function GET(request: Request) {
@@ -58,7 +37,10 @@ export async function GET(request: Request) {
 
     const db = getDbBinding();
     if (!db) {
-      return NextResponse.json({ success: true, leaderboard: [] });
+      return NextResponse.json(
+        { success: true, leaderboard: [] },
+        { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate' } }
+      );
     }
 
     await ensureKaizenSchema(db);
@@ -72,22 +54,8 @@ export async function GET(request: Request) {
       SELECT * FROM ci_kaizen_proposals
       WHERE (is_archived IS NULL OR is_archived = 0)
         AND (approval_status IS NULL OR UPPER(approval_status) NOT IN ('TU_CHOI', 'REJECTED'))
-        AND (
-          UPPER(approval_status) IN ('PHE_DUYET', 'APPROVED')
-          OR UPPER(sub_status) IN ('DA_DANH_GIA', 'DA_DUYET', 'DA_XEP_HANG')
-          OR UPPER(trang_thai) IN ('DA_DANH_GIA', 'DA_XEP_HANG')
-          OR UPPER(status) IN ('APPROVED', 'COMPLETED', 'IMPLEMENTED')
-        )
-        AND UPPER(COALESCE(sub_status, '')) NOT IN ('CHO_REVIEW', 'CHO_DUYET', 'SO_DUYET', 'SO_BO', 'TU_CHOI_TRIEN_KHAI', 'CAN_CHINH_SUA')
-        AND UPPER(COALESCE(status, '')) NOT IN ('SUBMITTED', 'REJECTED', 'PENDING', 'DRAFT')
-        AND (
-          COALESCE(so_giay_tiet_kiem, 0) > 0
-          OR COALESCE(saved_seconds, 0) > 0
-          OR COALESCE(tong_tien_tiet_kiem, 0) > 0
-          OR COALESCE(total_savings_vnd, 0) > 0
-          OR COALESCE(diem_hieu_qua, 0) > 0
-          OR COALESCE(score_points, 0) > 0
-        )
+        AND (sub_status IS NULL OR UPPER(sub_status) NOT IN ('TU_CHOI_TRIEN_KHAI', 'TU_CHOI_DUYET'))
+        AND (status IS NULL OR UPPER(status) NOT IN ('REJECTED'))
     `;
 
     const queryParams: any[] = [];
@@ -113,25 +81,97 @@ export async function GET(request: Request) {
       : await db.prepare(query).all();
 
     if (!results || results.length === 0) {
-      return NextResponse.json({ success: true, leaderboard: [] });
+      return NextResponse.json(
+        { success: true, leaderboard: [] },
+        { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate' } }
+      );
     }
 
     const filteredResults = results.filter(isApprovedAndValid);
 
     if (filteredResults.length === 0) {
-      return NextResponse.json({ success: true, leaderboard: [] });
+      return NextResponse.json(
+        { success: true, leaderboard: [] },
+        { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate' } }
+      );
     }
+
+    let scoreAggMap: Record<
+      string,
+      {
+        avgScore: number;
+        avgC1: number;
+        avgC2: number;
+        avgC3: number;
+        avgC4: number;
+        avgC5: number;
+        maxScore: number;
+        minScore: number;
+        judgeCount: number;
+        isFlagged: boolean;
+      }
+    > = {};
+
+    try {
+      const { results: scoreAggRows } = await db.prepare(`
+        SELECT submission_id,
+               AVG(total_score) as avg_score,
+               AVG(c1_score) as avg_c1,
+               AVG(c2_score) as avg_c2,
+               AVG(c3_score) as avg_c3,
+               AVG(c4_score) as avg_c4,
+               AVG(c5_score) as avg_c5,
+               MAX(total_score) as max_score,
+               MIN(total_score) as min_score,
+               COUNT(*) as cnt
+        FROM ci_kaizen_scores
+        GROUP BY submission_id
+      `).all();
+
+      if (scoreAggRows) {
+        for (const r of scoreAggRows as any[]) {
+          if (r.submission_id) {
+            const key = String(r.submission_id).trim().toUpperCase();
+            const cnt = Number(r.cnt || 0);
+            const maxS = Number(r.max_score || 0);
+            const minS = Number(r.min_score || 0);
+            scoreAggMap[key] = {
+              avgScore: Math.round(Number(r.avg_score || 0) * 10) / 10,
+              avgC1: Math.round(Number(r.avg_c1 || 0) * 10) / 10,
+              avgC2: Math.round(Number(r.avg_c2 || 0) * 10) / 10,
+              avgC3: Math.round(Number(r.avg_c3 || 0) * 10) / 10,
+              avgC4: Math.round(Number(r.avg_c4 || 0) * 10) / 10,
+              avgC5: Math.round(Number(r.avg_c5 || 0) * 10) / 10,
+              maxScore: maxS,
+              minScore: minS,
+              judgeCount: cnt,
+              isFlagged: cnt >= 2 && (maxS - minS > 15),
+            };
+          }
+        }
+      }
+    } catch (e) {}
 
     const rankedList = filteredResults.map((p: any) => {
       const savingsSecs = Number(p.so_giay_tiet_kiem || p.saved_seconds || 0);
-      const efficiencyScore = Number(p.diem_hieu_qua || p.score_points || 0);
-      const judgeScore = Number(p.judge_final_score || 0);
-      const c1Score = Number(p.c1_score_final || 0);
-      const c3Score = Number(p.c3_score_final || 0);
+      const savingsVnd = Number(p.tong_tien_tiet_kiem || p.total_savings_vnd || 0);
 
-      const totalScore = judgeScore > 0
-        ? judgeScore
-        : Math.round((savingsSecs * weightSavings + efficiencyScore * weightEfficiency) * 10) / 10;
+      const idKey = String(p.id || '').trim().toUpperCase();
+      const codeKey = String(p.code || '').trim().toUpperCase();
+      const extIdKey = String(p.external_id || '').trim().toUpperCase();
+      const cleanIdKey = idKey.replace(/^TKG_/i, '');
+      const agg = scoreAggMap[idKey] || scoreAggMap[codeKey] || scoreAggMap[extIdKey] || scoreAggMap[cleanIdKey] || scoreAggMap[`TKG_${cleanIdKey}`];
+
+      const hasAgg = agg && agg.avgScore > 0;
+      const judgeScore = hasAgg ? agg.avgScore : Number(p.judge_final_score || p.score_points || 0);
+      const c1Score = hasAgg ? agg.avgC1 : Number(p.c1_score_final || 0);
+      const c2Score = hasAgg ? agg.avgC2 : Number(p.c2_score_final || 0);
+      const c3Score = hasAgg ? agg.avgC3 : Number(p.c3_score_final || 0);
+      const c4Score = hasAgg ? agg.avgC4 : Number(p.c4_score_final || 0);
+      const c5Score = hasAgg ? agg.avgC5 : Number(p.c5_score_final || 0);
+      const isFlagged = (agg && agg.isFlagged) ? 1 : Number(p.is_score_flagged || p.is_flagged || 0);
+
+      const totalScore = judgeScore;
 
       let isAppealOpen = false;
       if (p.published_at) {
@@ -145,24 +185,45 @@ export async function GET(request: Request) {
       return {
         ...p,
         so_giay_tiet_kiem: savingsSecs,
-        diem_hieu_qua: efficiencyScore,
+        total_savings_vnd: savingsVnd,
+        judge_final_score: totalScore,
         diem_tong_hop: totalScore,
         c1_score_final: c1Score,
+        c2_score_final: c2Score,
         c3_score_final: c3Score,
+        c4_score_final: c4Score,
+        c5_score_final: c5Score,
+        is_score_flagged: isFlagged,
+        is_flagged: isFlagged,
         is_appeal_open: isAppealOpen,
       };
     });
 
-    // ⚡ Tie-breaking sort rule (Requirements 4.7.7 & 5.6):
-    // Primary: Total score DESC -> Secondary: C1 score DESC -> Tertiary: C3 score DESC
+    // ⚡ BGK Ranking sort rule:
+    // 1. Scored items first (judge_final_score > 0), Unscored items at bottom (judge_final_score === 0)
+    // 2. Primary: BGK Total score DESC
+    // 3. Secondary: C1 score DESC
+    // 4. Tertiary: C3 score DESC
+    // 5. Quaternary: Total savings VND DESC
     rankedList.sort((a: any, b: any) => {
+      const isScoredA = Number(a.judge_final_score || 0) > 0;
+      const isScoredB = Number(b.judge_final_score || 0) > 0;
+
+      if (isScoredA && !isScoredB) return -1;
+      if (!isScoredA && isScoredB) return 1;
+
       if (b.diem_tong_hop !== a.diem_tong_hop) {
         return b.diem_tong_hop - a.diem_tong_hop;
       }
       if ((b.c1_score_final || 0) !== (a.c1_score_final || 0)) {
         return (b.c1_score_final || 0) - (a.c1_score_final || 0);
       }
-      return (b.c3_score_final || 0) - (a.c3_score_final || 0);
+      if ((b.c3_score_final || 0) !== (a.c3_score_final || 0)) {
+        return (b.c3_score_final || 0) - (a.c3_score_final || 0);
+      }
+      const valA = Number(a.total_savings_vnd || a.tong_tien_tiet_kiem || 0);
+      const valB = Number(b.total_savings_vnd || b.tong_tien_tiet_kiem || 0);
+      return valB - valA;
     });
 
     const batchStatements: any[] = [];
@@ -170,29 +231,38 @@ export async function GET(request: Request) {
       UPDATE ci_kaizen_proposals
       SET hang_xep = ?,
           diem_tong_hop = ?,
-          trang_thai = 'DA_DANH_GIA',
           updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `);
 
     for (let i = 0; i < rankedList.length; i++) {
-      const rank = i + 1;
       const item = rankedList[i];
+      const isScored = Number(item.judge_final_score || 0) > 0;
+      const rank = isScored ? i + 1 : 0;
       item.hang_xep = rank;
 
-      batchStatements.push(updateStmt.bind(rank, item.diem_tong_hop, item.id));
+      if (item.id) {
+        batchStatements.push(updateStmt.bind(rank, item.diem_tong_hop, item.id));
+      }
     }
 
     if (batchStatements.length > 0) {
-      await db.batch(batchStatements);
+      await db.batch(batchStatements).catch(() => {});
     }
 
-    return NextResponse.json({
-      success: true,
-      count: rankedList.length,
-      leaderboard: rankedList,
-      weights: { weightSavings, weightEfficiency },
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        count: rankedList.length,
+        leaderboard: rankedList,
+        weights: { weightSavings, weightEfficiency },
+      },
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        },
+      }
+    );
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Lỗi lấy bảng xếp hạng';
     return NextResponse.json({ error: message }, { status: 500 });

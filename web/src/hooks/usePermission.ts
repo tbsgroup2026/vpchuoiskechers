@@ -20,6 +20,7 @@ export interface UserSession {
   department?: string;
   managedDepartmentId?: string; // Ví dụ: "hr", "ci", "qc", "rd" cho Trưởng phòng
   roles?: string[]; // Mảng các role mà user có (Multi-role support: union permissions)
+  phone?: string;
   avatar?: string;
   allowedScopes?: EquipmentScope[];
 }

@@ -183,7 +183,19 @@ export function KaizenCardImage({ src, alt, attachmentsJson }: { src?: string; a
   }, [src, attachmentsJson]);
 
   if (!imgSrc || hasError) {
-    return (
+  
+  useEffect(() => {
+    const scrollSidebar = () => {
+      const activeItem = document.querySelector(".sidebar-item-active");
+      if (activeItem) {
+        activeItem.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    };
+    const t = setTimeout(scrollSidebar, 150);
+    return () => clearTimeout(t);
+  }, [selectedRegion, selectedCategory, selectedWorkshop, selectedRegType]);
+
+  return (
       <div className="flex flex-col items-center gap-0.5 text-slate-400 select-none">
         <IconPhoto size={26} />
         <span className="text-[10px] font-bold">Chưa có ảnh</span>
@@ -1967,11 +1979,12 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
     <div className="min-h-screen bg-[#f1f5f9] text-slate-800 font-sans flex flex-col md:flex-row w-full selection:bg-[#006838] selection:text-white">
       {/* SIDEBAR */}
       <aside
-        className={`bg-[#0b1739] text-slate-200 flex-col flex-shrink-0 transition-all duration-300 select-none z-30 sticky top-0 h-screen overflow-y-auto ${
-          isSidebarCollapsed ? "w-20 p-2.5" : "w-64 lg:w-72 p-3.5"
-        } flex flex-col justify-between border-r border-slate-800 shadow-xl`}
+        className={`bg-[#0b1739] text-slate-200 flex-col flex-shrink-0 transition-all duration-300 select-none z-30 sticky top-0 h-[100dvh] ${
+          isSidebarCollapsed ? "w-20" : "w-64 lg:w-72"
+        } flex justify-between border-r border-slate-800 shadow-xl`}
       >
-        <div className="space-y-4">
+        {/* VÙNG ĐẦU CỐ ĐỊNH */}
+        <div className={`flex-shrink-0 flex flex-col ${isSidebarCollapsed ? "p-2.5" : "p-3.5"} space-y-4 z-10 shadow-sm shadow-[#0b1739] bg-[#0b1739]`}>
           <div className="flex items-center justify-between gap-2 pb-3 border-b border-slate-800/90">
             {!isSidebarCollapsed ? (
               <div className="flex items-center gap-2">
@@ -2016,7 +2029,7 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
 
           <div className="space-y-1">
             {!isSidebarCollapsed && (
-              <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-wider px-2">
+              <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-wider px-2 [@media(max-height:600px)]:hidden">
                 MENU
               </h4>
             )}
@@ -2029,7 +2042,7 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
                 title="Quay lại Trang Chủ Công Việc (/work)"
               >
                 <IconArrowLeft size={18} className="shrink-0 text-emerald-400" />
-                {!isSidebarCollapsed && <span className="truncate">Về Trang Chủ</span>}
+                {!isSidebarCollapsed && <span className="truncate [@media(max-height:600px)]:hidden">Về Trang Chủ</span>}
               </Link>
 
               {activeUnitInfo && (
@@ -2041,7 +2054,7 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
                   title="Về Trang Tổng Quan (7 Đơn Vị)"
                 >
                   <IconBuildingFactory size={18} className="shrink-0 text-emerald-400" />
-                  {!isSidebarCollapsed && <span className="truncate">🏠 Về Tổng Quan</span>}
+                  {!isSidebarCollapsed && <span className="truncate [@media(max-height:600px)]:hidden">🏠 Về Tổng Quan</span>}
                 </Link>
               )}
 
@@ -2057,7 +2070,7 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
                 }`}
               >
                 <IconPhoto size={18} className="shrink-0" />
-                {!isSidebarCollapsed && <span className="text-xs truncate">Thư viện</span>}
+                {!isSidebarCollapsed && <span className="text-xs truncate [@media(max-height:600px)]:hidden">Thư viện</span>}
               </button>
 
               <button
@@ -2072,7 +2085,7 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
                 }`}
               >
                 <IconChartBar size={18} className="shrink-0" />
-                {!isSidebarCollapsed && <span className="text-xs truncate">Dashboard</span>}
+                {!isSidebarCollapsed && <span className="text-xs truncate [@media(max-height:600px)]:hidden">Dashboard</span>}
               </button>
 
               <button
@@ -2087,7 +2100,7 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
                 }`}
               >
                 <IconShieldCheck size={18} className="shrink-0 text-rose-400" />
-                {!isSidebarCollapsed && <span className="truncate">Cảnh báo Ban 2.2</span>}
+                {!isSidebarCollapsed && <span className="truncate [@media(max-height:600px)]:hidden">Cảnh báo Ban 2.2</span>}
               </button>
 
               <button
@@ -2098,11 +2111,15 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
                 } text-slate-300 hover:bg-slate-800/80 hover:text-white font-bold text-xs`}
               >
                 <IconCloudUpload size={18} className="shrink-0 text-slate-400" />
-                {!isSidebarCollapsed && <span className="truncate">Đăng tải nhanh</span>}
+                {!isSidebarCollapsed && <span className="truncate [@media(max-height:600px)]:hidden">Đăng tải nhanh</span>}
               </button>
             </div>
           </div>
 
+        </div>
+        
+        {/* VÙNG GIỮA CUỘN */}
+        <div className={`flex-1 min-h-0 overflow-y-auto overscroll-contain scroll-smooth ${isSidebarCollapsed ? "px-2.5" : "px-3.5"} pb-4 sidebar-middle-scroll`}>
           <div className="space-y-2 pt-2 border-t border-slate-800/80">
             {!isSidebarCollapsed && (
               <div className="flex items-center justify-between px-2">
@@ -2149,7 +2166,7 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
                     }}
                     className={`w-full text-left px-2.5 py-1 rounded-lg flex items-center justify-between transition-colors ${
                       selectedRegType === "THI_DUA"
-                        ? "bg-amber-500/20 text-amber-300 font-extrabold border border-amber-500/30"
+                        ? "bg-amber-500/20 text-amber-300 font-extrabold border border-amber-500/30 sidebar-item-active"
                         : "text-slate-300 hover:bg-slate-800/80 hover:text-white"
                     }`}
                   >
@@ -2218,7 +2235,7 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
                     }}
                     className={`w-full text-left px-2.5 py-1 rounded-lg flex items-center justify-between transition-colors ${
                       selectedRegType === "LUU_TRU"
-                        ? "bg-slate-800 text-white font-extrabold"
+                        ? "bg-slate-800 text-white font-extrabold sidebar-item-active"
                         : "text-slate-400 hover:bg-slate-800/80 hover:text-white"
                     }`}
                   >
@@ -2290,7 +2307,7 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
                             }}
                             className={`w-full text-left px-2 py-1 rounded flex items-center justify-between text-[11px] transition-colors ${
                               selectedWorkshop === stg.key
-                                ? "bg-emerald-900/80 text-emerald-200 font-black"
+                                ? "bg-emerald-900/80 text-emerald-200 font-black sidebar-item-active"
                                 : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200 font-medium"
                             }`}
                           >
@@ -2318,7 +2335,7 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
                             setActiveTab("LIBRARY");
                           }}
                           className={`w-full text-left px-2 py-1 rounded flex items-center justify-between text-[11px] transition-colors cursor-pointer ${
-                            selectedRegion === "Văn phòng Chuỗi" ? "bg-emerald-900/80 text-emerald-200 font-black" : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200 font-medium"
+                            selectedRegion === "Văn phòng Chuỗi" ? "bg-emerald-900/80 text-emerald-200 font-black sidebar-item-active" : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200 font-medium"
                           }`}
                         >
                           <span className="truncate">🏢 Văn phòng Chuỗi</span>
@@ -2337,7 +2354,7 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
                             setActiveTab("LIBRARY");
                           }}
                           className={`w-full text-left px-2 py-1 rounded flex items-center justify-between text-[11px] transition-colors cursor-pointer ${
-                            selectedRegion === "Nhà Máy Miền Đông" ? "bg-emerald-900/80 text-emerald-200 font-black" : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200 font-medium"
+                            selectedRegion === "Nhà Máy Miền Đông" ? "bg-emerald-900/80 text-emerald-200 font-black sidebar-item-active" : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200 font-medium"
                           }`}
                         >
                           <span className="truncate">🏭 Nhà Máy Miền Đông</span>
@@ -2348,7 +2365,7 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
                         <div className="space-y-0.5 pt-0.5">
                           <div
                             className={`w-full text-left px-2 py-1 rounded flex items-center justify-between text-[11px] transition-colors cursor-pointer ${
-                              selectedRegion === "THKG" ? "bg-emerald-900/80 text-emerald-200 font-black" : "text-slate-300 hover:bg-slate-800/60 hover:text-white font-bold"
+                              selectedRegion === "THKG" ? "bg-emerald-900/80 text-emerald-200 font-black sidebar-item-active" : "text-slate-300 hover:bg-slate-800/60 hover:text-white font-bold"
                             }`}
                             onClick={() => {
                               const nextReg = selectedRegion === "THKG" ? "ALL" : "THKG";
@@ -2448,7 +2465,7 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
                           setActiveTab("LIBRARY");
                         }}
                         className={`w-full text-left px-2 py-0.5 rounded-lg flex items-center justify-between transition-colors ${
-                          selectedCategory === c.id ? "bg-[#006838] text-white font-extrabold" : "text-slate-300 hover:bg-slate-800/80 hover:text-white"
+                          selectedCategory === c.id ? "bg-[#006838] text-white font-extrabold sidebar-item-active" : "text-slate-300 hover:bg-slate-800/80 hover:text-white"
                         }`}
                       >
                         <span className="truncate">{c.label}</span>
@@ -2464,7 +2481,8 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
           </div>
         </div>
 
-        <div className="pt-3 border-t border-slate-800/90 flex items-center justify-between">
+        {/* VÙNG ĐUÔI CỐ ĐỊNH */}
+        <div className={`flex-shrink-0 pt-3 pb-3 border-t border-slate-800/90 flex items-center justify-between z-10 shadow-[0_-4px_10px_rgba(11,23,57,0.5)] bg-[#0b1739] ${isSidebarCollapsed ? "px-2.5" : "px-3.5"}`}>
           <div className="flex items-center gap-2 min-w-0">
             <UserAvatar src={currentUser.avatar} name={currentUser.name} size="sm" />
             {!isSidebarCollapsed && (

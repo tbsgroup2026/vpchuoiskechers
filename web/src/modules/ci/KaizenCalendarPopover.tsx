@@ -532,21 +532,6 @@ export function KaizenCalendarPopover({
           })}
         </div>
 
-        {/* RETRY WARNING IF FETCH HAD ISSUE */}
-        {hasFetchError && (
-          <div className="flex items-center justify-between text-[10px] text-amber-600 pt-1">
-            <span>Không tải được đếm</span>
-            <button
-              type="button"
-              onClick={fetchBadges}
-              className="underline font-bold hover:text-amber-700:text-amber-300 flex items-center gap-0.5 cursor-pointer"
-            >
-              <IconRefresh size={10} />
-              <span>Thử lại</span>
-            </button>
-          </div>
-        )}
-
         {/* SECTION 2: HOẶC CHỌN KHOẢNG NGÀY */}
         <div className="space-y-3 pt-2">
           <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 text-center sm:text-left">

@@ -9,7 +9,7 @@
   ],
   "assets": {
     "directory": "web/out",
-    "binding": "ASSETS",
+    "binding": "ASSET_BINDING",
     "html_handling": "drop-trailing-slash",
     "not_found_handling": "single-page-application",
     "run_worker_first": true
@@ -19,6 +19,7 @@
     "CLOUDINARY_FOLDER": "vpchuoiskechers",
     "NEXT_PUBLIC_APP_URL": "https://vpchuoiskechers.tbsgroup2026.workers.dev",
     "JWT_SECRET": "tbs_ii_secure_jwt_secret_key_2026",
+    "ZALO_BOT_TOKEN": "2083301284890293167:jgjialyvCtjfRJJnTjgOEzqFeBlkXtNlAYwhlayRbprqgNDRBjRejfFgpobQyGWS",
     "TBSMAYMOC_API_URL": "https://tbs-may-moc-admin.tbs-quanlymaymoc.workers.dev",
     "MMTB_AUTO_LOGIN_EMP_CODE": "AMDKG",
     "MMTB_AUTO_LOGIN_PASSWORD": "123456",
@@ -37,6 +38,12 @@
       "binding": "DB_KG",
       "database_name": "thkiengiangshoes",
       "database_id": "176450d4-b81b-40d0-aee6-071ce67a626f"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "BUCKET",
+      "bucket_name": "tbs-business-trips"
     }
   ],
   "triggers": {

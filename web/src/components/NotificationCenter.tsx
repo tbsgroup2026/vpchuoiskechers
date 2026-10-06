@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback , useMemo} from "react";
 import { createPortal } from "react-dom";
 import {
   IconBell,
@@ -24,6 +24,7 @@ import {
 } from "@/lib/browserNotifications";
 import PWAInstallGuide from "@/components/PWAInstallGuide";
 import { apiFetch, registerPoller, unregisterPoller } from "@/lib/apiClient";
+import { useLanguage } from "@/components/LanguageProvider";
 
 export interface NotificationItem {
   id: string;
@@ -40,16 +41,34 @@ export interface NotificationItem {
 }
 
 export default function NotificationCenter() {
+  const { lang, t } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
+
   const [isMounted, setIsMounted] = useState(false);
   const [permissionState, setPermissionState] = useState<NotificationPermissionState>("default");
   const [isSubscribed, setIsSubscribed] = useState(false);
 
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+
+  // Group notifications by title + message
+  const groupedNotifications = useMemo(() => {
+    const groups = new Map<string, any>();
+    notifications.forEach(n => {
+      const key = `${n.title}-${n.message}-${n.link}`;
+      if (groups.has(key)) {
+        groups.get(key).count += 1;
+        if (n.is_read === 0) groups.get(key).unreadCount += 1;
+      } else {
+        groups.set(key, { ...n, count: 1, unreadCount: n.is_read === 0 ? 1 : 0 });
+      }
+    });
+    return Array.from(groups.values());
+  }, [notifications]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [isEnabling, setIsEnabling] = useState(false);
+  const [isMarkingAll, setIsMarkingAll] = useState(false);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -88,8 +107,17 @@ export default function NotificationCenter() {
       }
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
-        setNotifications(json.data);
-        setUnreadCount(json.unread || 0);
+        const normalizedList = json.data.map((n: any) => ({
+          ...n,
+          is_read: typeof n.is_read === "number" ? n.is_read : (n.isRead ? 1 : 0),
+          created_at: n.created_at || n.createdAt,
+          url: n.url || n.link,
+        }));
+        setNotifications(normalizedList);
+        const count = typeof json.unread === "number"
+          ? json.unread
+          : normalizedList.filter((n: any) => n.is_read === 0).length;
+        setUnreadCount(count);
       } else {
         setHasError(true);
       }
@@ -210,21 +238,57 @@ export default function NotificationCenter() {
   };
 
   const markAllAsRead = async () => {
-    // Optimistic UI update
-    setNotifications((prev) => prev.map((n) => ({ ...n, is_read: 1 })));
+    if (isMarkingAll || unreadCount === 0) return;
+    setIsMarkingAll(true);
+
+    const previousNotifications = notifications;
+    const previousUnreadCount = unreadCount;
+
+    // Optimistic UI update: Mark all notifications as read locally
+    setNotifications((prev) =>
+      prev.map((n) => ({ ...n, is_read: 1, isRead: true }))
+    );
     setUnreadCount(0);
-    // Persist to backend
+    lastFetchRef.current = Date.now(); // pause polling temporarily
+
     try {
-      await fetch("/api/notifications/read-all", { method: "PATCH", credentials: "include" });
-    } catch { /* silent fail — optimistic already applied */ }
+      const res = await apiFetch("/api/notifications/read-all", { method: "PATCH" });
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      const json = await res.json();
+      if (!json.success) {
+        throw new Error(json.error || "Failed to mark all as read");
+      }
+      // Sync exact count from server
+      await fetchUnreadCount();
+    } catch (err: any) {
+      console.error("[NotificationCenter] markAllAsRead error:", err);
+      // Rollback optimistic update on failure
+      setNotifications(previousNotifications);
+      setUnreadCount(previousUnreadCount);
+      alert(t("errors.networkError", undefined, "Không thể cập nhật trạng thái thông báo. Vui lòng thử lại."));
+    } finally {
+      setIsMarkingAll(false);
+    }
   };
 
   const markOneAsRead = async (id: string) => {
-    setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, is_read: 1 } : n));
+    const target = notifications.find((n) => n.id === id);
+    if (!target) return;
+    const isAlreadyRead = target.is_read === 1 || (target as any).isRead === true;
+    if (isAlreadyRead) return;
+
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, is_read: 1, isRead: true } : n))
+    );
     setUnreadCount((prev) => Math.max(0, prev - 1));
+
     try {
-      await fetch(`/api/notifications/${id}/read`, { method: "PATCH", credentials: "include" });
-    } catch { /* silent */ }
+      await apiFetch(`/api/notifications/${id}/read`, { method: "PATCH" });
+    } catch (err) {
+      console.error("[NotificationCenter] markOneAsRead error:", err);
+    }
   };
 
   const getIcon = (type: string) => {
@@ -257,48 +321,55 @@ export default function NotificationCenter() {
     } catch { return ts; }
   };
 
+  const isItemUnread = (item: NotificationItem) => {
+    return item.is_read === 0 || (item as any).isRead === false;
+  };
+
   // ── Notification card (shared between mobile/desktop) ────────────────────────
-  const NotifCard = ({ item, compact = false }: { item: NotificationItem; compact?: boolean }) => (
-    <div
-      key={item.id}
-      onClick={() => {
-        markOneAsRead(item.id);
-        setIsOpen(false);
-        const href = item.url || item.link;
-        if (href) window.location.href = href;
-      }}
-      className={`${compact ? "p-3.5" : "p-4"} ${compact ? "flex items-start gap-3 hover:bg-slate-50 transition-colors cursor-pointer" : "rounded-2xl border flex items-start gap-3 transition-all cursor-pointer shadow-2xs active:scale-[0.99]"} ${
-        item.is_read === 0
-          ? compact ? "bg-emerald-50/40" : "bg-emerald-50/70 border-emerald-200"
-          : compact ? "bg-white" : "bg-slate-50/80 border-slate-200/80"
-      }`}
-    >
-      <div className={`${compact ? "w-8 h-8 rounded-xl" : "w-10 h-10 rounded-2xl"} bg-white flex items-center justify-center flex-shrink-0 shadow-xs mt-0.5 border border-slate-100`}>
-        {getIcon(item.type)}
-      </div>
-      <div className="flex-1 min-w-0 space-y-0.5">
-        <div className="flex items-start justify-between gap-2">
-          <h5 className={`${compact ? "text-xs" : "text-sm"} font-extrabold text-slate-900 leading-snug`}>
-            {item.title}
-          </h5>
-          <span className="text-[10px] text-slate-400 font-mono whitespace-nowrap flex-shrink-0">
-            {formatTime(item.created_at)}
-          </span>
+  const NotifCard = ({ item, compact = false }: { item: NotificationItem; compact?: boolean }) => {
+    const unread = isItemUnread(item);
+    return (
+      <div
+        key={item.id}
+        onClick={() => {
+          markOneAsRead(item.id);
+          setIsOpen(false);
+          const href = item.url || item.link;
+          if (href) window.location.href = href;
+        }}
+        className={`${compact ? "p-3.5" : "p-4"} ${compact ? "flex items-start gap-3 hover:bg-slate-50 transition-colors cursor-pointer" : "rounded-2xl border flex items-start gap-3 transition-all cursor-pointer shadow-2xs active:scale-[0.99]"} ${
+          unread
+            ? compact ? "bg-emerald-50/40" : "bg-emerald-50/70 border-emerald-200"
+            : compact ? "bg-white" : "bg-slate-50/80 border-slate-200/80"
+        }`}
+      >
+        <div className={`${compact ? "w-8 h-8 rounded-xl" : "w-10 h-10 rounded-2xl"} bg-white flex items-center justify-center flex-shrink-0 shadow-xs mt-0.5 border border-slate-100`}>
+          {getIcon(item.type)}
         </div>
-        <p className={`${compact ? "text-xs line-clamp-2" : "text-xs sm:text-sm"} text-slate-600 leading-relaxed break-words font-medium`}>
-          {item.message}
-        </p>
-        {item.targetUser && item.targetUser !== "all" && (
-          <span className={`inline-block mt-1 px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 ${compact ? "text-[9px]" : "text-xs"} font-bold`}>
-            👤 Gửi đến: {item.targetUser}
-          </span>
+        <div className="flex-1 min-w-0 space-y-0.5">
+          <div className="flex items-start justify-between gap-2">
+            <h5 className={`${compact ? "text-xs" : "text-sm"} font-extrabold text-slate-900 leading-snug`}>
+              {item.title}
+            </h5>
+            <span className="text-[10px] text-slate-400 font-mono whitespace-nowrap flex-shrink-0">
+              {formatTime(item.created_at)}
+            </span>
+          </div>
+          <p className={`${compact ? "text-xs line-clamp-2" : "text-xs sm:text-sm"} text-slate-600 leading-relaxed break-words font-medium`}>
+            {item.message}
+          </p>
+          {item.targetUser && item.targetUser !== "all" && (
+            <span className={`inline-block mt-1 px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 ${compact ? "text-[9px]" : "text-xs"} font-bold`}>
+              👤 Gửi đến: {item.targetUser}
+            </span>
+          )}
+        </div>
+        {unread && (
+          <span className={`${compact ? "w-2 h-2" : "w-2.5 h-2.5"} rounded-full bg-[#006838] flex-shrink-0 mt-1.5`} />
         )}
       </div>
-      {item.is_read === 0 && (
-        <span className={`${compact ? "w-2 h-2" : "w-2.5 h-2.5"} rounded-full bg-[#006838] flex-shrink-0 mt-1.5`} />
-      )}
-    </div>
-  );
+    );
+  };
 
   // ── Push/PWA control panel (shared) ──────────────────────────────────────────
   const PushControlPanel = ({ compact = false }: { compact?: boolean }) => (
@@ -427,15 +498,15 @@ export default function NotificationCenter() {
                     </div>
 
                     <div className="flex items-center gap-1.5 flex-shrink-0">
-                      {unreadCount > 0 && (
-                        <button
-                          onClick={markAllAsRead}
-                          className="px-2.5 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white font-bold text-xs transition cursor-pointer flex items-center gap-1 min-h-[36px] active:scale-95 whitespace-nowrap"
-                        >
-                          <IconCheck size={14} />
-                          <span>Đọc tất cả</span>
-                        </button>
-                      )}
+                      <button
+                        onClick={markAllAsRead}
+                        disabled={isMarkingAll || unreadCount === 0}
+                        className="px-2.5 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white font-bold text-xs transition cursor-pointer flex items-center gap-1 min-h-[36px] active:scale-95 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                        title={unreadCount === 0 ? "Tất cả thông báo đã được đọc" : "Đánh dấu tất cả đã đọc"}
+                      >
+                        {isMarkingAll ? <IconLoader2 size={14} className="animate-spin" /> : <IconCheck size={14} />}
+                        <span>{unreadCount === 0 ? "Đã đọc tất cả" : "Đọc tất cả"}</span>
+                      </button>
                       <button
                         onClick={() => setIsOpen(false)}
                         className="w-9 h-9 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center text-white cursor-pointer min-h-[36px] min-w-[36px] active:scale-95 flex-shrink-0"
@@ -455,7 +526,7 @@ export default function NotificationCenter() {
                       <LoadingSkeleton compact={false} />
                     ) : hasError ? (
                       <ErrorState compact={false} />
-                    ) : notifications.length === 0 ? (
+                    ) : groupedNotifications.length === 0 ? (
                       <EmptyState compact={false} />
                     ) : (
                       notifications.map((item) => <NotifCard key={item.id} item={item} compact={false} />)
@@ -489,15 +560,15 @@ export default function NotificationCenter() {
                 )}
               </div>
               <div className="flex items-center gap-1">
-                {unreadCount > 0 && (
-                  <button
-                    onClick={markAllAsRead}
-                    className="text-[11px] font-bold text-emerald-100 hover:text-white transition-colors cursor-pointer flex items-center gap-1 mr-2"
-                  >
-                    <IconCheck size={14} />
-                    <span>Đọc tất cả</span>
-                  </button>
-                )}
+                <button
+                  onClick={markAllAsRead}
+                  disabled={isMarkingAll || unreadCount === 0}
+                  className="text-[11px] font-bold text-emerald-100 hover:text-white transition-colors cursor-pointer flex items-center gap-1 mr-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={unreadCount === 0 ? "Tất cả thông báo đã được đọc" : "Đánh dấu tất cả đã đọc"}
+                >
+                  {isMarkingAll ? <IconLoader2 size={14} className="animate-spin" /> : <IconCheck size={14} />}
+                  <span>{unreadCount === 0 ? "Đã đọc tất cả" : "Đọc tất cả"}</span>
+                </button>
                 <button
                   onClick={() => setIsOpen(false)}
                   className="w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white cursor-pointer"
@@ -517,7 +588,7 @@ export default function NotificationCenter() {
                 <LoadingSkeleton compact={true} />
               ) : hasError ? (
                 <ErrorState compact={true} />
-              ) : notifications.length === 0 ? (
+              ) : groupedNotifications.length === 0 ? (
                 <EmptyState compact={true} />
               ) : (
                 notifications.map((item) => <NotifCard key={item.id} item={item} compact={true} />)

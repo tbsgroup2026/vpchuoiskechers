@@ -1,3 +1,119 @@
+
+// ==================== ZALO LLM BOT LOGIC ====================
+async function askLLM(env, messages) {
+  let apiKey = env.LLM_API_KEY || env.GROQ_API_KEY || env.OPENAI_API_KEY || env.GEMINI_API_KEY;
+  let model = env.LLM_MODEL || env.GROQ_MODEL || 'llama3-8b-8192';
+  
+  if (!apiKey) throw new Error('Missing LLM API Key in environment variables.');
+
+  let baseUrl = 'https://api.groq.com/openai/v1/chat/completions';
+  if (apiKey.startsWith('sk-or-')) baseUrl = 'https://openrouter.ai/api/v1/chat/completions';
+  if (apiKey.startsWith('AIza')) {
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
+    const geminiMsgs = messages.map(m => ({
+      role: m.role === 'system' || m.role === 'user' ? 'user' : 'model',
+      parts: [{ text: m.content }]
+    }));
+    const req = await fetch(geminiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: geminiMsgs })
+    });
+    const res = await req.json();
+    if (res.error) throw new Error(res.error.message);
+    return res.candidates[0].content.parts[0].text;
+  }
+
+  const req = await fetch(baseUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model: model,
+      messages: messages,
+      max_tokens: 800,
+      temperature: 0.3
+    })
+  });
+  const res = await req.json();
+  if (res.error) throw new Error(res.error.message);
+  return res.choices[0].message.content;
+}
+
+async function sendZaloNotificationWorker(env, text, chatId) {
+  const token = env.ZALO_BOT_TOKEN;
+  if (!token) return;
+  await fetch('https://bot-api.zaloplatforms.com/bot' + token + '/sendMessage', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text: text
+    })
+  });
+}
+
+async function handleZaloBotMention(env, chatId, userId, senderName, cleanText) {
+  const db = env.DB;
+  if (!db) return;
+  
+  const now = new Date();
+  const resetAt = new Date(now.getTime() + 60 * 1000).toISOString();
+  
+  await db.prepare('DELETE FROM zalo_bot_rate_limit WHERE reset_at < ?').bind(now.toISOString()).run().catch(() => {});
+  const rate = await db.prepare('SELECT count FROM zalo_bot_rate_limit WHERE user_id = ?').bind(userId).first().catch(() => null);
+  
+  if (rate) {
+    if (rate.count >= 5) {
+      await sendZaloNotificationWorker(env, 'Xin lỗi, bạn thao tác quá nhanh. Vui lòng đợi 1 phút nữa nhé.', chatId);
+      return;
+    }
+    await db.prepare('UPDATE zalo_bot_rate_limit SET count = count + 1 WHERE user_id = ?').bind(userId).run().catch(() => {});
+  } else {
+    await db.prepare('INSERT INTO zalo_bot_rate_limit (user_id, count, reset_at) VALUES (?, 1, ?)').bind(userId, resetAt).run().catch(() => {});
+  }
+
+  let knowledgeText = 'Bạn là Bot Zalo nội bộ của TBS Group. Trả lời ngắn gọn tối đa 3 câu.';
+  
+  const thirtyMinsAgo = new Date(now.getTime() - 30 * 60 * 1000).toISOString();
+  await db.prepare('DELETE FROM zalo_bot_chat_history WHERE created_at < ?').bind(thirtyMinsAgo).run().catch(() => {});
+  
+  const historyRows = await db.prepare('SELECT role, text FROM zalo_bot_chat_history WHERE chat_id = ? ORDER BY created_at ASC LIMIT 6').bind(chatId).all().catch(() => ({ results: [] }));
+  const messages = [
+    { role: 'system', content: knowledgeText },
+    ...(historyRows.results || []).map(r => ({ role: r.role, content: r.text })),
+    { role: 'user', content: `${senderName}: ${cleanText}` }
+  ];
+
+  await db.prepare('INSERT INTO zalo_bot_chat_history (id, chat_id, user_id, role, text, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+    .bind(crypto.randomUUID(), chatId, userId, 'user', cleanText, now.toISOString()).run().catch(() => {});
+
+  let replyText = '';
+  try {
+    replyText = await askLLM(env, messages);
+  } catch (err) {
+    replyText = 'Xin lỗi, hệ thống AI đang quá tải hoặc lỗi cấu hình LLM: ' + err.message;
+  }
+
+  await db.prepare('INSERT INTO zalo_bot_chat_history (id, chat_id, user_id, role, text, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+    .bind(crypto.randomUUID(), chatId, 'bot', 'assistant', replyText, new Date().toISOString()).run().catch(() => {});
+
+  const MAX_ZALO = 2000;
+  let chunk = '';
+  for (const p of replyText.split('\n')) {
+    if (chunk.length + p.length > MAX_ZALO) {
+      if (chunk.trim()) await sendZaloNotificationWorker(env, chunk.trim(), chatId);
+      chunk = p + '\n';
+    } else {
+      chunk += p + '\n';
+    }
+  }
+  if (chunk.trim()) await sendZaloNotificationWorker(env, chunk.trim(), chatId);
+}
+// ============================================================
+
 // Cloudflare Worker Handler for D1 Database vpchuoiskechers & Static Asset Proxy
 
 const GLOBAL_KAIZEN_RATE_LIMIT_STORE = new Map();
@@ -86,8 +202,9 @@ function parseSessionWorker(token) {
 
 function withCacheHeaders(response, isHtml = false, pathname = "") {
   if (!response) return response;
+  const isBodyForbidden = response.status === 204 || response.status === 304 || response.status === 101;
   const h = new Headers(response.headers);
-  if (isHtml || pathname === "/sw.js" || pathname === "/manifest.json" || pathname.startsWith("/api/")) {
+  if (isHtml || pathname === "/sw.js" || pathname === "/manifest.json" || pathname.startsWith("/api/") || pathname.startsWith("/work/kaizen")) {
     h.set("Cache-Control", "no-cache, no-store, must-revalidate, max-age=0, s-maxage=0");
     h.set("Pragma", "no-cache");
     h.set("Expires", "0");
@@ -98,11 +215,15 @@ function withCacheHeaders(response, isHtml = false, pathname = "") {
   ) {
     h.set("Cache-Control", "public, max-age=31536000, immutable");
   }
-  return new Response(response.body, {
-    status: response.status,
-    statusText: response.statusText,
-    headers: h,
-  });
+  try {
+    return new Response(isBodyForbidden ? null : response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: h,
+    });
+  } catch (e) {
+    return response;
+  }
 }
 
 async function ensureWorkerTables(db) {
@@ -278,7 +399,11 @@ const SECURE_JSON_HEADERS = {
   "Content-Type": "application/json; charset=utf-8",
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization"
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "X-Frame-Options": "SAMEORIGIN",
+  "X-Content-Type-Options": "nosniff",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload"
 };
 
 function pphJson(payload, status, extraHeaders) {
@@ -2126,6 +2251,11 @@ export default {
 
   async handleRequest(request, env, ctx) {
     const url = new URL(request.url);
+    const CORS = {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+      "Access-Control-Allow-Headers": "*",
+    };
 
     // 1. HTTP to HTTPS 301 Permanent Redirect
     const proto = request.headers.get("x-forwarded-proto") || url.protocol.replace(":", "");
@@ -2983,36 +3113,570 @@ export default {
         }
       ];
 
-      // 1. POST /api/ci-kaizen/sync
+      function normalizeKaizenSyncPayloadWorker(item, defaultSiteCode) {
+        if (!item) item = {};
+        const siteCode = item.site_code || item.siteCode || defaultSiteCode || "thkiengiangshoes";
+        const rawId = String(item.id || item.proposal_id || item.proposalId || "").trim();
+        const externalId = String(item.external_id || item.externalId || rawId).trim();
+        const localId = siteCode === "thkiengiangshoes"
+          ? (rawId.startsWith("tkg_") ? rawId : `tkg_${externalId || rawId}`)
+          : rawId;
+
+        const code = (item.code || item.proposal_code || item.proposalCode || "").trim();
+        const rawTitle = (item.title || item.tieu_de || item.name || item.proposal_title || "").toString().trim();
+        const beforeDesc = (item.before_description || item.beforeDescription || item.van_de || item.mo_ta_truoc || "").toString().trim();
+        const afterSol = (item.after_solution || item.afterSolution || item.giai_phap || item.mo_ta_sau || "").toString().trim();
+
+        let finalTitle = rawTitle;
+        if (!finalTitle || finalTitle === "Sáng kiến cải tiến Kaizen" || finalTitle === "Ý tưởng đề xuất cải tiến Kaizen") {
+          if (beforeDesc && beforeDesc.length > 5 && !beforeDesc.includes("Chưa có mô tả")) {
+            finalTitle = beforeDesc.length > 75 ? `${beforeDesc.substring(0, 72)}...` : beforeDesc;
+          } else if (afterSol && afterSol.length > 5 && !afterSol.includes("Chưa có mô tả")) {
+            finalTitle = afterSol.length > 75 ? `${afterSol.substring(0, 72)}...` : afterSol;
+          } else {
+            finalTitle = rawTitle || "Sáng kiến cải tiến Kaizen";
+          }
+        }
+
+        const category = (item.category || item.category_code || "PRODUCTIVITY").trim();
+        const categoryLabel = (item.category_label || item.categoryLabel || item.category_name || "3.Tăng Năng suất").trim();
+        const region = (item.region || item.factory || item.source_region || "TH Kiên Giang Shoes").trim();
+        const department = (item.department || item.bo_phan || item.phong_ban || "").trim();
+        const factory = (item.factory || region).trim();
+        const line = (item.line || item.chuyen || "").trim();
+        const customer = (item.customer || item.khach_hang || "").trim();
+        const productCode = (item.product_code || item.productCode || item.ma_hang || "").trim();
+        const pricingDirection = (item.pricing_direction || item.pricingDirection || item.huong_danh_gia || "THOI_GIAN").trim();
+
+        const proposerName = (item.proposer_name || item.proposerName || item.nguoi_de_xuat || "").trim();
+        const proposerEmpCode = (item.proposer_emp_code || item.proposerEmpCode || item.msnv || "").trim();
+        const proposerPosition = (item.proposer_position || item.proposerPosition || item.vtcv || "").trim();
+
+        const timeBeforeSeconds = Number(item.time_before_seconds ?? item.timeBeforeSeconds ?? 0);
+        const timeAfterSeconds = Number(item.time_after_seconds ?? item.timeAfterSeconds ?? 0);
+        const savedSeconds = (timeBeforeSeconds > 0 || timeAfterSeconds > 0)
+          ? Math.max(0, timeBeforeSeconds - timeAfterSeconds)
+          : Number(item.saved_seconds ?? item.so_giay_tiet_kiem ?? item.savedSeconds ?? 0);
+
+        const efficiencyValueVnd = Number(item.efficiency_value_vnd ?? item.hieu_qua_vnd ?? (savedSeconds > 0 ? Math.round(savedSeconds * 12.5) : 0));
+        const costBefore = Number(item.cost_before ?? item.costBefore ?? 0);
+        const costAfter = Number(item.cost_after ?? item.costAfter ?? 0);
+        const pairQuantity = Number(item.pair_quantity ?? item.quantity ?? 0);
+        const totalSavingsVnd = Number(item.total_savings_vnd ?? item.tong_tien_tiet_kiem ?? 0);
+        const totalSavingsWords = (item.total_savings_words || item.bang_chu || "").trim();
+
+        const beforeImageUrl = (item.before_image_url || item.beforeImageUrl || item.anh_truoc || "").trim();
+        const afterImageUrl = (item.after_image_url || item.afterImageUrl || item.anh_sau || "").trim();
+        const beforeVideoUrl = (item.before_video_url || item.beforeVideoUrl || "").trim();
+        const afterVideoUrl = (item.after_video_url || item.afterVideoUrl || "").trim();
+        let attachmentsJson = item.attachments_json || item.attachmentsJson || null;
+        if (!attachmentsJson && Array.isArray(item.attachments)) {
+          attachmentsJson = JSON.stringify(item.attachments);
+        }
+
+        const status = (item.status || "APPROVED").trim();
+        const subStatus = (item.sub_status || item.subStatus || "CHO_DANH_GIA").trim();
+        const trangThai = (item.trang_thai || item.trangThai || subStatus).trim();
+        const reviewStatus = (item.review_status || item.reviewStatus || "CHO_PHE_DUYET").trim();
+        const approvalStatus = (item.approval_status || item.approvalStatus || "PHE_DUYET").trim();
+
+        const isSoftDeleted = Boolean(
+          Number(item.is_archived) === 1 ||
+          item.is_archived === true ||
+          Number(item.is_deleted) === 1 ||
+          item.is_deleted === true ||
+          status === "DELETED" ||
+          subStatus === "LUU_TRU"
+        );
+
+        const nowIso = new Date().toISOString();
+        const createdAt = item.created_at || item.createdAt || nowIso;
+        const updatedAt = item.updated_at || item.updatedAt || nowIso;
+
+        return {
+          id: localId,
+          external_id: externalId,
+          code,
+          title: finalTitle,
+          category,
+          category_label: categoryLabel,
+          region,
+          department,
+          factory,
+          line,
+          customer,
+          product_code: productCode,
+          pricing_direction: pricingDirection,
+          proposer_name: proposerName,
+          proposer_emp_code: proposerEmpCode,
+          proposer_position: proposerPosition,
+          before_description: beforeDesc,
+          after_solution: afterSol,
+          time_before_seconds: timeBeforeSeconds,
+          time_after_seconds: timeAfterSeconds,
+          saved_seconds: savedSeconds,
+          efficiency_value_vnd: efficiencyValueVnd,
+          cost_before: costBefore,
+          cost_after: costAfter,
+          pair_quantity: pairQuantity,
+          total_savings_vnd: totalSavingsVnd,
+          total_savings_words: totalSavingsWords,
+          before_image_url: beforeImageUrl,
+          after_image_url: afterImageUrl,
+          before_video_url: beforeVideoUrl,
+          after_video_url: afterVideoUrl,
+          attachments_json: attachmentsJson,
+          status,
+          sub_status: subStatus,
+          trang_thai: trangThai,
+          review_status: reviewStatus,
+          approval_status: approvalStatus,
+          site_code: siteCode,
+          source_region: region,
+          is_archived: isSoftDeleted,
+          created_at: createdAt,
+          updated_at: updatedAt,
+        };
+      }
+
+      // 1. POST / GET /api/ci-kaizen/sync
       if (url.pathname === "/api/ci-kaizen/sync") {
-        return new Response(JSON.stringify({ success: true, message: "Sync acknowledged" }), { headers: CORS_HEADERS });
+        try {
+          const syncSecret = request.headers.get("x-sync-secret") || request.headers.get("X-Sync-Secret");
+          if (syncSecret !== "tbs_ii_secure_jwt_secret_key_2026") {
+            return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Header x-sync-secret không hợp lệ" }), { status: 401, headers: CORS_HEADERS });
+          }
+
+          let body = {};
+          try { body = await request.json(); } catch (e) {}
+
+          let sourceProposals = [];
+          if (body.proposal) sourceProposals = [body.proposal];
+          else if (Array.isArray(body.proposals)) sourceProposals = body.proposals;
+
+          if (!sourceProposals || sourceProposals.length === 0) {
+            try {
+              const resSrc = await fetch("https://thkiengiangshoes.tbsgroup2026.workers.dev/api/ci-kaizen?sync=1", {
+                headers: { "x-sync-secret": "tbs_ii_secure_jwt_secret_key_2026" }
+              });
+              const jsonSrc = await resSrc.json();
+              sourceProposals = jsonSrc.data || jsonSrc.proposals || [];
+            } catch (errSrc) {
+              console.warn("Source fetch error:", errSrc);
+            }
+          }
+
+          let createdCount = 0;
+          let updatedCount = 0;
+          let skippedCount = 0;
+
+          if (db && Array.isArray(sourceProposals) && sourceProposals.length > 0) {
+            await db.prepare('ALTER TABLE ci_kaizen_proposals ADD COLUMN customer TEXT').run().catch(() => {});
+            await db.prepare('ALTER TABLE ci_kaizen_proposals ADD COLUMN pricing_direction TEXT').run().catch(() => {});
+            await db.prepare('ALTER TABLE ci_kaizen_proposals ADD COLUMN total_savings_words TEXT').run().catch(() => {});
+            await db.prepare('ALTER TABLE ci_kaizen_proposals ADD COLUMN site_code TEXT').run().catch(() => {});
+            await db.prepare('ALTER TABLE ci_kaizen_proposals ADD COLUMN external_id TEXT').run().catch(() => {});
+            await db.prepare('ALTER TABLE ci_kaizen_proposals ADD COLUMN is_archived INTEGER DEFAULT 0').run().catch(() => {});
+
+            for (const rawItem of sourceProposals) {
+              if (!rawItem || (!rawItem.id && !rawItem.external_id && !rawItem.proposal_id)) continue;
+              const norm = normalizeKaizenSyncPayloadWorker(rawItem, body.site_code || "thkiengiangshoes");
+              const localId = norm.id;
+              const siteCode = norm.site_code;
+              const externalId = norm.external_id;
+              const isSoftDeleted = norm.is_archived ? 1 : 0;
+
+              const existing = await db.prepare("SELECT id, title, before_description, after_solution FROM ci_kaizen_proposals WHERE id = ? OR (site_code = ? AND external_id = ?)").bind(localId, siteCode, externalId).first().catch(() => null);
+
+              if (existing) {
+                const syncTitleToUse = norm.title || existing.title || "Sáng kiến cải tiến Kaizen";
+                const syncBeforeDescToUse = norm.before_description || existing.before_description || null;
+                const syncAfterSolToUse = norm.after_solution || existing.after_solution || null;
+
+                await db.prepare(`
+                  UPDATE ci_kaizen_proposals
+                  SET code = COALESCE(?, code),
+                      title = COALESCE(?, title),
+                      category = COALESCE(?, category),
+                      category_label = COALESCE(?, category_label),
+                      region = COALESCE(?, region),
+                      department = COALESCE(?, department),
+                      factory = COALESCE(?, factory),
+                      line = COALESCE(?, line),
+                      customer = COALESCE(?, customer),
+                      product_code = COALESCE(?, product_code),
+                      pricing_direction = COALESCE(?, pricing_direction),
+                      proposer_name = COALESCE(?, proposer_name),
+                      proposer_emp_code = COALESCE(?, proposer_emp_code),
+                      proposer_position = COALESCE(?, proposer_position),
+                      before_description = COALESCE(?, before_description),
+                      after_solution = COALESCE(?, after_solution),
+                      time_before_seconds = COALESCE(?, time_before_seconds),
+                      time_after_seconds = COALESCE(?, time_after_seconds),
+                      saved_seconds = COALESCE(?, saved_seconds),
+                      so_giay_tiet_kiem = COALESCE(?, so_giay_tiet_kiem),
+                      efficiency_value_vnd = COALESCE(?, efficiency_value_vnd),
+                      cost_before = COALESCE(?, cost_before),
+                      cost_after = COALESCE(?, cost_after),
+                      before_image_url = COALESCE(?, before_image_url),
+                      after_image_url = COALESCE(?, after_image_url),
+                      before_video_url = COALESCE(?, before_video_url),
+                      after_video_url = COALESCE(?, after_video_url),
+                      attachments_json = COALESCE(?, attachments_json),
+                      status = COALESCE(?, status),
+                      sub_status = COALESCE(?, sub_status),
+                      trang_thai = COALESCE(?, trang_thai),
+                      review_status = COALESCE(?, review_status),
+                      pair_quantity = COALESCE(?, pair_quantity),
+                      quantity = COALESCE(?, quantity),
+                      total_savings_vnd = COALESCE(?, total_savings_vnd),
+                      total_savings_words = COALESCE(?, total_savings_words),
+                      approval_status = COALESCE(?, approval_status),
+                      site_code = COALESCE(?, site_code),
+                      external_id = COALESCE(?, external_id),
+                      source_region = COALESCE(?, source_region),
+                      is_archived = ?,
+                      updated_at = CURRENT_TIMESTAMP
+                  WHERE id = ?
+                `).bind(
+                  norm.code || null,
+                  syncTitleToUse,
+                  norm.category,
+                  norm.category_label,
+                  norm.region,
+                  norm.department,
+                  norm.factory,
+                  norm.line,
+                  norm.customer || null,
+                  norm.product_code || null,
+                  norm.pricing_direction || null,
+                  norm.proposer_name,
+                  norm.proposer_emp_code,
+                  norm.proposer_position || null,
+                  syncBeforeDescToUse,
+                  syncAfterSolToUse,
+                  norm.time_before_seconds,
+                  norm.time_after_seconds,
+                  norm.saved_seconds,
+                  norm.saved_seconds,
+                  norm.efficiency_value_vnd,
+                  norm.cost_before,
+                  norm.cost_after,
+                  norm.before_image_url || null,
+                  norm.after_image_url || null,
+                  norm.before_video_url || null,
+                  norm.after_video_url || null,
+                  norm.attachments_json || null,
+                  norm.status,
+                  norm.sub_status,
+                  norm.trang_thai,
+                  norm.review_status,
+                  norm.pair_quantity,
+                  norm.pair_quantity,
+                  norm.total_savings_vnd,
+                  norm.total_savings_words || null,
+                  norm.approval_status,
+                  siteCode,
+                  externalId,
+                  norm.source_region,
+                  isSoftDeleted,
+                  existing.id
+                ).run().catch((e) => console.warn("Worker update sync warn:", e));
+
+                updatedCount++;
+              } else {
+                await db.prepare(`
+                  INSERT INTO ci_kaizen_proposals (
+                    id, code, title, category, category_label, registration_type,
+                    region, department, factory, line, customer, product_code, pricing_direction,
+                    proposer_name, proposer_emp_code, proposer_position,
+                    before_description, after_solution, time_before_seconds, time_after_seconds,
+                    saved_seconds, so_giay_tiet_kiem, efficiency_value_vnd, cost_before, cost_after,
+                    before_image_url, after_image_url, before_video_url, after_video_url, attachments_json,
+                    status, sub_status, trang_thai, review_status, score_points, avg_rating, rating_count,
+                    vote_count, view_count, pair_quantity, quantity, total_savings_vnd, total_savings_words,
+                    approval_status, site_code, external_id, source_region, is_archived, created_at, updated_at
+                  ) VALUES (
+                    ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?,
+                    ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, 0, 0, 0,
+                    0, 0, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP), COALESCE(?, CURRENT_TIMESTAMP)
+                  )
+                `).bind(
+                  localId,
+                  norm.code || null,
+                  norm.title || 'Sáng kiến cải tiến Kaizen',
+                  norm.category,
+                  norm.category_label,
+                  'THI_DUA',
+                  norm.region,
+                  norm.department,
+                  norm.factory,
+                  norm.line,
+                  norm.customer || null,
+                  norm.product_code || null,
+                  norm.pricing_direction || null,
+                  norm.proposer_name,
+                  norm.proposer_emp_code || 'SK-KG-EMP',
+                  norm.proposer_position || null,
+                  norm.before_description,
+                  norm.after_solution,
+                  norm.time_before_seconds,
+                  norm.time_after_seconds,
+                  norm.saved_seconds,
+                  norm.saved_seconds,
+                  norm.efficiency_value_vnd,
+                  norm.cost_before,
+                  norm.cost_after,
+                  norm.before_image_url || null,
+                  norm.after_image_url || null,
+                  norm.before_video_url || null,
+                  norm.after_video_url || null,
+                  norm.attachments_json || null,
+                  norm.status,
+                  norm.sub_status,
+                  norm.trang_thai,
+                  norm.review_status,
+                  norm.pair_quantity,
+                  norm.pair_quantity,
+                  norm.total_savings_vnd,
+                  norm.total_savings_words || null,
+                  norm.approval_status,
+                  siteCode,
+                  externalId,
+                  norm.source_region,
+                  isSoftDeleted,
+                  norm.created_at,
+                  norm.updated_at
+                ).run().catch((e) => console.warn("Worker insert sync warn:", e));
+
+                createdCount++;
+              }
+            }
+          }
+
+          return new Response(JSON.stringify({
+            success: true,
+            synced_count: sourceProposals.length,
+            created_count: createdCount,
+            updated_count: updatedCount,
+            skipped_count: skippedCount,
+            message: `Đồng bộ thành công ${sourceProposals.length} sáng kiến!`
+          }), { headers: CORS_HEADERS });
+        } catch (errSync) {
+          return new Response(JSON.stringify({ success: false, error: errSync.message }), { status: 500, headers: CORS_HEADERS });
+        }
       }
 
       // 2. GET /api/ci-kaizen or /api/ci-kaizen/stats
       if ((url.pathname === "/api/ci-kaizen" || url.pathname === "/api/ci-kaizen/stats") && request.method === "GET") {
         try {
-          let proposals = [];
-          if (db) {
-            for (const seed of WORKER_DEFAULT_KAIZEN_PROPOSALS) {
-              await db.prepare(`
-                INSERT INTO ci_kaizen_proposals (
-                  id, code, title, category, category_label, registration_type, factory, region, source_region, department, line, proposer_name, proposer_emp_code, before_description, after_solution, saved_seconds, total_savings_vnd, score_points, vote_count, view_count, status, approval_status, sub_status, trang_thai, review_status, before_image_url, after_image_url, attachments_json, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(id) DO NOTHING
-              `).bind(
-                seed.id, seed.code, seed.title, seed.category, seed.category_label, seed.registration_type,
-                seed.factory, seed.region, seed.source_region, seed.department, seed.line, seed.proposer_name,
-                seed.proposer_emp_code, seed.before_description, seed.after_solution, seed.saved_seconds,
-                seed.total_savings_vnd, seed.score_points, seed.vote_count, seed.view_count, seed.status,
-                seed.approval_status, seed.sub_status, seed.trang_thai, seed.review_status, seed.before_image_url,
-                seed.after_image_url, seed.attachments_json, seed.created_at
-              ).run().catch(() => {});
+          async function fetchFromSource(env) {
+            const SOURCE_BASE_URL = env.SOURCE_BASE_URL || 'https://thkiengiangshoes.tbsgroup2026.workers.dev';
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 6000);
+            try {
+              let res = await fetch(`${SOURCE_BASE_URL}/api/ci-kaizen?sync=1`, {
+                signal: controller.signal,
+                headers: { 'Cache-Control': 'no-cache', 'User-Agent': 'TBS-VPChuoi-Worker/1.0' }
+              });
+              clearTimeout(timeoutId);
+              if (!res.ok) return [];
+              const data = await res.json();
+              return Array.isArray(data.data) ? data.data : (Array.isArray(data.proposals) ? data.proposals : []);
+            } catch (error) {
+              clearTimeout(timeoutId);
+              return [];
+            }
+          }
+
+          function mapSourceToProposal(sourceItem) {
+            const SOURCE_BASE_URL = 'https://thkiengiangshoes.tbsgroup2026.workers.dev';
+            const fixUrl = (url) => {
+              if (!url) return null;
+              if (url.startsWith('http')) return url;
+              if (url.startsWith('/')) return SOURCE_BASE_URL + url;
+              return SOURCE_BASE_URL + '/' + url;
+            };
+
+            let attJson = sourceItem.attachments_json || '[]';
+            try {
+              const atts = JSON.parse(attJson);
+              if (Array.isArray(atts)) {
+                for (let i = 0; i < atts.length; i++) {
+                  if (atts[i].url && !atts[i].url.startsWith('http')) {
+                    atts[i].url = SOURCE_BASE_URL + (atts[i].url.startsWith('/') ? '' : '/') + atts[i].url;
+                  }
+                }
+                attJson = JSON.stringify(atts);
+              }
+            } catch (e) {}
+
+            return {
+              ...sourceItem,
+              id: sourceItem.id || `src_${Date.now()}`,
+              code: sourceItem.code || '',
+              title: sourceItem.title || 'Untitled',
+              category: sourceItem.category || 'PRODUCTIVITY',
+              category_label: sourceItem.category_label || '',
+              registration_type: sourceItem.registration_type || 'THI_DUA',
+              sub_status: sourceItem.sub_status || 'CHO_DANH_GIA',
+              region: sourceItem.region || '',
+              department: sourceItem.department || '',
+              factory: sourceItem.factory || '',
+              proposer_name: sourceItem.proposer_name || '',
+              proposer_emp_code: sourceItem.proposer_emp_code || '',
+              before_description: sourceItem.before_description || '',
+              after_solution: sourceItem.after_solution || '',
+              saved_seconds: sourceItem.saved_seconds || 0,
+              before_image_url: fixUrl(sourceItem.before_image_url),
+              after_image_url: fixUrl(sourceItem.after_image_url),
+              attachments_json: attJson,
+              status: sourceItem.status || 'SUBMITTED',
+              _source: 'thkiengiangshoes'
+            };
+          }
+
+          let thkgResults = [];
+          let localResults = [];
+
+          try {
+            if (env && env.DB_KG) {
+              const qKg = `SELECT * FROM ci_kaizen_proposals ORDER BY rowid DESC LIMIT 500`;
+              const queryResKg = await env.DB_KG.prepare(qKg).all();
+              if (queryResKg?.results && queryResKg.results.length > 0) {
+                thkgResults = queryResKg.results.map(mapSourceToProposal);
+              }
+            }
+            if (thkgResults.length === 0) {
+              const rawThkg = await fetchFromSource(env);
+              if (rawThkg && rawThkg.length > 0) {
+                thkgResults = rawThkg.map(mapSourceToProposal);
+              }
+            }
+          } catch (e) {}
+
+          try {
+            if (db) {
+              const q = `SELECT * FROM ci_kaizen_proposals ORDER BY created_at DESC LIMIT 500`;
+              const queryRes = await db.prepare(q).all();
+              localResults = queryRes?.results || [];
+            }
+          } catch (e) {}
+
+          const getDedupeKey = (p) => {
+            const code = String(p.code || p.legacy_code || '').trim().toUpperCase();
+            if (code && code.startsWith('KZ-2026-')) return code;
+            const rawId = String(p.id || '').trim().toUpperCase();
+            return rawId.replace(/^TKG_/, '');
+          };
+
+          let resultMap = new Map();
+          for (const p of thkgResults) {
+            const key = getDedupeKey(p);
+            resultMap.set(key, p);
+          }
+
+          for (const p of localResults) {
+            const key = getDedupeKey(p);
+            if (resultMap.has(key)) continue;
+            const reg = String(p.region || '').toUpperCase();
+            if (p.site_code === 'thkiengiangshoes' || key.startsWith('KZ-2026-') || reg.includes('KIÊN GIANG') || reg.includes('KG') || reg.includes('HOÀN THIỆN') || reg.includes('HTD') || reg.includes('PHÒNG')) {
+              if (!reg.includes('MIỀN ĐÔNG') && !reg.includes('NMMĐ') && !reg.includes('CHUỖI')) {
+                continue;
+              }
+            }
+            resultMap.set(key, p);
+          }
+
+          let results = Array.from(resultMap.values()).sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+          if (results.length === 0) {
+            results = WORKER_DEFAULT_KAIZEN_PROPOSALS;
+          }
+
+          let scoreAggMap = {};
+          try {
+            if (db) {
+              const { results: scoreAggRows } = await db.prepare(`
+                SELECT submission_id,
+                       AVG(total_score) as avg_score,
+                       AVG(c1_score) as avg_c1,
+                       AVG(c3_score) as avg_c3,
+                       COUNT(*) as cnt
+                FROM ci_kaizen_scores
+                GROUP BY submission_id
+              `).all();
+              if (scoreAggRows) {
+                for (const r of scoreAggRows) {
+                  if (r.submission_id) {
+                    const key = String(r.submission_id).trim().toUpperCase();
+                    scoreAggMap[key] = {
+                      avgScore: Math.round(Number(r.avg_score || 0) * 10) / 10,
+                      avgC1: Math.round(Number(r.avg_c1 || 0) * 10) / 10,
+                      avgC3: Math.round(Number(r.avg_c3 || 0) * 10) / 10,
+                      judgeCount: Number(r.cnt || 0),
+                    };
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            console.error("[Score Agg Error]", e);
+          }
+
+          const cleanedResults = results.map((p) => {
+            const idKey = String(p.id || '').trim().toUpperCase();
+            const codeKey = String(p.code || '').trim().toUpperCase();
+            const extIdKey = String(p.external_id || '').trim().toUpperCase();
+            const cleanIdKey = idKey.replace(/^TKG_/i, '');
+            const tkgIdKey = 'TKG_' + cleanIdKey;
+            const cleanCodeKey = codeKey.replace(/^TKG_/i, '');
+
+            const agg = scoreAggMap[idKey] || scoreAggMap[codeKey] || scoreAggMap[extIdKey] || scoreAggMap[cleanIdKey] || scoreAggMap[tkgIdKey] || scoreAggMap[cleanCodeKey];
+
+            let finalJudgeScore = Number(p.judge_final_score || p.score_points || p.diem_hieu_qua || p.diem_tong_hop || 0);
+            let finalC1Score = Number(p.c1_score_final || 0);
+            let finalC3Score = Number(p.c3_score_final || 0);
+            let finalJudgeCount = Number(p.judge_count || p.rating_count || 0);
+            let updatedSubStatus = p.sub_status;
+            let updatedTrangThai = p.trang_thai;
+
+            if (agg) {
+              if (agg.avgScore > 0) {
+                finalJudgeScore = agg.avgScore;
+                if (agg.avgC1 > 0) finalC1Score = agg.avgC1;
+                if (agg.avgC3 > 0) finalC3Score = agg.avgC3;
+                if (!updatedSubStatus || updatedSubStatus === 'CHO_DUYET' || updatedSubStatus === 'CHO_DANH_GIA') {
+                  updatedSubStatus = 'DA_DANH_GIA';
+                  updatedTrangThai = 'DA_DANH_GIA';
+                }
+              }
+              if (agg.judgeCount > 0) {
+                finalJudgeCount = agg.judgeCount;
+              }
             }
 
-            const { results } = await db.prepare("SELECT * FROM ci_kaizen_proposals ORDER BY created_at DESC LIMIT 500").all();
-            if (results && results.length > 0) proposals = results;
-          }
-          if (proposals.length === 0) proposals = WORKER_DEFAULT_KAIZEN_PROPOSALS;
+            return {
+              ...p,
+              judge_final_score: finalJudgeScore,
+              judgeFinalScore: finalJudgeScore,
+              score_points: finalJudgeScore,
+              scorePoints: finalJudgeScore,
+              diem_hieu_qua: finalJudgeScore,
+              diem_tong_hop: finalJudgeScore,
+              judge_count: finalJudgeCount,
+              rating_count: finalJudgeCount,
+              c1_score_final: finalC1Score,
+              c3_score_final: finalC3Score,
+              sub_status: updatedSubStatus,
+              trang_thai: updatedTrangThai,
+            };
+          });
 
           if (url.pathname === "/api/ci-kaizen/stats" || url.searchParams.get("stats") === "1" || url.searchParams.get("stats") === "true") {
             const getValVnd = (p) => {
@@ -3050,16 +3714,16 @@ export default {
               return "Nhà Máy Miền Đông";
             };
 
-            const totalCount = proposals.length;
-            const countThiDua = proposals.filter((p) => p.registration_type === 'THI_DUA').length;
-            const countLuuTru = proposals.filter((p) => p.registration_type === 'LUU_TRU' || Number(p.is_archived) === 1).length;
-            const activeMonthCount = proposals.filter((p) => {
+            const totalCount = cleanedResults.length;
+            const countThiDua = cleanedResults.filter((p) => p.registration_type === 'THI_DUA').length;
+            const countLuuTru = cleanedResults.filter((p) => p.registration_type === 'LUU_TRU' || Number(p.is_archived) === 1).length;
+            const activeMonthCount = cleanedResults.filter((p) => {
               if (!p || !p.created_at) return false;
               const d = new Date(p.created_at);
               return !isNaN(d.getTime()) && d.getMonth() === 7 && d.getFullYear() === 2026;
             }).length;
-            const countEvaluated = proposals.filter((p) => p.sub_status === 'DA_DANH_GIA' || Number(p.score_points || 0) > 0 || Number(p.rating_count || 0) > 0).length;
-            const totalValueVnd = proposals.reduce((sum, p) => sum + getValVnd(p), 0);
+            const countEvaluated = cleanedResults.filter((p) => p.sub_status === 'DA_DANH_GIA' || Number(p.score_points || 0) > 0 || Number(p.rating_count || 0) > 0 || Number(p.judge_count || 0) > 0).length;
+            const totalValueVnd = cleanedResults.reduce((sum, p) => sum + getValVnd(p), 0);
             const totalValueTr = totalValueVnd / 1000000;
 
             const byRegion = {
@@ -3072,7 +3736,7 @@ export default {
               "Hoàn Thiện Đế": { count: 0, totalValueVnd: 0, totalValueTr: 0 },
             };
 
-            proposals.forEach((p) => {
+            cleanedResults.forEach((p) => {
               const reg = normReg(p);
               if (byRegion[reg]) {
                 const valVnd = getValVnd(p);
@@ -3091,6 +3755,7 @@ export default {
               totalValueTr: thkgVnd / 1000000,
             };
 
+            CORS_HEADERS["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0";
             return new Response(JSON.stringify({
               success: true,
               data: {
@@ -3100,7 +3765,8 @@ export default {
             }), { headers: CORS_HEADERS });
           }
 
-          return new Response(JSON.stringify({ success: true, data: proposals, proposals }), { headers: CORS_HEADERS });
+          CORS_HEADERS["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0";
+          return new Response(JSON.stringify({ success: true, data: cleanedResults, proposals: cleanedResults, count: cleanedResults.length }), { headers: CORS_HEADERS });
         } catch (err) {
           return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS_HEADERS });
         }
@@ -8126,53 +8792,7 @@ export default {
       }
     }
 
-    // 0.3 API Route: Meeting Rooms & Bookings (/api/rooms)
-    if (url.pathname === "/api/rooms" || url.pathname.startsWith("/api/rooms")) {
-      if (request.method === "GET") {
-        try {
-          const defaultRooms = [
-            { id: "room_1", name: "Phòng Họp Ban Điều Hành SKECHERS (P.101)", location: "Tầng 1 - Khối Điều Hành", capacity: 25, status: "AVAILABLE" },
-            { id: "room_2", name: "Phòng Họp Chiến Lược 1-5-2 (P.102)", location: "Tầng 1 - Khối Chiến Lược", capacity: 15, status: "AVAILABLE" },
-            { id: "room_3", name: "Phòng Họp Kỹ Thuật & Mẫu R&D (P.201)", location: "Tầng 2 - Khối R&D", capacity: 20, status: "AVAILABLE" },
-            { id: "room_4", name: "Phòng Họp QC & Chất Lượng (P.202)", location: "Tầng 2 - Khối QC", capacity: 12, status: "AVAILABLE" },
-            { id: "room_5", name: "Phòng Hội Thảo Trung Tâm (P.301)", location: "Tầng 3 - Sảnh Trung Tâm", capacity: 60, status: "AVAILABLE" },
-            { id: "room_6", name: "Phòng Tiếp Đón Đối Tác SKECHERS Global", location: "Tầng 1 - Sảnh Tiếp Đón", capacity: 10, status: "AVAILABLE" },
-          ];
-
-          let bookings = [];
-          if (env.DB) {
-            try {
-              await env.DB.prepare(`
-                CREATE TABLE IF NOT EXISTS room_bookings (
-                  id TEXT PRIMARY KEY,
-                  room_id TEXT NOT NULL,
-                  title TEXT NOT NULL,
-                  booked_by TEXT NOT NULL,
-                  date TEXT NOT NULL,
-                  start_time TEXT NOT NULL,
-                  end_time TEXT NOT NULL,
-                  status TEXT DEFAULT 'CONFIRMED',
-                  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-                );
-              `).run();
-
-              const { results } = await env.DB.prepare("SELECT * FROM room_bookings ORDER BY created_at DESC").all();
-              bookings = results || [];
-            } catch (e) {}
-          }
-
-          return new Response(
-            JSON.stringify({ success: true, data: { rooms: defaultRooms, bookings, visitors: [] } }),
-            { headers: { "Content-Type": "application/json" } }
-          );
-        } catch (err) {
-          return new Response(
-            JSON.stringify({ success: false, error: err.message }),
-            { status: 500, headers: { "Content-Type": "application/json" } }
-          );
-        }
-      }
-    }
+    
 
     // 1. API Route: User Profile Persistence (/api/profile & /api/user-profile)
     if (url.pathname === "/api/profile" || url.pathname === "/api/user-profile") {
@@ -9422,7 +10042,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
       }
 
       // Handle Status Counts endpoint
-      if (url.pathname.endsWith("/status-counts") && request.method === "GET") {
+            if (url.pathname.endsWith("/status-counts") && request.method === "GET") {
         try {
           const countsQuery = `
             SELECT 
@@ -9432,16 +10052,50 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
               SUM(CASE WHEN ((COALESCE(trang_thai, sub_status, review_status) = 'DA_DANH_GIA' OR COALESCE(trang_thai, sub_status, review_status) = 'DA_XEP_HANG') AND COALESCE(is_archived, 0) = 0) THEN 1 ELSE 0 END) as da_danh_gia,
               SUM(CASE WHEN (COALESCE(is_archived, 0) = 1 OR registration_type = 'LUU_TRU' OR sub_status = 'LUU_TRU' OR trang_thai = 'DA_GOP') THEN 1 ELSE 0 END) as luu_tru
             FROM ci_kaizen_proposals
+            WHERE UPPER(region) NOT LIKE '%KIÊN GIANG%' AND UPPER(region) NOT LIKE '%THKG%' AND UPPER(region) NOT LIKE '%HOÀN THIỆN ĐẾ%'
+              AND UPPER(region) NOT LIKE '%PHÒNG CN%' AND UPPER(region) NOT LIKE '%PHÒNG CI%' AND UPPER(region) NOT LIKE '%PHÒNG KẾ HOẠCH%' AND UPPER(region) NOT LIKE '%PHÒNG CHẤT LƯỢNG%' AND UPPER(region) NOT LIKE '%PHÒNG NHÂN SỰ%'
           `;
-          const countsRes = await env.DB.prepare(countsQuery).first().catch(() => null);
+          const localCountsRes = await env.DB.prepare(countsQuery).first().catch(() => null);
+          
+          let sourceCounts = { thi_dua: 0, cho_phe_duyet: 0, cho_danh_gia: 0, da_danh_gia: 0, luu_tru: 0 };
+          try {
+            const SOURCE_BASE_URL = env.SOURCE_BASE_URL || 'https://thkiengiangshoes.tbsgroup2026.workers.dev';
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 8000);
+            
+            let res = await fetch(`${SOURCE_BASE_URL}/api/ci-kaizen/status-counts`, {
+              signal: controller.signal,
+              
+              headers: { 'Cache-Control': 'no-store' }
+            });
+            
+            if (res.status >= 500) {
+              res = await fetch(`${SOURCE_BASE_URL}/api/ci-kaizen/status-counts`, {
+                signal: controller.signal,
+                
+                headers: { 'Cache-Control': 'no-store' }
+              });
+            }
+            clearTimeout(timeoutId);
+            
+            if (res.ok) {
+              const data = await res.json();
+              if (data.success && data.counts) {
+                sourceCounts = data.counts;
+              }
+            }
+          } catch (e) {
+            console.error("[status-counts] Fetch error:", e);
+          }
+
           return new Response(JSON.stringify({
             success: true,
             counts: {
-              thi_dua: Number(countsRes?.thi_dua || 0),
-              cho_phe_duyet: Number(countsRes?.cho_phe_duyet || 0),
-              cho_danh_gia: Number(countsRes?.cho_danh_gia || 0),
-              da_danh_gia: Number(countsRes?.da_danh_gia || 0),
-              luu_tru: Number(countsRes?.luu_tru || 0)
+              thi_dua: Number(localCountsRes?.thi_dua || 0) + Number(sourceCounts.thi_dua || 0),
+              cho_phe_duyet: Number(localCountsRes?.cho_phe_duyet || 0) + Number(sourceCounts.cho_phe_duyet || 0),
+              cho_danh_gia: Number(localCountsRes?.cho_danh_gia || 0) + Number(sourceCounts.cho_danh_gia || 0),
+              da_danh_gia: Number(localCountsRes?.da_danh_gia || 0) + Number(sourceCounts.da_danh_gia || 0),
+              luu_tru: Number(localCountsRes?.luu_tru || 0) + Number(sourceCounts.luu_tru || 0)
             }
           }), { headers: SECURE_JSON_HEADERS });
         } catch(e) {
@@ -9790,6 +10444,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
             region,
             department,
             factory,
+            line,
             beforeDescription,
             afterSolution,
             savedSeconds,
@@ -9969,8 +10624,8 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
             try {
               await env.DB.prepare(`
                 INSERT INTO ci_kaizen_proposals (
-                  id, code, title, category, category_label, registration_type, sub_status, region, department, factory, proposer_name, proposer_emp_code, proposer_position, proposer_month, proposer_year, hr_suggestor, customer, dept_code, before_description, after_solution, saved_seconds, product_group, product_code, quantity, pricing_direction, time_before_seconds, time_after_seconds, efficiency_value_vnd, before_image_url, after_image_url, attachments_json, required_reviewer_ids_json, status, version
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'SUBMITTED', 1)
+                  id, code, title, category, category_label, registration_type, sub_status, region, department, factory, line, proposer_name, proposer_emp_code, proposer_position, proposer_month, proposer_year, hr_suggestor, customer, dept_code, before_description, after_solution, saved_seconds, product_group, product_code, quantity, pricing_direction, time_before_seconds, time_after_seconds, efficiency_value_vnd, before_image_url, after_image_url, attachments_json, required_reviewer_ids_json, status, version
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'SUBMITTED', 1)
               `).bind(
                 generatedId,
                 generatedCode,
@@ -9982,6 +10637,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
                 safeVal(region, "Nhà Máy Miền Đông"),
                 finalDept,
                 safeVal(factory, "Nhà Máy Miền Đông"),
+                safeVal(line, ""),
                 finalProposerName,
                 finalProposerEmpCode,
                 safeVal(proposerPosition, ""),
@@ -10579,6 +11235,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
                 capacity INTEGER DEFAULT 10,
                 location TEXT NOT NULL,
                 equipment TEXT,
+                images TEXT,
                 status TEXT DEFAULT 'AVAILABLE',
                 is_locked INTEGER DEFAULT 0,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -10651,17 +11308,31 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           const { results: rawBookings } = await env.DB.prepare("SELECT * FROM room_bookings ORDER BY created_at DESC").all();
           const { results: rawVisitors } = await env.DB.prepare("SELECT * FROM visitors ORDER BY created_at DESC").all();
 
-          const rooms = (rawRooms || []).map((r) => ({
-            id: r.id,
-            name: r.name,
-            capacity: Number(r.capacity || 10),
-            location: r.location || "Văn phòng",
-            equipment: typeof r.equipment === "string" ? r.equipment.split(",") : (r.equipment || []),
-            status: r.status || "AVAILABLE",
-            isLocked: Boolean(r.is_locked || r.isLocked),
-            colorClass: r.color_class || r.colorClass || "bg-slate-700 hover:bg-slate-800 text-white",
-            badgeBg: r.badge_bg || r.badgeBg || "bg-slate-100 text-slate-800",
-          }));
+          const rooms = (rawRooms || []).map((r) => {
+            let parsedImages = [];
+            if (r.images) {
+              try { parsedImages = JSON.parse(r.images); } catch(e) {}
+            }
+            let parsedEq = [];
+            if (typeof r.equipment === "string") {
+              try { parsedEq = JSON.parse(r.equipment); } 
+              catch(e) { parsedEq = r.equipment.split(",").map(s => s.trim()).filter(Boolean); }
+            } else if (Array.isArray(r.equipment)) {
+              parsedEq = r.equipment;
+            }
+            return {
+              id: r.id,
+              name: r.name,
+              capacity: Number(r.capacity || 10),
+              location: r.location || "Văn phòng",
+              equipment: parsedEq,
+              images: parsedImages,
+              status: r.status || "AVAILABLE",
+              isLocked: Boolean(r.is_locked || r.isLocked),
+              colorClass: r.color_class || r.colorClass || "bg-slate-700 hover:bg-slate-800 text-white",
+              badgeBg: r.badge_bg || r.badgeBg || "bg-slate-100 text-slate-800",
+            };
+          });
 
           const bookings = (rawBookings || []).map((b) => ({
             id: b.id,
@@ -10709,6 +11380,66 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
         }
       }
 
+        // DELETE /api/rooms: Delete a meeting room
+      if (url.pathname === "/api/rooms" && request.method === "DELETE") {
+          try {
+            let user = null;
+            try { user = await verifyServerAuth(request); } catch (e) {}
+            if (!env.DB) return new Response(JSON.stringify({ success: false, error: "D1 Database missing" }), { status: 500 });
+            
+            const id = url.searchParams.get("id");
+            if (!id) return new Response(JSON.stringify({ success: false, error: "Missing room id" }), { status: 400 });
+
+            // Also delete bookings for this room
+            await env.DB.prepare('DELETE FROM room_bookings WHERE room_id = ?').bind(id).run();
+            await env.DB.prepare('DELETE FROM meeting_rooms WHERE id = ?').bind(id).run();
+            
+            return new Response(JSON.stringify({ success: true, message: "Deleted successfully" }), { headers: { "Content-Type": "application/json" } });
+          } catch(err) {
+            return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500 });
+          }
+      }
+
+            // POST & PUT /api/rooms: Add or Edit a meeting room
+      if (url.pathname === "/api/rooms" && (request.method === "POST" || request.method === "PUT")) {
+        try {
+          let user = null;
+          try { user = await verifyServerAuth(request); } catch (e) {}
+
+          if (!env.DB) {
+            return new Response(JSON.stringify({ success: false, error: "D1 Database missing" }), { status: 500, headers: { "Content-Type": "application/json" } });
+          }
+
+          const body = await request.json();
+          const isNew = request.method === "POST";
+          const id = isNew ? "room_" + Date.now() : (body.id || body.roomId);
+          const name = body.name || "Phòng Mới";
+          const capacity = body.capacity || 10;
+          const location = body.location || "Văn phòng";
+          const equipmentStr = Array.isArray(body.equipment) ? JSON.stringify(body.equipment) : (body.equipment || "[]");
+          const imagesStr = Array.isArray(body.images) ? JSON.stringify(body.images) : "[]";
+          const status = body.status || "AVAILABLE";
+          const isLocked = body.isLocked ? 1 : 0;
+
+          if (isNew) {
+            await env.DB.prepare(`
+              INSERT INTO meeting_rooms (id, name, capacity, location, equipment, images, status, is_locked)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `).bind(id, name, capacity, location, equipmentStr, imagesStr, status, isLocked).run();
+          } else {
+            await env.DB.prepare(`
+              UPDATE meeting_rooms
+              SET name = ?, capacity = ?, location = ?, equipment = ?, images = ?, status = ?, is_locked = ?
+              WHERE id = ?
+            `).bind(name, capacity, location, equipmentStr, imagesStr, status, isLocked, id).run();
+          }
+
+          return new Response(JSON.stringify({ success: true, id, message: "Lưu phòng thành công!" }), { headers: { "Content-Type": "application/json" } });
+        } catch (err) {
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: { "Content-Type": "application/json" } });
+        }
+      }
+
       // POST /api/rooms/booking: Save a new booking
       if (url.pathname === "/api/rooms/booking" && request.method === "POST") {
         try {
@@ -10731,25 +11462,46 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           const targetBookingDate = bookingDate || new Date().toISOString().split("T")[0];
           const targetTimeSlot = timeSlot || "09:00 - 10:00";
 
-          // ✅ NEW: Validate booking time is not in the past
+          // ✅ Validate booking time is not in the past — giờ Việt Nam (UTC+7).
+          // Worker chạy ở UTC nên KHÔNG dùng new Date(y, m, d, h, mi) (sẽ hiểu là giờ UTC).
+          let pastTimeMessage = null;
           try {
-            const now = new Date();
-            const [startTimeHour, startTimeMin] = targetTimeSlot.split(" - ")[0].split(":").map(Number);
-            
-            // Parse booking date (DD/MM/YYYY format)
-            const [day, month, year] = targetBookingDate.split("/").map(Number);
-            const bookingDateTime = new Date(year, month - 1, day, startTimeHour, startTimeMin, 0, 0);
-            
-            if (bookingDateTime < now) {
-              const pastTimeErr = JSON.stringify({
-                success: false,
-                code: "PAST_TIME_BOOKING",
-                message: "Vui lòng kiểm tra lại lịch họp - Thời gian họp đã qua!"
-              });
-              return new Response(pastTimeErr, { status: 400, headers: SECURE_JSON_HEADERS });
+            const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
+            const GRACE_MS = 5 * 60 * 1000;
+            const parseStartMinutes = (raw) => {
+              const s = String(raw || "").trim().toUpperCase();
+              const m = s.match(/(\d{1,2}):(\d{2})/);
+              if (!m) return null;
+              let h = Number(m[1]);
+              const mi = Number(m[2]);
+              if (/CH|PM/.test(s) && h < 12) h += 12;
+              if (/SA|AM/.test(s) && h === 12) h = 0;
+              return h * 60 + mi;
+            };
+            const ds = String(targetBookingDate).trim();
+            let y = 0, mo = 0, d = 0;
+            if (/^\d{4}-\d{1,2}-\d{1,2}/.test(ds)) {
+              [y, mo, d] = ds.split("T")[0].split("-").map(Number);
+            } else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(ds)) {
+              [d, mo, y] = ds.split("/").map(Number);
+            }
+            const startMin = parseStartMinutes(String(targetTimeSlot).split("-")[0]);
+            if (y && mo && d && startMin !== null) {
+              const startUtcMs = Date.UTC(y, mo - 1, d, 0, startMin) - VN_OFFSET_MS;
+              if (startUtcMs < Date.now() - GRACE_MS) {
+                const nowVn = new Date(Date.now() + VN_OFFSET_MS).toISOString();
+                const nowLabel = `${nowVn.slice(11, 16)} ngày ${nowVn.slice(8, 10)}/${nowVn.slice(5, 7)}/${nowVn.slice(0, 4)}`;
+                pastTimeMessage = `Thời gian họp đã qua: giờ bắt đầu ${String(targetTimeSlot).split("-")[0].trim()} ngày ${ds} đã ở trong quá khứ (bây giờ là ${nowLabel}).`;
+              }
             }
           } catch (timeCheckErr) {
             console.warn("Time validation error:", timeCheckErr);
+          }
+          if (pastTimeMessage) {
+            return new Response(
+              JSON.stringify({ success: false, code: "PAST_TIME_BOOKING", error: pastTimeMessage, message: pastTimeMessage }),
+              { status: 400, headers: SECURE_JSON_HEADERS }
+            );
           }
 
           // Double Booking Check
@@ -10759,10 +11511,12 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
             ).bind(targetRoomId, targetBookingDate, targetTimeSlot).all();
 
             if (existingOverlap && existingOverlap.length > 0) {
+              const conflictMsg = "Phòng họp đã được người dùng khác đặt trước cho khung giờ này!";
               const conflictErr = JSON.stringify({
                 success: false,
                 code: "DOUBLE_BOOKING_CONFLICT",
-                message: "Phòng họp đã được người dùng khác đặt trước cho khung giờ này!"
+                error: conflictMsg,
+                message: conflictMsg
               });
               return new Response(conflictErr, { status: 409, headers: SECURE_JSON_HEADERS });
             }
@@ -10790,22 +11544,42 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
             bookingStatus
           ).run();
 
+          // 🔔 GỬI THÔNG BÁO ZALO vào nhóm Lễ Tân khi có đặt phòng mới
+          try {
+            const ZALO_NOTIFY_GROUPS = ["zgr-985a598e79e190bfc9f0"];
+            const zaloBotToken = env.ZALO_BOT_TOKEN;
+            if (zaloBotToken) {
+              const zaloMsg = `📅 *ĐẶT PHÒNG HỌP MỚI*\n\n🏢 Phòng: ${roomName || "Phòng Họp"}\n📌 Tiêu đề: ${title || "Cuộc họp"}\n👤 Người đặt: ${finalBookerName} (${finalDepartment})\n📆 Ngày: ${targetBookingDate}\n🕐 Khung giờ: ${targetTimeSlot}\n👥 Số người: ${attendeesCount || 5}\n📝 Ghi chú: ${notes || "Không có"}\n\n✅ Trạng thái: Chờ xác nhận (PENDING)\n⚠️ Lễ Tân vui lòng xác nhận hoặc hủy lịch trên hệ thống.`;
+              for (const groupId of ZALO_NOTIFY_GROUPS) {
+                await fetch(`https://bot-api.zaloplatforms.com/bot${zaloBotToken}/sendMessage`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ chat_id: groupId, text: zaloMsg })
+                }).catch(() => {});
+              }
+            }
+          } catch (zErr) {
+            console.warn("Zalo notify error:", zErr.message);
+          }
+
           const successRes = JSON.stringify({ success: true, message: "Đã lưu lịch đặt phòng họp vào Cloudflare D1 thành công!", data: body });
 
           return new Response(successRes, { headers: SECURE_JSON_HEADERS });
-
-          return new Response(successRes, { headers: SECURE_JSON_HEADERS });
         } catch (err) {
+          console.error("POST /api/rooms/booking error:", err);
           if (err.message && err.message.includes("UNIQUE constraint failed")) {
+            const conflictMsg = "Phòng họp đã được người dùng khác đặt trước cho khung giờ này!";
             const conflictErr = JSON.stringify({
               success: false,
               code: "DOUBLE_BOOKING_CONFLICT",
-              message: "Phòng họp đã được người dùng khác đặt trước cho khung giờ này!"
+              error: conflictMsg,
+              message: conflictMsg
             });
             return new Response(conflictErr, { status: 409, headers: SECURE_JSON_HEADERS });
           }
+          const serverMsg = err.message || "Lỗi hệ thống khi đặt phòng họp";
           return new Response(
-            JSON.stringify({ success: false, error: err.message }),
+            JSON.stringify({ success: false, error: serverMsg, message: serverMsg }),
             { status: 500, headers: SECURE_JSON_HEADERS }
           );
         }
@@ -10968,13 +11742,10 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
       // ════════════════════════════════════════════════════════════════
       // 📊 BI EXPORT & EXECUTIVE EMAIL AUTOMATION APIS
       // ════════════════════════════════════════════════════════════════
-      const SECURE_JSON_HEADERS = {
-        "Content-Type": "application/json",
-        "X-Frame-Options": "SAMEORIGIN",
-        "X-Content-Type-Options": "nosniff",
-        "Referrer-Policy": "strict-origin-when-cross-origin",
-        "Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
-      };
+      // NOTE: Không khai báo lại `const SECURE_JSON_HEADERS` trong block này.
+      // Khai báo lại sẽ che biến toàn cục và gây ReferenceError (TDZ) cho mọi
+      // handler /api/rooms/* phía trên (lỗi 500 khi đặt phòng họp 05/10/2026).
+      // Các security header đã được gộp vào hằng số toàn cục ở đầu file.
 
       // GET /api/bi/export: Aggregate BI Metrics for Finance & Factory OEE
       if (url.pathname === "/api/bi/export" && request.method === "GET") {
@@ -13797,6 +14568,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
     }
 
     // ════════════════════════════════════════════════════════════════
+
     // 💡 MAIN KAIZEN PROPOSALS & REALTIME SCORE AGGREGATION ENDPOINT
     // ════════════════════════════════════════════════════════════════
     if (url.pathname === "/api/ci-kaizen") {
@@ -13809,24 +14581,224 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
       if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
       await ensureKaizenTables(env);
 
-      if (request.method === "GET") {
+            if (request.method === "GET") {
         try {
+          async function fetchFromSource(env) {
+            const SOURCE_BASE_URL = env.SOURCE_BASE_URL || 'https://thkiengiangshoes.tbsgroup2026.workers.dev';
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 8000);
+            
+            try {
+              let res = await fetch(`${SOURCE_BASE_URL}/api/ci-kaizen?t=${Date.now()}`, {
+                  signal: controller.signal,
+                  headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' }
+                });
+              
+              if (res.status >= 500) {
+                res = await fetch(`${SOURCE_BASE_URL}/api/ci-kaizen`, {
+                  signal: controller.signal,
+                  
+                  headers: { 'Cache-Control': 'no-store' }
+                });
+              }
+              clearTimeout(timeoutId);
+              
+              if (!res.ok) return [];
+              const data = await res.json();
+              return data.success && Array.isArray(data.data) ? data.data : [];
+            } catch (error) {
+              clearTimeout(timeoutId);
+              console.error("[fetchFromSource] Error:", error);
+              return [];
+            }
+          }
+          
+                    function mapSourceToProposal(sourceItem) {
+            const SOURCE_BASE_URL = 'https://thkiengiangshoes.tbsgroup2026.workers.dev';
+            
+            // Fix absolute URLs for images and videos if they are relative
+            const fixUrl = (url) => {
+              if (!url) return null;
+              if (url.startsWith('http')) return url;
+              if (url.startsWith('/')) return SOURCE_BASE_URL + url;
+              return SOURCE_BASE_URL + '/' + url;
+            };
+
+            let attJson = sourceItem.attachments_json || '[]';
+            try {
+              const atts = JSON.parse(attJson);
+              if (Array.isArray(atts)) {
+                for (let i = 0; i < atts.length; i++) {
+                  if (atts[i].url && !atts[i].url.startsWith('http')) {
+                    if (atts[i].url.startsWith('/')) {
+                      atts[i].url = SOURCE_BASE_URL + atts[i].url;
+                    } else {
+                      atts[i].url = SOURCE_BASE_URL + '/' + atts[i].url;
+                    }
+                  }
+                }
+                attJson = JSON.stringify(atts);
+              }
+            } catch (e) {}
+
+            return {
+              id: sourceItem.id || `src_${Date.now()}`,
+              code: sourceItem.code || '',
+              title: sourceItem.title || 'Untitled',
+              category: sourceItem.category || 'PRODUCTIVITY',
+              category_label: sourceItem.category_label || '',
+              registration_type: sourceItem.registration_type || 'THI_DUA',
+              sub_status: sourceItem.sub_status || 'CHO_DANH_GIA',
+              region: sourceItem.region || '',
+              department: sourceItem.department || '',
+              factory: sourceItem.factory || '',
+              proposer_name: sourceItem.proposer_name || '',
+              proposer_emp_code: sourceItem.proposer_emp_code || '',
+              dept_code: sourceItem.dept_code || '',
+              before_description: sourceItem.before_description || '',
+              after_solution: sourceItem.after_solution || '',
+              saved_seconds: sourceItem.saved_seconds || 0,
+              before_image_url: fixUrl(sourceItem.before_image_url),
+              after_image_url: fixUrl(sourceItem.after_image_url),
+              before_video_url: fixUrl(sourceItem.before_video_url),
+              after_video_url: fixUrl(sourceItem.after_video_url),
+              attachments_json: attJson,
+              status: sourceItem.status || 'SUBMITTED',
+              award_title: sourceItem.award_title || null,
+              score_points: sourceItem.score_points || 0,
+              avg_rating: sourceItem.avg_rating || 0,
+              rating_count: sourceItem.rating_count || 0,
+              vote_count: sourceItem.vote_count || 0,
+              view_count: sourceItem.view_count || 0,
+              rejection_reason: sourceItem.rejection_reason || null,
+              version: sourceItem.version || 1,
+              created_at: sourceItem.created_at || new Date().toISOString(),
+              updated_at: sourceItem.updated_at || new Date().toISOString(),
+              required_reviewer_ids_json: sourceItem.required_reviewer_ids_json || '[]',
+              average_score: sourceItem.average_score || 0,
+              evaluated_at: sourceItem.evaluated_at || null,
+              comments: sourceItem.comments || null,
+              review_comment: sourceItem.review_comment || null,
+              proposer_position: sourceItem.proposer_position || '',
+              proposer_month: sourceItem.proposer_month || 0,
+              proposer_year: sourceItem.proposer_year || 0,
+              hr_suggestor: sourceItem.hr_suggestor || null,
+              customer: sourceItem.customer || null,
+              product_group: sourceItem.product_group || null,
+              product_code: sourceItem.product_code || null,
+              quantity: sourceItem.quantity || null,
+              pricing_direction: sourceItem.pricing_direction || null,
+              time_before_seconds: sourceItem.time_before_seconds || 0,
+              time_after_seconds: sourceItem.time_after_seconds || 0,
+              efficiency_value_vnd: sourceItem.efficiency_value_vnd || 0,
+              legacy_code: sourceItem.legacy_code || null,
+              team_code: sourceItem.team_code || null,
+              plant_code: sourceItem.plant_code || null,
+              approval_status: sourceItem.approval_status || null,
+              evaluation_result: sourceItem.evaluation_result || null,
+              approved_by: sourceItem.approved_by || null,
+              approved_at: sourceItem.approved_at || null,
+              evaluated_by: sourceItem.evaluated_by || null,
+              review_status: sourceItem.review_status || null,
+              is_archived: sourceItem.is_archived ? 1 : 0,
+              pair_quantity: sourceItem.pair_quantity || 0,
+              total_savings_vnd: sourceItem.total_savings_vnd || 0,
+              total_savings_words: sourceItem.total_savings_words || '',
+              cost_before: sourceItem.cost_before || 0,
+              cost_after: sourceItem.cost_after || 0,
+              chi_phi_truoc: sourceItem.chi_phi_truoc || 0,
+              chi_phi_sau: sourceItem.chi_phi_sau || 0,
+              tong_tien_tiet_kiem: sourceItem.tong_tien_tiet_kiem || 0,
+              site_code: 'thkiengiangshoes',
+              _source: 'thkiengiangshoes'
+            };
+          }
+
           let results = [];
+          let thkgResults = [];
+          let localResults = [];
+
+          let dbKgErr = null;
           try {
-            const queryRes = await env.DB.prepare(`SELECT * FROM ci_kaizen_proposals ORDER BY created_at DESC LIMIT 500`).all();
-            results = queryRes?.results || [];
-          } catch (e) {}
+            if (env.DB_KG) {
+              const qKg = `SELECT * FROM ci_kaizen_proposals ORDER BY rowid DESC LIMIT 500`;
+              const queryResKg = await env.DB_KG.prepare(qKg).all();
+              thkgResults = (queryResKg?.results || []).map(mapSourceToProposal);
+            } else {
+              const rawThkg = await fetchFromSource(env);
+              thkgResults = rawThkg.map(mapSourceToProposal);
+            }
+          } catch (e) {
+            dbKgErr = String(e?.stack || e);
+            console.error("[DB_KG Query Error]", e);
+          }
+
+          try {
+            const q = `SELECT * FROM ci_kaizen_proposals WHERE is_archived = 0 OR is_archived IS NULL ORDER BY rowid DESC LIMIT 500`;
+            const queryRes = await env.DB.prepare(q).all();
+            localResults = queryRes?.results || [];
+          } catch (e) {
+            console.error("[Local DB Error]", e);
+          }
+
+          const getDedupeKey = (p) => {
+            const code = String(p.code || p.legacy_code || '').trim().toUpperCase();
+            if (code && code.startsWith('KZ-2026-')) return code;
+            const rawId = String(p.id || '').trim().toUpperCase();
+            return rawId.replace(/^TKG_/, '');
+          };
+
+          let resultMap = new Map();
+          for (const p of thkgResults) {
+            const key = getDedupeKey(p);
+            resultMap.set(key, p);
+          }
+
+          for (const p of localResults) {
+            const key = getDedupeKey(p);
+            if (resultMap.has(key)) continue;
+            const reg = String(p.region || '').toUpperCase();
+            if (p.site_code === 'thkiengiangshoes' || key.startsWith('KZ-2026-') || reg.includes('KIÊN GIANG') || reg.includes('KG') || reg.includes('HOÀN THIỆN') || reg.includes('HTD') || reg.includes('PHÒNG')) {
+              if (!reg.includes('MIỀN ĐÔNG') && !reg.includes('NMMĐ') && !reg.includes('CHUỖI')) {
+                continue;
+              }
+            }
+            resultMap.set(key, p);
+          }
+          
+          const safeParseDate = (d) => {
+            if (!d) return 0;
+            if (typeof d === 'number') return d;
+            let str = String(d).trim().replace(' ', 'T');
+            if (!str.endsWith('Z') && !str.includes('+')) {
+              str += 'Z';
+            }
+            const t = new Date(str).getTime();
+            return isNaN(t) ? 0 : t;
+          };
+          results = Array.from(resultMap.values()).sort((a, b) => safeParseDate(b.created_at) - safeParseDate(a.created_at));
 
           let scoreAggMap = {};
           try {
-            const { results: scoreAggRows } = await env.DB.prepare(`
-              SELECT submission_id, AVG(total_score) as avg_score, COUNT(*) as cnt
-              FROM ci_kaizen_scores
-              GROUP BY submission_id
-            `).all();
-            if (scoreAggRows) {
-              for (const r of scoreAggRows) {
-                if (r.submission_id) {
+            const allKeys = [];
+            for (const p of results) {
+              if (p.code) allKeys.push(String(p.code).trim());
+              if (p.id) allKeys.push(String(p.id).trim());
+            }
+            const uniqueKeys = [...new Set(allKeys)].filter(Boolean);
+            const chunkSize = 50;
+            for (let i = 0; i < uniqueKeys.length; i += chunkSize) {
+              const chunk = uniqueKeys.slice(i, i + chunkSize);
+              const placeholders = chunk.map(() => '?').join(',');
+              const query = `
+                SELECT submission_id, AVG(total_score) as avg_score, COUNT(id) as cnt
+                FROM ci_kaizen_scores
+                WHERE submission_id IN (${placeholders})
+                GROUP BY submission_id
+              `;
+              const scoreAggRows = await env.DB.prepare(query).bind(...chunk).all();
+              if (scoreAggRows && scoreAggRows.results) {
+                for (const r of scoreAggRows.results) {
                   const key = String(r.submission_id).trim().toUpperCase();
                   scoreAggMap[key] = {
                     avgScore: Math.round(Number(r.avg_score || 0) * 10) / 10,
@@ -13835,25 +14807,73 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
                 }
               }
             }
-          } catch (e) {}
+          } catch (e) {
+            console.error("[Score Chunk Error]", e);
+          }
 
           const cleanedResults = (results || []).map((p) => {
-            const pId = String(p.id || '').trim().toUpperCase();
             const pCode = String(p.code || '').trim().toUpperCase();
-            const pEmp = String(p.proposer_emp_code || '').trim().toUpperCase();
-            const scoreInfo = scoreAggMap[pId] || scoreAggMap[pCode] || scoreAggMap[pEmp];
-
+            const pId = String(p.id || '').trim().toUpperCase();
+            const scoreInfo = scoreAggMap[pCode] || scoreAggMap[pId];
             return {
               ...p,
               judge_final_score: scoreInfo?.avgScore ?? p.judge_final_score ?? p.score_points ?? null,
-              judge_count: scoreInfo?.judgeCount ?? p.rating_count ?? 0,
+              judge_count: scoreInfo?.judgeCount ?? 0,
             };
           });
 
-          return new Response(JSON.stringify({ success: true, data: cleanedResults, count: cleanedResults.length }), { headers: CORS });
+          CORS["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0";
+          return new Response(JSON.stringify({ success: true, data: cleanedResults, count: cleanedResults.length, _debug: { hasDbKg: Boolean(env.DB_KG), thkgCount: thkgResults.length, localCount: localResults.length, dbKgErr } }), { headers: CORS });
         } catch (e) {
           return new Response(JSON.stringify({ success: false, error: e.message || 'Lỗi lấy danh sách sáng kiến' }), { status: 500, headers: CORS });
         }
+      }
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // 🏷️ REALTIME VERSION ENDPOINT
+    // ════════════════════════════════════════════════════════════════
+    if (url.pathname === "/api/kaizen/version") {
+      const CORS = {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0",
+      };
+      if (request.method === "OPTIONS") return new Response(null, { headers: CORS });
+
+      try {
+        const reqRegion = url.searchParams.get("region") || "";
+        const isThkg = reqRegion.toUpperCase().includes("THKG") || reqRegion.toUpperCase().includes("KIÊN GIANG") || reqRegion.toUpperCase().includes("KIEN GIANG");
+        const targetDb = (isThkg && env.DB_KG) ? env.DB_KG : env.DB;
+
+        const aggQuery = `
+          SELECT 
+            COUNT(*) as cnt, 
+            MAX(updated_at) as max_updated, 
+            GROUP_CONCAT(SUBSTR(sub_status, 1, 3)) as status_concat
+          FROM ci_kaizen_proposals
+          WHERE is_archived = 0 OR is_archived IS NULL
+        `;
+        const aggRes = await targetDb.prepare(aggQuery).first();
+        const cnt = Number(aggRes?.cnt || 0);
+        const maxUpdated = String(aggRes?.max_updated || '');
+        const statusConcat = String(aggRes?.status_concat || '');
+
+        const raw = `${cnt}-${maxUpdated}-${statusConcat}`;
+        let hash = 0;
+        for (let i = 0; i < raw.length; i++) {
+          const char = raw.charCodeAt(i);
+          hash = ((hash << 5) - hash) + char;
+          hash |= 0;
+        }
+        const versionStr = Math.abs(hash).toString(16);
+
+        return new Response(JSON.stringify({ version: versionStr, count: cnt }), { headers: CORS });
+      } catch (e) {
+        console.error("[API /api/kaizen/version Error]:", e);
+        return new Response(JSON.stringify({ error: e.message || 'Server error' }), { status: 500, headers: CORS });
       }
     }
 
@@ -14906,6 +15926,84 @@ async function ensureKaizenGuestTable(env) {
     }
 
     // ============================================================
+    
+    // ============================================================
+    // ZALO WEBHOOK API
+    // ============================================================
+    if (url.pathname === "/api/zalo/webhook") {
+      const CORS = {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      };
+      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+      
+      if (request.method === "GET") {
+        const challenge = url.searchParams.get('challenge');
+        if (challenge) return new Response(challenge, { status: 200 });
+        return new Response(JSON.stringify({ status: 'Zalo Bot Webhook endpoint active' }), { status: 200, headers: CORS });
+      }
+
+      if (request.method === "POST") {
+        try {
+          const body = await request.json().catch(() => ({}));
+          const message = body.message || {};
+          const chat = message.chat || {};
+          const sender = body.sender || message.from || {};
+
+          const chatId = String(chat.id || sender.id || body.chat_id || body.user_id || '').trim();
+          const chatType = String(chat.chat_type || body.chat_type || '').trim().toUpperCase();
+          const text = (message.text || body.text || '').trim();
+          const senderName = sender.name || body.sender_name || sender.first_name || 'Người dùng Zalo';
+          
+          const isGroup = chatType === 'GROUP' || !!body.group_id || !!body.is_group || chatType === 'SUPERGROUP';
+          const groupId = body.group_id || (isGroup ? chatId : null);
+          const groupName = body.group_name || body.chat_name || (groupId ? `Nhóm Zalo (${groupId})` : null);
+
+          if (groupId && env.DB) {
+            await env.DB.prepare(`
+              INSERT INTO zalo_captured_groups (group_chat_id, group_name, last_message, sender_name, updated_at)
+              VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+              ON CONFLICT(group_chat_id) DO UPDATE SET group_name = COALESCE(excluded.group_name, group_name), last_message = excluded.last_message, sender_name = excluded.sender_name, updated_at = CURRENT_TIMESTAMP
+            `).bind(groupId, groupName, text, senderName).run().catch(() => {});
+          }
+
+          let isMentioned = false;
+          let cleanText = text;
+          const entities = message.entities || [];
+          if (entities.find(e => e.type === 'mention' || e.type === 'text_mention') || (body.mentions && body.mentions.length > 0)) {
+            isMentioned = true;
+          } else if (text.match(/@\[([^\]]+)\]/)) {
+            isMentioned = true;
+          } else if (text.includes('@Bot') || text.includes('@bot') || text.includes('@TBS')) {
+            isMentioned = true;
+          }
+
+          if (isMentioned && isGroup) {
+            cleanText = text.replace(/@\[([^\]]+)\]/g, '').replace(/@\S+/g, '').trim();
+            const botIdStr = (env.ZALO_BOT_TOKEN || '').split(':')[0]; 
+            const senderIdStr = String(sender.id || '');
+            if (senderIdStr !== botIdStr && !sender.is_bot && env.DB) {
+              const allowed = await env.DB.prepare('SELECT is_active FROM zalo_bot_allowed_groups WHERE group_id = ?').bind(groupId).first().catch(() => null);
+              if (allowed && allowed.is_active === 1) {
+                // Run LLM logic in background (waitUntil)
+                if (ctx && typeof ctx.waitUntil === "function") {
+                  ctx.waitUntil(handleZaloBotMention(env, chatId, senderIdStr, senderName, cleanText));
+                } else {
+                  await handleZaloBotMention(env, chatId, senderIdStr, senderName, cleanText);
+                }
+              }
+            }
+          }
+
+          return new Response(JSON.stringify({ success: true, message: 'Event received' }), { status: 200, headers: CORS });
+        } catch (e) {
+          return new Response(JSON.stringify({ success: false, error: e.message }), { status: 500, headers: CORS });
+        }
+      }
+    }
+
     // API CATCH-ALL SAFE JSON FALLBACK (Prevents 404 HTML SyntaxError on res.json())
     // ============================================================
     if (url.pathname.startsWith("/api/")) {
@@ -14922,54 +16020,66 @@ async function ensureKaizenGuestTable(env) {
     }
 
     // Default Fallback: Serve Next.js Static Export Assets with HTML extension resolution
-    if (env && env.ASSETS) {
-      const assetResponse = await env.ASSETS.fetch(request);
-      if (assetResponse.status !== 404) {
-        return withCacheHeaders(assetResponse, assetResponse.headers.get("content-type")?.includes("text/html") || !url.pathname.includes("."), url.pathname);
+    const assetsFetcher = env && (env.ASSET_BINDING || env.ASSETS);
+    if (assetsFetcher) {
+      try {
+        let assetResponse = await assetsFetcher.fetch(request).catch(() => null);
+        if (assetResponse && assetResponse.status !== 404) {
+          return withCacheHeaders(assetResponse, assetResponse.headers.get("content-type")?.includes("text/html") || !url.pathname.includes("."), url.pathname);
+        }
+
+        if (request.method === "GET") {
+          const cleanPath = url.pathname.endsWith("/") ? url.pathname.slice(0, -1) : url.pathname;
+          const fallbackPaths = [];
+          if (cleanPath) {
+            fallbackPaths.push(`${cleanPath}.html`, `${cleanPath}/index.html`);
+          } else {
+            fallbackPaths.push("/index.html");
+          }
+
+          if (cleanPath.startsWith("/work/kaizen")) {
+            fallbackPaths.push("/work/kaizen.html", "/work/kaizen/index.html");
+          }
+          if (cleanPath.startsWith("/work/gemba")) {
+            fallbackPaths.push("/work/gemba.html", "/work/gemba/index.html");
+          }
+          if (cleanPath.startsWith("/work/ci") || cleanPath.startsWith("/work/cn-ci")) {
+            fallbackPaths.push("/work/cn-ci.html", "/work.html");
+          }
+          if (cleanPath.startsWith("/work")) {
+            fallbackPaths.push("/work.html", "/work/index.html");
+          }
+          if (cleanPath.startsWith("/finance")) {
+            fallbackPaths.push("/finance.html", "/finance/index.html");
+          }
+          if (cleanPath.startsWith("/maintenance")) {
+            fallbackPaths.push("/maintenance.html", "/maintenance/index.html");
+          }
+          fallbackPaths.push("/index.html", "/login.html");
+
+          for (const fPath of fallbackPaths) {
+            try {
+              const fUrl = new URL(request.url);
+              fUrl.pathname = fPath;
+              fUrl.search = "";
+              const fRes = await assetsFetcher.fetch(new Request(fUrl.toString(), request)).catch(() => null);
+              if (fRes && fRes.status < 400) {
+                return withCacheHeaders(fRes, true, url.pathname);
+              }
+            } catch (e) {}
+          }
+        }
+
+        if (assetResponse) {
+          return withCacheHeaders(assetResponse, false, url.pathname);
+        }
+      } catch (assetErr) {
+        console.error("[Assets Error]", assetErr);
+        return new Response(`Assets Handling Error: ${assetErr.message}`, { status: 500, headers: CORS });
       }
-
-      if (request.method === "GET" && !url.pathname.includes(".")) {
-        const cleanPath = (url.pathname.endsWith("/") && url.pathname.length > 1) ? url.pathname.slice(0, -1) : url.pathname;
-        const fallbackPaths = [
-          `${cleanPath}.html`,
-          `${cleanPath}/index.html`,
-        ];
-
-        if (cleanPath.startsWith("/work/kaizen")) {
-          fallbackPaths.push("/work/kaizen.html", "/work/kaizen/index.html");
-        }
-        if (cleanPath.startsWith("/work/gemba")) {
-          fallbackPaths.push("/work/gemba.html", "/work/gemba/index.html");
-        }
-        if (cleanPath.startsWith("/work/ci") || cleanPath.startsWith("/work/cn-ci")) {
-          fallbackPaths.push("/work/cn-ci.html", "/work.html");
-        }
-        if (cleanPath.startsWith("/work")) {
-          fallbackPaths.push("/work.html", "/work/index.html");
-        }
-        if (cleanPath.startsWith("/finance")) {
-          fallbackPaths.push("/finance.html", "/finance/index.html");
-        }
-        if (cleanPath.startsWith("/maintenance")) {
-          fallbackPaths.push("/maintenance.html", "/maintenance/index.html");
-        }
-        fallbackPaths.push("/login.html", "/index.html");
-
-        for (const fPath of fallbackPaths) {
-          try {
-            const fUrl = new URL(request.url);
-            fUrl.pathname = fPath;
-            fUrl.search = "";
-            const fRes = await env.ASSETS.fetch(new Request(fUrl.toString(), request));
-            if (fRes.status === 200) {
-              return withCacheHeaders(fRes, true, url.pathname);
-            }
-          } catch (e) {}
-        }
-      }
-
-      return withCacheHeaders(assetResponse, false, url.pathname);
     }
+
+    return new Response("Not Found", { status: 404, headers: CORS });
   },
 
   // ⏰ Cloudflare Worker Cron Trigger Handler (Daily System Backup & Kaizen Sync)

@@ -145,7 +145,9 @@ export default function KaizenLeaderboard({
       const c4Score = Number(p.c4_score_final || p.c4_score || 0);
       const c5Score = Number(p.c5_score_final || p.c5_score || 0);
 
-      const judgeScore = Number(p.judge_final_score || p.score_points || 0);
+      const rawJudgeScore = p.judge_final_score || p.score_points || 0;
+      const judgeScore = rawJudgeScore ? Number(String(rawJudgeScore).replace(',', '.')) : 0;
+
       const calculatedScores = calculateCriteriaScores(
         { c1: c1Score, c2: c2Score, c3: c3Score, c4: c4Score, c5: c5Score },
         {
@@ -158,10 +160,10 @@ export default function KaizenLeaderboard({
       );
 
       const totalScore = judgeScore > 0 ? judgeScore : calculatedScores.totalScore;
-      const isEvaluated = judgeScore > 0 || (p as any).sub_status === "DA_DANH_GIA" || (p as any).sub_status === "DA_XEP_HANG";
+      const isEvaluated = Boolean(judgeScore > 0 || ((p as any).sub_status === "DA_DANH_GIA" && totalScore > 0));
 
-      const gk1 = (p as any).gk1_score !== undefined ? Number((p as any).gk1_score) : undefined;
-      const gk2 = (p as any).gk2_score !== undefined ? Number((p as any).gk2_score) : undefined;
+      const gk1 = (p as any).gk1_score !== undefined ? Number(String((p as any).gk1_score).replace(',', '.')) : undefined;
+      const gk2 = (p as any).gk2_score !== undefined ? Number(String((p as any).gk2_score).replace(',', '.')) : undefined;
       let isFlagged = Boolean((p as any).is_score_flagged || (p as any).is_flagged);
       if (!isFlagged && gk1 !== undefined && gk2 !== undefined) {
         isFlagged = checkJudgeDiscrepancy(gk1, gk2).isFlagged;
@@ -188,6 +190,9 @@ export default function KaizenLeaderboard({
         gk2Score: gk2,
         isFlagged,
         rewardAmount,
+        savingsVnd: Number(p.total_savings_vnd || (p as any).tong_tien_tiet_kiem || 0),
+        created_at: p.created_at,
+        code: p.code,
         hasAnyCapped: calculatedScores.hasAnyCapped,
       };
     });
@@ -209,13 +214,16 @@ export default function KaizenLeaderboard({
       list = rankedProposals.filter((p) => !p.isDisqualified);
     }
 
-    // Sort evaluated proposals first, unscored proposals at bottom
+    // Sort evaluated proposals first (by rank ASC), unscored proposals at bottom
     return [...list].sort((a, b) => {
       if (a.isDisqualified !== b.isDisqualified) {
         return a.isDisqualified ? 1 : -1;
       }
       if (a.isEvaluated && !b.isEvaluated) return -1;
       if (!a.isEvaluated && b.isEvaluated) return 1;
+      if (a.isEvaluated && b.isEvaluated && a.rank !== b.rank) {
+        return a.rank - b.rank;
+      }
       if (b.totalScoreRounded !== a.totalScoreRounded) {
         return b.totalScoreRounded - a.totalScoreRounded;
       }
@@ -425,6 +433,8 @@ export default function KaizenLeaderboard({
                 {displayProposals.length > 0 ? (
                   displayProposals.map((item) => {
                     const rank = item.rank;
+                    const isEvaluated = item.isEvaluated;
+                    const isDisqualified = item.isDisqualified;
                     const rewardVal = item.rewardAmount !== undefined && item.rewardAmount !== null
                       ? item.rewardAmount
                       : (REWARD_CONFIG[rank] || null);
@@ -440,7 +450,13 @@ export default function KaizenLeaderboard({
                       >
                         {/* 1. HẠNG Badge */}
                         <td className="py-3.5 px-4 text-center">
-                          {rank === 1 ? (
+                          {isDisqualified ? (
+                            <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-rose-50 text-rose-800 font-extrabold text-[10px] border border-rose-200">
+                              LOẠI
+                            </span>
+                          ) : !isEvaluated || rank <= 0 ? (
+                            <span className="text-slate-400 font-bold text-sm">—</span>
+                          ) : rank === 1 ? (
                             <span className="w-8 h-8 rounded-full bg-amber-100 text-amber-600 font-black text-sm flex items-center justify-center mx-auto border border-amber-300 shadow-2xs" title="Giải Nhất (Hạng 1)">
                               🥇 1
                             </span>
@@ -452,13 +468,9 @@ export default function KaizenLeaderboard({
                             <span className="w-8 h-8 rounded-full bg-amber-900/10 text-amber-800 font-black text-sm flex items-center justify-center mx-auto border border-amber-800/30 shadow-2xs" title="Giải Ba (Hạng 3)">
                               🥉 3
                             </span>
-                          ) : rank > 0 ? (
-                            <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 font-extrabold text-[11px] border border-emerald-200 shadow-2xs">
-                              💡 Ý tưởng
-                            </span>
                           ) : (
-                            <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-rose-50 text-rose-800 font-extrabold text-[10px] border border-rose-200">
-                              LOẠI
+                            <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 font-extrabold text-[11px] border border-emerald-200 shadow-2xs">
+                              💡 Ý tưởng ({rank})
                             </span>
                           )}
                         </td>

@@ -59,16 +59,16 @@ export default function HomePage() {
 
               <div className="space-y-6">
                 <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight leading-tight">
-                  {excellence.title || (lang === "VN" 
-                    ? "Dấu Ấn Thương Hiệu & Đẳng Cấp Chuỗi Cung Ứng"
-                    : "Brand Excellence & Supply Chain Quality")}
+                  {excellence.title || (lang === "en"
+                    ? "Brand Excellence & Supply Chain Quality"
+                    : "Dấu Ấn Thương Hiệu & Đẳng Cấp Chuỗi Cung Ứng")}
                 </h2>
 
                 <p className="text-slate-600 text-sm sm:text-base leading-relaxed">
                   {excellence.description ||
-                    (lang === "VN"
-                      ? "Văn Phòng Chuỗi SKECHERS - TBS Group tuân thủ nghiêm ngặt các tiêu chuẩn chất lượng cao nhất của đối tác SKECHERS toàn cầu."
-                      : "SKECHERS Supply Chain Office - TBS Group strictly adheres to the highest quality standards of SKECHERS global partners.")}
+                    (lang === "en"
+                      ? "SKECHERS Supply Chain Office - TBS Group strictly adheres to the highest quality standards of SKECHERS global partners."
+                      : "Văn Phòng Chuỗi SKECHERS - TBS Group tuân thủ nghiêm ngặt các tiêu chuẩn chất lượng cao nhất của đối tác SKECHERS toàn cầu.")}
                 </p>
 
                 <div className="space-y-4 pt-2">
@@ -104,15 +104,15 @@ export default function HomePage() {
           <div className="max-w-[1400px] mx-auto space-y-12">
             <div className="max-w-2xl space-y-3">
               <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight">
-                {products.title || (lang === "VN" 
-                  ? "Dòng Sản Phẩm Tiêu Biểu SKECHERS"
-                  : "Featured SKECHERS Product Line")}
+                {products.title || (lang === "en"
+                  ? "Featured SKECHERS Product Line"
+                  : "Dòng Sản Phẩm Tiêu Biểu SKECHERS")}
               </h2>
               <p className="text-slate-600 text-sm sm:text-base leading-relaxed">
                 {products.description ||
-                  (lang === "VN"
-                    ? "Các mẫu sản phẩm thuộc chuỗi cung ứng SKECHERS được sản xuất và kiểm soát chất lượng tại hệ thống nhà máy TBS Group."
-                    : "SKECHERS product samples from the supply chain are manufactured and quality-controlled at TBS Group's factory system.")}
+                  (lang === "en"
+                    ? "SKECHERS product samples from the supply chain are manufactured and quality-controlled at TBS Group's factory system."
+                    : "Các mẫu sản phẩm thuộc chuỗi cung ứng SKECHERS được sản xuất và kiểm soát chất lượng tại hệ thống nhà máy TBS Group.")}
               </p>
             </div>
 
@@ -151,7 +151,7 @@ export default function HomePage() {
                         {prod.name}
                       </h4>
                       <span className="text-[10px] text-slate-500 block mt-0.5">
-                        {lang === "VN" ? "Tiêu chuẩn SKECHERS Global" : "SKECHERS Global Standard"}
+                        {lang === "en" ? "SKECHERS Global Standard" : "Tiêu chuẩn SKECHERS Global"}
                       </span>
                     </div>
                   </div>

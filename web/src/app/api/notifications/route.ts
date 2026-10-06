@@ -63,8 +63,11 @@ export async function GET(request: Request) {
         title: r.title,
         message: r.message,
         type: r.type || 'INFO',
+        is_read: Number(r.is_read || 0),
         isRead: Boolean(r.is_read),
         link: r.link || '/work',
+        url: r.link || '/work',
+        created_at: r.created_at,
         createdAt: r.created_at,
       }));
 
@@ -72,6 +75,7 @@ export async function GET(request: Request) {
         success: true,
         data: formatted,
         notifications: formatted,
+        unread: formatted.filter((n: any) => n.is_read === 0).length,
       });
     }
 

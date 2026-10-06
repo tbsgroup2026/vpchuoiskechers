@@ -52,6 +52,19 @@ export function formatCloudinaryUrl(url: string | undefined | null, versionTag?:
   return `${trimmed}${separator}v=${tag}`;
 }
 
+/**
+ * Generate a Cloudinary URL resized for thumbnails (width: 480, height: 320, crop: fill, auto format & quality)
+ */
+export function getCloudinaryThumbnail(url: string | undefined | null, width: number = 480): string {
+  if (!url) return "";
+  const trimmed = url.trim();
+  if (!trimmed.includes("res.cloudinary.com")) return trimmed;
+  // Insert transformation parameters before the version or folder name
+  // Example original: https://res.cloudinary.com/dwl2xtbqa/image/upload/v12345/sk_img...
+  // Example result:   https://res.cloudinary.com/dwl2xtbqa/image/upload/c_fill,w_480,h_320,f_auto,q_auto/v12345/sk_img...
+  return trimmed.replace("/upload/", `/upload/c_fill,w_${width},h_${Math.round(width * 2/3)},f_auto,q_auto/`);
+}
+
 import { compressImage } from "./imageCompressor";
 
 /**

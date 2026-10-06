@@ -20,6 +20,8 @@ import {
   IconSparkles,
 } from "@tabler/icons-react";
 
+import { useLanguage } from "@/components/LanguageProvider";
+
 interface UserMePayload {
   user: {
     name: string;
@@ -33,6 +35,7 @@ interface UserMePayload {
 }
 
 export default function DynamicSidebar() {
+  const { lang, t } = useLanguage();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const deptParam = searchParams ? searchParams.get("dept") : null;
@@ -42,6 +45,13 @@ export default function DynamicSidebar() {
     const fetchMe = async () => {
       try {
         const res = await fetch("/api/auth/me");
+        if (res.status === 401) {
+          document.cookie = "tbs_token=; path=/; max-age=0";
+          sessionStorage.removeItem("tbs_current_user");
+          localStorage.removeItem("tbs_current_user");
+          window.location.href = "/login?expired=1";
+          return;
+        }
         const json = await res.json();
         if (json.success) {
           setData(json);
@@ -235,14 +245,33 @@ export default function DynamicSidebar() {
       </div>
 
       {/* User Footer Profile */}
-      <div className="pt-4 border-t border-slate-800 flex items-center gap-3">
-        <div className="w-9 h-9 rounded-xl bg-emerald-700 text-white font-black flex items-center justify-center shrink-0">
-          {user.name.charAt(0)}
+      <div className="pt-4 border-t border-slate-800 flex items-center justify-between">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-9 h-9 rounded-xl bg-emerald-700 text-white font-black flex items-center justify-center shrink-0">
+            {user.name.charAt(0)}
+          </div>
+          <div className="min-w-0 leading-tight">
+            <span className="text-xs font-black text-white block truncate">{user.name}</span>
+            <span className="text-[10px] text-slate-400 block font-medium truncate">{user.title}</span>
+          </div>
         </div>
-        <div className="min-w-0 leading-tight">
-          <span className="text-xs font-black text-white block truncate">{user.name}</span>
-          <span className="text-[10px] text-slate-400 block font-medium truncate">{user.title}</span>
-        </div>
+        <button
+          type="button"
+          title="Đăng xuất"
+          className="text-slate-400 hover:text-white p-1 transition-colors hover:bg-slate-800 rounded-md cursor-pointer shrink-0 ml-1"
+          onClick={() => {
+            if (window.confirm("Bạn có chắc chắn muốn đăng xuất?")) {
+              document.cookie = "tbs_token=; path=/; max-age=0";
+              localStorage.removeItem("tbs_current_user");
+              localStorage.removeItem("tbs_jwt_token");
+              sessionStorage.removeItem("tbs_current_user");
+              sessionStorage.removeItem("tbs_jwt_token");
+              window.location.href = "/login";
+            }
+          }}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+        </button>
       </div>
     </aside>
   );

@@ -2,7 +2,7 @@
 // Caching Strategy: Cache-First for Cloudinary Media, Stale-While-Revalidate for Static Assets
 // Web Push: Full push handler for multi-device notifications
 
-const CACHE_VERSION = "tbs-sw-v2026.09.15-push";
+const CACHE_VERSION = "tbs-sw-v2026.10.06-v2";
 const MEDIA_CACHE = `tbs-media-${CACHE_VERSION}`;
 const STATIC_CACHE = `tbs-static-${CACHE_VERSION}`;
 
@@ -79,19 +79,40 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // B. Next.js Static Chunks Stale-While-Revalidate Strategy
-  if (url.pathname.startsWith("/_next/static/") || url.pathname.endsWith(".css") || url.pathname.endsWith(".js")) {
+  // B. Next.js Static Chunks Cache-First (because they are hashed)
+  if (url.pathname.startsWith("/_next/static/")) {
     event.respondWith(
       caches.open(STATIC_CACHE).then(async (cache) => {
         const cachedResp = await cache.match(req);
-        const fetchPromise = fetch(req).then((networkResp) => {
+        if (cachedResp) return cachedResp;
+        
+        try {
+          const networkResp = await fetch(req);
           if (networkResp && networkResp.status === 200) {
             cache.put(req, networkResp.clone());
           }
           return networkResp;
-        }).catch(() => null);
+        } catch (err) {
+          return new Response("Offline", { status: 503 });
+        }
+      })
+    );
+    return;
+  }
 
-        return cachedResp || fetchPromise || fetch(req);
+  // C. HTML & JS (non-static) Network-First Strategy
+  if (req.mode === "navigate" || url.pathname.endsWith(".html") || url.pathname.endsWith(".js") || url.pathname.endsWith(".css")) {
+    event.respondWith(
+      fetch(req).then((networkResp) => {
+        if (networkResp && networkResp.status === 200) {
+          const cloned = networkResp.clone();
+          caches.open(STATIC_CACHE).then((cache) => cache.put(req, cloned));
+        }
+        return networkResp;
+      }).catch(async () => {
+        const cachedResp = await caches.match(req);
+        if (cachedResp) return cachedResp;
+        return new Response("Network error and no cache available", { status: 503 });
       })
     );
     return;

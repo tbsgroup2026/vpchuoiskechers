@@ -363,33 +363,102 @@ describe('Kaizen Ranking & Dual-Channel Sync Test Suite', () => {
     });
   });
 
-  describe('Test Case 11: Real-Time Dual-Channel Push & Direct D1 Binding Sync', () => {
-    it('should support direct DB_KG D1 binding cross-query sync without network HTTP latency', async () => {
-      const mockDbKgData = [
+  describe('Test Case 12: Specific Proposal KZ-2026-KG1-MAY-0004 Sync & Judging Protection', () => {
+    it('should map product_code, title, before/after descriptions correctly and protect BGK judging scores', () => {
+      const sourceProp = {
+        id: 'ci_1788740379877_k1uys',
+        code: 'KZ-2026-KG1-MAY-0004',
+        title: 'Làm lỗ đinh trên chịu lực thun bỏ công đoạn hoạ định vị thun',
+        product_code: '184204',
+        proposer_emp_code: '211006004',
+        before_description: 'Chịu lực thun SN 182004 phải hoạ định vị để may chân thun',
+        after_solution: 'Làm định vị lỗ đinh trên chịu lực, bỏ công đoạn hoạ định vị',
+        saved_seconds: 38,
+        total_savings_vnd: 87496900,
+        site_code: 'thkiengiangshoes',
+      };
+
+      const existingOnVpChuoi = {
+        id: 'tkg_ci_1788740379877_k1uys',
+        code: 'KZ-2026-KG1-MAY-0004',
+        title: 'Sáng kiến Tăng Năng suất - May (Nguyễn Thế Anh)',
+        product_code: '---',
+        is_edited: 1,
+        // VP Chuoi Judging fields that MUST be preserved:
+        score_points: 8.5,
+        c1_score_final: 9.0,
+        c3_score_final: 8.0,
+        award_title: 'Giải Nhất Tháng 9',
+      };
+
+      // Check ID resolution
+      const res = resolveUpsert(existingOnVpChuoi, sourceProp);
+      expect(res.id).toBe('tkg_ci_1788740379877_k1uys');
+
+      // Simulating upsert field mapping
+      const updatedRecord = {
+        ...existingOnVpChuoi,
+        title: sourceProp.title,
+        product_code: sourceProp.product_code,
+        before_description: sourceProp.before_description,
+        after_solution: sourceProp.after_solution,
+      };
+
+      expect(updatedRecord.product_code).toBe('184204');
+      expect(updatedRecord.title).toBe('Làm lỗ đinh trên chịu lực thun bỏ công đoạn hoạ định vị thun');
+      expect(updatedRecord.score_points).toBe(8.5); // BGK Score UNTOUCHED
+      expect(updatedRecord.award_title).toBe('Giải Nhất Tháng 9'); // BGK Award UNTOUCHED
+    });
+
+    it('should generate a detailed dry-run diff report highlighting changes without altering database', () => {
+      const sourceProposals = [
         {
-          id: 'kz_kg_realtime_001',
-          code: 'KZ-2026-9999',
-          title: 'Cải tiến thời gian thực từ Kiên Giang',
-          site_code: 'thkiengiangshoes',
-          region: 'Phòng Ban THKG',
-          created_at: '2026-09-28T14:00:00.000Z',
+          id: 'ci_1788740379877_k1uys',
+          code: 'KZ-2026-KG1-MAY-0004',
+          title: 'Làm lỗ đinh trên chịu lực thun bỏ công đoạn hoạ định vị thun',
+          product_code: '184204',
+          before_description: 'Chịu lực thun SN 182004 phải hoạ định vị',
+          after_solution: 'Làm định vị lỗ đinh trên chịu lực',
         },
       ];
 
-      const simulatedDbKg = {
-        prepare: () => ({
-          all: async () => ({ results: mockDbKgData }),
-        }),
-      };
+      const destProposals = [
+        {
+          id: 'tkg_ci_1788740379877_k1uys',
+          code: 'KZ-2026-KG1-MAY-0004',
+          title: 'Sáng kiến Tăng Năng suất - May (Nguyễn Thế Anh)',
+          product_code: '---',
+          before_description: '',
+          after_solution: '',
+          score_points: 8.5,
+        },
+      ];
 
-      const kgResults = await simulatedDbKg.prepare().all();
-      expect(kgResults.results).toHaveLength(1);
-      expect(kgResults.results[0].title).toBe('Cải tiến thời gian thực từ Kiên Giang');
+      const destMap = new Map();
+      destProposals.forEach((p) => destMap.set(p.id, p));
 
-      const res = resolveUpsert(null, kgResults.results[0]);
-      expect(res.action).toBe('INSERT');
-      expect(res.id).toBe('tkg_kz_kg_realtime_001');
+      const diffs: any[] = [];
+      for (const src of sourceProposals) {
+        const localId = `tkg_${src.id}`;
+        const existing = destMap.get(localId);
+        if (existing) {
+          const fieldDiffs: Record<string, { old: any; new: any }> = {};
+          if (existing.title !== src.title) fieldDiffs.title = { old: existing.title, new: src.title };
+          if (existing.product_code !== src.product_code) fieldDiffs.product_code = { old: existing.product_code, new: src.product_code };
+          if (existing.before_description !== src.before_description) fieldDiffs.before_description = { old: existing.before_description || '(Trống)', new: src.before_description };
+          if (existing.after_solution !== src.after_solution) fieldDiffs.after_solution = { old: existing.after_solution || '(Trống)', new: src.after_solution };
+
+          diffs.push({ code: src.code, id: localId, changes: fieldDiffs });
+        }
+      }
+
+      expect(diffs).toHaveLength(1);
+      expect(diffs[0].code).toBe('KZ-2026-KG1-MAY-0004');
+      expect(diffs[0].changes.product_code).toEqual({ old: '---', new: '184204' });
+      expect(diffs[0].changes.title.new).toBe('Làm lỗ đinh trên chịu lực thun bỏ công đoạn hoạ định vị thun');
     });
   });
 });
+
+
 

@@ -17,6 +17,8 @@ import HRAttendancePayrollView from "./components/HRAttendancePayrollView";
 import HRTalentPerformanceView from "./components/HRTalentPerformanceView";
 import HRReportsView from "./components/HRReportsView";
 import { useRouter } from "next/navigation";
+import { getCurrentUser } from "@/lib/userProfiles";
+import { getNormalizedRoles } from "@/lib/rbac";
 import {
   IconArrowLeft,
   IconCrown,
@@ -57,7 +59,16 @@ export default function HRSystemShell() {
 
   const router = useRouter();
 
-  const navItems = [
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  useEffect(() => {
+    setCurrentUser(getCurrentUser());
+  }, []);
+
+  const roles = getNormalizedRoles(currentUser);
+  const isAdmin = roles.includes("SUPER_ADMIN") || roles.includes("ADMIN") || currentUser?.roleLevel === 1;
+  const isLeTanOnly = (roles.includes("LE_TAN") || roles.includes("RECEPTIONIST")) && !isAdmin;
+
+  const allNavItems = [
     {
       group: "Tổ chức & Hành chính",
       items: [
@@ -90,6 +101,10 @@ export default function HRSystemShell() {
       ],
     },
   ];
+
+  const navItems = isLeTanOnly
+    ? allNavItems.filter((group) => group.group === "Tổ chức & Hành chính")
+    : allNavItems;
 
   return (
     <div className="min-h-screen bg-[#f8faf9] text-slate-900 font-sans antialiased selection:bg-[#006838] selection:text-white flex flex-col">

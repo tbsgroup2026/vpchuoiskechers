@@ -199,55 +199,77 @@ export async function GET(request: Request) {
       };
     });
 
-    // ⚡ BGK Ranking sort rule:
+    // ⚡ BGK Ranking sort rule (6-step Tie-breaker):
     // 1. Scored items first (judge_final_score > 0), Unscored items at bottom (judge_final_score === 0)
     // 2. Primary: BGK Total score DESC
     // 3. Secondary: C1 score DESC
     // 4. Tertiary: C3 score DESC
     // 5. Quaternary: Total savings VND DESC
+    // 6. Quinary: Created date ASC
     rankedList.sort((a: any, b: any) => {
-      const isScoredA = Number(a.judge_final_score || 0) > 0;
-      const isScoredB = Number(b.judge_final_score || 0) > 0;
+      const parseScore = (val: any) => (val ? Number(String(val).replace(',', '.')) || 0 : 0);
+      const scoreA = parseScore(a.judge_final_score || a.diem_tong_hop);
+      const scoreB = parseScore(b.judge_final_score || b.diem_tong_hop);
+
+      const isScoredA = scoreA > 0;
+      const isScoredB = scoreB > 0;
 
       if (isScoredA && !isScoredB) return -1;
       if (!isScoredA && isScoredB) return 1;
 
-      if (b.diem_tong_hop !== a.diem_tong_hop) {
-        return b.diem_tong_hop - a.diem_tong_hop;
+      if (scoreB !== scoreA) {
+        return scoreB - scoreA;
       }
-      if ((b.c1_score_final || 0) !== (a.c1_score_final || 0)) {
-        return (b.c1_score_final || 0) - (a.c1_score_final || 0);
-      }
-      if ((b.c3_score_final || 0) !== (a.c3_score_final || 0)) {
-        return (b.c3_score_final || 0) - (a.c3_score_final || 0);
-      }
+      const c1A = parseScore(a.c1_score_final);
+      const c1B = parseScore(b.c1_score_final);
+      if (c1B !== c1A) return c1B - c1A;
+
+      const c3A = parseScore(a.c3_score_final);
+      const c3B = parseScore(b.c3_score_final);
+      if (c3B !== c3A) return c3B - c3A;
+
       const valA = Number(a.total_savings_vnd || a.tong_tien_tiet_kiem || 0);
       const valB = Number(b.total_savings_vnd || b.tong_tien_tiet_kiem || 0);
-      return valB - valA;
+      if (valB !== valA) return valB - valA;
+
+      const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      if (dateA !== dateB && dateA > 0 && dateB > 0) return dateA - dateB;
+
+      return String(a.code || a.id || '').localeCompare(String(b.code || b.id || ''));
     });
 
-    const batchStatements: any[] = [];
-    const updateStmt = db.prepare(`
-      UPDATE ci_kaizen_proposals
-      SET hang_xep = ?,
-          diem_tong_hop = ?,
-          updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `);
+    let currentRank = 1;
+    let scoredIndex = 0;
 
     for (let i = 0; i < rankedList.length; i++) {
       const item = rankedList[i];
-      const isScored = Number(item.judge_final_score || 0) > 0;
-      const rank = isScored ? i + 1 : 0;
-      item.hang_xep = rank;
+      const parseScore = (val: any) => (val ? Number(String(val).replace(',', '.')) || 0 : 0);
+      const score = parseScore(item.judge_final_score || item.diem_tong_hop);
+      const isScored = score > 0;
 
-      if (item.id) {
-        batchStatements.push(updateStmt.bind(rank, item.diem_tong_hop, item.id));
+      let rank = 0;
+      if (isScored) {
+        if (scoredIndex > 0) {
+          const prev = rankedList[i - 1];
+          const prevScore = parseScore(prev.judge_final_score || prev.diem_tong_hop);
+          const isTie =
+            score === prevScore &&
+            parseScore(item.c1_score_final) === parseScore(prev.c1_score_final) &&
+            parseScore(item.c3_score_final) === parseScore(prev.c3_score_final) &&
+            Number(item.total_savings_vnd || 0) === Number(prev.total_savings_vnd || 0);
+
+          if (!isTie) {
+            currentRank = scoredIndex + 1;
+          }
+        } else {
+          currentRank = 1;
+        }
+        rank = currentRank;
+        scoredIndex++;
       }
-    }
 
-    if (batchStatements.length > 0) {
-      await db.batch(batchStatements).catch(() => {});
+      item.hang_xep = rank;
     }
 
     return NextResponse.json(

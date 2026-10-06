@@ -149,36 +149,54 @@ export async function GET(request: Request) {
     const isInternalSync = (syncParam === '1' || Boolean(syncSecretHeader)) && syncSecretHeader === expectedSecret;
 
     const db = getDbBinding();
+    const USE_SOURCE_API_FOR_THKG = true;
 
     if (db) {
-      // Auto-sync from DB_KG binding if present (zero latency D1 cross-query on Cloudflare Workers)
-      const currentSite = (process.env.SITE_ID || (globalThis as any).SITE_ID || (globalThis as any).env?.SITE_ID || '').toLowerCase();
-      if (currentSite === 'vpchuoiskechers' || !currentSite) {
-        const dbKg = getDbKgBinding();
-        if (dbKg) {
-          try {
-            const kgRes = await dbKg.prepare(`SELECT * FROM ci_kaizen_proposals ORDER BY created_at DESC LIMIT 500`).all();
-            if (kgRes?.results && Array.isArray(kgRes.results) && kgRes.results.length > 0) {
-              await upsertProposals(db, kgRes.results, 'thkiengiangshoes').catch(() => {});
+      let thkgResults: any[] = [];
+      let localResults: any[] = [];
+
+      // Lấy dữ liệu THKG từ API Nguồn
+      if (USE_SOURCE_API_FOR_THKG) {
+        try {
+          const SOURCE_API_URL = 'https://thkiengiangshoes.tbsgroup2026.workers.dev/api/ci-kaizen?sync=1';
+          const srcRes = await fetch(SOURCE_API_URL, {
+            headers: { 'x-sync-secret': expectedSecret, 'Cache-Control': 'no-cache' }
+          });
+          if (srcRes.ok) {
+            const srcData = await srcRes.json();
+            const rawItems = srcData.data || srcData.proposals;
+            if (Array.isArray(rawItems)) {
+              thkgResults = rawItems;
             }
-          } catch (kgSyncErr) {
-            // Ignore DB_KG read error
           }
+        } catch (apiErr) {
+          console.warn('[VP Chuoi] Failed to fetch THKG from Source API', apiErr);
         }
       }
 
-      let results: any[] = [];
+      // Lấy dữ liệu các vùng khác từ D1 Local
       try {
-        const queryRes = await db.prepare(`SELECT * FROM ci_kaizen_proposals ORDER BY created_at DESC LIMIT 500`).all();
-        results = queryRes?.results || [];
+        const query = USE_SOURCE_API_FOR_THKG
+          ? `SELECT * FROM ci_kaizen_proposals WHERE site_code != 'thkiengiangshoes' AND (UPPER(region) NOT LIKE '%KIÊN GIANG%' AND UPPER(region) NOT LIKE '%THKG%' AND UPPER(region) NOT LIKE '%HOÀN THIỆN ĐẾ%') ORDER BY created_at DESC LIMIT 500`
+          : `SELECT * FROM ci_kaizen_proposals ORDER BY created_at DESC LIMIT 500`;
+        const queryRes = await db.prepare(query).all();
+        localResults = queryRes?.results || [];
       } catch (err) {
-        // Fallback: If table doesn't exist yet, run schema creation once
         await ensureKaizenSchema(db).catch(() => {});
         try {
-          const retryRes = await db.prepare(`SELECT * FROM ci_kaizen_proposals ORDER BY created_at DESC LIMIT 500`).all();
-          results = retryRes?.results || [];
+          const query = USE_SOURCE_API_FOR_THKG
+            ? `SELECT * FROM ci_kaizen_proposals WHERE site_code != 'thkiengiangshoes' AND (UPPER(region) NOT LIKE '%KIÊN GIANG%' AND UPPER(region) NOT LIKE '%THKG%' AND UPPER(region) NOT LIKE '%HOÀN THIỆN ĐẾ%') ORDER BY created_at DESC LIMIT 500`
+            : `SELECT * FROM ci_kaizen_proposals ORDER BY created_at DESC LIMIT 500`;
+          const retryRes = await db.prepare(query).all();
+          localResults = retryRes?.results || [];
         } catch (e) {}
       }
+
+      const results = [...thkgResults, ...localResults].sort((a: any, b: any) => {
+        const d1 = new Date(a.created_at || 0).getTime();
+        const d2 = new Date(b.created_at || 0).getTime();
+        return d2 - d1;
+      });
 
       let userMap: Record<string, string> = {};
       try {
@@ -192,7 +210,7 @@ export async function GET(request: Request) {
         }
       } catch (e) {}
 
-      // Get real-time average scores from ci_kaizen_scores
+      // Get real-time average scores from ci_kaizen_scores (luôn lấy từ D1 local cho CẢ THKG và Local)
       let scoreAggMap: Record<string, { avgScore: number; avgC1: number; avgC3: number; judgeCount: number }> = {};
       try {
         const { results: scoreAggRows } = await db.prepare(`
@@ -268,21 +286,28 @@ export async function GET(request: Request) {
         const codeKey = String(p.code || '').trim().toUpperCase();
         const extIdKey = String(p.external_id || '').trim().toUpperCase();
         const cleanIdKey = idKey.replace(/^TKG_/i, '');
-        const agg = scoreAggMap[idKey] || scoreAggMap[codeKey] || scoreAggMap[extIdKey] || scoreAggMap[cleanIdKey] || scoreAggMap[`TKG_${cleanIdKey}`];
+        const cleanCodeKey = codeKey.replace(/^TKG_/i, '');
+        const agg = scoreAggMap[idKey] || scoreAggMap[codeKey] || scoreAggMap[extIdKey] || scoreAggMap[cleanIdKey] || scoreAggMap[`TKG_${cleanIdKey}`] || scoreAggMap[cleanCodeKey];
 
         let finalJudgeScore = Number(p.judge_final_score || p.score_points || p.diem_hieu_qua || p.diem_tong_hop || 0);
         let finalC1Score = Number(p.c1_score_final || 0);
         let finalC3Score = Number(p.c3_score_final || 0);
+        let finalJudgeCount = Number(p.judge_count || p.rating_count || 0);
         let updatedSubStatus = p.sub_status;
         let updatedTrangThai = p.trang_thai;
 
-        if (agg && agg.avgScore > 0) {
-          finalJudgeScore = agg.avgScore;
-          if (agg.avgC1 > 0) finalC1Score = agg.avgC1;
-          if (agg.avgC3 > 0) finalC3Score = agg.avgC3;
-          if (!updatedSubStatus || updatedSubStatus === 'CHO_DUYET' || updatedSubStatus === 'CHO_DANH_GIA') {
-            updatedSubStatus = 'DA_DANH_GIA';
-            updatedTrangThai = 'DA_DANH_GIA';
+        if (agg) {
+          if (agg.avgScore > 0) {
+            finalJudgeScore = agg.avgScore;
+            if (agg.avgC1 > 0) finalC1Score = agg.avgC1;
+            if (agg.avgC3 > 0) finalC3Score = agg.avgC3;
+            if (!updatedSubStatus || updatedSubStatus === 'CHO_DUYET' || updatedSubStatus === 'CHO_DANH_GIA') {
+              updatedSubStatus = 'DA_DANH_GIA';
+              updatedTrangThai = 'DA_DANH_GIA';
+            }
+          }
+          if (agg.judgeCount > 0) {
+            finalJudgeCount = agg.judgeCount;
           }
         }
 
@@ -318,6 +343,8 @@ export async function GET(request: Request) {
           scorePoints: finalJudgeScore,
           diem_hieu_qua: finalJudgeScore,
           diem_tong_hop: finalJudgeScore,
+          judge_count: finalJudgeCount,
+          rating_count: finalJudgeCount,
           c1_score_final: finalC1Score,
           c3_score_final: finalC3Score,
           sub_status: updatedSubStatus,
@@ -1144,6 +1171,7 @@ export async function DELETE(request: Request) {
     if (db) {
       const query = `DELETE FROM ci_kaizen_proposals WHERE id = ?`;
       await db.prepare(query).bind(id).run();
+      await triggerRealtimeSyncToWebTong({ id }, 'DELETE').catch(() => {});
     }
 
     return NextResponse.json({

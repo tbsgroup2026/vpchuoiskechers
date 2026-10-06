@@ -8,6 +8,7 @@ import DonutChartModal from "@/components/DonutChartModal";
 import UserAvatar from "@/components/UserAvatar";
 import { getCurrentUser, getUserDisplayBadgeTitle, setUserProfileInfo, setUserAvatar, normalizeEmpCode, getSystemUser, logoutUserProfile, isAdminUser } from "@/lib/userProfiles";
 import { logFeatureAccessEvent } from "@/lib/webhookAuditClient";
+import { getAllowedModules } from "@/lib/rbac";
 import Can from "@/components/Can";
 import { PERMISSIONS } from "@/lib/permissions";
 import OverviewDashboard from "@/components/work/OverviewDashboard";
@@ -870,182 +871,20 @@ export default function WorkDashboardPage({ initialDept }: { initialDept?: strin
 
   const visibleDepartments = useMemo(() => {
     const activeUser = currentUser || (isMounted ? getCurrentUser() : null) || getSystemUser("202608001");
-
     const normalizedCode = normalizeEmpCode(activeUser?.empCode || "202608001");
     const sysUser = getSystemUser(normalizedCode);
 
-    const combinedRoles = Array.from(
-      new Set([
-        ...(Array.isArray(activeUser?.roles) ? activeUser.roles : []),
-        ...(Array.isArray(sysUser?.roles) ? sysUser.roles : []),
-      ])
-    );
-    const deptCode = (sysUser?.department || activeUser.departmentCode || activeUser.department || "").toUpperCase();
-    const deptName = (sysUser?.department || activeUser.department || "").toUpperCase();
-    const roleCode = sysUser?.roleCode || activeUser.roleCode || "";
-    const managementLevel = activeUser.managementLevel || sysUser?.roleLevel || 4;
+    const allowedModules = getAllowedModules(activeUser, sysUser);
 
-    const checkUserIsAdmin = (u: any): boolean => {
-      if (!u) return false;
-      const rCode = (u.roleCode || u.role_code || "").toString().trim().toUpperCase();
-      const rLevel = u.roleLevel || u.role_level || 4;
-      const rList: string[] = Array.isArray(u.roles)
-        ? u.roles.map((r: any) => r.toString().toLowerCase())
-        : [];
-      return (
-        rCode === "SUPER_ADMIN" ||
-        rCode === "ADMIN" ||
-        rCode === "SYSTEM_ADMIN" ||
-        rList.includes("admin") ||
-        rList.includes("super_admin") ||
-        rLevel === 1
-      );
-    };
-
-    // Admin check via checkUserIsAdmin helper & standard role code
-    const isAdmin =
-      checkUserIsAdmin(activeUser) ||
-      checkUserIsAdmin(sysUser) ||
-      combinedRoles.includes("admin") ||
-      roleCode === "SUPER_ADMIN" ||
-      roleCode === "ADMIN";
-
-    const isTP =
-      roleCode === "TRUONG_PHONG" ||
-      roleCode === "TP" ||
-      combinedRoles.includes("manager") ||
-      combinedRoles.includes("department_head") ||
-      managementLevel === 3 ||
-      Boolean(activeUser?.title && (activeUser.title.toUpperCase().includes("TRƯỞNG PHÒNG") || activeUser.title.toUpperCase().includes("TP"))) ||
-      Boolean(sysUser?.title && (sysUser.title.toUpperCase().includes("TRƯỞNG PHÒNG") || sysUser.title.toUpperCase().includes("TP"))) ||
-      normalizedCode.startsWith("TP");
-
-    if (isAdmin) {
+    if (allowedModules === "ALL") {
+      // Executives/Admins see all except gemba for Trưởng phòng (kept for backwards compatibility if needed, but getAllowedModules already handles it)
+      const roles = (activeUser?.roles || []).concat(sysUser?.roles || []);
+      const isTP = roles.includes("TRUONG_PHONG") || roles.includes("MANAGER") || roles.includes("DEPARTMENT_HEAD");
       if (isTP) return departments.filter((d) => d.id !== "gemba");
       return departments;
     }
 
-    // Executive Board check (managementLevel <= 2 or executive roles)
-    const isExec =
-      managementLevel <= 2 ||
-      combinedRoles.includes("ceo") ||
-      combinedRoles.includes("deputy_ceo") ||
-      combinedRoles.includes("director") ||
-      combinedRoles.includes("deputy_director") ||
-      roleCode === "TONG_GIAM_DOC" ||
-      roleCode === "PHO_TONG_GIAM_DOC" ||
-      roleCode === "GIAM_DOC" ||
-      roleCode === "PHO_GIAM_DOC" ||
-      normalizedCode.startsWith("TGĐ") ||
-      normalizedCode.startsWith("PTGĐ") ||
-      normalizedCode.startsWith("GĐ") ||
-      normalizedCode.startsWith("PGĐ");
-
-    if (isExec) {
-      if (isTP) return departments.filter((d) => d.id !== "gemba");
-      return departments;
-    }
-
-    return departments.filter((dept) => {
-      if (isTP && dept.id === "gemba") {
-        return false;
-      }
-      switch (dept.id) {
-        case "overview":
-        case "my_tasks":
-        case "my-tasks":
-        case "tasks":
-        case "projects":
-        case "general_work":
-        case "personal_calendar":
-          return true;
-
-        case "finance":
-          // 1-5-2 Finance management is strictly for Executive Board / Admins, or Chief Accountant
-          return (
-            combinedRoles.includes("accountant") &&
-            (combinedRoles.includes("department_head") || roleCode === "TRUONG_PHONG")
-          );
-
-        case "hr":
-          return true; // Tất cả CBCNV đều có quyền truy cập Nhân Sự - Hành Chính (Đặt phòng họp, đăng ký công tác, thông báo)
-
-        case "ci":
-          return true; // CN-CI (Cải tiến liên tục) is accessible to ALL roles for viewing & posting improvements
-
-        case "qc":
-        case "gemba":
-          return (
-            combinedRoles.includes("qc") ||
-            deptCode.includes("QC") ||
-            deptName.includes("CHẤT LƯỢNG") ||
-            normalizedCode.startsWith("QC")
-          );
-
-        case "rd":
-          return (
-            combinedRoles.includes("rd") ||
-            deptCode.includes("RD") ||
-            deptName.includes("R&D") ||
-            normalizedCode.startsWith("RD")
-          );
-
-        case "logistics":
-          return (
-            combinedRoles.includes("logistics") ||
-            deptCode.includes("LOGISTICS") ||
-            deptName.includes("LOGISTICS") ||
-            deptName.includes("VẬT TƯ") ||
-            normalizedCode.startsWith("LG")
-          );
-
-        case "production":
-          // Chỉ hiển thị cho Bộ phận Bảo trì MMTB & Quản đốc Xưởng trở lên
-          const isMaintenanceStaff =
-            combinedRoles.includes("maintenance") ||
-            combinedRoles.includes("technician") ||
-            deptCode.includes("BAO_TRI") ||
-            deptCode.includes("MMTB") ||
-            deptName.includes("BẢO TRÌ") ||
-            deptName.includes("MÁY MÓC") ||
-            normalizedCode.startsWith("BT");
-
-          const isQuanDocOrAbove =
-            isTP ||
-            combinedRoles.includes("factory_manager") ||
-            combinedRoles.includes("supervisor") ||
-            Boolean(activeUser?.title && activeUser.title.toUpperCase().includes("QUẢN ĐỐC")) ||
-            Boolean(sysUser?.title && sysUser.title.toUpperCase().includes("QUẢN ĐỐC")) ||
-            normalizedCode.startsWith("QĐ");
-
-          return isMaintenanceStaff || isQuanDocOrAbove;
-
-        case "production-output": {
-          // Sản Lượng Nhà Máy (PPH) — cùng quyền truy cập như Tổ hợp Nhà máy: Bảo trì MMTB & Quản đốc Xưởng trở lên
-          const isMaintenanceStaffOutput =
-            combinedRoles.includes("maintenance") ||
-            combinedRoles.includes("technician") ||
-            deptCode.includes("BAO_TRI") ||
-            deptCode.includes("MMTB") ||
-            deptName.includes("BẢO TRÌ") ||
-            deptName.includes("MÁY MÓC") ||
-            normalizedCode.startsWith("BT");
-
-          const isQuanDocOrAboveOutput =
-            isTP ||
-            combinedRoles.includes("factory_manager") ||
-            combinedRoles.includes("supervisor") ||
-            Boolean(activeUser?.title && activeUser.title.toUpperCase().includes("QUẢN ĐỐC")) ||
-            Boolean(sysUser?.title && sysUser.title.toUpperCase().includes("QUẢN ĐỐC")) ||
-            normalizedCode.startsWith("QĐ");
-
-          return isMaintenanceStaffOutput || isQuanDocOrAboveOutput;
-        }
-
-        default:
-          return false;
-      }
-    });
+    return departments.filter((dept) => allowedModules.includes(dept.id));
   }, [currentUser, departments]);
 
   useEffect(() => {

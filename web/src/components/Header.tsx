@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import UserAvatar from '@/components/UserAvatar';
 import LanguageSelector from '@/components/LanguageSelector';
+import HeaderControls from '@/components/HeaderControls';
 import { useTranslation } from "@/hooks/useTranslation";
 import {
   IconArrowRight,
@@ -170,7 +171,7 @@ export default function Header() {
   const handleAvatarUpload = async (file: File) => {
     try {
       setIsUploadingAvatar(true);
-      setProfileMsg({ text: lang === "VN" ? '☁️ Đang tải ảnh đại diện lên Cloudinary...' : '☁️ Uploading avatar to Cloudinary...', error: false });
+      setProfileMsg({ text: lang === "vi" ? '☁️ Đang tải ảnh đại diện lên Cloudinary...' : '☁️ Uploading avatar to Cloudinary...', error: false });
 
       // Direct Cloudinary upload
       const cloudinaryUrl = await uploadImageToCloudinary(file);
@@ -181,10 +182,10 @@ export default function Header() {
         }
         setEditProfileForm((prev) => ({ ...prev, avatar: cloudinaryUrl }));
         setUserInfo((prev) => prev ? ({ ...prev, avatar: cloudinaryUrl }) : null);
-        setProfileMsg({ text: lang === "VN" ? '☁️ Đã lưu avatar mới thành công trên Cloudinary!' : '☁️ Avatar saved successfully on Cloudinary!', error: false });
+        setProfileMsg({ text: lang === "vi" ? '☁️ Đã lưu avatar mới thành công trên Cloudinary!' : '☁️ Avatar saved successfully on Cloudinary!', error: false });
       }
     } catch (e: any) {
-      setProfileMsg({ text: e.message || (lang === "VN" ? 'Lỗi khi tải ảnh lên Cloudinary' : 'Error uploading image to Cloudinary'), error: true });
+      setProfileMsg({ text: e.message || (lang === "vi" ? 'Lỗi khi tải ảnh lên Cloudinary' : 'Error uploading image to Cloudinary'), error: true });
     } finally {
       setIsUploadingAvatar(false);
     }
@@ -218,12 +219,12 @@ export default function Header() {
         body: JSON.stringify(updatedUser),
       }).catch(() => null);
 
-      setProfileMsg({ text: lang === "VN" ? 'Đã lưu & cập nhật thông tin cá nhân thành công vào D1 Database!' : 'Personal information saved and updated successfully!', error: false });
+      setProfileMsg({ text: lang === "vi" ? 'Đã lưu & cập nhật thông tin cá nhân thành công vào D1 Database!' : 'Personal information saved and updated successfully!', error: false });
       setTimeout(() => {
         setProfileModalOpen(false);
       }, 1200);
     } catch (err: any) {
-      setProfileMsg({ text: lang === "VN" ? 'Có lỗi xảy ra: ' + err.message : 'An error occurred: ' + err.message, error: true });
+      setProfileMsg({ text: lang === "vi" ? 'Có lỗi xảy ra: ' + err.message : 'An error occurred: ' + err.message, error: true });
     }
   };
 
@@ -363,7 +364,7 @@ export default function Header() {
         result: 'Thất bại',
         reason: 'Thiếu mật khẩu hiện tại'
       });
-      setPwdMsg({ text: lang === "VN" ? 'Vui lòng nhập mật khẩu hiện tại' : 'Please enter current password', error: true });
+      setPwdMsg({ text: lang === "vi" ? 'Vui lòng nhập mật khẩu hiện tại' : 'Please enter current password', error: true });
       return;
     }
     if (newPassword.length < 6) {
@@ -374,7 +375,7 @@ export default function Header() {
         result: 'Thất bại',
         reason: 'Mật khẩu mới ngắn hơn 6 ký tự'
       });
-      setPwdMsg({ text: lang === "VN" ? 'Mật khẩu mới phải có ít nhất 6 ký tự' : 'New password must be at least 6 characters', error: true });
+      setPwdMsg({ text: lang === "vi" ? 'Mật khẩu mới phải có ít nhất 6 ký tự' : 'New password must be at least 6 characters', error: true });
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -385,7 +386,7 @@ export default function Header() {
         result: 'Thất bại',
         reason: 'Xác nhận mật khẩu mới không khớp'
       });
-      setPwdMsg({ text: lang === "VN" ? 'Mật khẩu xác nhận không khớp với mật khẩu mới' : 'Passwords do not match', error: true });
+      setPwdMsg({ text: lang === "vi" ? 'Mật khẩu xác nhận không khớp với mật khẩu mới' : 'Passwords do not match', error: true });
       return;
     }
 
@@ -398,7 +399,7 @@ export default function Header() {
       reason: 'Tự cập nhật mật khẩu tài khoản cá nhân'
     });
 
-    setPwdMsg({ text: lang === "VN" ? 'Đã cập nhật mật khẩu thành công!' : 'Password updated successfully!', error: false });
+    setPwdMsg({ text: lang === "vi" ? 'Đã cập nhật mật khẩu thành công!' : 'Password updated successfully!', error: false });
     setTimeout(() => {
       setOldPassword('');
       setNewPassword('');
@@ -446,7 +447,7 @@ export default function Header() {
                   : 'text-slate-100 hover:text-[#2fd39a] hover:bg-white/10 font-bold'
               }`}
             >
-              {lang === "VN" ? "Trang Chủ" : "Home"}
+              {lang === "vi" ? "Trang Chủ" : "Home"}
             </Link>
 
             {/* 2. TBS Group */}
@@ -470,7 +471,7 @@ export default function Header() {
                   : 'text-slate-100 hover:text-[#2fd39a] hover:bg-white/10 font-bold'
               }`}
             >
-              {lang === "VN" ? "Tuyển Dụng" : "Recruitment"}
+              {lang === "vi" ? "Tuyển Dụng" : "Recruitment"}
             </Link>
 
             {/* 4. Thư viện mẫu / Template Library */}
@@ -482,7 +483,7 @@ export default function Header() {
                   : 'text-slate-100 hover:text-[#2fd39a] hover:bg-white/10 font-bold'
               }`}
             >
-              {lang === "VN" ? "Thư Viện Mẫu" : "Template Library"}
+              {lang === "vi" ? "Thư Viện Mẫu" : "Template Library"}
             </Link>
 
             {/* 5. Hệ thống quản trị / Management System (Only when logged in) */}
@@ -495,7 +496,7 @@ export default function Header() {
                     : 'text-slate-100 hover:text-[#2fd39a] hover:bg-white/10 font-bold'
                 }`}
               >
-                {lang === "VN" ? "Hệ Thống Quản Trị" : "Management System"}
+                {lang === "vi" ? "Hệ Thống Quản Trị" : "Management System"}
               </Link>
             )}
 
@@ -508,7 +509,7 @@ export default function Header() {
                   : 'text-slate-100 hover:text-[#2fd39a] hover:bg-white/10 font-bold'
               }`}
             >
-              {lang === "VN" ? "Tin Tức" : "News"}
+              {lang === "vi" ? "Tin Tức" : "News"}
             </Link>
 
             {/* 7. Khác / Other Dropdown */}
@@ -524,7 +525,7 @@ export default function Header() {
                     : 'text-slate-100 hover:text-[#2fd39a] hover:bg-white/10'
                 }`}
               >
-                <span>{lang === "VN" ? "Khác" : "Other"}</span>
+                <span>{lang === "vi" ? "Khác" : "Other"}</span>
                 <IconChevronDown
                   size={13}
                   className={`transition-transform duration-300 ${otherDropdownOpen ? 'rotate-180 text-[#2fd39a]' : 'text-[#2fd39a]'}`}
@@ -549,7 +550,7 @@ export default function Header() {
                     <div className="w-7 h-7 rounded-lg bg-[#2fd39a]/20 text-[#2fd39a] flex items-center justify-center flex-shrink-0">
                       <IconPhoneCall size={16} />
                     </div>
-                    <span>{lang === "VN" ? "1. LIÊN HỆ" : "1. CONTACT"}</span>
+                    <span>{lang === "vi" ? "1. LIÊN HỆ" : "1. CONTACT"}</span>
                   </Link>
                   <Link
                     href="/faq"
@@ -558,7 +559,7 @@ export default function Header() {
                     <div className="w-7 h-7 rounded-lg bg-[#2fd39a]/20 text-[#2fd39a] flex items-center justify-center flex-shrink-0">
                       <IconHelpCircle size={16} />
                     </div>
-                    <span>{lang === "VN" ? "2. CÂU HỎI THƯỜNG GẶP (FAQ)" : "2. FREQUENTLY ASKED QUESTIONS (FAQ)"}</span>
+                    <span>{lang === "vi" ? "2. CÂU HỎI THƯỜNG GẶP (FAQ)" : "2. FREQUENTLY ASKED QUESTIONS (FAQ)"}</span>
                   </Link>
                   <Link
                     href="/structure"
@@ -567,232 +568,16 @@ export default function Header() {
                     <div className="w-7 h-7 rounded-lg bg-[#2fd39a]/20 text-[#2fd39a] flex items-center justify-center flex-shrink-0">
                       <IconHierarchy size={16} />
                     </div>
-                    <span>{lang === "VN" ? "3. SƠ ĐỒ TỔ CHỨC / CHI NHÁNH" : "3. ORGANIZATION / BRANCHES"}</span>
+                    <span>{lang === "vi" ? "3. SƠ ĐỒ TỔ CHỨC / CHI NHÁNH" : "3. ORGANIZATION / BRANCHES"}</span>
                   </Link>
                 </div>
               </div>
             </div>
           </nav>
 
-          {/* Right Action Section (Language Selector + Notification Bell + Executive User Dropdown / Gold CTA) */}
+          {/* Right Action Section (Language Selector + Notification Bell + Executive User Dropdown) */}
           <div className="hidden xl:flex items-center gap-2.5">
-            {/* Language Selector (VN / ENG) */}
-            <LanguageSelector variant="header-dark" />
-
-            {/* Notification Bell — ONLY VISIBLE WHEN LOGGED IN */}
-            {isLoggedIn && (
-              <div className="relative">
-                <button
-                  onClick={() => setNotifOpen(!notifOpen)}
-                  className="relative p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all duration-200"
-                  aria-label={lang === "VN" ? "Thông báo" : "Notifications"}
-                >
-                  <IconBell size={16} />
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-red-500 text-white font-mono text-[9px] font-bold flex items-center justify-center animate-bounce">
-                      {unreadCount}
-                    </span>
-                  )}
-                </button>
-
-                {/* Notification Dropdown */}
-                {notifOpen && (
-                  <div className="absolute top-full right-0 mt-3 w-80 rounded-3xl bg-[#062017] border-2 border-[#2fd39a]/60 p-4 shadow-[0_25px_60px_rgba(0,0,0,0.95)] animate-in fade-in slide-in-from-top-3 duration-200">
-                    <div className="flex items-center justify-between pb-3 border-b border-white/15 mb-2">
-                      <div className="flex items-center gap-2">
-                        <IconBell size={16} className="text-[#2fd39a]" />
-                        <span className="text-xs font-bold text-white uppercase tracking-wider">{lang === "VN" ? "Thông Báo Vận Hành" : "Operations Notifications"}</span>
-                      </div>
-                      {unreadCount > 0 && (
-                        <button
-                          onClick={markAllAsRead}
-                          className="text-[11px] font-semibold text-[#2fd39a] hover:underline"
-                        >
-                          {lang === "VN" ? "Đọc tất cả" : "Mark all as read"}
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                      {notifications.map((n) => (
-                        <div
-                          key={n.id}
-                          className={`p-3 rounded-2xl border text-left transition-all ${
-                            n.isRead
-                              ? 'bg-[#0a2f23]/60 border-white/10 opacity-80'
-                              : 'bg-[#0f4133] border-[#2fd39a]/50 shadow-xs'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between text-xs font-bold text-white">
-                            <span>{n.title}</span>
-                            <span className="text-[10px] text-[#f2dc9a] font-normal">{n.time}</span>
-                          </div>
-                          <p className="text-[11px] text-gray-200 mt-1 leading-snug">{n.message}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Vertical Divider line matching reference screenshot */}
-            <div className="h-5 w-px bg-white/25 mx-1" />
-
-            {/* Executive User Profile Dropdown */}
-            {isLoggedIn ? (
-              <div
-                className="relative py-1"
-                onMouseEnter={handleUserMouseEnter}
-                onMouseLeave={handleUserMouseLeave}
-              >
-                <button
-                  onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                  className="flex items-center gap-2 bg-[#0f4133] hover:bg-[#145341] px-3.5 py-1.5 rounded-full border border-[#2fd39a]/50 shadow-lg text-white transition-all cursor-pointer group"
-                >
-                  <div className="relative">
-                    <UserAvatar
-                      src={userInfo?.avatar}
-                      name={userInfo?.name || userInfo?.empCode || 'Cán Bộ Công Nhân Viên'}
-                      size="xs"
-                      showOnlineBadge={true}
-                    />
-                  </div>
-                  <span className="text-xs font-extrabold text-[#f2dc9a] max-w-[140px] truncate">
-                    {userInfo?.name || userInfo?.empCode || 'Cán Bộ Công Nhân Viên'}
-                  </span>
-                  <IconChevronDown
-                    size={13}
-                    className={`text-[#2fd39a] transition-transform duration-300 ${
-                      userDropdownOpen ? 'rotate-180' : ''
-                    }`}
-                  />
-                </button>
-
-                {/* User Executive Dropdown Menu Popup (Matching Homepage Dark Emerald Luxury Theme) */}
-                <div
-                  className={`absolute top-full right-0 pt-2 w-72 sm:w-80 z-50 transition-all duration-300 transform origin-top-right ${
-                    userDropdownOpen
-                      ? 'opacity-100 scale-100 pointer-events-auto translate-y-0'
-                      : 'opacity-0 scale-95 pointer-events-none -translate-y-2'
-                  }`}
-                  onMouseEnter={handleUserMouseEnter}
-                  onMouseLeave={handleUserMouseLeave}
-                >
-                  <div className="rounded-3xl bg-[#062017] border-2 border-[#2fd39a]/60 p-3.5 shadow-[0_25px_70px_rgba(0,0,0,0.95)] text-left animate-in fade-in slide-in-from-top-2 duration-200">
-                    {/* User Info Header Banner */}
-                    <div className="p-3.5 rounded-2xl bg-[#0a2f23] border border-[#2fd39a]/40 mb-3 space-y-2 shadow-inner">
-                      <div className="flex items-center gap-3">
-                        <UserAvatar
-                          src={userInfo?.avatar}
-                          name={userInfo?.name || userInfo?.empCode || 'Cán Bộ Công Nhân Viên'}
-                          size="lg"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <h4 className="text-sm font-black truncate text-white">{userInfo?.name || userInfo?.empCode || 'Cán Bộ Công Nhân Viên'}</h4>
-                          <p className="text-xs text-[#2fd39a] truncate font-semibold mt-0.5">{userInfo?.email || `${userInfo?.empCode || 'user'}@tbsgroup.vn`}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between pt-2 border-t border-white/15">
-                        <span className="inline-block px-2.5 py-0.5 rounded-full bg-[#2fd39a]/25 text-[#2fd39a] text-[10px] font-extrabold uppercase tracking-wider border border-[#2fd39a]/40">
-                          {userInfo?.title || 'Cán Bộ Công Nhân Viên'}
-                        </span>
-                        <span className="text-[10px] font-mono font-bold text-[#f2dc9a]">
-                          Mã NV: {userInfo?.empCode || 'N/A'}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Menu Options List */}
-                    <div className="space-y-1.5">
-                      {/* Option 1: Thông tin cá nhân / Personal Information */}
-                      <button
-                        onClick={() => {
-                          setUserDropdownOpen(false);
-                          setProfileModalOpen(true);
-                        }}
-                        className="w-full p-2.5 rounded-xl text-left flex items-center gap-3 text-xs font-bold text-white bg-[#0a2f23] hover:bg-[#0f4634] border border-[#2fd39a]/20 hover:border-[#2fd39a]/60 transition-all cursor-pointer group shadow-xs"
-                      >
-                        <div className="w-8 h-8 rounded-xl bg-[#2fd39a]/20 text-[#2fd39a] flex items-center justify-center group-hover:bg-[#2fd39a] group-hover:text-[#041a13] transition-colors flex-shrink-0 border border-[#2fd39a]/30">
-                          <IconUser size={16} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-extrabold text-white group-hover:text-[#2fd39a]">{lang === "VN" ? "Thông tin cá nhân" : "Personal Information"}</div>
-                          <div className="text-[10px] text-gray-300 font-normal truncate">{lang === "VN" ? "Họ tên, SĐT, Email & Avatar" : "Name, phone, email & avatar"}</div>
-                        </div>
-                      </button>
-
-                      {/* Option 2: Đổi mật khẩu / Change Password */}
-                      <button
-                        onClick={() => {
-                          setUserDropdownOpen(false);
-                          setChangePasswordModalOpen(true);
-                        }}
-                        className="w-full p-2.5 rounded-xl text-left flex items-center gap-3 text-xs font-bold text-white bg-[#0a2f23] hover:bg-[#0f4634] border border-amber-400/20 hover:border-amber-400/60 transition-all cursor-pointer group shadow-xs"
-                      >
-                        <div className="w-8 h-8 rounded-xl bg-amber-400/20 text-[#f2dc9a] flex items-center justify-center group-hover:bg-[#f2dc9a] group-hover:text-[#041a13] transition-colors flex-shrink-0 border border-amber-400/30">
-                          <IconKey size={16} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-extrabold text-white group-hover:text-[#f2dc9a]">{lang === "VN" ? "Đổi mật khẩu" : "Change Password"}</div>
-                          <div className="text-[10px] text-gray-300 font-normal truncate">{lang === "VN" ? "Cập nhật mật khẩu tài khoản" : "Update account password"}</div>
-                        </div>
-                      </button>
-
-                      {/* Option 3: Trang Quản Trị / Admin Panel (Chỉ hiển thị cho Admin/Superadmin) */}
-                      {isAdminUser(userInfo) && (
-                        <Link
-                          href="/admin"
-                          onClick={() => setUserDropdownOpen(false)}
-                          className="w-full p-2.5 rounded-xl text-left flex items-center gap-3 text-xs font-bold text-[#2fd39a] bg-[#0e4233] hover:bg-[#145341] border border-[#2fd39a]/50 hover:border-[#2fd39a] transition-all cursor-pointer group my-1 shadow-xs"
-                        >
-                          <div className="w-8 h-8 rounded-xl bg-[#2fd39a] text-[#041a13] flex items-center justify-center group-hover:scale-105 transition-transform flex-shrink-0 font-extrabold shadow-md shadow-emerald-950/40">
-                            <IconShieldCheck size={18} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="font-extrabold text-[#2fd39a] group-hover:text-white flex items-center gap-1">
-                              <span>{lang === "VN" ? "Trang Quản Trị (Admin Mode)" : "Admin Panel"}</span>
-                            </div>
-                            <div className="text-[10px] text-emerald-200/90 font-normal truncate">
-                              {lang === "VN" ? "Truy cập hệ thống quản trị /admin" : "Access admin system"}
-                            </div>
-                          </div>
-                        </Link>
-                      )}
-
-                      <div className="my-1.5 border-t border-white/15" />
-
-                      {/* Option 4: Đăng xuất / Logout */}
-                      <button
-                        onClick={() => {
-                          setUserDropdownOpen(false);
-                          handleLogout();
-                        }}
-                        className="w-full p-2.5 rounded-xl text-left flex items-center gap-3 text-xs font-bold text-red-300 bg-red-950/40 hover:bg-red-900/60 border border-red-500/30 hover:border-red-500/60 transition-all cursor-pointer group shadow-xs"
-                      >
-                        <div className="w-8 h-8 rounded-xl bg-red-500/20 text-red-400 flex items-center justify-center group-hover:bg-red-500 group-hover:text-white transition-colors flex-shrink-0 border border-red-500/30">
-                          <IconLogout size={16} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-extrabold text-red-300 group-hover:text-white">{lang === "VN" ? "Đăng xuất" : "Logout"}</div>
-                          <div className="text-[10px] text-red-200/80 font-normal truncate">Thoát tài khoản an toàn</div>
-                        </div>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <Link
-                href="/login"
-                className="group relative inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-[#f2dc9a] via-[#e2c77d] to-[#f2dc9a] text-[#08221a] font-extrabold text-xs tracking-wider uppercase shadow-lg shadow-amber-500/20 hover:brightness-110 active:scale-[0.98] transition-all duration-200 border border-[#f2dc9a]/50"
-              >
-                <span>Đăng Nhập</span>
-                <div className="w-5 h-5 rounded-full bg-[#08221a]/20 flex items-center justify-center group-hover:translate-x-0.5 transition-transform duration-200">
-                  <IconArrowRight size={12} className="text-[#08221a]" />
-                </div>
-              </Link>
-            )}
+            <HeaderControls variant="dark" />
           </div>
 
           {/* Mobile Hamburger Button */}
@@ -948,7 +733,7 @@ export default function Header() {
                   className="rounded-2xl border border-[#2fd39a]/40 bg-emerald-950 p-1"
                 />
                 <label className="absolute inset-0 bg-black/60 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-[10px] font-bold text-[#2fd39a] cursor-pointer z-10">
-                  <span>{isUploadingAvatar ? (lang === "VN" ? "Đang nạp..." : "Uploading...") : (lang === "VN" ? "Đổi ảnh" : "Change photo")}</span>
+                  <span>{isUploadingAvatar ? (lang === "vi" ? "Đang nạp..." : "Uploading...") : (lang === "vi" ? "Đổi ảnh" : "Change photo")}</span>
                   <input
                     type="file"
                     accept="image/*"
@@ -962,12 +747,12 @@ export default function Header() {
                 </label>
               </div>
               <div className="space-y-0.5">
-                <h3 className="text-base font-extrabold text-white">{lang === "VN" ? "Chỉnh Sửa Thông Tin Cá Nhân" : "Edit Personal Information"}</h3>
+                <h3 className="text-base font-extrabold text-white">{lang === "vi" ? "Chỉnh Sửa Thông Tin Cá Nhân" : "Edit Personal Information"}</h3>
                 <p className="text-[11px] text-[#2fd39a] font-mono">
-                  {lang === "VN" ? "Mã NV" : "Employee ID"}: {editProfileForm.empCode || '202608001'} | {lang === "VN" ? "Chức vụ" : "Position"}: {userInfo?.roleCode || 'TONG_GIAM_DOC'}
+                  {lang === "vi" ? "Mã NV" : "Employee ID"}: {editProfileForm.empCode || '202608001'} | {lang === "vi" ? "Chức vụ" : "Position"}: {userInfo?.roleCode || 'TONG_GIAM_DOC'}
                 </p>
                 <label className="text-[11px] font-bold text-amber-400 hover:underline cursor-pointer inline-flex items-center gap-1">
-                  <span>☁️ {lang === "VN" ? "Đổi Avatar qua Cloudinary" : "Change avatar via Cloudinary"}</span>
+                  <span>☁️ {lang === "vi" ? "Đổi Avatar qua Cloudinary" : "Change avatar via Cloudinary"}</span>
                   <input
                     type="file"
                     accept="image/*"
@@ -996,33 +781,33 @@ export default function Header() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* Họ và Tên / Full Name */}
                 <div className="space-y-1">
-                  <label className="text-xs text-slate-300 font-bold block">{lang === "VN" ? "Họ và Tên Nhân Viên *" : "Full Name *"}</label>
+                  <label className="text-xs text-slate-300 font-bold block">{lang === "vi" ? "Họ và Tên Nhân Viên *" : "Full Name *"}</label>
                   <input
                     type="text"
                     required
                     value={editProfileForm.name}
                     onChange={(e) => setEditProfileForm({ ...editProfileForm, name: e.target.value })}
-                    placeholder={lang === "VN" ? "Ví dụ: Phạm Nguyễn Anh Huy" : "Example: John Doe"}
+                    placeholder={lang === "vi" ? "Ví dụ: Phạm Nguyễn Anh Huy" : "Example: John Doe"}
                     className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#2fd39a]"
                   />
                 </div>
 
                 {/* Mã NV / Employee ID */}
                 <div className="space-y-1">
-                  <label className="text-xs text-slate-300 font-bold block">{lang === "VN" ? "Mã Số Nhân Viên *" : "Employee ID *"}</label>
+                  <label className="text-xs text-slate-300 font-bold block">{lang === "vi" ? "Mã Số Nhân Viên *" : "Employee ID *"}</label>
                   <input
                     type="text"
                     required
                     value={editProfileForm.empCode}
                     onChange={(e) => setEditProfileForm({ ...editProfileForm, empCode: e.target.value })}
-                    placeholder={lang === "VN" ? "Ví dụ: TGĐ-001" : "Example: EMP-001"}
+                    placeholder={lang === "vi" ? "Ví dụ: TGĐ-001" : "Example: EMP-001"}
                     className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-mono text-emerald-400 placeholder-slate-500 focus:outline-none focus:border-[#2fd39a]"
                   />
                 </div>
 
                 {/* Email */}
                 <div className="space-y-1">
-                  <label className="text-xs text-slate-300 font-bold block">{lang === "VN" ? "Email Công Việc" : "Work Email"}</label>
+                  <label className="text-xs text-slate-300 font-bold block">{lang === "vi" ? "Email Công Việc" : "Work Email"}</label>
                   <input
                     type="email"
                     value={editProfileForm.email}
@@ -1034,7 +819,7 @@ export default function Header() {
 
                 {/* Phone */}
                 <div className="space-y-1">
-                  <label className="text-xs text-slate-300 font-bold block">{lang === "VN" ? "Số Điện Thoại Liên Hệ" : "Contact Phone"}</label>
+                  <label className="text-xs text-slate-300 font-bold block">{lang === "vi" ? "Số Điện Thoại Liên Hệ" : "Contact Phone"}</label>
                   <input
                     type="text"
                     value={editProfileForm.phone}
@@ -1047,24 +832,24 @@ export default function Header() {
 
               {/* Title / Position */}
               <div className="space-y-1">
-                <label className="text-xs text-slate-300 font-bold block">{lang === "VN" ? "Chức Danh / Vị Trí Công Việc" : "Position / Job Title"}</label>
+                <label className="text-xs text-slate-300 font-bold block">{lang === "vi" ? "Chức Danh / Vị Trí Công Việc" : "Position / Job Title"}</label>
                 <input
                   type="text"
                   value={editProfileForm.title}
                   onChange={(e) => setEditProfileForm({ ...editProfileForm, title: e.target.value })}
-                  placeholder={lang === "VN" ? "Ví dụ: Tổng Giám Đốc Tập Đoàn TBS Group" : "Example: Chief Executive Officer"}
+                  placeholder={lang === "vi" ? "Ví dụ: Tổng Giám Đốc Tập Đoàn TBS Group" : "Example: Chief Executive Officer"}
                   className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#2fd39a]"
                 />
               </div>
 
               {/* Department */}
               <div className="space-y-1">
-                <label className="text-xs text-slate-300 font-bold block">{lang === "VN" ? "Phòng Ban / Khối Vận Hành" : "Department / Division"}</label>
+                <label className="text-xs text-slate-300 font-bold block">{lang === "vi" ? "Phòng Ban / Khối Vận Hành" : "Department / Division"}</label>
                 <input
                   type="text"
                   value={editProfileForm.department}
                   onChange={(e) => setEditProfileForm({ ...editProfileForm, department: e.target.value })}
-                  placeholder={lang === "VN" ? "Ví dụ: Ban Giám Đốc Tập Đoàn" : "Example: Executive Board"}
+                  placeholder={lang === "vi" ? "Ví dụ: Ban Giám Đốc Tập Đoàn" : "Example: Executive Board"}
                   className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#2fd39a]"
                 />
               </div>
@@ -1079,14 +864,14 @@ export default function Header() {
                   }}
                   className="flex-1 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-slate-300 font-bold text-xs transition-colors cursor-pointer"
                 >
-                  {lang === "VN" ? "Hủy Bỏ" : "Cancel"}
+                  {lang === "vi" ? "Hủy Bỏ" : "Cancel"}
                 </button>
                 <button
                   type="submit"
                   className="flex-1 py-2.5 rounded-xl bg-[#006838] hover:bg-emerald-700 text-white font-extrabold text-xs uppercase tracking-wider transition-colors shadow-lg shadow-emerald-950/40 cursor-pointer flex items-center justify-center gap-1.5"
                 >
                   <IconCheck size={16} />
-                  <span>{lang === "VN" ? "Lưu Cập Nhật" : "Save Changes"}</span>
+                  <span>{lang === "vi" ? "Lưu Cập Nhật" : "Save Changes"}</span>
                 </button>
               </div>
             </form>
@@ -1113,8 +898,8 @@ export default function Header() {
                 <IconKey size={22} />
               </div>
               <div>
-                <h3 className="text-base font-extrabold text-white">{lang === "VN" ? "Đổi Mật Khẩu Tài Khoản" : "Change Account Password"}</h3>
-                <p className="text-[11px] text-slate-400">{lang === "VN" ? "Cập nhật mật khẩu bảo mật hệ thống TBS Group" : "Update your account password securely"}</p>
+                <h3 className="text-base font-extrabold text-white">{lang === "vi" ? "Đổi Mật Khẩu Tài Khoản" : "Change Account Password"}</h3>
+                <p className="text-[11px] text-slate-400">{lang === "vi" ? "Cập nhật mật khẩu bảo mật hệ thống TBS Group" : "Update your account password securely"}</p>
               </div>
             </div>
 
@@ -1130,7 +915,7 @@ export default function Header() {
 
             <form onSubmit={handleChangePassword} className="space-y-3.5 pt-1">
               <div className="space-y-1">
-                <label className="text-xs text-slate-300 font-bold">{lang === "VN" ? "Mật khẩu hiện tại" : "Current password"}</label>
+                <label className="text-xs text-slate-300 font-bold">{lang === "vi" ? "Mật khẩu hiện tại" : "Current password"}</label>
                 <input
                   type="password"
                   required
@@ -1142,25 +927,25 @@ export default function Header() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs text-slate-300 font-bold">{lang === "VN" ? "Mật khẩu mới" : "New password"}</label>
+                <label className="text-xs text-slate-300 font-bold">{lang === "vi" ? "Mật khẩu mới" : "New password"}</label>
                 <input
                   type="password"
                   required
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder={lang === "VN" ? "Mật khẩu mới ít nhất 6 ký tự" : "At least 6 characters"}
+                  placeholder={lang === "vi" ? "Mật khẩu mới ít nhất 6 ký tự" : "At least 6 characters"}
                   className="w-full px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#2fd39a]"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs text-slate-300 font-bold">{lang === "VN" ? "Xác nhận mật khẩu mới" : "Confirm new password"}</label>
+                <label className="text-xs text-slate-300 font-bold">{lang === "vi" ? "Xác nhận mật khẩu mới" : "Confirm new password"}</label>
                 <input
                   type="password"
                   required
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder={lang === "VN" ? "Nhập lại mật khẩu mới" : "Re-enter new password"}
+                  placeholder={lang === "vi" ? "Nhập lại mật khẩu mới" : "Re-enter new password"}
                   className="w-full px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#2fd39a]"
                 />
               </div>
@@ -1171,13 +956,13 @@ export default function Header() {
                   onClick={() => setChangePasswordModalOpen(false)}
                   className="flex-1 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-slate-300 font-bold text-xs transition-colors"
                 >
-                  {lang === "VN" ? "Hủy" : "Cancel"}
+                  {lang === "vi" ? "Hủy" : "Cancel"}
                 </button>
                 <button
                   type="submit"
                   className="flex-1 py-2.5 rounded-xl bg-[#006838] hover:bg-emerald-700 text-white font-extrabold text-xs uppercase tracking-wider transition-colors shadow-lg shadow-emerald-950/40"
                 >
-                  {lang === "VN" ? "Lưu Thay Đổi" : "Save Changes"}
+                  {lang === "vi" ? "Lưu Thay Đổi" : "Save Changes"}
                 </button>
               </div>
             </form>

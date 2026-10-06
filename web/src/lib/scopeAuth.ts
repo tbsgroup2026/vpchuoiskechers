@@ -69,22 +69,16 @@ export function validateScopeAuthorization(
   if (!user && request) {
     try {
       const cookieHeader = request.headers?.get('cookie') || '';
-      const match = cookieHeader.match(/tbs_token=tbs_token_([^_]+)_/);
+      let token = '';
+      const match = cookieHeader.match(/tbs_token=([^;]+)/);
       if (match && match[1]) {
-        const empCode = match[1];
-        user = SYSTEM_USERS[empCode];
+        token = match[1].trim();
       }
-    } catch (err) {
-      // Safe fallback cho build static export prerendering
-    }
-  }
-
-  // Nếu chưa có user từ userOverride hoặc Cookie, kiểm tra header x-test-user-code
-  if (!user && request) {
-    try {
-      const testUserHeader = request.headers?.get('x-test-user-code');
-      if (testUserHeader && SYSTEM_USERS[testUserHeader]) {
-        user = SYSTEM_USERS[testUserHeader];
+      if (token) {
+        const sysUser = SYSTEM_USERS[token];
+        if (sysUser) {
+          user = sysUser;
+        }
       }
     } catch (err) {
       // Safe fallback cho build static export prerendering

@@ -34,6 +34,10 @@ import {
   IconExternalLink,
   IconCash,
   IconZoomIn,
+  IconList,
+  IconChevronRight,
+  IconLoader,
+  IconChartBar,
 } from "@tabler/icons-react";
 import Can from "@/components/Can";
 import UserAvatar from "@/components/UserAvatar";
@@ -43,6 +47,7 @@ import { getCurrentUser, getUserDisplayBadgeTitle } from "@/lib/userProfiles";
 import { broadcastNotification } from "@/lib/browserNotifications";
 import AuthReLoginModal from "@/components/AuthReLoginModal";
 import { useAutoSave } from "@/lib/autoSaveManager";
+import { uploadFileToR2 } from "@/lib/imageCompressor";
 
 export interface TripAttachment {
   id: string;
@@ -81,7 +86,9 @@ export type TripStatus =
   | "PENDING"
   | "PENDING_L2"
   | "APPROVED"
-  | "REJECTED";
+  | "REJECTED"
+  | "RECALLED"
+  | "CANCELLED";
 
 export type BudgetStatus =
   | "pending_dept_budget"
@@ -121,6 +128,9 @@ interface BusinessTripRecord {
   budgetStatus?: BudgetStatus;
   budgetAmount?: number;
   budgetRejectionReason?: string;
+  logisticsStatus?: string;
+  logistics?: any;
+  payment_status?: string;
   createdAt: string;
 }
 
@@ -154,10 +164,70 @@ const REGION_MAPPING: Record<string, { factories: string[]; locations: string[] 
 
 export default function BusinessTripRegistrationPage() {
   const { can, roles, managedDepartmentId, isExecutiveOrAdmin } = usePermission();
-  const [activeTab, setActiveTab] = useState<"FORM" | "LIST">("FORM");
+  const [activeTab, setActiveTab] = useState<"FORM" | "LIST" | "LOGISTICS" | "VEHICLES" | "CFO_DASHBOARD">("FORM");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedModalRecord, setSelectedModalRecord] = useState<BusinessTripRecord | null>(null);
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalRecords, setTotalRecords] = useState(0);
+  const currentPageRef = useRef(1);
+
+  // Vehicles Management State
+  const [vehicles, setVehicles] = useState<any[]>([]);
+  const [isVehiclesLoading, setIsVehiclesLoading] = useState(false);
+
+  // Bulk Action State
+  const [selectedTrips, setSelectedTrips] = useState<string[]>([]);
+  const [isBulkApproving, setIsBulkApproving] = useState(false);
+
+  const handleBulkApprove = async () => {
+    if (selectedTrips.length === 0) return;
+    if (!window.confirm(`Bạn có chắc chắn muốn duyệt ${selectedTrips.length} đơn đã chọn không?`)) return;
+    setIsBulkApproving(true);
+    let successCount = 0;
+    try {
+      for (const id of selectedTrips) {
+        const trip = records.find(r => r.id === id);
+        if (!trip) continue;
+
+        let actionLevel = "";
+        
+        // Determine what to approve based on current status and user's role
+        if (trip.status === "PENDING" && (roles.includes("department_head") || isExecutiveOrAdmin)) {
+          actionLevel = "APPROVE_L1";
+        } else if (trip.status === "PENDING_L2" && isExecutiveOrAdmin) {
+          actionLevel = "APPROVE_L2";
+        } else if ((!trip.budgetStatus || trip.budgetStatus === "pending_dept_budget") && (roles.includes("department_head") || isExecutiveOrAdmin)) {
+          actionLevel = "APPROVE_BUDGET_L1";
+        } else if (trip.budgetStatus === "pending_exec_budget" && isExecutiveOrAdmin) {
+          actionLevel = "APPROVE_BUDGET_L2";
+        }
+
+        if (!actionLevel) continue;
+
+        const res = await fetch("/api/business-trips", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, actionLevel }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          successCount++;
+        }
+      }
+      showToast(`✅ Đã duyệt thành công ${successCount}/${selectedTrips.length} đơn!`);
+      setSelectedTrips([]);
+      await fetchD1Records();
+    } catch (err) {
+      showToast("❌ Có lỗi xảy ra trong quá trình duyệt hàng loạt.");
+    } finally {
+      setIsBulkApproving(false);
+    }
+  };
+  const [vehicleForm, setVehicleForm] = useState<any>(null);
 
   // File Upload State for Form Proposal
   const [attachments, setAttachments] = useState<TripAttachment[]>([]);
@@ -165,6 +235,46 @@ export default function BusinessTripRegistrationPage() {
 
   // Invoice Management Modal State (Tab 2: LIST)
   const [activeInvoiceTrip, setActiveInvoiceTrip] = useState<BusinessTripRecord | null>(null);
+
+  // Logistics Update Modal
+  const [activeLogisticsUpdate, setActiveLogisticsUpdate] = useState<any>(null);
+  const [selectedLogisticsTrips, setSelectedLogisticsTrips] = useState<string[]>([]);
+  
+  const handleSaveLogistics = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeLogisticsUpdate) return;
+    
+    try {
+      setIsLoading(true);
+      const tripIds = activeLogisticsUpdate.isBulk ? activeLogisticsUpdate.ids : [activeLogisticsUpdate.id];
+      if (!tripIds || tripIds.length === 0) return;
+
+      let successCount = 0;
+      for (const tId of tripIds) {
+        const res = await fetch("/api/business-trips/logistics", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: tId,
+            logisticsData: activeLogisticsUpdate.logistics
+          })
+        });
+        const data = await res.json();
+        if (data.success) successCount++;
+      }
+      
+      showToast(`Đã lưu thông tin hậu cần thành công cho ${successCount} đơn!`);
+      setActiveLogisticsUpdate(null);
+      setSelectedModalRecord(null);
+      setSelectedLogisticsTrips([]); // clear bulk selection
+      fetchLogisticsRecords();
+    } catch (err) {
+      showToast("Lỗi mạng khi lưu thông tin");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const [globalImportModal, setGlobalImportModal] = useState(false);
   const [selectedTripIdForImport, setSelectedTripIdForImport] = useState<string>("");
   const invoiceFileInputRef = useRef<HTMLInputElement>(null);
@@ -197,7 +307,40 @@ export default function BusinessTripRegistrationPage() {
   const [rejectionTarget, setRejectionTarget] = useState<{ id: string; level: "department_head" | "executive_board" } | null>(null);
   const [rejectionReasonInput, setRejectionReasonInput] = useState("");
 
-  const [currentUser, setCurrentUser] = useState<{ name: string; title: string; department: string; avatar: string }>({
+  
+
+  // Form State: Proposal Info
+  const [proposalForm, setProposalForm] = useState({
+    title: "",
+    region: "VP Chuỗi (R&D)",
+    factory: "",
+    creator: "Ban Quản Lý",
+    department: "Hành chính",
+    location: "",
+    transport: "",
+    startDate: "2026-08-15",
+    daysCount: 1,
+    endDate: "2026-08-15",
+    purpose: "",
+    address: "",
+    proposalText: "",
+    estimatedCost: 0,
+  });
+
+  // Form State: Participants List
+  const [participants, setParticipants] = useState<Participant[]>([
+    {
+      id: "p_1",
+      fullName: "",
+      position: "",
+      employeeId: "",
+      department: "",
+      phone: "",
+      pickupLocation: "",
+    },
+  ]);
+
+  const [currentUser, setCurrentUser] = useState<{ name: string; title: string; department: string; avatar: string; roleCode?: string; empCode?: string }>({
     name: "Cán Bộ Công Nhân Viên",
     title: "Cán Bộ Công Nhân Viên",
     department: "Văn Phòng Chuỗi SKECHERS",
@@ -244,6 +387,30 @@ export default function BusinessTripRegistrationPage() {
       location: locations[0] || ""
     }));
   }, []);
+
+  // 🛡️ BẢO MẬT GIAO DIỆN: Tab Redirect Logic based on Roles
+  useEffect(() => {
+    if (activeTab === "LOGISTICS" && !can(PERMISSIONS.TRIP_DISPATCH_VEHICLE)) {
+      setActiveTab("LIST");
+    } else if (activeTab === "VEHICLES" && !can(PERMISSIONS.TRIP_DISPATCH_VEHICLE)) {
+      setActiveTab("LIST");
+    } else if (activeTab === "CFO_DASHBOARD" && !roles.includes("ke_toan") && !isExecutiveOrAdmin) {
+      setActiveTab("LIST");
+    }
+  }, [activeTab, can, roles, isExecutiveOrAdmin]);
+
+  // Set default tab for specific roles on first load
+  const [hasSetDefaultTab, setHasSetDefaultTab] = useState(false);
+  useEffect(() => {
+    if (roles.length > 0 && !hasSetDefaultTab) {
+      if (roles.includes("hanh_chinh")) {
+        setActiveTab("LOGISTICS");
+      } else if (roles.includes("ke_toan")) {
+        setActiveTab("CFO_DASHBOARD");
+      }
+      setHasSetDefaultTab(true);
+    }
+  }, [roles, hasSetDefaultTab]);
 
   // Auth Re-login Modal State for non-destructive form saving
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -315,6 +482,16 @@ export default function BusinessTripRegistrationPage() {
 
       showToast("✅ Đã rút lại đề xuất công tác thành công!");
       await fetchD1Records();
+
+      if (target) {
+        broadcastNotification({
+          title: "🚫 Hủy Hậu Cần Đơn Công Tác",
+          message: `Cán bộ ${target.creator} đã chủ động rút/hủy đơn công tác "${target.title}". Vui lòng HỦY xe và phòng đã đặt (nếu có).`,
+          type: "WARNING",
+          targetUser: "Lễ Tân",
+          link: "/business-trip",
+        });
+      }
     } catch (err) {
       showToast("❌ Lỗi kết nối máy chủ");
     } finally {
@@ -377,33 +554,38 @@ export default function BusinessTripRegistrationPage() {
         if (level === "department_head") {
           broadcastNotification({
             title: "✅ Đã Phê Duyệt Cấp 1 (Trưởng Phòng)",
-            message: `Trưởng phòng đã phê duyệt đề xuất công tác "${target.title}" của ${target.creator}. Đơn đã chuyển lên Ban Giám Đốc (Cấp 2).`,
+            message: `Trưởng phòng đã phê duyệt đề xuất công tác "${target.title}" của ${target.creator}.`,
             type: "SUCCESS",
             targetUser: target.creator,
             link: "/business-trip",
           });
 
+          // Send notification to Lễ Tân IMMEDIATELY after Level 1 Approval (For both < 5M and >= 5M trips)
           broadcastNotification({
-            title: "🛎️ Đơn Công Tác Chờ TGĐ Phê Duyệt Cấp 2",
-            message: `Đơn công tác "${target.title}" của ${target.creator} (${target.department}) đã được Trưởng phòng duyệt, đang chờ Ban Giám Đốc phê duyệt Cấp 2.`,
-            type: "INFO",
-            targetUser: "Ban Giám Đốc",
-            link: "/business-trip",
-          });
-        } else {
-          broadcastNotification({
-            title: "🎉 Ban Giám Đốc Đã Phê Duyệt Hoàn Tất",
-            message: `Đề xuất công tác "${target.title}" của bạn đã được Ban Giám Đốc phê duyệt chính thức. Lễ Tân sẽ bố trí phương tiện ${target.transport}.`,
-            type: "SUCCESS",
-            targetUser: target.creator,
-            link: "/business-trip",
-          });
-
-          broadcastNotification({
-            title: "🚗 Bố Trí Xe Công Tác Mới",
-            message: `Đơn công tác "${target.title}" của ${target.creator} (${target.startDate} - ${target.endDate}) đã duyệt hoàn tất. Vui lòng xếp xe công ty/phương tiện.`,
+            title: "🚗 Sắp Xếp Hậu Cần Công Tác Mới",
+            message: `Đơn công tác "${target.title}" của ${target.creator} (${target.startDate} - ${target.endDate}) đã qua Cấp 1. Vui lòng xếp xe công ty/phòng lưu trú.`,
             type: "INFO",
             targetUser: "Lễ Tân",
+            link: "/business-trip",
+          });
+
+          // If estimatedCost >= 5M, notify Ban Giám Đốc for Level 2 approval
+          if ((target.estimatedCost || 0) >= 5000000) {
+            broadcastNotification({
+              title: "🛎️ Đơn Công Tác Chờ BGĐ Phê Duyệt Cấp 2",
+              message: `Đơn công tác "${target.title}" của ${target.creator} (${target.department}) đã được Trưởng phòng duyệt, đang chờ Ban Giám Đốc phê duyệt Cấp 2.`,
+              type: "INFO",
+              targetUser: "Ban Giám Đốc",
+              link: "/business-trip",
+            });
+          }
+        } else {
+          // Level 2 (Ban Giám Đốc) approval completion
+          broadcastNotification({
+            title: "🎉 Ban Giám Đốc Đã Phê Duyệt Hoàn Tất",
+            message: `Đề xuất công tác "${target.title}" của bạn đã được Ban Giám Đốc phê duyệt chính thức Cấp 2.`,
+            type: "SUCCESS",
+            targetUser: target.creator,
             link: "/business-trip",
           });
         }
@@ -471,6 +653,15 @@ export default function BusinessTripRegistrationPage() {
           message: `Đề xuất công tác "${target.title}" của bạn đã bị từ chối (${level === "department_head" ? "Trưởng phòng" : "Ban Giám Đốc"}). Lý do: ${rejectionReasonInput || "Không đáp ứng điều kiện"}.`,
           type: "WARNING",
           targetUser: target.creator,
+          link: "/business-trip",
+        });
+
+        // Notify Lễ Tân to cancel logistics if assigned or pending
+        broadcastNotification({
+          title: "🚫 Hủy Hậu Cần Đơn Công Tác",
+          message: `Đơn công tác "${target.title}" của ${target.creator} đã bị từ chối. Vui lòng HỦY xe và phòng đã đặt (nếu có).`,
+          type: "WARNING",
+          targetUser: "Lễ Tân",
           link: "/business-trip",
         });
       }
@@ -622,39 +813,61 @@ export default function BusinessTripRegistrationPage() {
     }
   };
 
-  // Form State: Proposal Info
-  const [proposalForm, setProposalForm] = useState({
-    title: "",
-    region: "VP Chuỗi (R&D)",
-    factory: "",
-    creator: "Ban Quản Lý",
-    department: "Hành chính",
-    location: "",
-    transport: "",
-    startDate: "2026-08-15",
-    daysCount: 1,
-    endDate: "2026-08-15",
-    purpose: "",
-    address: "",
-    proposalText: "",
-    estimatedCost: 0,
-  });
-
-  // Form State: Participants List
-  const [participants, setParticipants] = useState<Participant[]>([
-    {
-      id: "p_1",
-      fullName: "",
-      position: "",
-      employeeId: "",
-      department: "",
-      phone: "",
-      pickupLocation: "",
-    },
-  ]);
-
   // Submitted Records List (synced with D1)
   const [records, setRecords] = useState<BusinessTripRecord[]>([]);
+
+  // Logistics Tab State
+  const [logisticsRecords, setLogisticsRecords] = useState<BusinessTripRecord[]>([]);
+  const [logisticsFilterStatus, setLogisticsFilterStatus] = useState<string>("ACTIVE"); // "ACTIVE", "ALL", "PENDING", "ARRANGED", "CANCELLED"
+
+  const fetchLogisticsRecords = async () => {
+    try {
+      setIsLoading(true);
+      const res = await fetch("/api/business-trips/logistics");
+      const data = await res.json();
+      if (data.success) {
+        setLogisticsRecords(data.data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch logistics", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleConfirmCancelLogistics = async (rec: BusinessTripRecord) => {
+    try {
+      setIsLoading(true);
+      const res = await fetch("/api/business-trips/logistics", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: rec.id,
+          logisticsData: rec.logistics || {},
+          cancellationHandled: true,
+          logisticsStatus: "CANCELLED_HANDLED"
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast("✅ Đã xác nhận xử lý hủy xe/phòng thành công!");
+        fetchLogisticsRecords();
+      } else {
+        showToast("❌ Lỗi: " + data.error);
+      }
+    } catch (e) {
+      showToast("❌ Lỗi mạng khi cập nhật");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "LOGISTICS") {
+      fetchLogisticsRecords();
+    }
+  }, [activeTab]);
+
 
   // List Search & 5 Filter Inputs
   const [searchQuery, setSearchQuery] = useState("");
@@ -669,10 +882,11 @@ export default function BusinessTripRegistrationPage() {
   };
 
   // Fetch Business Trips from Cloudflare D1 Database on Mount & Tab Change
-  const fetchD1Records = async () => {
+  const fetchD1Records = async (pageToFetch?: number) => {
     try {
       setIsLoading(true);
-      const res = await fetch("/api/business-trips");
+      const targetPage = pageToFetch || currentPageRef.current;
+      const res = await fetch(`/api/business-trips?page=${targetPage}&limit=5`);
       const result = await res.json();
       if (result.success && Array.isArray(result.data)) {
         const d1Records: BusinessTripRecord[] = result.data.map((item: any) => {
@@ -732,6 +946,12 @@ export default function BusinessTripRegistrationPage() {
           };
         });
         setRecords(d1Records);
+        if (result.pagination) {
+          setTotalPages(result.pagination.totalPages || 1);
+          setTotalRecords(result.pagination.total || 0);
+          setCurrentPage(result.pagination.page || targetPage);
+          currentPageRef.current = result.pagination.page || targetPage;
+        }
       }
     } catch (err) {
       console.warn("D1 Database fetch error:", err);
@@ -740,8 +960,24 @@ export default function BusinessTripRegistrationPage() {
     }
   };
 
+  const fetchVehicles = async () => {
+    try {
+      setIsVehiclesLoading(true);
+      const res = await fetch("/api/company-vehicles");
+      const result = await res.json();
+      if (result.success) {
+        setVehicles(result.data || []);
+      }
+    } catch (err) {
+      console.warn("Vehicles fetch error:", err);
+    } finally {
+      setIsVehiclesLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchD1Records();
+    fetchVehicles();
   }, []);
 
   // Reset all filters
@@ -783,27 +1019,30 @@ export default function BusinessTripRegistrationPage() {
     );
   };
 
-  // Handle Attachment Upload (Images & PDFs) for Proposal
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle Attachment Upload (Images & PDFs) for Proposal with R2 Storage & Compression
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    Array.from(files).forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (uploadEvent) => {
-        const dataUrl = uploadEvent.target?.result as string;
+    for (const file of Array.from(files)) {
+      try {
+        setIsLoading(true);
+        const res = await uploadFileToR2(file, 'ATTACHMENT');
         const newAtt: TripAttachment = {
-          id: `att_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          id: res.id || `att_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
           name: file.name,
-          size: file.size,
+          size: res.size || file.size,
           type: file.type,
-          dataUrl,
+          dataUrl: res.url || res.dataUrl,
           createdAt: new Date().toLocaleTimeString("vi-VN"),
         };
         setAttachments((prev) => [...prev, newAtt]);
-      };
-      reader.readAsDataURL(file);
-    });
+      } catch (err: any) {
+        showToast("❌ Lỗi tải file lên R2: " + (err.message || "Lỗi tải file"));
+      } finally {
+        setIsLoading(false);
+      }
+    }
 
     if (e.target) e.target.value = "";
   };
@@ -812,22 +1051,26 @@ export default function BusinessTripRegistrationPage() {
     setAttachments((prev) => prev.filter((a) => a.id !== id));
   };
 
-  // Handle Invoice File Upload in Invoice Modal
-  const handleInvoiceFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle Invoice File Upload in Invoice Modal with R2 Storage & Compression
+  const handleInvoiceFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (uploadEvent) => {
-      const dataUrl = uploadEvent.target?.result as string;
+    try {
+      setIsLoading(true);
+      const res = await uploadFileToR2(file, 'INVOICE', selectedModalRecord?.id);
       setNewInvoiceForm((prev) => ({
         ...prev,
         fileName: file.name,
         fileType: file.type,
-        fileUrl: dataUrl,
+        fileUrl: res.url || res.dataUrl,
       }));
-    };
-    reader.readAsDataURL(file);
+      showToast("✅ Đã tải hóa đơn lên R2!");
+    } catch (err: any) {
+      showToast("❌ Lỗi tải hóa đơn: " + (err.message || "Lỗi tải file"));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Save new invoice for active trip
@@ -909,6 +1152,58 @@ export default function BusinessTripRegistrationPage() {
     if (globalImportModal) {
       setGlobalImportModal(false);
       setSelectedTripIdForImport("");
+    }
+  };
+
+  // Upload Giấy đi đường đã ký (Signed Travel Paper) to R2 and update D1
+  const handleUploadSignedTravelPaper = async (tripId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsLoading(true);
+      const res = await uploadFileToR2(file, 'SIGNED_TRAVEL_PAPER', tripId);
+      const newPaper = {
+        id: res.id,
+        name: res.originalName || file.name,
+        size: res.size || file.size,
+        type: res.mimeType || file.type,
+        url: res.url || res.fileUrl,
+        uploadedAt: new Date().toLocaleString("vi-VN"),
+      };
+
+      const targetTrip = records.find(r => r.id === tripId) || logisticsRecords.find(r => r.id === tripId);
+      const existingPapers = (targetTrip as any)?.signedTravelPaper || [];
+      const updatedPapers = [...existingPapers, newPaper];
+
+      const saveRes = await fetch("/api/business-trips", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: tripId,
+          signedTravelPaper: updatedPapers,
+        }),
+      });
+
+      const saveData = await saveRes.json();
+      if (saveData.success) {
+        showToast("✅ Đã tải lên Giấy đi đường đã ký thành công!");
+        fetchD1Records();
+        fetchLogisticsRecords();
+        if (selectedModalRecord && selectedModalRecord.id === tripId) {
+          setSelectedModalRecord({
+            ...selectedModalRecord,
+            signedTravelPaper: updatedPapers,
+          } as any);
+        }
+      } else {
+        showToast("❌ Lỗi lưu Giấy đi đường: " + (saveData.error || "Không thể lưu"));
+      }
+    } catch (err: any) {
+      showToast("❌ Lỗi upload file: " + (err.message || "Lỗi mạng"));
+    } finally {
+      setIsLoading(false);
+      if (e.target) e.target.value = "";
     }
   };
 
@@ -1180,6 +1475,8 @@ export default function BusinessTripRegistrationPage() {
     }
   };
 
+  const isAccountant = roles.includes('ACCOUNTANT') || roles.includes('accountant') || currentUser?.roleCode === 'KE_TOAN' || ['KT-001','KT-002'].includes(currentUser?.empCode||'');
+
   // Filter records
   const filteredRecords = records.filter((rec) => {
     const matchSearch =
@@ -1281,32 +1578,87 @@ export default function BusinessTripRegistrationPage() {
             TOP NAVIGATION TABS (Nhập liệu vs Xem dữ liệu)
            ════════════════════════════════════════════════════════════════ */}
         <div className="flex items-center justify-start border-b border-slate-200 gap-2">
-          <button
-            onClick={() => setActiveTab("FORM")}
-            className={`px-5 py-2.5 rounded-t-xl font-extrabold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer border-b-2 ${
-              activeTab === "FORM"
-                ? "bg-white text-[#006838] border-[#006838] shadow-2xs"
-                : "text-slate-500 hover:text-slate-800 border-transparent"
-            }`}
-          >
-            <IconEdit size={18} />
-            <span>📝 Nhập liệu</span>
-          </button>
+          
+            <button
+              onClick={() => setActiveTab("FORM")}
+              className={`px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all duration-300 flex items-center gap-2 cursor-pointer ${
+                activeTab === "FORM"
+                  ? "bg-white text-[#006838] shadow-md shadow-slate-200/50"
+                  : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"
+              }`}
+            >
+              <IconPlus size={18} className={activeTab === "FORM" ? "opacity-100" : "opacity-50"} />
+              <span className="hidden sm:inline">Nhập liệu</span>
+            </button>
+            <button
+              onClick={() => setActiveTab("LIST")}
+              className={`px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all duration-300 flex items-center gap-2 cursor-pointer ${
+                activeTab === "LIST"
+                  ? "bg-white text-[#006838] shadow-md shadow-slate-200/50"
+                  : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"
+              }`}
+            >
+              <IconList size={18} className={activeTab === "LIST" ? "opacity-100" : "opacity-50"} />
+              <span className="hidden sm:inline">Xem dữ liệu</span>
+              
+              {/* Badge for PENDING trips */}
+              {records.filter(r => r.status === "PENDING" || r.status === "PENDING_L2").length > 0 && (
+                <span className="bg-rose-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
+                  {records.filter(r => r.status === "PENDING" || r.status === "PENDING_L2").length}
+                </span>
+              )}
+            </button>
 
-          <button
-            onClick={() => setActiveTab("LIST")}
-            className={`px-5 py-2.5 rounded-t-xl font-extrabold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer border-b-2 ${
-              activeTab === "LIST"
-                ? "bg-white text-[#006838] border-[#006838] shadow-2xs"
-                : "text-slate-500 hover:text-slate-800 border-transparent"
-            }`}
-          >
-            <IconChecklist size={18} />
-            <span>📋 Xem dữ liệu</span>
-            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-[#006838] text-[11px] font-extrabold">
-              {records.length}
-            </span>
-          </button>
+            {/* XỬ LÝ HẬU CẦN (LỄ TÂN) */}
+            {can(PERMISSIONS.TRIP_DISPATCH_VEHICLE) && (
+              <button
+                onClick={() => setActiveTab("LOGISTICS")}
+                className={`px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all duration-300 flex items-center gap-2 cursor-pointer ${
+                  activeTab === "LOGISTICS"
+                    ? "bg-white text-blue-700 shadow-md shadow-slate-200/50"
+                    : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"
+                }`}
+              >
+                <IconCar size={18} className={activeTab === "LOGISTICS" ? "opacity-100" : "opacity-50"} />
+                <span className="hidden sm:inline">🚗 Xử lý hậu cần</span>
+                {logisticsRecords.filter(r => r.logisticsStatus === "PENDING" || r.logisticsStatus === "NOT_STARTED").length > 0 && (
+                  <span className="bg-blue-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
+                    {logisticsRecords.filter(r => r.logisticsStatus === "PENDING" || r.logisticsStatus === "NOT_STARTED").length}
+                  </span>
+                )}
+              </button>
+            )}
+
+            {/* QUẢN LÝ XE CÔNG TY (LỄ TÂN / ADMIN) */}
+            {can(PERMISSIONS.TRIP_DISPATCH_VEHICLE) && (
+              <button
+                onClick={() => setActiveTab("VEHICLES")}
+                className={`px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all duration-300 flex items-center gap-2 cursor-pointer ${
+                  activeTab === "VEHICLES"
+                    ? "bg-white text-emerald-700 shadow-md shadow-slate-200/50"
+                    : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"
+                }`}
+              >
+                <IconCar size={18} className={activeTab === "VEHICLES" ? "opacity-100" : "opacity-50"} />
+                <span className="hidden sm:inline">Quản lý Xe</span>
+              </button>
+            )}
+
+            {/* CFO DASHBOARD (KẾ TOÁN / ADMIN) */}
+            {(roles.includes("ke_toan") || isExecutiveOrAdmin) && (
+              <button
+                onClick={() => setActiveTab("CFO_DASHBOARD")}
+                className={`px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all duration-300 flex items-center gap-2 cursor-pointer ${
+                  activeTab === "CFO_DASHBOARD"
+                    ? "bg-white text-purple-700 shadow-md shadow-slate-200/50"
+                    : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"
+                }`}
+              >
+                <IconChartBar size={18} className={activeTab === "CFO_DASHBOARD" ? "opacity-100" : "opacity-50"} />
+                <span className="hidden sm:inline">Dashboard CFO</span>
+              </button>
+            )}
+
         </div>
 
         {/* ════════════════════════════════════════════════════════════════
@@ -1964,7 +2316,7 @@ export default function BusinessTripRegistrationPage() {
                 />
               </div>
 
-              {/* Action Buttons: Xóa lọc & Báo cáo (Chuẩn giao diện ban đầu) */}
+              {/* Action Buttons: Xóa lọc & Báo cáo & Duyệt Hàng Loạt */}
               <div className="flex items-center gap-2 pt-1">
                 <button
                   onClick={handleResetFilters}
@@ -1980,15 +2332,37 @@ export default function BusinessTripRegistrationPage() {
                   <IconDownload size={14} />
                   <span>Báo cáo</span>
                 </button>
+
+                {selectedTrips.length > 0 && (
+                  <button
+                    onClick={handleBulkApprove}
+                    disabled={isBulkApproving}
+                    className="px-4 py-2 rounded-xl bg-[#006838] hover:bg-[#004d29] text-white font-extrabold transition-colors cursor-pointer shadow-2xs flex items-center gap-1 ml-2"
+                  >
+                    <IconCheck size={14} />
+                    <span>{isBulkApproving ? "Đang duyệt..." : `Duyệt ${selectedTrips.length} Đơn`}</span>
+                  </button>
+                )}
               </div>
             </div>
 
-            {/* Records Data Table (12 Headers with Dedicated IMPORT HÓA ĐƠN Column) */}
+            {/* Records Data Table (13 Headers with Dedicated IMPORT HÓA ĐƠN Column) */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-[#242b35] border-b border-slate-700 text-white text-xs font-bold uppercase tracking-wider">
+                      <th className="p-3 text-center w-10">
+                        <input 
+                          type="checkbox" 
+                          className="w-4 h-4 cursor-pointer"
+                          checked={filteredRecords.length > 0 && selectedTrips.length === filteredRecords.length}
+                          onChange={(e) => {
+                            if (e.target.checked) setSelectedTrips(filteredRecords.map(r => r.id));
+                            else setSelectedTrips([]);
+                          }}
+                        />
+                      </th>
                       <th className="p-3 text-center w-12">STT</th>
                       <th className="p-3">Khu vực</th>
                       <th className="p-3">Tên đề xuất</th>
@@ -2007,7 +2381,7 @@ export default function BusinessTripRegistrationPage() {
                   <tbody className="divide-y divide-slate-100 text-xs">
                     {filteredRecords.length === 0 ? (
                       <tr>
-                        <td colSpan={13} className="py-12 text-center text-slate-400 font-semibold">
+                        <td colSpan={14} className="py-12 text-center text-slate-400 font-semibold">
                           Không có dữ liệu phù hợp
                         </td>
                       </tr>
@@ -2017,7 +2391,18 @@ export default function BusinessTripRegistrationPage() {
                         const attachmentCount = rec.attachments?.length || 0;
 
                         return (
-                          <tr key={rec.id} className="hover:bg-slate-50/90 transition-colors border-b border-slate-100">
+                          <tr key={rec.id} className={`hover:bg-slate-50/90 transition-colors border-b border-slate-100 ${selectedTrips.includes(rec.id) ? 'bg-emerald-50/50' : ''}`}>
+                            <td className="p-3 text-center">
+                              <input 
+                                type="checkbox" 
+                                className="w-4 h-4 cursor-pointer accent-[#006838]"
+                                checked={selectedTrips.includes(rec.id)}
+                                onChange={(e) => {
+                                  if (e.target.checked) setSelectedTrips(prev => [...prev, rec.id]);
+                                  else setSelectedTrips(prev => prev.filter(id => id !== rec.id));
+                                }}
+                              />
+                            </td>
                             <td className="p-3 text-center font-extrabold text-slate-500">{idx + 1}</td>
                             <td className="p-3 font-semibold text-slate-700">{rec.region || "VP Chuỗi (R&D)"}</td>
                             <td className="p-3">
@@ -2206,6 +2591,423 @@ export default function BusinessTripRegistrationPage() {
                         );
                       })
                     )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+                <div className="text-sm text-slate-500 font-medium">
+                  Hiển thị <span className="font-bold text-slate-700">{records.length}</span> / <span className="font-bold text-slate-700">{totalRecords}</span> đơn công tác
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => { const p = Math.max(1, currentPage - 1); setCurrentPage(p); currentPageRef.current = p; fetchD1Records(p); }}
+                    disabled={currentPage === 1}
+                    className="px-4 py-2 rounded-xl bg-slate-50 text-slate-600 font-bold text-sm hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Trước
+                  </button>
+                  <div className="flex items-center gap-1 px-2">
+                    <span className="font-black text-blue-700">{currentPage}</span>
+                    <span className="text-slate-400">/</span>
+                    <span className="font-bold text-slate-500">{totalPages}</span>
+                  </div>
+                  <button
+                    onClick={() => { const p = Math.min(totalPages, currentPage + 1); setCurrentPage(p); currentPageRef.current = p; fetchD1Records(p); }}
+                    disabled={currentPage === totalPages}
+                    className="px-4 py-2 rounded-xl bg-slate-50 text-slate-600 font-bold text-sm hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Sau
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ════════════════════════════════════════════════════════════════
+            TAB 3: DANH SÁCH XỬ LÝ HẬU CẦN (DÀNH CHO LỄ TÂN)
+           ════════════════════════════════════════════════════════════════ */}
+        {activeTab === "LOGISTICS" && (
+          <div className="space-y-4 animate-in fade-in duration-200">
+            <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div>
+                <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight flex items-center gap-2">
+                  <span>🚗</span>
+                  <span>DANH SÁCH ĐƠN CÔNG TÁC CẦN SẮP XẾP HẬU CẦN</span>
+                </h3>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  Hiển thị các đơn đã qua Cấp 1 (Trưởng phòng duyệt) hoặc đơn cần xử lý hủy. Lễ tân tiến hành xếp xe/phòng hoặc hủy xe/phòng.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                {/* Logistics Filter */}
+                <div className="flex items-center gap-1.5">
+                  <label className="font-bold text-slate-700">Bộ lọc hậu cần:</label>
+                  <select
+                    value={logisticsFilterStatus}
+                    onChange={(e) => setLogisticsFilterStatus(e.target.value)}
+                    className="px-3 py-1.5 rounded-xl border border-slate-300 font-bold outline-none focus:border-blue-600 bg-white cursor-pointer"
+                  >
+                    <option value="ACTIVE">⏳ Đơn đang xử lý (Ẩn đơn hủy đã hoàn tất)</option>
+                    <option value="ALL">📋 Tất cả mọi đơn</option>
+                    <option value="PENDING">⏳ Chờ xếp xe/phòng</option>
+                    <option value="ARRANGED">✅ Đã xếp xong</option>
+                    <option value="CANCELLED">🚫 Cần xử lý HỦY xe/phòng</option>
+                    <option value="UNABLE">⚠️ Không thể bố trí</option>
+                  </select>
+                </div>
+
+                {selectedLogisticsTrips.length > 0 && (
+                  <button
+                    onClick={() => {
+                      setActiveLogisticsUpdate({
+                        ids: selectedLogisticsTrips,
+                        isBulk: true,
+                        logistics: { vehicleId: "", driverPhone: "", note: "" }
+                      });
+                    }}
+                    className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <IconCar size={15} />
+                    <span>Gom {selectedLogisticsTrips.length} xe & xếp chung</span>
+                  </button>
+                )}
+
+                <button
+                  onClick={fetchLogisticsRecords}
+                  className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <IconRefresh size={15} />
+                  <span>Tải lại</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-[#1e293b] border-b border-slate-700 text-white text-xs font-bold uppercase tracking-wider">
+                      <th className="p-3 text-center w-10">
+                        {(() => {
+                          const displayRecords = logisticsRecords.filter((rec) => {
+                            if (logisticsFilterStatus === "ACTIVE") return rec.logisticsStatus !== "CANCELLED_HANDLED";
+                            if (logisticsFilterStatus === "PENDING") return rec.logisticsStatus === "PENDING" || rec.logisticsStatus === "NOT_STARTED";
+                            if (logisticsFilterStatus === "ARRANGED") return rec.logisticsStatus === "ARRANGED";
+                            if (logisticsFilterStatus === "CANCELLED") return rec.logisticsStatus === "CANCELLED" || rec.status === "REJECTED" || rec.status === "RECALLED";
+                            if (logisticsFilterStatus === "UNABLE") return rec.logisticsStatus === "UNABLE";
+                            return true;
+                          });
+                          return (
+                            <input 
+                              type="checkbox" 
+                              className="w-4 h-4 cursor-pointer"
+                              checked={displayRecords.length > 0 && selectedLogisticsTrips.length === displayRecords.length}
+                              onChange={(e) => {
+                                if (e.target.checked) setSelectedLogisticsTrips(displayRecords.map(r => r.id));
+                                else setSelectedLogisticsTrips([]);
+                              }}
+                            />
+                          );
+                        })()}
+                      </th>
+                      <th className="p-3 text-center w-12">STT</th>
+                      <th className="p-3">Mã &amp; Tên Đề Xuất</th>
+                      <th className="p-3">Người Tạo</th>
+                      <th className="p-3">Công Tác Tại</th>
+                      <th className="p-3">Thời Gian</th>
+                      <th className="p-3 text-center">Trạng Thái Phê Duyệt</th>
+                      <th className="p-3 text-center">Trạng Thái Hậu Cần</th>
+                      <th className="p-3 text-center">Hành Động Lễ Tân</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-xs">
+                    {(() => {
+                      const displayRecords = logisticsRecords.filter((rec) => {
+                        if (logisticsFilterStatus === "ACTIVE") return rec.logisticsStatus !== "CANCELLED_HANDLED";
+                        if (logisticsFilterStatus === "PENDING") return rec.logisticsStatus === "PENDING" || rec.logisticsStatus === "NOT_STARTED";
+                        if (logisticsFilterStatus === "ARRANGED") return rec.logisticsStatus === "ARRANGED";
+                        if (logisticsFilterStatus === "CANCELLED") return rec.logisticsStatus === "CANCELLED" || rec.status === "REJECTED" || rec.status === "RECALLED";
+                        if (logisticsFilterStatus === "UNABLE") return rec.logisticsStatus === "UNABLE";
+                        return true;
+                      });
+
+                      if (displayRecords.length === 0) {
+                        return (
+                          <tr>
+                            <td colSpan={9} className="py-12 text-center text-slate-400 font-semibold">
+                              Không có đơn công tác nào phù hợp với bộ lọc hậu cần
+                            </td>
+                          </tr>
+                        );
+                      }
+
+                      return displayRecords.map((rec, idx) => (
+                        <tr key={rec.id} className={`hover:bg-slate-50/90 transition-colors border-b border-slate-100 ${selectedLogisticsTrips.includes(rec.id) ? 'bg-blue-50/50' : ''}`}>
+                          <td className="p-3 text-center">
+                            <input 
+                              type="checkbox" 
+                              className="w-4 h-4 cursor-pointer accent-blue-600"
+                              checked={selectedLogisticsTrips.includes(rec.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) setSelectedLogisticsTrips(prev => [...prev, rec.id]);
+                                else setSelectedLogisticsTrips(prev => prev.filter(id => id !== rec.id));
+                              }}
+                            />
+                          </td>
+                          <td className="p-3 text-center font-extrabold text-slate-500">{idx + 1}</td>
+                          <td className="p-3">
+                            <div className="font-extrabold text-slate-900">{rec.title}</div>
+                            <span className="font-mono text-[10px] text-[#006838] font-bold">{rec.code}</span>
+                          </td>
+                          <td className="p-3">
+                            <div className="font-bold text-slate-800">{rec.creator}</div>
+                            <div className="text-[10px] text-slate-500">{rec.department}</div>
+                          </td>
+                          <td className="p-3 font-medium text-slate-700">{rec.location}</td>
+                          <td className="p-3 font-bold text-slate-800">{rec.startDate} - {rec.endDate}</td>
+                          
+                          {/* Trạng thái Phê Duyệt */}
+                          <td className="p-3 text-center">
+                            {rec.status === "PENDING_L2" && (
+                              <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-900 text-[10px] font-extrabold uppercase border border-amber-300 inline-block">
+                                ⏳ Đang chờ BGĐ duyệt cuối (Đã qua TP Cấp 1)
+                              </span>
+                            )}
+                            {rec.status === "APPROVED" && (
+                              <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-[#006838] text-[10px] font-extrabold uppercase border border-emerald-300 inline-block">
+                                ✓ BGĐ đã duyệt hoàn tất
+                              </span>
+                            )}
+                            {rec.status === "REJECTED" && (
+                              <span className="px-2.5 py-1 rounded-full bg-rose-100 text-rose-800 text-[10px] font-extrabold uppercase border border-rose-300 inline-block">
+                                ✕ Đã từ chối đơn
+                              </span>
+                            )}
+                            {rec.status === "RECALLED" && (
+                              <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-[10px] font-extrabold uppercase border border-slate-300 inline-block">
+                                ↩️ Người tạo rút đơn
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Trạng thái Hậu Cần */}
+                          <td className="p-3 text-center">
+                            {rec.logisticsStatus === "ARRANGED" && (
+                              <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-[#006838] text-[10px] font-extrabold border border-emerald-200 inline-block">
+                                ✅ Đã xếp xong
+                              </span>
+                            )}
+                            {rec.logisticsStatus === "CANCELLED" && (
+                              <span className="px-2.5 py-1 rounded-full bg-rose-100 text-rose-800 text-[10px] font-extrabold border border-rose-300 inline-block">
+                                🚫 CẦN HỦY XE/PHÒNG ĐÃ ĐẶT
+                              </span>
+                            )}
+                            {rec.logisticsStatus === "CANCELLED_HANDLED" && (
+                              <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 text-[10px] font-bold border border-slate-300 inline-block">
+                                ✓ Đã xử lý hủy thành công
+                              </span>
+                            )}
+                            {rec.logisticsStatus === "UNABLE" && (
+                              <span className="px-2.5 py-1 rounded-full bg-orange-100 text-orange-900 text-[10px] font-extrabold border border-orange-300 inline-block">
+                                ⚠️ Không thể bố trí
+                              </span>
+                            )}
+                            {(!rec.logisticsStatus || rec.logisticsStatus === "PENDING" || rec.logisticsStatus === "NOT_STARTED") && (
+                              <span className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-800 text-[10px] font-extrabold border border-blue-200 inline-block">
+                                ⏳ Chờ xếp xe/phòng
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Thao tác Lễ tân */}
+                          <td className="p-3 text-center">
+                            <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                              <button
+                                onClick={() => setSelectedModalRecord(rec)}
+                                className="p-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer"
+                                title="Xem chi tiết đơn"
+                              >
+                                <IconEye size={15} />
+                              </button>
+
+                              {(rec.logisticsStatus === "CANCELLED" || rec.status === "REJECTED" || rec.status === "RECALLED") && rec.logisticsStatus !== "CANCELLED_HANDLED" ? (
+                                <button
+                                  onClick={() => handleConfirmCancelLogistics(rec)}
+                                  className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs transition-colors shadow-2xs cursor-pointer flex items-center gap-1"
+                                >
+                                  <IconCheck size={14} />
+                                  <span>Xác nhận đã xử lý hủy</span>
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => {
+                                    setSelectedModalRecord(rec);
+                                  }}
+                                  className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs transition-colors shadow-2xs cursor-pointer"
+                                >
+                                  ✏️ Cập nhật Hậu cần
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ));
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ════════════════════════════════════════════════════════════════
+            TAB 4: QUẢN LÝ XE CÔNG TY
+           ════════════════════════════════════════════════════════════════ */}
+        {activeTab === "VEHICLES" && (
+          <div className="animate-in fade-in duration-200 space-y-6">
+            <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-xl font-black text-slate-800">Quản lý Danh mục Xe Nội bộ</h2>
+                  <p className="text-sm text-slate-500 mt-1">Cập nhật danh sách xe công ty và tài xế để điều phối</p>
+                </div>
+                <button 
+                  onClick={() => setVehicleForm({ id: '', plateNumber: '', driverName: '', driverPhone: '', seatCount: 4, status: 'AVAILABLE', notes: '' })}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-sm transition-colors flex items-center gap-2 cursor-pointer shadow-md"
+                >
+                  <span className="text-lg leading-none">+</span>
+                  <span>Thêm xe mới</span>
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left whitespace-nowrap">
+                  <thead className="bg-slate-50 text-slate-500">
+                    <tr>
+                      <th className="p-4 font-bold rounded-l-2xl">Biển số</th>
+                      <th className="p-4 font-bold">Tài xế</th>
+                      <th className="p-4 font-bold">Số chỗ</th>
+                      <th className="p-4 font-bold">Trạng thái</th>
+                      <th className="p-4 font-bold">Ghi chú</th>
+                      <th className="p-4 font-bold text-center rounded-r-2xl">Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {isVehiclesLoading ? (
+                      <tr><td colSpan={6} className="p-8 text-center text-slate-500">Đang tải...</td></tr>
+                    ) : vehicles.length === 0 ? (
+                      <tr><td colSpan={6} className="p-8 text-center text-slate-500">Chưa có xe nào trong danh mục</td></tr>
+                    ) : (
+                      vehicles.map((v) => (
+                        <tr key={v.id} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="p-4 font-bold text-slate-800">{v.plateNumber}</td>
+                          <td className="p-4">
+                            <div className="font-bold text-slate-700">{v.driverName}</div>
+                            <div className="text-xs text-slate-500">{v.driverPhone}</div>
+                          </td>
+                          <td className="p-4 text-slate-600">{v.seatCount}</td>
+                          <td className="p-4">
+                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${v.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
+                              {v.status === 'ACTIVE' ? 'HOẠT ĐỘNG' : 'TẠM NGƯNG'}
+                            </span>
+                          </td>
+                          <td className="p-4 text-slate-500 max-w-xs truncate">{v.notes}</td>
+                          <td className="p-4 text-center">
+                            <button onClick={() => setVehicleForm(v)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                              ✏️
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ════════════════════════════════════════════════════════════════
+            TAB CFO DASHBOARD
+           ════════════════════════════════════════════════════════════════ */}
+        {activeTab === "CFO_DASHBOARD" && (
+          <div className="space-y-6 animate-in fade-in duration-200">
+            <div className="p-6 rounded-3xl bg-slate-900 text-white shadow-xl flex items-center justify-between overflow-hidden relative">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/20 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none" />
+              <div className="relative z-10">
+                <h2 className="text-2xl font-black mb-1">DASHBOARD TÀI CHÍNH (CFO)</h2>
+                <p className="text-slate-400 font-medium">Tổng quan chi phí công tác & hậu cần toàn công ty</p>
+              </div>
+              <IconChartBar size={48} className="text-purple-400 opacity-80 relative z-10" />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs hover:border-slate-300 transition-colors">
+                <div className="text-sm font-bold text-slate-500 mb-2">Tổng Ngân Sách Dự Kiến</div>
+                <div className="text-3xl font-black text-slate-900">
+                  {records.reduce((sum, rec) => sum + Number(rec.estimatedCost || 0), 0).toLocaleString()} VNĐ
+                </div>
+              </div>
+              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs hover:border-slate-300 transition-colors">
+                <div className="text-sm font-bold text-slate-500 mb-2">Tổng Chi Phí Thực Tế (Hóa đơn)</div>
+                <div className="text-3xl font-black text-rose-600">
+                  {records.reduce((sum, rec) => sum + (rec.invoices || []).reduce((s: number, i: any) => s + Number(i.amount || 0), 0), 0).toLocaleString()} VNĐ
+                </div>
+              </div>
+              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs hover:border-slate-300 transition-colors">
+                <div className="text-sm font-bold text-slate-500 mb-2">Số Đơn Hoàn Tất Thanh Toán</div>
+                <div className="text-3xl font-black text-emerald-600">
+                  {records.filter(r => r.payment_status === "FINISHED").length} <span className="text-lg text-slate-400 font-medium">/ {records.length}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+              <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+                <h3 className="text-base font-black text-slate-900">Chi phí theo phòng ban</h3>
+                <button
+                  onClick={() => showToast("Đã xuất báo cáo Tài chính CFO (Excel)!")}
+                  className="px-3 py-1.5 rounded-xl bg-purple-50 text-purple-700 font-extrabold text-xs transition-colors hover:bg-purple-100"
+                >
+                  Xuất Excel
+                </button>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm border-collapse">
+                  <thead className="bg-slate-50 text-slate-500 font-bold">
+                    <tr>
+                      <th className="p-4 rounded-tl-2xl">Phòng Ban</th>
+                      <th className="p-4 text-right">Tổng Dự Kiến</th>
+                      <th className="p-4 text-right">Thực Tế Phát Sinh</th>
+                      <th className="p-4 text-center rounded-tr-2xl">Số Lượng Đơn</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {Object.entries(
+                      records.reduce((acc, rec) => {
+                        const dept = rec.department || "Khác";
+                        if (!acc[dept]) acc[dept] = { count: 0, estimated: 0, actual: 0 };
+                        acc[dept].count += 1;
+                        acc[dept].estimated += Number(rec.estimatedCost || 0);
+                        acc[dept].actual += (rec.invoices || []).reduce((s: number, i: any) => s + Number(i.amount || 0), 0);
+                        return acc;
+                      }, {} as Record<string, {count: number, estimated: number, actual: number}>)
+                    ).sort((a, b) => b[1].actual - a[1].actual).map(([dept, data]) => (
+                      <tr key={dept} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="p-4 font-bold text-slate-800">{dept}</td>
+                        <td className="p-4 text-right font-semibold text-slate-600">{data.estimated.toLocaleString()} VNĐ</td>
+                        <td className="p-4 text-right font-black text-rose-600">{data.actual.toLocaleString()} VNĐ</td>
+                        <td className="p-4 text-center font-bold text-slate-500">
+                          <span className="px-2.5 py-1 bg-slate-100 rounded-lg">{data.count} đơn</span>
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -2995,6 +3797,149 @@ export default function BusinessTripRegistrationPage() {
                   </div>
                 )}
 
+
+                {/* ════════════════════════════════════════════════════════════════
+                    THÔNG TIN HẬU CẦN
+                   ════════════════════════════════════════════════════════════════ */}
+                {(selectedModalRecord.logistics?.companyVehicle || 
+                  (selectedModalRecord.logistics?.accommodations && selectedModalRecord.logistics.accommodations.length > 0) || 
+                  (selectedModalRecord.logistics?.tickets && selectedModalRecord.logistics.tickets.length > 0) || 
+                  activeTab === "LOGISTICS") && (
+                  <div className="space-y-4 p-4 rounded-xl bg-blue-50/50 border border-blue-200 mt-4">
+                    <div className="flex items-center justify-between border-b border-blue-100 pb-2">
+                       <span className="font-black text-blue-900 uppercase text-xs">🚗 Thông tin hậu cần</span>
+                    </div>
+                    
+                    <div className="space-y-4">
+
+                       {selectedModalRecord.logistics?.companyVehicle && (
+                         <div className="space-y-3 p-3 bg-emerald-50 rounded-xl border border-emerald-100 mb-4">
+                            <h5 className="text-[11px] font-black uppercase text-emerald-800">Thông tin Xe Công Ty (Đã xếp)</h5>
+                            <div className="flex flex-col p-2 bg-white rounded border border-emerald-200 text-xs gap-1">
+                               <div className="flex justify-between">
+                                 <span className="font-bold text-slate-800">Tài xế: {selectedModalRecord.logistics.companyVehicle.driverName || 'Chưa có'}</span>
+                                 <span className="font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded uppercase">{selectedModalRecord.logistics.companyVehicle.licensePlate || ''}</span>
+                               </div>
+                               <span className="text-slate-600">SĐT: <a href={`tel:${selectedModalRecord.logistics.companyVehicle.driverPhone}`} className="text-blue-600 font-bold hover:underline">{selectedModalRecord.logistics.companyVehicle.driverPhone || 'Chưa có'}</a></span>
+                               <span className="text-slate-600 font-medium text-emerald-800">Đón lúc: {selectedModalRecord.logistics.companyVehicle.pickupTime || 'Chưa có'}</span>
+                            </div>
+                         </div>
+                       )}
+                       <div className="space-y-3 p-3 bg-white rounded-xl border border-blue-100">
+                          <h5 className="text-[11px] font-black uppercase text-blue-800">1. Lưu trú & Khách sạn</h5>
+                          {selectedModalRecord.logistics?.accommodations && selectedModalRecord.logistics.accommodations.length > 0 ? (
+                            <div className="space-y-2">
+                              {selectedModalRecord.logistics.accommodations.map((acc: any, i: number) => (
+                                <div key={i} className="flex flex-col p-2 bg-slate-50 rounded border border-slate-200 text-xs gap-1">
+                                  <div className="flex justify-between">
+                                    <span className="font-bold text-slate-800">{acc.type === 'COMPANY_DORM' ? 'Ký túc xá CT' : 'Khách sạn / Nhà nghỉ'}</span>
+                                    <span className="font-bold text-blue-700">{acc.cost ? Number(acc.cost).toLocaleString('vi-VN') + ' VND' : ''}</span>
+                                  </div>
+                                  <span className="text-slate-600">Tên/Phòng: {acc.provider} {acc.roomNo ? `(P. ${acc.roomNo})` : ''}</span>
+                                  {acc.bookingRef && <span className="text-slate-600">Mã Booking: {acc.bookingRef}</span>}
+                                  {acc.notes && <span className="text-slate-500 italic">{acc.notes}</span>}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-xs text-slate-500 italic">Chưa bố trí lưu trú.</div>
+                          )}
+                       </div>
+
+                       <div className="space-y-3 p-3 bg-white rounded-xl border border-blue-100">
+                          <h5 className="text-[11px] font-black uppercase text-blue-800">2. Phương tiện (Vé máy bay/Tàu/Xe)</h5>
+                          {selectedModalRecord.logistics?.tickets && selectedModalRecord.logistics.tickets.length > 0 ? (
+                            <div className="space-y-2">
+                              {selectedModalRecord.logistics.tickets.map((t: any, i: number) => (
+                                <div key={i} className="flex flex-col p-2 bg-slate-50 rounded border border-slate-200 text-xs gap-1">
+                                  <div className="flex justify-between">
+                                    <span className="font-bold text-slate-800">{t.provider} {t.flightNo ? `(${t.flightNo})` : ''}</span>
+                                    <span className="font-bold text-blue-700">{t.cost ? Number(t.cost).toLocaleString('vi-VN') + ' VND' : ''}</span>
+                                  </div>
+                                  <span className="text-slate-600">Thời gian đi: {t.departureTime}</span>
+                                  {t.bookingRef && <span className="text-slate-600">Mã vé/PNR: {t.bookingRef}</span>}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-xs text-slate-500 italic">Chưa đặt vé.</div>
+                          )}
+                       </div>
+
+                       {selectedModalRecord.logistics?.notes && (
+                         <div className="space-y-1 p-3 bg-amber-50 rounded-xl border border-amber-100 text-xs">
+                           <span className="font-black text-amber-800 uppercase text-[10px]">Ghi chú cho người đi:</span>
+                           <p className="text-amber-900 font-medium">{selectedModalRecord.logistics.notes}</p>
+                         </div>
+                       )}
+                       
+                       {can(PERMISSIONS.TRIP_DISPATCH_VEHICLE) && (
+                         <div className="pt-2">
+                            <button 
+                               onClick={() => setActiveLogisticsUpdate(selectedModalRecord)}
+                               className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black shadow-md transition-colors"
+                            >
+                               CẬP NHẬT MÃ BOOKING / CHI PHÍ (Dành cho Lễ tân)
+                            </button>
+                         </div>
+                       )}
+                    </div>
+                  </div>
+                )}
+                {/* ════════════════════════════════════════════════════════════════
+                    GIẤY ĐI ĐƯỜNG ĐÃ DUYỆT / ĐÓNG DẤU (SIGNED TRAVEL PAPER)
+                   ════════════════════════════════════════════════════════════════ */}
+                <div className="space-y-3 p-4 rounded-xl bg-slate-50 border border-slate-200 mt-3">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <span className="font-extrabold text-slate-900 block uppercase text-xs">
+                      📄 Giấy đi đường đã ký / đóng dấu
+                    </span>
+                    <label className="px-3 py-1.5 rounded-xl bg-[#006838] hover:bg-[#00522c] text-white font-bold text-xs cursor-pointer flex items-center gap-1 transition-colors shadow-2xs">
+                      <IconUpload size={14} />
+                      <span>{isLoading ? "Đang tải..." : "Upload Giấy Đã Ký (R2)"}</span>
+                      <input
+                        type="file"
+                        accept="image/*,application/pdf"
+                        onChange={(e) => handleUploadSignedTravelPaper(selectedModalRecord.id, e)}
+                        className="hidden"
+                        disabled={isLoading}
+                      />
+                    </label>
+                  </div>
+
+                  {(selectedModalRecord as any).signedTravelPaper && (selectedModalRecord as any).signedTravelPaper.length > 0 ? (
+                    <div className="space-y-2">
+                      {(selectedModalRecord as any).signedTravelPaper.map((paper: any, pIdx: number) => (
+                        <div key={paper.id || pIdx} className="flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-200 text-xs">
+                          <div className="flex items-center gap-2 min-w-0">
+                            {paper.type?.includes("pdf") ? (
+                              <IconFileTypePdf size={18} className="text-rose-600 flex-shrink-0" />
+                            ) : (
+                              <IconPhoto size={18} className="text-blue-600 flex-shrink-0" />
+                            )}
+                            <div className="min-w-0">
+                              <span className="font-bold text-slate-800 block truncate">{paper.name || 'Giấy đi đường đã ký'}</span>
+                              <span className="text-[10px] text-slate-500 block">Tải lên: {paper.uploadedAt || 'N/A'}</span>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setPreviewModal({ url: paper.url, title: paper.name || "Giấy đi đường đã ký", type: paper.type || "application/pdf" })}
+                            className="px-3 py-1 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 font-extrabold text-[11px] cursor-pointer transition-colors flex items-center gap-1"
+                          >
+                            <IconEye size={14} />
+                            <span>Xem / Tải</span>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-slate-400 text-xs italic">
+                      Chưa có Giấy đi đường đã ký/đóng dấu. Nhấn "Upload Giấy Đã Ký" ở trên để tải lên bản PDF/Ảnh từ thiết bị.
+                    </p>
+                  )}
+                </div>
+
                 <div className="flex items-center justify-between pt-2 border-t border-slate-100">
                   <span className="text-slate-500 font-semibold">Trạng thái phê duyệt D1:</span>
                   <div>
@@ -3052,6 +3997,9 @@ export default function BusinessTripRegistrationPage() {
           }}
           onCancel={() => setShowAuthModal(false)}
         />
+
+
+
       </main>
 
       {/* TOAST NOTIFICATION */}
@@ -3061,6 +4009,283 @@ export default function BusinessTripRegistrationPage() {
             <IconCheck size={16} />
           </div>
           <span className="text-xs font-bold">{toastMessage}</span>
+        </div>
+      )}
+
+
+      {/* ════════════════════════════════════════════════════════════════
+          MODAL: CẬP NHẬT HẬU CẦN (LỄ TÂN)
+         ════════════════════════════════════════════════════════════════ */}
+      {activeLogisticsUpdate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-slate-100 bg-blue-50/50">
+              <h3 className="text-lg font-black text-blue-900">
+                {activeLogisticsUpdate.isBulk ? `Gom chung ${activeLogisticsUpdate.ids?.length} đơn công tác` : "Cập nhật chi tiết Hậu cần"}
+              </h3>
+              <button 
+                onClick={() => setActiveLogisticsUpdate(null)}
+                className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 transition-colors"
+              >
+                <IconX size={18} />
+              </button>
+            </div>
+            
+            <form onSubmit={handleSaveLogistics} className="flex-1 overflow-auto p-4 sm:p-6 space-y-6">
+               <div className="space-y-4">
+                  <h4 className="font-bold text-slate-800 border-b pb-2">1. Thông tin Xe Công Ty / Tài Xế</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Chọn từ Danh mục Xe nội bộ</label>
+                      <select 
+                        className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-slate-50"
+                        onChange={(e) => {
+                          const v = vehicles.find(x => x.id === e.target.value);
+                          if (v) {
+                            setActiveLogisticsUpdate({
+                              ...activeLogisticsUpdate, 
+                              logistics: {
+                                ...(activeLogisticsUpdate.logistics||{}), 
+                                companyVehicle: {
+                                  ...(activeLogisticsUpdate.logistics?.companyVehicle||{}), 
+                                  driverName: v.driverName, 
+                                  driverPhone: v.driverPhone, 
+                                  licensePlate: v.plateNumber
+                                }
+                              }
+                            });
+                          }
+                        }}
+                      >
+                        <option value="">-- Chọn xe có sẵn (Tự động điền) --</option>
+                        {vehicles.filter(v => v.status === 'ACTIVE').map(v => (
+                          <option key={v.id} value={v.id}>{v.plateNumber} - {v.driverName} ({v.seatCount} chỗ)</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Tên tài xế</label>
+                      <input 
+                        type="text" 
+                        value={activeLogisticsUpdate.logistics?.companyVehicle?.driverName || ''} 
+                        onChange={(e) => setActiveLogisticsUpdate({...activeLogisticsUpdate, logistics: {...(activeLogisticsUpdate.logistics||{}), companyVehicle: {...(activeLogisticsUpdate.logistics?.companyVehicle||{}), driverName: e.target.value}}})}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500" 
+                        placeholder="VD: Anh Hải"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">SĐT Tài xế</label>
+                      <input 
+                        type="text" 
+                        value={activeLogisticsUpdate.logistics?.companyVehicle?.driverPhone || ''} 
+                        onChange={(e) => setActiveLogisticsUpdate({...activeLogisticsUpdate, logistics: {...(activeLogisticsUpdate.logistics||{}), companyVehicle: {...(activeLogisticsUpdate.logistics?.companyVehicle||{}), driverPhone: e.target.value}}})}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500" 
+                        placeholder="VD: 0912345678"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Biển số xe</label>
+                      <input 
+                        type="text" 
+                        value={activeLogisticsUpdate.logistics?.companyVehicle?.licensePlate || ''} 
+                        onChange={(e) => setActiveLogisticsUpdate({...activeLogisticsUpdate, logistics: {...(activeLogisticsUpdate.logistics||{}), companyVehicle: {...(activeLogisticsUpdate.logistics?.companyVehicle||{}), licensePlate: e.target.value}}})}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500" 
+                        placeholder="VD: 51H-123.45"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Giờ & Điểm đón</label>
+                      <input 
+                        type="text" 
+                        value={activeLogisticsUpdate.logistics?.companyVehicle?.pickupTime || ''} 
+                        onChange={(e) => setActiveLogisticsUpdate({...activeLogisticsUpdate, logistics: {...(activeLogisticsUpdate.logistics||{}), companyVehicle: {...(activeLogisticsUpdate.logistics?.companyVehicle||{}), pickupTime: e.target.value}}})}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500" 
+                        placeholder="VD: 07:00 tại Cổng CT"
+                      />
+                    </div>
+                  </div>
+               </div>
+
+               <div className="space-y-4">
+                  <div className="flex justify-between items-center border-b pb-2">
+                    <h4 className="font-bold text-slate-800">2. Đặt Khách sạn / KTX</h4>
+                    <button type="button" onClick={() => {
+                        const acc = [...(activeLogisticsUpdate.logistics?.accommodations || []), {type: 'HOTEL'}];
+                        setActiveLogisticsUpdate({...activeLogisticsUpdate, logistics: {...(activeLogisticsUpdate.logistics||{}), accommodations: acc}});
+                    }} className="text-xs text-blue-600 font-bold hover:underline">+ Thêm phòng</button>
+                  </div>
+                  {(activeLogisticsUpdate.logistics?.accommodations || []).map((acc: any, idx: number) => (
+                    <div key={idx} className="bg-slate-50 p-3 rounded-xl border border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-3 relative">
+                       <button type="button" onClick={() => {
+                          const arr = [...activeLogisticsUpdate.logistics.accommodations];
+                          arr.splice(idx, 1);
+                          setActiveLogisticsUpdate({...activeLogisticsUpdate, logistics: {...activeLogisticsUpdate.logistics, accommodations: arr}});
+                       }} className="absolute top-2 right-2 text-rose-500 hover:text-rose-700"><IconX size={14}/></button>
+                       <div className="sm:col-span-2">
+                         <label className="block text-xs font-bold text-slate-700 mb-1">Khách sạn / Nhà nghỉ</label>
+                         <input type="text" value={acc.provider||''} onChange={(e) => {
+                             const arr = [...activeLogisticsUpdate.logistics.accommodations];
+                             arr[idx].provider = e.target.value;
+                             setActiveLogisticsUpdate({...activeLogisticsUpdate, logistics: {...activeLogisticsUpdate.logistics, accommodations: arr}});
+                         }} className="w-full px-2 py-1.5 border rounded text-xs" placeholder="Tên KS..." />
+                       </div>
+                       <div>
+                         <label className="block text-xs font-bold text-slate-700 mb-1">Mã Booking</label>
+                         <input type="text" value={acc.bookingRef||''} onChange={(e) => {
+                             const arr = [...activeLogisticsUpdate.logistics.accommodations];
+                             arr[idx].bookingRef = e.target.value;
+                             setActiveLogisticsUpdate({...activeLogisticsUpdate, logistics: {...activeLogisticsUpdate.logistics, accommodations: arr}});
+                         }} className="w-full px-2 py-1.5 border rounded text-xs" />
+                       </div>
+                       <div>
+                         <label className="block text-xs font-bold text-slate-700 mb-1">Chi phí (VND)</label>
+                         <input type="number" value={acc.cost||''} onChange={(e) => {
+                             const arr = [...activeLogisticsUpdate.logistics.accommodations];
+                             arr[idx].cost = e.target.value;
+                             setActiveLogisticsUpdate({...activeLogisticsUpdate, logistics: {...activeLogisticsUpdate.logistics, accommodations: arr}});
+                         }} className="w-full px-2 py-1.5 border rounded text-xs" />
+                       </div>
+                    </div>
+                  ))}
+               </div>
+
+               <div className="space-y-4">
+                  <div className="flex justify-between items-center border-b pb-2">
+                    <h4 className="font-bold text-slate-800">3. Đặt Vé (Máy bay / Tàu / Xe)</h4>
+                    <button type="button" onClick={() => {
+                        const tk = [...(activeLogisticsUpdate.logistics?.tickets || []), {}];
+                        setActiveLogisticsUpdate({...activeLogisticsUpdate, logistics: {...(activeLogisticsUpdate.logistics||{}), tickets: tk}});
+                    }} className="text-xs text-blue-600 font-bold hover:underline">+ Thêm vé</button>
+                  </div>
+                  {(activeLogisticsUpdate.logistics?.tickets || []).map((t: any, idx: number) => (
+                    <div key={idx} className="bg-slate-50 p-3 rounded-xl border border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-3 relative">
+                       <button type="button" onClick={() => {
+                          const arr = [...activeLogisticsUpdate.logistics.tickets];
+                          arr.splice(idx, 1);
+                          setActiveLogisticsUpdate({...activeLogisticsUpdate, logistics: {...activeLogisticsUpdate.logistics, tickets: arr}});
+                       }} className="absolute top-2 right-2 text-rose-500 hover:text-rose-700"><IconX size={14}/></button>
+                       <div>
+                         <label className="block text-xs font-bold text-slate-700 mb-1">Hãng bay / Nhà xe</label>
+                         <input type="text" value={t.provider||''} onChange={(e) => {
+                             const arr = [...activeLogisticsUpdate.logistics.tickets];
+                             arr[idx].provider = e.target.value;
+                             setActiveLogisticsUpdate({...activeLogisticsUpdate, logistics: {...activeLogisticsUpdate.logistics, tickets: arr}});
+                         }} className="w-full px-2 py-1.5 border rounded text-xs" placeholder="Vietnam Airlines..." />
+                       </div>
+                       <div>
+                         <label className="block text-xs font-bold text-slate-700 mb-1">Số hiệu chuyến / Giờ đi</label>
+                         <input type="text" value={t.flightNo||''} onChange={(e) => {
+                             const arr = [...activeLogisticsUpdate.logistics.tickets];
+                             arr[idx].flightNo = e.target.value;
+                             setActiveLogisticsUpdate({...activeLogisticsUpdate, logistics: {...activeLogisticsUpdate.logistics, tickets: arr}});
+                         }} className="w-full px-2 py-1.5 border rounded text-xs" />
+                       </div>
+                       <div>
+                         <label className="block text-xs font-bold text-slate-700 mb-1">Mã Vé / PNR</label>
+                         <input type="text" value={t.bookingRef||''} onChange={(e) => {
+                             const arr = [...activeLogisticsUpdate.logistics.tickets];
+                             arr[idx].bookingRef = e.target.value;
+                             setActiveLogisticsUpdate({...activeLogisticsUpdate, logistics: {...activeLogisticsUpdate.logistics, tickets: arr}});
+                         }} className="w-full px-2 py-1.5 border rounded text-xs" />
+                       </div>
+                       <div>
+                         <label className="block text-xs font-bold text-slate-700 mb-1">Chi phí (VND)</label>
+                         <input type="number" value={t.cost||''} onChange={(e) => {
+                             const arr = [...activeLogisticsUpdate.logistics.tickets];
+                             arr[idx].cost = e.target.value;
+                             setActiveLogisticsUpdate({...activeLogisticsUpdate, logistics: {...activeLogisticsUpdate.logistics, tickets: arr}});
+                         }} className="w-full px-2 py-1.5 border rounded text-xs" />
+                       </div>
+                    </div>
+                  ))}
+               </div>
+               
+               <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1 border-b pb-2">4. Ghi chú gửi người đi công tác</label>
+                  <textarea 
+                    value={activeLogisticsUpdate.logistics?.notes || ''}
+                    onChange={(e) => setActiveLogisticsUpdate({...activeLogisticsUpdate, logistics: {...(activeLogisticsUpdate.logistics||{}), notes: e.target.value}})}
+                    rows={3} 
+                    className="w-full mt-2 px-3 py-2 border border-slate-300 rounded-xl text-sm focus:border-blue-500 focus:ring-1" 
+                    placeholder="VD: Vui lòng có mặt trước 15p..."
+                  ></textarea>
+               </div>
+               
+               <div className="pt-4 border-t flex justify-end gap-3">
+                  <button type="button" onClick={() => setActiveLogisticsUpdate(null)} className="px-5 py-2.5 rounded-xl font-bold text-sm text-slate-600 bg-slate-100 hover:bg-slate-200">
+                     Hủy
+                  </button>
+                  <button type="submit" disabled={isLoading} className="px-5 py-2.5 rounded-xl font-black text-sm text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50">
+                     {isLoading ? "Đang lưu..." : "Lưu & Xác nhận Hậu cần"}
+                  </button>
+               </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* VEHICLE FORM MODAL */}
+      {vehicleForm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden flex flex-col shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-slate-100 bg-emerald-50/50">
+              <h3 className="text-lg font-black text-emerald-900">{vehicleForm.id ? "Cập nhật Xe" : "Thêm Xe mới"}</h3>
+              <button 
+                onClick={() => setVehicleForm(null)}
+                className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 transition-colors"
+              >
+                <IconX size={18} />
+              </button>
+            </div>
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              try {
+                setIsLoading(true);
+                const res = await fetch('/api/company-vehicles', {
+                  method: 'POST',
+                  headers: {'Content-Type': 'application/json'},
+                  body: JSON.stringify({...vehicleForm, action: 'UPSERT'})
+                });
+                if(res.ok) {
+                  showToast("Lưu thông tin xe thành công!");
+                  setVehicleForm(null);
+                  fetchVehicles();
+                } else showToast("Lỗi lưu xe");
+              } catch(err) { showToast("Lỗi mạng"); }
+              finally { setIsLoading(false); }
+            }} className="p-4 sm:p-6 space-y-4">
+              <div><label className="block text-xs font-bold text-slate-700 mb-1">Biển số xe</label><input required type="text" value={vehicleForm.plateNumber} onChange={e => setVehicleForm({...vehicleForm, plateNumber: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-xl" /></div>
+              <div><label className="block text-xs font-bold text-slate-700 mb-1">Tên tài xế</label><input required type="text" value={vehicleForm.driverName} onChange={e => setVehicleForm({...vehicleForm, driverName: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-xl" /></div>
+              <div><label className="block text-xs font-bold text-slate-700 mb-1">SĐT Tài xế</label><input type="text" value={vehicleForm.driverPhone} onChange={e => setVehicleForm({...vehicleForm, driverPhone: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-xl" /></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div><label className="block text-xs font-bold text-slate-700 mb-1">Số chỗ</label><input type="number" value={vehicleForm.seatCount} onChange={e => setVehicleForm({...vehicleForm, seatCount: Number(e.target.value)})} className="w-full px-3 py-2 border border-slate-300 rounded-xl" /></div>
+                <div><label className="block text-xs font-bold text-slate-700 mb-1">Trạng thái</label><select value={vehicleForm.status || 'ACTIVE'} onChange={e => setVehicleForm({...vehicleForm, status: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-xl"><option value="ACTIVE">Đang hoạt động</option><option value="INACTIVE">Tạm ngưng/Bảo trì</option></select></div>
+              </div>
+              <div><label className="block text-xs font-bold text-slate-700 mb-1">Ghi chú</label><textarea value={vehicleForm.notes} onChange={e => setVehicleForm({...vehicleForm, notes: e.target.value})} rows={2} className="w-full px-3 py-2 border border-slate-300 rounded-xl" /></div>
+              <div className="flex justify-between pt-4 border-t mt-6">
+                {vehicleForm.id ? (
+                  <button type="button" onClick={async () => {
+                    if(confirm("Bạn có chắc muốn tạm ngưng xe này?")) {
+                      try {
+                        setIsLoading(true);
+                        await fetch('/api/company-vehicles', {
+                          method: 'POST',
+                          headers: {'Content-Type': 'application/json'},
+                          body: JSON.stringify({id: vehicleForm.id, action: 'DELETE'})
+                        });
+                        setVehicleForm(null);
+                        fetchVehicles();
+                      } finally { setIsLoading(false); }
+                    }
+                  }} className="text-rose-600 font-bold text-sm px-3 hover:bg-rose-50 rounded-xl">Tạm ngưng</button>
+                ) : <div></div>}
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setVehicleForm(null)} className="px-5 py-2.5 rounded-xl font-bold text-sm bg-slate-100 hover:bg-slate-200">Hủy</button>
+                  <button type="submit" disabled={isLoading} className="px-5 py-2.5 rounded-xl font-black text-sm text-white bg-emerald-600 hover:bg-emerald-700">Lưu Xe</button>
+                </div>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

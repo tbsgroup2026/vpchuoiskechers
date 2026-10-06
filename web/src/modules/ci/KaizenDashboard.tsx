@@ -90,6 +90,14 @@ const getProposalValue = (p: any): number => {
   return getProposalValueTr(p);
 };
 
+const getProposalFinalScore = (p: any): number => {
+  if (!p) return 0;
+  const rawScore = p.judge_final_score ?? p.score_points ?? p.diem_tong_hop ?? (p as any).scorePoints ?? (p as any).diem_hieu_qua ?? (p as any).avg_score ?? 0;
+  if (!rawScore) return 0;
+  const parsedScore = Number(String(rawScore).replace(',', '.'));
+  return isNaN(parsedScore) ? 0 : parsedScore;
+};
+
 const matchCascadingFilter = (p: KaizenProposal, filter: CascadingFilterState): boolean => {
   const fRaw = String(p.factory || "").toUpperCase();
   const rRaw = String(p.region || "").toUpperCase();
@@ -189,7 +197,7 @@ export default function KaizenDashboard({ proposals, targetRegion, onBackToLibra
           subStatus === "DA_DANH_GIA" ||
           subStatus === "LUU_TRU" ||
           appStatus === "DA_DANH_GIA" ||
-          Number(p.score_points || (p as any).scorePoints || 0) > 0;
+          getProposalFinalScore(p) > 0;
         if (!isEvaluated) return false;
       }
 
@@ -268,7 +276,7 @@ export default function KaizenDashboard({ proposals, targetRegion, onBackToLibra
   }, [filteredProposals, selectedMonth]);
 
   const countEvaluated = filteredProposals.filter(
-    (p) => p && (p.sub_status === "DA_DANH_GIA" || (p.score_points && p.score_points > 0) || (p.rating_count && p.rating_count > 0))
+    (p) => p && (p.sub_status === "DA_DANH_GIA" || getProposalFinalScore(p) > 0 || (p.rating_count && p.rating_count > 0))
   ).length;
 
   const totalValueTr = useMemo(() => {
@@ -512,7 +520,7 @@ export default function KaizenDashboard({ proposals, targetRegion, onBackToLibra
 
       // Savings value OR score points MUST BE > 0
       const savingsVal = getProposalValue(p);
-      const scoreVal = Number(p.score_points || (p as any).scorePoints || 0);
+      const scoreVal = getProposalFinalScore(p);
       if (savingsVal <= 0 && scoreVal <= 0) return false;
 
       return true;
@@ -521,8 +529,8 @@ export default function KaizenDashboard({ proposals, targetRegion, onBackToLibra
     const sorted = [...thiDuaList]
       .sort((a, b) => {
         // 1. Primary: Sort by BGK (Judge) score DESC
-        const scoreA = Number(a.judge_final_score || a.score_points || a.diem_tong_hop || (a as any).scorePoints || 0);
-        const scoreB = Number(b.judge_final_score || b.score_points || b.diem_tong_hop || (b as any).scorePoints || 0);
+        const scoreA = getProposalFinalScore(a);
+        const scoreB = getProposalFinalScore(b);
         if (scoreB !== scoreA) return scoreB - scoreA;
 
         // 2. Secondary: Criteria C1 (Hiệu quả) and C3 (Tính sáng tạo)
@@ -583,19 +591,19 @@ export default function KaizenDashboard({ proposals, targetRegion, onBackToLibra
       }
 
       const curVal = getProposalValue(item);
-      const curScore = Number(item?.score_points || (item as any)?.scorePoints || 0);
+      const curScore = getProposalFinalScore(item);
 
       let isTied = false;
       if (rank <= 3 && rank !== 1) {
         if (index > 0) {
           const prevItem = sorted[index - 1];
-          if (getProposalValue(prevItem) === curVal && Number(prevItem.score_points || 0) === curScore) {
+          if (getProposalValue(prevItem) === curVal && getProposalFinalScore(prevItem) === curScore) {
             isTied = true;
           }
         }
         if (index < sorted.length - 1) {
           const nextItem = sorted[index + 1];
-          if (getProposalValue(nextItem) === curVal && Number(nextItem.score_points || 0) === curScore) {
+          if (getProposalValue(nextItem) === curVal && getProposalFinalScore(nextItem) === curScore) {
             isTied = true;
           }
         }

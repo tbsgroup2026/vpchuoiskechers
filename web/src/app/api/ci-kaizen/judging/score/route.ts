@@ -393,11 +393,8 @@ export async function POST(request: Request) {
       // Update proposal with final average scores (divided by N judges) and flag state
       await db.prepare(`
         UPDATE ci_kaizen_proposals
-        SET judge_final_score = ?,
+        SET average_score = ?,
             score_points = ?,
-            c1_score_final = ?,
-            c3_score_final = ?,
-            is_score_flagged = ?,
             sub_status = CASE WHEN ? = 1 THEN 'CHO_RA_SOAT_DANG_FLAG' ELSE 'DA_DANH_GIA' END,
             trang_thai = CASE WHEN ? = 1 THEN 'CHO_RA_SOAT_DANG_FLAG' ELSE 'DA_DANH_GIA' END,
             updated_at = CURRENT_TIMESTAMP
@@ -405,9 +402,6 @@ export async function POST(request: Request) {
       `).bind(
         avgFinalTotalScore,
         avgFinalTotalScore,
-        avgFinalC1Score,
-        avgFinalC3Score,
-        isFlagged,
         isFlagged,
         isFlagged,
         submissionId,

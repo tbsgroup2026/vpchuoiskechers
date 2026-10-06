@@ -41,6 +41,11 @@ export function isKienGiangFactory(factory: string): boolean {
 }
 
 const STANDARD_WORKSHOPS = {
+  "Phân Xưởng Mẫu": {
+    "Đầu vào": ["Tổ 1", "Tổ 2"],
+    "May": ["Tổ 1", "Tổ 2"],
+    "Gò": ["Tổ 1", "Tổ 2"],
+  },
   "Đầu Vào": {
     "Line 1": ["Tổ 1", "Tổ 2"],
     "Line 2": ["Tổ 1", "Tổ 2"],
@@ -59,6 +64,11 @@ const STANDARD_WORKSHOPS = {
 };
 
 const VP_WORKSHOPS = {
+  "Phân Xưởng Mẫu": {
+    "Đầu vào": ["Tổ 1", "Tổ 2"],
+    "May": ["Tổ 1", "Tổ 2"],
+    "Gò": ["Tổ 1", "Tổ 2"],
+  },
   "Văn phòng": {
     "Line 1": ["Tổ 1"],
   },
@@ -75,6 +85,7 @@ export const INITIAL_ORG_TREE: OrgNodeMap = {
   "Kiên Giang 3": STANDARD_WORKSHOPS,
   "Nhà máy Kiên Giang 3": STANDARD_WORKSHOPS,
   "Hoàn Thiện Đế": STANDARD_WORKSHOPS,
+  "Văn phòng Chuỗi": VP_WORKSHOPS,
   "Văn Phòng Chuỗi": VP_WORKSHOPS,
   "Văn phòng Chuỗi Supply Chain": VP_WORKSHOPS,
   "VP Chuỗi": VP_WORKSHOPS,

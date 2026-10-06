@@ -31,7 +31,7 @@ export async function signToken(payload: JWTPayload): Promise<string> {
 }
 
 /**
- * Verify and decode a JWT token or fallback session token
+ * Verify and decode a JWT token. Strict HMAC signature verification required.
  */
 export async function verifyToken(token: string): Promise<JWTPayload | null> {
   if (!token) return null;
@@ -46,31 +46,8 @@ export async function verifyToken(token: string): Promise<JWTPayload | null> {
     const { payload } = await jwtVerify(decodedToken, secretKey);
     return payload as unknown as JWTPayload;
   } catch (error) {
-    let empCode = "";
-    if (decodedToken.startsWith("tbs_token_") || decodedToken.includes("tbs_token")) {
-      const match = decodedToken.match(/tbs_token_([^_]+)/);
-      if (match && match[1]) empCode = match[1];
-    } else {
-      empCode = decodedToken.trim();
-    }
-
-    if (empCode && empCode !== "null" && empCode !== "undefined") {
-      const sysUser = SYSTEM_USERS[empCode];
-      const isTP = ["202608001", "202608002"].includes(empCode) || (sysUser?.roleCode === "TRUONG_PHONG") || (sysUser?.title || "").includes("TP") || (sysUser?.title || "").includes("Trưởng");
-      const isSuper = ["SUPER_ADMIN", "SYSTEM_ADMIN"].includes(sysUser?.roleCode || "");
-
-      return {
-        userId: sysUser?.userId || 888,
-        empCode: sysUser?.empCode || empCode,
-        name: sysUser?.name || `Cán Bộ Nhân Viên (${empCode})`,
-        roleId: sysUser?.roleLevel || (isSuper ? 1 : isTP ? 3 : 3),
-        roleCode: sysUser?.roleCode || (isSuper ? "SUPER_ADMIN" : isTP ? "TRUONG_PHONG" : "TRUONG_PHONG"),
-        roleLevel: sysUser?.roleLevel || (isSuper ? 1 : isTP ? 3 : 3),
-        departmentId: 1,
-        departmentCode: sysUser?.managedDepartmentId || sysUser?.departmentCode || "TBS",
-        title: sysUser?.title || "Trưởng Phòng / Cán Bộ Quản Lý",
-      };
-    }
+    // SECURITY PATCH: Strict JWT verification only.
+    // Reject any invalid, un-signed, or forged tokens.
     return null;
   }
 }
@@ -137,3 +114,24 @@ export function isReceptionistOrAdmin(user: JWTPayload | null | undefined): bool
 
 
 
+
+export function isAccountantOrAdmin(user: JWTPayload | null | undefined): boolean {
+  if (!user) return false;
+  if (isAdminUser(user)) return true;
+
+  const roleCode = (user.roleCode || '').toUpperCase();
+  const empCode = user.empCode || '';
+  const title = String(user.title || '').toLowerCase();
+
+  if (roleCode === 'KE_TOAN' || roleCode === 'ACCOUNTANT' || roleCode === 'KT') {
+    return true;
+  }
+  if (['KT-001', 'KT-002'].includes(empCode)) {
+    return true;
+  }
+  if (title.includes('kế toán') || title.includes('accountant')) {
+    return true;
+  }
+
+  return false;
+}

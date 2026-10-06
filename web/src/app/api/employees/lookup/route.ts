@@ -38,11 +38,11 @@ const EMPLOYEES_DB: Record<string, {
   },
   "202206011": {
     emp_code: "202206011",
-    name: "Lễ Tân (Trưởng Team LT)",
+    name: "TRẦN THỊ BÍCH TRÂM",
     factory_id: "Văn phòng Chuỗi Supply Chain",
     workshop_id: "Văn phòng",
     line_id: "",
-    vtcv: "Nhân viên",
+    vtcv: "Trưởng Team",
     position: "Trưởng Team Lễ Tân",
   },
   "202010004": {

@@ -1,7 +1,9 @@
 "use client";
 
+import { uploadCloudinaryFile } from "@/lib/cloudinary";
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { useLanguage } from "@/components/LanguageProvider";
 import {
   IconArrowLeft,
   IconCalendar,
@@ -43,10 +45,18 @@ import {
 } from "@tabler/icons-react";
 import Can from "@/components/Can";
 import UserAvatar from "@/components/UserAvatar";
+import HeaderControls from "@/components/HeaderControls";
 import { PERMISSIONS } from "@/lib/permissions";
 import { getCurrentUser, getUserDisplayBadgeTitle } from "@/lib/userProfiles";
 import { broadcastNotification } from "@/lib/browserNotifications";
 import { apiFetch, registerPoller, unregisterPoller } from "@/lib/apiClient";
+import { getCloudinaryThumbnail } from "@/lib/cloudinary";
+import { isMeetingTimePassed, getVietnamNowParts, parseTimeSlot, parseTimeToMinutes } from "@/lib/roomTimeHelper";
+
+// Trả về thời điểm hiện tại theo giờ Việt Nam (UTC+7)
+function getVnDateObj(): Date {
+  return new Date();
+}
 
 interface MeetingRoom {
   id: string;
@@ -58,6 +68,11 @@ interface MeetingRoom {
   isLocked: boolean;
   colorClass: string;
   badgeBg: string;
+  images?: any[];
+  roomCode?: string;
+  managingUnit?: string;
+  floor?: number | null;
+  sortOrder?: number | null;
 }
 
 type BookingStatus =
@@ -85,6 +100,8 @@ interface RoomBooking {
   proposedRoomId?: string;
   proposedRoomName?: string;
   proposalNote?: string;
+  source?: string;
+  zaloPhone?: string;
 }
 
 interface VisitorRecord {
@@ -131,22 +148,126 @@ const getTodayVnDate = () => {
   return `${dd}/${mm}/${yyyy}`;
 };
 
+
+class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error: Error | null}> {
+  constructor(props: {children: React.ReactNode}) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error: Error) { return { hasError: true, error }; }
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) { console.error("ErrorBoundary caught error", error, errorInfo); }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-8 text-center text-red-600 bg-red-50 rounded-2xl m-4 border border-red-200 shadow-md">
+          <IconX className="w-12 h-12 mx-auto mb-4 opacity-50" />
+          <h2 className="text-xl font-bold mb-2">Lỗi Hiển Thị Danh Sách Phòng</h2>
+          <p className="text-sm opacity-80 mb-4">Một dữ liệu phòng họp bị lỗi định dạng (undefined). Hệ thống đã chặn lỗi để không làm sập trang.</p>
+          <pre className="text-left bg-white p-4 rounded-xl text-xs overflow-auto opacity-70">
+            {this.state.error?.toString()}
+          </pre>
+          <button onClick={() => window.location.reload()} className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">Tải lại trang</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+const normalizeRoom = (r: any) => {
+  let images = r.images || [];
+  if (typeof images === 'string') {
+    try { images = JSON.parse(images); } catch(e) { images = []; }
+  }
+  let equipment = r.equipment || [];
+  if (typeof equipment === 'string') {
+    try { equipment = JSON.parse(equipment); } 
+    catch(e) { equipment = equipment.split(',').map((s: string) => s.trim()).filter(Boolean); }
+  }
+  images = Array.isArray(images) ? images.filter((img: any) => {
+    const url = typeof img === 'string' ? img : (img?.url || '');
+    return !url.startsWith('blob:') && !url.startsWith('data:');
+  }) : [];
+  equipment = Array.isArray(equipment) ? equipment : [];
+  return {
+    id: r.id || "room_unknown",
+    name: r.name || "Phòng chưa đặt tên",
+    capacity: r.capacity || 10,
+    location: r.location || "Văn phòng",
+    equipment,
+    status: r.status || "AVAILABLE",
+    isLocked: Boolean(r.is_locked || r.isLocked),
+    colorClass: r.colorClass || r.color_class || "bg-slate-700 hover:bg-slate-800 text-white",
+    badgeBg: r.badgeBg || r.badge_bg || "bg-slate-100 text-slate-800",
+    images,
+    roomCode: r.roomCode || r.room_code || "",
+    managingUnit: r.managingUnit || r.managing_unit || "",
+    floor: r.floor !== undefined && r.floor !== null && r.floor !== "" ? Number(r.floor) : null,
+    sortOrder: (r.sortOrder !== undefined && r.sortOrder !== null && r.sortOrder !== "")
+      ? Number(r.sortOrder)
+      : ((r.sort_order !== undefined && r.sort_order !== null && r.sort_order !== "") ? Number(r.sort_order) : null),
+  };
+};
+
 export default function MeetingRoomsPage() {
+  const { lang, t, formatDate, formatNumber } = useLanguage();
+  const [mounted, setMounted] = useState(false);
+  
+  useEffect(() => {
+    setMounted(true);
+    const vnParts = getVietnamNowParts();
+    setTodayVnStr(vnParts.vnDisplayDate);
+    setTodayIsoStr(vnParts.isoDate);
+    setSelectedCalendarDate(vnParts.vnDisplayDate);
+  }, []);
+
   const [activeTab, setActiveTab] = useState<"APPROVALS" | "BOOKING" | "ROOMS" | "VISITORS" | "CALENDAR">("CALENDAR");
-  const [userRole, setUserRole] = useState<"LE_TAN" | "CBCNV">("CBCNV");
   const [reassignModalBooking, setReassignModalBooking] = useState<RoomBooking | null>(null);
   const [newAssignedRoomId, setNewAssignedRoomId] = useState<string>("");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [selectedVisitorBadge, setSelectedVisitorBadge] = useState<VisitorRecord | null>(null);
   const [selectedEventModal, setSelectedEventModal] = useState<RoomBooking | null>(null);
   const [selectedRoomForDetail, setSelectedRoomForDetail] = useState<MeetingRoom | null>(null);
+  const [editingRoom, setEditingRoom] = useState<MeetingRoom | null>(null);
   const [roomGalleryImages, setRoomGalleryImages] = useState<string[]>([]);
   const [activeImageIdx, setActiveImageIdx] = useState<number>(0);
   const [quickNoteModalOpen, setQuickNoteModalOpen] = useState(false);
 
-  // Preload and detect all available images in room folder when detail modal opens
+  // Sorting Preference for Rooms list
+  const [roomSortPreference, setRoomSortPreference] = useState<"DEFAULT" | "NAME_AZ" | "CAPACITY_DESC" | "STATUS_AVAILABLE">("DEFAULT");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedSort = localStorage.getItem("tbs_room_sort_pref");
+      if (savedSort && ["DEFAULT", "NAME_AZ", "CAPACITY_DESC", "STATUS_AVAILABLE"].includes(savedSort)) {
+        setRoomSortPreference(savedSort as any);
+      }
+    }
+  }, []);
+
+  const handleSortPreferenceChange = (newSort: "DEFAULT" | "NAME_AZ" | "CAPACITY_DESC" | "STATUS_AVAILABLE") => {
+    setRoomSortPreference(newSort);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("tbs_room_sort_pref", newSort);
+    }
+  };
+
+  // Load gallery images when detail modal opens — ưu tiên room.images từ DB
   useEffect(() => {
     if (selectedRoomForDetail) {
+      setActiveImageIdx(0);
+
+      // 1. Nếu phòng đã có ảnh trong DB → dùng luôn, không thử static
+      const dbImages = Array.isArray(selectedRoomForDetail.images)
+        ? selectedRoomForDetail.images.filter(Boolean)
+        : [];
+
+      if (dbImages.length > 0) {
+        setRoomGalleryImages(dbImages);
+        return;
+      }
+
+      // 2. Fallback: thử các đường dẫn tĩnh cũ
       const roomId = selectedRoomForDetail.id;
       const candidates = [
         `/images/rooms/${roomId}/1.jpg`,
@@ -159,10 +280,7 @@ export default function MeetingRoomsPage() {
         `/images/rooms/${roomId}/room3.jpg`,
       ];
 
-      // Instant initial load
-      setRoomGalleryImages([`/images/rooms/${roomId}/1.jpg`]);
-      setActiveImageIdx(0);
-
+      setRoomGalleryImages([]);
       let isMounted = true;
       Promise.all(
         candidates.map((url) =>
@@ -176,9 +294,7 @@ export default function MeetingRoomsPage() {
       ).then((results) => {
         if (isMounted) {
           const validUrls = Array.from(new Set(results.filter((url): url is string => url !== null)));
-          if (validUrls.length > 0) {
-            setRoomGalleryImages(validUrls);
-          }
+          setRoomGalleryImages(validUrls);
         }
       });
 
@@ -190,7 +306,10 @@ export default function MeetingRoomsPage() {
       setActiveImageIdx(0);
     }
   }, [selectedRoomForDetail]);
-  const [selectedCalendarDate, setSelectedCalendarDate] = useState<string>(getTodayVnDate());
+  const [todayVnStr, setTodayVnStr] = useState<string>("");
+  const [isUploadingImages, setIsUploadingImages] = useState<boolean>(false);
+  const [todayIsoStr, setTodayIsoStr] = useState<string>("");
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState<string>("");
   const [calendarViewMode, setCalendarViewMode] = useState<"MONTH" | "DAY_LIST">("MONTH");
   const [confirmedSubTab, setConfirmedSubTab] = useState<"CONFIRMED" | "COMPLETED">("CONFIRMED");
 
@@ -224,12 +343,6 @@ export default function MeetingRoomsPage() {
           cur.roles?.includes("admin") ||
           ["LT-001", "202206011", "202409009", "202010004", "202608001"].includes(cur.empCode || "") ||
           (cur.title || "").toLowerCase().includes("lễ tân");
-
-        if (isRecOrAdmin) {
-          setUserRole("LE_TAN");
-        } else {
-          setUserRole("CBCNV");
-        }
       }
     }
 
@@ -259,6 +372,8 @@ export default function MeetingRoomsPage() {
     return false;
   })();
 
+  const canManageRooms = canAccessReceptionDesk;
+
   // Redirect unauthorized users away from APPROVALS tab if accessed directly
   useEffect(() => {
     if (!canAccessReceptionDesk && activeTab === "APPROVALS") {
@@ -273,7 +388,7 @@ export default function MeetingRoomsPage() {
     let isMounted = true;
     async function loadD1Rooms() {
       try {
-        const res = await apiFetch("/api/rooms");
+        const res = await apiFetch("/api/rooms", { cache: "no-store" });
         const json = await res.json();
         if (isMounted) {
           if (!json.success || json.error === "D1_CONNECTION_ERROR") {
@@ -281,13 +396,29 @@ export default function MeetingRoomsPage() {
           } else {
             setD1Error(null);
             if (json.data?.rooms && json.data.rooms.length > 0) {
-              setRooms(json.data.rooms);
+              setRooms((prev) =>
+                (json.data.rooms || []).map((r: any) => {
+                  const matched = prev.find((p: any) => p.id === r.id);
+                  return {
+                    id: r.id,
+                    name: r.name,
+                    capacity: r.capacity || 10,
+                    location: r.location,
+                    equipment: typeof r.equipment === "string" ? r.equipment.split(", ") : r.equipment || [],
+                    status: r.status || "AVAILABLE",
+                    isLocked: Boolean(r.is_locked || r.isLocked),
+                    colorClass: matched?.colorClass || "bg-blue-600 border-blue-700 text-white",
+                    badgeBg: matched?.badgeBg || "bg-blue-100 text-blue-800",
+                    images: r.images || [],
+                  };
+                })
+              );
             }
             if (json.data?.bookings && json.data.bookings.length > 0) {
               setBookings((prev) => {
-                const d1Map = new Map(json.data.bookings.map((b: RoomBooking) => [b.id, b]));
+                const d1Map = new Map((json.data.bookings || []).map((b: RoomBooking) => [b.id, b]));
                 // Preserve local optimistic state (like APPROVING) until API finishes
-                const merged = json.data.bookings.map((d1Item: RoomBooking) => {
+                const merged = (json.data.bookings || []).map((d1Item: RoomBooking) => {
                   const localMatch = prev.find((p) => p.id === d1Item.id);
                   if (localMatch && localMatch.status === "APPROVING") {
                     return localMatch;
@@ -301,7 +432,7 @@ export default function MeetingRoomsPage() {
             }
             if (json.data?.visitors && json.data.visitors.length > 0) {
               setVisitors((prev) => {
-                const d1Map = new Map(json.data.visitors.map((v: VisitorRecord) => [v.id, v]));
+                const d1Map = new Map((json.data.visitors || []).map((v: VisitorRecord) => [v.id, v]));
                 const localOnly = prev.filter((v) => v.id.startsWith("v_") && !d1Map.has(v.id));
                 return [...localOnly, ...json.data.visitors];
               });
@@ -410,17 +541,18 @@ export default function MeetingRoomsPage() {
   const [customEndTime, setCustomEndTime] = useState("10:00");
 
   // Booking Form State
-  const [bookingForm, setBookingForm] = useState({
-    roomId: "room_1",
+  const [bookingForm, setBookingForm] = useState<{roomId: string; title: string; bookerName: string; department: string; bookingDate: string; timeSlot: string; attendeesCount: number; notes: string; needsTeaCoffee: boolean; needsProjector: boolean; meetingType?: string; platform?: string; meetingLink?: string; meetingCredentials?: string;}>({
+    roomId: "",
     title: "",
     bookerName: "Ban Quản Lý",
-    department: "Hành chính",
-    bookingDate: getTodayIsoDate(),
-    timeSlot: "09:00 - 10:30",
+    department: "BAN ĐH-QT",
+    bookingDate: "",
+    timeSlot: "08:00 - 09:30",
     attendeesCount: 6,
     notes: "",
     needsTeaCoffee: true,
     needsProjector: true,
+    meetingType: "Offline",
   });
 
   // Visitor Registration Form State
@@ -431,7 +563,7 @@ export default function MeetingRoomsPage() {
     hostName: "Ban Quản Lý",
     department: "Hành chính",
     roomLocation: "Phòng Họp Executive VIP 1",
-    visitDate: getTodayIsoDate(),
+    visitDate: "",
     expectedTime: "14:00",
     notes: "",
   });
@@ -465,7 +597,7 @@ export default function MeetingRoomsPage() {
     showToast("⏳ Đang xác nhận phòng họp...");
 
     try {
-      const approvalTime = new Date().toLocaleTimeString("vi-VN", {
+      const approvalTime = new Date().toLocaleTimeString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh",
         hour: "2-digit",
         minute: "2-digit",
       });
@@ -474,24 +606,45 @@ export default function MeetingRoomsPage() {
         ` [APPROVED_BY_RECEPTIONIST_AT_${approvalTime}]`;
 
       // ✅ Step 2: Call API with await and full payload for UPSERT support
-      const response = await fetch("/api/rooms/booking", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: bookingId,
-          roomId: targetBooking.roomId,
-          roomName: targetBooking.roomName,
-          title: targetBooking.title,
-          bookerName: targetBooking.bookerName,
-          department: targetBooking.department,
-          bookingDate: targetBooking.bookingDate,
-          timeSlot: targetBooking.timeSlot,
-          attendeesCount: targetBooking.attendeesCount,
-          notes: updatedNotes,
-          status: "CONFIRMED",
-          approvedAt: new Date().toISOString(),
-        }),
-      });
+      const doApprove = async (force: boolean = false) => {
+        const response = await fetch("/api/rooms/booking", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: bookingId,
+            roomId: targetBooking.roomId,
+            roomName: targetBooking.roomName,
+            title: targetBooking.title,
+            bookerName: targetBooking.bookerName,
+            department: targetBooking.department,
+            bookingDate: targetBooking.bookingDate,
+            timeSlot: targetBooking.timeSlot,
+            attendeesCount: targetBooking.attendeesCount,
+            notes: updatedNotes,
+            status: "CONFIRMED",
+            approvedAt: new Date().toISOString(),
+            forceApprove: force
+          }),
+        });
+
+        const data = await response.json();
+        
+        if (response.status === 409 && data.warning === 'OVERLAP') {
+          if (window.confirm(data.error)) {
+            return await doApprove(true); // Retry with forceApprove
+          } else {
+            throw new Error("USER_CANCELLED");
+          }
+        }
+        
+        if (!data.success) {
+          throw new Error(data.error || "Có lỗi xảy ra khi xác nhận");
+        }
+
+        return data;
+      };
+
+      await doApprove(false);
 
       setBookings((prev) =>
         prev.map((b) =>
@@ -511,8 +664,13 @@ export default function MeetingRoomsPage() {
           link: "/rooms",
         });
       }
-    } catch (error) {
-      console.error("Approve booking failed:", error);
+    } catch (error: any) {
+      if (error.message !== "USER_CANCELLED") {
+        console.error("Approve booking failed:", error);
+        showToast(
+          `❌ Xác nhận thất bại: ${error instanceof Error ? error.message : "Lỗi không xác định"}`
+        );
+      }
 
       // ✅ Step 6: Revert to PENDING on failure
       setBookings((prev) =>
@@ -723,7 +881,7 @@ export default function MeetingRoomsPage() {
     const targetBooking = bookings.find((b) => b.id === bookingId);
     if (!targetBooking) return;
 
-    const updatedBookings = bookings.map((item) =>
+    const updatedBookings = (bookings || []).map((item) =>
       item.id === bookingId ? { ...item, status: "COMPLETED" as const } : item
     );
 
@@ -757,29 +915,24 @@ export default function MeetingRoomsPage() {
   // Sync Data with Cloudflare D1 Database
   const fetchD1RoomsData = async () => {
     try {
-      const res = await fetch("/api/rooms");
+      const res = await fetch("/api/rooms", { cache: "no-store" });
       const result = await res.json();
       if (result.success && result.data) {
         if (Array.isArray(result.data.rooms) && result.data.rooms.length > 0) {
           setRooms((prev) =>
-            result.data.rooms.map((r: any) => {
+            (Array.isArray(result.data?.rooms) ? result.data.rooms : []).map((r: any) => {
               const matched = prev.find((p) => p.id === r.id);
-              return {
-                id: r.id,
-                name: r.name,
-                capacity: r.capacity || 10,
-                location: r.location,
-                equipment: typeof r.equipment === "string" ? r.equipment.split(", ") : r.equipment || [],
-                status: r.status || "AVAILABLE",
-                isLocked: Boolean(r.is_locked),
-                colorClass: matched?.colorClass || "bg-blue-600 border-blue-700 text-white",
-                badgeBg: matched?.badgeBg || "bg-blue-100 text-blue-800",
-              };
+              const normalized = normalizeRoom(r);
+              if (matched) {
+                normalized.colorClass = matched.colorClass;
+                normalized.badgeBg = matched.badgeBg;
+              }
+              return normalized;
             })
           );
         }
         if (Array.isArray(result.data.bookings)) {
-          const d1Bookings: RoomBooking[] = result.data.bookings.map((b: any) => ({
+          const d1Bookings: RoomBooking[] = (result.data?.bookings || []).map((b: any) => ({
             id: b.id,
             roomId: b.room_id || b.roomId,
             roomName: b.room_name || b.roomName,
@@ -791,7 +944,7 @@ export default function MeetingRoomsPage() {
             attendeesCount: b.attendees_count || b.attendeesCount || 5,
             notes: b.notes,
             status: b.status || "PENDING",
-            createdAt: b.created_at || new Date().toLocaleString("vi-VN"),
+            createdAt: b.created_at || new Date().toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }),
           }));
           
           // ✅ FIX: Merge API data with local state instead of replacing
@@ -814,7 +967,7 @@ export default function MeetingRoomsPage() {
           }
         }
         if (Array.isArray(result.data.visitors)) {
-          const d1Visitors: VisitorRecord[] = result.data.visitors.map((v: any) => ({
+          const d1Visitors: VisitorRecord[] = (result.data?.visitors || []).map((v: any) => ({
             id: v.id,
             badgeCode: v.badge_code || v.badgeCode,
             visitorName: v.visitor_name || v.visitorName,
@@ -827,7 +980,7 @@ export default function MeetingRoomsPage() {
             expectedTime: v.expected_time || v.expectedTime,
             status: v.status || "EXPECTED",
             notes: v.notes,
-            createdAt: v.created_at || new Date().toLocaleString("vi-VN"),
+            createdAt: v.created_at || new Date().toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }),
           }));
           setVisitors(d1Visitors);
           if (typeof window !== "undefined") {
@@ -913,17 +1066,10 @@ export default function MeetingRoomsPage() {
     
     const dateFmt = bookingForm.bookingDate.split("-").reverse().join("/");
 
-    // ✅ NEW: Check if booking time is in the past
-    const today = new Date();
-    const bookingDateObj = new Date(bookingForm.bookingDate + "T" + bookingForm.timeSlot.split(" - ")[0]);
-    
-    // Parse time slot (HH:MM format)
-    const timeStr = bookingForm.timeSlot.split(" - ")[0]; // Get start time "HH:MM"
-    const [hours, minutes] = timeStr.split(":").map(Number);
-    bookingDateObj.setHours(hours, minutes, 0, 0);
-    
-    if (bookingDateObj < today) {
-      showToast("❌ Vui lòng kiểm tra lại lịch họp - Thời gian họp đã qua!");
+    // ✅ Check if booking time is in the past using roomTimeHelper (Asia/Ho_Chi_Minh timezone, 5-min grace tolerance)
+    const timeCheck = isMeetingTimePassed(bookingForm.bookingDate, bookingForm.timeSlot, 5);
+    if (timeCheck.isPassed) {
+      showToast(`❌ ${timeCheck.reason || "Vui lòng kiểm tra lại lịch họp - Thời gian họp đã qua!"}`);
       return;
     }
 
@@ -952,7 +1098,7 @@ export default function MeetingRoomsPage() {
       attendeesCount: bookingForm.attendeesCount,
       notes: bookingForm.notes,
       status: "PENDING", // Corrected: Initial status is PENDING awaiting Receptionist approval
-      createdAt: new Date().toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" }),
+      createdAt: new Date().toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short", timeZone: "Asia/Ho_Chi_Minh" }),
     };
 
     setBookings([newBooking, ...bookings]);
@@ -988,7 +1134,7 @@ export default function MeetingRoomsPage() {
       if (!response.ok) {
         // Handle non-2xx responses
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || errorData.message || `HTTP ${response.status}`);
+        throw new Error(errorData.error || errorData.message || errorData.detail || `HTTP ${response.status}`);
       }
 
       const data = await response.json();
@@ -1002,7 +1148,7 @@ export default function MeetingRoomsPage() {
     }
 
     setQuickNoteModalOpen(false);
-    if (userRole === "LE_TAN") {
+    if (canManageRooms) {
       setActiveTab("APPROVALS");
     } else {
       setActiveTab("CALENDAR");
@@ -1037,7 +1183,7 @@ export default function MeetingRoomsPage() {
       expectedTime: visitorForm.expectedTime,
       status: "EXPECTED",
       notes: visitorForm.notes,
-      createdAt: new Date().toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" }),
+      createdAt: new Date().toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short", timeZone: "Asia/Ho_Chi_Minh" }),
     };
 
     setVisitors([newVisitor, ...visitors]);
@@ -1062,7 +1208,7 @@ export default function MeetingRoomsPage() {
 
   // Toggle Room Maintenance Lock
   const handleToggleRoomLock = async (roomId: string) => {
-    const updatedRooms = rooms.map((r) => {
+    const updatedRooms = (rooms || []).map((r) => {
       if (r.id === roomId) {
         const nextLock = !r.isLocked;
         return {
@@ -1093,6 +1239,111 @@ export default function MeetingRoomsPage() {
     }
   };
 
+  const handleSaveRoom = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingRoom) return;
+    try {
+      let imagesArr = Array.isArray(editingRoom.images) ? [...editingRoom.images] : [];
+      const hasBase64 = imagesArr.some(img => (typeof img === 'string' && img.startsWith("data:")) || (img && img.url && img.url.startsWith("data:")));
+      
+      if (hasBase64) {
+        setIsUploadingImages(true);
+        showToast("⏳ Đang tải ảnh lên hệ thống...");
+        
+        try {
+          const uploadedUrls = await Promise.all(
+            imagesArr.map(async (img) => {
+              const url = typeof img === 'string' ? img : img.url;
+              const public_id = typeof img === 'string' ? '' : (img.public_id || '');
+              
+              if (!url || !url.startsWith("data:")) return { url, public_id };
+              
+              const { secure_url, public_id: new_public_id } = await uploadCloudinaryFile(url, { category: "meeting-rooms" });
+              return { url: secure_url, public_id: new_public_id };
+            })
+          );
+          imagesArr = uploadedUrls;
+        } catch (uploadError: any) {
+          setIsUploadingImages(false);
+          alert("Tải ảnh lên thất bại: " + (uploadError.message || uploadError.toString()));
+          return; // Stop saving if upload fails!
+        }
+        setIsUploadingImages(false);
+      }
+      
+      const equipmentArr = Array.isArray(editingRoom.equipment)
+        ? editingRoom.equipment
+        : (typeof editingRoom.equipment === "string" ? (editingRoom.equipment as string).split(',').map((s: string) => s.trim()).filter(Boolean) : []);
+        
+      const isNew = editingRoom.id === "new";
+      const method = isNew ? "POST" : "PUT";
+      const res = await fetch("/api/rooms", {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...editingRoom,
+          images: imagesArr,
+          equipment: equipmentArr
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast("✅ Đã lưu thông tin phòng thành công!");
+        setEditingRoom(null);
+        // Cập nhật selectedRoomForDetail ngay để gallery refresh ảnh mới
+        if (selectedRoomForDetail && selectedRoomForDetail.id === editingRoom.id) {
+          setSelectedRoomForDetail((prev) => prev ? {
+            ...prev,
+            ...editingRoom,
+            images: imagesArr,
+            equipment: equipmentArr,
+          } : null);
+        }
+        await fetchD1RoomsData();
+      } else {
+        alert("Lỗi: " + data.error);
+      }
+    } catch (err: any) {
+      alert("Lỗi kết nối: " + err.message);
+    }
+  };
+
+  const handleDeleteRoom = async (roomId: string) => {
+    if (!window.confirm("Bạn có chắc chắn muốn xóa phòng họp này? Các lịch đặt phòng liên quan có thể bị ảnh hưởng.")) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/rooms?id=${roomId}`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.success) {
+        // Find room and delete images from Cloudinary
+        const room = rooms.find(r => r.id === roomId);
+        if (room && room.images) {
+           for (const img of room.images) {
+              if (img && img.public_id) {
+                 try {
+                    await fetch("/api/cloudinary/delete", {
+                       method: "POST",
+                       headers: { "Content-Type": "application/json" },
+                       body: JSON.stringify({ public_id: img.public_id })
+                    });
+                 } catch (e) {}
+              }
+           }
+        }
+        showToast("✅ Đã xóa phòng họp thành công!");
+        if (selectedRoomForDetail?.id === roomId) {
+          setSelectedRoomForDetail(null);
+        }
+        await fetchD1RoomsData();
+      } else {
+        alert("Lỗi khi xóa phòng họp: " + data.error);
+      }
+    } catch (err: any) {
+      alert("Lỗi kết nối: " + err.message);
+    }
+  };
+
   // Helper: Helper color getter for room cards
   const getRoomColorStyle = (roomName: string) => {
     if (roomName.includes("OTI") || roomName.includes("OTG")) return "bg-emerald-700 hover:bg-emerald-800 text-white";
@@ -1105,11 +1356,11 @@ export default function MeetingRoomsPage() {
   };
 
   // Dynamic Real-time Calculations for Room Availability & Schedule Stats
-  const activeConfirmedBookings = bookings.filter((b) => b.status === "CONFIRMED");
-  const totalUsableRooms = rooms.filter((r) => !r.isLocked && r.status !== "MAINTENANCE");
+  const activeConfirmedBookingsToday = (bookings || []).filter((b) => b.status === "CONFIRMED" && b.bookingDate === todayVnStr);
+  const totalUsableRooms = (rooms || []).filter((r) => !r.isLocked && r.status !== "MAINTENANCE");
 
   const occupiedRoomIdsToday = new Set<string>();
-  activeConfirmedBookings.forEach((b) => {
+  activeConfirmedBookingsToday.forEach((b) => {
     const matchedById = totalUsableRooms.find((r) => r.id === b.roomId);
     if (matchedById && !occupiedRoomIdsToday.has(matchedById.id)) {
       occupiedRoomIdsToday.add(matchedById.id);
@@ -1133,22 +1384,76 @@ export default function MeetingRoomsPage() {
 
   const occupiedRoomsCount = occupiedRoomIdsToday.size;
   const availableRoomsCount = Math.max(0, totalUsableRooms.length - occupiedRoomsCount);
-  const pendingBookingsCount = bookings.filter((b) => b.status === "PENDING").length;
+  const pendingBookingsCount = (bookings || []).filter((b) => b.status === "PENDING").length;
 
-  const confirmedBookingsToday = bookings.filter(
-    (b) => b.status === "CONFIRMED" || b.status === "COMPLETED"
+  const confirmedBookingsToday = (bookings || []).filter(
+    (b) => (b.status === "CONFIRMED" || b.status === "COMPLETED") && b.bookingDate === todayVnStr
   );
   const masterCalendarConfirmedCount = confirmedBookingsToday.length;
+
+  const getSortedRooms = (roomsList: MeetingRoom[]) => {
+    const collator = new Intl.Collator('vi', { numeric: true, sensitivity: 'base' });
+    const list = [...(roomsList || [])];
+
+    return list.sort((a, b) => {
+      if (roomSortPreference === "NAME_AZ") {
+        return collator.compare(a.name || "", b.name || "");
+      }
+      if (roomSortPreference === "CAPACITY_DESC") {
+        if (b.capacity !== a.capacity) return b.capacity - a.capacity;
+        return collator.compare(a.name || "", b.name || "");
+      }
+      if (roomSortPreference === "STATUS_AVAILABLE") {
+        const getStatusRank = (r: MeetingRoom) => {
+          if (r.isLocked) return 3;
+          if (occupiedRoomIdsToday.has(r.id)) return 2;
+          return 1;
+        };
+        const rankA = getStatusRank(a);
+        const rankB = getStatusRank(b);
+        if (rankA !== rankB) return rankA - rankB;
+        return collator.compare(a.name || "", b.name || "");
+      }
+
+      // DEFAULT sort: sortOrder -> floor -> natural name -> id
+      const hasSortA = a.sortOrder !== undefined && a.sortOrder !== null;
+      const hasSortB = b.sortOrder !== undefined && b.sortOrder !== null;
+      if (hasSortA && hasSortB) {
+        if (Number(a.sortOrder) !== Number(b.sortOrder)) return Number(a.sortOrder) - Number(b.sortOrder);
+      } else if (hasSortA) {
+        return -1;
+      } else if (hasSortB) {
+        return 1;
+      }
+
+      const hasFloorA = a.floor !== undefined && a.floor !== null;
+      const hasFloorB = b.floor !== undefined && b.floor !== null;
+      if (hasFloorA && hasFloorB) {
+        if (Number(a.floor) !== Number(b.floor)) return Number(a.floor) - Number(b.floor);
+      } else if (hasFloorA) {
+        return -1;
+      } else if (hasFloorB) {
+        return 1;
+      }
+
+      const nameComp = collator.compare(a.name || "", b.name || "");
+      if (nameComp !== 0) return nameComp;
+
+      return collator.compare(a.id || "", b.id || "");
+    });
+  };
+
+  const sortedRooms = getSortedRooms(rooms || []);
 
 
 
   // Date Parsing & Formatting Helpers for Google Calendar & Month Grid
   const parseVnDate = (dateStr: string) => {
-    const parts = (dateStr || getTodayVnDate()).split("/");
+    const parts = (dateStr || "01/01/2026").split("/");
     if (parts.length === 3) {
       return new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
     }
-    return new Date();
+    return new Date(2026, 0, 1);
   };
 
   const formatVnDate = (d: Date) => {
@@ -1169,7 +1474,7 @@ export default function MeetingRoomsPage() {
     const startDate = new Date(firstDayOfMonth);
     startDate.setDate(1 - startDayOfWeek); // Roll back to Sunday before 1st of month
 
-    const todayStr = getTodayVnDate();
+    const todayStr = todayVnStr;
     const days = [];
 
     for (let idx = 0; idx < 35; idx++) {
@@ -1178,7 +1483,7 @@ export default function MeetingRoomsPage() {
       const dateStr = formatVnDate(d);
       const isCurrentMonth = d.getMonth() === month;
       const isToday = dateStr === todayStr;
-      const dayBookings = bookings.filter(
+      const dayBookings = (bookings || []).filter(
         (b) => b.bookingDate === dateStr && (b.status === "CONFIRMED" || b.status === "COMPLETED")
       );
 
@@ -1196,8 +1501,9 @@ export default function MeetingRoomsPage() {
 
   const getDayNameVn = (dateStr: string) => {
     const d = parseVnDate(dateStr);
-    const dayNames = ["Chủ Nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
-    return dayNames[d.getDay()];
+    const dayNamesVi = ["Chủ Nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
+    const dayNamesEn = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    return lang === "en" ? dayNamesEn[d.getDay()] : dayNamesVi[d.getDay()];
   };
 
   const handlePrevDate = () => {
@@ -1223,14 +1529,14 @@ export default function MeetingRoomsPage() {
   };
 
   const handleTodayDate = () => {
-    const todayVn = getTodayVnDate();
-    const todayIso = getTodayIsoDate();
+    const todayVn = todayVnStr;
+    const todayIso = todayIsoStr;
     setSelectedCalendarDate(todayVn);
     setBookingForm((prev) => ({
       ...prev,
       bookingDate: todayIso,
     }));
-    showToast(`Đã chuyển về ngày hôm nay ${todayVn}`);
+    showToast(lang === "en" ? `Switched to today ${todayVn}` : `Đã chuyển về ngày hôm nay ${todayVn}`);
   };
 
   // Generate 7 days for the quick week switcher strip
@@ -1245,16 +1551,19 @@ export default function MeetingRoomsPage() {
       const d = new Date(monday);
       d.setDate(monday.getDate() + i);
       const dateStr = formatVnDate(d);
-      const dayBookings = bookings.filter(
+      const dayBookings = (bookings || []).filter(
         (b) => b.bookingDate === dateStr && (b.status === "CONFIRMED" || b.status === "COMPLETED")
       );
-      const dayNamesShort = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+      const dayNamesShortVi = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+      const dayNamesShortEn = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      const dayNamesFullVi = ["Chủ Nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
+      const dayNamesFullEn = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
       return {
         dateStr,
         dayNum: d.getDate(),
         monthNum: d.getMonth() + 1,
-        dayNameShort: dayNamesShort[d.getDay()],
-        dayNameFull: ["Chủ Nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"][d.getDay()],
+        dayNameShort: lang === "en" ? dayNamesShortEn[d.getDay()] : dayNamesShortVi[d.getDay()],
+        dayNameFull: lang === "en" ? dayNamesFullEn[d.getDay()] : dayNamesFullVi[d.getDay()],
         isSelected: dateStr === selectedCalendarDate,
         isToday: dateStr === "15/08/2026",
         count: dayBookings.length,
@@ -1277,8 +1586,13 @@ export default function MeetingRoomsPage() {
     { hour: 18, label: "18:00", defaultSlot: "18:00 - 19:30" },
   ];
 
+  if (!mounted) {
+    return null; // Prevents hydration mismatch caused by time-dependent initial state (e.g. at midnight crossover)
+  }
+
   return (
-    <div className="min-h-screen bg-[#f4f7f5] text-slate-900 flex flex-col justify-between font-sans">
+    <ErrorBoundary>
+      <div className="min-h-screen bg-[#f4f7f5] text-slate-900 flex flex-col justify-between font-sans">
       {/* ════════════════════════════════════════════════════════════════
           TOP EXECUTIVE HEADER BAR
          ════════════════════════════════════════════════════════════════ */}
@@ -1298,65 +1612,11 @@ export default function MeetingRoomsPage() {
             />
           </Link>
           <span className="hidden md:inline-block px-2.5 py-1 rounded-full bg-[#e6f4ed] text-[#006838] text-xs font-bold border border-emerald-100 truncate">
-            Hệ Thống Quản Lý Phòng Họp &amp; Đón Khách
+            {t("header.systemTitle", undefined, "Hệ Thống Quản Lý Phòng Họp & Đón Khách")}
           </span>
         </div>
 
-        <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
-          {/* Quick Role Switcher Toggle (Dành riêng cho Lễ Tân & Admin) */}
-          {canAccessReceptionDesk && (
-            <div className="hidden sm:flex items-center gap-1 p-1 bg-slate-100 rounded-xl border border-slate-200 text-[11px] font-bold">
-              <button
-                onClick={() => {
-                  setUserRole("LE_TAN");
-                  showToast("👩‍💼 Đã chuyển sang chế độ Quản lý Bàn Lễ Tân!");
-                }}
-                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
-                  userRole === "LE_TAN" ? "bg-[#006838] text-white shadow-2xs" : "text-slate-600 hover:text-slate-900"
-                }`}
-                title="Chế độ Quản lý Lễ Tân: Phê duyệt & xếp phòng họp"
-              >
-                👩‍💼 Quản lý Lễ Tân
-              </button>
-              <button
-                onClick={() => {
-                  setUserRole("CBCNV");
-                  showToast("👤 Đã chuyển sang chế độ Cán bộ CNV!");
-                }}
-                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
-                  userRole === "CBCNV" ? "bg-[#006838] text-white shadow-2xs" : "text-slate-600 hover:text-slate-900"
-                }`}
-                title="Chế độ Cán bộ CNV: Đặt phòng họp & xem lịch"
-              >
-                👤 Cán bộ CNV
-              </button>
-            </div>
-          )}
-
-          <button className="px-2 py-1 rounded-lg bg-slate-100 text-slate-700 text-[11px] sm:text-xs font-bold flex items-center gap-1 hover:bg-slate-200 transition-colors">
-            <span>VN</span>
-            <IconChevronDown size={12} />
-          </button>
-          <button className="p-1.5 sm:p-2 rounded-full bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors relative">
-            <IconBell size={16} />
-            <span className="absolute top-0 right-0 w-2 h-2 rounded-full bg-rose-500 border border-white" />
-          </button>
-          <div className="flex items-center gap-2 border-l border-slate-200 pl-2 sm:pl-3">
-            <UserAvatar
-              src={currentUser.avatar}
-              name={currentUser.name}
-              size="sm"
-            />
-            <div className="hidden md:block text-left">
-              <div className="text-xs font-bold text-slate-900 leading-none">
-                {currentUser.name}
-              </div>
-              <div className="text-[10px] text-slate-500 font-medium mt-0.5">
-                {currentUser.title || currentUser.department}
-              </div>
-            </div>
-          </div>
-        </div>
+        <HeaderControls variant="light" className="flex-shrink-0" />
       </header>
 
       {/* ════════════════════════════════════════════════════════════════
@@ -1368,10 +1628,10 @@ export default function MeetingRoomsPage() {
           <div className="bg-rose-600 text-white px-4 py-3 rounded-2xl shadow-md border border-rose-700 flex items-center justify-between text-xs font-bold">
             <div className="flex items-center gap-2">
               <span className="text-base">⚠️</span>
-              <span>Mất kết nối CSDL D1 — dữ liệu phòng họp có thể không chính xác</span>
+              <span>{t("errors.d1Disconnected", undefined, "Mất kết nối CSDL D1 — dữ liệu phòng họp có thể không chính xác")}</span>
             </div>
             <button onClick={() => window.location.reload()} className="px-2.5 py-1 bg-white text-rose-700 rounded-lg text-[11px] font-black hover:bg-rose-50 cursor-pointer">
-              Tải lại
+              {t("common.retry", undefined, "Tải lại")}
             </button>
           </div>
         )}
@@ -1383,15 +1643,15 @@ export default function MeetingRoomsPage() {
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold hover:bg-emerald-50 hover:text-[#006838] transition-colors shadow-2xs"
           >
             <IconArrowLeft size={16} />
-            <span>Trở về Tổng quan</span>
+            <span>{t("common.backToOverview", undefined, "Trở về Tổng quan")}</span>
           </Link>
 
           <div className="text-center sm:text-right">
             <h1 className="text-base sm:text-2xl font-black text-slate-900 tracking-tight">
-              QUẢN LÝ PHÒNG HỌP &amp; ĐÓN KHÁCH
+              {t("dashboard.title", undefined, "QUẢN LÝ PHÒNG HỌP & ĐÓN KHÁCH")}
             </h1>
             <p className="text-[11px] sm:text-xs text-slate-500 font-medium">
-              Hệ thống lịch tổng hợp cuộc họp, đăng ký tài nguyên phòng họp &amp; đón khách
+              {t("dashboard.subtitle", undefined, "Hệ thống lịch tổng hợp cuộc họp, đăng ký tài nguyên phòng họp & đón khách")}
             </p>
           </div>
         </div>
@@ -1405,10 +1665,10 @@ export default function MeetingRoomsPage() {
               <IconBuilding size={24} className="hidden sm:block" />
             </div>
             <div className="space-y-0.5 min-w-0 flex-1 w-full">
-              <span className="text-[11px] sm:text-xs font-bold text-slate-500 block truncate">Tổng phòng họp</span>
-              <div className="text-lg sm:text-2xl font-black text-slate-900 leading-tight">{rooms.length} Phòng</div>
+              <span className="text-[11px] sm:text-xs font-bold text-slate-500 block truncate">{t("dashboard.totalRooms", undefined, "Tổng phòng họp")}</span>
+              <div className="text-lg sm:text-2xl font-black text-slate-900 leading-tight">{t("dashboard.roomCount", { count: rooms.length }, `${rooms.length} Phòng`)}</div>
               <span className="text-[10px] sm:text-[11px] font-bold text-emerald-600 block truncate">
-                +100% <span className="text-slate-400 font-normal hidden sm:inline">sẵn sàng sử dụng</span> ↑
+                +100% <span className="text-slate-400 font-normal hidden sm:inline">{t("dashboard.readyForUse", undefined, "sẵn sàng sử dụng")}</span> ↑
               </span>
             </div>
           </div>
@@ -1420,15 +1680,15 @@ export default function MeetingRoomsPage() {
               <IconCheck size={24} className="hidden sm:block" />
             </div>
             <div className="space-y-0.5 min-w-0 flex-1 w-full">
-              <span className="text-[11px] sm:text-xs font-bold text-slate-500 block truncate">Phòng trống khả dụng</span>
+              <span className="text-[11px] sm:text-xs font-bold text-slate-500 block truncate">{t("dashboard.availableRooms", undefined, "Phòng trống khả dụng")}</span>
               <div className="text-lg sm:text-2xl font-black text-[#006838] leading-tight">
-                {availableRoomsCount} / {rooms.length} Phòng
+                {t("dashboard.availableOfTotalRooms", { available: availableRoomsCount, total: rooms.length }, `${availableRoomsCount} / ${rooms.length} Phòng`)}
               </div>
               <span className="text-[10px] sm:text-[11px] font-bold text-emerald-600 block truncate">
                 {rooms.length - availableRoomsCount > 0 ? (
-                  <span className="text-amber-700 font-bold">{rooms.length - availableRoomsCount} phòng đang bận họp</span>
+                  <span className="text-amber-700 font-bold">{t("dashboard.occupiedRoomsNotice", { count: rooms.length - availableRoomsCount })}</span>
                 ) : (
-                  <span>100% phòng trống sẵn sàng</span>
+                  <span>{t("dashboard.allRoomsAvailable", undefined, "100% phòng trống sẵn sàng")}</span>
                 )}
               </span>
             </div>
@@ -1445,17 +1705,17 @@ export default function MeetingRoomsPage() {
               <IconCalendar size={24} className="hidden sm:block" />
             </div>
             <div className="space-y-0.5 min-w-0 flex-1 w-full">
-              <span className="text-[11px] sm:text-xs font-bold text-slate-500 block truncate">Lịch họp hôm nay</span>
+              <span className="text-[11px] sm:text-xs font-bold text-slate-500 block truncate">{t("dashboard.todayMeetings", undefined, "Lịch họp hôm nay")}</span>
               <div className="text-lg sm:text-2xl font-black text-slate-900 leading-tight">
-                {confirmedBookingsToday.length} Cuộc họp
+                {t("dashboard.meetingCount", { count: confirmedBookingsToday.length }, `${confirmedBookingsToday.length} Cuộc họp`)}
               </div>
               <span className="text-[10px] sm:text-[11px] font-bold block truncate">
                 {pendingBookingsCount > 0 ? (
-                  <span className="text-amber-700 font-black">⚠️ {pendingBookingsCount} chờ Lễ Tân xếp</span>
+                  <span className="text-amber-700 font-black">⚠️ {t("dashboard.pendingReceptionistCount", { count: pendingBookingsCount })}</span>
                 ) : confirmedBookingsToday.length > 0 ? (
-                  <span className="text-emerald-700 font-bold">✓ {confirmedBookingsToday.length} đã duyệt &amp; lên lịch</span>
+                  <span className="text-emerald-700 font-bold">✓ {t("dashboard.confirmedAndScheduled", { count: confirmedBookingsToday.length })}</span>
                 ) : (
-                  <span className="text-slate-500 font-medium">Chưa có lịch họp hôm nay</span>
+                  <span className="text-slate-500 font-medium">{t("dashboard.noMeetingsToday", undefined, "Chưa có lịch họp hôm nay")}</span>
                 )}
               </span>
             </div>
@@ -1468,10 +1728,10 @@ export default function MeetingRoomsPage() {
               <IconId size={24} className="hidden sm:block" />
             </div>
             <div className="space-y-0.5 min-w-0 flex-1">
-              <span className="text-[10px] sm:text-xs font-bold text-slate-500 block truncate">Khách đón trong ngày</span>
-              <div className="text-base sm:text-2xl font-black text-slate-900 leading-tight">{visitors.length} Lượt khách</div>
+              <span className="text-[10px] sm:text-xs font-bold text-slate-500 block truncate">{t("dashboard.visitorsToday", undefined, "Khách đón trong ngày")}</span>
+              <div className="text-base sm:text-2xl font-black text-slate-900 leading-tight">{t("dashboard.visitorCount", { count: visitors.length }, `${visitors.length} Lượt khách`)}</div>
               <span className="text-[10px] sm:text-[11px] font-bold text-purple-600 flex items-center gap-0.5 whitespace-nowrap truncate">
-                +25% <span className="text-slate-400 font-normal hidden sm:inline">so với tuần trước</span> ↑
+                +25% <span className="text-slate-400 font-normal hidden sm:inline">{t("dashboard.vsLastWeek", undefined, "so với tuần trước")}</span> ↑
               </span>
             </div>
           </div>
@@ -1490,10 +1750,10 @@ export default function MeetingRoomsPage() {
               }`}
             >
               <IconChecklist size={18} />
-              <span>Bàn Lễ Tân (Xác nhận &amp; Xếp lịch)</span>
-              {bookings.filter((b) => b.status === "PENDING").length > 0 && (
+              <span>{t("rooms.tabs.receptionDesk", undefined, "Bàn Lễ Tân (Xác nhận & Xếp lịch)")}</span>
+              {(bookings || []).filter((b) => b.status === "PENDING").length > 0 && (
                 <span className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[11px] font-black animate-pulse">
-                  {bookings.filter((b) => b.status === "PENDING").length} chờ duyệt
+                  {(bookings || []).filter((b) => b.status === "PENDING").length} chờ duyệt
                 </span>
               )}
             </button>
@@ -1508,7 +1768,7 @@ export default function MeetingRoomsPage() {
             }`}
           >
             <IconEdit size={18} />
-            <span>Đặt phòng họp</span>
+            <span>{t("rooms.tabs.bookRoom", undefined, "Đặt phòng họp")}</span>
           </button>
 
           <button
@@ -1520,7 +1780,7 @@ export default function MeetingRoomsPage() {
             }`}
           >
             <IconBuilding size={18} />
-            <span>Danh sách phòng họp</span>
+            <span>{t("rooms.tabs.roomList", undefined, "Danh sách phòng họp")}</span>
           </button>
 
           <button
@@ -1532,7 +1792,7 @@ export default function MeetingRoomsPage() {
             }`}
           >
             <IconId size={18} />
-            <span>Đón khách &amp; Cấp thẻ</span>
+            <span>{t("rooms.tabs.visitors", undefined, "Đón khách & Cấp thẻ")}</span>
           </button>
 
           <button
@@ -1544,11 +1804,11 @@ export default function MeetingRoomsPage() {
             }`}
           >
             <IconCalendar size={18} />
-            <span>Lịch tổng hợp cuộc họp</span>
+            <span>{t("rooms.tabs.masterSchedule", undefined, "Lịch tổng hợp cuộc họp")}</span>
             <span className={`px-2 py-0.5 rounded-full text-[11px] font-black ${
               activeTab === "CALENDAR" ? "bg-white/20 text-white" : "bg-slate-300/80 text-slate-800"
             }`}>
-              {masterCalendarConfirmedCount} đã duyệt
+              {t("calendar.confirmedCount", { count: masterCalendarConfirmedCount }, `${masterCalendarConfirmedCount} đã duyệt`)}
             </span>
           </button>
         </div>
@@ -1564,7 +1824,7 @@ export default function MeetingRoomsPage() {
               {/* Background Real Image & Dark Emerald Gradient Overlay */}
               <img
                 src="/images/KGLV/sanh-goc-tu-trong-nhin-ra.png"
-                alt="Quản Lý Phòng Họp & Lễ Tân"
+                alt={t("common.systemTitle", undefined, "Quản Lý Phòng Họp & Lễ Tân")}
                 className="absolute inset-0 w-full h-full object-cover opacity-35 group-hover:scale-105 transition-transform duration-700 pointer-events-none"
               />
               <div className="absolute inset-0 bg-gradient-to-r from-[#006838]/90 via-[#004d29]/80 to-slate-950/85 pointer-events-none" />
@@ -1575,17 +1835,25 @@ export default function MeetingRoomsPage() {
                   </div>
                   <div>
                     <span className="text-[10px] font-black text-emerald-300 uppercase tracking-widest">
-                      BỘ PHẬN LỄ TÂN &amp; QUẢN LÝ TÀI NGUYÊN
+                      {t("auth.roles.receptionist", undefined, "BỘ PHẬN LỄ TÂN & QUẢN LÝ TÀI NGUYÊN")}
                     </span>
                     <h2 className="text-xl sm:text-2xl font-black text-white leading-tight">
-                      Bàn Lễ Tân — Xác Nhận Phòng, Xếp Lịch &amp; Đón Tiếp Khách
+                      {t("rooms.tabs.receptionDesk", undefined, "Bàn Lễ Tân — Xác Nhận Phòng, Xếp Lịch & Đón Tiếp Khách")}
                     </h2>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className="px-3 py-1 rounded-full bg-emerald-400/20 text-emerald-300 text-xs font-extrabold border border-emerald-400/30">
-                    🟢 Đang Hoạt Động (Ca Sáng)
+                  <Link
+                    href="/rooms/qr"
+                    target="_blank"
+                    className="px-3 py-1.5 rounded-full bg-white text-emerald-900 text-xs font-black shadow-sm flex items-center gap-1.5 hover:bg-emerald-50 transition-colors"
+                  >
+                    <IconQrcode size={14} />
+                    IN MÃ QR CÔNG KHAI
+                  </Link>
+                  <span className="px-3 py-1 rounded-full bg-emerald-400/20 text-emerald-300 text-xs font-extrabold border border-emerald-400/30 hidden sm:inline-flex">
+                    {lang === "en" ? "🟢 Active" : "🟢 Đang Hoạt Động"}
                   </span>
                 </div>
               </div>
@@ -1593,30 +1861,30 @@ export default function MeetingRoomsPage() {
               {/* Quick Status Cards */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
                 <div className="p-3.5 rounded-2xl bg-white/10 border border-white/15 backdrop-blur-sm">
-                  <span className="text-[11px] font-bold text-amber-300 block">Yêu cầu chờ Lễ tân xác nhận</span>
+                  <span className="text-[11px] font-bold text-amber-300 block">{t("bookings.pendingApproval", undefined, "Yêu cầu chờ Lễ tân xác nhận")}</span>
                   <div className="text-2xl font-black text-white">
-                    {bookings.filter((b) => b.status === "PENDING").length} Yêu cầu
+                    {(bookings || []).filter((b) => b.status === "PENDING").length} {lang === "en" ? "Request(s)" : "Yêu cầu"}
                   </div>
                 </div>
 
                 <div className="p-3.5 rounded-2xl bg-white/10 border border-white/15 backdrop-blur-sm">
-                  <span className="text-[11px] font-bold text-emerald-300 block">Cuộc họp đã xác nhận</span>
+                  <span className="text-[11px] font-bold text-emerald-300 block">{t("bookings.approved", undefined, "Cuộc họp đã xác nhận")}</span>
                   <div className="text-2xl font-black text-white">
-                    {bookings.filter((b) => b.status === "CONFIRMED").length} Cuộc họp
+                    {t("dashboard.meetingCount", { count: (bookings || []).filter((b) => b.status === "CONFIRMED").length })}
                   </div>
                 </div>
 
                 <div className="p-3.5 rounded-2xl bg-white/10 border border-white/15 backdrop-blur-sm">
-                  <span className="text-[11px] font-bold text-purple-300 block">Khách đang tại Lễ tân</span>
+                  <span className="text-[11px] font-bold text-purple-300 block">{t("guests.statusCheckedIn", undefined, "Khách đang tại Lễ tân")}</span>
                   <div className="text-2xl font-black text-white">
-                    {visitors.filter((v) => v.status === "CHECKED_IN").length} Lượt khách
+                    {t("dashboard.visitorCount", { count: (visitors || []).filter((v) => v.status === "CHECKED_IN").length })}
                   </div>
                 </div>
 
                 <div className="p-3.5 rounded-2xl bg-white/10 border border-white/15 backdrop-blur-sm">
-                  <span className="text-[11px] font-bold text-blue-300 block">Phòng họp trống khả dụng</span>
+                  <span className="text-[11px] font-bold text-blue-300 block">{t("dashboard.availableRooms", undefined, "Phòng họp trống khả dụng")}</span>
                   <div className="text-2xl font-black text-white">
-                    {availableRoomsCount} / {rooms.length} Phòng
+                    {t("dashboard.availableOfTotalRooms", { available: availableRoomsCount, total: rooms.length })}
                   </div>
                 </div>
               </div>
@@ -1632,11 +1900,11 @@ export default function MeetingRoomsPage() {
                   </h3>
                 </div>
                 <span className="text-xs font-bold text-slate-500">
-                  {bookings.filter((b) => b.status === "PENDING" || b.status === "APPROVING").length} yêu cầu đang chờ
+                  {(bookings || []).filter((b) => b.status === "PENDING" || b.status === "APPROVING").length} yêu cầu đang chờ
                 </span>
               </div>
 
-              {bookings.filter((b) => b.status === "PENDING" || b.status === "APPROVING").length === 0 ? (
+              {(bookings || []).filter((b) => b.status === "PENDING" || b.status === "APPROVING").length === 0 ? (
                 <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
                   <p className="text-xs font-bold text-slate-500">
                     Không có yêu cầu nào đang chờ duyệt. Tất cả phòng họp đã được Lễ Tân sắp xếp ổn định!
@@ -1660,6 +1928,11 @@ export default function MeetingRoomsPage() {
                             }`}>
                               {booking.status === "APPROVING" ? "⏳ Đang xác nhận..." : "Chờ Lễ Tân duyệt"}
                             </span>
+                            {booking.source === "PUBLIC_QR" && (
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase border bg-purple-100 text-purple-900 border-purple-300 flex items-center gap-1">
+                                <IconQrcode size={12} /> TỪ QR
+                              </span>
+                            )}
                             <span className="text-xs font-extrabold text-[#006838]">
                               {booking.roomName}
                             </span>
@@ -1671,7 +1944,7 @@ export default function MeetingRoomsPage() {
                           <h4 className="text-base font-black text-slate-900">{booking.title}</h4>
 
                           <div className="flex items-center gap-4 text-xs font-semibold text-slate-600 flex-wrap">
-                            <span>Người đăng ký: <strong className="text-slate-900">{booking.bookerName}</strong> ({booking.department})</span>
+                            <span>Người đăng ký: <strong className="text-slate-900">{booking.bookerName}</strong> ({booking.department}){booking.zaloPhone && ` - Zalo: ${booking.zaloPhone}`}</span>
                             <span>Tham dự: <strong className="text-slate-900">{booking.attendeesCount} người</strong></span>
                           </div>
 
@@ -1731,6 +2004,18 @@ export default function MeetingRoomsPage() {
                             <IconRefresh size={15} />
                             <span>🔄 Đề Xuất Đổi Giờ / Phòng</span>
                           </button>
+
+                          <button
+                            onClick={() => {
+                              if (window.confirm("Bạn có chắc chắn muốn xóa/từ chối yêu cầu đặt phòng này?")) {
+                                handleRejectBooking(booking.id);
+                              }
+                            }}
+                            className="px-3 py-2 rounded-xl bg-red-500 hover:bg-red-600 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-sm cursor-pointer"
+                          >
+                            <IconTrash size={15} />
+                            <span>Xóa</span>
+                          </button>
                         </div>
                       </div>
                     ))}
@@ -1739,7 +2024,7 @@ export default function MeetingRoomsPage() {
             </div>
 
             {/* SECTION 1.5: ĐỀ XUẤT THAY ĐỔI GIỜ / PHÒNG HỌP CHỜ NGƯỜI ĐẶT XÁC NHẬN */}
-            {bookings.filter((b) => b.status === "RECEPTIONIST_PROPOSED").length > 0 && (
+            {(bookings || []).filter((b) => b.status === "RECEPTIONIST_PROPOSED").length > 0 && (
               <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-purple-50 via-indigo-50 to-white border border-purple-200 shadow-xs space-y-4">
                 <div className="flex items-center justify-between border-b border-purple-100 pb-3">
                   <div className="flex items-center gap-2.5">
@@ -1749,7 +2034,7 @@ export default function MeetingRoomsPage() {
                     </h3>
                   </div>
                   <span className="text-xs font-extrabold text-purple-700 bg-purple-100 px-2.5 py-0.5 rounded-full border border-purple-200">
-                    {bookings.filter((b) => b.status === "RECEPTIONIST_PROPOSED").length} đề xuất chờ chốt
+                    {(bookings || []).filter((b) => b.status === "RECEPTIONIST_PROPOSED").length} đề xuất chờ chốt
                   </span>
                 </div>
 
@@ -1835,7 +2120,7 @@ export default function MeetingRoomsPage() {
                         : "text-slate-600 hover:text-slate-900"
                     }`}
                   >
-                    🟢 Đang họp ({bookings.filter((b) => b.status === "CONFIRMED").length})
+                    🟢 Đang họp ({(bookings || []).filter((b) => b.status === "CONFIRMED" && b.bookingDate === todayVnStr).length})
                   </button>
                   <button
                     type="button"
@@ -1846,7 +2131,7 @@ export default function MeetingRoomsPage() {
                         : "text-slate-600 hover:text-slate-900"
                     }`}
                   >
-                    ✓ Đã trả phòng ({bookings.filter((b) => b.status === "COMPLETED").length})
+                    ✓ Đã trả phòng ({(bookings || []).filter((b) => b.status === "COMPLETED" && b.bookingDate === todayVnStr).length})
                   </button>
                 </div>
               </div>
@@ -1864,17 +2149,17 @@ export default function MeetingRoomsPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {bookings.filter((b) => b.status === confirmedSubTab).length === 0 ? (
+                    {(bookings || []).filter((b) => b.status === confirmedSubTab && b.bookingDate === todayVnStr).length === 0 ? (
                       <tr>
                         <td colSpan={6} className="p-6 text-center text-slate-400 font-bold">
                           {confirmedSubTab === "CONFIRMED"
-                            ? "Không có cuộc họp nào đang diễn ra."
-                            : "Chưa có cuộc họp nào được trả phòng trong danh sách."}
+                            ? "Không có cuộc họp nào đang diễn ra trong hôm nay."
+                            : "Chưa có cuộc họp nào được trả phòng trong danh sách hôm nay."}
                         </td>
                       </tr>
                     ) : (
                       bookings
-                        .filter((b) => b.status === confirmedSubTab)
+                        .filter((b) => b.status === confirmedSubTab && b.bookingDate === todayVnStr)
                         .map((b) => (
                           <tr key={b.id} className="hover:bg-slate-50 font-medium">
                             <td className="p-3 font-bold text-blue-900">
@@ -1959,7 +2244,7 @@ export default function MeetingRoomsPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {visitors.map((v) => (
+                    {(visitors || []).map((v) => (
                       <tr key={v.id} className="hover:bg-slate-50">
                         <td className="p-3 font-mono font-bold text-[#006838]">{v.badgeCode}</td>
                         <td className="p-3">
@@ -2107,7 +2392,7 @@ export default function MeetingRoomsPage() {
                       <span>{getDayNameVn(selectedCalendarDate)}, {selectedCalendarDate}</span>
                     </h2>
                     <span className="text-[11px] font-extrabold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200 mt-0.5 inline-block">
-                      {bookings.filter((b) => b.bookingDate === selectedCalendarDate && (b.status === "CONFIRMED" || b.status === "COMPLETED")).length} cuộc họp đã xếp lịch
+                      {(bookings || []).filter((b) => b.bookingDate === selectedCalendarDate && (b.status === "CONFIRMED" || b.status === "COMPLETED")).length} cuộc họp đã xếp lịch
                     </span>
                   </div>
                 )}
@@ -2117,7 +2402,7 @@ export default function MeetingRoomsPage() {
               <div className="flex items-center gap-2">
                 <input
                   type="date"
-                  min={getTodayIsoDate()}
+                  min={todayIsoStr}
                   value={selectedCalendarDate.split("/").reverse().join("-")}
                   onChange={(e) => {
                     if (e.target.value) {
@@ -2263,7 +2548,7 @@ export default function MeetingRoomsPage() {
                   <div className="divide-y divide-slate-100">
                     {TIMELINE_HOURS.map((hourObj) => {
                       // Find all bookings starting in this hour on the selected date
-                      const matchedBookings = bookings.filter((b) => {
+                      const matchedBookings = (bookings || []).filter((b) => {
                         if (b.bookingDate !== selectedCalendarDate) return false;
                         if (b.status !== "CONFIRMED" && b.status !== "COMPLETED") return false;
                         const startHourStr = b.timeSlot.split("-")[0]?.trim().split(":")[0];
@@ -2406,8 +2691,8 @@ export default function MeetingRoomsPage() {
                     </div>
 
                     <div className="space-y-2.5">
-                      {rooms.map((room) => {
-                        const roomBookingsToday = bookings.filter(
+                      {(sortedRooms || []).map((room) => {
+                        const roomBookingsToday = (bookings || []).filter(
                           (b) => b.bookingDate === selectedCalendarDate && b.roomId === room.id && (b.status === "CONFIRMED" || b.status === "COMPLETED")
                         );
 
@@ -2632,30 +2917,36 @@ export default function MeetingRoomsPage() {
                 </h2>
               </div>
 
-              {/* Grid 1: Basic Inputs */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Chọn Phòng họp */}
+              {/* Row 1: Phòng họp (optional) + Tiêu đề */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Chọn Phòng họp - OPTIONAL */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-700 block">
-                    Phòng họp <span className="text-rose-500">*</span>
+                    Phòng họp <span className="text-slate-400 font-normal">(không bắt buộc)</span>
                   </label>
                   <select
                     value={bookingForm.roomId}
                     onChange={(e) => setBookingForm({ ...bookingForm, roomId: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838] bg-white cursor-pointer"
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838] bg-white cursor-pointer"
                   >
-                    {rooms.map((r) => (
+                    <option value="">-- Chưa chọn phòng --</option>
+                    {(sortedRooms || []).map((r) => (
                       <option key={r.id} value={r.id} disabled={r.isLocked}>
                         {r.name} ({r.capacity} người) {r.isLocked ? "- [Đang khóa bảo trì]" : ""}
                       </option>
                     ))}
                   </select>
+                  {!bookingForm.roomId && (
+                    <p className="text-xs text-amber-600 flex items-center gap-1">
+                      <span>⚠</span> Chưa chọn phòng. Lễ tân sẽ liên hệ để xếp phòng.
+                    </p>
+                  )}
                 </div>
 
                 {/* Tiêu đề cuộc họp */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-700 block">
-                    Tiêu đề cuộc họp / Ghi chú <span className="text-rose-500">*</span>
+                    Tiêu đề cuộc họp <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -2663,11 +2954,13 @@ export default function MeetingRoomsPage() {
                     placeholder="Nhập tên cuộc họp..."
                     value={bookingForm.title}
                     onChange={(e) => setBookingForm({ ...bookingForm, title: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold outline-none focus:border-[#006838] bg-slate-50/50"
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-xs font-semibold outline-none focus:border-[#006838] bg-slate-50/50"
                   />
                 </div>
+              </div>
 
-                {/* Người chủ trì/đặt phòng */}
+              {/* Row 2: Người chủ trì + Bộ phận */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-700 block">
                     Người chủ trì <span className="text-rose-500">*</span>
@@ -2677,11 +2970,9 @@ export default function MeetingRoomsPage() {
                     required
                     value={bookingForm.bookerName}
                     onChange={(e) => setBookingForm({ ...bookingForm, bookerName: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold outline-none focus:border-[#006838] bg-slate-50/50"
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-xs font-semibold outline-none focus:border-[#006838] bg-slate-50/50"
                   />
                 </div>
-
-                {/* Bộ phận */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-700 block">
                     Bộ phận <span className="text-rose-500">*</span>
@@ -2689,7 +2980,7 @@ export default function MeetingRoomsPage() {
                   <select
                     value={bookingForm.department}
                     onChange={(e) => setBookingForm({ ...bookingForm, department: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838] bg-white cursor-pointer"
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838] bg-white cursor-pointer"
                   >
                     {DEPARTMENT_OPTIONS.map((dept) => (
                       <option key={dept} value={dept}>{dept}</option>
@@ -2698,26 +2989,26 @@ export default function MeetingRoomsPage() {
                 </div>
               </div>
 
-              {/* Grid 2: Date & Time Slots Selection */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+              {/* Row 3: Ngày họp + Khung giờ */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-700 block">
                     Ngày họp <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="date"
-                    min={getTodayIsoDate()}
+                    min={todayIsoStr}
                     value={bookingForm.bookingDate}
                     onChange={(e) => {
                       const selected = e.target.value;
                       if (selected && selected < getTodayIsoDate()) {
-                        showToast("⚠️ Không thể chọn ngày họp trong quá khứ! Vui lòng chọn từ ngày hôm nay trở đi.");
+                        showToast("⚠️ Không thể chọn ngày họp trong quá khứ!");
                         setBookingForm({ ...bookingForm, bookingDate: getTodayIsoDate() });
                       } else {
                         setBookingForm({ ...bookingForm, bookingDate: selected });
                       }
                     }}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838] bg-white cursor-pointer"
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838] bg-white cursor-pointer"
                   />
                 </div>
 
@@ -2736,48 +3027,32 @@ export default function MeetingRoomsPage() {
                         setBookingForm({ ...bookingForm, timeSlot: e.target.value });
                       }
                     }}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838] bg-white cursor-pointer"
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838] bg-white cursor-pointer"
                   >
                     <option value="08:00 - 09:30">08:00 - 09:30 (Sáng)</option>
                     <option value="09:30 - 11:30">09:30 - 11:30 (Sáng)</option>
                     <option value="13:30 - 15:00">13:30 - 15:00 (Chiều)</option>
                     <option value="15:00 - 17:00">15:00 - 17:00 (Chiều)</option>
                     <option value="08:00 - 17:00">Cả ngày (08:00 - 17:00)</option>
-                    <option value="CUSTOM">⚙️ Tùy chỉnh giờ (Nhập tự do)...</option>
+                    <option value="CUSTOM">⚙️ Tùy chỉnh giờ...</option>
                   </select>
-
                   {isCustomTimeSlot && (
-                    <div className="grid grid-cols-2 gap-2 pt-1.5 animate-fadeIn">
+                    <div className="grid grid-cols-2 gap-2 pt-1.5">
                       <div>
                         <span className="text-[10px] font-bold text-slate-500 block">Từ giờ:</span>
-                        <input
-                          type="time"
-                          value={customStartTime}
-                          onChange={(e) => {
-                            const newStart = e.target.value;
-                            setCustomStartTime(newStart);
-                            setBookingForm({ ...bookingForm, timeSlot: `${newStart} - ${customEndTime}` });
-                          }}
-                          className="w-full px-2 py-1 rounded-lg border border-slate-300 text-xs font-bold bg-emerald-50/50"
-                        />
+                        <input type="time" value={customStartTime} onChange={(e) => { setCustomStartTime(e.target.value); setBookingForm({ ...bookingForm, timeSlot: `${e.target.value} - ${customEndTime}` }); }} className="w-full px-2 py-1 rounded-lg border border-slate-300 text-xs font-bold bg-emerald-50/50" />
                       </div>
                       <div>
                         <span className="text-[10px] font-bold text-slate-500 block">Đến giờ:</span>
-                        <input
-                          type="time"
-                          value={customEndTime}
-                          onChange={(e) => {
-                            const newEnd = e.target.value;
-                            setCustomEndTime(newEnd);
-                            setBookingForm({ ...bookingForm, timeSlot: `${customStartTime} - ${newEnd}` });
-                          }}
-                          className="w-full px-2 py-1 rounded-lg border border-slate-300 text-xs font-bold bg-emerald-50/50"
-                        />
+                        <input type="time" value={customEndTime} onChange={(e) => { setCustomEndTime(e.target.value); setBookingForm({ ...bookingForm, timeSlot: `${customStartTime} - ${e.target.value}` }); }} className="w-full px-2 py-1 rounded-lg border border-slate-300 text-xs font-bold bg-emerald-50/50" />
                       </div>
                     </div>
                   )}
                 </div>
+              </div>
 
+              {/* Row 4: Số người + Hình thức họp */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-700 block">Số người tham dự</label>
                   <input
@@ -2785,18 +3060,54 @@ export default function MeetingRoomsPage() {
                     min={1}
                     value={bookingForm.attendeesCount}
                     onChange={(e) => setBookingForm({ ...bookingForm, attendeesCount: parseInt(e.target.value) || 1 })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838] bg-white"
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838] bg-white"
                   />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 block">
+                    Hình thức họp <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="flex rounded-xl border border-slate-300 overflow-hidden">
+                    {(["Offline", "Online", "Hybrid"] as const).map((type) => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => setBookingForm({ ...bookingForm, meetingType: type })}
+                        className={`flex-1 py-2.5 text-xs font-bold transition-all flex items-center justify-center gap-1 ${
+                          bookingForm.meetingType === type
+                            ? "bg-[#006838] text-white shadow-inner"
+                            : "bg-white text-slate-600 hover:bg-slate-50"
+                        }`}
+                      >
+                        {type === "Offline" && <span>⊞</span>}
+                        {type === "Online" && <span>🖥</span>}
+                        {type === "Hybrid" && <span>👥</span>}
+                        {type}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="pt-4 flex items-center justify-center gap-3">
+              {/* Row 5: Ghi chú */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700 block">Ghi chú</label>
+                <textarea
+                  rows={3}
+                  placeholder="Nhập ghi chú thêm (chuẩn bị thiết bị, yêu cầu setup phòng, trà nước...)"
+                  value={bookingForm.notes}
+                  onChange={(e) => setBookingForm({ ...bookingForm, notes: e.target.value })}
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-xs font-semibold outline-none focus:border-[#006838] bg-slate-50/50 resize-y"
+                />
+              </div>
+
+              {/* Submit Button */}
+              <div className="pt-2 flex items-center justify-center">
                 <button
                   type="submit"
-                  className="px-8 py-2.5 rounded-xl bg-[#006838] text-white text-xs font-extrabold hover:bg-[#00522c] transition-colors shadow-md shadow-emerald-900/20 flex items-center gap-2 cursor-pointer"
+                  className="px-10 py-3 rounded-xl bg-[#006838] text-white text-sm font-extrabold hover:bg-[#00522c] active:scale-[0.98] transition-all shadow-md shadow-emerald-900/20 flex items-center gap-2 cursor-pointer"
                 >
-                  <IconCheck size={16} />
+                  <IconCheck size={18} />
                   <span>🚀 Đăng ký đặt phòng</span>
                 </button>
               </div>
@@ -2809,8 +3120,52 @@ export default function MeetingRoomsPage() {
            ════════════════════════════════════════════════════════════════ */}
         {activeTab === "ROOMS" && (
           <div className="space-y-4 animate-in fade-in duration-200">
+            {/* Sort Dropdown & Add Room Header Bar */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3 sm:p-4 rounded-2xl border border-slate-200/90 shadow-2xs">
+              <div className="flex items-center gap-2 text-xs font-extrabold text-slate-700">
+                <IconFilter size={18} className="text-[#006838]" />
+                <span>Sắp xếp phòng họp:</span>
+                <select
+                  value={roomSortPreference}
+                  onChange={(e) => handleSortPreferenceChange(e.target.value as any)}
+                  className="px-3 py-2 rounded-xl border border-slate-300 font-extrabold text-xs outline-none focus:border-[#006838] bg-slate-50 cursor-pointer text-[#006838]"
+                >
+                  <option value="DEFAULT">Mặc định (Tầng → Tên tự nhiên)</option>
+                  <option value="NAME_AZ">Tên A-Z (Số 1, Số 2, Số 10...)</option>
+                  <option value="CAPACITY_DESC">Sức chứa (Nhiều → Ít)</option>
+                  <option value="STATUS_AVAILABLE">Trạng thái (Phòng trống trước)</option>
+                </select>
+              </div>
+
+              {canManageRooms && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingRoom({
+                      id: "new",
+                      name: "",
+                      capacity: 10,
+                      location: "",
+                      equipment: [],
+                      status: "AVAILABLE",
+                      isLocked: false,
+                      colorClass: "bg-slate-700",
+                      badgeBg: "bg-slate-500",
+                      images: [],
+                      floor: null,
+                      sortOrder: null,
+                    });
+                  }}
+                  className="px-4 py-2.5 rounded-xl bg-[#006838] text-white text-xs font-bold hover:bg-[#00522c] shadow-xs hover:shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <IconPlus size={16} />
+                  <span>Thêm phòng họp</span>
+                </button>
+              )}
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {rooms.map((room) => {
+              {(sortedRooms || []).map((room) => {
                 const isOccupiedToday = occupiedRoomIdsToday.has(room.id);
                 return (
                   <div
@@ -2846,24 +3201,43 @@ export default function MeetingRoomsPage() {
 
                       {/* Room Photo Preview Thumbnail */}
                       <div className="relative h-28 rounded-xl overflow-hidden bg-slate-100 border border-slate-200/70 group-hover:border-emerald-300 transition-colors">
-                        <img
-                          src={`/images/rooms/${room.id}/1.jpg`}
-                          alt={room.name}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          onError={(e) => {
-                            const target = e.currentTarget;
-                            if (!target.dataset.tried) {
-                              target.dataset.tried = 'true';
-                              target.src = `/images/rooms/${room.id}/room1.jpg`;
-                            } else {
-                              target.style.display = 'none';
-                              if (target.nextElementSibling) {
-                                (target.nextElementSibling as HTMLElement).style.display = 'flex';
+                        {room.images && room.images.length > 0 ? (
+                          /* Ảnh từ DB (Cloudinary URL) */
+                          <img
+                            key={`cloudinary-${room.images[0]}`}
+                            src={getCloudinaryThumbnail(typeof room.images[0] === "string" ? room.images[0] : (room.images[0]?.url || ""))}
+                            alt={room.name}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            onError={(e) => {
+                              e.currentTarget.style.display = "none";
+                              const next = e.currentTarget.nextElementSibling as HTMLElement | null;
+                              if (next) next.style.display = "flex";
+                            }}
+                          />
+                        ) : (
+                          /* Fallback: thử ảnh tĩnh theo roomId */
+                          <img
+                            key={`static-${room.id}`}
+                            src={`/images/rooms/${room.id}/1.jpg`}
+                            alt={room.name}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            onError={(e) => {
+                              const target = e.currentTarget;
+                              if (!target.dataset.tried) {
+                                target.dataset.tried = "true";
+                                target.src = `/images/rooms/${room.id}/room1.jpg`;
+                              } else {
+                                target.style.display = "none";
+                                const next = target.nextElementSibling as HTMLElement | null;
+                                if (next) next.style.display = "flex";
                               }
-                            }
-                          }}
-                        />
-                        <div className="hidden w-full h-full bg-gradient-to-br from-emerald-900 via-[#006838] to-slate-900 text-white flex-col items-center justify-center p-3 text-center">
+                            }}
+                          />
+                        )}
+                        <div 
+                          key={`placeholder-${room.images && room.images.length > 0 ? room.images[0] : room.id}`}
+                          className="hidden w-full h-full bg-gradient-to-br from-emerald-900 via-[#006838] to-slate-900 text-white flex-col items-center justify-center p-3 text-center"
+                        >
                           <IconBuilding size={28} className="text-emerald-300 mb-1 opacity-90" />
                           <span className="text-xs font-black tracking-tight">{room.name}</span>
                           <span className="text-[10px] text-emerald-200/80 font-medium">Click xem hình ảnh &amp; thông tin chi tiết</span>
@@ -2881,7 +3255,7 @@ export default function MeetingRoomsPage() {
                       <div className="space-y-1">
                         <span className="text-[11px] font-bold text-slate-500 block">Trang thiết bị có sẵn:</span>
                         <div className="flex flex-wrap gap-1.5">
-                          {room.equipment.map((eq, idx) => (
+                          {(Array.isArray(room.equipment) ? room.equipment : []).map((eq, idx) => (
                             <span
                               key={idx}
                               className="px-2 py-0.5 rounded-md bg-slate-50 border border-slate-200 text-[10px] font-semibold text-slate-600"
@@ -2896,31 +3270,62 @@ export default function MeetingRoomsPage() {
                     {/* Bottom Action Row */}
                     <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
                       <span className="text-xs font-extrabold text-[#006838] flex items-center gap-1 group-hover:underline">
-                        <span>🔍 Xem chi tiết phòng họp</span>
+                        <span>🔍 Xem chi tiết</span>
                       </span>
 
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleToggleRoomLock(room.id);
-                        }}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-colors flex items-center gap-1.5 cursor-pointer ${room.isLocked
-                          ? "bg-emerald-600 text-white hover:bg-emerald-700"
-                          : "bg-slate-100 text-slate-700 hover:bg-rose-600 hover:text-white"
-                          }`}
-                      >
-                        {room.isLocked ? (
-                          <>
-                            <IconLockOpen size={14} />
-                            <span>Mở lại phòng</span>
-                          </>
-                        ) : (
-                          <>
-                            <IconLock size={14} />
-                            <span>Khóa bảo trì</span>
-                          </>
-                        )}
-                      </button>
+                      {canManageRooms && (
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingRoom({
+                                id: room.id,
+                                name: room.name,
+                                capacity: room.capacity,
+                                location: room.location,
+                                equipment: room.equipment,
+                                status: room.status,
+                                isLocked: room.isLocked,
+                                colorClass: room.colorClass || "",
+                                badgeBg: room.badgeBg || "",
+                                images: room.images || [],
+                                roomCode: room.roomCode,
+                                managingUnit: room.managingUnit
+                              });
+                            }}
+                            className="p-1.5 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                            title="Chỉnh sửa thông tin"
+                          >
+                            <IconEdit size={16} />
+                          </button>
+
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteRoom(room.id);
+                            }}
+                            className="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                            title="Xóa phòng"
+                          >
+                            <IconTrash size={16} />
+                          </button>
+
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleRoomLock(room.id);
+                            }}
+                            className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                              room.isLocked
+                                ? "text-emerald-600 hover:text-emerald-700 bg-emerald-50"
+                                : "text-slate-500 hover:bg-slate-100"
+                            }`}
+                            title={room.isLocked ? "Mở lại phòng" : "Khóa bảo trì"}
+                          >
+                            {room.isLocked ? <IconLockOpen size={16} /> : <IconLock size={16} />}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -3005,7 +3410,7 @@ export default function MeetingRoomsPage() {
                     onChange={(e) => setVisitorForm({ ...visitorForm, roomLocation: e.target.value })}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838] bg-white cursor-pointer"
                   >
-                    {rooms.map((r) => (
+                    {(sortedRooms || []).map((r) => (
                       <option key={r.id} value={r.name}>{r.name}</option>
                     ))}
                   </select>
@@ -3015,7 +3420,7 @@ export default function MeetingRoomsPage() {
                   <label className="text-xs font-bold text-slate-700 block">Ngày đến</label>
                   <input
                     type="date"
-                    min={getTodayIsoDate()}
+                    min={todayIsoStr}
                     value={visitorForm.visitDate}
                     onChange={(e) => {
                       const selected = e.target.value;
@@ -3072,7 +3477,7 @@ export default function MeetingRoomsPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {visitors.map((v) => (
+                    {(visitors || []).map((v) => (
                       <tr key={v.id} className="hover:bg-slate-50">
                         <td className="p-3 font-mono font-bold text-[#006838]">{v.badgeCode}</td>
                         <td className="p-3 font-bold text-slate-900">{v.visitorName}</td>
@@ -3141,7 +3546,7 @@ export default function MeetingRoomsPage() {
                     onChange={(e) => setBookingForm({ ...bookingForm, roomId: e.target.value })}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 font-bold outline-none focus:border-[#006838] bg-white cursor-pointer"
                   >
-                    {rooms.map((r) => (
+                    {(sortedRooms || []).map((r) => (
                       <option key={r.id} value={r.id}>{r.name}</option>
                     ))}
                   </select>
@@ -3419,7 +3824,7 @@ export default function MeetingRoomsPage() {
                   onChange={(e) => setNewAssignedRoomId(e.target.value)}
                   className="w-full px-3 py-2.5 rounded-xl border border-slate-300 font-bold text-xs outline-none focus:border-[#006838] bg-white cursor-pointer"
                 >
-                  {rooms.map((r) => (
+                  {(sortedRooms || []).map((r) => (
                     <option key={r.id} value={r.id} disabled={r.isLocked}>
                       {r.name} (Sức chứa {r.capacity} người - {r.location}) {r.isLocked ? "[Khóa bảo trì]" : ""}
                     </option>
@@ -3507,7 +3912,7 @@ export default function MeetingRoomsPage() {
                   onChange={(e) => setProposeForm({ ...proposeForm, roomId: e.target.value })}
                   className="w-full px-3 py-2.5 rounded-xl border border-slate-300 font-bold text-xs outline-none focus:border-[#006838] bg-white cursor-pointer"
                 >
-                  {rooms.map((r) => (
+                  {(sortedRooms || []).map((r) => (
                     <option key={r.id} value={r.id} disabled={r.isLocked}>
                       {r.name} (Sức chứa {r.capacity} người - {r.location}) {r.isLocked ? "[Khóa bảo trì]" : ""}
                     </option>
@@ -3589,7 +3994,7 @@ export default function MeetingRoomsPage() {
                 <div className="relative rounded-2xl overflow-hidden bg-slate-900 border border-slate-200 shadow-md group">
                   {roomGalleryImages.length > 0 ? (
                     <img
-                      src={roomGalleryImages[activeImageIdx] || `/images/rooms/${selectedRoomForDetail.id}/1.jpg`}
+                      src={(typeof roomGalleryImages[activeImageIdx] === "string" ? roomGalleryImages[activeImageIdx] : roomGalleryImages[activeImageIdx]?.url) || `/images/rooms/${selectedRoomForDetail.id}/1.jpg`}
                       alt={selectedRoomForDetail.name}
                       className="w-full h-64 sm:h-72 object-cover transition-all duration-300"
                       onError={(e) => {
@@ -3680,7 +4085,7 @@ export default function MeetingRoomsPage() {
                       Hình ảnh phòng họp ({roomGalleryImages.length})
                     </span>
                     <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
-                      {roomGalleryImages.map((imgUrl, idx) => (
+                      {(Array.isArray(roomGalleryImages) ? roomGalleryImages : []).map((imgUrl, idx) => (
                         <button
                           key={idx}
                           type="button"
@@ -3692,7 +4097,7 @@ export default function MeetingRoomsPage() {
                           }`}
                         >
                           <img
-                            src={imgUrl}
+                            src={typeof imgUrl === "string" ? imgUrl : (imgUrl?.url || "")}
                             alt={`Góc ${idx + 1}`}
                             className="w-full h-full object-cover"
                           />
@@ -3712,9 +4117,14 @@ export default function MeetingRoomsPage() {
                     <span>Thông tin chung</span>
                   </h4>
                   <div className="space-y-1 text-slate-700 font-semibold">
+                    {selectedRoomForDetail.roomCode && (
+                      <p>• <strong>Mã phòng:</strong> {selectedRoomForDetail.roomCode}</p>
+                    )}
                     <p>• <strong>Vị trí:</strong> {selectedRoomForDetail.location}</p>
                     <p>• <strong>Sức chứa tối đa:</strong> {selectedRoomForDetail.capacity} người</p>
-                    <p>• <strong>Đơn vị quản lý:</strong> Khối Hành Chánh TBS Group</p>
+                    {selectedRoomForDetail.managingUnit && (
+                      <p>• <strong>Đơn vị quản lý:</strong> {selectedRoomForDetail.managingUnit}</p>
+                    )}
                   </div>
                 </div>
 
@@ -3725,7 +4135,7 @@ export default function MeetingRoomsPage() {
                     <span>Trang thiết bị có sẵn</span>
                   </h4>
                   <div className="flex flex-wrap gap-1.5">
-                    {selectedRoomForDetail.equipment.map((eq, idx) => (
+                    {(Array.isArray(selectedRoomForDetail.equipment) ? selectedRoomForDetail.equipment : []).map((eq, idx) => (
                       <span
                         key={idx}
                         className="px-2.5 py-1 rounded-xl bg-white border border-blue-200 text-blue-900 font-extrabold text-[11px] shadow-2xs"
@@ -3742,18 +4152,18 @@ export default function MeetingRoomsPage() {
                 <h4 className="text-xs font-black text-slate-900 uppercase flex items-center justify-between">
                   <span>📅 Lịch họp tại {selectedRoomForDetail.name} hôm nay</span>
                   <span className="text-[10px] font-bold text-slate-500">
-                    {bookings.filter((b) => b.roomId === selectedRoomForDetail.id && b.bookingDate === getTodayVnDate()).length} cuộc họp
+                    {(bookings || []).filter((b) => b.roomId === selectedRoomForDetail.id && b.bookingDate === todayVnStr).length} cuộc họp
                   </span>
                 </h4>
 
-                {bookings.filter((b) => b.roomId === selectedRoomForDetail.id && b.bookingDate === getTodayVnDate()).length === 0 ? (
+                {(bookings || []).filter((b) => b.roomId === selectedRoomForDetail.id && b.bookingDate === todayVnStr).length === 0 ? (
                   <div className="p-3 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200 text-slate-500 font-medium">
                     Chưa có lịch họp nào được xếp cho phòng này hôm nay. Phòng đang trống và sẵn sàng đăng ký!
                   </div>
                 ) : (
                   <div className="space-y-1.5 max-h-36 overflow-y-auto">
                     {bookings
-                      .filter((b) => b.roomId === selectedRoomForDetail.id && b.bookingDate === getTodayVnDate())
+                      .filter((b) => b.roomId === selectedRoomForDetail.id && b.bookingDate === todayVnStr)
                       .map((b) => (
                         <div
                           key={b.id}
@@ -3773,36 +4183,305 @@ export default function MeetingRoomsPage() {
               </div>
             </div>
 
-            {/* Modal Footer with "Đặt phòng" Button */}
-            <div className="p-4 sm:p-5 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3 flex-shrink-0">
+            {/* Modal Footer */}
+            <div className="px-5 py-4 bg-white border-t border-slate-100 flex items-center justify-between gap-3 flex-shrink-0">
               <button
                 type="button"
                 onClick={() => setSelectedRoomForDetail(null)}
-                className="px-5 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-700 font-bold hover:bg-slate-100 transition cursor-pointer text-xs"
+                className="px-5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 font-semibold hover:bg-slate-50 transition cursor-pointer text-xs"
               >
                 Đóng
               </button>
 
+              <div className="flex items-center gap-2">
+                {canManageRooms && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingRoom({
+                        ...selectedRoomForDetail,
+                        images: selectedRoomForDetail.images || [],
+                      });
+                    }}
+                    className="px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 font-semibold hover:bg-slate-50 transition cursor-pointer text-xs flex items-center gap-1.5"
+                  >
+                    <IconEdit size={15} />
+                    <span>Chỉnh sửa</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  disabled={selectedRoomForDetail.isLocked}
+                  onClick={() => {
+                    const roomToBook = selectedRoomForDetail;
+                    setBookingForm((prev) => ({
+                      ...prev,
+                      roomId: roomToBook.id,
+                    }));
+                    setSelectedRoomForDetail(null);
+                    setActiveTab("BOOKING");
+                    showToast(`👉 Đã tự động chọn "${roomToBook.name}"! Vui lòng điền tiêu đề & hoàn tất đăng ký.`);
+                  }}
+                  className={`px-5 py-2.5 rounded-xl text-white font-bold text-xs transition shadow-sm flex items-center gap-2 cursor-pointer ${selectedRoomForDetail.isLocked
+                    ? "bg-slate-400 cursor-not-allowed opacity-70"
+                    : "bg-[#006838] hover:bg-[#00522c] active:scale-95"
+                    }`}
+                >
+                  <IconCalendarEvent size={16} />
+                  <span>📅 ĐẶT PHÒNG HỌP NÀY</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL POPUP: CHỈNH SỬA PHÒNG HỌP — hiển thị trên cùng (z-[60]) để overlay lên modal chi tiết */}
+      {editingRoom && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-xl w-full border border-slate-200 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[92vh]">
+            {/* Header — light style như ảnh 2 */}
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-2.5">
+                <span className="text-xl">✏️</span>
+                <h3 className="text-base font-bold text-slate-900">Chỉnh Sửa Phòng Họp</h3>
+              </div>
+              <button
+                onClick={() => setEditingRoom(null)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+              >
+                <IconX size={18} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 overflow-y-auto space-y-4 text-sm flex-1">
+
+              {/* Tên phòng — full width */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-600">
+                  Tên phòng họp <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={editingRoom.name}
+                  onChange={(e) => setEditingRoom({ ...editingRoom, name: e.target.value })}
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-medium focus:border-[#006838] focus:ring-2 focus:ring-[#006838]/10 outline-none transition bg-white"
+                  placeholder="VD: Phòng Hop Chinh"
+                />
+              </div>
+
+              {/* Mã phòng + Sức chứa */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-600">
+                    Mã phòng <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={editingRoom.roomCode || ""}
+                    onChange={(e) => setEditingRoom({ ...editingRoom, roomCode: e.target.value })}
+                    className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-medium focus:border-[#006838] focus:ring-2 focus:ring-[#006838]/10 outline-none transition bg-white"
+                    placeholder="VD: P-A101"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-600">
+                    Sức chứa tối đa (người) <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={editingRoom.capacity}
+                    onChange={(e) => setEditingRoom({ ...editingRoom, capacity: parseInt(e.target.value) || 0 })}
+                    className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-medium focus:border-[#006838] focus:ring-2 focus:ring-[#006838]/10 outline-none transition bg-white"
+                    min={1}
+                  />
+                </div>
+              </div>
+
+              {/* Vị trí + Đơn vị quản lý */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-600">Vị trí</label>
+                  <input
+                    type="text"
+                    value={editingRoom.location}
+                    onChange={(e) => setEditingRoom({ ...editingRoom, location: e.target.value })}
+                    className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-medium focus:border-[#006838] focus:ring-2 focus:ring-[#006838]/10 outline-none transition bg-white"
+                    placeholder="VD: Tầng 1 - Khối Chiến Lược"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-600">Đơn vị quản lý</label>
+                  <input
+                    type="text"
+                    value={editingRoom.managingUnit || ""}
+                    onChange={(e) => setEditingRoom({ ...editingRoom, managingUnit: e.target.value })}
+                    className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-medium focus:border-[#006838] focus:ring-2 focus:ring-[#006838]/10 outline-none transition bg-white"
+                    placeholder="VD: Khối Hành Chánh"
+                  />
+                </div>
+              </div>
+
+              {/* Tầng + Thứ tự hiển thị (sort_order) */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-600">Số tầng (Ví dụ: 1, 2, 3)</label>
+                  <input
+                    type="number"
+                    value={editingRoom.floor !== undefined && editingRoom.floor !== null ? editingRoom.floor : ""}
+                    onChange={(e) => setEditingRoom({ ...editingRoom, floor: e.target.value !== "" ? Number(e.target.value) : null })}
+                    className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-medium focus:border-[#006838] focus:ring-2 focus:ring-[#006838]/10 outline-none transition bg-white"
+                    placeholder="Để trống nếu chưa có"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-600">Thứ tự ưu tiên hiển thị (sort_order)</label>
+                  <input
+                    type="number"
+                    value={editingRoom.sortOrder !== undefined && editingRoom.sortOrder !== null ? editingRoom.sortOrder : ""}
+                    onChange={(e) => setEditingRoom({ ...editingRoom, sortOrder: e.target.value !== "" ? Number(e.target.value) : null })}
+                    className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-medium focus:border-[#006838] focus:ring-2 focus:ring-[#006838]/10 outline-none transition bg-white"
+                    placeholder="Ưu tiên (1, 2, 3...)"
+                  />
+                </div>
+              </div>
+
+              {/* Trang thiết bị */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-600">
+                  Trang thiết bị có sẵn (cách nhau bằng dấu phẩy)
+                </label>
+                <input
+                  type="text"
+                  value={Array.isArray(editingRoom.equipment) ? editingRoom.equipment.join(", ") : (editingRoom.equipment || "")}
+                  onChange={(e) => setEditingRoom({ ...editingRoom, equipment: (e.target.value as any) })}
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-medium focus:border-[#006838] focus:ring-2 focus:ring-[#006838]/10 outline-none transition bg-white"
+                  placeholder="Smart TV 65 inch, Hệ thống họp từ xa..."
+                />
+              </div>
+
+              {/* Upload ảnh — file input + preview */}
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-slate-600">
+                  Hình ảnh phòng họp (Tối đa 5MB, tự động nén)
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <span className="px-3 py-1.5 rounded-lg bg-slate-100 border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-200 transition whitespace-nowrap">
+                    Chọn tệp
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={async (e) => {
+                      const files = Array.from(e.target.files || []);
+                      if (!files.length) return;
+                      
+                      const compressImage = (file: File): Promise<string> =>
+                        new Promise((resolve, reject) => {
+                          const reader = new FileReader();
+                          reader.onload = (event) => {
+                            const img = new window.Image(); // Use window.Image to avoid TS conflict
+                            img.src = event.target?.result as string;
+                            img.onload = () => {
+                              const canvas = document.createElement("canvas");
+                              let width = img.width;
+                              let height = img.height;
+                              const MAX_SIZE = 1200;
+                              
+                              if (width > height && width > MAX_SIZE) {
+                                height = Math.round((height * MAX_SIZE) / width);
+                                width = MAX_SIZE;
+                              } else if (height > MAX_SIZE) {
+                                width = Math.round((width * MAX_SIZE) / height);
+                                height = MAX_SIZE;
+                              }
+                              
+                              canvas.width = width;
+                              canvas.height = height;
+                              const ctx = canvas.getContext("2d");
+                              if (!ctx) { resolve(img.src); return; }
+                              ctx.drawImage(img, 0, 0, width, height);
+                              resolve(canvas.toDataURL("image/jpeg", 0.8)); // Compress quality 80%
+                            };
+                            img.onerror = reject;
+                          };
+                          reader.onerror = reject;
+                          reader.readAsDataURL(file);
+                        });
+
+                      try {
+                        const base64List = await Promise.all(files.map(compressImage));
+                        const formattedList = base64List.map(url => ({ url, public_id: "" }));
+                        const existing = Array.isArray(editingRoom.images) ? editingRoom.images : [];
+                        setEditingRoom({ ...editingRoom, images: [...existing, ...formattedList] });
+                      } catch (err) {
+                        alert("Lỗi nén ảnh, vui lòng thử lại!");
+                      }
+                    }}
+                  />
+                  <span className="text-xs text-slate-400 truncate max-w-[220px]">
+                    {(() => {
+                      const imgs = Array.isArray(editingRoom.images) ? editingRoom.images : [];
+                      const local = imgs.filter((u) => (typeof u === 'string' && u.startsWith("data:")) || (u && u.url && u.url.startsWith("data:")));
+                      return local.length > 0
+                        ? `${local.length} ảnh mới sẽ được tải lên`
+                        : "Chưa có ảnh mới nào";
+                    })()}
+                  </span>
+                </label>
+
+                {/* Preview grid */}
+                {Array.isArray(editingRoom.images) && editingRoom.images.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {(Array.isArray(editingRoom.images) ? editingRoom.images : []).map((imgUrl, idx) => (
+                      <div key={idx} className="relative group">
+                        <img
+                          src={typeof imgUrl === "string" ? imgUrl : (imgUrl?.url || "")}
+                          alt={`Ảnh ${idx + 1}`}
+                          className="w-20 h-20 object-cover rounded-xl border-2 border-slate-200"
+                        />
+                        {idx === 0 && (
+                          <span className="absolute bottom-0 left-0 right-0 bg-[#006838]/80 text-white text-[9px] font-bold text-center py-0.5 rounded-b-xl">
+                            Ảnh bìa
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newImgs = editingRoom.images!.filter((_, i) => i !== idx);
+                            setEditingRoom({ ...editingRoom, images: newImgs as any });
+                          }}
+                          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-rose-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition text-[10px] font-bold shadow"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-3 flex-shrink-0 bg-white">
               <button
                 type="button"
-                disabled={selectedRoomForDetail.isLocked}
-                onClick={() => {
-                  const roomToBook = selectedRoomForDetail;
-                  setBookingForm((prev) => ({
-                    ...prev,
-                    roomId: roomToBook.id,
-                  }));
-                  setSelectedRoomForDetail(null);
-                  setActiveTab("BOOKING");
-                  showToast(`👉 Đã tự động chọn "${roomToBook.name}"! Vui lòng điền tiêu đề & hoàn tất đăng ký.`);
-                }}
-                className={`px-6 py-2.5 rounded-xl text-white font-black text-xs transition shadow-md flex items-center gap-2 cursor-pointer ${selectedRoomForDetail.isLocked
-                  ? "bg-slate-400 cursor-not-allowed opacity-70"
-                  : "bg-[#006838] hover:bg-[#00522c] shadow-emerald-950/20 active:scale-95"
-                  }`}
+                onClick={() => setEditingRoom(null)}
+                className="px-5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50 transition cursor-pointer text-xs"
               >
-                <IconCalendarEvent size={18} />
-                <span>📅 ĐẶT PHÒNG HỌP NÀY</span>
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveRoom}
+                className="px-6 py-2.5 rounded-xl bg-[#006838] text-white font-bold text-xs hover:bg-[#00522c] transition shadow-sm cursor-pointer flex items-center gap-2"
+              >
+                <IconCheck size={16} />
+                Lưu thông tin
               </button>
             </div>
           </div>
@@ -3810,19 +4489,46 @@ export default function MeetingRoomsPage() {
       )}
 
       {/* TOAST NOTIFICATION */}
-      {toastMessage && (
-        <div className="fixed bottom-6 right-6 bg-slate-900 text-white px-5 py-3.5 rounded-2xl shadow-2xl z-50 flex items-center gap-3 animate-in slide-in-from-bottom-3 duration-200 border border-slate-700">
-          <div className="w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center flex-shrink-0">
-            <IconCheck size={16} />
+      {toastMessage && (() => {
+        const isError = toastMessage.includes("❌") || toastMessage.toLowerCase().includes("thất bại") || toastMessage.toLowerCase().includes("lỗi") || toastMessage.toLowerCase().includes("đã qua");
+        const isWarning = toastMessage.includes("⚠️") || toastMessage.toLowerCase().includes("cảnh báo") || toastMessage.toLowerCase().includes("vượt quá");
+        return (
+          <div
+            className={`fixed bottom-6 right-6 px-5 py-3.5 rounded-2xl shadow-2xl z-50 flex items-center gap-3 animate-in slide-in-from-bottom-3 duration-200 border ${
+              isError
+                ? "bg-rose-950 text-rose-100 border-rose-700"
+                : isWarning
+                ? "bg-amber-950 text-amber-100 border-amber-700"
+                : "bg-slate-900 text-white border-slate-700"
+            }`}
+          >
+            <div
+              className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 font-bold ${
+                isError
+                  ? "bg-rose-600 text-white"
+                  : isWarning
+                  ? "bg-amber-500 text-white"
+                  : "bg-emerald-500 text-white"
+              }`}
+            >
+              {isError ? (
+                <IconX size={16} />
+              ) : isWarning ? (
+                <IconAlertCircle size={16} />
+              ) : (
+                <IconCheck size={16} />
+              )}
+            </div>
+            <span className="text-xs font-bold">{toastMessage}</span>
           </div>
-          <span className="text-xs font-bold">{toastMessage}</span>
-        </div>
-      )}
+        );
+      })()}
 
       {/* FOOTER */}
       <footer className="py-3 px-6 border-t border-slate-200 text-xs text-slate-500 text-center bg-white">
         <span>© 2026 TBS Group System - Văn Phòng Chuỗi SKECHERS. Tất cả các quyền được bảo lưu.</span>
       </footer>
-    </div>
+      </div>
+    </ErrorBoundary>
   );
 }

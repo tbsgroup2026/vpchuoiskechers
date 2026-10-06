@@ -83,12 +83,13 @@ export function normalizeFactoryName(fac?: string): string {
 }
 
 export function normalizeWorkshopName(facNormalized: string, wsRaw?: string): string {
-  if (!wsRaw) return "Đầu Vào";
+  if (!wsRaw) return "Phân Xưởng Mẫu";
   const ws = wsRaw.trim().toUpperCase();
+  if (ws.includes("MẪU") || ws.includes("MAU")) return "Phân Xưởng Mẫu";
   if (ws.includes("ĐẾ") || ws.includes("ĐẦU VÀO") || ws.includes("CAN EP") || ws.includes("NHẬP KHO")) return "Đầu Vào";
   if (ws.includes("MŨI") || ws.includes("MAY") || ws.includes("CHẮT")) return "May";
   if (ws.includes("GÒ") || ws.includes("GO") || ws.includes("HOÀN THIỆN")) return "Gò";
-  return "Đầu Vào";
+  return "Phân Xưởng Mẫu";
 }
 
 export const REAL_DEPARTMENTS = [
@@ -169,12 +170,16 @@ export default function KaizenPublicSubmitForm({
         }
       }
 
+      const defaultWs = "Phân Xưởng Mẫu";
+
       setForm((prev) => ({
         ...prev,
         region: targetFac,
         factory: targetFac,
+        department: prev.department || defaultWs,
       }));
       setSelectedFormFactory(targetFac);
+      setSelectedFormWorkshop(defaultWs);
 
       if (targetFac === "Văn phòng Chuỗi") {
         setUnitTitle("VP CHUỖI SKECHERS");
@@ -197,24 +202,24 @@ export default function KaizenPublicSubmitForm({
 
   // Single-select cascading org selection for submission form
   const [selectedFormFactory, setSelectedFormFactory] = useState<string>("Nhà Máy Miền Đông");
-  const [selectedFormWorkshop, setSelectedFormWorkshop] = useState<string>("Đầu Vào");
+  const [selectedFormWorkshop, setSelectedFormWorkshop] = useState<string>("Phân Xưởng Mẫu");
   const [selectedFormLine, setSelectedFormLine] = useState<string>("");
   const [selectedFormChuyen, setSelectedFormChuyen] = useState<string>("");
   const [selectedFormTo, setSelectedFormTo] = useState<string>("");
 
   // Available sub-level items
   const availableFormWorkshops = useMemo(() => {
-    if (!selectedFormFactory || !INITIAL_ORG_TREE[selectedFormFactory]) return [];
-    const node = INITIAL_ORG_TREE[selectedFormFactory];
-    if (typeof node === "object" && !Array.isArray(node)) {
+    if (!selectedFormFactory) return ["Phân Xưởng Mẫu"];
+    const node = INITIAL_ORG_TREE[selectedFormFactory] || INITIAL_ORG_TREE[normalizeFactoryName(selectedFormFactory)];
+    if (node && typeof node === "object" && !Array.isArray(node)) {
       return Object.keys(node);
     }
-    return Array.isArray(node) ? node : [];
+    return Array.isArray(node) ? node : ["Phân Xưởng Mẫu"];
   }, [selectedFormFactory]);
 
   const availableFormLines = useMemo(() => {
-    if (!selectedFormFactory || !selectedFormWorkshop) return [];
-    const fNode = INITIAL_ORG_TREE[selectedFormFactory];
+    if (!selectedFormFactory || !selectedFormWorkshop) return ["Đầu vào", "May", "Gò"];
+    const fNode = INITIAL_ORG_TREE[selectedFormFactory] || INITIAL_ORG_TREE[normalizeFactoryName(selectedFormFactory)];
     if (fNode && typeof fNode === "object" && !Array.isArray(fNode)) {
       const wsNode = fNode[selectedFormWorkshop];
       if (wsNode && typeof wsNode === "object" && !Array.isArray(wsNode)) {
@@ -222,7 +227,7 @@ export default function KaizenPublicSubmitForm({
       }
       if (Array.isArray(wsNode)) return wsNode;
     }
-    return [];
+    return ["Đầu vào", "May", "Gò"];
   }, [selectedFormFactory, selectedFormWorkshop]);
 
   const availableFormChuyens = useMemo(() => {
@@ -267,7 +272,7 @@ export default function KaizenPublicSubmitForm({
     proposerName: "",
     customer: "",
     factory: "Nhà Máy Miền Đông",
-    department: "Đầu Vào",
+    department: "Phân Xưởng Mẫu",
 
     // Section B: Thông tin cải tiến
     title: "",
@@ -775,7 +780,7 @@ export default function KaizenPublicSubmitForm({
       proposerName: "",
       customer: "Skechers",
       factory: selectedFormFactory || "Nhà Máy Miền Đông",
-      department: selectedFormWorkshop || "Đầu Vào",
+      department: selectedFormWorkshop || "Phân Xưởng Mẫu",
       title: "",
       category: "PRODUCTIVITY",
       categoryLabel: "3.Tăng Năng suất",

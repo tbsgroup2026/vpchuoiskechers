@@ -15,8 +15,10 @@ import {
 } from "@tabler/icons-react";
 import { loginWithD1Database, getCurrentUser } from "@/lib/userProfiles";
 import { logLoginLogoutEvent } from "@/lib/webhookAuditClient";
+import { useLanguage } from "@/components/LanguageProvider";
 
 export default function LoginPage() {
+  const { lang, t } = useLanguage();
   const router = useRouter();
   const [empCode, setEmpCode] = useState("");
   const [password, setPassword] = useState("");

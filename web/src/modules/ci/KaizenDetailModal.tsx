@@ -35,6 +35,7 @@ import {
 } from "@tabler/icons-react";
 import { convertNumberToWords } from "@/lib/numberToWords";
 import { KaizenProposal } from "./CIModule";
+import { extractCategoryGroup } from "@/lib/kaizenDataContract";
 import { usePermission } from "@/hooks/usePermission";
 import { resolveEmployeeName } from "@/lib/userProfiles";
 import FeasibilityApprovalModal from "./FeasibilityApprovalModal";
@@ -1275,70 +1276,74 @@ function TabInfoContent({
   const qty = isEditing ? editForm.pair_quantity : Number((proposal as any).quantity || proposal.pair_quantity || (proposal as any).so_luong_giay || 0);
   const pricingDir = isEditing ? editForm.pricing_direction : ((proposal as any).pricing_direction || "THOI_GIAN");
 
+  const catGroup = extractCategoryGroup(proposal.category, proposal.category_label);
+
   return (
     <div className="p-5 md:p-6 space-y-6 text-xs">
       {/* TỔNG QUAN CẢI TIẾN */}
-      <div className="space-y-3">
-        <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-2">
-          <span>📋</span>
-          <span>TỔNG QUAN CẢI TIẾN</span>
-        </h4>
+      {!(catGroup === "NON_FINANCIAL" && !isEditing && (!prodCode || prodCode === "---")) && (
+        <div className="space-y-3">
+          <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-2">
+            <span>📋</span>
+            <span>TỔNG QUAN CẢI TIẾN</span>
+          </h4>
 
-        {isEditing ? (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 bg-amber-50/40 border border-amber-200 rounded-2xl">
-            <div className="space-y-1">
-              <label className="text-[10px] font-black uppercase text-slate-600 block">MÃ HÀNG SẢN PHẨM</label>
-              <input
-                type="text"
-                value={editForm.product_code}
-                onChange={(e) => setEditForm((prev: any) => ({ ...prev, product_code: e.target.value }))}
-                placeholder="Ví dụ: SK-2026-X1"
-                className="w-full p-2 rounded-xl border border-slate-300 font-bold bg-white text-xs"
-              />
+          {isEditing ? (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 bg-amber-50/40 border border-amber-200 rounded-2xl">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase text-slate-600 block">MÃ HÀNG SẢN PHẨM</label>
+                <input
+                  type="text"
+                  value={editForm.product_code}
+                  onChange={(e) => setEditForm((prev: any) => ({ ...prev, product_code: e.target.value }))}
+                  placeholder="Ví dụ: SK-2026-X1"
+                  className="w-full p-2 rounded-xl border border-slate-300 font-bold bg-white text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase text-slate-600 block">SỐ LƯỢNG ĐƠN HÀNG (ĐÔI)</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={editForm.pair_quantity}
+                  onChange={(e) => setEditForm((prev: any) => ({ ...prev, pair_quantity: Math.max(0, parseInt(e.target.value) || 0) }))}
+                  className="w-full p-2 rounded-xl border border-slate-300 font-bold bg-white text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase text-slate-600 block">HƯỚNG ĐÁNH GIÁ</label>
+                <select
+                  value={editForm.pricing_direction}
+                  onChange={(e) => setEditForm((prev: any) => ({ ...prev, pricing_direction: e.target.value }))}
+                  className="w-full p-2 rounded-xl border border-amber-300 font-bold bg-amber-100 text-xs"
+                >
+                  <option value="THOI_GIAN">⏱️ Thời gian (Giây)</option>
+                  <option value="TRI_GIA">💰 Trị giá quy đổi (VNĐ)</option>
+                </select>
+              </div>
             </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-black uppercase text-slate-600 block">SỐ LƯỢNG ĐƠN HÀNG (ĐÔI)</label>
-              <input
-                type="number"
-                min={0}
-                value={editForm.pair_quantity}
-                onChange={(e) => setEditForm((prev: any) => ({ ...prev, pair_quantity: Math.max(0, parseInt(e.target.value) || 0) }))}
-                className="w-full p-2 rounded-xl border border-slate-300 font-bold bg-white text-xs"
-              />
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-1">
+                <span className="text-[10px] font-black uppercase text-slate-400 block tracking-wider">MÃ HÀNG</span>
+                <span className="text-sm font-black text-slate-900 block truncate">{prodCode || "---"}</span>
+              </div>
+              <div className="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-1">
+                <span className="text-[10px] font-black uppercase text-slate-400 block tracking-wider">SỐ LƯỢNG ĐH</span>
+                <span className="text-sm font-black text-slate-900 block truncate">
+                  {qty && Number(qty) > 0 ? Number(qty).toLocaleString("vi-VN") : "---"}
+                </span>
+              </div>
+              <div className="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-1 border-r-4 border-r-amber-500 bg-amber-50/20">
+                <span className="text-[10px] font-black uppercase text-slate-400 block tracking-wider">HƯỚNG ĐÁNH GIÁ</span>
+                <span className="text-sm font-black text-slate-900 block truncate">
+                  {pricingDir === "TRI_GIA" || pricingDir === "Trị giá" ? "Trị giá" : "Thời gian"}
+                </span>
+              </div>
             </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-black uppercase text-slate-600 block">HƯỚNG ĐÁNH GIÁ</label>
-              <select
-                value={editForm.pricing_direction}
-                onChange={(e) => setEditForm((prev: any) => ({ ...prev, pricing_direction: e.target.value }))}
-                className="w-full p-2 rounded-xl border border-amber-300 font-bold bg-amber-100 text-xs"
-              >
-                <option value="THOI_GIAN">⏱️ Thời gian (Giây)</option>
-                <option value="TRI_GIA">💰 Trị giá quy đổi (VNĐ)</option>
-              </select>
-            </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-1">
-              <span className="text-[10px] font-black uppercase text-slate-400 block tracking-wider">MÃ HÀNG</span>
-              <span className="text-sm font-black text-slate-900 block truncate">{prodCode || "---"}</span>
-            </div>
-            <div className="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-1">
-              <span className="text-[10px] font-black uppercase text-slate-400 block tracking-wider">SỐ LƯỢNG ĐH</span>
-              <span className="text-sm font-black text-slate-900 block truncate">
-                {qty && Number(qty) > 0 ? Number(qty).toLocaleString("vi-VN") : "---"}
-              </span>
-            </div>
-            <div className="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-1 border-r-4 border-r-amber-500 bg-amber-50/20">
-              <span className="text-[10px] font-black uppercase text-slate-400 block tracking-wider">HƯỚNG ĐÁNH GIÁ</span>
-              <span className="text-sm font-black text-slate-900 block truncate">
-                {pricingDir === "TRI_GIA" || pricingDir === "Trị giá" ? "Trị giá" : "Thời gian"}
-              </span>
-            </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {/* NỘI DUNG CHI TIẾT VẤN ĐỀ & GIẢI PHÁP */}
       <div className="space-y-3">
@@ -1428,7 +1433,7 @@ function TabInfoContent({
         const costAfter = isNaN(cAfterRaw) ? 0 : cAfterRaw;
 
         let totalSavingsVnd = 0;
-        if (isCostMode) {
+        if (isCostMode || catGroup === "NON_FINANCIAL") {
           const totRaw = isEditing
             ? (Number(editForm.total_savings_vnd) || Math.max(0, costBefore - costAfter))
             : (Number(proposal.total_savings_vnd || (proposal as any).totalSavingsVnd || (proposal as any).tong_tien_tiet_kiem) || Math.max(0, costBefore - costAfter));
@@ -1441,6 +1446,37 @@ function TabInfoContent({
         if (isNaN(totalSavingsVnd)) totalSavingsVnd = 0;
 
         const totalSavingsWordsText = totalSavingsVnd > 0 ? convertNumberToWords(totalSavingsVnd) : "";
+
+        if (catGroup === "NON_FINANCIAL" && !isEditing) {
+          return (
+            <div className="space-y-3">
+              <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-2">
+                <span>📈</span>
+                <span>HIỆU QUẢ CẢI TIẾN ({proposal.category_label || proposal.category || "7.MMTB CCDC"})</span>
+              </h4>
+
+              <div className="p-4 rounded-2xl bg-sky-50/90 border border-sky-200 space-y-2.5 shadow-2xs">
+                <span className="text-[10px] font-black uppercase text-sky-800 tracking-wider block">
+                  TIẾT KIỆM PHI TÀI CHÍNH (AN TOÀN / 5S / TỰ ĐỘNG HOÁ / MMTB) – KHÔNG BẮT BUỘC
+                </span>
+                <span className="text-xl sm:text-2xl font-black text-sky-950 block">
+                  {totalSavingsVnd > 0 ? `${formatVND(totalSavingsVnd)} VNĐ` : "Không xác định số tiền"}
+                </span>
+              </div>
+
+              {totalSavingsWordsText && (
+                <div className="p-3 rounded-2xl bg-emerald-50/80 border border-emerald-200 text-left">
+                  <span className="text-xs text-slate-700">
+                    <strong className="text-slate-900 font-black">Bằng chữ: </strong>
+                    <span className="italic font-bold text-emerald-950">
+                      "{totalSavingsWordsText}"
+                    </span>
+                  </span>
+                </div>
+              )}
+            </div>
+          );
+        }
 
         return (
           <div className="space-y-3">

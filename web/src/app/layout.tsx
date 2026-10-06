@@ -46,6 +46,8 @@ import { PerformanceProvider } from "@/components/PerformanceProvider";
 import PerfDebugOverlay from "@/components/PerfDebugOverlay";
 import GuestRouteGuard from "@/components/GuestRouteGuard";
 
+import VersionChecker from "@/components/VersionChecker";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -115,6 +117,7 @@ export default function RootLayout({
           <DevToolsShield />
           <NotificationInitializer />
           {children}
+          <VersionChecker />
           <MobileBottomNav />
           <PerfDebugOverlay />
         </PerformanceProvider>

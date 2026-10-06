@@ -51,31 +51,31 @@ export default function Footer() {
 
   // Dynamically create footer links based on language
   const getFooterLinks = () => {
-    if (lang === "ENG") {
+    if (lang === "en") {
       return {
         "TBS Group": [
-          { label: t("footer.about_tbs"), href: "/about" },
-          { label: t("footer.history"), href: "/#timeline" },
-          { label: t("footer.vision_mission"), href: "https://www.tbsgroup.vn/tam-nhin-su-menh/" },
-          { label: t("footer.core_values"), href: "https://www.tbsgroup.vn/ve-tap-doan-tbs/gia-tri-cot-loi/" },
+          { label: t("footer.about_tbs", undefined, "Giới thiệu"), href: "/about" },
+          { label: t("footer.history", undefined, "Lịch sử"), href: "/#timeline" },
+          { label: t("footer.vision_mission", undefined, "Tầm nhìn & Sứ mệnh"), href: "https://www.tbsgroup.vn/tam-nhin-su-menh/" },
+          { label: t("footer.core_values", undefined, "Giá trị cốt lõi"), href: "https://www.tbsgroup.vn/ve-tap-doan-tbs/gia-tri-cot-loi/" },
         ],
         "Media": [
-          { label: t("footer.news_events"), href: "/news" },
-          { label: t("footer.press_center"), href: "https://www.tbsgroup.vn/press-center/" },
-          { label: t("footer.sustainable_development"), href: "https://www.tbsgroup.vn/phat-trien-ben-vung/" },
-          { label: t("footer.living_wage"), href: "#" },
+          { label: t("footer.news_events", undefined, "Tin tức & Sự kiện"), href: "/news" },
+          { label: t("footer.press_center", undefined, "Press Center"), href: "https://www.tbsgroup.vn/press-center/" },
+          { label: t("footer.sustainable_development", undefined, "Phát triển bền vững"), href: "https://www.tbsgroup.vn/phat-trien-ben-vung/" },
+          { label: t("footer.living_wage", undefined, "Living Wage"), href: "#" },
         ],
         "Opportunities": [
-          { label: t("footer.recruitment"), href: "/careers" },
-          { label: t("footer.scholarships"), href: "#" },
-          { label: t("footer.hr_contact"), href: "/contact" },
-          { label: t("footer.internal"), href: "/login" },
+          { label: t("footer.recruitment", undefined, "Tuyển dụng"), href: "/careers" },
+          { label: t("footer.scholarships", undefined, "Học bổng Khuyến học"), href: "#" },
+          { label: t("footer.hr_contact", undefined, "Liên hệ HR"), href: "/contact" },
+          { label: t("footer.internal", undefined, "Nội bộ"), href: "/login" },
         ],
         "Legal": [
-          { label: t("footer.terms_service"), href: "#" },
-          { label: t("footer.privacy_policy"), href: "#" },
-          { label: t("footer.iso_certificate"), href: "#" },
-          { label: t("footer.sbti_carbon"), href: "#" },
+          { label: t("footer.terms_service", undefined, "Điều khoản dịch vụ"), href: "#" },
+          { label: t("footer.privacy_policy", undefined, "Chính sách bảo mật"), href: "#" },
+          { label: t("footer.iso_certificate", undefined, "ISO 9001:2015"), href: "#" },
+          { label: t("footer.sbti_carbon", undefined, "SBTi Carbon"), href: "#" },
         ],
       };
     } else {

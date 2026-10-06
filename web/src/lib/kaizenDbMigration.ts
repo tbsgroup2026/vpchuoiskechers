@@ -6,6 +6,22 @@ export async function ensureKaizenSchema(db: any, force = false) {
 
   try {
     const columns = [
+      'CREATE TABLE IF NOT EXISTS zalo_bot_chat_history (id TEXT PRIMARY KEY, chat_id TEXT, user_id TEXT, role TEXT, text TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)',
+      'CREATE TABLE IF NOT EXISTS zalo_bot_rate_limit (user_id TEXT PRIMARY KEY, count INTEGER DEFAULT 1, reset_at DATETIME)',
+      'CREATE TABLE IF NOT EXISTS zalo_bot_allowed_groups (group_id TEXT PRIMARY KEY, name TEXT, is_active INTEGER DEFAULT 1, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)',
+      'CREATE TABLE IF NOT EXISTS bot_knowledge (id TEXT PRIMARY KEY, question TEXT, answer TEXT, tags TEXT, status TEXT DEFAULT \'draft\', source TEXT DEFAULT \'admin\', created_by TEXT, approved_by TEXT, hit_count INTEGER DEFAULT 0, access_label TEXT DEFAULT \'internal\', updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)',
+      'ALTER TABLE bot_knowledge ADD COLUMN access_label TEXT DEFAULT "internal"',
+      'CREATE TABLE IF NOT EXISTS bot_unanswered (id TEXT PRIMARY KEY, question_hash TEXT UNIQUE, question_text TEXT, count INTEGER DEFAULT 1, status TEXT DEFAULT \'new\', first_seen DATETIME DEFAULT CURRENT_TIMESTAMP, last_seen DATETIME DEFAULT CURRENT_TIMESTAMP)',
+      'CREATE TABLE IF NOT EXISTS zalo_processed_events (event_id TEXT PRIMARY KEY, processed_at DATETIME DEFAULT CURRENT_TIMESTAMP)',
+
+                  'CREATE TABLE IF NOT EXISTS trip_files (id TEXT PRIMARY KEY, trip_id TEXT, uploader_emp_code TEXT, file_type TEXT, original_name TEXT, mime_type TEXT, size_bytes INTEGER, r2_key TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)',
+      'CREATE INDEX IF NOT EXISTS idx_trip_files_trip_id ON trip_files (trip_id)',
+      'ALTER TABLE business_trips ADD COLUMN trip_type TEXT DEFAULT "TRONG_NGAY"',
+
+      'ALTER TABLE room_bookings ADD COLUMN source TEXT DEFAULT "INTERNAL"',
+      'ALTER TABLE room_bookings ADD COLUMN zalo_phone TEXT',
+
+      'CREATE TABLE IF NOT EXISTS company_vehicles (id TEXT PRIMARY KEY, plate_number TEXT NOT NULL, driver_name TEXT NOT NULL, driver_phone TEXT, seat_count INTEGER, status TEXT DEFAULT "AVAILABLE", current_trip_id TEXT, notes TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)',
       'ALTER TABLE ci_kaizen_proposals ADD COLUMN trang_thai TEXT DEFAULT "CHO_DUYET"',
       'ALTER TABLE ci_kaizen_proposals ADD COLUMN line TEXT',
       'ALTER TABLE ci_kaizen_proposals ADD COLUMN nguoi_kiem_chung TEXT',
@@ -43,11 +59,20 @@ export async function ensureKaizenSchema(db: any, force = false) {
       'ALTER TABLE ci_kaizen_proposals ADD COLUMN pricing_direction TEXT DEFAULT "THOI_GIAN"',
       'ALTER TABLE ci_kaizen_proposals ADD COLUMN total_savings_words TEXT',
       'ALTER TABLE ci_kaizen_proposals ADD COLUMN is_edited INTEGER DEFAULT 0',
+      'ALTER TABLE ci_kaizen_proposals ADD COLUMN approval_status TEXT DEFAULT "PHE_DUYET"',
     ];
 
     for (const sql of columns) {
       await db.prepare(sql).run().catch(() => {});
     }
+
+    // Sync performance indexes
+    await db.prepare(`
+      CREATE INDEX IF NOT EXISTS idx_ci_kaizen_site_ext ON ci_kaizen_proposals(site_code, external_id)
+    `).run().catch(() => {});
+    await db.prepare(`
+      CREATE INDEX IF NOT EXISTS idx_ci_kaizen_updated ON ci_kaizen_proposals(updated_at DESC)
+    `).run().catch(() => {});
 
     // Role Permissions & Workspace Config Tables
     await db.prepare(`
@@ -379,6 +404,17 @@ export async function ensureKaizenSchema(db: any, force = false) {
       "ALTER TABLE business_trips ADD COLUMN delegated_by_emp_code TEXT",
       "ALTER TABLE business_trips ADD COLUMN delegated_by_name TEXT",
       "ALTER TABLE business_trips ADD COLUMN recall_reason TEXT",
+      "ALTER TABLE business_trips ADD COLUMN destinations_json TEXT",
+      "ALTER TABLE business_trips ADD COLUMN logistics_json TEXT",
+      "ALTER TABLE business_trips ADD COLUMN logistics_status TEXT DEFAULT 'NOT_STARTED'",
+      "ALTER TABLE business_trips ADD COLUMN custom_destination_name TEXT",
+      "ALTER TABLE business_trips ADD COLUMN custom_destination_address TEXT",
+      "ALTER TABLE business_trips ADD COLUMN custom_destination_type TEXT",
+      "ALTER TABLE business_trips ADD COLUMN signed_travel_paper_json TEXT",
+      "ALTER TABLE business_trips ADD COLUMN payment_status TEXT DEFAULT 'NOT_STARTED'",
+      "ALTER TABLE business_trips ADD COLUMN payment_notes TEXT",
+      "ALTER TABLE business_trips ADD COLUMN last_reminded_at DATETIME",
+      "ALTER TABLE business_trips ADD COLUMN creator_emp_code TEXT",
     ];
     for (const sql of tripExtraCols) {
       await db.prepare(sql).run().catch(() => {});
@@ -442,6 +478,9 @@ export async function ensureKaizenSchema(db: any, force = false) {
           ["emp_4", "210602002", "Phạm Quốc Tuấn", "Kiên Giang 2", "KG2", "Trưởng Xưởng May", "0904567890", "tuanpq@tbsgroup.vn", "Kiên Giang 2 - Cụm B"],
           ["emp_5", "222102020", "Đỗ Minh Đức", "Hoàn Thiện Đế", "HTD", "Kỹ Sư R&D", "0905678901", "ducdm@tbsgroup.vn", "Tổ hợp Đế Giày TTPP"],
           ["emp_6", "201711002", "Lê Khải", "Văn Phòng Chuỗi SKECHERS", "VPCHUOI", "Giám Đốc Chuỗi Cung Ứng", "0906789012", "khaile@tbsgroup.vn", "VP Chuỗi - Trụ sở chính"],
+          ["emp_7", "202206011", "TRẦN THỊ BÍCH TRÂM", "HÀNH CHÍNH-LỄ TÂN", "HANH_CHINH", "Trưởng Team Lễ Tân", "", "202206011@tbsgroup.vn", "VP Chuỗi SKECHERS - Cổng chính"],
+          ["emp_8", "102603069", "TRƯƠNG BẢO NGỌC", "HÀNH CHÍNH-LỄ TÂN", "HANH_CHINH", "Lễ Tân", "", "102603069@tbsgroup.vn", "VP Chuỗi SKECHERS - Cổng chính"],
+          ["emp_9", "202010004", "NGUYỄN MINH HÙNG", "HÀNH CHÍNH-LỄ TÂN", "HANH_CHINH", "Lễ Tân", "", "202010004@tbsgroup.vn", "VP Chuỗi SKECHERS - Cổng chính"],
         ];
         for (const e of seedEmps) {
           await db.prepare(`
@@ -489,6 +528,50 @@ export async function ensureKaizenSchema(db: any, force = false) {
     `).run().catch(() => {});
     await db.prepare('ALTER TABLE sys_notifications ADD COLUMN target_role TEXT').run().catch(() => {});
 
+    // D1 Meeting Rooms Table
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS meeting_rooms (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        roomCode TEXT,
+        capacity INTEGER DEFAULT 10,
+        location TEXT,
+        managingUnit TEXT,
+        equipment TEXT,
+        status TEXT DEFAULT 'AVAILABLE',
+        isLocked INTEGER DEFAULT 0,
+        colorClass TEXT DEFAULT 'bg-blue-600 border-blue-700 text-white',
+        badgeBg TEXT DEFAULT 'bg-blue-100 text-blue-800',
+        images TEXT,
+        floor INTEGER,
+        sort_order INTEGER,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run().catch(() => {});
+
+    await db.prepare('ALTER TABLE meeting_rooms ADD COLUMN floor INTEGER').run().catch(() => {});
+    await db.prepare('ALTER TABLE meeting_rooms ADD COLUMN sort_order INTEGER').run().catch(() => {});
+
+
+    // Seed Sample Meeting Rooms if empty
+    try {
+      const roomCount = await db.prepare("SELECT COUNT(*) as cnt FROM meeting_rooms").first().catch(() => null);
+      if (!roomCount || Number(roomCount.cnt) === 0) {
+        const seedRooms = [
+          ["room_1", "Phòng Họp Executive (P.101)", "P.101", 20, "Tầng 1 - Khối Văn Phòng Chuỗi Skechers", "Khối Hành Chánh TBS Group", "Màn hình 85 inch, Camera AI Polycom, Bảng kính interactive, Micro hội nghị wireless", "AVAILABLE", 0, "bg-blue-600 border-blue-700 text-white", "bg-blue-100 text-blue-800", '["/images/rooms/room_1/1.jpg"]'],
+          ["room_2", "Phòng Họp Kaizen & Gemba (P.202)", "P.202", 12, "Tầng 2 - Khu Vực Cải Tiến & Kỹ Thuật", "Khối Hành Chánh TBS Group", "Máy chiếu 4K, Bảng gá 1-5-2 demo, Hệ thống loa trợ giảng", "AVAILABLE", 0, "bg-purple-600 border-purple-700 text-white", "bg-purple-100 text-purple-800", '["/images/rooms/room_2/1.jpg"]'],
+          ["room_3", "Phòng Họp Sáng Tạo & R&D (P.305)", "P.305", 10, "Tầng 3 - Trung Tâm Nghiên Cứu Mẫu", "Khối Hành Chánh TBS Group", "Bàn làm việc mô-đun, Màn hình cảm ứng 65 inch", "AVAILABLE", 0, "bg-emerald-600 border-emerald-700 text-white", "bg-emerald-100 text-emerald-800", '["/images/rooms/room_3/1.jpg"]'],
+        ];
+        for (const r of seedRooms) {
+          await db.prepare(`
+            INSERT OR IGNORE INTO meeting_rooms (id, name, roomCode, capacity, location, managingUnit, equipment, status, isLocked, colorClass, badgeBg, images)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `).bind(...r).run().catch(() => {});
+        }
+      }
+    } catch (e) {}
+
     // D1 Room Bookings Table & Conflict Lock Index
     await db.prepare(`
       CREATE TABLE IF NOT EXISTS room_bookings (
@@ -511,6 +594,73 @@ export async function ensureKaizenSchema(db: any, force = false) {
 
     await db.prepare(`
       CREATE INDEX IF NOT EXISTS idx_room_booking_conflict ON room_bookings(room_id, booking_date, time_slot)
+    `).run().catch(() => {});
+
+    await db.prepare('ALTER TABLE room_bookings ADD COLUMN notes TEXT').run().catch(() => {});
+    await db.prepare('ALTER TABLE room_bookings ADD COLUMN meeting_type TEXT DEFAULT "OFFLINE"').run().catch(() => {});
+    await db.prepare('ALTER TABLE room_bookings ADD COLUMN platform TEXT').run().catch(() => {});
+    await db.prepare('ALTER TABLE room_bookings ADD COLUMN meeting_link TEXT').run().catch(() => {});
+    await db.prepare('ALTER TABLE room_bookings ADD COLUMN meeting_credentials TEXT').run().catch(() => {});
+
+    // Zalo Bot Integration Tables
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS zalo_user_links (
+        emp_code TEXT PRIMARY KEY,
+        chat_id TEXT NOT NULL,
+        zalo_name TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run().catch(() => {});
+
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS zalo_linking_codes (
+        code TEXT PRIMARY KEY,
+        emp_code TEXT NOT NULL,
+        expires_at DATETIME NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run().catch(() => {});
+
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS zalo_notification_logs (
+        id TEXT PRIMARY KEY,
+        event_type TEXT NOT NULL,
+        priority TEXT NOT NULL,
+        recipient_emp_code TEXT,
+        chat_id TEXT,
+        message_text TEXT,
+        status TEXT DEFAULT 'SUCCESS',
+        error_detail TEXT,
+        idempotency_key TEXT UNIQUE,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run().catch(() => {});
+
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS zalo_config (
+        id TEXT PRIMARY KEY DEFAULT 'main',
+        quiet_hours_start TEXT DEFAULT '21:00',
+        quiet_hours_end TEXT DEFAULT '06:30',
+        meeting_reminder_mins INTEGER DEFAULT 30,
+        visitor_reminder_days INTEGER DEFAULT 2,
+        reception_group_chat_id TEXT,
+        confirmed_group_chat_id TEXT,
+        event_toggles_json TEXT,
+        priority_config_json TEXT,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run().catch(() => {});
+    await db.prepare('ALTER TABLE zalo_config ADD COLUMN confirmed_group_chat_id TEXT').run().catch(() => {});
+
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS zalo_captured_groups (
+        group_chat_id TEXT PRIMARY KEY,
+        group_name TEXT,
+        last_message TEXT,
+        sender_name TEXT,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
     `).run().catch(() => {});
 
     await db.prepare('ALTER TABLE ci_kaizen_rate_limits ADD COLUMN site_code TEXT').run().catch(() => {});
@@ -643,6 +793,10 @@ export async function ensureKaizenSchema(db: any, force = false) {
           { role: 'NHAN_VIEN', route: '/work/tasks', label: 'Công Việc Của Tôi', icon: 'IconList', sort: 2 },
           { role: 'NHAN_VIEN', route: '/work/payroll/me', label: 'Bảng Lương Của Tôi', icon: 'IconReceipt', sort: 3 },
           { role: 'NHAN_VIEN', route: '/work/leave-request', label: 'Xin Nghỉ Phép', icon: 'IconCalendar', sort: 4 },
+
+          // KE_TOAN
+          { role: 'KE_TOAN', route: '/work/business-trip', label: 'Quyết Toán Công Tác', icon: 'IconReceipt', sort: 1 },
+          { role: 'KE_TOAN', route: '/work/payroll/me', label: 'Bảng Lương Của Tôi', icon: 'IconReceipt', sort: 2 },
 
           // QUAN_LY_KHU_VUC
           { role: 'QUAN_LY_KHU_VUC', route: '/work/overview', label: 'Overview Đa Đơn Vị', icon: 'IconChartBar', sort: 1 },
@@ -1003,6 +1157,28 @@ export async function ensureKaizenSchema(db: any, force = false) {
         ).bind(bd.id, bd.cid, bd.hang, bd.pts, bd.desc).run().catch(() => {});
       }
     } catch (e) {}
+
+    // D1 CI Kaizen Judge Guest Accounts Table
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS ci_kaizen_judge_guest_accounts (
+        id TEXT PRIMARY KEY,
+        username TEXT UNIQUE NOT NULL,
+        one_time_passcode TEXT NOT NULL,
+        full_name TEXT,
+        email_phone TEXT,
+        organization TEXT,
+        contact_info TEXT,
+        round_id TEXT NOT NULL,
+        token_hash TEXT,
+        expires_at DATETIME NOT NULL,
+        used_at DATETIME,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        created_by TEXT,
+        is_revoked INTEGER DEFAULT 0,
+        dung_chung INTEGER DEFAULT 1,
+        declaration_submitted INTEGER DEFAULT 0
+      )
+    `).run().catch(() => {});
 
     isSchemaMigrated = true;
   } catch (err) {

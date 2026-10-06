@@ -93,6 +93,7 @@ export const ROLES: Record<string, Permission[]> = {
     PERMISSIONS.ROOMS_REASSIGN,
     PERMISSIONS.ROOMS_CHECKIN_GUEST,
     PERMISSIONS.ROOMS_ISSUE_BADGE,
+    PERMISSIONS.TRIP_DISPATCH_VEHICLE,
   ],
 
   admin_office: [

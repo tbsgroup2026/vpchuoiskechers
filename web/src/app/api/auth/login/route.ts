@@ -97,6 +97,54 @@ export async function POST(request: Request) {
         validPasswords: ['123456', '21032004', 'Admin@123456'],
       },
 
+      '202206011': {
+        userId: 250,
+        empCode: '202206011',
+        name: 'TRẦN THỊ BÍCH TRÂM',
+        title: 'Trưởng Team Lễ Tân',
+        email: '202206011@tbsgroup.vn',
+        roleId: 9,
+        roleCode: 'LE_TAN',
+        roles: ['employee', 'le_tan'],
+        roleLevel: 1,
+        departmentId: 10,
+        departmentCode: 'HANH_CHINH',
+        departmentName: 'HÀNH CHÍNH-LỄ TÂN',
+        redirectUrl: '/work',
+        validPasswords: ['123456', '21032004', 'Admin@123456'],
+      },
+      '102603069': {
+        userId: 251,
+        empCode: '102603069',
+        name: 'TRƯƠNG BẢO NGỌC',
+        title: 'Lễ Tân',
+        email: '102603069@tbsgroup.vn',
+        roleId: 9,
+        roleCode: 'LE_TAN',
+        roles: ['employee', 'le_tan'],
+        roleLevel: 1,
+        departmentId: 10,
+        departmentCode: 'HANH_CHINH',
+        departmentName: 'HÀNH CHÍNH-LỄ TÂN',
+        redirectUrl: '/work',
+        validPasswords: ['123456', '21032004', 'Admin@123456'],
+      },
+      '202010004': {
+        userId: 252,
+        empCode: '202010004',
+        name: 'NGUYỄN MINH HÙNG',
+        title: 'Lễ Tân',
+        email: '202010004@tbsgroup.vn',
+        roleId: 9,
+        roleCode: 'LE_TAN',
+        roles: ['employee', 'le_tan'],
+        roleLevel: 1,
+        departmentId: 10,
+        departmentCode: 'HANH_CHINH',
+        departmentName: 'HÀNH CHÍNH-LỄ TÂN',
+        redirectUrl: '/work',
+        validPasswords: ['123456', '21032004', 'Admin@123456'],
+      },
       '202608001': {
         userId: 205,
         empCode: '202608001',
@@ -438,42 +486,73 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Vui lòng nhập mật khẩu' }, { status: 400 });
     }
 
-    const resolvedName = resolveEmployeeName(cleanEmpCode);
-    const payload = {
-      userId: 888,
-      empCode: cleanEmpCode,
-      name: resolvedName !== "Không xác định" ? resolvedName : `Nhân Viên (${cleanEmpCode})`,
-      title: 'Chuyên Viên Vận Hành',
-      email: `${cleanEmpCode}@tbsgroup.vn`,
-      roleId: 7,
-      roleCode: 'NHAN_VIEN',
-      roles: ['employee'],
-      roleLevel: 4,
-      departmentId: 11,
-      departmentCode: 'TO_HOP_NHA_MAY',
-      departmentName: 'Văn Phòng Chuỗi SKECHERS',
-      redirectUrl: '/work',
-    };
+    if (db) {
+      try {
+        const userInDb = await db.prepare("SELECT * FROM sys_users WHERE UPPER(emp_code) = UPPER(?) OR UPPER(id) = UPPER(?)").bind(cleanEmpCode, cleanEmpCode).first();
+        if (!userInDb) {
+           return NextResponse.json({ error: 'Mã số nhân viên không tồn tại hoặc chưa được cấp quyền. Vui lòng kiểm tra lại hoặc liên hệ quản trị viên.' }, { status: 401 });
+        }
+        
+        if (userInDb.status && userInDb.status !== 'ACTIVE') {
+           return NextResponse.json({ error: 'Mã số nhân viên đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.' }, { status: 401 });
+        }
 
-    const token = await signToken(payload);
+        if (!(password === '123456' || password === '21032004' || password === 'Admin@123456')) {
+           await logAudit(request, {
+             empCode: userInDb.emp_code,
+             empName: userInDb.name,
+             roleCode: userInDb.role_code || 'CBCNV',
+             module: 'AUTH',
+             action: 'LOGIN_FAILED',
+             status: 'FAILED',
+             changesJson: { status: 'FAILED', reason: 'Mật khẩu không chính xác' }
+           }).catch(() => {});
+           return NextResponse.json({ error: 'Mật khẩu không chính xác' }, { status: 401 });
+        }
 
-    // Record Central Audit Event for fallback login
-    await logAudit(request, {
-      empCode: cleanEmpCode,
-      empName: resolvedName,
-      roleCode: 'NHAN_VIEN',
-      module: 'AUTH',
-      action: 'LOGIN_SUCCESS',
-      status: 'SUCCESS',
-      changesJson: { status: 'SUCCESS', empCode: cleanEmpCode }
-    }).catch(() => {});
+        const payload = {
+          userId: userInDb.id,
+          empCode: userInDb.emp_code,
+          name: userInDb.name || `Nhân Viên (${userInDb.emp_code})`,
+          title: userInDb.title || 'Chuyên Viên Vận Hành',
+          email: userInDb.email || `${userInDb.emp_code}@tbsgroup.vn`,
+          roleId: 7,
+          roleCode: userInDb.role_code || 'CBCNV',
+          roles: ['employee'],
+          roleLevel: 4,
+          departmentId: 11,
+          departmentCode: 'TO_HOP_NHA_MAY',
+          departmentName: userInDb.department || 'Văn Phòng Chuỗi SKECHERS',
+          redirectUrl: '/work',
+        };
 
-    return NextResponse.json({
-      success: true,
-      token,
-      user: payload,
-      redirectUrl: '/work',
-    });
+        const token = await signToken(payload);
+
+        await logAudit(request, {
+          empCode: payload.empCode,
+          empName: payload.name,
+          roleCode: payload.roleCode,
+          module: 'AUTH',
+          action: 'LOGIN_SUCCESS',
+          status: 'SUCCESS',
+          changesJson: { status: 'SUCCESS', empCode: payload.empCode }
+        }).catch(() => {});
+
+        return NextResponse.json({
+          success: true,
+          token,
+          user: payload,
+          redirectUrl: '/work',
+        });
+      } catch (err: any) {
+        if (err.message && err.message.includes('D1_ERROR')) {
+           return NextResponse.json({ error: 'Hệ thống đang bảo trì hoặc quá tải dữ liệu (D1 Limits). Vui lòng thử lại sau.' }, { status: 500 });
+        }
+        return NextResponse.json({ error: 'Lỗi truy xuất dữ liệu nhân viên. Vui lòng thử lại sau.' }, { status: 500 });
+      }
+    }
+
+    return NextResponse.json({ error: 'Mã số nhân viên không tồn tại hoặc chưa được cấp quyền. Vui lòng kiểm tra lại hoặc liên hệ quản trị viên.' }, { status: 401 });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Lỗi hệ thống';
     return NextResponse.json({ error: message }, { status: 500 });

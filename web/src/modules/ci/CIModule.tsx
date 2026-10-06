@@ -32,6 +32,12 @@ import {
   isTHKGRegion,
 } from "@/lib/kaizenRegionHelper";
 
+import { rankIndividualProposals } from "@/lib/kaizenScoring";
+import { getClientJudgeIdentity, isJudgeUser, getJudgeEntryStatus } from "@/lib/kaizenJudgeIdentity";
+import { KaizenCalendarPopover } from "./KaizenCalendarPopover";
+import { getVietnamDateStr } from "@/app/api/ci-kaizen/daily-counts/route";
+import { formatVnDateDisplay } from "@/lib/kaizenDateHelper";
+
 const PROPOSALS_CACHE_KEY = "vpchuoiskechers_kaizen_proposals_cache_v2";
 
 // Resilient Fetch with AbortController Timeout & Exponential Backoff Retry for Weak 3G/4G Networks
@@ -323,13 +329,16 @@ export function HalfStarRating({ value, onChange, readOnly = false, size = 22 }:
 }
 
 const REGION_SUB_ITEMS = [
-  "Văn phòng Chuỗi",
-  "Phòng Ban THKG",
-  "Nhà Máy Miền Đông",
   "Kiên Giang 1",
   "Kiên Giang 2",
   "Kiên Giang 3",
-  "Hoàn Thiện Đế",
+  "Hoàn thiện đế",
+  "Phòng kế hoạch",
+  "Phòng CI",
+  "Phòng CN",
+  "Phòng chất lượng",
+  "Phòng nhân sự",
+  "Chưa phân loại"
 ];
 
 export function matchRegionFilter(propRegionOrObj: any, filterRegion: string): boolean {
@@ -498,15 +507,17 @@ export function isPendingApprovalProposal(p: KaizenProposal): boolean {
 
 export function matchRegTypeFilter(p: KaizenProposal, regType: string): boolean {
   if (!p) return false;
-  if (!regType || regType === "ALL") return true;
-
+  
   const isArchived = Boolean(p.is_archived) || p.sub_status === "LUU_TRU" || p.registration_type === "LUU_TRU" || p.status === "ARCHIVED";
 
   if (regType === "LUU_TRU") {
     return isArchived;
   }
 
+  // Nếu không chọn Lưu trữ (bao gồm cả ALL), thẻ Lưu trữ không được đếm
   if (isArchived) return false;
+
+  if (!regType || regType === "ALL") return true;
 
   if (regType === "THI_DUA") {
     return true;
@@ -555,18 +566,14 @@ export function renderCardTopRightBadge(prop: KaizenProposal, rankInfo?: any) {
   }
 
   if (isApproved) {
-    if (rankInfo) {
+    if (rankInfo && !String(rankInfo.badgeLabel || "").includes("Chưa chấm")) {
       return (
         <span className={`px-2 py-0.5 rounded text-[10px] font-black shadow-md flex items-center gap-1 ${rankInfo.badgeStyle}`}>
           <span>{rankInfo.badgeLabel}</span>
         </span>
       );
     }
-    return (
-      <span className="px-2 py-0.5 rounded bg-emerald-600 text-white text-[9px] font-black shadow-2xs flex items-center gap-0.5">
-        ✅ Đã duyệt
-      </span>
-    );
+    return null;
   }
 
   return (
@@ -578,7 +585,7 @@ export function renderCardTopRightBadge(prop: KaizenProposal, rankInfo?: any) {
 
 export const UNIT_SLUG_MAP: Record<string, { label: string; regionKey: string; slug: string }> = {
   "van-phong-chuoi": { label: "Văn phòng Chuỗi", regionKey: "Văn phòng Chuỗi", slug: "van-phong-chuoi" },
-  "phong-ban-thkg": { label: "Phòng Ban THKG", regionKey: "Phòng Ban THKG", slug: "phong-ban-thkg" },
+  
   "nha-may-mien-dong": { label: "Nhà Máy Miền Đông", regionKey: "Nhà Máy Miền Đông", slug: "nha-may-mien-dong" },
   "kien-giang-1": { label: "Kiên Giang 1", regionKey: "Kiên Giang 1", slug: "kien-giang-1" },
   "kien-giang-2": { label: "Kiên Giang 2", regionKey: "Kiên Giang 2", slug: "kien-giang-2" },
@@ -592,6 +599,20 @@ export function getProposalMonthYearKey(p: any): string {
   const y = p.proposer_year || p.proposerYear || (p.created_at ? new Date(p.created_at).getFullYear() : null);
   if (m && y) return `${m}/${y}`;
   return "";
+}
+
+export function getProposalFinalScore(p: any): number {
+  if (!p) return 0;
+  const rawScore = p.judge_final_score ?? p.score_points ?? (p as any).scorePoints ?? (p as any).diem_tong_hop ?? (p as any).diem_hieu_qua ?? (p as any).avg_score ?? 0;
+  if (!rawScore) return 0;
+  const parsedScore = Number(String(rawScore).replace(',', '.'));
+  return isNaN(parsedScore) ? 0 : parsedScore;
+}
+
+export function isProposalScored(p: any): boolean {
+  if (!p) return false;
+  const score = getProposalFinalScore(p);
+  return score > 0 || p.sub_status === "DA_DANH_GIA" || p.review_status === "DA_DANH_GIA";
 }
 
 interface CIModuleProps {
@@ -644,11 +665,211 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
   const [selectedWorkshop, setSelectedWorkshop] = useState("ALL");
   const [selectedRegType, setSelectedRegType] = useState("ALL");
   const [selectedMonthYear, setSelectedMonthYear] = useState("ALL");
+  const [kaizenVersion, setKaizenVersion] = useState<string | null>(null);
+  const [lastUpdateTime, setLastUpdateTime] = useState<string | null>(null);
+  const [networkError, setNetworkError] = useState<boolean>(false);
+  const [fromDate, setFromDate] = useState<string>("");
+  const [toDate, setToDate] = useState<string>("");
+  const [singleDate, setSingleDate] = useState<string>("");
+  const [dateShortcut, setDateShortcut] = useState<string>("CUSTOM");
   const [selectedSortBy, setSelectedSortBy] = useState("DEFAULT");
   const [selectedSubStatus, setSelectedSubStatus] = useState("CHO_DANH_GIA");
   const [selectedStatus, setSelectedStatus] = useState("ALL");
-  const [judgeScoringFilter, setJudgeScoringFilter] = useState<"ALL" | "UNSCORED" | "SCORED">("ALL");
+  const [judgeScoringFilter, setJudgeScoringFilter] = useState<"ALL" | "GLOBAL_UNSCORED" | "GLOBAL_SCORED" | "MY_UNSCORED" | "MY_SCORED">("ALL");
   const [myScoresMap, setMyScoresMap] = useState<Record<string, { totalScore: number; isLocked: boolean }>>({});
+
+  // Time Savings Filter & Sort State
+  const [minSavedSeconds, setMinSavedSeconds] = useState<string>("");
+  const [maxSavedSeconds, setMaxSavedSeconds] = useState<string>("");
+  const [timeDataMode, setTimeDataMode] = useState<"ALL" | "HAS_TIME" | "NO_TIME">("ALL");
+  const [timeShortcut, setTimeShortcut] = useState<"ALL" | "GT_0" | "GE_5" | "GE_10" | "GE_30" | "CUSTOM">("ALL");
+  const [isTimeFilterOpen, setIsTimeFilterOpen] = useState(false);
+
+  const getProposalSavedSeconds = useCallback((p: any): number => {
+    if (!p) return 0;
+    const tb = Number(p.time_before_seconds ?? p.timeBeforeSeconds ?? 0);
+    const ta = Number(p.time_after_seconds ?? p.timeAfterSeconds ?? 0);
+    if (tb > 0 || ta > 0) return Math.max(0, tb - ta);
+    return Number(p.saved_seconds ?? p.so_giay_tiet_kiem ?? p.savedSeconds ?? 0);
+  }, []);
+
+  const hasTimeData = useCallback((p: any): boolean => {
+    return getProposalSavedSeconds(p) > 0;
+  }, [getProposalSavedSeconds]);
+
+  const handleTimeShortcutChange = (key: "ALL" | "GT_0" | "GE_5" | "GE_10" | "GE_30" | "CUSTOM") => {
+    setTimeShortcut(key);
+    if (key === "ALL") {
+      setMinSavedSeconds("");
+      setMaxSavedSeconds("");
+      setTimeDataMode("ALL");
+    } else if (key === "GT_0") {
+      setMinSavedSeconds("0.001");
+      setMaxSavedSeconds("");
+      setTimeDataMode("HAS_TIME");
+    } else if (key === "GE_5") {
+      setMinSavedSeconds("5");
+      setMaxSavedSeconds("");
+      setTimeDataMode("HAS_TIME");
+    } else if (key === "GE_10") {
+      setMinSavedSeconds("10");
+      setMaxSavedSeconds("");
+      setTimeDataMode("HAS_TIME");
+    } else if (key === "GE_30") {
+      setMinSavedSeconds("30");
+      setMaxSavedSeconds("");
+      setTimeDataMode("HAS_TIME");
+    }
+  };
+
+  const timeValidationError = useMemo(() => {
+    if (minSavedSeconds !== "" && maxSavedSeconds !== "") {
+      const minV = parseFloat(minSavedSeconds);
+      const maxV = parseFloat(maxSavedSeconds);
+      if (!isNaN(minV) && !isNaN(maxV) && maxV < minV) {
+        return '⚠️ "Đến (giây)" phải lớn hơn hoặc bằng "Từ (giây)"';
+      }
+    }
+    return null;
+  }, [minSavedSeconds, maxSavedSeconds]);
+
+
+  const handleShortcutChange = (shortcutKey: string) => {
+    setDateShortcut(shortcutKey);
+    setSelectedMonthYear("ALL");
+
+    const now = new Date();
+    const formatYMD = (d: Date) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    };
+
+    if (shortcutKey === "TODAY") {
+      const todayStr = formatYMD(now);
+      setFromDate(todayStr);
+      setToDate(todayStr);
+    } else if (shortcutKey === "LAST_7_DAYS") {
+      const start = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000);
+      setFromDate(formatYMD(start));
+      setToDate(formatYMD(now));
+    } else if (shortcutKey === "LAST_30_DAYS") {
+      const start = new Date(now.getTime() - 29 * 24 * 60 * 60 * 1000);
+      setFromDate(formatYMD(start));
+      setToDate(formatYMD(now));
+    } else if (shortcutKey === "THIS_MONTH") {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      setFromDate(formatYMD(start));
+      setToDate(formatYMD(now));
+    } else if (shortcutKey === "LAST_MONTH") {
+      const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const end = new Date(now.getFullYear(), now.getMonth(), 0);
+      setFromDate(formatYMD(start));
+      setToDate(formatYMD(end));
+    } else if (shortcutKey === "THIS_QUARTER") {
+      const currentQuarter = Math.floor(now.getMonth() / 3);
+      const start = new Date(now.getFullYear(), currentQuarter * 3, 1);
+      setFromDate(formatYMD(start));
+      setToDate(formatYMD(now));
+    } else if (shortcutKey === "THIS_YEAR") {
+      const start = new Date(now.getFullYear(), 0, 1);
+      setFromDate(formatYMD(start));
+      setToDate(formatYMD(now));
+    } else if (shortcutKey === "ALL") {
+      setFromDate("");
+      setToDate("");
+    }
+  };
+
+  const handleFromDateChange = (val: string) => {
+    setFromDate(val);
+    setDateShortcut("CUSTOM");
+    setSelectedMonthYear("ALL");
+    if (val && toDate && toDate < val) {
+      setToDate(val);
+      showToast("⚠️ Ngày kết thúc đã được tự động điều chỉnh bằng Ngày bắt đầu!");
+    }
+  };
+
+  const handleToDateChange = (val: string) => {
+    setToDate(val);
+    setDateShortcut("CUSTOM");
+    setSelectedMonthYear("ALL");
+    if (val && fromDate && val < fromDate) {
+      setFromDate(val);
+      showToast("⚠️ Ngày bắt đầu đã được tự động điều chỉnh bằng Ngày kết thúc!");
+    }
+  };
+
+  const handleMonthYearChange = (val: string) => {
+    setSelectedMonthYear(val);
+    if (val !== "ALL") {
+      setFromDate("");
+      setToDate("");
+      setSingleDate("");
+      setDateShortcut("CUSTOM");
+    }
+  };
+
+  const exportProposalsToExcel = (list: KaizenProposal[]) => {
+    if (!list || list.length === 0) {
+      showToast("⚠️ Không có dữ liệu cải tiến phù hợp để xuất Excel!");
+      return;
+    }
+
+    const headers = [
+      "Mã sáng kiến",
+      "Tiêu đề",
+      "Mã hàng",
+      "Khách hàng",
+      "Phân loại",
+      "Khu vực",
+      "Phân xưởng/Bộ phận",
+      "Chuyền",
+      "Người đề xuất",
+      "MSNV",
+      "Mô tả trước cải tiến",
+      "Giải pháp sau cải tiến",
+      "Thời gian tiết kiệm (giây)",
+      "Tổng tiền tiết kiệm (VNĐ)",
+      "Điểm BGK",
+      "Trạng thái",
+      "Ngày tạo",
+    ];
+
+    const rows = list.map((p) => [
+      `"${(p.code || '').replace(/"/g, '""')}"`,
+      `"${(getKaizenDisplayTitle(p) || '').replace(/"/g, '""')}"`,
+      `"${((p as any).product_code || '').replace(/"/g, '""')}"`,
+      `"${((p as any).customer || '').replace(/"/g, '""')}"`,
+      `"${(p.category_label || p.category || '').replace(/"/g, '""')}"`,
+      `"${(p.region || p.factory || '').replace(/"/g, '""')}"`,
+      `"${(p.department || '').replace(/"/g, '""')}"`,
+      `"${(p.line || '').replace(/"/g, '""')}"`,
+      `"${(p.proposer_name || '').replace(/"/g, '""')}"`,
+      `"${(p.proposer_emp_code || '').replace(/"/g, '""')}"`,
+      `"${(p.before_description || '').replace(/"/g, '""')}"`,
+      `"${(p.after_solution || '').replace(/"/g, '""')}"`,
+      p.saved_seconds || 0,
+      p.total_savings_vnd || 0,
+      p.score_points || 0,
+      `"${(p.sub_status || p.status || '').replace(/"/g, '""')}"`,
+      `"${(p.created_at || '').replace(/"/g, '""')}"`,
+    ]);
+
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Danh_Sach_Sang_Kien_Kaizen_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast(`📊 Đã xuất file Excel thành công (${list.length} bản ghi)!`);
+  };
 
   // Evaluation Modal State
   const [isEvaluationModalOpen, setIsEvaluationModalOpen] = useState(false);
@@ -705,27 +926,23 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
   const fetchMyScores = useCallback(() => {
     if (typeof window === "undefined") return;
     let token = getClientAuthToken();
-    let empCode = currentUser?.empCode || "";
+    
+    const judgeIdentity = getClientJudgeIdentity(currentUser);
+    const finalEmp = judgeIdentity.accountId;
+    const declarerName = judgeIdentity.declarerName || "";
 
-    let guestUser = "";
-    try {
-      const guestData = localStorage.getItem("tbs_guest_session") || sessionStorage.getItem("tbs_guest_session");
-      if (guestData) {
-        const g = JSON.parse(guestData);
-        if (g.username || g.empCode || g.id) {
-          guestUser = g.username || g.empCode || g.id;
-        }
-      }
-    } catch (e) {}
-
-    const finalEmp = empCode || guestUser;
     let headers: Record<string, string> = {};
     if (token) headers["Authorization"] = token;
     if (finalEmp) {
       headers["X-User-Emp-Code"] = finalEmp.replace(/[^\x00-\xFF]/g, (c) => encodeURIComponent(c));
     }
 
-    fetch(`/api/ci-kaizen/judging/my-scores?t=${Date.now()}&empCode=${encodeURIComponent(finalEmp)}`, { headers })
+    let url = `/api/ci-kaizen/judging/my-scores?t=${Date.now()}&empCode=${encodeURIComponent(finalEmp)}`;
+    if (declarerName) {
+      url += `&declarerName=${encodeURIComponent(declarerName)}`;
+    }
+
+    fetch(url, { headers })
       .then((res) => res.json())
       .then((json) => {
         if (json.success && json.myScores) {
@@ -733,7 +950,7 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
         }
       })
       .catch(() => {});
-  }, [currentUser?.empCode]);
+  }, [currentUser]);
 
   useEffect(() => {
     fetchMyScores();
@@ -764,7 +981,7 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
 
   const searchParams = useSearchParams();
 
-  // Sync region and stage/workshop filter from URL search params on mount & navigation
+  // Sync region, stage/workshop, and date range filters from URL search params on mount & navigation
   useEffect(() => {
     if (activeUnitInfo) {
       setSelectedRegion((prev) => (prev !== activeUnitInfo.regionKey ? activeUnitInfo.regionKey : prev));
@@ -773,14 +990,20 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
 
     let rVal = "";
     let sVal = "";
+    let fDateVal = "";
+    let tDateVal = "";
 
     if (searchParams) {
       rVal = searchParams.get("region") || searchParams.get("factory") || "";
       sVal = searchParams.get("stage") || searchParams.get("congdoan") || searchParams.get("workshop") || "";
+      fDateVal = searchParams.get("fromDate") || searchParams.get("from_date") || "";
+      tDateVal = searchParams.get("toDate") || searchParams.get("to_date") || "";
     } else if (typeof window !== "undefined" && window.location.search) {
       const urlParams = new URLSearchParams(window.location.search);
       rVal = urlParams.get("region") || urlParams.get("factory") || "";
       sVal = urlParams.get("stage") || urlParams.get("congdoan") || urlParams.get("workshop") || "";
+      fDateVal = urlParams.get("fromDate") || urlParams.get("from_date") || "";
+      tDateVal = urlParams.get("toDate") || urlParams.get("to_date") || "";
     }
 
     if (rVal) {
@@ -806,9 +1029,29 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
       }
       setSelectedWorkshop((prev) => (prev !== targetW ? targetW : prev));
     }
+
+    if (fDateVal && /^\d{4}-\d{2}-\d{2}$/.test(fDateVal)) {
+      setFromDate(fDateVal);
+    }
+    if (tDateVal && /^\d{4}-\d{2}-\d{2}$/.test(tDateVal)) {
+      setToDate(tDateVal);
+    }
+
+    const tSort = searchParams ? searchParams.get("timeSort") || searchParams.get("time_sort") : null;
+    if (tSort === "desc" || tSort === "TIME_DESC") setSelectedSortBy("TIME_DESC");
+    if (tSort === "asc" || tSort === "TIME_ASC") setSelectedSortBy("TIME_ASC");
+
+    const minT = searchParams ? searchParams.get("minTime") || searchParams.get("min_time") : null;
+    if (minT) setMinSavedSeconds(minT);
+
+    const maxT = searchParams ? searchParams.get("maxTime") || searchParams.get("max_time") : null;
+    if (maxT) setMaxSavedSeconds(maxT);
+
+    const tMode = searchParams ? searchParams.get("timeMode") || searchParams.get("time_mode") : null;
+    if (tMode === "HAS_TIME" || tMode === "NO_TIME") setTimeDataMode(tMode as any);
   }, [searchParams, activeUnitInfo]);
 
-  // Keep browser URL search params synchronized with selectedRegion & selectedWorkshop
+  // Keep browser URL search params synchronized with selectedRegion, selectedWorkshop, fromDate, toDate & time filters
   useEffect(() => {
     if (!isHydrated) return;
     if (typeof window === "undefined") return;
@@ -850,10 +1093,107 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
       }
     }
 
+    if (fromDate) {
+      if (url.searchParams.get("fromDate") !== fromDate) {
+        url.searchParams.set("fromDate", fromDate);
+        changed = true;
+      }
+    } else if (url.searchParams.has("fromDate")) {
+      url.searchParams.delete("fromDate");
+      changed = true;
+    }
+
+    if (toDate) {
+      if (url.searchParams.get("toDate") !== toDate) {
+        url.searchParams.set("toDate", toDate);
+        changed = true;
+      }
+    } else if (url.searchParams.has("toDate")) {
+      url.searchParams.delete("toDate");
+      changed = true;
+    }
+
+    if (selectedSortBy === "TIME_DESC") {
+      if (url.searchParams.get("timeSort") !== "desc") {
+        url.searchParams.set("timeSort", "desc");
+        changed = true;
+      }
+    } else if (selectedSortBy === "TIME_ASC") {
+      if (url.searchParams.get("timeSort") !== "asc") {
+        url.searchParams.set("timeSort", "asc");
+        changed = true;
+      }
+    } else if (url.searchParams.has("timeSort")) {
+      url.searchParams.delete("timeSort");
+      changed = true;
+    }
+
+    if (minSavedSeconds) {
+      if (url.searchParams.get("minTime") !== minSavedSeconds) {
+        url.searchParams.set("minTime", minSavedSeconds);
+        changed = true;
+      }
+    } else if (url.searchParams.has("minTime")) {
+      url.searchParams.delete("minTime");
+      changed = true;
+    }
+
+    if (maxSavedSeconds) {
+      if (url.searchParams.get("maxTime") !== maxSavedSeconds) {
+        url.searchParams.set("maxTime", maxSavedSeconds);
+        changed = true;
+      }
+    } else if (url.searchParams.has("maxTime")) {
+      url.searchParams.delete("maxTime");
+      changed = true;
+    }
+
+    if (timeDataMode !== "ALL") {
+      if (url.searchParams.get("timeMode") !== timeDataMode) {
+        url.searchParams.set("timeMode", timeDataMode);
+        changed = true;
+      }
+    } else if (url.searchParams.has("timeMode")) {
+      url.searchParams.delete("timeMode");
+      changed = true;
+    }
+
     if (changed && url.href !== window.location.href) {
       window.history.replaceState(null, "", url.toString());
     }
-  }, [selectedRegion, selectedWorkshop, isHydrated, activeUnitInfo]);
+  }, [selectedRegion, selectedWorkshop, fromDate, toDate, selectedSortBy, minSavedSeconds, maxSavedSeconds, timeDataMode, isHydrated, activeUnitInfo]);
+
+  const normalizedProposals = useMemo(() => {
+    return proposals.map(normalizeProposal);
+  }, [proposals]);
+
+  const totalDateProposalsCount = useMemo(() => {
+    if (!fromDate && !toDate && !singleDate) return 0;
+    return normalizedProposals.filter((p) => {
+      if (!p) return false;
+      const isArchived = Boolean(p.is_archived) || p.sub_status === "LUU_TRU" || p.registration_type === "LUU_TRU" || p.status === "ARCHIVED";
+      if (isArchived) return false;
+
+      const pVnDate = getVietnamDateStr(p.created_at);
+      if (!pVnDate) return false;
+
+      if (singleDate) return pVnDate === singleDate;
+      if (fromDate && toDate) return pVnDate >= fromDate && pVnDate <= toDate;
+      if (fromDate) return pVnDate >= fromDate;
+      if (toDate) return pVnDate <= toDate;
+      return true;
+    }).length;
+  }, [normalizedProposals, fromDate, toDate, singleDate]);
+
+  const hasOtherActiveFilters = useMemo(() => {
+    return Boolean(
+      (selectedRegion && selectedRegion !== "ALL") ||
+      (selectedWorkshop && selectedWorkshop !== "ALL") ||
+      (selectedCategory && selectedCategory !== "ALL") ||
+      (selectedRegType && selectedRegType !== "ALL") ||
+      (searchQuery && searchQuery.trim() !== "")
+    );
+  }, [selectedRegion, selectedWorkshop, selectedCategory, selectedRegType, searchQuery]);
 
   const registerUrl = useMemo(() => {
     const baseUrl = "https://vpchuoiskechers.tbsgroup2026.workers.dev/work/kaizen/register";
@@ -913,12 +1253,52 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
     closeAllModals();
   }, [activeTab, selectedRegType, selectedRegion, selectedCategory, selectedWorkshop]);
 
-  const { counts: statusCounts, loading: isCountsLoading, refetchStatusCounts } = useStatusCounts();
-
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
   };
+
+  // Computed counts from proposals dynamically
+  const statusCounts = useMemo(() => {
+    let thi_dua = 0, cho_phe_duyet = 0, cho_danh_gia = 0, da_danh_gia = 0, luu_tru = 0;
+    proposals.forEach(p => {
+      const isArch = p.is_archived === 1 || String(p.registration_type) === 'LUU_TRU' || String(p.sub_status) === 'LUU_TRU' || String(p.trang_thai) === 'DA_GOP';
+      if (isArch) {
+        luu_tru++;
+      } else {
+        const st = String(p.trang_thai || p.sub_status || p.review_status || '').toUpperCase();
+        if (st === 'CHO_DUYET' || st === 'CHO_PHE_DUYET') { cho_phe_duyet++; thi_dua++; }
+        else if (st === 'CHO_DANH_GIA') { cho_danh_gia++; thi_dua++; }
+        else if (st === 'DA_DANH_GIA' || st === 'DA_XEP_HANG') { da_danh_gia++; thi_dua++; }
+        else if (st !== 'TU_CHOI' && st !== 'REJECTED') { thi_dua++; }
+      }
+    });
+    return { thi_dua, cho_phe_duyet, cho_danh_gia, da_danh_gia, luu_tru };
+  }, [proposals]);
+
+  const isCountsLoading = false;
+  const refetchStatusCounts = () => {};
+
+  // Start Realtime Polling
+  useEffect(() => {
+    let lastVersion: string | null = null;
+    let timer = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/kaizen/version?region=THKG`);
+        const data = await res.json();
+        if (data && data.version) {
+          if (lastVersion && lastVersion !== data.version) {
+            console.log('Version changed, refreshing...');
+            fetchProposals(true);
+          }
+          lastVersion = data.version;
+        }
+      } catch (e) {
+        // ignore errors
+      }
+    }, 4000);
+    return () => clearInterval(timer);
+  }, []);
 
   const fetchProposals = async (silent = false) => {
     const controller = new AbortController();
@@ -1105,16 +1485,7 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
   };
 
   useEffect(() => {
-    // Auto-sync proposals from individual factory links on mount
-    fetch("/api/ci-kaizen/sync", { method: "POST" })
-      .then((res) => res.json())
-      .then((json) => {
-        if (json.success) {
-          fetchProposals(true);
-          refetchStatusCounts();
-        }
-      })
-      .catch(() => {});
+    // Removed redundant /api/ci-kaizen/sync on mount (now handled by hybrid fetch)
 
     fetchProposals(proposals.length > 0);
 
@@ -1126,15 +1497,7 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
         fetchMyScores();
         pollCount++;
         if (pollCount % 3 === 0) {
-          fetch("/api/ci-kaizen/sync", { method: "POST" })
-            .then((res) => res.json())
-            .then((json) => {
-              if (json.success && (json.created_count > 0 || json.updated_count > 0)) {
-                fetchProposals(true);
-                refetchStatusCounts();
-              }
-            })
-            .catch(() => {});
+          refetchStatusCounts();
         }
       }, 8000)
     );
@@ -1147,18 +1510,12 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
   const handleSyncFromKienGiang = async () => {
     try {
       setIsSyncingKG(true);
-      showToast("⏳ Đang đồng bộ dữ liệu sáng kiến từ Kiên Giang Shoes...");
-      const res = await fetch("/api/ci-kaizen/sync", { method: "POST" });
-      const json = await res.json();
-      if (json.success) {
-        showToast(`🎉 ${json.message || "Đồng bộ sáng kiến Kiên Giang thành công!"}`);
-        fetchProposals(true);
-        refetchStatusCounts();
-      } else {
-        showToast(`❌ ${json.error || json.message || "Lỗi đồng bộ Kiên Giang"}`);
-      }
+      showToast("⏳ Đang tải dữ liệu mới nhất từ Kiên Giang...");
+      await fetchProposals(true);
+      await refetchStatusCounts();
+      showToast("🎉 Tải dữ liệu thành công!");
     } catch (e: any) {
-      showToast("❌ Lỗi kết nối máy chủ đồng bộ!");
+      showToast("❌ Lỗi kết nối!");
     } finally {
       setIsSyncingKG(false);
     }
@@ -1236,9 +1593,6 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
     }
   };
 
-  const normalizedProposals = useMemo(() => {
-    return proposals.map(normalizeProposal);
-  }, [proposals]);
 
   const getProposalSavingsVal = (p: any): number => {
     if (!p) return 0;
@@ -1253,7 +1607,7 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
   const proposalRanksMap = useMemo(() => {
     const map: Record<string, { rank: number; rankIndex: number; rankTitle: string; badgeLabel: string; badgeStyle: string; icon: string }> = {};
 
-    const thiDuaList = normalizedProposals.filter((p) => {
+    const filteredForRegion = normalizedProposals.filter((p) => {
       if (!p || p.is_archived) return false;
       if (selectedRegion !== "ALL" && !matchRegionFilter(p, selectedRegion)) return false;
 
@@ -1264,89 +1618,50 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
       if (appStatus === "TU_CHOI" || subStatus === "TU_CHOI_TRIEN_KHAI" || subStatus === "TU_CHOI_DUYET" || status === "REJECTED" || subStatus === "CAN_CHINH_SUA") {
         return false;
       }
-
-      if (
-        subStatus === "CHO_REVIEW" ||
-        subStatus === "SO_BO" ||
-        subStatus === "SO_DUYET" ||
-        subStatus === "CHO_DUYET" ||
-        appStatus === "PENDING" ||
-        status === "SUBMITTED" ||
-        status === "CHO_DUYET" ||
-        status === "DRAFT"
-      ) {
-        return false;
-      }
-
-      if (!isApprovedProposal(p)) return false;
-
       return true;
     });
 
-    const sorted = [...thiDuaList].sort((a, b) => {
-      // 1. Primary: Sort by BGK (Judge) score DESC
-      const scoreA = Number(a.judge_final_score || a.score_points || a.diem_tong_hop || (a as any).scorePoints || 0);
-      const scoreB = Number(b.judge_final_score || b.score_points || b.diem_tong_hop || (b as any).scorePoints || 0);
-      if (scoreB !== scoreA) return scoreB - scoreA;
+    const scoringInputs = filteredForRegion.map((p) => {
+      const rawScore = (p as any).judge_final_score || p.score_points || (p as any).scorePoints || 0;
+      const parsedScore = rawScore ? Number(String(rawScore).replace(',', '.')) : 0;
+      const totalScore = isNaN(parsedScore) ? 0 : parsedScore;
+      const isEvaluated = Boolean(totalScore > 0 || (p as any).sub_status === "DA_DANH_GIA");
 
-      // 2. Secondary: Criteria C1 (Hiệu quả) and C3 (Tính sáng tạo)
-      const c1A = Number((a as any).c1_score_final || 0);
-      const c1B = Number((b as any).c1_score_final || 0);
-      if (c1B !== c1A) return c1B - c1A;
+      const p1 = (p as any).p1_pass !== false && (p as any).is_implemented !== false;
+      const p2 = (p as any).p2_pass !== false && (p as any).has_proof_before_after !== false;
+      const p3 = (p as any).p3_pass !== false && (p as any).no_safety_violation !== false;
+      const p4 = (p as any).p4_pass !== false && (p as any).no_duplicate !== false;
 
-      const c3A = Number((a as any).c3_score_final || 0);
-      const c3B = Number((b as any).c3_score_final || 0);
-      if (c3B !== c3A) return c3B - c3A;
-
-      // 3. Tertiary: Savings value tie-breaker
-      const valA = getProposalSavingsVal(a);
-      const valB = getProposalSavingsVal(b);
-      if (valB !== valA) return valB - valA;
-
-      // 4. Quaternary: Vote count tie-breaker
-      const voteA = Number(a.vote_count || 0);
-      const voteB = Number(b.vote_count || 0);
-      if (voteB !== voteA) return voteB - voteA;
-
-      const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
-      const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
-      return dateB - dateA;
+      return {
+        ...p,
+        id: String(p.id),
+        title: p.title || "Sáng kiến Kaizen",
+        unit: p.factory || p.region || p.department || "Nhà Máy",
+        prereqs: { p1_pass: p1, p2_pass: p2, p3_pass: p3, p4_pass: p4 },
+        totalScore,
+        isEvaluated,
+        c1Score: Number((p as any).c1_score_final || (p as any).c1_score || 0),
+        c2Score: Number((p as any).c2_score_final || (p as any).c2_score || 0),
+        c3Score: Number((p as any).c3_score_final || (p as any).c3_score || 0),
+        c4Score: Number((p as any).c4_score_final || (p as any).c4_score || 0),
+        c5Score: Number((p as any).c5_score_final || (p as any).c5_score || 0),
+        savingsVnd: getProposalSavingsVal(p) * 1000000,
+        created_at: p.created_at,
+        code: p.code,
+      };
     });
 
-    sorted.forEach((item, index) => {
-      let rank = index + 1;
-      let rankTitle = "Ý tưởng";
-      let badgeLabel = "💡 Ý tưởng";
-      let badgeStyle = "bg-emerald-100 text-emerald-900 font-extrabold border border-emerald-300 shadow-2xs";
-      let icon = "💡";
+    const ranked = rankIndividualProposals(scoringInputs);
 
-      if (index === 0) {
-        rank = 1;
-        rankTitle = "Giải Nhất";
-        badgeLabel = "🏆 Giải Nhất";
-        badgeStyle = "bg-amber-400 text-amber-950 font-black border border-amber-300 shadow-md";
-        icon = "🏆";
-      } else if (index === 1) {
-        rank = 2;
-        rankTitle = "Giải Nhì";
-        badgeLabel = "🥈 Giải Nhì";
-        badgeStyle = "bg-slate-200 text-slate-900 font-black border border-slate-300 shadow-xs";
-        icon = "🥈";
-      } else if (index === 2) {
-        rank = 3;
-        rankTitle = "Giải Ba";
-        badgeLabel = "🥉 Giải Ba";
-        badgeStyle = "bg-amber-800 text-amber-100 font-black border border-amber-600 shadow-xs";
-        icon = "🥉";
-      } else {
-        rank = index + 1;
-        rankTitle = "Ý tưởng";
-        badgeLabel = "💡 Ý tưởng";
-        badgeStyle = "bg-emerald-100 text-emerald-900 font-extrabold border border-emerald-300 shadow-2xs";
-        icon = "💡";
-      }
-
-      map[item.id] = { rank, rankIndex: index, rankTitle, badgeLabel, badgeStyle, icon };
+    ranked.forEach((item, index) => {
+      map[item.id] = {
+        rank: item.rank,
+        rankIndex: index,
+        rankTitle: item.awardTitle || (item.isEvaluated ? "Ý tưởng" : "Chưa chấm"),
+        badgeLabel: item.badgeLabel || (item.isEvaluated ? "💡 Ý tưởng" : "🔴 Chưa chấm"),
+        badgeStyle: item.badgeStyle || "bg-emerald-100 text-emerald-900 font-extrabold border border-emerald-300 shadow-2xs",
+        icon: item.rank === 1 ? "🏆" : item.rank === 2 ? "🥈" : item.rank === 3 ? "🥉" : "💡",
+      };
     });
 
     return map;
@@ -1376,30 +1691,61 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
     });
   }, [normalizedProposals]);
 
-  const filteredProposals = useMemo(() => {
-    const filtered = normalizedProposals.filter((p) => {
-      if (selectedRegion !== "ALL" && !matchRegionFilter(p, selectedRegion)) {
-        return false;
-      }
-      if (selectedWorkshop !== "ALL" && !matchWorkshopFilter(p, selectedWorkshop)) {
-        return false;
-      }
-      if (selectedCategory !== "ALL" && p.category !== selectedCategory) {
-        return false;
-      }
-      if (!matchRegTypeFilter(p, selectedRegType)) {
-        return false;
-      }
-      if (selectedMonthYear !== "ALL") {
+  const judgeIdentity = getClientJudgeIdentity(currentUser);
+  const isJudge = isJudgeUser(judgeIdentity);
+
+  const isProposalMatchingFilters = useCallback((p: KaizenProposal, ignoreDate = false) => {
+      if (selectedRegion !== "ALL" && !matchRegionFilter(p, selectedRegion)) return false;
+      if (selectedWorkshop !== "ALL" && !matchWorkshopFilter(p, selectedWorkshop)) return false;
+      if (selectedCategory !== "ALL" && p.category !== selectedCategory) return false;
+      if (!matchRegTypeFilter(p, selectedRegType)) return false;
+      if (!matchRegTypeFilter(p, selectedStatus)) return false;
+      
+      if (!ignoreDate && selectedMonthYear !== "ALL") {
         const myKey = getProposalMonthYearKey(p);
         if (myKey !== selectedMonthYear) return false;
       }
 
-      if (judgeScoringFilter !== "ALL") {
-        const isScored = Boolean(getMyScoreForProposal(p));
-        if (judgeScoringFilter === "SCORED" && !isScored) return false;
-        if (judgeScoringFilter === "UNSCORED" && isScored) return false;
+      if (!ignoreDate && (singleDate || fromDate || toDate)) {
+        let pDateStr = "";
+        if (p.created_at) {
+          pDateStr = getVietnamDateStr(p.created_at);
+        }
+        if (!pDateStr && typeof p.created_at === "string") {
+          const match = (p.created_at as string).match(/^(\d{4})-(\d{2})-(\d{2})/);
+          if (match) pDateStr = `${match[1]}-${match[2]}-${match[3]}`;
+        }
+
+        if (pDateStr) {
+          if (singleDate) {
+            if (pDateStr !== singleDate) return false;
+          } else {
+            if (fromDate && pDateStr < fromDate) return false;
+            if (toDate && pDateStr > toDate) return false;
+          }
+        }
       }
+
+      if (judgeScoringFilter !== "ALL") {
+        const isGlobalScored = isProposalScored(p);
+        const judgeStatus = getJudgeEntryStatus(p, myScoresMap, isJudge);
+        const myScore = judgeStatus.status !== "UNSCORED";
+        
+        if (judgeScoringFilter === "GLOBAL_SCORED" && !isGlobalScored) return false;
+        if (judgeScoringFilter === "GLOBAL_UNSCORED" && isGlobalScored) return false;
+        if (judgeScoringFilter === "MY_SCORED" && !myScore) return false;
+        if (judgeScoringFilter === "MY_UNSCORED" && myScore) return false;
+      }
+
+      if (timeDataMode === "HAS_TIME" && !hasTimeData(p)) return false;
+      if (timeDataMode === "NO_TIME" && hasTimeData(p)) return false;
+
+      const pSecs = getProposalSavedSeconds(p);
+      const minSecs = minSavedSeconds !== "" ? parseFloat(minSavedSeconds) : NaN;
+      const maxSecs = maxSavedSeconds !== "" ? parseFloat(maxSavedSeconds) : NaN;
+
+      if (!isNaN(minSecs) && minSecs > 0 && pSecs < minSecs) return false;
+      if (!isNaN(maxSecs) && maxSecs >= 0 && (pSecs > maxSecs || pSecs <= 0)) return false;
 
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
@@ -1411,12 +1757,53 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
         if (!matchSearch) return false;
       }
       return true;
-    });
+    }, [
+      selectedRegion, selectedWorkshop, selectedCategory, selectedRegType, selectedStatus,
+      selectedMonthYear, singleDate, fromDate, toDate, judgeScoringFilter, myScoresMap, isJudge,
+      timeDataMode, minSavedSeconds, maxSavedSeconds, searchQuery
+    ]);
+
+  const filteredProposals = useMemo(() => {
+    const filtered = normalizedProposals.filter((p) => isProposalMatchingFilters(p, false));
+
 
     return [...filtered].sort((a, b) => {
-      if (selectedSortBy === "SCORE_DESC") {
-        const sA = Number(a.judge_final_score || a.score_points || (a as any).scorePoints || 0);
-        const sB = Number(b.judge_final_score || b.score_points || (b as any).scorePoints || 0);
+      const statusA = getJudgeEntryStatus(a, myScoresMap, isJudge);
+      const statusB = getJudgeEntryStatus(b, myScoresMap, isJudge);
+      const hasA = statusA.status !== "UNSCORED";
+      const hasB = statusB.status !== "UNSCORED";
+      const sA = statusA.score || 0;
+      const sB = statusB.score || 0;
+
+      // Giám khảo xem Thư viện -> Mặc định sắp xếp theo điểm CỦA GIÁM KHẢO (Đã chấm ưu tiên trên, điểm cao xuống thấp)
+      const effectiveSort = (selectedSortBy === "DEFAULT" && isJudge) ? "SCORE_DESC" : selectedSortBy;
+
+      if (effectiveSort === "TIME_DESC") {
+        const tA = getProposalSavedSeconds(a);
+        const tB = getProposalSavedSeconds(b);
+        const hasTimeA = tA > 0;
+        const hasTimeB = tB > 0;
+
+        // Cards with no time data (>0) always go to the BOTTOM in both directions
+        if (hasTimeA !== hasTimeB) return hasTimeA ? -1 : 1;
+        if (tB !== tA) return tB - tA;
+        return Number(b.vote_count || 0) - Number(a.vote_count || 0);
+      }
+
+      if (effectiveSort === "TIME_ASC") {
+        const tA = getProposalSavedSeconds(a);
+        const tB = getProposalSavedSeconds(b);
+        const hasTimeA = tA > 0;
+        const hasTimeB = tB > 0;
+
+        // Cards with no time data (>0) always go to the BOTTOM in both directions
+        if (hasTimeA !== hasTimeB) return hasTimeA ? -1 : 1;
+        if (tA !== tB) return tA - tB;
+        return Number(b.vote_count || 0) - Number(a.vote_count || 0);
+      }
+
+      if (effectiveSort === "SCORE_DESC") {
+        if (hasA !== hasB) return hasA ? -1 : 1; // Đã chấm xếp trên
         if (sB !== sA) return sB - sA;
 
         const c1A = Number((a as any).c1_score_final || 0);
@@ -1432,7 +1819,24 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
         return valB - valA;
       }
 
-      if (selectedSortBy === "SAVINGS_DESC") {
+      if (effectiveSort === "SCORE_ASC") {
+        if (hasA !== hasB) return hasA ? -1 : 1; 
+        if (sA !== sB) return sA - sB;
+
+        const c1A = Number((a as any).c1_score_final || 0);
+        const c1B = Number((b as any).c1_score_final || 0);
+        if (c1A !== c1B) return c1A - c1B;
+
+        const c3A = Number((a as any).c3_score_final || 0);
+        const c3B = Number((b as any).c3_score_final || 0);
+        if (c3A !== c3B) return c3A - c3B;
+
+        const valA = getProposalSavingsVal(a);
+        const valB = getProposalSavingsVal(b);
+        return valA - valB;
+      }
+
+      if (effectiveSort === "SAVINGS_DESC") {
         const valA = getProposalSavingsVal(a);
         const valB = getProposalSavingsVal(b);
         if (valB !== valA) return valB - valA;
@@ -1479,7 +1883,7 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
       const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
       return dateB - dateA;
     });
-  }, [normalizedProposals, selectedRegion, selectedWorkshop, selectedCategory, selectedRegType, selectedMonthYear, selectedSortBy, searchQuery, proposalRanksMap, judgeScoringFilter, myScoresMap]);
+  }, [normalizedProposals, isProposalMatchingFilters, selectedSortBy, proposalRanksMap, myScoresMap, isJudge]);
 
   const regTypeCounts = useMemo(() => {
     const targetRegion = activeUnitInfo ? activeUnitInfo.regionKey : selectedRegion;
@@ -1523,7 +1927,10 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
   }, [normalizedProposals, activeUnitInfo, selectedRegion]);
 
   const regionCounts = useMemo(() => {
-    const result: Record<string, number> = {};
+    const result: Record<string, number> = {
+      "Nhà Máy Miền Đông": 0,
+      "Văn phòng Chuỗi": 0,
+    };
     for (const subItem of REGION_SUB_ITEMS) {
       result[subItem] = 0;
     }
@@ -1534,11 +1941,7 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
         result[reg] += 1;
       }
     }
-    result["THKG"] = (result["Phòng Ban THKG"] || 0) +
-                     (result["Kiên Giang 1"] || 0) +
-                     (result["Kiên Giang 2"] || 0) +
-                     (result["Kiên Giang 3"] || 0) +
-                     (result["Hoàn Thiện Đế"] || 0);
+    result["THKG"] = REGION_SUB_ITEMS.reduce((sum, item) => sum + (result[item] || 0), 0);
     return result;
   }, [normalizedProposals, selectedWorkshop]);
 
@@ -1725,7 +2128,7 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
               >
                 <div className="flex items-center gap-2">
                   <IconFilter size={16} className="text-slate-400 shrink-0" />
-                  {!isSidebarCollapsed && <span>Trạng thái lọc</span>}
+                  {!isSidebarCollapsed && <span>Loại đăng ký</span>}
                 </div>
                 {!isSidebarCollapsed && (
                   <span className="text-slate-400">
@@ -1978,13 +2381,7 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
                           {/* THKG 5 Sub-units */}
                           {isThkgExpanded && (
                             <div className="pl-3 space-y-0.5 border-l border-slate-700/60 ml-2 pt-0.5">
-                              {[
-                                { label: "Phòng Ban THKG", slug: "phong-ban-thkg" },
-                                { label: "Kiên Giang 1", slug: "kien-giang-1" },
-                                { label: "Kiên Giang 2", slug: "kien-giang-2" },
-                                { label: "Kiên Giang 3", slug: "kien-giang-3" },
-                                { label: "Hoàn Thiện Đế", slug: "hoan-thien-de" },
-                              ].map((subItem) => {
+                              {REGION_SUB_ITEMS.map((label) => { const subItem = { label };
                                 const cnt = regionCounts[subItem.label] ?? 0;
                                 return (
                                   <button
@@ -2082,7 +2479,21 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
             )}
           </div>
           {!isSidebarCollapsed && (
-            <button type="button" className="text-slate-400 hover:text-white p-1 transition-colors">
+            <button
+              type="button"
+              title="Đăng xuất"
+              className="text-slate-400 hover:text-white p-1 transition-colors hover:bg-slate-800 rounded-md cursor-pointer"
+              onClick={() => {
+                if (window.confirm("Bạn có chắc chắn muốn đăng xuất?")) {
+                  document.cookie = "tbs_token=; path=/; max-age=0";
+                  localStorage.removeItem("tbs_current_user");
+                  localStorage.removeItem("tbs_jwt_token");
+                  sessionStorage.removeItem("tbs_current_user");
+                  sessionStorage.removeItem("tbs_jwt_token");
+                  window.location.href = "/login";
+                }
+              }}
+            >
               <IconDotsVertical size={16} />
             </button>
           )}
@@ -2205,8 +2616,9 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
                 </button>
 
                 <button
-                  onClick={() => showToast("📊 Đã xuất file Excel dữ liệu cải tiến thành công!")}
+                  onClick={() => exportProposalsToExcel(filteredProposals)}
                   className="px-3.5 py-1.5 rounded-xl bg-white hover:bg-emerald-50 text-emerald-600 text-xs font-extrabold border border-emerald-500 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  title="Xuất danh sách đã lọc ra file Excel (.csv UTF-8)"
                 >
                   <IconDownload size={15} />
                   <span>Excel</span>
@@ -2214,8 +2626,8 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
               </div>
             </div>
 
-            <div className="p-2.5 rounded-2xl bg-white border border-slate-200/90 shadow-2xs">
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-2">
+            <div className="p-2.5 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-2 relative">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-10 2xl:grid-cols-11 gap-2">
                 <select
                   value={selectedRegType}
                   onChange={(e) => setSelectedRegType(e.target.value)}
@@ -2223,23 +2635,9 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
                 >
                   <option value="ALL">🏆 Tất cả loại</option>
                   <option value="THI_DUA">🏆 Thi đua</option>
-                  <option value="CHO_PHE_DUYET">👤 Chờ phê duyệt</option>
-                  <option value="DA_DANH_GIA">✅ Đã duyệt</option>
-                  <option value="LUU_TRU">📦 Lưu trữ</option>
                 </select>
 
-                <select
-                  value={judgeScoringFilter}
-                  onChange={(e) => setJudgeScoringFilter(e.target.value as any)}
-                  className="w-full px-2.5 py-1.5 rounded-xl bg-emerald-50 border border-emerald-300 text-[11px] font-black text-emerald-950 outline-none focus:border-[#006838]"
-                  title="Lọc mục đã chấm/chưa chấm của chính bạn"
-                >
-                  <option value="ALL">⚖️ Trạng thái chấm của bạn (Tất cả)</option>
-                  <option value="UNSCORED">🔴 Chỉ hiện mục chưa chấm</option>
-                  <option value="SCORED">🟢 Chỉ hiện mục đã chấm</option>
-                </select>
-
-                <div className="relative col-span-2 sm:col-span-1 md:col-span-2">
+                <div className="relative col-span-2 sm:col-span-1 md:col-span-1">
                   <input
                     type="text"
                     placeholder="🔍 Tìm mã hàng, tiêu đề..."
@@ -2280,11 +2678,9 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
                   <option value="Nhà Máy Miền Đông">🏭 Nhà Máy Miền Đông ({regionCounts["Nhà Máy Miền Đông"] || 0})</option>
                   <optgroup label="📍 TỔ HỢP KIÊN GIANG (THKG)">
                     <option value="THKG">📍 Tất cả THKG ({regionCounts["THKG"] || 0})</option>
-                    <option value="Phòng Ban THKG">  └ Phòng Ban THKG ({regionCounts["Phòng Ban THKG"] || 0})</option>
-                    <option value="Kiên Giang 1">  └ Kiên Giang 1 ({regionCounts["Kiên Giang 1"] || 0})</option>
-                    <option value="Kiên Giang 2">  └ Kiên Giang 2 ({regionCounts["Kiên Giang 2"] || 0})</option>
-                    <option value="Kiên Giang 3">  └ Kiên Giang 3 ({regionCounts["Kiên Giang 3"] || 0})</option>
-                    <option value="Hoàn Thiện Đế">  └ Hoàn Thiện Đế ({regionCounts["Hoàn Thiện Đế"] || 0})</option>
+                    {REGION_SUB_ITEMS.map(label => (
+                      <option key={label} value={label}>  └ {label} ({regionCounts[label] || 0})</option>
+                    ))}
                   </optgroup>
                 </select>
 
@@ -2294,7 +2690,7 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
                   className="w-full px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 text-[11px] font-bold text-slate-700 outline-none focus:border-[#006838]"
                   title="Lọc theo Phân xưởng sản xuất"
                 >
-                  <option value="ALL">🏭 Phân xưởng sản xuất (Tất cả)</option>
+                  <option value="ALL">🏭 Phân xưởng (Tất cả)</option>
                   <option value="Đầu vào">Đầu vào</option>
                   <option value="May">May</option>
                   <option value="Gò">Gò</option>
@@ -2302,7 +2698,7 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
 
                 <select
                   value={selectedMonthYear}
-                  onChange={(e) => setSelectedMonthYear(e.target.value)}
+                  onChange={(e) => handleMonthYearChange(e.target.value)}
                   className="w-full px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 text-[11px] font-bold text-slate-700 outline-none focus:border-[#006838]"
                   title="Lọc theo Tháng/Năm"
                 >
@@ -2315,18 +2711,176 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
                 </select>
 
                 <select
+                  value={selectedStatus}
+                  onChange={(e) => setSelectedStatus(e.target.value)}
+                  className="w-full px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 text-[11px] font-bold text-slate-700 outline-none focus:border-[#006838]"
+                >
+                  <option value="ALL">📌 Trạng thái (Tất cả)</option>
+                  <option value="CHO_PHE_DUYET">👤 Chờ phê duyệt</option>
+                  <option value="DA_DANH_GIA">✅ Đã duyệt</option>
+                  <option value="LUU_TRU">📦 Lưu trữ</option>
+                </select>
+
+                <select
                   value={selectedSortBy}
                   onChange={(e) => setSelectedSortBy(e.target.value)}
                   className="w-full px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 text-[11px] font-bold text-slate-700 outline-none focus:border-[#006838]"
                   title="Sắp xếp danh sách"
                 >
-                  <option value="DEFAULT">🔃 Sắp xếp: Thứ hạng</option>
+                  <option value="DEFAULT">🔃 Sắp xếp Thứ hạng</option>
                   <option value="SCORE_DESC">⭐ Điểm BGK (Cao ➔ Thấp)</option>
-                  <option value="SAVINGS_DESC">💰 Tiết kiệm (Cao ➔ Thấp)</option>
+                  <option value="SCORE_ASC">⭐ Điểm BGK (Thấp ➔ Cao)</option>
+                  <option value="SAVINGS_DESC">💰 Tiết kiệm chi phí (Cao ➔ Thấp)</option>
+                  <option value="TIME_DESC">⏱️ Tiết kiệm thời gian (Nhiều ➔ Ít)</option>
+                  <option value="TIME_ASC">⏱️ Tiết kiệm thời gian (Ít ➔ Nhiều)</option>
                   <option value="VOTE_DESC">👍 Bình chọn (Nhiều ➔ Ít)</option>
                   <option value="NEWEST">🕒 Mới nhất</option>
                   <option value="OLDEST">⏳ Cũ nhất</option>
                 </select>
+
+                <KaizenCalendarPopover
+                  fromDate={fromDate}
+                  toDate={toDate}
+                  singleDate={singleDate}
+                  onApplyRange={(from, to, single) => {
+                    setFromDate(from);
+                    setToDate(to);
+                    setSingleDate(single || "");
+                    setSelectedMonthYear("ALL");
+                  }}
+                  onClear={() => {
+                    setFromDate("");
+                    setToDate("");
+                    setSingleDate("");
+                  }}
+                  activeFilters={{
+                    region: selectedRegion,
+                    workshop: selectedWorkshop,
+                    category: selectedCategory,
+                    regType: selectedRegType,
+                    searchQuery: searchQuery,
+                  }}
+                  isProposalMatchingFilters={isProposalMatchingFilters}
+                  proposals={normalizedProposals}
+                />
+
+                <div className="relative static sm:relative">
+                  <button
+                    onClick={() => setIsTimeFilterOpen(!isTimeFilterOpen)}
+                    className="h-full px-2 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 flex items-center justify-center cursor-pointer relative"
+                    title="Lọc thêm"
+                  >
+                    <IconFilter size={16} />
+                    {(minSavedSeconds || maxSavedSeconds || timeDataMode !== "ALL" || judgeScoringFilter !== "ALL") && (
+                      <span className="absolute top-0 right-0 w-2 h-2 rounded-full bg-purple-500"></span>
+                    )}
+                  </button>
+
+                  {isTimeFilterOpen && (
+                    <>
+                      <div className="fixed inset-0 z-40 bg-black/20 sm:hidden" onClick={() => setIsTimeFilterOpen(false)} />
+                      <div className="absolute right-0 sm:right-auto sm:left-1/2 sm:-translate-x-1/2 top-full mt-2 w-[calc(100vw-32px)] sm:w-[420px] bg-white border border-slate-200 rounded-2xl shadow-xl z-50 p-4 max-sm:fixed max-sm:bottom-0 max-sm:left-0 max-sm:right-0 max-sm:top-auto max-sm:rounded-t-3xl max-sm:rounded-b-none max-sm:w-full">
+                        <div className="sm:hidden w-12 h-1.5 bg-slate-300 rounded-full mx-auto mb-4" />
+                        
+                        <div className="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
+                          <h4 className="font-black text-slate-800 text-sm">Bộ lọc mở rộng</h4>
+                          <button onClick={() => setIsTimeFilterOpen(false)} className="p-1 text-slate-400 hover:bg-slate-100 rounded-lg">
+                            <IconX size={16} />
+                          </button>
+                        </div>
+
+                        <div className="space-y-4">
+                          <div>
+                            <label className="text-[11px] font-bold text-slate-500 mb-1.5 block">Trạng thái chấm điểm BGK</label>
+                            <select
+                              value={judgeScoringFilter}
+                              onChange={(e) => setJudgeScoringFilter(e.target.value as any)}
+                              className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-[11px] font-bold text-slate-700 outline-none focus:border-[#006838]"
+                            >
+                              <option value="ALL">⚖️ Trạng thái chấm (Tất cả)</option>
+                              <option value="GLOBAL_UNSCORED">🔴 Chưa có điểm</option>
+                              <option value="GLOBAL_SCORED">🟢 Đã có điểm</option>
+                              <option value="MY_UNSCORED">⚪ Tôi chưa chấm</option>
+                              <option value="MY_SCORED">🟢 Tôi đã chấm</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="text-[11px] font-bold text-slate-500 mb-1.5 block flex items-center gap-1">
+                              <span className="text-purple-700">⏱️</span> Tiết kiệm thời gian
+                            </label>
+                            
+                            <div className="flex items-center gap-2 mb-2">
+                              <input
+                                type="number"
+                                step="any"
+                                min="0"
+                                placeholder="Từ (s)"
+                                value={minSavedSeconds}
+                                onChange={(e) => {
+                                  setMinSavedSeconds(e.target.value);
+                                  setTimeShortcut("CUSTOM");
+                                  if (e.target.value !== "") setTimeDataMode("HAS_TIME");
+                                }}
+                                className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-[11px] font-bold outline-none focus:border-purple-500"
+                              />
+                              <span className="font-bold text-slate-400">-</span>
+                              <input
+                                type="number"
+                                step="any"
+                                min="0"
+                                placeholder="Đến (s)"
+                                value={maxSavedSeconds}
+                                onChange={(e) => {
+                                  setMaxSavedSeconds(e.target.value);
+                                  setTimeShortcut("CUSTOM");
+                                  if (e.target.value !== "") setTimeDataMode("HAS_TIME");
+                                }}
+                                className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-[11px] font-bold outline-none focus:border-purple-500"
+                              />
+                            </div>
+
+                            <div className="flex flex-wrap gap-1.5 mt-2">
+                              {["ALL", "GT_0", "GE_5", "GE_10", "GE_30"].map(mode => {
+                                const labels = { ALL: "Tất cả", GT_0: "> 0s", GE_5: "≥ 5s", GE_10: "≥ 10s", GE_30: "≥ 30s" };
+                                const isActive = timeShortcut === mode;
+                                return (
+                                  <button
+                                    key={mode}
+                                    onClick={() => handleTimeShortcutChange(mode as any)}
+                                    className={"px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer " + (isActive ? "bg-purple-600 text-white border-purple-600" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50")}
+                                  >
+                                    {labels[mode]}
+                                  </button>
+                                )
+                              })}
+                            </div>
+                            
+                            <select
+                              value={timeDataMode}
+                              onChange={(e) => setTimeDataMode(e.target.value as any)}
+                              className="w-full mt-3 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-[11px] font-bold text-slate-700 outline-none"
+                            >
+                              <option value="ALL">🔍 Rà soát: Tất cả thẻ</option>
+                              <option value="HAS_TIME">⏱️ Chỉ thẻ có dữ liệu thời gian (&gt;0s)</option>
+                              <option value="NO_TIME">⚪ Thẻ không dữ liệu thời gian (0s)</option>
+                            </select>
+                            
+                            {timeValidationError && (
+                              <span className="text-rose-600 font-extrabold text-[11px] mt-2 block">
+                                {timeValidationError}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div className="mt-5 pt-3 border-t border-slate-100 flex justify-end">
+                           <button onClick={() => setIsTimeFilterOpen(false)} className="px-5 py-2 bg-[#006838] text-white font-bold text-xs rounded-xl hover:bg-[#00522c]">Hoàn tất</button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
 
                 <button
                   onClick={() => {
@@ -2339,27 +2893,104 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
                     setSelectedSortBy("DEFAULT");
                     setSelectedSubStatus("ALL");
                     setSelectedStatus("ALL");
+                    setFromDate("");
+                    setToDate("");
+                    setSingleDate("");
+                    setDateShortcut("CUSTOM");
+                    setMinSavedSeconds("");
+                    setMaxSavedSeconds("");
+                    setTimeDataMode("ALL");
+                    setTimeShortcut("ALL");
+                    setJudgeScoringFilter("ALL");
                   }}
-                  className="w-full px-2.5 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer border border-slate-200"
+                  className="h-full px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-600 text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer border border-slate-200 shrink-0"
                 >
-                  <IconRotate size={14} />
+                  <IconRotate size={15} />
                   <span>Reset</span>
                 </button>
               </div>
             </div>
 
-            <div className="px-4 py-2 rounded-2xl bg-white border border-slate-200/90 shadow-2xs flex items-center gap-6 text-xs font-extrabold text-slate-700">
-              <span className="flex items-center gap-1.5">
-                <span className="text-blue-600 font-bold">📁</span>
-                <span>Tổng: <strong className="font-black text-slate-900">{proposals.length}</strong></span>
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="text-emerald-600 font-bold">🔻</span>
-                <span>Đã lọc: <strong className="font-black text-slate-900">{filteredProposals.length}</strong></span>
-              </span>
+            <div className="px-4 py-2 rounded-2xl bg-white border border-slate-200/90 shadow-2xs flex items-center justify-between flex-wrap gap-3 text-xs font-extrabold text-slate-700">
+              <div className="flex items-center gap-6 flex-wrap">
+                <span className="flex items-center gap-1.5">
+                  <span className="text-blue-600 font-bold">📁</span>
+                  <span>Tổng: <strong className="font-black text-slate-900">{proposals.length}</strong></span>
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="text-emerald-600 font-bold">🔻</span>
+                  <span>Đã lọc: <strong className="font-black text-slate-900">{filteredProposals.length}</strong></span>
+                </span>
+
+                {(minSavedSeconds || maxSavedSeconds || timeDataMode !== "ALL" || selectedSortBy === "TIME_DESC" || selectedSortBy === "TIME_ASC") && (
+                  <span className="text-purple-700 font-bold text-[11px]">
+                    ℹ️ Chỉ tính các sáng kiến có dữ liệu thời gian ({normalizedProposals.filter(p => getProposalSavedSeconds(p) <= 0).length} sáng kiến không có dữ liệu thời gian bị ẩn)
+                  </span>
+                )}
+              </div>
+
+              {/* ACTIVE FILTER CHIPS */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {(fromDate || toDate) && (
+                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-50 text-emerald-950 border border-emerald-300 text-xs font-black shadow-2xs">
+                    <span>📅 Khoảng ngày: {fromDate ? fromDate.split('-').reverse().join('/') : "Từ đầu"} ➔ {toDate ? toDate.split('-').reverse().join('/') : "Đến nay"}</span>
+                    <button
+                      onClick={() => {
+                        setFromDate("");
+                        setToDate("");
+                        setDateShortcut("CUSTOM");
+                      }}
+                      className="p-0.5 rounded-full hover:bg-emerald-200 text-emerald-800 transition-colors cursor-pointer"
+                      title="Xóa lọc khoảng ngày"
+                    >
+                      <IconX size={13} />
+                    </button>
+                  </div>
+                )}
+
+                {(minSavedSeconds || maxSavedSeconds || timeDataMode !== "ALL") && (
+                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-purple-50 text-purple-950 border border-purple-300 text-xs font-black shadow-2xs">
+                    <span>⏱️ Tiết kiệm thời gian: {minSavedSeconds ? `từ ${minSavedSeconds}s` : "tất cả"} {maxSavedSeconds ? `đến ${maxSavedSeconds}s` : ""}</span>
+                    <button
+                      onClick={() => {
+                        setMinSavedSeconds("");
+                        setMaxSavedSeconds("");
+                        setTimeDataMode("ALL");
+                        setTimeShortcut("ALL");
+                      }}
+                      className="p-0.5 rounded-full hover:bg-purple-200 text-purple-800 transition-colors cursor-pointer"
+                      title="Xóa lọc thời gian"
+                    >
+                      <IconX size={13} />
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="w-full space-y-4">
+              {hasOtherActiveFilters && totalDateProposalsCount > 0 && filteredProposals.length < totalDateProposalsCount && (
+                <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-amber-900 dark:text-amber-200 text-xs font-bold flex items-center justify-between flex-wrap gap-2 shadow-2xs">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">ℹ️</span>
+                    <span>
+                      Đang hiển thị <strong>{filteredProposals.length}</strong> / <strong>{totalDateProposalsCount}</strong> sáng kiến đăng ngày {singleDate ? formatVnDateDisplay(singleDate) : `${fromDate ? fromDate.split('-').reverse().join('/') : ''} ➔ ${toDate ? toDate.split('-').reverse().join('/') : ''}`} do có bộ lọc khác đang bật.
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setSelectedRegion("ALL");
+                      setSelectedWorkshop("ALL");
+                      setSelectedCategory("ALL");
+                      setSelectedRegType("ALL");
+                      setSearchQuery("");
+                    }}
+                    className="px-3 py-1 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-black transition-colors cursor-pointer shrink-0 shadow-2xs"
+                  >
+                    Bỏ bộ lọc khác
+                  </button>
+                </div>
+              )}
 
               {viewMode === "GRID" && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
@@ -2372,7 +3003,7 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
                         onClick={() => handleRecordView(prop)}
                         className="rounded-2xl bg-[#ffffff] border border-slate-200/90 shadow-2xs hover:shadow-md hover:border-[#006838]/60 transition-all cursor-pointer overflow-hidden flex flex-col justify-between group"
                       >
-                        <div className="relative h-28 bg-slate-100 border-b border-slate-100 overflow-hidden flex items-center justify-center group/img">
+                        <div className="relative h-28 bg-slate-100 border-b border-slate-100 overflow-hidden flex items-center justify-center group/img shrink-0">
                           <KaizenCardImage
                             src={prop.before_image_url}
                             alt={prop.title}
@@ -2383,37 +3014,51 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
                             {renderCardTopRightBadge(prop, rankInfo)}
                           </div>
 
-                          <div className="absolute bottom-0 inset-x-0 px-2 py-1 bg-gradient-to-t from-slate-950/90 via-slate-950/70 to-transparent text-white flex items-center justify-between text-[10px] font-bold">
-                            <div className="flex items-center gap-1 truncate max-w-[70%]">
+                          <div className="absolute bottom-0 inset-x-0 px-2 pt-6 pb-1.5 bg-gradient-to-t from-slate-950 via-slate-900/60 to-transparent text-white flex items-center justify-between text-[10px] font-bold gap-2">
+                            <div className="flex items-center gap-1 flex-1 min-w-0" title={prop.proposer_name}>
                               <IconUser size={12} className="text-slate-300 shrink-0" />
-                              <span className="truncate">{prop.proposer_name}</span>
+                              <span className="truncate block w-full">{prop.proposer_name}</span>
                             </div>
-                            <span className="text-[9px] text-amber-300 font-mono">#{prop.code}</span>
+                            <span className="text-[9px] text-amber-300 font-mono whitespace-nowrap shrink-0">#{prop.code}</span>
                           </div>
                         </div>
 
-                        <div className="p-3 space-y-2 flex-1 flex flex-col justify-between">
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-1 text-[9.5px] font-bold text-slate-500">
+                        <div className="p-3 flex-1 flex flex-col">
+                          <div className="flex flex-col flex-1">
+                            <div className="flex items-center gap-1 text-[9.5px] font-bold text-slate-500 mb-1">
                               <IconTag size={10} className="text-emerald-600 shrink-0" />
                               <span className="truncate text-emerald-700">{prop.category_label || catObj.label}</span>
                             </div>
-                            <h3 className="font-extrabold text-slate-900 text-xs line-clamp-2 leading-snug group-hover:text-[#006838] transition-colors" title={getKaizenDisplayTitle(prop)}>
+                            <h3 className="font-extrabold text-slate-900 text-xs line-clamp-2 leading-snug group-hover:text-[#006838] transition-colors mb-2" title={getKaizenDisplayTitle(prop)}>
                               {getKaizenDisplayTitle(prop)}
                             </h3>
-                            <div className="flex items-center justify-between text-[10px] text-slate-500 font-semibold pt-1 border-t border-slate-100">
-                              <span className="flex items-center gap-1 truncate">
-                                <IconMapPin size={12} className="text-slate-400 shrink-0" />
-                                <span className="truncate">{prop.region || prop.factory || "VP CHUỖI"}</span>
+
+                            {/* TIME SAVINGS BADGE ON CARD */}
+                            {(() => {
+                              const savedSecs = getProposalSavedSeconds(prop);
+                              if (savedSecs <= 0) return null;
+                              const timeBefore = Number(prop.time_before_seconds || (prop as any).truoc_sec || 0);
+                              const percentStr = (timeBefore > 0 && savedSecs > 0) ? ((savedSecs / timeBefore) * 100).toFixed(1) : null;
+                              return (
+                                <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-purple-50 text-purple-800 border border-purple-200 text-[10px] font-black shrink-0 mb-2 w-fit">
+                                  <span>⏱️ -{savedSecs.toLocaleString("vi-VN")}s</span>
+                                  {percentStr && <span className="text-purple-600 font-bold">({percentStr}%)</span>}
+                                </div>
+                              );
+                            })()}
+                            <div className="flex flex-col text-[10px] text-slate-500 font-semibold pt-2 border-t border-slate-100 gap-1.5 mt-auto mb-2">
+                              <span className="flex items-start gap-1 w-full" title={prop.region || prop.factory || "VP CHUỖI"}>
+                                <IconMapPin size={12} className="text-slate-400 shrink-0 mt-0.5" />
+                                <span className="line-clamp-2 leading-tight">{prop.region || prop.factory || "VP CHUỖI"}</span>
                               </span>
-                              <span className="flex items-center gap-1 truncate">
-                                <IconBuildingFactory size={12} className="text-slate-400 shrink-0" />
-                                <span className="truncate">{prop.department}</span>
+                              <span className="flex items-start gap-1 w-full" title={prop.department}>
+                                <IconBuildingFactory size={12} className="text-slate-400 shrink-0 mt-0.5" />
+                                <span className="line-clamp-2 leading-tight">{prop.department}</span>
                               </span>
                             </div>
                           </div>
 
-                          <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500 min-h-[32px]">
+                          <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500 shrink-0 h-[24px]">
                             <button
                               type="button"
                               onClick={(e) => handleVote(e, prop.id)}
@@ -2429,38 +3074,18 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
                                 <span>{prop.view_count || 0}</span>
                               </span>
 
-
-
                               {(() => {
-                                const myScoreInfo = getMyScoreForProposal(prop);
-                                if (myScoreInfo) {
-                                  return (
-                                    <span
-                                      className="px-2 py-0.5 rounded-lg text-[10px] font-black bg-emerald-600 text-white shadow-2xs flex items-center gap-0.5 shrink-0"
-                                      title="Bạn đã gửi điểm và khóa cho sáng kiến này"
-                                    >
-                                      <span>🟢 Đã chấm ({myScoreInfo.totalScore}đ)</span>
-                                    </span>
-                                  );
-                                } else if (Number((prop as any).judge_final_score || prop.score_points || 0) > 0 || prop.sub_status === "DA_DANH_GIA") {
-                                  return (
-                                    <span
-                                      className="px-2 py-0.5 rounded-lg text-[10px] font-black bg-emerald-700 text-white shadow-2xs flex items-center gap-0.5 shrink-0"
-                                      title="Sáng kiến đã được Ban Giám Khảo đánh giá chuyên môn"
-                                    >
-                                      <span>🟢 Đã chấm ({Number((prop as any).judge_final_score || prop.score_points || 0).toFixed(1).replace(/\.0$/, "")}đ)</span>
-                                    </span>
-                                  );
-                                } else {
-                                  return (
-                                    <span
-                                      className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-[#fff0f0] text-rose-700 border border-rose-200 shadow-2xs flex items-center gap-0.5 shrink-0"
-                                      title="Sáng kiến này chưa được nộp điểm chấm"
-                                    >
-                                      <span>🔴 Chưa chấm</span>
-                                    </span>
-                                  );
-                                }
+                                const judgeIdentity = getClientJudgeIdentity(currentUser);
+                                const isJudge = isJudgeUser(judgeIdentity);
+                                const statusInfo = getJudgeEntryStatus(prop, myScoresMap, isJudge);
+                                return (
+                                  <span
+                                    className={`px-2 py-0.5 rounded-lg text-[10px] flex items-center gap-0.5 shrink-0 ${statusInfo.badgeClass}`}
+                                    title="Trạng thái chấm điểm"
+                                  >
+                                    <span>{statusInfo.label}</span>
+                                  </span>
+                                );
                               })()}
 
                               {((currentUser?.empCode && prop.proposer_emp_code && currentUser.empCode.trim().toUpperCase() === prop.proposer_emp_code.trim().toUpperCase()) ||
@@ -2496,7 +3121,8 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
                           <th className="p-3">Phân loại</th>
                           <th className="p-3">Khu vực</th>
                           <th className="p-3">Người đề xuất</th>
-                          <th className="p-3 text-center">Trạng thái</th>
+                          <th className="p-3 text-center">Trạng thái duyệt</th>
+                          <th className="p-3 text-center">Trạng thái chấm</th>
                           <th className="p-3 text-center">Thao tác</th>
                         </tr>
                       </thead>
@@ -2553,6 +3179,21 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
                                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-black border ${badgeStyle}`}>
                                   {badgeText}
                                 </span>
+                              </td>
+                              <td className="p-3 text-center">
+                                {(() => {
+                                  const judgeIdentity = getClientJudgeIdentity(currentUser);
+                                  const isJudge = isJudgeUser(judgeIdentity);
+                                  const statusInfo = getJudgeEntryStatus(prop, myScoresMap, isJudge);
+                                  return (
+                                    <span
+                                      className={`px-2 py-0.5 rounded-lg text-[10px] flex items-center justify-center gap-0.5 shrink-0 ${statusInfo.badgeClass}`}
+                                      title="Trạng thái chấm điểm"
+                                    >
+                                      <span>{statusInfo.label}</span>
+                                    </span>
+                                  );
+                                })()}
                               </td>
                               <td className="p-3 text-center">
                                 <div className="flex items-center justify-center gap-1.5">

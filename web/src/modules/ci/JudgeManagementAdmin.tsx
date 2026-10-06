@@ -1493,9 +1493,14 @@ export default function JudgeManagementAdmin() {
                   className="w-full p-2 rounded-xl bg-white border border-slate-300 text-xs font-bold"
                 >
                   <option value="ALL">🌐 Tất cả Nhà máy / Khu vực</option>
+                  <option value="Văn phòng Chuỗi">🏢 Văn phòng Chuỗi</option>
                   <option value="Nhà Máy Miền Đông">🏭 Nhà Máy Miền Đông</option>
-                  <option value="Tổ Hợp Miền Nam">🏬 Tổ Hợp Miền Nam</option>
-                  <option value="VP Chuỗi SKECHERS">🏢 VP Chuỗi SKECHERS</option>
+                  <option value="THKG">📍 THKG</option>
+                  <option value="Phòng Ban THKG">&nbsp;&nbsp;&nbsp;↳ Phòng Ban THKG</option>
+                  <option value="Kiên Giang 1">&nbsp;&nbsp;&nbsp;↳ Kiên Giang 1</option>
+                  <option value="Kiên Giang 2">&nbsp;&nbsp;&nbsp;↳ Kiên Giang 2</option>
+                  <option value="Kiên Giang 3">&nbsp;&nbsp;&nbsp;↳ Kiên Giang 3</option>
+                  <option value="Hoàn Thiện Đế">&nbsp;&nbsp;&nbsp;↳ Hoàn Thiện Đế</option>
                 </select>
               </div>
 

@@ -97,24 +97,7 @@ export async function proxy(request: NextRequest) {
   }
 
   // 5. Verify JWT Payload or Session Token Format
-  let user = await verifyToken(token);
-  if (!user && (token.startsWith('tbs_token_') || token.includes('tbs_token'))) {
-    const match = token.match(/tbs_token_([^_]+)_/);
-    if (match && match[1]) {
-      const empCode = match[1];
-      const sysUser = SYSTEM_USERS[empCode];
-      user = {
-        userId: sysUser?.userId || 888,
-        empCode: empCode,
-        name: sysUser?.name || `Cán Bộ Nhân Viên (${empCode})`,
-        roleId: sysUser?.roleLevel || 4,
-        roleCode: sysUser?.roleCode || 'CBCNV',
-        roleLevel: sysUser?.roleLevel || 4,
-        departmentId: 1,
-        departmentCode: sysUser?.managedDepartmentId || sysUser?.departmentCode || 'TBS',
-      };
-    }
-  }
+  const user = await verifyToken(token);
 
   if (!user) {
     if (pathname.startsWith('/api/')) {

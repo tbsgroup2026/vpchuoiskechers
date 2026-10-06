@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
+function getDbBinding(): any {
+  return (process.env as any).DB || (globalThis as any).DB || null;
+}
 import { SYSTEM_USERS } from '@/lib/userProfiles';
 import { getEffectivePermissions, getAllowedModulesForUser } from '@/lib/authorizationEngine';
 
@@ -24,7 +27,16 @@ export async function GET(request: Request) {
 
     const empCode = verified.empCode;
     let user = SYSTEM_USERS[empCode];
-    if (!user) {
+    
+    const db = getDbBinding();
+    let dbUser = null;
+    if (db) {
+      try {
+        dbUser = await db.prepare("SELECT * FROM sys_users WHERE UPPER(emp_code) = UPPER(?) OR UPPER(id) = UPPER(?)").bind(empCode, empCode).first();
+      } catch (e) {}
+    }
+
+    if (!dbUser && !user) {
       if (verified.isGuest || verified.roleCode === 'JUDGE_GUEST' || empCode?.startsWith('GUEST_')) {
         return NextResponse.json({
           success: true,
@@ -49,9 +61,31 @@ export async function GET(request: Request) {
         });
       }
       return NextResponse.json(
-        { success: false, error: 'Unauthorized: User profile not found' },
+        { success: false, error: 'Unauthorized: User profile not found in database' },
         { status: 401 }
       );
+    }
+
+    if (dbUser && dbUser.status !== 'ACTIVE') {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized: User account is inactive' },
+        { status: 401 }
+      );
+    }
+
+    if (dbUser && !user) {
+      user = {
+        userId: dbUser.id as any,
+        empCode: dbUser.emp_code as string,
+        name: dbUser.name as string || `Nhân Viên (${dbUser.emp_code})`,
+        title: dbUser.title as string || 'Chuyên Viên Vận Hành',
+        department: dbUser.department as string || 'Văn Phòng Chuỗi SKECHERS',
+        roleCode: dbUser.role_code as string || 'CBCNV',
+        roles: ['employee'],
+        roleLevel: 4,
+        avatar: '',
+        redirectUrl: '/work',
+      };
     }
 
     const permissions = getEffectivePermissions(user);

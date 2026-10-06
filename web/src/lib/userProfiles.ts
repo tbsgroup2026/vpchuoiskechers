@@ -21,6 +21,65 @@ export interface UserProfile {
 }
 
 export const SYSTEM_USERS: Record<string, UserProfile> = {
+  "202112003": {
+    userId: 255,
+    empCode: "202112003",
+    name: "Lê Khải",
+    title: "Chuyên Viên Vận Hành",
+    department: "Nhân Sự - Hành Chính",
+    email: "202112003@tbsgroup.vn",
+    phone: "0988 000 005",
+    roleCode: "CBCNV",
+    roles: ["employee"],
+    roleLevel: 4,
+    avatar: "",
+    redirectUrl: "/work",
+  },
+  "202206011": {
+    userId: 250,
+    empCode: "202206011",
+    name: "TRẦN THỊ BÍCH TRÂM",
+    title: "Trưởng Team Lễ Tân",
+    department: "HÀNH CHÍNH-LỄ TÂN",
+    email: "202206011@tbsgroup.vn",
+    phone: "",
+    roleCode: "LE_TAN",
+    roles: ["employee", "le_tan"],
+    roleLevel: 4,
+    avatar: "",
+    redirectUrl: "/work",
+    managedDepartmentId: "",
+  },
+  "102603069": {
+    userId: 251,
+    empCode: "102603069",
+    name: "TRƯƠNG BẢO NGỌC",
+    title: "Lễ Tân",
+    department: "HÀNH CHÍNH-LỄ TÂN",
+    email: "102603069@tbsgroup.vn",
+    phone: "",
+    roleCode: "LE_TAN",
+    roles: ["employee", "le_tan"],
+    roleLevel: 4,
+    avatar: "",
+    redirectUrl: "/work",
+    managedDepartmentId: "",
+  },
+  "202010004": {
+    userId: 252,
+    empCode: "202010004",
+    name: "NGUYỄN MINH HÙNG",
+    title: "Lễ Tân",
+    department: "HÀNH CHÍNH-LỄ TÂN",
+    email: "202010004@tbsgroup.vn",
+    phone: "",
+    roleCode: "LE_TAN",
+    roles: ["employee", "le_tan"],
+    roleLevel: 4,
+    avatar: "",
+    redirectUrl: "/work",
+    managedDepartmentId: "",
+  },
   "202608001": {
     userId: 205,
     empCode: "202608001",
@@ -294,36 +353,6 @@ export const SYSTEM_USERS: Record<string, UserProfile> = {
     department: "NHÂN SỰ-HC",
     email: "202409009@tbsgroup.vn",
     phone: "",
-    roleCode: "LE_TAN",
-    roles: ["employee", "receptionist"],
-    roleLevel: 4,
-    avatar: "",
-    redirectUrl: "/rooms",
-    managedDepartmentId: "hr",
-  },
-  "202010004": {
-    userId: 217,
-    empCode: "202010004",
-    name: "Nguyễn Minh Hùng",
-    title: "Nhân Viên Hành Chính - Lễ Tân",
-    department: "NHÂN SỰ-HC",
-    email: "202010004@tbsgroup.vn",
-    phone: "",
-    roleCode: "LE_TAN",
-    roles: ["employee", "receptionist"],
-    roleLevel: 4,
-    avatar: "",
-    redirectUrl: "/rooms",
-    managedDepartmentId: "hr",
-  },
-  "202206011": {
-    userId: 215,
-    empCode: "202206011",
-    name: "Lễ Tân (Trưởng Team LT)",
-    title: "Trưởng Team Lễ Tân",
-    department: "Văn Phòng Chuỗi SKECHERS",
-    email: "letan.teamlead@tbsgroup.vn",
-    phone: "0522511247",
     roleCode: "LE_TAN",
     roles: ["employee", "receptionist"],
     roleLevel: 4,
@@ -705,6 +734,11 @@ export function getCurrentUser(): UserProfile | null {
   try {
     const parsed: UserProfile = JSON.parse(stored);
     if (!parsed || !parsed.empCode) return null;
+    
+    if (parsed.email === "letan.teamlead@tbsgroup.vn" || parsed.name === "Lễ Tân (Trưởng Team LT)") {
+      logoutUserProfile();
+      return null;
+    }
 
     // Auto-heal tbs_token cookie if missing to ensure persistent login across page refreshes
     if (typeof document !== "undefined") {
@@ -791,23 +825,10 @@ export function loginUserProfile(empCodeOrRole: string, password?: string): User
   }
 
   let baseProfile: UserProfile;
-
   if (SYSTEM_USERS[targetEmpCode]) {
     baseProfile = { ...SYSTEM_USERS[targetEmpCode] };
   } else {
-    baseProfile = {
-      userId: 888,
-      empCode: targetEmpCode || "GUEST",
-      name: `Cán Bộ Công Nhân Viên (${targetEmpCode})`,
-      title: "Chuyên Viên Vận Hành",
-      department: "Văn Phòng Chuỗi SKECHERS",
-      email: `${targetEmpCode.toLowerCase()}@tbsgroup.vn`,
-      roleCode: "CBCNV",
-      roles: ["employee"],
-      roleLevel: 4,
-      avatar: "",
-      redirectUrl: "/work",
-    };
+    throw new Error("Mã số nhân viên không tồn tại trong hệ thống cục bộ. Vui lòng kiểm tra lại.");
   }
 
   // Đảm bảo avatar thuộc về đúng empCode
@@ -845,6 +866,7 @@ export async function loginWithD1Database(
 
   let d1Profile: UserProfile | null = null;
 
+  let serverJwtToken: string | null = null;
   try {
     const res = await fetch("/api/auth/login", {
       method: "POST",
@@ -859,8 +881,12 @@ export async function loginWithD1Database(
     if (res.ok) {
       const json = await res.json();
       if (json.success && json.user) {
+        if (json.token) {
+          serverJwtToken = json.token;
+        }
         const u = json.user;
-        const mappedCode = normalizeEmpCode(u.empCode || u.emp_code || normalized);
+        const isGuestUser = Boolean(u.isGuest || u.roleCode === "JUDGE_GUEST" || (typeof u.username === "string" && u.username.toUpperCase().startsWith("BGK")));
+        const mappedCode = isGuestUser ? (u.empCode || u.username || normalized) : normalizeEmpCode(u.empCode || u.emp_code || normalized);
         const sysUser = SYSTEM_USERS[mappedCode];
 
         const resolvedAvatar = (u.avatar && u.avatar !== "/images/tbs-logo.png" && !u.avatar.includes("unsplash.com") && (mappedCode === "202608001" || !u.avatar.includes("nzcft200bebofw7b4uzg")))
@@ -880,7 +906,7 @@ export async function loginWithD1Database(
           roleLevel: u.roleLevel || sysUser?.roleLevel || 4,
           avatar: resolvedAvatar,
           redirectUrl: u.redirectUrl || sysUser?.redirectUrl || "/work",
-          isGuest: Boolean(u.isGuest || u.roleCode === "JUDGE_GUEST"),
+          isGuest: isGuestUser,
           username: u.username || "",
         } as UserProfile;
       }
@@ -903,7 +929,11 @@ export async function loginWithD1Database(
     }
     sessionStorage.setItem("tbs_current_user", JSON.stringify(finalProfile));
     localStorage.setItem("tbs_current_user", JSON.stringify(finalProfile));
-    const token = `tbs_token_${finalProfile.empCode}_${Date.now()}`;
+    const token = serverJwtToken || `tbs_token_${finalProfile.empCode}_${Date.now()}`;
+    localStorage.setItem("tbs_jwt_token", token);
+    localStorage.setItem("tbs_token", token);
+    sessionStorage.setItem("tbs_jwt_token", token);
+    sessionStorage.setItem("tbs_token", token);
     document.cookie = `tbs_token=${token}; path=/; max-age=31536000; SameSite=Lax`;
     window.dispatchEvent(new Event("tbs_profile_updated"));
   }

@@ -75,20 +75,20 @@ export default function HeroSection() {
             <div className="lg:col-span-7 space-y-6">
               {/* Main Headline */}
               <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-white leading-[1.08] tracking-tight">
-                {cmsHero.titlePrefix || t("hero.chain_office")} <br />
+                {cmsHero.titlePrefix || t("hero.chain_office", undefined, "Văn Phòng Chuỗi")} <br />
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#2fd39a] via-[#52e8b2] to-[#f2dc9a]">
-                  {cmsHero.titleHighlight || t("hero.skechers_tbs")}
+                  {cmsHero.titleHighlight || t("hero.skechers_tbs", undefined, "SKECHERS - TBS Group")}
                 </span>
               </h1>
 
               {/* Italic Quote */}
               <p className="text-sm sm:text-base font-serif italic text-[#f2dc9a]/90 tracking-wide">
-                &ldquo;{cmsHero.quoteItalic || t("hero.excellence_manufacturing")}&rdquo;
+                &ldquo;{cmsHero.quoteItalic || t("hero.excellence_manufacturing", undefined, "Excellence in Manufacturing. Excellence in Leadership.")}&rdquo;
               </p>
 
               {/* Paragraph Description */}
               <p className="text-xs sm:text-sm text-gray-300 leading-relaxed max-w-[62ch]">
-                {cmsHero.description || t("hero.operating_space")}
+                {cmsHero.description || t("hero.operating_space", undefined, "Không gian điều hành đại diện cho năng lực quản trị, văn hóa doanh nghiệp và tiêu chuẩn vận hành của ngành SKECHERS - TBS Group. Thiết kế hướng đến sự tinh gọn, hiện đại và chuyên nghiệp, phản ánh vị thế của một doanh nghiệp sản xuất trong chuỗi cung ứng toàn cầu.")}
               </p>
 
               {/* CTAs */}
@@ -97,14 +97,14 @@ export default function HeroSection() {
                   href="/login"
                   className="inline-flex items-center gap-2 bg-gradient-to-r from-[#2fd39a] to-[#f2dc9a] text-[#08221a] font-extrabold px-6 py-3 rounded-xl text-xs uppercase tracking-wider shadow-lg shadow-emerald-500/20 hover:brightness-110 active:scale-[0.98] transition-all duration-200"
                 >
-                  <span>{t("hero.access_system")}</span>
+                  <span>{t("hero.access_system", undefined, "TRUY CẬP HỆ THỐNG")}</span>
                   <IconArrowRight size={16} />
                 </Link>
                 <a
                   href="#workspace"
                   className="inline-flex items-center gap-2 text-gray-200 font-semibold px-6 py-3 rounded-xl text-xs uppercase tracking-wider hover:text-white hover:bg-white/10 border border-white/20 transition-all duration-200"
                 >
-                  {t("hero.explore_space")}
+                  {t("hero.explore_space", undefined, "KHÁM PHÁ KHÔNG GIAN")}
                 </a>
               </div>
 
@@ -115,7 +115,7 @@ export default function HeroSection() {
                     {cmsHero.stat1Value || "30+"}
                   </div>
                   <div className="text-[10px] font-bold uppercase tracking-wider text-gray-300">
-                    {cmsHero.stat1Label || t("hero.years_experience")}
+                    {cmsHero.stat1Label || t("hero.years_experience", undefined, "Năm Kinh Nghiệm")}
                   </div>
                 </div>
                 <div className="space-y-0.5 border-l border-white/20 pl-3 sm:pl-6">
@@ -123,7 +123,7 @@ export default function HeroSection() {
                     {cmsHero.stat2Value || "10M+"}
                   </div>
                   <div className="text-[10px] font-bold uppercase tracking-wider text-gray-300">
-                    {cmsHero.stat2Label || t("hero.products_year")}
+                    {cmsHero.stat2Label || t("hero.products_year", undefined, "Sản Phẩm / Năm")}
                   </div>
                 </div>
                 <div className="space-y-0.5 border-l border-white/20 pl-3 sm:pl-6">
@@ -131,7 +131,7 @@ export default function HeroSection() {
                     {cmsHero.stat3Value || "5,000+"}
                   </div>
                   <div className="text-[10px] font-bold uppercase tracking-wider text-gray-300">
-                    {cmsHero.stat3Label || t("hero.operational_staff")}
+                    {cmsHero.stat3Label || t("hero.operational_staff", undefined, "Nhân Sự Vận Hành")}
                   </div>
                 </div>
               </div>

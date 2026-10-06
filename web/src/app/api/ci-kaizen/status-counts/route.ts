@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 
 import { ensureKaizenSchema } from '@/lib/kaizenDbMigration';
+import { normalizeRegion, STANDARD_DASHBOARD_REGIONS, isTHKGRegion } from '@/lib/kaizenRegionHelper';
 
 function getDbBinding(): any {
   return (process.env as any).DB || (globalThis as any).DB || null;
@@ -26,35 +27,41 @@ export async function GET() {
 
       const countsRes = await db.prepare(countsQuery).first().catch(() => null);
 
-      const regionsQuery = `
-        SELECT factory, COUNT(*) as cnt 
-        FROM ci_kaizen_proposals 
-        WHERE factory IS NOT NULL AND factory != ''
-        GROUP BY factory
+      // Fetch all proposals with region-relevant fields for normalizeRegion()
+      const allQuery = `
+        SELECT id, region, factory, source_region, department, site_code, category
+        FROM ci_kaizen_proposals
       `;
-      const { results: regionResults } = await db.prepare(regionsQuery).all().catch(() => ({ results: [] }));
+      const { results: allResults } = await db.prepare(allQuery).all().catch(() => ({ results: [] }));
 
+      // Compute region counts using normalizeRegion() for accurate grouping
       const regionMap: Record<string, number> = {};
-      if (Array.isArray(regionResults)) {
-        for (const row of regionResults) {
-          if (row.factory) regionMap[String(row.factory)] = Number(row.cnt || 0);
-        }
-      }
-
-      const categoryQuery = `
-        SELECT category, COUNT(*) as cnt 
-        FROM ci_kaizen_proposals 
-        WHERE category IS NOT NULL AND category != ''
-        GROUP BY category
-      `;
-      const { results: categoryResults } = await db.prepare(categoryQuery).all().catch(() => ({ results: [] }));
-
       const categoryMap: Record<string, number> = {};
-      if (Array.isArray(categoryResults)) {
-        for (const row of categoryResults) {
-          if (row.category) categoryMap[String(row.category)] = Number(row.cnt || 0);
+
+      // Initialize standard regions
+      for (const r of STANDARD_DASHBOARD_REGIONS) {
+        regionMap[r] = 0;
+      }
+
+      if (Array.isArray(allResults)) {
+        for (const row of allResults as any[]) {
+          // Region normalization
+          const norm = normalizeRegion(row);
+          regionMap[norm] = (regionMap[norm] || 0) + 1;
+
+          // Category counting
+          if (row.category) {
+            const cat = String(row.category);
+            categoryMap[cat] = (categoryMap[cat] || 0) + 1;
+          }
         }
       }
+
+      // Compute THKG total (parent group)
+      const thkgTotal = Object.entries(regionMap)
+        .filter(([key]) => isTHKGRegion(key))
+        .reduce((sum, [, count]) => sum + count, 0);
+      regionMap['THKG'] = thkgTotal;
 
       const counts = {
         thi_dua: Number(countsRes?.thi_dua || 0),
@@ -74,7 +81,7 @@ export async function GET() {
         },
         {
           headers: {
-            'Cache-Control': 'public, max-age=15, stale-while-revalidate=60',
+            'Cache-Control': 'public, max-age=10, stale-while-revalidate=30',
           },
         }
       );

@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { IconLock, IconCheck, IconAlertTriangle, IconX } from "@tabler/icons-react";
+import { useLanguage } from "@/components/LanguageProvider";
 
 interface AuthReLoginModalProps {
   isOpen: boolean;
@@ -10,6 +11,7 @@ interface AuthReLoginModalProps {
 }
 
 export default function AuthReLoginModal({ isOpen, onSuccess, onCancel }: AuthReLoginModalProps) {
+  const { lang, t } = useLanguage();
   const [empCode, setEmpCode] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -20,7 +22,7 @@ export default function AuthReLoginModal({ isOpen, onSuccess, onCancel }: AuthRe
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!empCode.trim() || !password.trim()) {
-      setErrorMsg("Vui lòng nhập Mã nhân viên và Mật khẩu!");
+      setErrorMsg(lang === "en" ? "Please enter Employee Code and Password!" : "Vui lòng nhập Mã nhân viên và Mật khẩu!");
       return;
     }
 
@@ -41,10 +43,10 @@ export default function AuthReLoginModal({ isOpen, onSuccess, onCancel }: AuthRe
         document.cookie = `tbs_token=${encodeURIComponent(cleanToken)}; path=/; max-age=31536000`;
         onSuccess(cleanToken);
       } else {
-        setErrorMsg(json.error || json.message || "Tài khoản hoặc mật khẩu không chính xác!");
+        setErrorMsg(json.error || json.message || (lang === "en" ? "Incorrect employee code or password!" : "Tài khoản hoặc mật khẩu không chính xác!"));
       }
     } catch (err: any) {
-      setErrorMsg("Không thể kết nối máy chủ. Vui lòng thử lại!");
+      setErrorMsg(lang === "en" ? "Cannot connect to server. Please try again!" : "Không thể kết nối máy chủ. Vui lòng thử lại!");
     } finally {
       setLoading(false);
     }
@@ -56,7 +58,7 @@ export default function AuthReLoginModal({ isOpen, onSuccess, onCancel }: AuthRe
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <div className="flex items-center gap-2 text-rose-600 font-black text-base">
             <IconLock size={20} />
-            <span>Phiên đăng nhập hết hạn</span>
+            <span>{t("auth.sessionExpiredTitle", undefined, "Phiên đăng nhập hết hạn")}</span>
           </div>
           <button onClick={onCancel} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
             <IconX size={18} />
@@ -64,7 +66,9 @@ export default function AuthReLoginModal({ isOpen, onSuccess, onCancel }: AuthRe
         </div>
 
         <p className="text-xs text-slate-600 font-medium">
-          Dữ liệu bạn vừa nhập trên form đã được <strong>bảo vệ an toàn</strong>. Vui lòng đăng nhập lại để tiếp tục gửi dữ liệu mà không bị mất thông tin.
+          {lang === "en"
+            ? "Your entered form data is safely protected. Please log in again to proceed without losing data."
+            : "Dữ liệu bạn vừa nhập trên form đã được bảo vệ an toàn. Vui lòng đăng nhập lại để tiếp tục gửi dữ liệu mà không bị mất thông tin."}
         </p>
 
         {errorMsg && (
@@ -76,23 +80,27 @@ export default function AuthReLoginModal({ isOpen, onSuccess, onCancel }: AuthRe
 
         <form onSubmit={handleLogin} className="space-y-3">
           <div>
-            <label className="text-xs font-bold text-slate-700 block mb-1">Mã NV / Tên đăng nhập:</label>
+            <label className="text-xs font-bold text-slate-700 block mb-1">
+              {t("auth.employeeCode", undefined, "Mã NV / Tên đăng nhập")}:
+            </label>
             <input
               type="text"
               value={empCode}
               onChange={(e) => setEmpCode(e.target.value)}
-              placeholder="Nhập mã nhân viên..."
+              placeholder={lang === "en" ? "Enter employee code..." : "Nhập mã nhân viên..."}
               className="w-full p-2.5 rounded-xl border border-slate-300 text-xs font-bold bg-white"
             />
           </div>
 
           <div>
-            <label className="text-xs font-bold text-slate-700 block mb-1">Mật khẩu:</label>
+            <label className="text-xs font-bold text-slate-700 block mb-1">
+              {t("auth.password", undefined, "Mật khẩu")}:
+            </label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Nhập mật khẩu..."
+              placeholder={lang === "en" ? "Enter password..." : "Nhập mật khẩu..."}
               className="w-full p-2.5 rounded-xl border border-slate-300 text-xs font-bold bg-white"
             />
           </div>
@@ -103,14 +111,16 @@ export default function AuthReLoginModal({ isOpen, onSuccess, onCancel }: AuthRe
               onClick={onCancel}
               className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50"
             >
-              Hủy
+              {t("common.cancel", undefined, "Hủy")}
             </button>
             <button
               type="submit"
               disabled={loading}
               className="px-5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-black shadow-md cursor-pointer disabled:opacity-50"
             >
-              {loading ? "Đang xác thực..." : "Đăng Nhập & Gửi Lại Form"}
+              {loading
+                ? (lang === "en" ? "Authenticating..." : "Đang xác thực...")
+                : (lang === "en" ? "Log In & Resubmit Form" : "Đăng Nhập & Gửi Lại Form")}
             </button>
           </div>
         </form>

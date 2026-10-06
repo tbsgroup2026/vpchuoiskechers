@@ -305,8 +305,8 @@ export async function POST(request: Request) {
         statements.push(
           db.prepare(`
             INSERT INTO ci_kaizen_judge_guest_accounts (
-              id, username, one_time_passcode, full_name, email_phone, round_id, token_hash, expires_at, created_by, dung_chung
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now', '+${expiresDays} days'), ?, ?)
+              id, username, one_time_passcode, full_name, email_phone, round_id, token_hash, expires_at, created_by, dung_chung, organization, contact_info
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now', '+${expiresDays} days'), ?, ?, '', '')
           `).bind(
             guestId,
             bgkUsername,
@@ -391,8 +391,8 @@ export async function POST(request: Request) {
 
     await db.prepare(`
       INSERT INTO ci_kaizen_judge_guest_accounts (
-        id, username, one_time_passcode, full_name, email_phone, round_id, token_hash, expires_at, created_by, dung_chung
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now', '+${expiresDays} days'), ?, ?)
+        id, username, one_time_passcode, full_name, email_phone, round_id, token_hash, expires_at, created_by, dung_chung, organization, contact_info
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now', '+${expiresDays} days'), ?, ?, '', '')
     `).bind(
       guestId,
       bgkUsername,

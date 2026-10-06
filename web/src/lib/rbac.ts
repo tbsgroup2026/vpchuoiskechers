@@ -1,53 +1,128 @@
-import { JWTPayload } from './auth';
+// web/src/lib/rbac.ts
 
-export const ROLE_LEVELS = {
-  SUPER_ADMIN: 1,
-  EXECUTIVE: 2,
-  DEPARTMENT_HEAD: 3,
-  OFFICE_STAFF: 4,
-  MAINTENANCE: 5,
-  WORKER: 6,
-} as const;
-
-export const DEFAULT_ROLES = [
-  { id: 1, code: 'SUPER_ADMIN', name: 'Super Admin', level: 1, description: 'Toàn quyền quản trị hệ thống' },
-  { id: 2, code: 'EXECUTIVE', name: 'Ban Giám đốc (Sếp lớn)', level: 2, description: 'Xem dashboard tổng và drill-down toàn công ty' },
-  { id: 3, code: 'DEPT_HEAD', name: 'Trưởng phòng ban', level: 3, description: 'Quản lý và duyệt giấy tờ thuộc scope phòng ban' },
-  { id: 4, code: 'OFFICE_STAFF', name: 'Nhân viên văn phòng', level: 4, description: 'Nhập liệu và số hóa giấy tờ phòng ban' },
-  { id: 5, code: 'MAINTENANCE', name: 'Nhân viên bảo trì', level: 5, description: 'Nhận thông báo, xác nhận và sửa chữa máy móc (App mobile)' },
-  { id: 6, code: 'WORKER', name: 'Công nhân', level: 6, description: 'Quét mã QR báo sự cố máy móc (App mobile)' },
-];
+export const MODULE_ACCESS: Record<string, string[]> = {
+  // Lễ Tân chỉ được phép truy cập 3 module cơ bản (và trang con liên quan)
+  LE_TAN: ["home", "my-tasks", "my_tasks", "hr"],
+  RECEPTIONIST: ["home", "my-tasks", "my_tasks", "hr"],
+  
+  // BGK (Guest Judge)
+  JUDGE_GUEST: ["home", "ci"],
+};
 
 /**
- * Check if the user has access based on minimum required level
+ * Hàm chuẩn hóa role từ user object
  */
-export function hasMinRoleLevel(user: JWTPayload | null, requiredLevel: number): boolean {
-  if (!user) return false;
-  return user.roleLevel <= requiredLevel; // Lower number means higher privileges
-}
+export const getNormalizedRoles = (activeUser: any, sysUser: any = null): string[] => {
+  if (!activeUser && !sysUser) return ["GUEST"];
+  
+  const roles = new Set<string>();
+  
+  const addRole = (r?: string) => {
+    if (r) roles.add(r.trim().toUpperCase());
+  };
+
+  addRole(activeUser?.roleCode);
+  addRole(activeUser?.role_code);
+  addRole(sysUser?.roleCode);
+
+  if (Array.isArray(activeUser?.roles)) {
+    activeUser.roles.forEach(addRole);
+  }
+  if (Array.isArray(sysUser?.roles)) {
+    sysUser.roles.forEach(addRole);
+  }
+
+  // Fallback for receptionist based on title/dept if roleCode is missing
+  const title = (activeUser?.title || sysUser?.title || "").toUpperCase();
+  const dept = (activeUser?.department || sysUser?.department || "").toUpperCase();
+  if (title.includes("LỄ TÂN") || dept.includes("LỄ TÂN")) {
+    roles.add("LE_TAN");
+  }
+
+  return Array.from(roles);
+};
 
 /**
- * Check if user is Super Admin
+ * Trả về danh sách các module ID được phép dựa trên cấu hình tập trung.
+ * Nếu trả về mảng rỗng hoặc chứa "ALL", nghĩa là được full quyền (Admin/Exec).
  */
-export function isSuperAdmin(user: JWTPayload | null): boolean {
-  return hasMinRoleLevel(user, ROLE_LEVELS.SUPER_ADMIN);
-}
+export const getAllowedModules = (activeUser: any, sysUser: any = null): string[] | "ALL" => {
+  const roles = getNormalizedRoles(activeUser, sysUser);
+  
+  // 1. Kiểm tra Admin / System Admin
+  if (
+    roles.includes("SUPER_ADMIN") || 
+    roles.includes("ADMIN") || 
+    roles.includes("SYSTEM_ADMIN") ||
+    roles.includes("SUPERADMIN") ||
+    activeUser?.roleLevel === 1 ||
+    sysUser?.roleLevel === 1
+  ) {
+    return "ALL";
+  }
 
-/**
- * Determine default route for user upon successful login
- */
-export function getRedirectRouteForUser(user: JWTPayload): string {
-  if (user.roleLevel === ROLE_LEVELS.WORKER || user.roleLevel === ROLE_LEVELS.MAINTENANCE) {
-    return '/mobile-guide'; // Maintenance & Workers use mobile native app
+  // 2. Executive Board
+  const mgmtLevel = activeUser?.managementLevel || sysUser?.roleLevel || 4;
+  const isExec = 
+    mgmtLevel <= 2 || 
+    roles.includes("CEO") || 
+    roles.includes("TONG_GIAM_DOC") || 
+    roles.includes("GIAM_DOC") ||
+    roles.includes("PHO_GIAM_DOC");
+    
+  if (isExec) {
+    return "ALL";
   }
-  if (user.roleLevel === ROLE_LEVELS.SUPER_ADMIN) {
-    return '/admin/users';
+
+  // 3. Kiểm tra các Role bị giới hạn chặt chẽ trong MODULE_ACCESS (như Lễ Tân, BGK)
+  let strictAllowedModules: string[] | null = null;
+  for (const r of roles) {
+    if (MODULE_ACCESS[r]) {
+      // Hợp nhất các module được phép nếu user có nhiều role giới hạn
+      if (!strictAllowedModules) strictAllowedModules = [];
+      strictAllowedModules = [...new Set([...strictAllowedModules, ...MODULE_ACCESS[r]])];
+    }
   }
-  if (user.roleLevel === ROLE_LEVELS.EXECUTIVE) {
-    return '/work';
+  
+  // Nếu user thuộc role bị giới hạn (Lễ Tân), CHỈ trả về các module trong cấu hình
+  if (strictAllowedModules !== null) {
+    return strictAllowedModules;
   }
-  if (user.roleLevel === ROLE_LEVELS.DEPARTMENT_HEAD) {
-    return '/documents/approvals';
+
+  // 4. Nếu là nhân viên thường hoặc Trưởng phòng, trả về các module theo logic hiện tại
+  const allowed = new Set(["home", "overview", "my-tasks", "tasks", "projects", "hr", "ci"]);
+  
+  const isTP = roles.includes("TRUONG_PHONG") || roles.includes("MANAGER") || roles.includes("DEPARTMENT_HEAD") || mgmtLevel === 3;
+  if (isTP) {
+    allowed.add("finance"); // Trưởng phòng được xem 1-5-2
   }
-  return '/documents/templates';
-}
+  
+  const deptCode = (activeUser?.departmentCode || sysUser?.departmentCode || "").toUpperCase();
+  const deptName = (activeUser?.department || sysUser?.department || "").toUpperCase();
+  const empCode = (activeUser?.empCode || "").toUpperCase();
+  
+  if (roles.includes("ACCOUNTANT")) allowed.add("finance");
+  if (roles.includes("QC") || deptCode.includes("QC") || deptName.includes("CHẤT LƯỢNG") || empCode.startsWith("QC")) {
+    allowed.add("qc");
+    allowed.add("gemba");
+  }
+  if (roles.includes("RD") || deptCode.includes("RD") || deptName.includes("R&D") || empCode.startsWith("RD")) {
+    allowed.add("rd");
+  }
+  if (roles.includes("LOGISTICS") || deptCode.includes("LOGISTICS") || deptName.includes("VẬT TƯ") || empCode.startsWith("LG")) {
+    allowed.add("logistics");
+  }
+  
+  const isFactoryMgmt = roles.includes("MAINTENANCE") || roles.includes("TECHNICIAN") || deptCode.includes("BAO_TRI") || deptName.includes("MÁY MÓC") || isTP || roles.includes("FACTORY_MANAGER") || roles.includes("SUPERVISOR");
+  if (isFactoryMgmt) {
+    allowed.add("production");
+    allowed.add("production-output");
+  }
+
+  // Trưởng phòng không được xem gemba
+  if (isTP) allowed.delete("gemba");
+  
+  allowed.add("my_tasks"); // alias for my-tasks
+  
+  return Array.from(allowed);
+};

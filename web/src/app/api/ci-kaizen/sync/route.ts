@@ -110,34 +110,22 @@ async function checkD1RateLimit(db: any, siteCode: string): Promise<boolean> {
   }
 }
 
+import { normalizeKaizenSyncPayload } from '@/lib/kaizenDataContract';
+
 export async function upsertProposals(db: any, sourceProposals: any[], defaultSiteCode = 'thkiengiangshoes') {
   let createdCount = 0;
   let updatedCount = 0;
   let skippedCount = 0;
 
-  for (const item of sourceProposals) {
-    if (!item || (!item.id && !item.external_id)) continue;
+  for (const rawItem of sourceProposals) {
+    if (!rawItem || (!rawItem.id && !rawItem.external_id && !rawItem.proposal_id)) continue;
 
-    const itemTitle = (item.title && String(item.title).trim()) || (item.before_description ? `Cải tiến: ${String(item.before_description).trim().substring(0, 50)}` : 'Sáng kiến cải tiến Kaizen');
-    const siteCode = item.site_code || defaultSiteCode;
-    const externalId = item.external_id || item.id;
-    // Prefix ID with 'tkg_' for records from thkiengiangshoes to prevent ID collision
-    const localId = siteCode === 'thkiengiangshoes'
-      ? (String(item.id).startsWith('tkg_') ? String(item.id) : `tkg_${externalId}`)
-      : String(item.id);
+    const norm = normalizeKaizenSyncPayload(rawItem, defaultSiteCode);
+    const siteCode = norm.site_code;
+    const externalId = norm.external_id;
+    const localId = norm.id;
 
-    const itemRegion = item.region || item.factory || 'TH Kiên Giang Shoes';
-    const sourceRegion = item.source_region || item.region || 'TH Kiên Giang Shoes';
-
-    const isSoftDeleted = Boolean(
-      Number(item.is_archived) === 1 ||
-      item.is_archived === true ||
-      Number(item.is_deleted) === 1 ||
-      item.is_deleted === true ||
-      item.status === 'DELETED' ||
-      item.sub_status === 'LUU_TRU' ||
-      item.registration_type === 'LUU_TRU'
-    );
+    const isSoftDeleted = norm.is_archived;
 
     // Check if proposal exists locally by id OR (site_code AND external_id)
     const existing: any = await db
@@ -145,34 +133,22 @@ export async function upsertProposals(db: any, sourceProposals: any[], defaultSi
       .bind(localId, siteCode, externalId)
       .first();
 
-    const attachmentsJson = item.attachments_json || (
-      Array.isArray(item.attachments) ? JSON.stringify(item.attachments) : null
-    );
-
     if (existing) {
-      // Do NOT overwrite locally edited records (is_edited = 1)
-      if (Number(existing.is_edited || 0) === 1) {
-        skippedCount++;
-        continue;
-      }
-
-      // Compare updated_at timestamps if present
-      if (existing.updated_at && item.updated_at) {
+      // Compare updated_at timestamps if present to avoid overwriting newer data
+      if (existing.updated_at && norm.updated_at) {
         const localTime = new Date(existing.updated_at).getTime();
-        const itemTime = new Date(item.updated_at).getTime();
-        if (!isNaN(localTime) && !isNaN(itemTime) && itemTime <= localTime && Number(existing.is_archived || 0) === (isSoftDeleted ? 1 : 0)) {
+        const itemTime = new Date(norm.updated_at).getTime();
+        if (!isNaN(localTime) && !isNaN(itemTime) && itemTime < localTime && Number(existing.is_archived || 0) === (isSoftDeleted ? 1 : 0)) {
           skippedCount++;
           continue; // Skip outdated update
         }
       }
 
-      const cleanSyncTitle = (item.title && String(item.title).trim()) || '';
-      const isGenericTitle = !cleanSyncTitle || cleanSyncTitle === 'Sáng kiến cải tiến Kaizen' || cleanSyncTitle === 'Ý tưởng đề xuất cải tiến Kaizen';
-      const syncTitleToUse = (!isGenericTitle ? cleanSyncTitle : (existing.title || itemTitle));
-      const syncBeforeDescToUse = (item.before_description && String(item.before_description).trim()) || existing.before_description || null;
-      const syncAfterSolToUse = (item.after_solution && String(item.after_solution).trim()) || existing.after_solution || null;
+      const syncTitleToUse = norm.title || existing.title || 'Sáng kiến cải tiến Kaizen';
+      const syncBeforeDescToUse = norm.before_description || existing.before_description || null;
+      const syncAfterSolToUse = norm.after_solution || existing.after_solution || null;
 
-      // UPDATE existing proposal
+      // UPDATE existing proposal (NOTE: Judging/Scoring fields score_points, avg_rating, award_title, etc. are NOT touched to protect vpchuoiskechers data)
       const updateSql = `
         UPDATE ci_kaizen_proposals
         SET code = COALESCE(?, code),
@@ -184,25 +160,32 @@ export async function upsertProposals(db: any, sourceProposals: any[], defaultSi
             department = COALESCE(?, department),
             factory = COALESCE(?, factory),
             line = COALESCE(?, line),
+            customer = COALESCE(?, customer),
+            product_code = COALESCE(?, product_code),
+            pricing_direction = COALESCE(?, pricing_direction),
             proposer_name = COALESCE(?, proposer_name),
             proposer_emp_code = COALESCE(?, proposer_emp_code),
+            proposer_position = COALESCE(?, proposer_position),
             before_description = COALESCE(?, before_description),
             after_solution = COALESCE(?, after_solution),
+            time_before_seconds = COALESCE(?, time_before_seconds),
+            time_after_seconds = COALESCE(?, time_after_seconds),
             saved_seconds = COALESCE(?, saved_seconds),
             so_giay_tiet_kiem = COALESCE(?, so_giay_tiet_kiem),
+            efficiency_value_vnd = COALESCE(?, efficiency_value_vnd),
+            cost_before = COALESCE(?, cost_before),
+            cost_after = COALESCE(?, cost_after),
             before_image_url = COALESCE(?, before_image_url),
             after_image_url = COALESCE(?, after_image_url),
+            before_video_url = COALESCE(?, before_video_url),
+            after_video_url = COALESCE(?, after_video_url),
             attachments_json = COALESCE(?, attachments_json),
             status = COALESCE(?, status),
             sub_status = COALESCE(?, sub_status),
             trang_thai = COALESCE(?, trang_thai),
             review_status = COALESCE(?, review_status),
-            score_points = COALESCE(?, score_points),
-            avg_rating = COALESCE(?, avg_rating),
-            rating_count = COALESCE(?, rating_count),
-            vote_count = COALESCE(?, vote_count),
-            view_count = COALESCE(?, view_count),
             pair_quantity = COALESCE(?, pair_quantity),
+            quantity = COALESCE(?, quantity),
             total_savings_vnd = COALESCE(?, total_savings_vnd),
             total_savings_words = COALESCE(?, total_savings_words),
             approval_status = COALESCE(?, approval_status),
@@ -217,42 +200,49 @@ export async function upsertProposals(db: any, sourceProposals: any[], defaultSi
       await db
         .prepare(updateSql)
         .bind(
-          item.code,
+          norm.code || null,
           syncTitleToUse,
-          item.category,
-          item.category_label,
-          item.registration_type,
-          itemRegion,
-          item.department,
-          item.factory || itemRegion,
-          item.line,
-          item.proposer_name,
-          item.proposer_emp_code,
+          norm.category,
+          norm.category_label,
+          norm.registration_type,
+          norm.region,
+          norm.department,
+          norm.factory,
+          norm.line,
+          norm.customer || null,
+          norm.product_code || null,
+          norm.pricing_direction || null,
+          norm.proposer_name,
+          norm.proposer_emp_code,
+          norm.proposer_position || null,
           syncBeforeDescToUse,
           syncAfterSolToUse,
-          item.saved_seconds || item.so_giay_tiet_kiem || 0,
-          item.saved_seconds || item.so_giay_tiet_kiem || 0,
-          item.before_image_url,
-          item.after_image_url,
-          attachmentsJson,
-          item.status,
-          item.sub_status,
-          item.trang_thai || item.sub_status,
-          item.review_status || item.sub_status,
-          item.score_points || 0,
-          item.avg_rating || 0,
-          item.rating_count || 0,
-          item.vote_count || 0,
-          item.view_count || 0,
-          item.pair_quantity || item.quantity || 0,
-          item.total_savings_vnd || item.tong_tien_tiet_kiem || 0,
-          item.total_savings_words,
-          item.approval_status,
+          norm.time_before_seconds,
+          norm.time_after_seconds,
+          norm.saved_seconds,
+          norm.saved_seconds,
+          norm.efficiency_value_vnd,
+          norm.cost_before,
+          norm.cost_after,
+          norm.before_image_url || null,
+          norm.after_image_url || null,
+          norm.before_video_url || null,
+          norm.after_video_url || null,
+          norm.attachments_json || null,
+          norm.status,
+          norm.sub_status,
+          norm.trang_thai,
+          norm.review_status,
+          norm.pair_quantity,
+          norm.pair_quantity,
+          norm.total_savings_vnd,
+          norm.total_savings_words || null,
+          norm.approval_status,
           siteCode,
           externalId,
-          sourceRegion,
+          norm.source_region,
           isSoftDeleted ? 1 : 0,
-          item.updated_at || new Date().toISOString(),
+          norm.updated_at,
           existing.id
         )
         .run()
@@ -264,19 +254,23 @@ export async function upsertProposals(db: any, sourceProposals: any[], defaultSi
       const insertSql = `
         INSERT INTO ci_kaizen_proposals (
           id, code, title, category, category_label, registration_type,
-          region, department, factory, line, proposer_name, proposer_emp_code,
-          before_description, after_solution, saved_seconds, so_giay_tiet_kiem,
-          before_image_url, after_image_url, attachments_json, status, sub_status,
-          trang_thai, review_status, score_points, avg_rating, rating_count,
-          vote_count, view_count, pair_quantity, total_savings_vnd, total_savings_words,
+          region, department, factory, line, customer, product_code, pricing_direction,
+          proposer_name, proposer_emp_code, proposer_position,
+          before_description, after_solution, time_before_seconds, time_after_seconds,
+          saved_seconds, so_giay_tiet_kiem, efficiency_value_vnd, cost_before, cost_after,
+          before_image_url, after_image_url, before_video_url, after_video_url, attachments_json,
+          status, sub_status, trang_thai, review_status, score_points, avg_rating, rating_count,
+          vote_count, view_count, pair_quantity, quantity, total_savings_vnd, total_savings_words,
           approval_status, site_code, external_id, source_region, is_archived, created_at, updated_at
         ) VALUES (
           ?, ?, ?, ?, ?, ?,
-          ?, ?, ?, ?, ?, ?,
+          ?, ?, ?, ?, ?, ?, ?,
+          ?, ?, ?,
           ?, ?, ?, ?,
           ?, ?, ?, ?, ?,
           ?, ?, ?, ?, ?,
-          ?, ?, ?, ?, ?,
+          ?, ?, ?, ?, 0, 0, 0,
+          0, 0, ?, ?, ?, ?,
           ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP), COALESCE(?, CURRENT_TIMESTAMP)
         )
       `;
@@ -285,43 +279,50 @@ export async function upsertProposals(db: any, sourceProposals: any[], defaultSi
         .prepare(insertSql)
         .bind(
           localId,
-          item.code,
-          itemTitle,
-          item.category || 'PRODUCTIVITY',
-          item.category_label || '3.Tăng Năng suất',
-          item.registration_type || 'THI_DUA',
-          itemRegion,
-          item.department || '',
-          item.factory || itemRegion,
-          item.line || '',
-          item.proposer_name,
-          item.proposer_emp_code || 'SK-KG-EMP',
-          item.before_description || '',
-          item.after_solution || '',
-          item.saved_seconds || item.so_giay_tiet_kiem || 0,
-          item.saved_seconds || item.so_giay_tiet_kiem || 0,
-          item.before_image_url || '',
-          item.after_image_url || '',
-          attachmentsJson,
-          item.status || 'APPROVED',
-          item.sub_status || 'CHO_DANH_GIA',
-          item.trang_thai || item.sub_status || 'CHO_DANH_GIA',
-          item.review_status || 'CHO_PHE_DUYET',
-          item.score_points || 0,
-          item.avg_rating || 0,
-          item.rating_count || 0,
-          item.vote_count || 0,
-          item.view_count || 0,
-          item.pair_quantity || item.quantity || 0,
-          item.total_savings_vnd || item.tong_tien_tiet_kiem || 0,
-          item.total_savings_words || '',
-          item.approval_status || 'PHE_DUYET',
+          norm.code || null,
+          norm.title || 'Sáng kiến cải tiến Kaizen',
+          norm.category,
+          norm.category_label,
+          norm.registration_type,
+          norm.region,
+          norm.department,
+          norm.factory,
+          norm.line,
+          norm.customer || null,
+          norm.product_code || null,
+          norm.pricing_direction || null,
+          norm.proposer_name,
+          norm.proposer_emp_code || 'SK-KG-EMP',
+          norm.proposer_position || null,
+          norm.before_description,
+          norm.after_solution,
+          norm.time_before_seconds,
+          norm.time_after_seconds,
+          norm.saved_seconds,
+          norm.saved_seconds,
+          norm.efficiency_value_vnd,
+          norm.cost_before,
+          norm.cost_after,
+          norm.before_image_url || null,
+          norm.after_image_url || null,
+          norm.before_video_url || null,
+          norm.after_video_url || null,
+          norm.attachments_json || null,
+          norm.status,
+          norm.sub_status,
+          norm.trang_thai,
+          norm.review_status,
+          norm.pair_quantity,
+          norm.pair_quantity,
+          norm.total_savings_vnd,
+          norm.total_savings_words || null,
+          norm.approval_status,
           siteCode,
           externalId,
-          sourceRegion,
+          norm.source_region,
           isSoftDeleted ? 1 : 0,
-          item.created_at || new Date().toISOString(),
-          item.updated_at || new Date().toISOString()
+          norm.created_at,
+          norm.updated_at
         )
         .run()
         .catch((e: any) => console.warn('[SYNC] Insert warn:', e));
@@ -345,8 +346,37 @@ async function performKaizenSync(payload?: any) {
 
   await ensureKaizenSchema(db);
 
-  let sourceProposals: any[] = [];
   let siteCode = payload?.site_code || 'thkiengiangshoes';
+
+  // Handle explicit DELETE action
+  if (payload?.action === 'DELETE' && (payload?.proposal?.id || payload?.proposal?.external_id)) {
+    const item = payload.proposal;
+    const externalId = item.external_id || item.id;
+    const localId = siteCode === 'thkiengiangshoes'
+      ? (String(item.id).startsWith('tkg_') ? String(item.id) : `tkg_${externalId}`)
+      : String(item.id);
+
+    await db.prepare(`
+      UPDATE ci_kaizen_proposals
+      SET is_archived = 1, status = 'DELETED', sub_status = 'LUU_TRU', trang_thai = 'LUU_TRU', updated_at = CURRENT_TIMESTAMP
+      WHERE id = ? OR (site_code = ? AND external_id = ?)
+    `).bind(localId, siteCode, externalId).run().catch(() => {});
+
+    await writeSyncLog(db, {
+      source_site: siteCode,
+      status: 'SUCCESS',
+      synced_count: 1,
+      message: `Đã xử lý xóa/lưu trữ sáng kiến ${localId} từ ${siteCode}!`,
+    });
+
+    return {
+      success: true,
+      message: `Đã xử lý xóa/lưu trữ sáng kiến ${localId} từ ${siteCode}!`,
+      synced_count: 1,
+    };
+  }
+
+  let sourceProposals: any[] = [];
 
   if (payload?.proposal) {
     sourceProposals = [payload.proposal];
@@ -357,7 +387,7 @@ async function performKaizenSync(payload?: any) {
     const dbKg = getDbKgBinding();
     if (dbKg) {
       try {
-        const kgRes = await dbKg.prepare(`SELECT * FROM ci_kaizen_proposals ORDER BY created_at DESC LIMIT 500`).all();
+        const kgRes = await dbKg.prepare(`SELECT * FROM ci_kaizen_proposals ORDER BY created_at DESC`).all();
         if (kgRes && Array.isArray(kgRes.results) && kgRes.results.length > 0) {
           sourceProposals = kgRes.results;
           console.log(`[SYNC D1_KG] Successfully fetched ${sourceProposals.length} proposals directly from DB_KG binding!`);

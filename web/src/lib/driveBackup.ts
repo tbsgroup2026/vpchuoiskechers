@@ -28,12 +28,21 @@ const FOLDER_MAP: Record<BackupCategory, string> = {
   TASKS: '06_Quan_Ly_Cong_Viec_Tasks',
 };
 
-const DEFAULT_WEBHOOK_URL =
-  process.env.BACKUP_WEBHOOK_URL ||
-  'https://script.google.com/macros/s/AKfycbyIpvFGkvd022GKMKRBzFUR11mvH7RIuKyh-hX7-ans-R296oIn9CNMyLCq4CmqNOm9zg/exec';
+function getWebhookUrl(): string {
+  return (
+    (process.env as any).BACKUP_WEBHOOK_URL ||
+    (globalThis as any).BACKUP_WEBHOOK_URL ||
+    'https://script.google.com/macros/s/AKfycbyIpvFGkvd022GKMKRBzFUR11mvH7RIuKyh-hX7-ans-R296oIn9CNMyLCq4CmqNOm9zg/exec'
+  );
+}
 
-const WEBHOOK_SECRET =
-  process.env.BACKUP_WEBHOOK_SECRET || 'tbs_backup_secret_2026';
+function getWebhookSecret(): string {
+  return (
+    (process.env as any).BACKUP_WEBHOOK_SECRET ||
+    (globalThis as any).BACKUP_WEBHOOK_SECRET ||
+    'tbs_backup_secret_2026'
+  );
+}
 
 /**
  * 🔒 SECURITY SANITIZATION GUARD:
@@ -81,11 +90,13 @@ export async function syncBackupToDrive(
   actionName = 'REALTIME_SYNC'
 ): Promise<{ success: boolean; message?: string }> {
   try {
+    const webhookUrl = getWebhookUrl();
+    const webhookSecret = getWebhookSecret();
     const targetFolder = FOLDER_MAP[category] || FOLDER_MAP.FULL_DATABASE;
     const sanitizedData = sanitizeBackupPayload(payload);
 
     const bodyData = {
-      secret_token: WEBHOOK_SECRET,
+      secret_token: webhookSecret,
       category,
       folder_name: targetFolder,
       action: actionName,
@@ -94,11 +105,11 @@ export async function syncBackupToDrive(
     };
 
     // Asynchronous non-blocking fetch
-    fetch(DEFAULT_WEBHOOK_URL, {
+    fetch(webhookUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Backup-Secret': WEBHOOK_SECRET,
+        'X-Backup-Secret': webhookSecret,
       },
       body: JSON.stringify(bodyData),
     }).catch((err) => {

@@ -270,22 +270,75 @@ export interface IndividualProposalScoringItem {
   c3Score: number;
   c4Score: number;
   c5Score: number;
+  isEvaluated?: boolean;
   isFlagged?: boolean;
   gk1Score?: number;
   gk2Score?: number;
   cappedInfo?: string;
+  savingsVnd?: number;
+  created_at?: string;
+  code?: string;
   [key: string]: any;
 }
 
 export interface RankedProposalResult extends IndividualProposalScoringItem {
-  rank: number;
+  rank: number; // 1, 2, 3... for scored valid proposals; 0 for unscored/disqualified
   totalScoreRounded: number;
-  statusText: 'Hợp lệ' | 'Bị loại' | 'Gắn cờ';
+  statusText: 'Hợp lệ' | 'Bị loại' | 'Gắn cờ' | 'Chưa chấm';
   isDisqualified: boolean;
+  awardTitle?: 'Giải Nhất' | 'Giải Nhì' | 'Giải Ba' | 'Ý tưởng';
+  badgeLabel?: string;
+  badgeStyle?: string;
 }
 
 /**
- * 1.4 Pure Function: Proposal Ranking with exact Tie-breaking rules
+ * 1.4 Helper: Helper function for Award Badges
+ */
+export function getAwardInfo(rank: number, isEvaluated: boolean, isDisqualified: boolean) {
+  if (isDisqualified) {
+    return {
+      awardTitle: undefined,
+      badgeLabel: '🚫 Bị loại',
+      badgeStyle: 'bg-rose-100 text-rose-900 font-extrabold border border-rose-300 shadow-2xs',
+    };
+  }
+  if (!isEvaluated || rank <= 0) {
+    return {
+      awardTitle: undefined,
+      badgeLabel: '🔴 Chưa chấm',
+      badgeStyle: 'bg-slate-100 text-slate-500 font-bold border border-slate-200 shadow-2xs',
+    };
+  }
+  if (rank === 1) {
+    return {
+      awardTitle: 'Giải Nhất' as const,
+      badgeLabel: '🏆 Giải Nhất',
+      badgeStyle: 'bg-amber-400 text-amber-950 font-black border border-amber-300 shadow-md',
+    };
+  }
+  if (rank === 2) {
+    return {
+      awardTitle: 'Giải Nhì' as const,
+      badgeLabel: '🥈 Giải Nhì',
+      badgeStyle: 'bg-slate-200 text-slate-900 font-black border border-slate-300 shadow-xs',
+    };
+  }
+  if (rank === 3) {
+    return {
+      awardTitle: 'Giải Ba' as const,
+      badgeLabel: '🥉 Giải Ba',
+      badgeStyle: 'bg-amber-800 text-amber-100 font-black border border-amber-600 shadow-xs',
+    };
+  }
+  return {
+    awardTitle: 'Ý tưởng' as const,
+    badgeLabel: '💡 Ý tưởng',
+    badgeStyle: 'bg-emerald-100 text-emerald-900 font-extrabold border border-emerald-300 shadow-2xs',
+  };
+}
+
+/**
+ * 1.5 Pure Function: Proposal Ranking with exact 6-step Tie-breaking rules
  */
 export function rankIndividualProposals(
   proposals: IndividualProposalScoringItem[]
@@ -299,19 +352,28 @@ export function rankIndividualProposals(
       isFlagged = checkJudgeDiscrepancy(p.gk1Score, p.gk2Score).isFlagged;
     }
 
-    const totalScoreRounded = Math.round(Number(p.totalScore || 0) * 10) / 10;
+    // Safely parse number string or decimal with comma
+    const rawScore = p.totalScore !== undefined && p.totalScore !== null
+      ? Number(String(p.totalScore).replace(',', '.'))
+      : 0;
+    const totalScoreRounded = isNaN(rawScore) ? 0 : Math.round(rawScore * 10) / 10;
 
-    let statusText: 'Hợp lệ' | 'Bị loại' | 'Gắn cờ' = 'Hợp lệ';
+    const isEvaluated = Boolean(p.isEvaluated !== false && totalScoreRounded > 0);
+
+    let statusText: 'Hợp lệ' | 'Bị loại' | 'Gắn cờ' | 'Chưa chấm' = 'Hợp lệ';
     if (isDisqualified) {
       statusText = 'Bị loại';
     } else if (isFlagged) {
       statusText = 'Gắn cờ';
+    } else if (!isEvaluated) {
+      statusText = 'Chưa chấm';
     }
 
     return {
       ...p,
       isDisqualified,
       isFlagged,
+      isEvaluated,
       totalScoreRounded,
       statusText,
       prereqBadges: prereqCheck.badges,
@@ -319,36 +381,62 @@ export function rankIndividualProposals(
     };
   });
 
-  // Valid proposals to be ranked
-  const validList = processed.filter((p) => !p.isDisqualified);
+  // Separate proposals into 3 lists:
+  // A. Scored & Valid (Eligible for ranking & awards)
+  // B. Unscored & Valid (No rank, "Chưa chấm")
+  // C. Disqualified (No rank, "Bị loại")
+  const scoredValidList = processed.filter((p) => !p.isDisqualified && p.isEvaluated);
+  const unscoredValidList = processed.filter((p) => !p.isDisqualified && !p.isEvaluated);
   const disqualifiedList = processed.filter((p) => p.isDisqualified);
 
-  // Tie-breaker sorting for valid proposals:
-  // 1. Total Score DESC (after rounding to 1 decimal place)
-  // 2. Higher TC1 score DESC
-  // 3. Higher TC3 score DESC
-  validList.sort((a, b) => {
+  // 6-step Tie-breaker sorting for scored valid proposals:
+  // 1. Total Score DESC
+  // 2. TC1 Score (Hiệu quả thực tế) DESC
+  // 3. TC3 Score (Khả năng nhân rộng) DESC
+  // 4. Savings VND DESC
+  // 5. Created Date ASC (Earlier submission first)
+  // 6. Code ASC
+  scoredValidList.sort((a, b) => {
     if (b.totalScoreRounded !== a.totalScoreRounded) {
       return b.totalScoreRounded - a.totalScoreRounded;
     }
-    if ((b.c1Score || 0) !== (a.c1Score || 0)) {
-      return (b.c1Score || 0) - (a.c1Score || 0);
-    }
-    if ((b.c3Score || 0) !== (a.c3Score || 0)) {
-      return (b.c3Score || 0) - (a.c3Score || 0);
-    }
-    return 0;
+    const c1A = Number(a.c1Score || 0);
+    const c1B = Number(b.c1Score || 0);
+    if (c1B !== c1A) return c1B - c1A;
+
+    const c3A = Number(a.c3Score || 0);
+    const c3B = Number(b.c3Score || 0);
+    if (c3B !== c3A) return c3B - c3A;
+
+    const savA = Number(a.savingsVnd || (a as any).total_savings_vnd || (a as any).tong_tien_tiet_kiem || 0);
+    const savB = Number(b.savingsVnd || (b as any).total_savings_vnd || (b as any).tong_tien_tiet_kiem || 0);
+    if (savB !== savA) return savB - savA;
+
+    const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+    const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+    if (dateA !== dateB && dateA > 0 && dateB > 0) return dateA - dateB;
+
+    const codeA = String(a.code || a.id || '');
+    const codeB = String(b.code || b.id || '');
+    return codeA.localeCompare(codeB);
   });
 
-  // Assign ranks (handle tie -> same rank)
+  // Assign ranks & award titles to scored valid proposals (handling ties)
   let currentRank = 1;
-  const rankedValid: RankedProposalResult[] = validList.map((item, index) => {
+  const rankedScoredValid: RankedProposalResult[] = scoredValidList.map((item, index) => {
     if (index > 0) {
-      const prev = validList[index - 1];
+      const prev = scoredValidList[index - 1];
+      const savItem = Number(item.savingsVnd || (item as any).total_savings_vnd || 0);
+      const savPrev = Number(prev.savingsVnd || (prev as any).total_savings_vnd || 0);
+      const dateItem = item.created_at ? new Date(item.created_at).getTime() : 0;
+      const datePrev = prev.created_at ? new Date(prev.created_at).getTime() : 0;
+
       const isTie =
         item.totalScoreRounded === prev.totalScoreRounded &&
-        (item.c1Score || 0) === (prev.c1Score || 0) &&
-        (item.c3Score || 0) === (prev.c3Score || 0);
+        Number(item.c1Score || 0) === Number(prev.c1Score || 0) &&
+        Number(item.c3Score || 0) === Number(prev.c3Score || 0) &&
+        savItem === savPrev &&
+        dateItem === datePrev;
 
       if (!isTie) {
         currentRank = index + 1;
@@ -357,19 +445,42 @@ export function rankIndividualProposals(
       currentRank = 1;
     }
 
+    const awardInfo = getAwardInfo(currentRank, true, false);
+
     return {
       ...item,
       rank: currentRank,
+      awardTitle: awardInfo.awardTitle,
+      badgeLabel: awardInfo.badgeLabel,
+      badgeStyle: awardInfo.badgeStyle,
     };
   });
 
-  // Disqualified entries get rank 0
-  const rankedDisqualified: RankedProposalResult[] = disqualifiedList.map((item) => ({
-    ...item,
-    rank: 0,
-  }));
+  // Unscored valid proposals get rank 0 and no award title
+  const rankedUnscoredValid: RankedProposalResult[] = unscoredValidList.map((item) => {
+    const awardInfo = getAwardInfo(0, false, false);
+    return {
+      ...item,
+      rank: 0,
+      awardTitle: undefined,
+      badgeLabel: awardInfo.badgeLabel,
+      badgeStyle: awardInfo.badgeStyle,
+    };
+  });
 
-  return [...rankedValid, ...rankedDisqualified];
+  // Disqualified entries get rank 0 and disqualified badge
+  const rankedDisqualified: RankedProposalResult[] = disqualifiedList.map((item) => {
+    const awardInfo = getAwardInfo(0, false, true);
+    return {
+      ...item,
+      rank: 0,
+      awardTitle: undefined,
+      badgeLabel: awardInfo.badgeLabel,
+      badgeStyle: awardInfo.badgeStyle,
+    };
+  });
+
+  return [...rankedScoredValid, ...rankedUnscoredValid, ...rankedDisqualified];
 }
 
 /**

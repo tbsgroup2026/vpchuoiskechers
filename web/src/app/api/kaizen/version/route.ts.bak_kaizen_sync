@@ -1,0 +1,36 @@
+import { NextResponse } from 'next/server';
+
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const region = searchParams.get('region');
+
+    if (region !== 'THKG') {
+      return NextResponse.json({ error: 'Only THKG region is supported via this endpoint' }, { status: 400 });
+    }
+
+    const SOURCE_API_URL = 'https://thkiengiangshoes.tbsgroup2026.workers.dev/api/internal/kaizen/version?region=THKG';
+    const expectedKey = (process.env as any).INTERNAL_SYNC_SECRET || (globalThis as any).INTERNAL_SYNC_SECRET || 'tbs_ii_secure_jwt_secret_key_2026';
+
+    const res = await fetch(SOURCE_API_URL, {
+      headers: {
+        'x-internal-key': expectedKey,
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+      },
+      next: { revalidate: 0 }
+    });
+
+    if (!res.ok) {
+      throw new Error(`Nguon API responded with status ${res.status}`);
+    }
+
+    const data = await res.json();
+    return NextResponse.json(data, {
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate'
+      }
+    });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}

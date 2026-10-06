@@ -33,14 +33,14 @@ const OFFICIAL_SYSTEM_USERS = [
   {
     id: "emp_3",
     empCode: "202206011",
-    name: "Lễ Tân (Trưởng Team LT)",
-    email: "letan.teamlead@tbsgroup.vn",
+    name: "TRẦN THỊ BÍCH TRÂM",
+    email: "202206011@tbsgroup.vn",
     phone: "0522511247",
     title: "Trưởng Team Lễ Tân",
-    department: "Văn Phòng Chuỗi SKECHERS",
+    department: "HÀNH CHÍNH-LỄ TÂN",
     roleCode: "LE_TAN",
     status: "ACTIVE",
-    vtcvHienTai: "LT",
+    vtcvHienTai: "T.TEAM",
   },
   {
     id: "emp_4",

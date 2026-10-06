@@ -189,6 +189,63 @@ describe('Kaizen Scoring Module Unit Tests', () => {
       expect(ranked[1].rank).toBe(0);
       expect(ranked[1].statusText).toBe('Bị loại');
     });
+
+    it('correctly ranks real evidence dataset: #005 (100pt), #004 (89pt), #001 (82pt), 79pt tie, and unscored items', () => {
+      const input = [
+        { id: '16', code: '#CI-2026-016', title: 'Prop 016', unit: 'NMMĐ', prereqs: { p1_pass: true }, totalScore: 0, c1Score: 0, c2Score: 0, c3Score: 0, c4Score: 0, c5Score: 0, isEvaluated: false },
+        { id: '3', code: '#CI-2026-003', title: 'Prop 003', unit: 'NMMĐ', prereqs: { p1_pass: true }, totalScore: 0, c1Score: 0, c2Score: 0, c3Score: 0, c4Score: 0, c5Score: 0, isEvaluated: false },
+        { id: '15', code: '#CI-2026-015', title: 'Prop 015', unit: 'NMMĐ', prereqs: { p1_pass: true }, totalScore: 0, c1Score: 0, c2Score: 0, c3Score: 0, c4Score: 0, c5Score: 0, isEvaluated: false },
+        { id: '6', code: '#CI-2026-006', title: 'Prop 006', unit: 'NMMĐ', prereqs: { p1_pass: true }, totalScore: 79, c1Score: 25, c3Score: 15, c2Score: 15, c4Score: 12, c5Score: 12, isEvaluated: true },
+        { id: '9', code: '#CI-2026-009', title: 'Prop 009', unit: 'NMMĐ', prereqs: { p1_pass: true }, totalScore: 79, c1Score: 25, c3Score: 15, c2Score: 15, c4Score: 12, c5Score: 12, isEvaluated: true },
+        { id: '8', code: '#CI-2026-008', title: 'Prop 008', unit: 'NMMĐ', prereqs: { p1_pass: true }, totalScore: 79, c1Score: 25, c3Score: 15, c2Score: 15, c4Score: 12, c5Score: 12, isEvaluated: true },
+        { id: '4', code: '#CI-2026-004', title: 'Prop 004', unit: 'NMMĐ', prereqs: { p1_pass: true }, totalScore: 89, c1Score: 30, c3Score: 18, c2Score: 18, c4Score: 12, c5Score: 11, isEvaluated: true },
+        { id: '1', code: '#CI-2026-001', title: 'Prop 001', unit: 'NMMĐ', prereqs: { p1_pass: true }, totalScore: 82, c1Score: 28, c3Score: 16, c2Score: 16, c4Score: 11, c5Score: 11, isEvaluated: true },
+        { id: '5', code: '#CI-2026-005', title: 'Prop 005', unit: 'NMMĐ', prereqs: { p1_pass: true }, totalScore: 100, c1Score: 35, c3Score: 20, c2Score: 20, c4Score: 15, c5Score: 10, isEvaluated: true },
+      ];
+
+      const ranked = rankIndividualProposals(input);
+
+      // Scored proposals must be first and ranked by score DESC
+      expect(ranked[0].code).toBe('#CI-2026-005');
+      expect(ranked[0].rank).toBe(1);
+      expect(ranked[0].awardTitle).toBe('Giải Nhất');
+
+      expect(ranked[1].code).toBe('#CI-2026-004');
+      expect(ranked[1].rank).toBe(2);
+      expect(ranked[1].awardTitle).toBe('Giải Nhì');
+
+      expect(ranked[2].code).toBe('#CI-2026-001');
+      expect(ranked[2].rank).toBe(3);
+      expect(ranked[2].awardTitle).toBe('Giải Ba');
+
+      // 79pt tie proposals get rank 4
+      const prop006 = ranked.find((p) => p.code === '#CI-2026-006');
+      const prop009 = ranked.find((p) => p.code === '#CI-2026-009');
+      const prop008 = ranked.find((p) => p.code === '#CI-2026-008');
+
+      expect(prop006?.rank).toBe(4);
+      expect(prop009?.rank).toBe(4);
+      expect(prop008?.rank).toBe(4);
+
+      expect(prop006?.awardTitle).toBe('Ý tưởng');
+
+      // Unscored proposals (#016, #003, #015) MUST NOT get numeric rank or award
+      const prop016 = ranked.find((p) => p.code === '#CI-2026-016');
+      const prop003 = ranked.find((p) => p.code === '#CI-2026-003');
+      const prop015 = ranked.find((p) => p.code === '#CI-2026-015');
+
+      expect(prop016?.rank).toBe(0);
+      expect(prop016?.awardTitle).toBeUndefined();
+      expect(prop016?.statusText).toBe('Chưa chấm');
+
+      expect(prop003?.rank).toBe(0);
+      expect(prop003?.awardTitle).toBeUndefined();
+      expect(prop003?.statusText).toBe('Chưa chấm');
+
+      expect(prop015?.rank).toBe(0);
+      expect(prop015?.awardTitle).toBeUndefined();
+      expect(prop015?.statusText).toBe('Chưa chấm');
+    });
   });
 
   // 6. Collective Unit Linear Interpolation

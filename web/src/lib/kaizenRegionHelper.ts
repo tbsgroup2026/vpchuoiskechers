@@ -1,11 +1,17 @@
 export const STANDARD_DASHBOARD_REGIONS = [
   "Văn phòng Chuỗi",
   "Nhà Máy Miền Đông",
-  "Phòng Ban THKG",
   "Kiên Giang 1",
   "Kiên Giang 2",
   "Kiên Giang 3",
-  "Hoàn Thiện Đế",
+  "Hoàn thiện đế",
+  "Phòng kế hoạch",
+  "Phòng CI",
+  "Phòng CN",
+  "Phòng chất lượng",
+  "Phòng nhân sự",
+  "Phòng Ban THKG",
+  "Chưa phân loại"
 ] as const;
 
 export type StandardRegion = (typeof STANDARD_DASHBOARD_REGIONS)[number];
@@ -64,94 +70,104 @@ export function normalizeRegion(p: any): StandardRegion {
     siteCode = String(p.site_code || "");
   }
 
-  const combined = `${regStr} ${factoryStr} ${sourceRegStr} ${deptStr}`.toUpperCase();
-  if (!combined.trim()) return "Nhà Máy Miền Đông";
+  // Step 1: Check region/factory FIRST (the primary location field)
+  // This is the field that indicates the physical production area
+  const regionUpper = `${regStr} ${factoryStr}`.toUpperCase();
+  const sourceRegUpper = sourceRegStr.toUpperCase();
+  const deptUpper = deptStr.toUpperCase();
 
-  // 1. Check Hoàn Thiện Đế
-  if (
-    combined.includes("HOÀN THIỆN ĐẾ") ||
-    combined.includes("HOAN THIEN DE") ||
-    combined.includes("HTĐ") ||
-    combined.includes("HTD")
-  ) {
-    return "Hoàn Thiện Đế";
+  if (!regionUpper.trim() && !sourceRegUpper.trim() && !deptUpper.trim()) {
+    return "Nhà Máy Miền Đông";
   }
 
-  // 2. Check Kiên Giang 1, 2, 3
+  // 1. Check Hoàn Thiện Đế (region/factory takes priority)
   if (
-    combined.includes("KIÊN GIANG 1") ||
-    combined.includes("KIEN GIANG 1") ||
-    combined.includes("KG 1") ||
-    combined.includes("KG1")
+    regionUpper.includes("HOÀN THIỆN ĐẾ") ||
+    regionUpper.includes("HOAN THIEN DE") ||
+    regionUpper.includes("HTĐ") ||
+    regionUpper.includes("HTD")
+  ) {
+    return "Hoàn thiện đế";
+  }
+
+  // 2. Check specific Kiên Giang 1, 2, 3 (region/factory takes priority)
+  if (
+    regionUpper.includes("KIÊN GIANG 1") ||
+    regionUpper.includes("KIEN GIANG 1") ||
+    regionUpper.includes("KG 1") ||
+    regionUpper.includes("KG1")
   ) {
     return "Kiên Giang 1";
   }
 
   if (
-    combined.includes("KIÊN GIANG 2") ||
-    combined.includes("KIEN GIANG 2") ||
-    combined.includes("KG 2") ||
-    combined.includes("KG2")
+    regionUpper.includes("KIÊN GIANG 2") ||
+    regionUpper.includes("KIEN GIANG 2") ||
+    regionUpper.includes("KG 2") ||
+    regionUpper.includes("KG2")
   ) {
     return "Kiên Giang 2";
   }
 
   if (
-    combined.includes("KIÊN GIANG 3") ||
-    combined.includes("KIEN GIANG 3") ||
-    combined.includes("KG 3") ||
-    combined.includes("KG3")
+    regionUpper.includes("KIÊN GIANG 3") ||
+    regionUpper.includes("KIEN GIANG 3") ||
+    regionUpper.includes("KG 3") ||
+    regionUpper.includes("KG3")
   ) {
     return "Kiên Giang 3";
   }
 
-  // 3. Check Phòng Ban THKG
+  // 3. Flat mapping for THKG units
+  const combinedForDept = `${regionUpper} ${deptUpper} ${sourceRegUpper}`;
+  if (combinedForDept.includes("PHÒNG CI") || combinedForDept.includes("PHONG CI")) return "Phòng CI";
+  if (combinedForDept.includes("PHÒNG CN") || combinedForDept.includes("PHONG CN")) return "Phòng CN";
+  if (combinedForDept.includes("PHÒNG KẾ HOẠCH") || combinedForDept.includes("PHONG KE HOACH")) return "Phòng kế hoạch";
+  if (combinedForDept.includes("PHÒNG CHẤT LƯỢNG") || combinedForDept.includes("PHONG CHAT LUONG")) return "Phòng chất lượng";
+  if (combinedForDept.includes("PHÒNG NHÂN SỰ") || combinedForDept.includes("PHONG NHAN SU")) return "Phòng nhân sự";
+  if (combinedForDept.includes("PHÒNG KỸ THUẬT") || combinedForDept.includes("PHONG KY THUAT")) return "Chưa phân loại";
+  if (combinedForDept.includes("PHÒNG TÀI CHÍNH") || combinedForDept.includes("PHONG TAI CHINH")) return "Chưa phân loại";
+  if (combinedForDept.includes("PHÒNG HÀNH CHÍNH") || combinedForDept.includes("PHONG HANH CHINH")) return "Chưa phân loại";
+
+  // 4. Check Hoàn Thiện Đế from department/source_region (fallback)
   if (
-    combined.includes("PHÒNG CI") ||
-    combined.includes("PHONG CI") ||
-    combined.includes("PHÒNG CN") ||
-    combined.includes("PHONG CN") ||
-    combined.includes("PHÒNG KẾ HOẠCH") ||
-    combined.includes("PHONG KE HOACH") ||
-    combined.includes("PHÒNG CHẤT LƯỢNG") ||
-    combined.includes("PHONG CHAT LUONG") ||
-    combined.includes("PHÒNG NHÂN SỰ") ||
-    combined.includes("PHONG NHAN SU") ||
-    combined.includes("PHÒNG BAN THKG") ||
-    combined.includes("PHONG BAN THKG")
+    deptUpper.includes("HOÀN THIỆN ĐẾ") || deptUpper.includes("HOAN THIEN DE") ||
+    deptUpper.includes("HTĐ") || deptUpper.includes("HTD") ||
+    sourceRegUpper.includes("HOÀN THIỆN ĐẾ") || sourceRegUpper.includes("HTĐ")
   ) {
-    return "Phòng Ban THKG";
+    return "Hoàn thiện đế";
   }
 
-  // 4. Check Miền Đông (explicit)
+  // 5. Check Miền Đông (explicit)
+  const fullCombined = `${regionUpper} ${sourceRegUpper} ${deptUpper}`;
   if (
-    combined.includes("MIỀN ĐÔNG") ||
-    combined.includes("MIEN DONG") ||
-    combined.includes("NMMĐ") ||
-    combined.includes("NMMD")
+    fullCombined.includes("MIỀN ĐÔNG") ||
+    fullCombined.includes("MIEN DONG") ||
+    fullCombined.includes("NMMĐ") ||
+    fullCombined.includes("NMMD")
   ) {
     return "Nhà Máy Miền Đông";
   }
 
-  // 5. Check Văn phòng Chuỗi (explicit)
+  // 6. Check Văn phòng Chuỗi (explicit)
   if (
-    combined.includes("VP CHUỖI") ||
-    combined.includes("VP CHUOI") ||
-    combined.includes("VĂN PHÒNG CHUỖI") ||
-    combined.includes("VAN PHONG CHUOI") ||
-    combined.includes("SUPPLY CHAIN") ||
-    combined.includes("SKECHERS")
+    fullCombined.includes("VP CHUỖI") ||
+    fullCombined.includes("VP CHUOI") ||
+    fullCombined.includes("VĂN PHÒNG CHUỖI") ||
+    fullCombined.includes("VAN PHONG CHUOI") ||
+    fullCombined.includes("SUPPLY CHAIN") ||
+    fullCombined.includes("SKECHERS")
   ) {
-    // If it mentions VP CHUỖI but site_code is thkiengiangshoes and no Mien Dong mention -> THKG
-    if (siteCode === "thkiengiangshoes" && !combined.includes("MIỀN ĐÔNG")) {
+    // If site_code is thkiengiangshoes and no Mien Dong mention -> THKG
+    if (siteCode === "thkiengiangshoes" && !fullCombined.includes("MIỀN ĐÔNG")) {
       return "Phòng Ban THKG";
     }
     return "Văn phòng Chuỗi";
   }
 
-  // 6. Site code or KIÊN GIANG general fallback
-  if (siteCode === "thkiengiangshoes" || combined.includes("KIÊN GIANG") || combined.includes("THKG")) {
-    return "Phòng Ban THKG";
+  // 7. Site code or KIÊN GIANG general fallback
+  if (siteCode === "thkiengiangshoes" || fullCombined.includes("KIÊN GIANG") || fullCombined.includes("THKG")) {
+    return "Chưa phân loại";
   }
 
   // Default fallback
@@ -161,11 +177,17 @@ export function normalizeRegion(p: any): StandardRegion {
 export function isTHKGRegion(region: string): boolean {
   const norm = typeof region === "string" ? region : normalizeRegion(region);
   return (
-    norm === "Phòng Ban THKG" ||
     norm === "Kiên Giang 1" ||
     norm === "Kiên Giang 2" ||
     norm === "Kiên Giang 3" ||
-    norm === "Hoàn Thiện Đế"
+    norm === "Hoàn thiện đế" ||
+    norm === "Phòng CI" ||
+    norm === "Phòng CN" ||
+    norm === "Phòng kế hoạch" ||
+    norm === "Phòng chất lượng" ||
+    norm === "Phòng nhân sự" ||
+    norm === "Phòng Ban THKG" ||
+    norm === "Chưa phân loại"
   );
 }
 
@@ -190,11 +212,19 @@ export function matchRegionFilter(propRegionOrObj: any, filterRegion: string): b
   }
 
   if (filterUpper.includes("PHÒNG BAN THKG") || filterUpper.includes("PHONG BAN THKG")) {
-    return norm === "Phòng Ban THKG";
+    return (
+      norm === "Phòng CI" ||
+      norm === "Phòng CN" ||
+      norm === "Phòng kế hoạch" ||
+      norm === "Phòng chất lượng" ||
+      norm === "Phòng nhân sự" ||
+      norm === "Phòng Ban THKG" ||
+      norm === "Chưa phân loại"
+    );
   }
 
   if (filterUpper.includes("HOÀN THIỆN ĐẾ") || filterUpper.includes("HOAN THIEN DE") || filterUpper.includes("HTĐ")) {
-    return norm === "Hoàn Thiện Đế";
+    return norm === "Hoàn thiện đế";
   }
 
   if (filterUpper.includes("KIÊN GIANG 1") || filterUpper.includes("KG 1") || filterUpper.includes("KG1")) {

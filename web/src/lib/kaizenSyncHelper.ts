@@ -1,9 +1,12 @@
 /**
- * Helper to trigger real-time background sync from branch site (thkiengiangshoes)
+ * Helper to trigger real-time background sync from branch site (e.g. thkiengiangshoes)
  * to main web hub (vpchuoiskechers).
  */
 
-export async function triggerRealtimeSyncToWebTong(proposalData: any) {
+export async function triggerRealtimeSyncToWebTong(
+  proposalData: any,
+  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'STATUS_CHANGE' | 'ARCHIVE' = 'UPDATE'
+) {
   try {
     const currentSite = (
       process.env.SITE_ID ||
@@ -27,6 +30,16 @@ export async function triggerRealtimeSyncToWebTong(proposalData: any) {
       'tbs_ii_secure_jwt_secret_key_2026';
     const siteCode = currentSite || 'thkiengiangshoes';
 
+    // Sanitize proposal data to strip raw Base64 images/videos exceeding size limit before sending payload
+    let sanitizedProposal = proposalData ? { ...proposalData } : {};
+    for (const key of Object.keys(sanitizedProposal)) {
+      const val = sanitizedProposal[key];
+      if (typeof val === 'string' && (val.startsWith('data:image/') || val.startsWith('data:video/')) && val.length > 10000) {
+        // Strip large Base64 payload, preserve URL fields only
+        sanitizedProposal[key] = '';
+      }
+    }
+
     // Real-time synchronous push over HTTP
     const res = await fetch(syncUrl, {
       method: 'POST',
@@ -36,18 +49,24 @@ export async function triggerRealtimeSyncToWebTong(proposalData: any) {
       },
       body: JSON.stringify({
         site_code: siteCode,
-        proposal: proposalData,
+        action,
+        proposal: sanitizedProposal,
       }),
     });
 
     if (!res.ok) {
       const errText = await res.text().catch(() => '');
       console.warn(`[REALTIME_SYNC] Push failed (HTTP ${res.status}):`, errText);
+      return { success: false, error: `HTTP ${res.status}: ${errText}` };
     } else {
-      console.log(`[REALTIME_SYNC] Real-time push succeeded for proposal ${proposalData?.id || proposalData?.code}`);
+      console.log(`[REALTIME_SYNC] Real-time push (${action}) succeeded for proposal ${proposalData?.id || proposalData?.code}`);
+      return { success: true };
     }
-  } catch (err) {
+  } catch (err: any) {
     console.warn('[REALTIME_SYNC] Helper error:', err);
+    return { success: false, error: err?.message || String(err) };
   }
 }
+
+
 

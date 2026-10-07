@@ -2,7 +2,7 @@
 // Caching Strategy: Cache-First for Cloudinary Media, Stale-While-Revalidate for Static Assets
 // Web Push: Full push handler for multi-device notifications
 
-const CACHE_VERSION = "tbs-sw-v2026.10.06-v2";
+const CACHE_VERSION = "tbs-sw-v2026.10.06-v5";
 const MEDIA_CACHE = `tbs-media-${CACHE_VERSION}`;
 const STATIC_CACHE = `tbs-static-${CACHE_VERSION}`;
 

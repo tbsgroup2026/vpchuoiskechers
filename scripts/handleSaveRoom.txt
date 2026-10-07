@@ -1,0 +1,70 @@
+const handleSaveRoom = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingRoom) return;
+    try {
+      let imagesArr: string[] = Array.isArray(editingRoom.images)
+        ? editingRoom.images
+        : (typeof editingRoom.images === "string" ? (editingRoom.images as string).split(',').map((s: string) => s.trim()).filter(Boolean) : []);
+
+      // Upload ảnh mới (base64) lên Github thông qua API Route
+      const hasBase64 = imagesArr.some((u) => u.startsWith("data:"));
+      if (hasBase64) {
+        showToast("⏳ Đang lưu ảnh tĩnh vào Github...");
+
+        const uploadedUrls = await Promise.all(
+          imagesArr.map(async (url, idx) => {
+            if (!url.startsWith("data:")) return url; // giữ nguyên URL cũ
+            try {
+              const filename = `room-img-${Date.now()}-${idx}.jpg`;
+              const roomId = editingRoom.id || `temp_${Date.now()}`;
+              
+              const res = await fetch("/api/rooms/upload", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  base64Data: url,
+                  roomId,
+                  filename
+                })
+              });
+              
+              const data = await res.json();
+              if (!res.ok || !data.success) throw new Error(data.error || "Upload failed");
+              return data.url; // Đường dẫn tĩnh (VD: /images/rooms/...)
+            } catch (err) {
+              console.error("Upload ảnh thất bại:", err);
+              return "ERROR"; // Đánh dấu lỗi
+            }
+          })
+        );
+        
+        if (uploadedUrls.includes("ERROR")) {
+          showToast("❌ Không thể tải ảnh lên Github. Vui lòng kiểm tra kết nối mạng và biến môi trường GITHUB_TOKEN!");
+          return; // Dừng lưu phòng
+        }
+        
+        // Chỉ giữ lại các URL hợp lệ
+        imagesArr = uploadedUrls.filter((u): u is string => Boolean(u) && u !== "ERROR");
+      }
+
+      const equipmentArr = Array.isArray(editingRoom.equipment)
+        ? editingRoom.equipment
+        : (typeof editingRoom.equipment === "string" ? (editingRoom.equipment as string).split(',').map((s: string) => s.trim()).filter(Boolean) : []);
+        
+      const isNew = editingRoom.id === "new";
+      const method = isNew ? "POST" : "PUT";
+      const res = await fetch("/api/rooms", {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...editingRoom,
+          images: imagesArr,
+          equipment: equipmentArr
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast("✅ Đã lưu thông tin phòng thành công!");
+        setEditingRoom(null);
+        // Cập nhật selectedRoomForDetail ngay để gallery refresh ảnh mới
+    

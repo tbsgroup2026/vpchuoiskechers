@@ -1525,6 +1525,10 @@ video {
   height: 24rem;
 }
 
+.h-\[100dvh\] {
+  height: 100dvh;
+}
+
 .h-\[100px\] {
   height: 100px;
 }
@@ -3093,6 +3097,14 @@ video {
 
 .overflow-x-hidden {
   overflow-x: hidden;
+}
+
+.overscroll-contain {
+  overscroll-behavior: contain;
+}
+
+.scroll-smooth {
+  scroll-behavior: smooth;
 }
 
 .truncate {
@@ -8256,6 +8268,12 @@ video {
   box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
 }
 
+.shadow-\[0_-4px_10px_rgba\(11\2c 23\2c 57\2c 0\.5\)\] {
+  --tw-shadow: 0 -4px 10px rgba(11,23,57,0.5);
+  --tw-shadow-colored: 0 -4px 10px var(--tw-shadow-color);
+  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+}
+
 .shadow-\[0_-8px_30px_rgba\(0\2c 0\2c 0\2c 0\.7\)\] {
   --tw-shadow: 0 -8px 30px rgba(0,0,0,0.7);
   --tw-shadow-colored: 0 -8px 30px var(--tw-shadow-color);
@@ -8336,6 +8354,11 @@ video {
 
 .shadow-\[\#006838\]\/20 {
   --tw-shadow-color: rgb(0 104 56 / 0.2);
+  --tw-shadow: var(--tw-shadow-colored);
+}
+
+.shadow-\[\#0b1739\] {
+  --tw-shadow-color: #0b1739;
   --tw-shadow: var(--tw-shadow-colored);
 }
 
@@ -12528,4 +12551,10 @@ body {
 
 .\[\&\:\:-webkit-calendar-picker-indicator\]\:opacity-0::-webkit-calendar-picker-indicator {
   opacity: 0;
+}
+
+@media(max-height:600px) {
+  .\[\@media\(max-height\:600px\)\]\:hidden {
+    display: none;
+  }
 }

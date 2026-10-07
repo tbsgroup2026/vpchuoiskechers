@@ -183,19 +183,7 @@ export function KaizenCardImage({ src, alt, attachmentsJson }: { src?: string; a
   }, [src, attachmentsJson]);
 
   if (!imgSrc || hasError) {
-  
-  useEffect(() => {
-    const scrollSidebar = () => {
-      const activeItem = document.querySelector(".sidebar-item-active");
-      if (activeItem) {
-        activeItem.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
-    };
-    const t = setTimeout(scrollSidebar, 150);
-    return () => clearTimeout(t);
-  }, [selectedRegion, selectedCategory, selectedWorkshop, selectedRegType]);
-
-  return (
+    return (
       <div className="flex flex-col items-center gap-0.5 text-slate-400 select-none">
         <IconPhoto size={26} />
         <span className="text-[10px] font-bold">Chưa có ảnh</span>
@@ -704,6 +692,17 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
     if (tb > 0 || ta > 0) return Math.max(0, tb - ta);
     return Number(p.saved_seconds ?? p.so_giay_tiet_kiem ?? p.savedSeconds ?? 0);
   }, []);
+  
+  useEffect(() => {
+    const scrollSidebar = () => {
+      const activeItem = document.querySelector(".sidebar-item-active");
+      if (activeItem) {
+        activeItem.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    };
+    const t = setTimeout(scrollSidebar, 150);
+    return () => clearTimeout(t);
+  }, [selectedRegion, selectedCategory, selectedWorkshop, selectedRegType]);
 
   const hasTimeData = useCallback((p: any): boolean => {
     return getProposalSavedSeconds(p) > 0;

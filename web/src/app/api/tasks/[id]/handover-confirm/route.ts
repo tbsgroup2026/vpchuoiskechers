@@ -36,8 +36,12 @@ export async function POST(
 
     const db = getDbBinding();
     if (db) {
-      await ensureKaizenSchema(db);
-      const existing: any = await db.prepare(`SELECT * FROM sys_my_tasks WHERE id = ?`).bind(taskId).first().catch(() => null);
+      // 1. Try updating unified tasks table
+      let existing: any = await db.prepare(`SELECT * FROM tasks WHERE id = ?`).bind(taskId).first().catch(() => null);
+
+      if (!existing) {
+        existing = await db.prepare(`SELECT * FROM sys_my_tasks WHERE id = ?`).bind(taskId).first().catch(() => null);
+      }
 
       if (!existing) {
         return NextResponse.json({ success: false, error: 'Không tìm thấy task chỉ định' }, { status: 404 });
@@ -48,6 +52,17 @@ export async function POST(
 
       if (action === 'CONFIRM') {
         await db.prepare(`
+          UPDATE tasks
+          SET department_id = ?,
+              assignee_emp_code = ?,
+              handover_status = 'HANDED_OVER',
+              handover_confirmed_by = ?,
+              handover_confirmed_at = CURRENT_TIMESTAMP,
+              updated_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+        `).bind(confirmedDept, confirmedAssignee, session.empCode, taskId).run().catch(() => {});
+
+        await db.prepare(`
           UPDATE sys_my_tasks
           SET department_id = ?,
               assignee_emp_code = ?,
@@ -56,7 +71,7 @@ export async function POST(
               handover_confirmed_at = CURRENT_TIMESTAMP,
               updated_at = CURRENT_TIMESTAMP
           WHERE id = ?
-        `).bind(confirmedDept, confirmedAssignee, session.empCode, taskId).run();
+        `).bind(confirmedDept, confirmedAssignee, session.empCode, taskId).run().catch(() => {});
 
         return NextResponse.json({
           success: true,
@@ -68,13 +83,22 @@ export async function POST(
       } else {
         // Keep in original department
         await db.prepare(`
+          UPDATE tasks
+          SET handover_status = 'NONE',
+              handover_confirmed_by = ?,
+              handover_confirmed_at = CURRENT_TIMESTAMP,
+              updated_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+        `).bind(session.empCode, taskId).run().catch(() => {});
+
+        await db.prepare(`
           UPDATE sys_my_tasks
           SET handover_status = 'NONE',
               handover_confirmed_by = ?,
               handover_confirmed_at = CURRENT_TIMESTAMP,
               updated_at = CURRENT_TIMESTAMP
           WHERE id = ?
-        `).bind(session.empCode, taskId).run();
+        `).bind(session.empCode, taskId).run().catch(() => {});
 
         return NextResponse.json({
           success: true,

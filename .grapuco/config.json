@@ -1,0 +1,24 @@
+{
+  "repoId": "ffec10f7-c62b-4afa-b463-74849a1a7dd5",
+  "repoName": "TBS II",
+  "server": "https://api.grapuco.com",
+  "language": "typescript",
+  "features": {
+    "embeddings": true,
+    "dataFlowAnalysis": true
+  },
+  "ignore": [
+    "node_modules",
+    "dist",
+    ".next",
+    ".git",
+    ".grapuco",
+    "__pycache__",
+    "vendor",
+    "target",
+    "build"
+  ],
+  "workspaceId": "9586d25e-1a5d-454a-b0fd-ee8be2a49394",
+  "workspaceName": "tb",
+  "lastPush": "2026-09-30T01:58:43.357Z"
+}

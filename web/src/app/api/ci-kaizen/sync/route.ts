@@ -127,10 +127,10 @@ export async function upsertProposals(db: any, sourceProposals: any[], defaultSi
 
     const isSoftDeleted = norm.is_archived;
 
-    // Check if proposal exists locally by id OR (site_code AND external_id)
+    // Check if proposal exists locally by id OR external_id directly (prevents self-sync duplicates)
     const existing: any = await db
-      .prepare('SELECT id, title, before_description, after_solution, updated_at, is_archived, is_edited FROM ci_kaizen_proposals WHERE id = ? OR (site_code = ? AND external_id = ?)')
-      .bind(localId, siteCode, externalId)
+      .prepare('SELECT id, title, before_description, after_solution, updated_at, is_archived, is_edited FROM ci_kaizen_proposals WHERE id = ? OR id = ? OR (site_code = ? AND external_id = ?)')
+      .bind(localId, externalId, siteCode, externalId)
       .first();
 
     if (existing) {
@@ -189,8 +189,8 @@ export async function upsertProposals(db: any, sourceProposals: any[], defaultSi
             total_savings_vnd = COALESCE(?, total_savings_vnd),
             total_savings_words = COALESCE(?, total_savings_words),
             approval_status = COALESCE(?, approval_status),
-            site_code = COALESCE(?, site_code),
-            external_id = COALESCE(?, external_id),
+            site_code = COALESCE(site_code, ?),
+            external_id = COALESCE(external_id, ?),
             source_region = COALESCE(?, source_region),
             is_archived = ?,
             updated_at = COALESCE(?, CURRENT_TIMESTAMP)

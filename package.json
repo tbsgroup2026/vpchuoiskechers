@@ -4,7 +4,8 @@
   "description": "TBS II Production & Workflow Management Platform Monorepo",
   "scripts": {
     "build": "npx next build web",
-    "deploy": "npx wrangler deploy"
+    "deploy": "npx wrangler deploy",
+    "capture-zalo": "node scripts/capture-zalo-group.js"
   },
   "dependencies": {
     "@tabler/icons-react": "^3.19.0",

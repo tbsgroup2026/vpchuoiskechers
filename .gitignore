@@ -97,3 +97,4 @@ Reports/
 # Cloudflare & Backups
 .wrangler/
 Backup/
+*.sql

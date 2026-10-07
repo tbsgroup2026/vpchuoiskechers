@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
-import { verifyToken, getAuthUser, isAdminUser, isDepartmentHead } from '@/lib/auth';
+import { verifyToken, getAuthUser } from '@/lib/auth';
 import { logAudit } from '@/lib/auditLogger';
 import { syncBackupToDrive } from '@/lib/driveBackup';
+import { buildTaskScopeWhereClause } from '@/lib/services/taskScope';
 
 function getDbBinding(): any {
   return (process.env as any).DB || (globalThis as any).DB || null;
@@ -116,7 +117,7 @@ const DEFAULT_TASKS = [
     priority: "LOW",
     start_date: "2026-09-15",
     due_date: "2026-10-01",
-    status: "BACKLOG",
+    status: "TO_DO",
     progress: 0,
     tags: "AI,SAFETY",
     checklist: [
@@ -172,10 +173,8 @@ const DEFAULT_TASKS = [
   }
 ];
 
-// Fallback memory state if D1 DB is not bound
 let inMemoryTasks = [...DEFAULT_TASKS];
 
-// Helper function to resolve department manager based on department_id
 function getDepartmentManager(deptId: string): string {
   const managers: Record<string, string> = {
     "IT_DIGITAL": "Phạm Nguyễn Anh Huy (IT Lead / Trưởng Phòng IT & CĐS)",
@@ -186,71 +185,18 @@ function getDepartmentManager(deptId: string): string {
   return managers[deptId] || `Trưởng Phòng Phụ Trách (${deptId || "Phòng Ban"})`;
 }
 
-let isTableEnsured = false;
-
-async function ensureTable(db: any) {
-  if (!db || isTableEnsured) return;
-  try {
-    await db.prepare(`
-      CREATE TABLE IF NOT EXISTS sys_my_tasks (
-        id TEXT PRIMARY KEY,
-        code TEXT,
-        title TEXT,
-        description TEXT,
-        department_id TEXT,
-        project_id TEXT,
-        assignee_emp_code TEXT,
-        assignee_name TEXT,
-        reporter_emp_code TEXT,
-        reviewer_emp_code TEXT,
-        priority TEXT,
-        start_date TEXT,
-        due_date TEXT,
-        status TEXT,
-        progress INTEGER,
-        tags TEXT,
-        checklist TEXT,
-        result_description TEXT,
-        help_reason TEXT,
-        help_notified_to TEXT,
-        handover_status TEXT,
-        previous_department_id TEXT,
-        new_department_id TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `).run().catch(() => {});
-
-    // Migration attempt to add columns if table already existed without them
-    await db.prepare(`ALTER TABLE sys_my_tasks ADD COLUMN project_id TEXT`).run().catch(() => {});
-    await db.prepare(`ALTER TABLE sys_my_tasks ADD COLUMN help_reason TEXT`).run().catch(() => {});
-    await db.prepare(`ALTER TABLE sys_my_tasks ADD COLUMN help_notified_to TEXT`).run().catch(() => {});
-    await db.prepare(`ALTER TABLE sys_my_tasks ADD COLUMN handover_status TEXT`).run().catch(() => {});
-    await db.prepare(`ALTER TABLE sys_my_tasks ADD COLUMN previous_department_id TEXT`).run().catch(() => {});
-    await db.prepare(`ALTER TABLE sys_my_tasks ADD COLUMN new_department_id TEXT`).run().catch(() => {});
-    await db.prepare(`ALTER TABLE sys_my_tasks ADD COLUMN attachments TEXT`).run().catch(() => {});
-
-    isTableEnsured = true;
-
-    const countRes: any = await db.prepare(`SELECT COUNT(*) as cnt FROM sys_my_tasks`).first().catch(() => null);
-    if (!countRes || countRes.cnt === 0) {
-      for (const t of DEFAULT_TASKS) {
-        await db.prepare(`
-          INSERT INTO sys_my_tasks (
-            id, code, title, description, department_id, project_id, assignee_emp_code, assignee_name,
-            reporter_emp_code, reviewer_emp_code, priority, start_date, due_date, status,
-            progress, tags, checklist, result_description, help_reason, help_notified_to, handover_status
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'NONE')
-        `).bind(
-          t.id, t.code, t.title, t.description, t.department_id, (t as any).project_id || null, t.assignee_emp_code, t.assignee_name,
-          t.reporter_emp_code, t.reviewer_emp_code, t.priority, t.start_date, t.due_date, t.status,
-          t.progress, t.tags, JSON.stringify(t.checklist), t.result_description || "", (t as any).help_reason || "", (t as any).help_notified_to || ""
-        ).run().catch(() => {});
-      }
+function parseJsonField(val: any) {
+  if (Array.isArray(val)) return val;
+  if (typeof val === 'string' && val.trim()) {
+    try {
+      let parsed = JSON.parse(val);
+      if (typeof parsed === 'string') parsed = JSON.parse(parsed);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
     }
-  } catch (e) {
-    console.error("Failed to ensure sys_my_tasks table", e);
   }
+  return [];
 }
 
 export async function GET(request: Request) {
@@ -267,41 +213,46 @@ export async function GET(request: Request) {
 
     const session = token ? await verifyToken(token) : null;
     const db = getDbBinding();
+    const tasksSource = (process.env as any).TASKS_SOURCE || 'V2';
 
+    // If TASKS_SOURCE === 'V2' (default), query from unified `tasks` table
+    if (db && tasksSource !== 'legacy') {
+      try {
+        const { whereSql, params } = buildTaskScopeWhereClause(session, request.url);
+        const query = `SELECT * FROM tasks ${whereSql} ORDER BY created_at DESC`;
+        const { results } = await db.prepare(query).bind(...params).all();
+
+        if (results && results.length > 0) {
+          const tasks = results.map((r: any) => ({
+            ...r,
+            checklist: parseJsonField(r.checklist),
+            attachments: parseJsonField(r.attachments),
+            is_pending_handover: r.handover_status === 'PENDING_HANDOVER',
+            handover_warning: r.handover_status === 'PENDING_HANDOVER'
+              ? `⚠️ ĐANG BÀN GIAO: Từ ${r.previous_department_id || 'Phòng cũ'} sang ${r.new_department_id || 'Phòng mới'}`
+              : null,
+          }));
+
+          return NextResponse.json({
+            success: true,
+            tasks,
+            source: 'V2_tasks_table',
+          });
+        }
+      } catch (err) {
+        console.warn('Fallback to legacy query due to V2 error:', err);
+      }
+    }
+
+    // Fallback or Legacy mode: read from sys_my_tasks
     let allTasks: any[] = [];
-
     if (db) {
-      await ensureTable(db);
-      const { results } = await db.prepare(`SELECT * FROM sys_my_tasks ORDER BY created_at DESC`).all();
+      const { results } = await db.prepare(`SELECT * FROM sys_my_tasks ORDER BY created_at DESC`).all().catch(() => ({ results: [] }));
       if (results && results.length > 0) {
         allTasks = results.map((r: any) => ({
           ...r,
-          checklist: (() => {
-            if (Array.isArray(r.checklist)) return r.checklist;
-            if (typeof r.checklist === 'string' && r.checklist.trim()) {
-              try {
-                let parsed = JSON.parse(r.checklist);
-                if (typeof parsed === 'string') parsed = JSON.parse(parsed);
-                return Array.isArray(parsed) ? parsed : [];
-              } catch {
-                return [];
-              }
-            }
-            return [];
-          })(),
-          attachments: (() => {
-            if (Array.isArray(r.attachments)) return r.attachments;
-            if (typeof r.attachments === 'string' && r.attachments.trim()) {
-              try {
-                let parsed = JSON.parse(r.attachments);
-                if (typeof parsed === 'string') parsed = JSON.parse(parsed);
-                return Array.isArray(parsed) ? parsed : [];
-              } catch {
-                return [];
-              }
-            }
-            return [];
-          })(),
+          checklist: parseJsonField(r.checklist),
+          attachments: parseJsonField(r.attachments),
         }));
       }
     }
@@ -310,7 +261,6 @@ export async function GET(request: Request) {
       allTasks = [...inMemoryTasks];
     }
 
-    // Server-side task scoping & Handover Flow (Fix #11)
     if (session) {
       const roleLevel = session.roleLevel || 4;
       const roleCode = (session.roleCode || '').toUpperCase();
@@ -335,8 +285,6 @@ export async function GET(request: Request) {
           const isReporter = t.reporter_emp_code === userEmp;
           const isInChecklist = Array.isArray(t.checklist) && t.checklist.some((c: any) => c.assignee_emp_code === userEmp);
           const isOwnDept = userDept !== '' && t.department_id && String(t.department_id).toUpperCase().includes(userDept);
-          
-          // Fix #11: Handover tasks in PENDING_HANDOVER state must be visible to BOTH old and new Department Heads
           const isHandoverOldDept = isTP && t.handover_status === 'PENDING_HANDOVER' && t.previous_department_id && String(t.previous_department_id).toUpperCase().includes(userDept);
           const isHandoverNewDept = isTP && t.handover_status === 'PENDING_HANDOVER' && t.new_department_id && String(t.new_department_id).toUpperCase().includes(userDept);
 
@@ -352,9 +300,10 @@ export async function GET(request: Request) {
     return NextResponse.json({
       success: true,
       tasks: allTasks,
+      source: 'V1_sys_my_tasks',
     });
   } catch (error: any) {
-    return NextResponse.json({ success: true, tasks: inMemoryTasks });
+    return NextResponse.json({ success: true, tasks: inMemoryTasks, source: 'in_memory' });
   }
 }
 
@@ -389,6 +338,7 @@ export async function POST(request: Request) {
       priority = 'MEDIUM',
       due_date,
       project_id = null,
+      scope = 'DEPARTMENT',
       assignee_emp_code = session.empCode,
       assignee_name = session.name || 'Cán Bộ Nhân Viên',
       department_id = session.departmentCode || 'IT_DIGITAL',
@@ -401,19 +351,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Tiêu đề công việc là bắt buộc' }, { status: 400 });
     }
 
+    const taskId = id || `tsk_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const taskCode = code || `TSK-${Math.floor(100 + Math.random() * 900)}`;
+    const startDate = new Date().toISOString().substring(0, 10);
+    const dueDate = due_date || new Date(Date.now() + 7 * 86400000).toISOString().substring(0, 10);
+
     const newTask = {
-      id: id || `tsk_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-      code: code || `TSK-${Math.floor(100 + Math.random() * 900)}`,
+      id: taskId,
+      code: taskCode,
       title: title.trim(),
       description: description.trim(),
+      scope: scope || (project_id ? 'CROSS_DEPT' : 'DEPARTMENT'),
       department_id: department_id || 'IT_DIGITAL',
       project_id: project_id || null,
       assignee_emp_code: assignee_emp_code || session.empCode,
       assignee_name: assignee_name || session.name,
       reporter_emp_code: session.empCode,
+      reviewer_emp_code: session.empCode,
       priority: priority,
-      start_date: new Date().toISOString().substring(0, 10),
-      due_date: due_date || new Date(Date.now() + 7 * 86400000).toISOString().substring(0, 10),
+      start_date: startDate,
+      due_date: dueDate,
       status: 'TO_DO',
       progress: 0,
       tags: tags || 'TASK',
@@ -424,31 +381,65 @@ export async function POST(request: Request) {
     };
 
     const db = getDbBinding();
-    let dbInsertOk = false;
+    const tasksSource = (process.env as any).TASKS_SOURCE || 'V2';
+
+    if (db && tasksSource !== 'legacy') {
+      try {
+        await db.prepare(`
+          INSERT INTO tasks (
+            id, code, title, description, scope, department_id, project_id,
+            assignee_emp_code, assignee_name, reporter_emp_code, reviewer_emp_code,
+            priority, start_date, due_date, status, progress, tags, checklist, attachments,
+            result_description, handover_status, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'TO_DO', 0, ?, ?, ?, '', 'NONE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        `).bind(
+          newTask.id, newTask.code, newTask.title, newTask.description, newTask.scope,
+          newTask.department_id, newTask.project_id, newTask.assignee_emp_code, newTask.assignee_name,
+          newTask.reporter_emp_code, newTask.reviewer_emp_code, newTask.priority,
+          newTask.start_date, newTask.due_date, newTask.tags,
+          JSON.stringify(newTask.checklist), JSON.stringify(newTask.attachments)
+        ).run();
+
+        logAudit(request, {
+          empCode: session.empCode,
+          empName: session.name,
+          module: 'TASKS',
+          action: 'CREATE_TASK',
+          targetId: newTask.id,
+          changesJson: newTask,
+        }).catch(() => {});
+
+        syncBackupToDrive('TASKS', newTask, 'CREATE_TASK').catch(() => {});
+
+        return NextResponse.json({
+          success: true,
+          message: 'Tạo công việc thành công (bảng tasks)',
+          task: newTask,
+        });
+      } catch (err) {
+        console.warn('Failed insert into tasks table, trying sys_my_tasks:', err);
+      }
+    }
+
+    // Fallback insert to sys_my_tasks
     if (db) {
-      await ensureTable(db);
       try {
         await db.prepare(`
           INSERT INTO sys_my_tasks (
             id, code, title, description, department_id, project_id, assignee_emp_code, assignee_name,
             reporter_emp_code, priority, start_date, due_date, status, progress, tags, checklist, attachments, result_description, handover_status
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'NONE')
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'TO_DO', 0, ?, ?, ?, '', 'NONE')
         `).bind(
           newTask.id, newTask.code, newTask.title, newTask.description, newTask.department_id, newTask.project_id,
           newTask.assignee_emp_code, newTask.assignee_name, newTask.reporter_emp_code,
-          newTask.priority, newTask.start_date, newTask.due_date, newTask.status,
-          newTask.progress, newTask.tags, JSON.stringify(newTask.checklist), JSON.stringify(newTask.attachments), newTask.result_description
+          newTask.priority, newTask.start_date, newTask.due_date, newTask.tags,
+          JSON.stringify(newTask.checklist), JSON.stringify(newTask.attachments)
         ).run();
-        dbInsertOk = true;
       } catch {}
-    }
-
-    // Only use in-memory fallback if DB insert did NOT succeed
-    if (!dbInsertOk) {
+    } else {
       inMemoryTasks = [newTask as any, ...inMemoryTasks];
     }
 
-    // Google Drive Backup & Audit Log Trigger
     logAudit(request, {
       empCode: session.empCode,
       empName: session.name,
@@ -493,7 +484,6 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ success: false, error: 'taskId là bắt buộc' }, { status: 400 });
     }
 
-    // Medium #10: Validation requirement for result_description when status changes to DONE
     if (status === 'DONE') {
       const resultText = (resultDescription || '').trim();
       if (!resultText || resultText.length < 10) {
@@ -507,21 +497,74 @@ export async function PATCH(request: Request) {
       }
     }
 
-    // Trigger Google Drive Backup Sync & Audit Logging for Update action
-    logAudit(request, {
-      empCode: session.empCode,
-      empName: session.name,
-      module: 'TASKS',
-      action: 'UPDATE_TASK',
-      targetId: taskId,
-      changesJson: body,
-    }).catch(() => {});
-
-    syncBackupToDrive('TASKS', { taskId, ...body, updatedBy: session.empCode }, 'UPDATE_TASK').catch(() => {});
-
     const db = getDbBinding();
+    const tasksSource = (process.env as any).TASKS_SOURCE || 'V2';
+
+    if (db && tasksSource !== 'legacy') {
+      try {
+        const existing: any = await db.prepare(`SELECT * FROM tasks WHERE id = ?`).bind(taskId).first();
+        if (existing) {
+          let newStatus = status !== undefined ? status : existing.status;
+          let newResult = resultDescription !== undefined ? resultDescription : existing.result_description;
+          let newHelpReason = helpReason !== undefined ? helpReason : existing.help_reason;
+          let newHelpNotifiedTo = existing.help_notified_to;
+
+          if (newStatus === 'NEED_HELP') {
+            newHelpNotifiedTo = getDepartmentManager(existing.department_id || 'IT_DIGITAL');
+            try {
+              const notifId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+              await db.prepare(`
+                INSERT INTO sys_notifications (id, target_role, title, message, type, link, created_at)
+                VALUES (?, 'TRUONG_PHONG', ?, ?, 'WARNING', '/work/tasks', CURRENT_TIMESTAMP)
+              `).bind(
+                notifId,
+                `⚠️ Yêu cầu trợ giúp công việc: ${existing.code || existing.title}`,
+                `Nhân viên ${session.name} vừa báo cần hỗ trợ cho công việc "${existing.title}". Lý do: ${newHelpReason || 'Cần Trưởng phòng tư vấn'}`
+              ).run().catch(() => {});
+            } catch (e) {}
+          }
+
+          let newProgress = progress !== undefined ? progress : existing.progress;
+          let checklistArr = parseJsonField(existing.checklist);
+
+          if (body.checklist !== undefined && Array.isArray(body.checklist)) {
+            checklistArr = body.checklist;
+            const doneCount = checklistArr.filter((c: any) => c.completed).length;
+            newProgress = checklistArr.length > 0 ? Math.round((doneCount / checklistArr.length) * 100) : newProgress;
+          } else if (checklistId !== undefined) {
+            checklistArr = checklistArr.map((c: any) => c.id === checklistId ? { ...c, completed: Boolean(completed) } : c);
+            const doneCount = checklistArr.filter((c: any) => c.completed).length;
+            newProgress = checklistArr.length > 0 ? Math.round((doneCount / checklistArr.length) * 100) : newProgress;
+          }
+
+          let attachmentsArr = parseJsonField(existing.attachments);
+          if (body.attachments !== undefined && Array.isArray(body.attachments)) {
+            attachmentsArr = body.attachments;
+          }
+
+          if (newStatus === 'DONE') {
+            newProgress = 100;
+          }
+
+          await db.prepare(`
+            UPDATE tasks
+            SET status = ?, result_description = ?, help_reason = ?, help_notified_to = ?, progress = ?, checklist = ?, attachments = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+          `).bind(newStatus, newResult, newHelpReason || '', newHelpNotifiedTo || '', newProgress, JSON.stringify(checklistArr), JSON.stringify(attachmentsArr), taskId).run();
+
+          return NextResponse.json({
+            success: true,
+            message: 'Đã cập nhật công việc (bảng tasks)',
+            help_notified_to: newHelpNotifiedTo,
+          });
+        }
+      } catch (err) {
+        console.warn('Failed update in tasks table, trying sys_my_tasks:', err);
+      }
+    }
+
+    // Fallback update sys_my_tasks
     if (db) {
-      await ensureTable(db);
       const existing: any = await db.prepare(`SELECT * FROM sys_my_tasks WHERE id = ?`).bind(taskId).first().catch(() => null);
 
       if (existing) {
@@ -532,35 +575,10 @@ export async function PATCH(request: Request) {
 
         if (newStatus === 'NEED_HELP') {
           newHelpNotifiedTo = getDepartmentManager(existing.department_id || 'IT_DIGITAL');
-
-          // High #5: Push notification to Department Head / Manager
-          try {
-            const notifId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-            await db.prepare(`
-              INSERT INTO sys_notifications (id, target_role, title, message, type, link, created_at)
-              VALUES (?, 'TRUONG_PHONG', ?, ?, 'WARNING', '/work/tasks', CURRENT_TIMESTAMP)
-            `).bind(
-              notifId,
-              `⚠️ Yêu cầu trợ giúp công việc: ${existing.code || existing.title}`,
-              `Nhân viên ${session.name} vừa báo cần hỗ trợ cho công việc "${existing.title}". Lý do: ${newHelpReason || 'Cần Trưởng phòng tư vấn'}`
-            ).run().catch(() => {});
-          } catch (e) {}
         }
 
         let newProgress = progress !== undefined ? progress : existing.progress;
-        let checklistArr = (() => {
-          if (Array.isArray(existing.checklist)) return existing.checklist;
-          if (typeof existing.checklist === 'string' && existing.checklist.trim()) {
-            try {
-              let parsed = JSON.parse(existing.checklist);
-              if (typeof parsed === 'string') parsed = JSON.parse(parsed);
-              return Array.isArray(parsed) ? parsed : [];
-            } catch {
-              return [];
-            }
-          }
-          return [];
-        })();
+        let checklistArr = parseJsonField(existing.checklist);
 
         if (body.checklist !== undefined && Array.isArray(body.checklist)) {
           checklistArr = body.checklist;
@@ -572,20 +590,7 @@ export async function PATCH(request: Request) {
           newProgress = checklistArr.length > 0 ? Math.round((doneCount / checklistArr.length) * 100) : newProgress;
         }
 
-        let attachmentsArr = (() => {
-          if (Array.isArray(existing.attachments)) return existing.attachments;
-          if (typeof existing.attachments === 'string' && existing.attachments.trim()) {
-            try {
-              let parsed = JSON.parse(existing.attachments);
-              if (typeof parsed === 'string') parsed = JSON.parse(parsed);
-              return Array.isArray(parsed) ? parsed : [];
-            } catch {
-              return [];
-            }
-          }
-          return [];
-        })();
-
+        let attachmentsArr = parseJsonField(existing.attachments);
         if (body.attachments !== undefined && Array.isArray(body.attachments)) {
           attachmentsArr = body.attachments;
         }
@@ -608,52 +613,9 @@ export async function PATCH(request: Request) {
       }
     }
 
-    // In-memory update
-    let notifiedManager = '';
-    inMemoryTasks = inMemoryTasks.map((t) => {
-      if (t.id === taskId) {
-        let updatedStatus = status !== undefined ? status : t.status;
-        let updatedResult = resultDescription !== undefined ? resultDescription : t.result_description;
-        let updatedHelpReason = helpReason !== undefined ? helpReason : (t as any).help_reason;
-        let updatedHelpNotifiedTo = (t as any).help_notified_to;
-        let updatedAttachments = body.attachments !== undefined && Array.isArray(body.attachments) ? body.attachments : ((t as any).attachments || []);
-
-        if (updatedStatus === 'NEED_HELP') {
-          updatedHelpNotifiedTo = getDepartmentManager(t.department_id || 'IT_DIGITAL');
-          notifiedManager = updatedHelpNotifiedTo;
-        }
-
-        let updatedProgress = progress !== undefined ? progress : t.progress;
-        let updatedChecklist = [...t.checklist];
-
-        if (checklistId !== undefined) {
-          updatedChecklist = updatedChecklist.map((c) => c.id === checklistId ? { ...c, completed: Boolean(completed) } : c);
-          const doneCount = updatedChecklist.filter((c) => c.completed).length;
-          updatedProgress = updatedChecklist.length > 0 ? Math.round((doneCount / updatedChecklist.length) * 100) : updatedProgress;
-        }
-
-        if (updatedStatus === 'DONE') {
-          updatedProgress = 100;
-        }
-
-        return {
-          ...t,
-          status: updatedStatus as any,
-          result_description: updatedResult,
-          help_reason: updatedHelpReason,
-          help_notified_to: updatedHelpNotifiedTo,
-          progress: updatedProgress,
-          checklist: updatedChecklist,
-          attachments: updatedAttachments,
-        };
-      }
-      return t;
-    });
-
     return NextResponse.json({
       success: true,
-      message: 'Đã cập nhật công việc thành công',
-      help_notified_to: notifiedManager,
+      message: 'Đã cập nhật công việc',
     });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
@@ -670,7 +632,6 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ success: false, error: 'taskId là bắt buộc' }, { status: 400 });
     }
 
-    // Google Drive Backup & Audit Log Trigger for Delete action
     logAudit(request, {
       empCode: session?.empCode || '202608001',
       empName: session?.name || 'Admin',
@@ -684,7 +645,7 @@ export async function DELETE(request: Request) {
 
     const db = getDbBinding();
     if (db) {
-      await ensureTable(db);
+      await db.prepare(`DELETE FROM tasks WHERE id = ?`).bind(taskId).run().catch(() => {});
       await db.prepare(`DELETE FROM sys_my_tasks WHERE id = ?`).bind(taskId).run().catch(() => {});
     }
 
@@ -698,4 +659,3 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
-

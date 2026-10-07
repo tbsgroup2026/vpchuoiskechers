@@ -16,8 +16,12 @@ firebase-service-account.json
 
 # Database files
 *.db
-*.sqlite
-*.sqlite3
+*backup*.sql
+prod_*.sql
+*.dump.sqlite
+*backup*.sql
+prod_*.sql
+*.dump.sqlite3
 
 # IDE
 .vscode/
@@ -97,4 +101,6 @@ Reports/
 # Cloudflare & Backups
 .wrangler/
 Backup/
-*.sql
+*backup*.sql
+prod_*.sql
+*.dump.sql

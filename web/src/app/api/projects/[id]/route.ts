@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAuthUser } from '@/lib/auth';
+import { getAuthUser, isAdminUser, isExecutiveOrAdmin } from '@/lib/auth';
 import { calculateProjectMetrics } from '@/lib/services/taskMetrics';
 
 export function generateStaticParams() {
@@ -15,6 +15,11 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
+    const user = await getAuthUser(request);
+    if (!user || !user.empCode) {
+      return NextResponse.json({ success: false, error: 'UNAUTHORIZED' }, { status: 401 });
+    }
+
     const projectId = params.id;
     const db = getDbBinding();
 
@@ -31,6 +36,15 @@ export async function GET(
         const { results: projectTasks } = await db.prepare(
           `SELECT * FROM tasks WHERE project_id = ?`
         ).bind(project.id).all().catch(() => ({ results: [] }));
+
+        // Security / Authorization check
+        const isSuper = isAdminUser(user) || isExecutiveOrAdmin(user);
+        const isMember = (members || []).some((m: any) => m.emp_code === user.empCode);
+        const isDepartmentMatch = project.scope === 'DEPARTMENT' && project.department_id === user.departmentCode;
+        
+        if (!isSuper && !isMember && !isDepartmentMatch) {
+          return NextResponse.json({ success: false, error: 'FORBIDDEN: Bạn không có quyền truy cập dữ liệu/tài liệu của dự án này.' }, { status: 403 });
+        }
 
         const metrics = calculateProjectMetrics(project.id, projectTasks || []);
 

@@ -1,51 +1,20 @@
 import { NextResponse } from 'next/server';
-import { verifyToken, getAuthUser } from '@/lib/auth';
+import { verifyToken, getAuthUser, isAdminUser, isExecutiveOrAdmin } from '@/lib/auth';
 import { calculateProjectMetrics } from '@/lib/services/taskMetrics';
 
 function getDbBinding(): any {
   return (process.env as any).DB || (globalThis as any).DB || null;
 }
 
-const MOCK_PROJECTS = [
-  {
-    id: 'PRJ-DIGITAL-2026',
-    code: 'PROJ-DIGITAL-2026',
-    name: 'Chuyển Đổi Số SKECHERS 2026',
-    description: 'Dự án số hóa toàn diện quy trình sản xuất, Gemba & MMTB Văn phòng chuỗi SKECHERS - TBS Group.',
-    scope: 'CROSS_DEPT',
-    department_id: 'IT_DIGITAL',
-    manager_emp_code: '202608001',
-    manager_name: 'Phạm Nguyễn Anh Huy',
-    status: 'IN_PROGRESS',
-    progress: 75,
-    members: [
-      { emp_code: '202608001', emp_name: 'Phạm Nguyễn Anh Huy', department_id: 'IT_DIGITAL', role: 'PROJECT_MANAGER' },
-      { emp_code: 'NS-001', emp_name: 'Nguyễn Thị Lan Anh', department_id: 'NHAN_SU', role: 'MEMBER' },
-      { emp_code: 'QC-001', emp_name: 'Bùi Thị Hằng', department_id: 'CHAT_LUONG_QC', role: 'MEMBER' },
-      { emp_code: 'KT-001', emp_name: 'Trần Thị Thu Hương', department_id: 'KE_TOAN', role: 'MEMBER' },
-    ],
-  },
-  {
-    id: 'PRJ-AUTOMATION',
-    code: 'PROJ-AUTO-2026',
-    name: 'Tự Động Hóa Dây Chuyền Sản Xuất',
-    description: 'Triển khai xe rùa tự động và bảng thông minh Gemba tại các nhà máy.',
-    scope: 'DEPARTMENT',
-    department_id: 'IT_DIGITAL',
-    manager_emp_code: '202608001',
-    manager_name: 'Phạm Nguyễn Anh Huy',
-    status: 'IN_PROGRESS',
-    progress: 60,
-    members: [
-      { emp_code: '202608001', emp_name: 'Phạm Nguyễn Anh Huy', department_id: 'IT_DIGITAL', role: 'PROJECT_MANAGER' },
-      { emp_code: '202608003', emp_name: 'Trần Văn Hùng', department_id: 'PROD_MAY5', role: 'MEMBER' },
-      { emp_code: '202608005', emp_name: 'Nguyễn Đức Thuấn', department_id: 'IT_DIGITAL', role: 'MEMBER' },
-    ],
-  }
-];
+
 
 export async function GET(request: Request) {
   try {
+    const user = await getAuthUser(request);
+    if (!user || !user.empCode) {
+      return NextResponse.json({ success: false, error: 'UNAUTHORIZED' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get('id');
     const scope = searchParams.get('scope');
@@ -78,7 +47,7 @@ export async function GET(request: Request) {
 
         if (projects && projects.length > 0) {
           // Enrich projects with members & task metrics
-          const enrichedProjects = await Promise.all(
+          let enrichedProjects = await Promise.all(
             projects.map(async (p: any) => {
               const { results: members } = await db.prepare(
                 `SELECT * FROM project_members WHERE project_id = ?`
@@ -102,7 +71,20 @@ export async function GET(request: Request) {
             })
           );
 
+          // Security / Authorization Filter
+          const isSuper = isAdminUser(user) || isExecutiveOrAdmin(user);
+          if (!isSuper) {
+            enrichedProjects = enrichedProjects.filter(p => {
+              const isMember = p.members.some((m: any) => m.emp_code === user.empCode);
+              const isDepartmentMatch = p.scope === 'DEPARTMENT' && p.department_id === user.departmentCode;
+              return isMember || isDepartmentMatch;
+            });
+          }
+
           if (projectId) {
+            if (enrichedProjects.length === 0) {
+              return NextResponse.json({ success: false, error: 'FORBIDDEN' }, { status: 403 });
+            }
             return NextResponse.json({ success: true, project: enrichedProjects[0] });
           }
 
@@ -113,21 +95,18 @@ export async function GET(request: Request) {
           });
         }
       } catch (err) {
-        console.warn('Projects table query error, using mock fallback:', err);
+        console.warn('Projects table query error:', err);
       }
     }
 
-    // Fallback mock projects
     if (projectId) {
-      const proj = MOCK_PROJECTS.find((p) => p.id === projectId || p.code === projectId);
-      if (!proj) return NextResponse.json({ success: false, error: 'Không tìm thấy dự án' }, { status: 404 });
-      return NextResponse.json({ success: true, project: proj });
+      return NextResponse.json({ success: false, error: 'Không tìm thấy dự án' }, { status: 404 });
     }
 
     return NextResponse.json({
       success: true,
-      projects: MOCK_PROJECTS,
-      count: MOCK_PROJECTS.length,
+      projects: [],
+      count: 0,
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Lỗi lấy danh sách dự án';

@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useLinks } from "@/hooks/useLinks";
 import {
   IconX,
   IconExternalLink,
@@ -418,6 +419,42 @@ const SAMPLE_REPORTS: Record<string, ReportItem[]> = {
 };
 
 export function StrategicManagementContent() {
+  const { data: apiLinks, isLoading } = useLinks("finance");
+  
+  const dynamicReports = React.useMemo(() => {
+    // Create a deep copy of SAMPLE_REPORTS
+    const merged: Record<string, ReportItem[]> = JSON.parse(JSON.stringify(SAMPLE_REPORTS));
+    
+    // Merge data from Google Apps Script
+    if (apiLinks && Array.isArray(apiLinks)) {
+      apiLinks.forEach((link: any) => {
+        const cat = link.category || "KE_HOACH_CONG_VIEC";
+        if (!merged[cat]) {
+          merged[cat] = [];
+        }
+        
+        const existingIdx = merged[cat].findIndex(item => item.id === link.id);
+        const newItem: ReportItem = {
+          id: link.id,
+          title: link.title || link.label || link.id,
+          subtitle: link.subtitle || link.label || "",
+          tag1: link.tag1 || "API",
+          tag2: link.tag2 || "Link",
+          link: link.url || link.link,
+          // Note: Cannot pass React component directly from API, UI will fallback to default if missing
+        };
+        
+        if (existingIdx >= 0) {
+          merged[cat][existingIdx] = { ...merged[cat][existingIdx], ...newItem };
+        } else {
+          merged[cat].push(newItem);
+        }
+      });
+    }
+    
+    return merged;
+  }, [apiLinks]);
+
   const [activeModalKey, setActiveModalKey] = useState<string | null>(null);
   const [activeLibraryCategoryId, setActiveLibraryCategoryId] = useState<string | null>(null);
   const [activeInfraFolderId, setActiveInfraFolderId] = useState<string | null>(null);
@@ -433,7 +470,7 @@ export function StrategicManagementContent() {
     setActiveInfraFolderId(null);
   };
 
-  const currentReports = activeModalKey ? SAMPLE_REPORTS[activeModalKey] || [] : [];
+  const currentReports = activeModalKey ? dynamicReports[activeModalKey] || [] : [];
 
   const filteredReports = currentReports.filter(
     (rep) =>
@@ -470,7 +507,10 @@ export function StrategicManagementContent() {
                   { key: "DIEU_HANH", label: "ĐIỀU HÀNH", count: "5 / 5", enabled: true },
                   { key: "HACH_TOAN", label: "HẠCH TOÁN & THANH KHOẢN", count: "0 / 0", enabled: false },
                 ].map((item) => {
+                  const reports = dynamicReports[item.key] || [];
+                  const count = reports.length;
                   const isEnabled = item.enabled !== false;
+                  
                   if (isEnabled) {
                     return (
                       <button
@@ -480,7 +520,7 @@ export function StrategicManagementContent() {
                       >
                         <span className="line-clamp-2 leading-tight">{item.label}</span>
                         <span className="absolute -top-2 -right-2 z-10 px-2 py-0.5 rounded-full bg-emerald-600 text-white font-mono text-[9.5px] sm:text-[10px] font-black shadow-md border-2 border-white">
-                          {item.count}
+                          {isLoading ? "..." : `${count} / ${count}`}
                         </span>
                       </button>
                     );
@@ -514,7 +554,10 @@ export function StrategicManagementContent() {
                   { key: "KE_HOACH_CONG_VIEC", label: "KẾ HOẠCH CÔNG VIỆC", count: "3 / 3", enabled: true },
                   { key: "THU_VIEN", label: "THƯ VIỆN MẪU", count: "5 / 5", enabled: true },
                 ].map((item) => {
+                  const reports = dynamicReports[item.key] || [];
+                  const count = reports.length;
                   const isEnabled = item.enabled !== false;
+                  
                   if (isEnabled) {
                     return (
                       <button
@@ -524,7 +567,7 @@ export function StrategicManagementContent() {
                       >
                         <span className="line-clamp-2 leading-tight">{item.label}</span>
                         <span className="absolute -top-2 -right-2 z-10 px-2 py-0.5 rounded-full bg-emerald-600 text-white font-mono text-[9.5px] sm:text-[10px] font-black shadow-md border-2 border-white">
-                          {item.count}
+                          {isLoading ? "..." : `${count} / ${count}`}
                         </span>
                       </button>
                     );
@@ -610,9 +653,9 @@ export function StrategicManagementContent() {
             return (
               <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 w-full min-w-0 pt-0.5">
                 {pillarItems.map((item) => {
-                  const reports = SAMPLE_REPORTS[item.key] || [];
+                  const reports = dynamicReports[item.key] || [];
                   const count = reports.length;
-                  const isEnabled = count > 0;
+                  const isEnabled = count > 0 || isLoading;
 
                   if (isEnabled) {
                     return (

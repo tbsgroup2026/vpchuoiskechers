@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import { recordAuditLog } from '@/lib/auditLogger';
+import { updateTaskAtomically } from '@/lib/services/taskCardUpdater';
 
 export function generateStaticParams() {
   return [{ id: 'sample' }];
@@ -28,7 +29,11 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { result_description } = body;
+    const { result_description, version } = body;
+
+    if (version === undefined || typeof version !== 'number') {
+      return NextResponse.json({ success: false, error: 'Thiếu hoặc sai kiểu dữ liệu phiên bản (version)' }, { status: 428 });
+    }
 
     if (!result_description || !result_description.trim()) {
       return NextResponse.json(
@@ -55,14 +60,38 @@ export async function POST(
     const targetColumnId = reviewColumn?.id || existing.column_id;
     const empCode = session.empCode || 'USER';
 
-    await db.prepare(`
-      UPDATE tasks
-      SET status = 'REVIEW',
-          column_id = ?,
-          result_description = ?,
-          updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `).bind(targetColumnId, result_description.trim(), taskId).run();
+    const updates = {
+      tasksSet: `
+        status = 'REVIEW',
+        column_id = ?,
+        result_description = ?,
+        updated_at = CURRENT_TIMESTAMP
+      `,
+      tasksParams: [targetColumnId, result_description.trim()]
+    };
+
+    const updateResult = await updateTaskAtomically(db, session, taskId, version, updates, 'tasks');
+
+    if (updateResult.type === 'NOT_FOUND') {
+      return NextResponse.json({ success: false, error: updateResult.error }, { status: 404 });
+    }
+    if (updateResult.type === 'FORBIDDEN') {
+      return NextResponse.json({ success: false, error: updateResult.error }, { status: 403 });
+    }
+    if (updateResult.type === 'SYNC_ERROR') {
+      return NextResponse.json({ success: false, error: updateResult.error }, { status: 500 });
+    }
+    if (updateResult.type === 'CONFLICT') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'CONFLICT',
+          message: updateResult.error,
+          currentTask: updateResult.latestCard,
+        },
+        { status: 409 }
+      );
+    }
 
     // Log Activity
     const logId = `act_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
@@ -93,6 +122,7 @@ export async function POST(
         id: taskId,
         status: 'REVIEW',
         column_id: targetColumnId,
+        version: updateResult.newVersion,
       },
     });
   } catch (error: any) {

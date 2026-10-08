@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthUser, isDepartmentHead, isAdminUser } from '@/lib/auth';
 import { ensureKaizenSchema } from '@/lib/kaizenDbMigration';
+import { updateTaskAtomically } from '@/lib/services/taskCardUpdater';
 
 export function generateStaticParams() {
   return [{ id: 'sample' }];
@@ -12,7 +13,7 @@ function getDbBinding(): any {
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getAuthUser(request);
@@ -30,9 +31,13 @@ export async function POST(
       );
     }
 
-    const taskId = params.id;
+    const { id: taskId } = await params;
     const body = await request.json();
-    const { action = 'CONFIRM', targetDepartmentId, newAssigneeEmpCode } = body;
+    const { action = 'CONFIRM', targetDepartmentId, newAssigneeEmpCode, version } = body;
+
+    if (version === undefined || typeof version !== 'number') {
+      return NextResponse.json({ success: false, error: 'Thiếu hoặc sai kiểu dữ liệu phiên bản (version)' }, { status: 428 });
+    }
 
     const db = getDbBinding();
     if (db) {
@@ -51,16 +56,24 @@ export async function POST(
       const confirmedAssignee = newAssigneeEmpCode || existing.assignee_emp_code;
 
       if (action === 'CONFIRM') {
-        await db.prepare(`
-          UPDATE tasks
-          SET department_id = ?,
-              assignee_emp_code = ?,
-              handover_status = 'HANDED_OVER',
-              handover_confirmed_by = ?,
-              handover_confirmed_at = CURRENT_TIMESTAMP,
-              updated_at = CURRENT_TIMESTAMP
-          WHERE id = ?
-        `).bind(confirmedDept, confirmedAssignee, session.empCode, taskId).run().catch(() => {});
+        const updates = {
+          tasksSet: `
+            department_id = ?,
+            assignee_emp_code = ?,
+            handover_status = 'HANDED_OVER',
+            handover_confirmed_by = ?,
+            handover_confirmed_at = CURRENT_TIMESTAMP,
+            updated_at = CURRENT_TIMESTAMP
+          `,
+          tasksParams: [confirmedDept, confirmedAssignee, session.empCode]
+        };
+
+        const updateResult = await updateTaskAtomically(db, { empCode: session.empCode } as any, taskId, version, updates, 'tasks');
+        
+        if (updateResult.type === 'NOT_FOUND') return NextResponse.json({ success: false, error: updateResult.error }, { status: 404 });
+        if (updateResult.type === 'FORBIDDEN') return NextResponse.json({ success: false, error: updateResult.error }, { status: 403 });
+        if (updateResult.type === 'SYNC_ERROR') return NextResponse.json({ success: false, error: updateResult.error }, { status: 500 });
+        if (updateResult.type === 'CONFLICT') return NextResponse.json({ success: false, error: updateResult.error, currentTask: updateResult.latestCard }, { status: 409 });
 
         await db.prepare(`
           UPDATE sys_my_tasks
@@ -82,14 +95,22 @@ export async function POST(
         });
       } else {
         // Keep in original department
-        await db.prepare(`
-          UPDATE tasks
-          SET handover_status = 'NONE',
-              handover_confirmed_by = ?,
-              handover_confirmed_at = CURRENT_TIMESTAMP,
-              updated_at = CURRENT_TIMESTAMP
-          WHERE id = ?
-        `).bind(session.empCode, taskId).run().catch(() => {});
+        const updates = {
+          tasksSet: `
+            handover_status = 'NONE',
+            handover_confirmed_by = ?,
+            handover_confirmed_at = CURRENT_TIMESTAMP,
+            updated_at = CURRENT_TIMESTAMP
+          `,
+          tasksParams: [session.empCode]
+        };
+
+        const updateResult = await updateTaskAtomically(db, { empCode: session.empCode } as any, taskId, version, updates, 'tasks');
+        
+        if (updateResult.type === 'NOT_FOUND') return NextResponse.json({ success: false, error: updateResult.error }, { status: 404 });
+        if (updateResult.type === 'FORBIDDEN') return NextResponse.json({ success: false, error: updateResult.error }, { status: 403 });
+        if (updateResult.type === 'SYNC_ERROR') return NextResponse.json({ success: false, error: updateResult.error }, { status: 500 });
+        if (updateResult.type === 'CONFLICT') return NextResponse.json({ success: false, error: updateResult.error, currentTask: updateResult.latestCard }, { status: 409 });
 
         await db.prepare(`
           UPDATE sys_my_tasks

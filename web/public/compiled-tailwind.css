@@ -1781,6 +1781,10 @@ video {
   min-height: 0px;
 }
 
+.min-h-\[100px\] {
+  min-height: 100px;
+}
+
 .min-h-\[160px\] {
   min-height: 160px;
 }
@@ -1835,10 +1839,6 @@ video {
 
 .min-h-\[44px\] {
   min-height: 44px;
-}
-
-.min-h-\[450px\] {
-  min-height: 450px;
 }
 
 .min-h-\[480px\] {
@@ -11864,8 +11864,16 @@ body {
     display: flex;
   }
 
+  .md\:grid {
+    display: grid;
+  }
+
   .md\:hidden {
     display: none;
+  }
+
+  .md\:min-h-\[450px\] {
+    min-height: 450px;
   }
 
   .md\:min-h-\[85px\] {

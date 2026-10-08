@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
+import { getCardPermissions } from '@/lib/taskPermissions';
 
 export function generateStaticParams() {
   return [{ id: 'sample' }];
@@ -28,6 +29,11 @@ export async function GET(
 
     const db = getDbBinding();
     if (!db) return NextResponse.json({ success: true, comments: [] });
+
+    const perms = await getCardPermissions(db, taskId, session);
+    if (!perms.hasAccess) {
+      return NextResponse.json({ success: false, error: perms.error || 'FORBIDDEN' }, { status: perms.status || 403 });
+    }
 
     const { results: comments } = await db.prepare(`
       SELECT * FROM task_comments WHERE task_id = ? ORDER BY created_at ASC
@@ -65,6 +71,11 @@ export async function POST(
 
     const db = getDbBinding();
     if (!db) return NextResponse.json({ success: false, error: 'D1 binding unavailable' }, { status: 500 });
+
+    const perms = await getCardPermissions(db, taskId, session);
+    if (!perms.hasAccess) {
+      return NextResponse.json({ success: false, error: perms.error || 'FORBIDDEN' }, { status: perms.status || 403 });
+    }
 
     const commentId = `cmt_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
     const empCode = session.empCode || 'USER';

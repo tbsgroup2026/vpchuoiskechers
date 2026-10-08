@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { verifyToken, getAuthUser } from '@/lib/auth';
 import { logAudit } from '@/lib/auditLogger';
 import { syncBackupToDrive } from '@/lib/driveBackup';
-import { buildTaskScopeWhereClause } from '@/lib/services/taskScope';
+import { updateTaskAtomically, deleteTaskAtomically } from '@/lib/services/taskCardUpdater';
 
 function getDbBinding(): any {
   return (process.env as any).DB || (globalThis as any).DB || null;
@@ -478,7 +478,11 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ success: false, error: 'Dữ liệu JSON không hợp lệ' }, { status: 400 });
     }
 
-    const { taskId, status, resultDescription, helpReason, checklistId, completed, progress } = body;
+    const { taskId, status, resultDescription, helpReason, checklistId, completed, progress, version } = body;
+
+    if (version === undefined || typeof version !== 'number') {
+      return NextResponse.json({ success: false, error: 'Thiếu hoặc sai kiểu dữ liệu phiên bản (version)' }, { status: 428 });
+    }
 
     if (!taskId) {
       return NextResponse.json({ success: false, error: 'taskId là bắt buộc' }, { status: 400 });
@@ -546,16 +550,39 @@ export async function PATCH(request: Request) {
             newProgress = 100;
           }
 
-          await db.prepare(`
-            UPDATE tasks
-            SET status = ?, result_description = ?, help_reason = ?, help_notified_to = ?, progress = ?, checklist = ?, attachments = ?, updated_at = CURRENT_TIMESTAMP
-            WHERE id = ?
-          `).bind(newStatus, newResult, newHelpReason || '', newHelpNotifiedTo || '', newProgress, JSON.stringify(checklistArr), JSON.stringify(attachmentsArr), taskId).run();
+          const updates = {
+            tasksSet: `status = ?, result_description = ?, help_reason = ?, help_notified_to = ?, progress = ?, checklist = ?, attachments = ?, updated_at = CURRENT_TIMESTAMP`,
+            tasksParams: [newStatus, newResult, newHelpReason || '', newHelpNotifiedTo || '', newProgress, JSON.stringify(checklistArr), JSON.stringify(attachmentsArr)]
+          };
+
+          const updateResult = await updateTaskAtomically(db, { empCode: session.empCode } as any, taskId, version, updates, 'tasks');
+
+          if (updateResult.type === 'NOT_FOUND') {
+            return NextResponse.json({ success: false, error: updateResult.error }, { status: 404 });
+          }
+          if (updateResult.type === 'FORBIDDEN') {
+            return NextResponse.json({ success: false, error: updateResult.error }, { status: 403 });
+          }
+          if (updateResult.type === 'SYNC_ERROR') {
+            return NextResponse.json({ success: false, error: updateResult.error }, { status: 500 });
+          }
+          if (updateResult.type === 'CONFLICT') {
+            return NextResponse.json(
+              {
+                success: false,
+                error: 'CONFLICT',
+                message: updateResult.error,
+                currentTask: updateResult.latestCard,
+              },
+              { status: 409 }
+            );
+          }
 
           return NextResponse.json({
             success: true,
             message: 'Đã cập nhật công việc (bảng tasks)',
             help_notified_to: newHelpNotifiedTo,
+            version: updateResult.newVersion
           });
         }
       } catch (err) {
@@ -627,9 +654,15 @@ export async function DELETE(request: Request) {
     const session = await getAuthUser(request);
     const { searchParams } = new URL(request.url);
     const taskId = searchParams.get('taskId');
+    const versionStr = searchParams.get('version');
+    const version = versionStr ? Number(versionStr) : undefined;
 
     if (!taskId) {
       return NextResponse.json({ success: false, error: 'taskId là bắt buộc' }, { status: 400 });
+    }
+
+    if (version === undefined || isNaN(version)) {
+      return NextResponse.json({ success: false, error: 'Thiếu hoặc sai kiểu dữ liệu phiên bản (version)' }, { status: 428 });
     }
 
     logAudit(request, {
@@ -645,7 +678,21 @@ export async function DELETE(request: Request) {
 
     const db = getDbBinding();
     if (db) {
-      await db.prepare(`DELETE FROM tasks WHERE id = ?`).bind(taskId).run().catch(() => {});
+      const deleteResult = await deleteTaskAtomically(db, { empCode: session?.empCode || '202608001' } as any, taskId, version, 'tasks');
+      
+      if (deleteResult.type === 'NOT_FOUND') {
+        return NextResponse.json({ success: false, error: deleteResult.error }, { status: 404 });
+      }
+      if (deleteResult.type === 'FORBIDDEN') {
+        return NextResponse.json({ success: false, error: deleteResult.error }, { status: 403 });
+      }
+      if (deleteResult.type === 'SYNC_ERROR') {
+        return NextResponse.json({ success: false, error: deleteResult.error }, { status: 500 });
+      }
+      if (deleteResult.type === 'CONFLICT') {
+        return NextResponse.json({ success: false, error: deleteResult.error, currentTask: deleteResult.latestCard }, { status: 409 });
+      }
+
       await db.prepare(`DELETE FROM sys_my_tasks WHERE id = ?`).bind(taskId).run().catch(() => {});
     }
 

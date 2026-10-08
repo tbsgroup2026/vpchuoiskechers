@@ -680,6 +680,12 @@ export async function ensureKaizenSchema(db: any, force = false) {
       "ALTER TABLE sys_my_tasks ADD COLUMN handover_note TEXT",
       "ALTER TABLE sys_my_tasks ADD COLUMN handover_confirmed_by TEXT",
       "ALTER TABLE sys_my_tasks ADD COLUMN handover_confirmed_at DATETIME",
+      "ALTER TABLE sys_my_tasks ADD COLUMN delegated_to_emp_code TEXT",
+      "ALTER TABLE sys_my_tasks ADD COLUMN delegated_to_name TEXT",
+      "ALTER TABLE sys_my_tasks ADD COLUMN delegated_until DATETIME",
+      "ALTER TABLE tasks ADD COLUMN delegated_to_emp_code TEXT",
+      "ALTER TABLE tasks ADD COLUMN delegated_to_name TEXT",
+      "ALTER TABLE tasks ADD COLUMN delegated_until DATETIME",
     ];
     for (const sql of taskHandoverCols) {
       await db.prepare(sql).run().catch(() => {});
@@ -1179,6 +1185,12 @@ export async function ensureKaizenSchema(db: any, force = false) {
         declaration_submitted INTEGER DEFAULT 0
       )
     `).run().catch(() => {});
+
+    // Add version and write_token for Phase A (Concurrency Control)
+    await db.prepare("ALTER TABLE task_cards ADD COLUMN version INTEGER NOT NULL DEFAULT 1").run().catch(() => {});
+    await db.prepare("ALTER TABLE task_cards ADD COLUMN write_token TEXT").run().catch(() => {});
+    await db.prepare("ALTER TABLE tasks ADD COLUMN version INTEGER NOT NULL DEFAULT 1").run().catch(() => {});
+    await db.prepare("ALTER TABLE tasks ADD COLUMN write_token TEXT").run().catch(() => {});
 
     isSchemaMigrated = true;
   } catch (err) {

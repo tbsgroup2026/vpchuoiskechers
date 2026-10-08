@@ -92,8 +92,11 @@ export default function WorkspaceHomeView({
     async function fetchRealTasks() {
       setIsLoadingTasks(true);
       try {
-        const emp = activeCode ? `?empCode=${encodeURIComponent(activeCode)}` : "";
-        const res = await fetch(`/api/tasks${emp}`, { cache: "no-store" });
+        const token = typeof window !== "undefined" ? localStorage.getItem("tbs_token") || sessionStorage.getItem("tbs_token") : "";
+        const res = await fetch(`/api/me/tasks`, { 
+          cache: "no-store",
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        });
         if (res.ok) {
           const json = await res.json();
           if (json.success && Array.isArray(json.tasks)) {

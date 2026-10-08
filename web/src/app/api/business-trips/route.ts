@@ -9,6 +9,65 @@ function getDbBinding(): any {
 
 const MEMORY_TRIPS = new Map<string, any>();
 
+async function handleAutomaticTaskDelegation(db: any, trip: any) {
+  if (!db || !trip.creator_emp_code) return;
+  
+  // Feature flag check
+  if (process.env.NEXT_PUBLIC_ENABLE_TASK_DELEGATION === 'false') return;
+
+  try {
+    // Check department configuration (placeholder if table missing)
+    const deptConfig = await db.prepare('SELECT 1 FROM sys_departments WHERE code = ? AND disable_delegation = 1').bind(trip.department_id || '').first().catch(() => null);
+    if (deptConfig) return; // Department disabled delegation
+
+    const delegation = await db.prepare(`
+      SELECT delegate_to_emp_code, delegate_to_name FROM business_trip_delegations
+      WHERE delegator_emp_code = ? AND is_active = 1 AND start_date <= ? AND end_date >= ?
+      ORDER BY created_at DESC LIMIT 1
+    `).bind(trip.creator_emp_code, trip.end_date || trip.start_date, trip.start_date).first().catch(() => null);
+
+    if (delegation) {
+      const untilDate = trip.end_date ? `${trip.end_date} 23:59:59` : `${trip.start_date} 23:59:59`;
+      
+      // Update tasks without losing original assignee
+      await db.prepare(`
+        UPDATE tasks
+        SET delegated_to_emp_code = ?, delegated_to_name = ?, delegated_until = ?,
+            version = version + 1, updated_at = CURRENT_TIMESTAMP
+        WHERE assignee_emp_code = ? AND status NOT IN ('DONE', 'CANCELLED', 'CLOSED')
+      `).bind(delegation.delegate_to_emp_code, delegation.delegate_to_name, untilDate, trip.creator_emp_code).run().catch(() => {});
+
+      // Fallback for sys_my_tasks
+      await db.prepare(`
+        UPDATE sys_my_tasks
+        SET delegated_to_emp_code = ?, delegated_to_name = ?, delegated_until = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE assignee_emp_code = ? AND status NOT IN ('DONE', 'CANCELLED', 'CLOSED')
+      `).bind(delegation.delegate_to_emp_code, delegation.delegate_to_name, untilDate, trip.creator_emp_code).run().catch(() => {});
+      
+      // Audit log
+      const auditId = `audit_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+      await db.prepare(`
+        INSERT INTO sys_audit_logs (id, action, module, actor_emp_code, details, created_at)
+        VALUES (?, 'AUTO_DELEGATE_TASKS', 'TASKS', 'SYSTEM', ?, CURRENT_TIMESTAMP)
+      `).bind(auditId, `Ủy quyền công việc từ ${trip.creator_emp_code} sang ${delegation.delegate_to_emp_code} đến ${untilDate} do đi công tác`).run().catch(() => {});
+
+      // Notify the delegate
+      const notifId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+      await db.prepare(`
+        INSERT INTO sys_notifications (id, emp_code, title, message, type, link, created_at)
+        VALUES (?, ?, ?, ?, 'INFO', '/work/tasks', CURRENT_TIMESTAMP)
+      `).bind(
+        notifId,
+        delegation.delegate_to_emp_code,
+        `📋 Bạn nhận được các task ủy quyền từ ${trip.creator}`,
+        `Cán bộ ${trip.creator} vừa được duyệt công tác. Các task còn tồn đọng đã được tự động ủy quyền xử lý thay cho bạn đến hết ngày ${trip.end_date || trip.start_date}.`
+      ).run().catch(() => {});
+    }
+  } catch (e) {
+    console.error("Task Delegation Error", e);
+  }
+}
+
 export async function GET(request: Request) {
   try {
     const session = await getAuthUser(request);
@@ -268,7 +327,7 @@ export async function POST(request: Request) {
     }
 
     // 🤖 Send Zalo Notification for Business Trip Registration
-    sendZaloNotification(
+    await sendZaloNotification(
       `✈️ ĐƠN ĐĂNG KÝ CÔNG TÁC MỚI (${code})\nCán bộ: ${body.creator.trim()} (${body.department || session.departmentCode || 'Văn phòng'})\nNội dung: "${body.title.trim()}"\nĐịa điểm: ${body.location || 'Chưa rõ'}\nThời gian: từ ${body.startDate || 'N/A'} đến ${body.endDate || 'N/A'} (${body.daysCount || 1} ngày)\nPhương tiện: ${body.transport || 'Tự túc'}\nTrạng thái: Chờ Trưởng phòng duyệt (Cấp 1)`,
       {
         priority: 'IMPORTANT',
@@ -479,11 +538,14 @@ export async function PUT(request: Request) {
               VALUES (?, ?, ?, ?, 'SUCCESS', ?, CURRENT_TIMESTAMP)
             `).bind(
               notifIdAuto,
-              existing.creator, // Wait, existing.creator is Name. Needs creator_emp_code if possible, but sys_notifications table usually searches by emp_code. Wait, the old code used existing.creator which might be a bug, let me fix it.
+              existing.creator_emp_code, // FIXED
               `✅ Đơn công tác ${existing.code} đã được duyệt hoàn tất!`,
               `Đơn công tác "${existing.title}" có dự toán < 5 triệu, đã được duyệt Cấp 1 và tự động qua Cấp 2. Đang chờ Lễ tân xếp xe.`,
               `/business-trip?tripId=${existing.id}`
             ).run().catch(() => {});
+            
+            // Trigger Automatic Task Delegation
+            await handleAutomaticTaskDelegation(db, existing);
           } catch (e) {}
         }
 
@@ -567,6 +629,9 @@ export async function PUT(request: Request) {
             `Đơn công tác "${existing.title}" của bạn đã được phê duyệt 100%${isEmergencyBypass ? ' (Duyệt khẩn)' : ''}. Bạn có thể di chuyển.`,
             `/business-trip?tripId=${existing.id}`
           ).run().catch(() => {});
+          
+          // Trigger Automatic Task Delegation
+          await handleAutomaticTaskDelegation(db, existing);
         } catch (e) {}
       } else {
         MEMORY_TRIPS.set(id, existing);

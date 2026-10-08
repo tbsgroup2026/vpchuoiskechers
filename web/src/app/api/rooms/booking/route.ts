@@ -446,7 +446,7 @@ async function handleBookingUpdate(request: Request) {
       if (isPublicQR && zaloPhone) {
         console.log(`[Mock ZNS] Sending approval to ${zaloPhone}`); // Fallback
       }
-      sendZaloNotification(
+      await sendZaloNotification(
         `✅ LỊCH HỌP ĐÃ ĐƯỢC PHÊ DUYỆT\nCuộc họp: "${safePurpose}"\nPhòng họp: ${roomName || roomId || 'Chưa xếp phòng'}\nThời gian: ${timeSlot || ''} - Ngày: ${targetDate}\nHình thức: ${meetingType || 'OFFLINE'}`,
         {
           priority: 'IMPORTANT',
@@ -460,7 +460,7 @@ async function handleBookingUpdate(request: Request) {
       if (isPublicQR && zaloPhone) {
         console.log(`[Mock ZNS] Sending rejection to ${zaloPhone}`); // Fallback
       }
-      sendZaloNotification(
+      await sendZaloNotification(
         `⚠️ THÔNG BÁO ${status === 'CANCELLED' ? 'HỦY LỊCH HỌP' : 'TỪ CHỐI ĐẶT PHÒNG'}\nCuộc họp: "${safePurpose}"\nThời gian: ${timeSlot || ''} - Ngày: ${targetDate}\nLý do: ${rejectionReason || 'Thay đổi từ Bàn Lễ Tân / Người đặt'}`,
         {
           priority: 'IMPORTANT',

@@ -147,6 +147,18 @@ export default function HomeClassic({
     });
   }, [tasks, timeFilter]);
 
+  // Pagination state for tasks
+  const [currentPage, setCurrentPage] = useState(1);
+  const tasksPerPage = 5;
+
+  // Reset pagination when filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [timeFilter]);
+
+  const totalPages = Math.ceil(filteredTasks.length / tasksPerPage);
+  const currentTasks = filteredTasks.slice((currentPage - 1) * tasksPerPage, currentPage * tasksPerPage);
+
   // Compute dynamic KPIs for filtered tasks
   const periodKpis = useMemo(() => {
     const total = filteredTasks.length;
@@ -669,7 +681,7 @@ export default function HomeClassic({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 font-normal">
-                      {filteredTasks.slice(0, 5).map((t, idx) => {
+                      {currentTasks.map((t, idx) => {
                         const rawStatus = (t.status || "").toUpperCase();
                         const isDone = rawStatus === "DONE" || rawStatus === "COMPLETED";
                         const isDoing = rawStatus === "DOING" || rawStatus === "IN_PROGRESS";
@@ -691,6 +703,13 @@ export default function HomeClassic({
                               <div className="font-extrabold text-slate-900 leading-tight truncate">{t.title}</div>
                               {t.description && (
                                 <div className="text-[10px] text-slate-400 truncate">{t.description}</div>
+                              )}
+                              {(t as any).source && (
+                                <span className={`inline-block mt-1 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider ${
+                                  (t as any).source === 'KANBAN' ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-purple-50 text-purple-600 border border-purple-100'
+                                }`}>
+                                  {(t as any).source === 'KANBAN' ? 'Bảng Kanban' : 'Dự án'}
+                                </span>
                               )}
                             </td>
                             <td className="py-2 px-2.5 font-mono text-[10px] font-bold text-rose-600 whitespace-nowrap">
@@ -714,6 +733,29 @@ export default function HomeClassic({
                       })}
                     </tbody>
                   </table>
+                  
+                  {/* Pagination Controls */}
+                  {totalPages > 1 && (
+                    <div className="px-4 py-2.5 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+                      <button
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        className="px-2.5 py-1 text-[11px] font-bold text-slate-600 bg-white border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50 transition"
+                      >
+                        Trước
+                      </button>
+                      <span className="text-[11px] font-bold text-slate-500">
+                        Trang {currentPage} / {totalPages}
+                      </span>
+                      <button
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                        className="px-2.5 py-1 text-[11px] font-bold text-slate-600 bg-white border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50 transition"
+                      >
+                        Sau
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

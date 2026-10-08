@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import { recordAuditLog } from '@/lib/auditLogger';
+import { updateTaskAtomically } from '@/lib/services/taskCardUpdater';
 
 export function generateStaticParams() {
   return [{ id: 'sample' }];
@@ -28,7 +29,11 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { decision, rating = 5, note = '' } = body;
+    const { decision, rating = 5, note = '', version } = body;
+
+    if (version === undefined || typeof version !== 'number') {
+      return NextResponse.json({ success: false, error: 'Thiếu hoặc sai kiểu dữ liệu phiên bản (version)' }, { status: 428 });
+    }
 
     if (!decision || !['APPROVE', 'REQUEST_CHANGES'].includes(decision)) {
       return NextResponse.json(
@@ -77,15 +82,39 @@ export async function POST(
 
     const finalColumnId = targetColumn?.id || existing.column_id;
 
-    await db.prepare(`
-      UPDATE tasks
-      SET status = ?,
-          column_id = ?,
-          reviewer_id = ?,
-          completed_at = CASE WHEN ? = 'DONE' THEN CURRENT_TIMESTAMP ELSE completed_at END,
-          updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `).bind(newStatus, finalColumnId, empCode, newStatus, taskId).run();
+    const updates = {
+      tasksSet: `
+        status = ?,
+        column_id = ?,
+        reviewer_id = ?,
+        completed_at = CASE WHEN ? = 'DONE' THEN CURRENT_TIMESTAMP ELSE completed_at END,
+        updated_at = CURRENT_TIMESTAMP
+      `,
+      tasksParams: [newStatus, finalColumnId, empCode, newStatus]
+    };
+
+    const updateResult = await updateTaskAtomically(db, session, taskId, version, updates, 'tasks');
+
+    if (updateResult.type === 'NOT_FOUND') {
+      return NextResponse.json({ success: false, error: updateResult.error }, { status: 404 });
+    }
+    if (updateResult.type === 'FORBIDDEN') {
+      return NextResponse.json({ success: false, error: updateResult.error }, { status: 403 });
+    }
+    if (updateResult.type === 'SYNC_ERROR') {
+      return NextResponse.json({ success: false, error: updateResult.error }, { status: 500 });
+    }
+    if (updateResult.type === 'CONFLICT') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'CONFLICT',
+          message: updateResult.error,
+          currentTask: updateResult.latestCard,
+        },
+        { status: 409 }
+      );
+    }
 
     // Log activity
     const logId = `act_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
@@ -115,6 +144,7 @@ export async function POST(
         id: taskId,
         status: newStatus,
         column_id: finalColumnId,
+        version: updateResult.newVersion,
       },
     });
   } catch (error: any) {

@@ -111,7 +111,7 @@ export default function TaskBoardView() {
   const roleLevel = currentUser?.roleLevel ?? 3;
   const isExec = roleLevel <= 2;
   const isTP = roleLevel <= 3;
-  const isAccessDenied = false;
+  const [isAccessDenied, setIsAccessDenied] = useState(false);
 
   useEffect(() => {
     if (isExec && !deptParam) {
@@ -143,70 +143,13 @@ export default function TaskBoardView() {
   const [boardName, setBoardName] = useState("");
   const [boardType, setBoardType] = useState("personal");
 
-  // Project list state
-  const [projects, setProjects] = useState([
-    {
-      id: "PRJ-AUTOMATION",
-      name: "Dự Án Tự Động Hóa Dây Chuyền & CĐS IT",
-      dept: "Phòng IT & Chuyển Đổi Số",
-      tag: "AUTOMATION & AI",
-      tagBg: "bg-purple-100 text-purple-700 border-purple-200",
-      progress: 83,
-      tasksCount: 3,
-      iconType: "automation",
-      borderLeft: "border-l-purple-500",
-      color: "hover:border-purple-400 hover:shadow-purple-50",
-    },
-    {
-      id: "PRJ-SKECHERS-RETAIL",
-      name: "Dự Án Vận Hành Chuỗi Skechers HQ & Store",
-      dept: "Phối Hợp Chuỗi Skechers",
-      tag: "SKECHERS RETAIL",
-      tagBg: "bg-emerald-100 text-[#006838] border-emerald-200",
-      progress: 75,
-      tasksCount: 2,
-      iconType: "retail",
-      borderLeft: "border-l-emerald-500",
-      color: "hover:border-emerald-400 hover:shadow-emerald-50",
-    },
-    {
-      id: "PRJ-ADMIN-EXPENSE",
-      name: "Dự Án Số Hóa Hành Chính & Đăng Ký Xe",
-      dept: "Phòng Hành Chính Nhân Sự",
-      tag: "HÀNH CHÍNH & ISO",
-      tagBg: "bg-amber-100 text-amber-800 border-amber-200",
-      progress: 60,
-      tasksCount: 2,
-      iconType: "admin",
-      borderLeft: "border-l-amber-500",
-      color: "hover:border-amber-400 hover:shadow-amber-50",
-    },
-    {
-      id: "PRJ-KAIZEN-152",
-      name: "Dự Án Sáng Kiến Cải Tiến Kaizen & 1-5-2",
-      dept: "Ban 2.2 / CI-152",
-      tag: "KAIZEN 1-5-2",
-      tagBg: "bg-blue-100 text-blue-800 border-blue-200",
-      progress: 80,
-      tasksCount: 3,
-      iconType: "kaizen",
-      borderLeft: "border-l-blue-500",
-      color: "hover:border-blue-400 hover:shadow-blue-50",
-    },
-    {
-      id: "PRJ-GEMBA-SAFETY",
-      name: "Dự Án An Toàn Lao Động & Kiểm Soát Gemba",
-      dept: "Ban An Toàn & QC",
-      tag: "GEMBA SAFETY",
-      tagBg: "bg-rose-100 text-rose-800 border-rose-200",
-      progress: 50,
-      tasksCount: 2,
-      iconType: "safety",
-      borderLeft: "border-l-rose-500",
-      color: "hover:border-rose-400 hover:shadow-rose-50",
-    },
-  ]);
-
+  const [projects, setProjects] = useState<any[]>([]);
+  
+  const hashString = (str: string) => {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    return hash;
+  };
   // Add Project Modal state
   const [isAddProjectModalOpen, setIsAddProjectModalOpen] = useState(false);
   const [newPrjName, setNewPrjName] = useState("");
@@ -242,35 +185,58 @@ export default function TaskBoardView() {
     },
   };
 
-  const handleAddProject = () => {
+  const handleAddProject = async () => {
     if (!newPrjName.trim() || !newPrjTag.trim()) {
       showToast("⚠️ Vui lòng nhập đủ Tên dự án và Nhãn phân loại!");
       return;
     }
     const colorCfg = PROJECT_COLOR_MAP[newPrjColor] || PROJECT_COLOR_MAP.green;
-    const slug = newPrjTag.trim().toUpperCase().replace(/\s+/g, "-").replace(/[^A-Z0-9-]/g, "");
-    const newId = `PRJ-${slug}-${Date.now().toString(36).toUpperCase()}`;
-    setProjects((prev) => [
-      ...prev,
-      {
-        id: newId,
-        name: newPrjName.trim(),
-        dept: newPrjDept.trim() || "Văn Phòng Chuỗi SKECHERS",
-        tag: newPrjTag.trim().toUpperCase(),
-        tagBg: colorCfg.tagBg,
-        progress: 0,
-        tasksCount: 0,
-        iconType: "automation",
-        borderLeft: colorCfg.borderLeft,
-        color: colorCfg.border,
-      },
-    ]);
-    setNewPrjName("");
-    setNewPrjDept("");
-    setNewPrjTag("");
-    setNewPrjColor("green");
-    setIsAddProjectModalOpen(false);
-    showToast(`✨ Dự án "${newPrjName.trim()}" đã được thêm thành công!`);
+    
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("tbs_token") || sessionStorage.getItem("tbs_token") : "";
+      const res = await fetch("/api/projects", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          name: newPrjName.trim(),
+          description: "Dự án mới tạo.",
+          department_id: newPrjDept.trim() || undefined,
+          scope: "CROSS_DEPT",
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        const p = json.project;
+        setProjects((prev) => [
+          ...prev,
+          {
+            id: p.id,
+            name: p.name,
+            dept: p.department_id || "Phòng Ban Chức Năng",
+            tag: newPrjTag.trim().toUpperCase(),
+            tagBg: colorCfg.tagBg,
+            progress: 0,
+            tasksCount: 0,
+            iconType: "automation",
+            borderLeft: colorCfg.borderLeft,
+            color: colorCfg.border,
+          },
+        ]);
+        setNewPrjName("");
+        setNewPrjDept("");
+        setNewPrjTag("");
+        setNewPrjColor("green");
+        setIsAddProjectModalOpen(false);
+        showToast(`✨ Dự án "${newPrjName.trim()}" đã được thêm thành công!`);
+      } else {
+        showToast(`❌ ${json.error || "Lỗi tạo dự án"}`);
+      }
+    } catch (e) {
+      showToast("❌ Lỗi kết nối máy chủ");
+    }
   };
 
   // Review Modal State
@@ -297,6 +263,36 @@ export default function TaskBoardView() {
     }
   }, [isExec, deptParam, router]);
 
+  const fetchProjects = async () => {
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("tbs_token") || sessionStorage.getItem("tbs_token") : "";
+      const res = await fetch("/api/projects", {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const json = await res.json();
+      if (json.success) {
+        const mapped = json.projects.map((p: any) => {
+          const colors = Object.keys(PROJECT_COLOR_MAP);
+          const colorKey = colors[Math.abs(hashString(p.id)) % colors.length];
+          const c = PROJECT_COLOR_MAP[colorKey];
+          return {
+            id: p.id,
+            name: p.name,
+            dept: p.department_id || 'Chưa rõ',
+            tag: p.scope === 'CROSS_DEPT' ? 'LIÊN PHÒNG BAN' : 'PHÒNG BAN',
+            tagBg: c.tagBg,
+            progress: p.progress || 0,
+            tasksCount: p.total_tasks || 0,
+            iconType: "automation",
+            borderLeft: c.borderLeft,
+            color: c.border,
+          };
+        });
+        setProjects(mapped);
+      }
+    } catch (e) {}
+  };
+
   const fetchBoards = async () => {
     try {
       setLoading(true);
@@ -307,6 +303,10 @@ export default function TaskBoardView() {
       });
       if (res.status === 401) {
         setIsUnauthenticated(true);
+        return;
+      }
+      if (res.status === 403 || res.status === 404) {
+        setIsAccessDenied(true);
         return;
       }
       if (res.ok && res.headers.get("content-type")?.includes("application/json")) {
@@ -347,11 +347,25 @@ export default function TaskBoardView() {
 
   useEffect(() => {
     fetchBoards();
+    fetchProjects();
   }, [deptParam]);
+
+  const isDraggingRef = useRef(false);
+  useEffect(() => {
+    isDraggingRef.current = draggedCardId !== null;
+  }, [draggedCardId]);
 
   useEffect(() => {
     if (selectedBoardId) {
       fetchCards(selectedBoardId);
+
+      const intervalId = setInterval(() => {
+        if (!isDraggingRef.current) {
+          fetchCards(selectedBoardId);
+        }
+      }, 10000);
+
+      return () => clearInterval(intervalId);
     }
   }, [selectedBoardId]);
 
@@ -429,6 +443,11 @@ export default function TaskBoardView() {
   };
 
   const handleMarkComplete = async (cardId: string) => {
+    const card = cards.find(c => c.id === cardId);
+    if (card && card.permissions && !card.permissions.canComplete) {
+      showToast("⚠️ Bạn không có quyền báo cáo hoàn thành thẻ công việc này");
+      return;
+    }
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("tbs_token") || sessionStorage.getItem("tbs_token") : "";
       const res = await fetch(`/api/task-cards/${cardId}/complete`, {
@@ -440,7 +459,8 @@ export default function TaskBoardView() {
         showToast("🎉 " + json.message);
         fetchCards(selectedBoardId);
       } else {
-        showToast(`❌ ${json.error || "Lỗi khi cập nhật"}`);
+        if (res.status === 403) showToast("⚠️ Bạn không có quyền thao tác trên thẻ này");
+        else showToast(`❌ ${json.error || "Lỗi khi cập nhật"}`);
       }
     } catch (e) {
       showToast("❌ Lỗi kết nối máy chủ");
@@ -448,6 +468,12 @@ export default function TaskBoardView() {
   };
 
   const handleMoveCardList = async (cardId: string, newListId: string) => {
+    const card = cards.find(c => c.id === cardId);
+    if (card && card.permissions && !card.permissions.canMove && !card.permissions.canComplete) {
+      showToast("⚠️ Bạn không có quyền di chuyển thẻ của người khác");
+      return;
+    }
+
     const prevCards = [...cards];
     setCards((prev) => prev.map((c) => (c.id === cardId ? { ...c, list_id: newListId } : c)));
 
@@ -466,14 +492,20 @@ export default function TaskBoardView() {
         showToast("↔️ Đã chuyển thẻ công việc sang danh sách mới");
       } else {
         setCards(prevCards);
+        showToast(`❌ ${json.error || "Không thể chuyển thẻ"}`);
       }
     } catch (e) {
       setCards(prevCards);
+      showToast("❌ Lỗi kết nối máy chủ");
     }
   };
 
   const handleManagerReviewSubmit = async () => {
     if (!reviewingCard) return;
+    if (reviewingCard.permissions && !reviewingCard.permissions.canReview) {
+      showToast("⚠️ Bạn không có quyền nghiệm thu thẻ công việc này");
+      return;
+    }
     try {
       setSubmitting(true);
       const token = typeof window !== "undefined" ? localStorage.getItem("tbs_token") || sessionStorage.getItem("tbs_token") : "";
@@ -1444,7 +1476,95 @@ export default function TaskBoardView() {
                   </div>
 
                   {/* 8. KANBAN BOARD (TO DO / DOING / REVIEW / DONE) */}
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
+                  
+                  {/* MOBILE LIST VIEW */}
+                  <div className="md:hidden space-y-6">
+                    {lists.map((list) => {
+                      const listCards = filteredCards.filter((c) => c.list_id === list.id);
+                      if (listCards.length === 0) return null; // Hide empty columns on mobile to save space
+                      
+                      return (
+                        <div key={list.id} className="space-y-3">
+                          <div className="flex items-center justify-between px-1 border-b border-slate-200 pb-2">
+                            <h3 className="font-black text-sm text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                              <span>{list.name}</span>
+                              <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-700 text-[10px] font-bold flex items-center justify-center">
+                                {listCards.length}
+                              </span>
+                            </h3>
+                          </div>
+                          
+                          <div className="space-y-3">
+                            {listCards.map((card) => {
+                              const borderPriorityColor =
+                                card.color_state === "red"
+                                  ? "border-l-rose-500"
+                                  : card.color_state === "yellow"
+                                  ? "border-l-amber-500"
+                                  : "border-l-emerald-500";
+                                  
+                              return (
+                                <div key={card.id} className={`bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs space-y-2 border-l-4 ${borderPriorityColor}`}>
+                                  <div className="flex items-start justify-between gap-2">
+                                    <h4 className="font-extrabold text-slate-900 text-[13px] leading-snug">
+                                      {card.title}
+                                    </h4>
+                                  </div>
+                                  
+                                  {card.description && (
+                                    <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
+                                      {card.description}
+                                    </p>
+                                  )}
+                                  
+                                  <div className="flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-slate-100 mt-2">
+                                    {card.deadline ? (
+                                      <span className="flex items-center gap-1 font-mono text-rose-600 font-bold">
+                                        <IconCalendar size={14} /> {card.deadline.substring(0, 10)}
+                                      </span>
+                                    ) : (
+                                      <span className="text-slate-400 italic">Không deadline</span>
+                                    )}
+                                    {card.assignee_id && (
+                                      <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 font-bold">
+                                        👤 {card.assignee_id}
+                                      </span>
+                                    )}
+                                  </div>
+                                  
+                                  <div className="pt-2 flex items-center justify-between gap-2">
+                                    {card.status === "in_progress" && (
+                                      <button onClick={() => handleMarkComplete(card.id)} className="w-full py-1.5 bg-slate-100 hover:bg-emerald-50 text-slate-600 hover:text-emerald-700 font-bold rounded-lg text-xs transition border border-slate-200 flex justify-center items-center gap-1">
+                                        <IconCheck size={14} /> Hoàn Thành
+                                      </button>
+                                    )}
+                                    {card.status === "pending_review" && (
+                                      <button onClick={() => { setReviewingCard(card); setReviewRating(5); setReviewComment(""); setIsReviewModalOpen(true); }} className="w-full py-1.5 bg-amber-50 text-amber-800 border border-amber-200 font-bold rounded-lg text-xs transition flex justify-center items-center gap-1">
+                                        ⏳ Chờ Nghiệm Thu
+                                      </button>
+                                    )}
+                                    {(card.status === "need_help" || card.status === "NEED_HELP") && (
+                                      <div className="w-full py-1.5 px-2 bg-rose-50 border border-rose-200 text-rose-800 font-bold rounded-lg text-xs flex items-center justify-between">
+                                        <span>🚨 Cần Trợ Giúp</span><span className="text-rose-600">Báo TP</span>
+                                      </div>
+                                    )}
+                                    {(card.status === "done" || card.status === "DONE") && (
+                                      <div className="w-full py-1.5 px-2 bg-emerald-50 border border-emerald-200 text-emerald-800 font-black rounded-lg text-xs flex items-center justify-between">
+                                        <span>✅ Đã Hoàn Thành</span><span className="text-amber-600">Done</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* DESKTOP GRID VIEW */}
+                  <div className="hidden md:grid md:grid-cols-4 gap-4 items-start">
                     {lists.map((list) => {
                       const listCards = filteredCards.filter((c) => c.list_id === list.id);
 
@@ -1472,7 +1592,7 @@ export default function TaskBoardView() {
                             setDragOverListId(null);
                             setDraggedCardId(null);
                           }}
-                          className={`p-3.5 rounded-2xl border transition-all duration-150 space-y-3 min-h-[450px] ${
+                          className={`p-3.5 rounded-2xl border transition-all duration-150 space-y-3 min-h-[100px] md:min-h-[450px] ${
                             dragOverListId === list.id
                               ? "bg-blue-50/90 border-blue-400 ring-2 ring-blue-400/30 shadow-md"
                               : "bg-[#EFEFEF]/70 border-slate-200/80"
@@ -1541,8 +1661,8 @@ export default function TaskBoardView() {
 
                                   {/* Code & Tag Chips */}
                                   <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                                    <span className="px-2 py-0.5 rounded bg-purple-100 text-purple-700 font-bold text-[9px] uppercase tracking-wider">
-                                      PRJ-AUTOMATION
+                                    <span className="px-2 py-0.5 rounded bg-purple-100 text-purple-700 font-bold text-[9px] uppercase tracking-wider truncate max-w-[100px]">
+                                      {selectedBoardId}
                                     </span>
                                     {card.color_state === "red" && (
                                       <span className="px-2 py-0.5 rounded bg-rose-100 text-rose-700 font-bold text-[9px]">

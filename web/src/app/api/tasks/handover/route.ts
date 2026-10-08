@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/auth';
 import { ensureKaizenSchema } from '@/lib/kaizenDbMigration';
+import { updateTaskAtomically } from '@/lib/services/taskCardUpdater';
 
 function getDbBinding(): any {
   return (process.env as any).DB || (globalThis as any).DB || null;
@@ -37,22 +38,25 @@ export async function POST(request: Request) {
       // 1. Update unified tasks table
       try {
         const { results } = await db.prepare(`
-          SELECT id, title, department_id FROM tasks
+          SELECT id, title, department_id, version FROM tasks
           WHERE (assignee_emp_code = ? OR reporter_emp_code = ?)
             AND status NOT IN ('DONE', 'CANCELLED')
         `).bind(targetEmp, targetEmp).all();
 
         if (results && results.length > 0) {
           for (const task of results) {
-            await db.prepare(`
-              UPDATE tasks
-              SET handover_status = 'PENDING_HANDOVER',
-                  previous_department_id = COALESCE(department_id, ?),
-                  new_department_id = ?,
-                  handover_note = ?,
-                  updated_at = CURRENT_TIMESTAMP
-              WHERE id = ?
-            `).bind(oldDept, newDept, handoverNote, task.id).run().catch(() => {});
+            const updates = {
+              tasksSet: `
+                handover_status = 'PENDING_HANDOVER',
+                previous_department_id = COALESCE(department_id, ?),
+                new_department_id = ?,
+                handover_note = ?,
+                updated_at = CURRENT_TIMESTAMP
+              `,
+              tasksParams: [oldDept, newDept, handoverNote]
+            };
+
+            await updateTaskAtomically(db, { empCode: session.empCode } as any, task.id, task.version || 1, updates, 'tasks');
             updatedCount++;
           }
         }

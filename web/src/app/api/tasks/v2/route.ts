@@ -14,6 +14,7 @@ import { getTaskScopeFilter, canWriteTask, isValidStatus, VALID_STATUSES } from 
 import { fetchMetrics } from '@/lib/services/taskMetrics';
 import { logAudit } from '@/lib/auditLogger';
 import { syncBackupToDrive } from '@/lib/driveBackup';
+import { updateTaskAtomically, deleteTaskAtomically } from '@/lib/services/taskCardUpdater';
 
 function getDb(): any {
   return (process.env as any).DB || (globalThis as any).DB || null;
@@ -273,8 +274,12 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ success: false, error: 'Dữ liệu JSON không hợp lệ' }, { status: 400 });
   }
 
-  const { taskId, status, progress, resultDescription, checklist, attachments } = body;
+  const { taskId, status, progress, resultDescription, checklist, attachments, version } = body;
   if (!taskId) return NextResponse.json({ success: false, error: 'taskId là bắt buộc' }, { status: 400 });
+
+  if (version === undefined || typeof version !== 'number') {
+    return NextResponse.json({ success: false, error: 'Thiếu hoặc sai kiểu dữ liệu phiên bản (version)' }, { status: 428 });
+  }
 
   // Validate status whitelist
   if (status !== undefined && !isValidStatus(status)) {
@@ -339,18 +344,42 @@ export async function PATCH(request: Request) {
   try { attachmentsArr = JSON.parse(existing.attachments_json || '[]'); } catch { attachmentsArr = []; }
   if (attachments !== undefined && Array.isArray(attachments)) attachmentsArr = attachments;
 
-  await db.prepare(`
-    UPDATE tasks
-    SET status = ?, progress = ?, result_description = ?,
-        checklist_json = ?, attachments_json = ?,
-        updated_at = CURRENT_TIMESTAMP
-    WHERE id = ?
-  `).bind(newStatus, newProgress, newResult, JSON.stringify(checklistArr), JSON.stringify(attachmentsArr), taskId).run();
+  const updates = {
+    tasksSet: `
+      status = ?, progress = ?, result_description = ?,
+      checklist_json = ?, attachments_json = ?,
+      updated_at = CURRENT_TIMESTAMP
+    `,
+    tasksParams: [newStatus, newProgress, newResult, JSON.stringify(checklistArr), JSON.stringify(attachmentsArr)]
+  };
+
+  const updateResult = await updateTaskAtomically(db, { empCode: user.empCode } as any, taskId, version, updates, 'tasks');
+
+  if (updateResult.type === 'NOT_FOUND') {
+    return NextResponse.json({ success: false, error: updateResult.error }, { status: 404 });
+  }
+  if (updateResult.type === 'FORBIDDEN') {
+    return NextResponse.json({ success: false, error: updateResult.error }, { status: 403 });
+  }
+  if (updateResult.type === 'SYNC_ERROR') {
+    return NextResponse.json({ success: false, error: updateResult.error }, { status: 500 });
+  }
+  if (updateResult.type === 'CONFLICT') {
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'CONFLICT',
+        message: updateResult.error,
+        currentTask: updateResult.latestCard,
+      },
+      { status: 409 }
+    );
+  }
 
   logAudit(request, { empCode: user.empCode, empName: user.name, module: 'TASKS_V2', action: 'UPDATE_TASK', targetId: taskId, changesJson: body }).catch(() => {});
   syncBackupToDrive('TASKS', { taskId, updatedBy: user.empCode, status: newStatus }, 'UPDATE_TASK').catch(() => {});
 
-  return NextResponse.json({ success: true, message: 'Đã cập nhật công việc' });
+  return NextResponse.json({ success: true, message: 'Đã cập nhật công việc', version: updateResult.newVersion });
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -382,7 +411,25 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ success: false, error: 'Không có quyền xóa công việc này' }, { status: 403 });
   }
 
-  await db.prepare('DELETE FROM tasks WHERE id = ?').bind(taskId).run();
+  const versionStr = searchParams.get('version');
+  const version = versionStr ? Number(versionStr) : undefined;
+  if (version === undefined || isNaN(version)) {
+    return NextResponse.json({ success: false, error: 'Thiếu hoặc sai kiểu dữ liệu phiên bản (version)' }, { status: 428 });
+  }
+
+  const deleteResult = await deleteTaskAtomically(db, { empCode: user.empCode } as any, taskId, version, 'tasks');
+  if (deleteResult.type === 'NOT_FOUND') {
+    return NextResponse.json({ success: false, error: deleteResult.error }, { status: 404 });
+  }
+  if (deleteResult.type === 'FORBIDDEN') {
+    return NextResponse.json({ success: false, error: deleteResult.error }, { status: 403 });
+  }
+  if (deleteResult.type === 'SYNC_ERROR') {
+    return NextResponse.json({ success: false, error: deleteResult.error }, { status: 500 });
+  }
+  if (deleteResult.type === 'CONFLICT') {
+    return NextResponse.json({ success: false, error: deleteResult.error, currentTask: deleteResult.latestCard }, { status: 409 });
+  }
 
   logAudit(request, { empCode: user.empCode, empName: user.name, module: 'TASKS_V2', action: 'DELETE_TASK', targetId: taskId, changesJson: { taskId } }).catch(() => {});
 

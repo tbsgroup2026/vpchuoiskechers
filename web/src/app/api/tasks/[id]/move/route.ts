@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import { recordAuditLog } from '@/lib/auditLogger';
+import { updateTaskAtomically } from '@/lib/services/taskCardUpdater';
 
 export function generateStaticParams() {
   return [{ id: 'sample' }];
@@ -47,17 +48,8 @@ export async function PATCH(
       return NextResponse.json({ success: false, error: 'Không tìm thấy công việc' }, { status: 404 });
     }
 
-    // Check Optimistic Locking Version mismatch
-    if (version !== undefined && Number(version) !== Number(currentTask.version)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'CONFLICT',
-          message: 'Dữ liệu công việc đã được cập nhật bởi người khác. Giao diện đã được làm mới.',
-          currentTask,
-        },
-        { status: 409 }
-      );
+    if (version === undefined || typeof version !== 'number') {
+      return NextResponse.json({ success: false, error: 'Thiếu hoặc sai kiểu dữ liệu phiên bản (version)' }, { status: 428 });
     }
 
     // Find semantic_type of target column to sync task.status
@@ -83,20 +75,41 @@ export async function PATCH(
       }
     }
 
-    const newVersion = Number(currentTask.version || 1) + 1;
+    const updates = {
+      tasksSet: `
+        column_id = ?,
+        position = ?,
+        status = ?,
+        updated_at = CURRENT_TIMESTAMP
+      `,
+      tasksParams: [targetColumnId, targetPosition, newStatus]
+    };
+
+    const updateResult = await updateTaskAtomically(db, session, taskId, version, updates, 'tasks');
+
+    if (updateResult.type === 'NOT_FOUND') {
+      return NextResponse.json({ success: false, error: updateResult.error }, { status: 404 });
+    }
+    if (updateResult.type === 'FORBIDDEN') {
+      return NextResponse.json({ success: false, error: updateResult.error }, { status: 403 });
+    }
+    if (updateResult.type === 'SYNC_ERROR') {
+      return NextResponse.json({ success: false, error: updateResult.error }, { status: 500 });
+    }
+    if (updateResult.type === 'CONFLICT') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'CONFLICT',
+          message: updateResult.error,
+          currentTask: updateResult.latestCard,
+        },
+        { status: 409 }
+      );
+    }
+
+    const newVersion = updateResult.newVersion;
     const empCode = session.empCode || 'USER';
-
-    const updateSql = `
-      UPDATE tasks
-      SET column_id = ?,
-          position = ?,
-          status = ?,
-          version = ?,
-          updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `;
-
-    await db.prepare(updateSql).bind(targetColumnId, targetPosition, newStatus, newVersion, taskId).run();
 
     // Log activity
     const logId = `act_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;

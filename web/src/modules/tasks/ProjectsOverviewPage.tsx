@@ -39,83 +39,11 @@ import { uploadCloudinaryFile } from "@/lib/cloudinary";
 import MyTasksKanbanView, { TaskAttachment } from "./MyTasksKanbanView";
 
 /* ── Initial Project Data ─────────────────────────────────────── */
-const PROJECTS_INITIAL = [
-  {
-    id: "PRJ-AUTOMATION",
-    name: "Tự động hóa dây chuyền & CĐS IT",
-    dept: "Phòng IT & Chuyển đổi số",
-    tag: "AUTOMATION & AI",
-    accent: "#6366f1",       // Indigo
-    accentBg: "#f5f3ff",
-    accentBorder: "#e0e7ff",
-    Icon: IconCpu,
-    progress: 83,
-    tasksCount: 3,
-    doneCount: 2,
-    members: 4,
-    description: "Tự động hóa báo cáo, tích hợp AI Gemba & hệ thống ERP sản xuất.",
-  },
-  {
-    id: "PRJ-SKECHERS-RETAIL",
-    name: "Vận hành chuỗi Skechers HQ & Store",
-    dept: "Phối hợp chuỗi Skechers",
-    tag: "SKECHERS RETAIL",
-    accent: "#006838",       // TBS Green
-    accentBg: "#f0fdf4",
-    accentBorder: "#bbf7d0",
-    Icon: IconShoe,
-    progress: 75,
-    tasksCount: 2,
-    doneCount: 1,
-    members: 5,
-    description: "Quản lý đơn hàng, kho vận và đồng bộ sản phẩm chuỗi cửa hàng.",
-  },
-  {
-    id: "PRJ-ADMIN-EXPENSE",
-    name: "Số hóa hành chính & đăng ký xe",
-    dept: "Phòng Hành chính nhân sự",
-    tag: "HÀNH CHÍNH & ISO",
-    accent: "#d97706",       // Amber
-    accentBg: "#fffbeb",
-    accentBorder: "#fef08a",
-    Icon: IconFileAnalytics,
-    progress: 60,
-    tasksCount: 2,
-    doneCount: 1,
-    members: 3,
-    description: "Số hóa công tác phí, đăng ký xe công tác và phòng họp thông minh.",
-  },
-  {
-    id: "PRJ-KAIZEN-152",
-    name: "Sáng kiến cải tiến Kaizen & 1-5-2",
-    dept: "Ban 2.2 / CI-152",
-    tag: "KAIZEN 1-5-2",
-    accent: "#0284c7",       // Sky/Blue
-    accentBg: "#f0f9ff",
-    accentBorder: "#bae6fd",
-    Icon: IconBulb,
-    progress: 80,
-    tasksCount: 3,
-    doneCount: 2,
-    members: 6,
-    description: "Thống kê đề xuất Kaizen, thẩm định hiệu quả tiết kiệm và chấm điểm.",
-  },
-  {
-    id: "PRJ-GEMBA-SAFETY",
-    name: "An toàn lao động & kiểm soát Gemba",
-    dept: "Ban An toàn & QC",
-    tag: "GEMBA SAFETY",
-    accent: "#e11d48",       // Rose/Red
-    accentBg: "#fff1f2",
-    accentBorder: "#fecdd3",
-    Icon: IconShieldCheck,
-    progress: 50,
-    tasksCount: 2,
-    doneCount: 1,
-    members: 4,
-    description: "Ghi nhận lỗi Gemba walk, theo dõi khắc phục sự cố tại xưởng.",
-  },
-];
+const hashString = (str: string) => {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  return hash;
+};
 
 const COLOR_OPTIONS = [
   { key: "green",  hex: "#006838", bg: "#f0fdf4", border: "#bbf7d0" },
@@ -127,8 +55,8 @@ const COLOR_OPTIONS = [
 ];
 
 export default function ProjectsOverviewPage() {
-  const [projects, setProjects] = useState(PROJECTS_INITIAL);
-  const [selectedProject, setSelectedProject] = useState<(typeof PROJECTS_INITIAL)[0] | null>(null);
+  const [projects, setProjects] = useState<any[]>([]);
+  const [selectedProject, setSelectedProject] = useState<any | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
 
   // Modal State & Attachments
@@ -200,14 +128,48 @@ export default function ProjectsOverviewPage() {
 
   useEffect(() => {
     setCurrentUser(getCurrentUser());
-    if (typeof window !== "undefined") {
-      const p = new URLSearchParams(window.location.search);
-      const id = p.get("project") || p.get("project_id");
-      if (id) {
-        const found = PROJECTS_INITIAL.find((x) => x.id === id);
-        if (found) setSelectedProject(found);
-      }
-    }
+    const loadData = async () => {
+      try {
+        const token = typeof window !== "undefined" ? localStorage.getItem("tbs_token") || sessionStorage.getItem("tbs_token") : "";
+        const res = await fetch("/api/projects", {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        const json = await res.json();
+        if (json.success) {
+          const mapped = json.projects.map((p: any) => {
+            const colors = COLOR_OPTIONS;
+            const c = colors[Math.abs(hashString(p.id)) % colors.length];
+            return {
+              id: p.id,
+              name: p.name,
+              dept: p.department_id || 'Chưa rõ',
+              tag: p.scope === 'CROSS_DEPT' ? 'LIÊN PHÒNG BAN' : 'PHÒNG BAN',
+              accent: c.hex,
+              accentBg: c.bg,
+              accentBorder: c.border,
+              Icon: IconFolder,
+              progress: p.progress || 0,
+              tasksCount: p.total_tasks || 0,
+              doneCount: p.completed_tasks || 0,
+              members: p.members?.length || 1,
+              description: p.description || '',
+            };
+          });
+          setProjects(mapped);
+
+          // Restore selected project if URL has project ID
+          if (typeof window !== "undefined") {
+            const pParams = new URLSearchParams(window.location.search);
+            const id = pParams.get("project") || pParams.get("project_id");
+            if (id) {
+              const found = mapped.find((x: any) => x.id === id);
+              if (found) setSelectedProject(found);
+            }
+          }
+        }
+      } catch (e) {}
+    };
+    loadData();
   }, []);
 
   const roleLevel = currentUser?.roleLevel ?? 4;
@@ -233,7 +195,7 @@ export default function ProjectsOverviewPage() {
     }
   };
 
-  const handleAddProject = () => {
+  const handleAddProject = async () => {
     setFErr("");
     if (!fName.trim()) { setFErr("Vui lòng nhập tên dự án"); return; }
     if (!fTag.trim()) { setFErr("Vui lòng nhập nhãn phân loại"); return; }
@@ -241,25 +203,47 @@ export default function ProjectsOverviewPage() {
     const c = COLOR_OPTIONS.find((o) => o.key === fColor) || COLOR_OPTIONS[0];
     const slug = fTag.trim().toUpperCase().replace(/\s+/g, "-").replace(/[^A-Z0-9-]/g, "");
 
-    const newProject = {
-      id: `PRJ-${slug}-${Date.now().toString(36).toUpperCase()}`,
-      name: fName.trim(),
-      dept: fDept.trim() || "Phòng Ban Chức Năng",
-      tag: fTag.trim().toUpperCase(),
-      accent: c.hex,
-      accentBg: c.bg,
-      accentBorder: c.border,
-      Icon: IconFolder,
-      progress: 0,
-      tasksCount: 0,
-      doneCount: 0,
-      members: 1,
-      description: fDesc.trim() || "Bảng quản lý công việc dự án mới tạo.",
-    };
-
-    setProjects((prev) => [newProject, ...prev]);
-    setFName(""); setFDept(""); setFTag(""); setFDesc(""); setFColor("green"); setFAttachments([]);
-    setIsAddOpen(false);
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("tbs_token") || sessionStorage.getItem("tbs_token") : "";
+      const res = await fetch("/api/projects", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          name: fName.trim(),
+          description: fDesc.trim(),
+          department_id: fDept.trim() || undefined,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        const p = json.project;
+        const newProject = {
+          id: p.id,
+          name: p.name,
+          dept: p.department_id || "Phòng Ban Chức Năng",
+          tag: p.scope === 'CROSS_DEPT' ? 'LIÊN PHÒNG BAN' : 'PHÒNG BAN',
+          accent: c.hex,
+          accentBg: c.bg,
+          accentBorder: c.border,
+          Icon: IconFolder,
+          progress: 0,
+          tasksCount: 0,
+          doneCount: 0,
+          members: 1,
+          description: fDesc.trim() || "Bảng quản lý công việc dự án mới tạo.",
+        };
+        setProjects((prev) => [newProject, ...prev]);
+        setFName(""); setFDept(""); setFTag(""); setFDesc(""); setFColor("green"); setFAttachments([]);
+        setIsAddOpen(false);
+      } else {
+        setFErr(json.error || "Lỗi tạo dự án");
+      }
+    } catch (e) {
+      setFErr("Lỗi kết nối máy chủ");
+    }
   };
 
   const totalTasks = projects.reduce((acc, p) => acc + p.tasksCount, 0);

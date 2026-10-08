@@ -91,7 +91,7 @@ export async function updateTaskAtomically(
     if (!latestCard) return { type: 'NOT_FOUND', error: 'Thẻ công việc không tồn tại.' };
 
     const perms = await getCardPermissions(db, cardId, user, masterTable === 'task_cards' ? 'legacy' : 'V2');
-    if (!perms.hasAccess || !perms.permissions.canView) {
+    if (!perms.hasAccess) {
       return { type: 'FORBIDDEN', error: 'Bạn đã mất quyền truy cập thẻ công việc này.' };
     }
 
@@ -100,7 +100,7 @@ export async function updateTaskAtomically(
 
     return { 
       type: 'CONFLICT', 
-      latestCard: { ...latestCard, permissions: perms.permissions }, 
+      latestCard: { ...latestCard, permissions: 'permissions' in perms ? perms.permissions : undefined }, 
       error: 'Thẻ vừa được cập nhật bởi người khác. Vui lòng thử lại.' 
     };
   }
@@ -137,7 +137,7 @@ export async function deleteTaskAtomically(
   const checkCard = await db.prepare(`SELECT * FROM ${checkTable} WHERE id = ?`).bind(cardId).first();
   const perms = await getCardPermissions(db, cardId, user, checkTable === 'tasks' ? 'V2' : 'legacy');
 
-  if (!perms.hasAccess || !perms.permissions.canDelete) {
+  if (!perms.hasAccess) {
     return { type: 'FORBIDDEN', error: 'Bạn không có quyền xóa thẻ này.' };
   }
 
@@ -172,7 +172,7 @@ export async function deleteTaskAtomically(
     delete latestCard.write_token;
     return {
       type: 'CONFLICT',
-      latestCard: { ...latestCard, permissions: perms.permissions },
+      latestCard: { ...latestCard, permissions: 'permissions' in perms ? perms.permissions : undefined },
       error: 'Thẻ vừa được cập nhật bởi người khác.'
     };
   }

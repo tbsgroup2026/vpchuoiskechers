@@ -88,10 +88,18 @@ export async function GET(request: Request) {
           updated_at: t.updated_at,
         }));
 
-        // Attach permissions to each card so UI doesn't have to duplicate logic
+        const { isManager, empCode } = boardPerm;
+        // Fix N+1: Compute permissions synchronously using already fetched boardPerm and card data
         for (const c of cards) {
-          const perm = await getCardPermissions(db, c.id, session, tasksSource);
-          c.permissions = perm.permissions;
+          const isAssignee = c.assignee_id === empCode;
+          const isReporter = c.created_by === empCode;
+          
+          c.permissions = {
+            canMove: isManager || isAssignee || isReporter,
+            canComplete: isManager || isAssignee || isReporter,
+            canReview: isManager || isReporter,
+            canEditMeta: isManager || isReporter
+          };
         }
 
         return NextResponse.json({ success: true, lists: KANBAN_LISTS, cards, source: 'V2_tasks_table' });
@@ -104,9 +112,18 @@ export async function GET(request: Request) {
     const { results: lists } = await db.prepare('SELECT * FROM task_lists WHERE board_id = ? ORDER BY sort_order ASC').bind(boardId).all();
     const { results: cards } = await db.prepare('SELECT * FROM task_cards WHERE board_id = ? ORDER BY sort_order ASC, created_at DESC').bind(boardId).all();
     
+    const { isManager, empCode } = boardPerm;
+    // Fix N+1 for legacy
     for (const c of (cards || [])) {
-      const perm = await getCardPermissions(db, (c as any).id, session, 'legacy');
-      (c as any).permissions = perm.permissions;
+      const isAssignee = (c as any).assignee_id === empCode;
+      const isReporter = (c as any).created_by === empCode || (c as any).reporter_emp_code === empCode;
+      
+      (c as any).permissions = {
+        canMove: isManager || isAssignee || isReporter,
+        canComplete: isManager || isAssignee || isReporter,
+        canReview: isManager || isReporter,
+        canEditMeta: isManager || isReporter
+      };
     }
 
     return NextResponse.json({ success: true, lists: lists || [], cards: cards || [], source: 'legacy_task_cards' });

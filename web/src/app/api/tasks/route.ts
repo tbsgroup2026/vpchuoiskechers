@@ -199,6 +199,40 @@ function parseJsonField(val: any) {
   return [];
 }
 
+function buildTaskScopeWhereClause(session: any, url: string) {
+  const params: any[] = [];
+  const clauses: string[] = ["status != 'DELETED'"]; // Basic filter
+  
+  if (session) {
+    const roleLevel = session.roleLevel || 4;
+    const roleCode = (session.roleCode || '').toUpperCase();
+    const isAdmin = roleCode === 'SUPER_ADMIN' || roleCode === 'ADMIN' || roleLevel <= 2;
+    const isTP = !isAdmin && (roleCode === 'TRUONG_PHONG' || roleCode === 'TP' || roleLevel === 3);
+    const userDept = session.departmentCode || session.department || '';
+    const userEmp = session.empCode;
+
+    if (!isAdmin && userEmp) {
+      if (isTP) {
+        clauses.push(`(assignee_emp_code = ? OR reporter_emp_code = ? OR department_id = ?)`);
+        params.push(userEmp, userEmp, userDept);
+      } else {
+        clauses.push(`(assignee_emp_code = ? OR reporter_emp_code = ?)`);
+        params.push(userEmp, userEmp);
+      }
+    }
+  }
+
+  const { searchParams } = new URL(url);
+  const status = searchParams.get('status');
+  if (status) {
+    clauses.push(`status = ?`);
+    params.push(status);
+  }
+
+  const whereSql = clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '';
+  return { whereSql, params };
+}
+
 export async function GET(request: Request) {
   try {
     const authHeader = request.headers.get('authorization');
@@ -218,11 +252,22 @@ export async function GET(request: Request) {
     // If TASKS_SOURCE === 'V2' (default), query from unified `tasks` table
     if (db && tasksSource !== 'legacy') {
       try {
-        const { whereSql, params } = buildTaskScopeWhereClause(session, request.url);
-        const query = `SELECT * FROM tasks ${whereSql} ORDER BY created_at DESC`;
-        const { results } = await db.prepare(query).bind(...params).all();
+        const { searchParams } = new URL(request.url);
+        const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
+        const limit = Math.max(1, Math.min(100, parseInt(searchParams.get('limit') || '50', 10)));
+        const offset = (page - 1) * limit;
 
-        if (results && results.length > 0) {
+        const { whereSql, params } = buildTaskScopeWhereClause(session, request.url);
+        
+        // Fix N+1: query total count and page tasks in one go
+        const countQuery = `SELECT COUNT(*) as total FROM tasks ${whereSql}`;
+        const totalResult: any = await db.prepare(countQuery).bind(...params).first().catch(() => ({ total: 0 }));
+        const total = totalResult?.total || 0;
+
+        const query = `SELECT * FROM tasks ${whereSql} ORDER BY updated_at DESC, created_at DESC LIMIT ? OFFSET ?`;
+        const { results } = await db.prepare(query).bind(...params, limit, offset).all();
+
+        if (results) {
           const tasks = results.map((r: any) => ({
             ...r,
             checklist: parseJsonField(r.checklist),
@@ -236,6 +281,10 @@ export async function GET(request: Request) {
           return NextResponse.json({
             success: true,
             tasks,
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit),
             source: 'V2_tasks_table',
           });
         }

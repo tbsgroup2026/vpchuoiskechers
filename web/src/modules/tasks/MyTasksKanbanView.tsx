@@ -204,6 +204,9 @@ interface MyTasksKanbanViewProps {
 export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKanbanViewProps = {}) {
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
   const [selectedTask, setSelectedTask] = useState<TaskItem | null>(null);
   const [isMounted, setIsMounted] = useState(false);
 
@@ -296,25 +299,32 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
 
   const isStaffOnly = !isAdmin && !isExec && !isTP;
 
-  const fetchTasks = async (targetMember?: string) => {
+  const fetchTasks = async (targetMember?: string, targetPage: number = 1, append: boolean = false) => {
     try {
-      setLoading(true);
+      if (append) setIsFetchingMore(true);
+      else setLoading(true);
+
       const token = typeof window !== "undefined" ? localStorage.getItem("tbs_token") || sessionStorage.getItem("tbs_token") : "";
       const selectedMember = targetMember !== undefined ? targetMember : memberFilter;
-      const url = selectedMember && selectedMember !== "ALL"
-        ? `/api/tasks?assignee_emp_code=${encodeURIComponent(selectedMember)}`
-        : "/api/tasks";
+      
+      let url = selectedMember && selectedMember !== "ALL"
+        ? `/api/tasks?assignee_emp_code=${encodeURIComponent(selectedMember)}&page=${targetPage}&limit=50`
+        : `/api/tasks?page=${targetPage}&limit=50`;
+
       const res = await fetch(url, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       const data = await res.json();
       if (data.success && Array.isArray(data.tasks)) {
-        setTasks(data.tasks.map((t: any) => ({ ...t, checklist: parseChecklist(t.checklist) })));
+        const newTasks = data.tasks.map((t: any) => ({ ...t, checklist: parseChecklist(t.checklist) }));
+        setTasks(prev => append ? [...prev, ...newTasks] : newTasks);
+        setHasMore(data.page < data.totalPages);
       }
     } catch {
       console.error("Failed to load tasks");
     } finally {
       setLoading(false);
+      setIsFetchingMore(false);
     }
   };
 
@@ -329,8 +339,16 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
         if (name) setActiveProjectName(decodeURIComponent(name));
       }
     }
-    fetchTasks();
+    setPage(1);
+    fetchTasks(undefined, 1, false);
   }, [projectId]);
+
+  const loadMoreTasks = () => {
+    if (!hasMore || loading || isFetchingMore) return;
+    const nextPage = page + 1;
+    setPage(nextPage);
+    fetchTasks(undefined, nextPage, true);
+  };
 
   const displayTasks = tasks.filter((t) => {
     if (activeProjectFilter) {
@@ -1584,6 +1602,27 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* Pagination Load More Button */}
+      {hasMore && (
+        <div className="flex justify-center mt-2 mb-6">
+          <button
+            type="button"
+            onClick={loadMoreTasks}
+            disabled={isFetchingMore}
+            className="px-6 py-2.5 rounded-xl bg-white border border-emerald-200 text-[#006838] font-black text-xs shadow-sm hover:bg-emerald-50 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+          >
+            {isFetchingMore ? (
+              <>
+                <IconLoader2 size={16} className="animate-spin" />
+                <span>Đang tải thêm...</span>
+              </>
+            ) : (
+              <span>Tải thêm công việc</span>
+            )}
+          </button>
         </div>
       )}
 

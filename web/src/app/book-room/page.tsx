@@ -26,6 +26,11 @@ export default function PublicBookingPage() {
   const [errorMsg, setErrorMsg] = useState("");
   const [bookingId, setBookingId] = useState("");
 
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [isLookingUp, setIsLookingUp] = useState(false);
+  const [lookupStatus, setLookupStatus] = useState<"idle" | "found" | "not_found" | "error">("idle");
+  const [autoFilledMsnv, setAutoFilledMsnv] = useState("");
+
   const timeSlots = [
     "08:00 - 09:00", "09:00 - 10:00", "10:00 - 11:00", "11:00 - 12:00",
     "13:00 - 14:00", "14:00 - 15:00", "15:00 - 16:00", "16:00 - 17:00",
@@ -33,7 +38,67 @@ export default function PublicBookingPage() {
 
   useEffect(() => {
     fetchRooms();
+    fetchDepartments();
   }, []);
+
+  const fetchDepartments = async () => {
+    try {
+      const res = await fetch("/api/public/departments");
+      const data = await res.json();
+      if (data.success) {
+        setDepartments(data.data || []);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleMsnvLookup = async (msnv: string) => {
+    const code = msnv.trim().toUpperCase();
+    if (!code) {
+      setLookupStatus("idle");
+      return;
+    }
+    if (code === autoFilledMsnv) return;
+
+    setIsLookingUp(true);
+    setLookupStatus("idle");
+    try {
+      const res = await fetch(`/api/public/employees/lookup?msnv=${encodeURIComponent(code)}`);
+      const data = await res.json();
+      if (data.success && data.found && data.data) {
+        setLookupStatus("found");
+        setAutoFilledMsnv(code);
+        setFormData(prev => ({
+          ...prev,
+          empCode: code,
+          userName: data.data.fullName || prev.userName,
+          department: data.data.department || prev.department,
+          zaloPhone: data.data.phone || prev.zaloPhone
+        }));
+      } else {
+        setLookupStatus("not_found");
+        setAutoFilledMsnv("");
+      }
+    } catch (e) {
+      setLookupStatus("error");
+    } finally {
+      setIsLookingUp(false);
+    }
+  };
+
+  const handleMsnvChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value.toUpperCase();
+    setFormData({ ...formData, empCode: val });
+    if (!val) {
+      setLookupStatus("idle");
+      setAutoFilledMsnv("");
+    }
+  };
+
+  const handleMsnvBlur = () => {
+    handleMsnvLookup(formData.empCode);
+  };
 
   const fetchRooms = async () => {
     try {
@@ -128,18 +193,80 @@ export default function PublicBookingPage() {
             <h3 className="font-bold text-slate-800 text-lg border-b pb-2">1. Thông tin người đặt</h3>
             
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1">Họ và tên <span className="text-red-500">*</span></label>
-              <input required type="text" value={formData.userName} onChange={e => setFormData({...formData, userName: e.target.value})} className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-blue-500 focus:ring-1 outline-none" placeholder="VD: Nguyễn Văn A" />
+              <label className="block text-sm font-bold text-slate-700 mb-1">MSNV</label>
+              <div className="relative">
+                <input 
+                  type="text" 
+                  value={formData.empCode} 
+                  onChange={handleMsnvChange}
+                  onBlur={handleMsnvBlur}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleMsnvBlur();
+                    }
+                  }}
+                  className={`w-full px-4 py-3 rounded-xl bg-slate-50 border ${lookupStatus === 'found' ? 'border-green-500 ring-1 ring-green-500' : 'border-slate-200'} focus:border-blue-500 focus:ring-1 outline-none uppercase transition-colors`} 
+                  placeholder="VD: NV001 (Tùy chọn)" 
+                  aria-label="Mã số nhân viên"
+                />
+                {isLookingUp && (
+                  <div className="absolute right-4 top-3.5 flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
+                  </div>
+                )}
+              </div>
+              {lookupStatus === "found" && (
+                <p className="text-xs text-green-600 font-bold mt-1.5 flex items-center gap-1">
+                  ✓ Đã tìm thấy nhân viên
+                </p>
+              )}
+              {lookupStatus === "not_found" && (
+                <p className="text-xs text-amber-600 font-bold mt-1.5 flex items-center gap-1">
+                  Không tìm thấy MSNV, vui lòng nhập thông tin thủ công.
+                </p>
+              )}
+              {lookupStatus === "error" && (
+                <p className="text-xs text-red-500 font-bold mt-1.5">
+                  Lỗi kết nối tra cứu MSNV.
+                </p>
+              )}
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-1">Họ và tên <span className="text-red-500">*</span></label>
+              <input 
+                required 
+                type="text" 
+                value={formData.userName} 
+                onChange={e => setFormData({...formData, userName: e.target.value})} 
+                className={`w-full px-4 py-3 rounded-xl ${autoFilledMsnv ? 'bg-blue-50/50' : 'bg-slate-50'} border border-slate-200 focus:border-blue-500 focus:ring-1 outline-none transition-colors`} 
+                placeholder="VD: Nguyễn Văn A" 
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-1">SĐT (Zalo) <span className="text-red-500">*</span></label>
-                <input required type="tel" value={formData.zaloPhone} onChange={e => setFormData({...formData, zaloPhone: e.target.value})} className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-blue-500 focus:ring-1 outline-none" placeholder="Nhận thông báo" />
+                <input required type="tel" value={formData.zaloPhone} onChange={e => setFormData({...formData, zaloPhone: e.target.value})} className={`w-full px-4 py-3 rounded-xl ${autoFilledMsnv && formData.zaloPhone ? 'bg-blue-50/50' : 'bg-slate-50'} border border-slate-200 focus:border-blue-500 focus:ring-1 outline-none transition-colors`} placeholder="Nhận thông báo" />
               </div>
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-1">Bộ phận / Đơn vị</label>
-                <input type="text" value={formData.department} onChange={e => setFormData({...formData, department: e.target.value})} className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-blue-500 focus:ring-1 outline-none" placeholder="Tùy chọn" />
+                <select
+                  value={formData.department}
+                  onChange={e => setFormData({...formData, department: e.target.value})}
+                  className={`w-full px-4 py-3 rounded-xl ${autoFilledMsnv ? 'bg-blue-50/50' : 'bg-slate-50'} border border-slate-200 focus:border-blue-500 focus:ring-1 outline-none transition-colors cursor-pointer appearance-none`}
+                  style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E")`, backgroundPosition: 'right 0.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em', paddingRight: '2.5rem' }}
+                >
+                  <option value="">Chọn bộ phận</option>
+                  {departments.map((dept, idx) => (
+                    <option key={dept.id || idx} value={dept.name}>{dept.name}</option>
+                  ))}
+                  {/* Allow free text if department fetched from MSNV doesn't exactly match DB items */}
+                  {formData.department && !departments.some(d => d.name === formData.department) && (
+                    <option value={formData.department}>{formData.department}</option>
+                  )}
+                </select>
               </div>
             </div>
           </div>

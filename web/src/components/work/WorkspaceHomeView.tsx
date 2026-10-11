@@ -13,6 +13,8 @@ import {
   IconFolder,
   IconSettings,
 } from "@tabler/icons-react";
+import { useNotifications } from "@/hooks/useNotifications";
+import { useRouter } from "next/navigation";
 
 interface WorkspaceHomeViewProps {
   userName?: string;
@@ -76,9 +78,23 @@ export default function WorkspaceHomeView({
 
   // Shared data state from API endpoints
   const [tasks, setTasks] = useState<TaskItem[]>([]);
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [isLoadingTasks, setIsLoadingTasks] = useState(true);
-  const [isLoadingNotifications, setIsLoadingNotifications] = useState(true);
+
+  // Use realtime notifications hook (poll every 15s)
+  const { 
+    notifications, 
+    isLoading: isLoadingNotifications,
+    markAsRead
+  } = useNotifications(5, 15000);
+
+  const router = useRouter();
+
+  const handleNotificationClick = (id: string, link?: string) => {
+    markAsRead(id);
+    if (link) {
+      router.push(link);
+    }
+  };
 
   // Active user details
   const activeName = activeUser?.name || userName || "Phạm Nguyễn Anh Huy";
@@ -115,39 +131,7 @@ export default function WorkspaceHomeView({
     };
   }, [activeCode]);
 
-  // 2. Fetch Real Notifications from database
-  useEffect(() => {
-    let isMountedFetch = true;
-    async function fetchRealNotifications() {
-      setIsLoadingNotifications(true);
-      try {
-        const res = await fetch("/api/notifications?limit=5", { cache: "no-store" });
-        if (res.ok && res.headers.get("content-type")?.includes("application/json")) {
-          const json = await res.json();
-          if (json.success && Array.isArray(json.data) && json.data.length > 0) {
-            if (isMountedFetch) {
-              const mapped = json.data.map((item: any, idx: number) => ({
-                id: item.id || `notif-${idx}`,
-                title: item.title || item.message,
-                department: item.department || item.targetUser || "Khối IT & HR",
-                date: item.created_at ? new Date(item.created_at).toLocaleDateString("vi-VN") : "Hôm nay",
-                dotColor: idx === 0 ? "bg-rose-500" : idx === 1 ? "bg-blue-500" : "bg-emerald-500",
-              }));
-              setNotifications(mapped);
-            }
-          }
-        }
-      } catch (err) {
-        console.warn("Could not fetch real notifications:", err);
-      } finally {
-        if (isMountedFetch) setIsLoadingNotifications(false);
-      }
-    }
-    fetchRealNotifications();
-    return () => {
-      isMountedFetch = false;
-    };
-  }, []);
+  // 2. Notifications are now managed by useNotifications hook
 
   // Compute 100% Real Dynamic KPIs from tasks array
   const kpiStats = useMemo(() => {
@@ -278,11 +262,17 @@ export default function WorkspaceHomeView({
     return operationalModules.filter((m) => allowedIds.has(m.id) || m.id === "documents" || m.id === "my_tasks");
   }, [visibleDepartments]);
 
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   // When selectedDept === "home" or path is /work/home, render HomeNew (New Home UI)
   // When selectedDept is NOT "home" (e.g. null, overview, or default), render HomeClassic (Classic Dashboard UI)
   const isHomeView =
     selectedDept === "home" ||
-    (typeof window !== "undefined" &&
+    (isMounted &&
+      typeof window !== "undefined" &&
       (window.location.search.includes("dept=home") || window.location.pathname.endsWith("/work/home")));
 
   return isHomeView ? (
@@ -300,8 +290,9 @@ export default function WorkspaceHomeView({
       kpiStats={kpiStats}
       urgentTaskList={urgentTaskList}
       allowedModules={allowedModules}
-      notifications={notifications}
+      notifications={notifications as any}
       isLoadingNotifications={isLoadingNotifications}
+      onNotificationClick={handleNotificationClick}
     />
   ) : (
     <HomeClassic
@@ -315,8 +306,9 @@ export default function WorkspaceHomeView({
       hasDeptPermission={hasDeptPermission}
       tasks={tasks}
       isLoadingTasks={isLoadingTasks}
-      notifications={notifications}
+      notifications={notifications as any}
       isLoadingNotifications={isLoadingNotifications}
+      onNotificationClick={handleNotificationClick}
     />
   );
 }

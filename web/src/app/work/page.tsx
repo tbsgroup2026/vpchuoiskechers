@@ -580,7 +580,18 @@ export default function WorkDashboardPage({ initialDept }: { initialDept?: strin
     // Avatar priority: localStorage (freshest, includes just-uploaded avatar) > D1 database
     async function loadD1Profile() {
       try {
-        const res = await fetch("/api/profile", { cache: "no-store" });
+        const token = typeof window !== "undefined"
+          ? (localStorage.getItem("tbs_jwt_token") || localStorage.getItem("tbs_token") || sessionStorage.getItem("tbs_jwt_token") || sessionStorage.getItem("tbs_token"))
+          : null;
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (token) {
+          headers["Authorization"] = `Bearer ${token}`;
+        }
+        const res = await fetch("/api/profile", {
+          cache: "no-store",
+          headers,
+          credentials: "include"
+        });
         if (!res.ok || !res.headers.get("content-type")?.includes("application/json")) return;
         const json = await res.json();
         if (json.success && json.data) {
@@ -642,9 +653,17 @@ export default function WorkDashboardPage({ initialDept }: { initialDept?: strin
     setIsProfileModalOpen(false);
 
     try {
+      const token = typeof window !== "undefined"
+        ? (localStorage.getItem("tbs_jwt_token") || localStorage.getItem("tbs_token") || sessionStorage.getItem("tbs_jwt_token") || sessionStorage.getItem("tbs_token"))
+        : null;
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
       const res = await fetch("/api/profile", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
+        credentials: "include",
         body: JSON.stringify(profileSnapshot),
       });
       const json = await res.json();
@@ -870,8 +889,9 @@ export default function WorkDashboardPage({ initialDept }: { initialDept?: strin
   }, [isMounted, userInfo]);
 
   const visibleDepartments = useMemo(() => {
-    const activeUser = currentUser || (isMounted ? getCurrentUser() : null) || getSystemUser("202608001");
-    const normalizedCode = normalizeEmpCode(activeUser?.empCode || "202608001");
+    if (!isMounted) return departments;
+    const activeUser = currentUser || getCurrentUser();
+    const normalizedCode = normalizeEmpCode(activeUser?.empCode || "");
     const sysUser = getSystemUser(normalizedCode);
 
     const allowedModules = getAllowedModules(activeUser, sysUser);
@@ -885,7 +905,7 @@ export default function WorkDashboardPage({ initialDept }: { initialDept?: strin
     }
 
     return departments.filter((dept) => allowedModules.includes(dept.id));
-  }, [currentUser, departments]);
+  }, [isMounted, currentUser, departments]);
 
   useEffect(() => {
     if (selectedDept && !visibleDepartments.some((d) => d.id === selectedDept)) {
@@ -907,7 +927,7 @@ export default function WorkDashboardPage({ initialDept }: { initialDept?: strin
   const activeDeptObj = departments.find((d) => d.id === selectedDept);
 
   return (
-    <div className="h-screen w-full flex overflow-hidden bg-[#f4f7f5] text-slate-900 font-sans antialiased selection:bg-[#006838] selection:text-white">
+    <div suppressHydrationWarning className="h-screen w-full flex overflow-hidden bg-[#f4f7f5] text-slate-900 font-sans antialiased selection:bg-[#006838] selection:text-white">
       {/* ════════════════════════════════════════════════════════════════
           LEFT SIDEBAR (Hidden on Mobile, Fixed Height on Desktop)
          ════════════════════════════════════════════════════════════════ */}

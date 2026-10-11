@@ -13,14 +13,33 @@ export interface CloudinaryLoaderOptions {
  */
 export default function cloudinaryLoader({ src, width, quality, profileQuality = "high" }: CloudinaryLoaderOptions): string {
   if (!src) return "/images/tbs-logo.png";
+  const clean = String(src).trim();
+  if (
+    !clean ||
+    clean === "undefined" ||
+    clean === "null" ||
+    clean === "f_auto" ||
+    clean === "q_auto" ||
+    clean.endsWith("/upload/f_auto") ||
+    clean.endsWith("/upload/")
+  ) {
+    return "/images/tbs-logo.png";
+  }
 
   // If already a full Cloudinary URL:
-  if (src.includes("res.cloudinary.com")) {
-    return transformCloudinaryUrl(src, { width, quality, profileQuality });
+  if (clean.includes("res.cloudinary.com")) {
+    const uploadIdx = clean.indexOf("/upload/");
+    if (uploadIdx !== -1) {
+      const tail = clean.substring(uploadIdx + 8).replace(/^([a-z0-9_.,:]+\/)+/i, "");
+      if (!tail || tail === "f_auto" || tail === "q_auto" || !tail.includes(".")) {
+        return "/images/tbs-logo.png";
+      }
+    }
+    return transformCloudinaryUrl(clean, { width, quality, profileQuality });
   }
 
   // If relative path or local asset, return as-is
-  return src;
+  return clean;
 }
 
 /**
@@ -37,8 +56,19 @@ export function transformCloudinaryUrl(
     const prefix = url.substring(0, uploadIdx + 8); // e.g. "https://res.cloudinary.com/dwl2xtbqa/image/upload/"
     const suffix = url.substring(uploadIdx + 8);    // e.g. "v1787117525/nzcft200bebofw7b4uzg.jpg" or "f_auto,q_auto/v1787117525/..."
 
+    if (!suffix || suffix.trim() === "" || suffix.trim() === "f_auto" || suffix.trim() === "q_auto") {
+      return "/images/tbs-logo.png";
+    }
+
     // Strip existing transformation params if any
-    const cleanSuffix = suffix.replace(/^[a-z0-9_.,:]+\/(v\d+\/)/i, "$1");
+    let cleanSuffix = suffix.replace(/^[a-z0-9_.,:]+\/(v\d+\/)/i, "$1");
+    if (cleanSuffix.includes("/") && /^[a-z0-9_.,:]+\//i.test(cleanSuffix) && !cleanSuffix.startsWith("v")) {
+      cleanSuffix = cleanSuffix.replace(/^[a-z0-9_.,:]+\//i, "");
+    }
+
+    if (!cleanSuffix || cleanSuffix === "f_auto" || cleanSuffix === "q_auto" || !cleanSuffix.includes(".")) {
+      return "/images/tbs-logo.png";
+    }
 
     // Build quality parameter
     let qualityParam = "q_auto:good";
@@ -68,6 +98,14 @@ export function transformCloudinaryUrl(
  * Generates a Low Quality Image Placeholder (LQIP) URL for Cloudinary images
  */
 export function getCloudinaryLqipUrl(src: string): string {
-  if (!src || !src.includes("res.cloudinary.com")) return src;
+  if (!src || !src.includes("res.cloudinary.com")) return "";
+  const uploadIdx = src.indexOf("/upload/");
+  if (uploadIdx !== -1) {
+    const tail = src.substring(uploadIdx + 8).replace(/^([a-z0-9_.,:]+\/)+/i, "");
+    if (!tail || tail === "f_auto" || tail === "q_auto" || !tail.includes(".")) {
+      return "";
+    }
+  }
   return transformCloudinaryUrl(src, { lqip: true });
 }
+

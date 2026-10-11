@@ -1,7 +1,58 @@
 /**
  * Utility functions for normalizing, extracting, and rendering Kaizen image URLs
- * Handles Cloudinary URLs, Google Drive links, comma-separated lists, and attachments_json fallbacks.
+ * Handles Cloudflare R2 URLs, Cloudinary URLs, Google Drive links, comma-separated lists, and attachments_json fallbacks.
  */
+
+export const R2_PUBLIC_BASE_URL =
+  process.env.NEXT_PUBLIC_R2_PUBLIC_BASE_URL || "https://pub-4f6913e79588469588d95eecea9146ea.r2.dev";
+
+export function convertToR2Url(urlOrKey: string): string {
+  if (!urlOrKey) return "";
+  let clean = urlOrKey.trim().replace(/^["']|["']$/g, '');
+  if (
+    !clean ||
+    clean === "undefined" ||
+    clean === "null" ||
+    clean === "f_auto" ||
+    clean === "q_auto" ||
+    clean.endsWith("/upload/f_auto") ||
+    clean.endsWith("/upload/")
+  ) {
+    return "";
+  }
+  if (
+    clean.includes("r2.dev") ||
+    clean.includes("r2.cloudflarestorage.com") ||
+    clean.startsWith("/") ||
+    clean.startsWith("data:") ||
+    clean.startsWith("blob:")
+  ) {
+    return clean;
+  }
+  if (clean.includes("res.cloudinary.com")) {
+    const uploadIdx = clean.indexOf("/upload/");
+    if (uploadIdx !== -1) {
+      let tail = clean.substring(uploadIdx + 8).trim();
+      tail = tail.replace(/^[a-z0-9_.,:]+\/(v\d+\/)/i, "$1");
+      if (tail.includes("/") && /^[a-z0-9_.,:]+\//i.test(tail) && !tail.startsWith("v")) {
+        tail = tail.replace(/^[a-z0-9_.,:]+\//i, "");
+      }
+      if (tail.startsWith("v") && /^v\d+\//.test(tail)) {
+        tail = tail.replace(/^v\d+\//, "");
+      }
+      if (tail.includes("?")) {
+        tail = tail.substring(0, tail.indexOf("?"));
+      }
+      if (tail && tail.includes(".") && tail !== "f_auto" && tail !== "q_auto") {
+        return `${R2_PUBLIC_BASE_URL}/${tail}`;
+      }
+      return "";
+    }
+  } else if (!clean.startsWith("http") && clean.match(/\.(jpg|jpeg|png|gif|webp|heic|svg|mp4|mov|webm)$/i)) {
+    return `${R2_PUBLIC_BASE_URL}/${clean.replace(/^\/+/, "")}`;
+  }
+  return clean;
+}
 
 export function getValidKaizenImageUrl(
   rawUrl?: string,
@@ -126,38 +177,8 @@ export function getValidKaizenImageUrl(
     }
   }
 
-  // Inject Cloudinary optimizations if missing to bypass "Strict Delivery" 401s on original images
-  if (candidate.includes("res.cloudinary.com")) {
-    if (!candidate.startsWith("http")) {
-      candidate = "https://" + candidate;
-    }
-    const uploadIdx = candidate.indexOf("/upload/");
-    if (uploadIdx !== -1) {
-      const tail = candidate.substring(uploadIdx + 8).replace(/^([a-z0-9_.,:]+\/)+/i, "");
-      if (!tail || tail === "f_auto" || tail === "q_auto" || !tail.includes(".")) {
-        return "";
-      }
-    }
-    // Prevent double injection if already has f_auto
-    if (!candidate.includes("f_auto")) {
-      candidate = candidate.replace(/\/upload\/v/g, "/upload/f_auto,q_auto/v");
-    }
-  } else if (!candidate.startsWith("http") && !candidate.startsWith("data:") && !candidate.startsWith("/") && candidate.match(/\.(jpg|jpeg|png|gif|webp|heic|mp4|mov)$/i)) {
-    // Treat as raw Cloudinary filename or relative path
-    const isVideo = candidate.match(/\.(mp4|mov)$/i);
-    let cleanPath = candidate;
-    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || "dwl2xtbqa";
-    
-    // If the path already contains q_auto or f_auto, just prepend the base url
-    if (cleanPath.includes("q_auto") || cleanPath.includes("f_auto")) {
-       const parts = cleanPath.split("/");
-       const filePart = parts[parts.length - 1];
-       if (!filePart || filePart === "f_auto" || filePart === "q_auto") return "";
-       candidate = `https://res.cloudinary.com/${cloudName}/${isVideo ? 'video' : 'image'}/upload/f_auto,q_auto/${filePart}`;
-    } else {
-       candidate = `https://res.cloudinary.com/${cloudName}/${isVideo ? 'video' : 'image'}/upload/f_auto,q_auto/vpchuoiskechers/${cleanPath}`;
-    }
-  }
+  // Convert Cloudinary or relative media to Cloudflare R2
+  candidate = convertToR2Url(candidate);
 
   return candidate;
 }
@@ -190,52 +211,22 @@ export function getAllKaizenImageUrls(rawUrl?: string, attachmentsJson?: string)
       }
     }
 
-    if (finalUrl.includes("res.cloudinary.com")) {
-      if (!finalUrl.startsWith("http")) {
-        finalUrl = "https://" + finalUrl;
-      }
-      const uploadIdx = finalUrl.indexOf("/upload/");
-      if (uploadIdx !== -1) {
-        const tail = finalUrl.substring(uploadIdx + 8).replace(/^([a-z0-9_.,:]+\/)+/i, "");
-        if (!tail || tail === "f_auto" || tail === "q_auto" || !tail.includes(".")) {
-          return;
-        }
-      }
-      if (!finalUrl.includes("f_auto")) {
-        finalUrl = finalUrl.replace(/\/upload\/v/g, "/upload/f_auto,q_auto/v");
-      }
-    } else if (!finalUrl.startsWith("http") && !finalUrl.startsWith("data:") && !finalUrl.startsWith("/") && finalUrl.match(/\.(jpg|jpeg|png|gif|webp|heic|mp4|mov)$/i)) {
-      const isVideo = finalUrl.match(/\.(mp4|mov)$/i);
-      let cleanPath = finalUrl;
-      const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || "dwl2xtbqa";
-      
-      if (cleanPath.includes("q_auto") || cleanPath.includes("f_auto")) {
-         const parts = cleanPath.split("/");
-         const filePart = parts[parts.length - 1];
-         if (!filePart || filePart === "f_auto" || filePart === "q_auto") return;
-         finalUrl = `https://res.cloudinary.com/${cloudName}/${isVideo ? 'video' : 'image'}/upload/f_auto,q_auto/${filePart}`;
-      } else {
-         finalUrl = `https://res.cloudinary.com/${cloudName}/${isVideo ? 'video' : 'image'}/upload/f_auto,q_auto/vpchuoiskechers/${cleanPath}`;
-      }
-    }
+    finalUrl = convertToR2Url(finalUrl);
     if (finalUrl && !urls.includes(finalUrl)) {
       urls.push(finalUrl);
     }
   };
 
   if (rawUrl && typeof rawUrl === "string" && rawUrl.trim()) {
-    // We cannot naively split by comma because Cloudinary URLs use commas (e.g. f_auto,q_auto)
-    // If the URL contains cloudinary.com, we assume it's a single URL or JSON array of URLs (attachments)
-    // For simplicity, let's check if it's a simple comma-separated list of raw URLs (without cloudinary)
-    if (rawUrl.includes('res.cloudinary.com')) {
-       // Cloudinary URLs might contain commas in transformations.
-       // Let's assume it's a single URL if it starts with http, otherwise we might split by some other delimiter.
-       // Actually, the database usually stores a single URL in before_image_url and after_image_url.
-       // Only attachments_json has multiple, but we don't pass JSON strings here usually, or if we do, it's handled differently.
-       addUrl(rawUrl);
+    if (rawUrl.includes(",")) {
+      const parts = rawUrl.split(/,\s*(?=https?:\/\/)/i);
+      if (parts.length > 1) {
+        parts.forEach((p) => addUrl(p.trim()));
+      } else {
+        rawUrl.split(",").map((s) => s.trim()).filter(Boolean).forEach((p) => addUrl(p));
+      }
     } else {
-       const parts = rawUrl.split(",").map((s) => s.trim()).filter(Boolean);
-       parts.forEach((p) => addUrl(p));
+      addUrl(rawUrl.trim());
     }
   }
 

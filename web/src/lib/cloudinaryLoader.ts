@@ -1,5 +1,9 @@
-// Custom Cloudinary Image Loader for Next.js Static Export
-// Target Cloudinary Account: dwl2xtbqa
+// Custom Media Loader for Next.js Static Export
+// Automatically serves assets from Cloudflare R2 (https://pub-4f6913e79588469588d95eecea9146ea.r2.dev)
+// and handles fallback transformations gracefully.
+
+export const R2_PUBLIC_BASE_URL =
+  process.env.NEXT_PUBLIC_R2_PUBLIC_BASE_URL || "https://pub-4f6913e79588469588d95eecea9146ea.r2.dev";
 
 export interface CloudinaryLoaderOptions {
   src: string;
@@ -9,7 +13,33 @@ export interface CloudinaryLoaderOptions {
 }
 
 /**
- * Main Cloudinary Loader function called by Next.js <Image /> or <SmartImage />
+ * Extracts the clean storage key from an existing Cloudinary URL
+ */
+export function extractR2KeyFromCloudinary(url: string): string {
+  const uploadIdx = url.indexOf("/upload/");
+  if (uploadIdx === -1) return "";
+
+  let suffix = url.substring(uploadIdx + 8).trim();
+  // Strip transformations (e.g. f_auto,q_auto/ or c_limit,w_100/)
+  suffix = suffix.replace(/^[a-z0-9_.,:]+\/(v\d+\/)/i, "$1");
+  if (suffix.includes("/") && /^[a-z0-9_.,:]+\//i.test(suffix) && !suffix.startsWith("v")) {
+    suffix = suffix.replace(/^[a-z0-9_.,:]+\//i, "");
+  }
+  // Strip version tag (e.g. v1787117525/)
+  if (suffix.startsWith("v") && /^v\d+\//.test(suffix)) {
+    suffix = suffix.replace(/^v\d+\//, "");
+  }
+
+  // Strip query string (e.g. ?v=...)
+  if (suffix.includes("?")) {
+    suffix = suffix.substring(0, suffix.indexOf("?"));
+  }
+
+  return suffix;
+}
+
+/**
+ * Main Media Loader function called by Next.js <Image /> or <SmartImage />
  */
 export default function cloudinaryLoader({ src, width, quality, profileQuality = "high" }: CloudinaryLoaderOptions): string {
   if (!src) return "/images/tbs-logo.png";
@@ -26,86 +56,41 @@ export default function cloudinaryLoader({ src, width, quality, profileQuality =
     return "/images/tbs-logo.png";
   }
 
-  // If already a full Cloudinary URL:
-  if (clean.includes("res.cloudinary.com")) {
-    const uploadIdx = clean.indexOf("/upload/");
-    if (uploadIdx !== -1) {
-      const tail = clean.substring(uploadIdx + 8).replace(/^([a-z0-9_.,:]+\/)+/i, "");
-      if (!tail || tail === "f_auto" || tail === "q_auto" || !tail.includes(".")) {
-        return "/images/tbs-logo.png";
-      }
-    }
-    return transformCloudinaryUrl(clean, { width, quality, profileQuality });
+  // If already an R2 URL or local asset (/images/..., /svg/..., etc.) or data/blob:
+  if (
+    clean.includes("r2.dev") ||
+    clean.includes("r2.cloudflarestorage.com") ||
+    clean.startsWith("/") ||
+    clean.startsWith("data:") ||
+    clean.startsWith("blob:")
+  ) {
+    return clean;
   }
 
-  // If relative path or local asset, return as-is
+  // If Cloudinary URL, convert to R2 URL
+  if (clean.includes("res.cloudinary.com")) {
+    const key = extractR2KeyFromCloudinary(clean);
+    if (key && key.includes(".") && key !== "f_auto" && key !== "q_auto") {
+      return `${R2_PUBLIC_BASE_URL}/${key}`;
+    }
+    return "/images/tbs-logo.png";
+  }
+
+  // If plain filename or relative key ending in an image/video extension
+  if (clean.match(/\.(jpg|jpeg|png|gif|webp|heic|svg|mp4|mov|webm)$/i) && !clean.startsWith("http")) {
+    return `${R2_PUBLIC_BASE_URL}/${clean.replace(/^\/+/, "")}`;
+  }
+
   return clean;
 }
 
-/**
- * Transforms an existing Cloudinary URL with responsive width & quality parameters
- */
 export function transformCloudinaryUrl(
   url: string,
-  opts: { width?: number; quality?: number; profileQuality?: "high" | "medium" | "low"; lqip?: boolean }
+  opts?: { width?: number; quality?: number; profileQuality?: "high" | "medium" | "low"; lqip?: boolean }
 ): string {
-  try {
-    const uploadIdx = url.indexOf("/upload/");
-    if (uploadIdx === -1) return url;
-
-    const prefix = url.substring(0, uploadIdx + 8); // e.g. "https://res.cloudinary.com/dwl2xtbqa/image/upload/"
-    const suffix = url.substring(uploadIdx + 8);    // e.g. "v1787117525/nzcft200bebofw7b4uzg.jpg" or "f_auto,q_auto/v1787117525/..."
-
-    if (!suffix || suffix.trim() === "" || suffix.trim() === "f_auto" || suffix.trim() === "q_auto") {
-      return "/images/tbs-logo.png";
-    }
-
-    // Strip existing transformation params if any
-    let cleanSuffix = suffix.replace(/^[a-z0-9_.,:]+\/(v\d+\/)/i, "$1");
-    if (cleanSuffix.includes("/") && /^[a-z0-9_.,:]+\//i.test(cleanSuffix) && !cleanSuffix.startsWith("v")) {
-      cleanSuffix = cleanSuffix.replace(/^[a-z0-9_.,:]+\//i, "");
-    }
-
-    if (!cleanSuffix || cleanSuffix === "f_auto" || cleanSuffix === "q_auto" || !cleanSuffix.includes(".")) {
-      return "/images/tbs-logo.png";
-    }
-
-    // Build quality parameter
-    let qualityParam = "q_auto:good";
-    if (opts.lqip) {
-      qualityParam = "q_1,e_blur:1000";
-    } else if (opts.profileQuality === "low") {
-      qualityParam = "q_auto:eco";
-    } else if (opts.profileQuality === "medium") {
-      qualityParam = "q_auto:good";
-    } else if (opts.profileQuality === "high") {
-      qualityParam = opts.quality ? `q_${opts.quality}` : "q_auto:best";
-    }
-
-    const widthParam = opts.lqip ? "w_40" : opts.width ? `w_${opts.width}` : "w_auto";
-    const dprParam = opts.lqip ? "" : ",dpr_auto";
-    const cropParam = "c_limit";
-
-    const transformStr = `f_auto,${qualityParam},${cropParam},${widthParam}${dprParam}`;
-
-    return `${prefix}${transformStr}/${cleanSuffix}`;
-  } catch {
-    return url;
-  }
+  return cloudinaryLoader({ src: url, width: opts?.width || 800, quality: opts?.quality, profileQuality: opts?.profileQuality });
 }
 
-/**
- * Generates a Low Quality Image Placeholder (LQIP) URL for Cloudinary images
- */
 export function getCloudinaryLqipUrl(src: string): string {
-  if (!src || !src.includes("res.cloudinary.com")) return "";
-  const uploadIdx = src.indexOf("/upload/");
-  if (uploadIdx !== -1) {
-    const tail = src.substring(uploadIdx + 8).replace(/^([a-z0-9_.,:]+\/)+/i, "");
-    if (!tail || tail === "f_auto" || tail === "q_auto" || !tail.includes(".")) {
-      return "";
-    }
-  }
-  return transformCloudinaryUrl(src, { lqip: true });
+  return cloudinaryLoader({ src, width: 40 });
 }
-

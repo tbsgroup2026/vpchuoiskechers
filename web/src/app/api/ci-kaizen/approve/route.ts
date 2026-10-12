@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth';
+import { requireAuth } from '@/lib/require-auth';
 import { convertNumberToWords } from '@/lib/numberToWords';
 import { getValidKaizenImageUrl } from '@/lib/kaizenImageHelper';
 import { ensureKaizenSchema } from '@/lib/kaizenDbMigration';
@@ -20,21 +20,9 @@ function toSafeNumber(val: any, fallback = 0): number {
 
 export async function POST(request: Request) {
   try {
-    const authHeader = request.headers.get('authorization');
-    const token = authHeader?.replace('Bearer ', '');
-    let session = token ? await verifyToken(token) : null;
-
-    if (!session) {
-      const empCodeHeader = request.headers.get('x-user-emp-code') || '202608001';
-      session = await verifyToken(empCodeHeader);
-    }
-
-    if (!session) {
-      return NextResponse.json(
-        { success: false, message: 'Yêu cầu đăng nhập để thực hiện phê duyệt (401 Unauthorized)' },
-        { status: 401 }
-      );
-    }
+    const auth = await requireAuth(request, { maxRoleLevel: 3 });
+    if (auth.response) return auth.response;
+    const session = auth.session;
 
     const roleCode = String((session as any)?.roleCode || (session as any)?.role || '').toUpperCase();
     const userEmpCode = String((session as any)?.empCode || '').trim();

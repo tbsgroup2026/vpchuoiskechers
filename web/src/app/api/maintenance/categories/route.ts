@@ -53,7 +53,7 @@ export async function POST(request: Request) {
       user?.roleCode === 'ADMIN' ||
       user?.roles?.includes('admin') ||
       user?.roles?.includes('ceo') ||
-      user?.empCode === '202608001' ||
+      (typeof user?.roleLevel === 'number' && user.roleLevel <= 2) ||
       user?.empCode === 'ADMIN-2026';
 
     if (isGlobalRequest && !isExecutiveOrAdmin) {

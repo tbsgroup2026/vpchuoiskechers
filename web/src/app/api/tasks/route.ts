@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { verifyToken, getAuthUser } from '@/lib/auth';
+import { requireAuth } from '@/lib/require-auth';
 import { logAudit } from '@/lib/auditLogger';
 import { syncBackupToDrive } from '@/lib/driveBackup';
 import { updateTaskAtomically, deleteTaskAtomically } from '@/lib/services/taskCardUpdater';
+import { checkSelfApproval } from '@/lib/taskPermissions';
 
 function getDbBinding(): any {
   return (process.env as any).DB || (globalThis as any).DB || null;
@@ -206,16 +208,23 @@ function buildTaskScopeWhereClause(session: any, url: string) {
   if (session) {
     const roleLevel = session.roleLevel || 4;
     const roleCode = (session.roleCode || '').toUpperCase();
-    const isAdmin = roleCode === 'SUPER_ADMIN' || roleCode === 'ADMIN' || roleLevel <= 2;
-    const isTP = !isAdmin && (roleCode === 'TRUONG_PHONG' || roleCode === 'TP' || roleLevel === 3);
+    
+    // Level 1: BGĐ / Admin (Sees everything)
+    const isAdmin = roleLevel === 1 || roleCode === 'SUPER_ADMIN' || roleCode === 'ADMIN';
+    
+    // Level 2: Trưởng phòng (Sees their own dept tasks + assigned)
+    const isTP = !isAdmin && (roleLevel === 2 || roleCode === 'TRUONG_PHONG' || roleCode === 'TP');
+    
     const userDept = session.departmentCode || session.department || '';
     const userEmp = session.empCode;
 
     if (!isAdmin && userEmp) {
       if (isTP) {
-        clauses.push(`(assignee_emp_code = ? OR reporter_emp_code = ? OR department_id = ?)`);
-        params.push(userEmp, userEmp, userDept);
+        // Trưởng phòng can see their whole department OR tasks they are part of
+        clauses.push(`(department_id = ? OR assignee_emp_code = ? OR reporter_emp_code = ?)`);
+        params.push(userDept, userEmp, userEmp);
       } else {
+        // Level 3+: Staff (Only sees tasks they are assigned/reported)
         clauses.push(`(assignee_emp_code = ? OR reporter_emp_code = ?)`);
         params.push(userEmp, userEmp);
       }
@@ -237,6 +246,14 @@ export async function GET(request: Request) {
   try {
     const authHeader = request.headers.get('authorization');
     const cookieHeader = request.headers.get('cookie') || '';
+    const { searchParams } = new URL(request.url);
+    const pageParam = searchParams.get('page');
+    const limitParam = searchParams.get('limit');
+    
+    if (!pageParam && !limitParam && !searchParams.has('taskId') && !searchParams.has('export')) {
+       return NextResponse.json({ success: false, error: 'Thiếu tham số page và limit' }, { status: 400 });
+    }
+
     let token = authHeader?.replace('Bearer ', '');
     if (!token) {
       const match = cookieHeader.match(/tbs_token=([^;]+)/);
@@ -254,7 +271,7 @@ export async function GET(request: Request) {
       try {
         const { searchParams } = new URL(request.url);
         const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
-        const limit = Math.max(1, Math.min(100, parseInt(searchParams.get('limit') || '50', 10)));
+        const limit = Math.max(1, Math.min(1000, parseInt(searchParams.get('limit') || '50', 10)));
         const offset = (page - 1) * limit;
 
         const { whereSql, params } = buildTaskScopeWhereClause(session, request.url);
@@ -264,7 +281,7 @@ export async function GET(request: Request) {
         const totalResult: any = await db.prepare(countQuery).bind(...params).first().catch(() => ({ total: 0 }));
         const total = totalResult?.total || 0;
 
-        const query = `SELECT * FROM tasks ${whereSql} ORDER BY updated_at DESC, created_at DESC LIMIT ? OFFSET ?`;
+        const query = `SELECT * FROM tasks ${whereSql} ORDER BY updated_at DESC, created_at DESC, id DESC LIMIT ? OFFSET ?`;
         const { results } = await db.prepare(query).bind(...params, limit, offset).all();
 
         if (results) {
@@ -358,19 +375,9 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    let session = await getAuthUser(request);
-    if (!session || !session.empCode) {
-      session = {
-        userId: 888,
-        empCode: '202608001',
-        name: 'Phạm Nguyễn Anh Huy',
-        roleId: 1,
-        roleCode: 'SUPER_ADMIN',
-        roleLevel: 1,
-        departmentId: 1,
-        departmentCode: 'IT_DIGITAL',
-      };
-    }
+    const auth = await requireAuth(request);
+    if (auth.response) return auth.response;
+    const session = auth.session;
 
     let body: any = {};
     try {
@@ -562,6 +569,12 @@ export async function PATCH(request: Request) {
           let newHelpReason = helpReason !== undefined ? helpReason : existing.help_reason;
           let newHelpNotifiedTo = existing.help_notified_to;
 
+          // Block self-approval for tasks using common service
+          const checkApproval = checkSelfApproval(session.empCode, existing, newStatus);
+          if (!checkApproval.allowed) {
+               return NextResponse.json({ success: false, error: checkApproval.error }, { status: 403 });
+          }
+
           if (newStatus === 'NEED_HELP') {
             newHelpNotifiedTo = getDepartmentManager(existing.department_id || 'IT_DIGITAL');
             try {
@@ -700,7 +713,10 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const session = await getAuthUser(request);
+    const auth = await requireAuth(request);
+    if (auth.response) return auth.response;
+    const session = auth.session;
+
     const { searchParams } = new URL(request.url);
     const taskId = searchParams.get('taskId');
     const versionStr = searchParams.get('version');
@@ -714,20 +730,44 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ success: false, error: 'Thiếu hoặc sai kiểu dữ liệu phiên bản (version)' }, { status: 428 });
     }
 
-    logAudit(request, {
-      empCode: session?.empCode || '202608001',
-      empName: session?.name || 'Admin',
-      module: 'TASKS',
-      action: 'DELETE_TASK',
-      targetId: taskId,
-      changesJson: { taskId },
-    }).catch(() => {});
-
-    syncBackupToDrive('TASKS', { taskId, deletedBy: session?.empCode || '202608001' }, 'DELETE_TASK').catch(() => {});
-
     const db = getDbBinding();
     if (db) {
-      const deleteResult = await deleteTaskAtomically(db, { empCode: session?.empCode || '202608001' } as any, taskId, version, 'tasks');
+      // Kiểm tra quyền xóa: chỉ người tạo (reporter_emp_code / created_by) hoặc cấp quản lý (roleLevel <= 2)
+      const task = await db
+        .prepare('SELECT reporter_emp_code, assignee_emp_code FROM tasks WHERE id = ?')
+        .bind(taskId)
+        .first<{ reporter_emp_code?: string; assignee_emp_code?: string }>()
+        .catch(() => null);
+
+      const tc = !task ? await db
+        .prepare('SELECT created_by, assignee_id FROM task_cards WHERE id = ?')
+        .bind(taskId)
+        .first<{ created_by?: string; assignee_id?: string }>()
+        .catch(() => null) : null;
+
+      if (!task && !tc) {
+        return NextResponse.json({ success: false, error: 'Không tìm thấy công việc' }, { status: 404 });
+      }
+
+      const taskOwner = task?.reporter_emp_code || tc?.created_by;
+      const isOwner = taskOwner === session.empCode;
+      const isManager = (session.roleLevel ?? 99) <= 2;
+      if (!isOwner && !isManager) {
+        return NextResponse.json({ success: false, error: 'Bạn không có quyền xóa công việc này' }, { status: 403 });
+      }
+
+      logAudit(request, {
+        empCode: session.empCode,
+        empName: session.name || 'Người dùng',
+        module: 'TASKS',
+        action: 'DELETE_TASK',
+        targetId: taskId,
+        changesJson: { taskId },
+      }).catch(() => {});
+
+      syncBackupToDrive('TASKS', { taskId, deletedBy: session.empCode }, 'DELETE_TASK').catch(() => {});
+
+      const deleteResult = await deleteTaskAtomically(db, session as any, taskId, version, 'tasks');
       
       if (deleteResult.type === 'NOT_FOUND') {
         return NextResponse.json({ success: false, error: deleteResult.error }, { status: 404 });

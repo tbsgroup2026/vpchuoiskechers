@@ -73,7 +73,7 @@ export async function POST(request: Request) {
       reason: body.reason || 'Đề xuất cải tiến MMTB mới',
       resolved: false,
       createdAt: new Date().toISOString(),
-      submittedBy: { id: 'u_current', name: auth.user?.name || 'User', employeeCode: auth.user?.empCode || '202608001' },
+      submittedBy: { id: 'u_current', name: auth.user?.name || 'User', employeeCode: auth.user?.empCode || 'UNKNOWN' },
       data_scope: assignedScope,
     };
 

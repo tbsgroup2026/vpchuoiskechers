@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { verifyToken } from '@/lib/auth';
+import { requireAuth } from '@/lib/require-auth';
 import { ensureKaizenSchema } from '@/lib/kaizenDbMigration';
 import { triggerRealtimeSyncToWebTong } from '@/lib/kaizenSyncHelper';
 import { getDbKgBinding, upsertProposals } from './sync/route';
@@ -1146,18 +1147,9 @@ export async function PUT(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const authHeader = request.headers.get('authorization');
-    const empCodeHeader = request.headers.get('x-user-emp-code') || request.headers.get('X-User-Emp-Code');
-    const token = authHeader?.replace('Bearer ', '');
-    let session = token ? await verifyToken(token) : null;
-
-    if (!session && empCodeHeader) {
-      session = { empCode: empCodeHeader, name: empCodeHeader, role: 'USER' } as any;
-    }
-
-    if (!session) {
-      session = { empCode: empCodeHeader || '202608001', name: 'Management User', role: 'USER' } as any;
-    }
+    const auth = await requireAuth(request, { maxRoleLevel: 3 });
+    if (auth.response) return auth.response;
+    const session = auth.session;
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');

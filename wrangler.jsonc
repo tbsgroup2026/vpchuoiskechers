@@ -75,11 +75,20 @@
           "binding": "DB",
           "database_name": "vpchuoiskechers-hr-staging",
           "database_id": "89923c1d-4f4c-446d-8393-7b4cd7efd994"
+        },
+        {
+          "binding": "DB_KG",
+          "database_name": "thkiengiangshoes-staging",
+          "database_id": "89923c1d-4f4c-446d-8393-7b4cd7efd994"
         }
       ],
       "r2_buckets": [
         {
           "binding": "BUCKET",
+          "bucket_name": "tbs-hr-staging"
+        },
+        {
+          "binding": "IMAGE_BUCKET",
           "bucket_name": "tbs-hr-staging"
         }
       ],

@@ -1,13 +1,18 @@
 # 🏬 HỆ THỐNG QUẢN TRỊ VẬN HÀNH CHUỖI CUNG ỨNG & SẢN XUẤT SKECHERS — TBS GROUP
 
-> **Văn Phòng Chuỗi SKECHERS - TBS Group (Zone II)**  
-> 🏆 Cổng Điều Hành Vận Hành Tập Trung, Số Hóa Quy Trình Gemba Walk, Cải Tiến Liên Tục (CI/Kaizen 4.0), Quản Lý Máy Móc Thiết Bị (MMTB), Quản Trị Chiến Lược 1-5-2, HR & Kế Toán Quản Trị  
+> **BÁO CÁO CHUYÊN ĐỀ THỰC TẬP TỐT NGHIỆP — ĐẠI HỌC THỦ DẦU MỘT (VIỆN CÔNG NGHỆ SỐ)**  
+> 🎓 **Sinh viên thực hiện**: **Phạm Nguyễn Anh Huy** — MSSV: `202608001` — Lớp: `D22CNTT02`  
+> 🏢 **Đơn vị thực tập**: **Tập đoàn Da Giày TBS Group — Văn phòng Chuỗi SKECHERS**  
+> 👨‍🏫 **Cán bộ hướng dẫn tại đơn vị**: **Ngô Hà Thanh An** (Quản lý CĐS / IT Manager Văn phòng Chuỗi)  
+> 👨‍🏫 **Giảng viên hướng dẫn**: **ThS. Trần Bá Minh Sơn** (Viện Công nghệ số — Trường ĐH Thủ Dầu Một)  
 > 🌐 **Production Domain**: [https://vpchuoiskechers.tbsgroup2026.workers.dev](https://vpchuoiskechers.tbsgroup2026.workers.dev)  
-> 📦 **GitHub Repository**: [https://github.com/tbsgroup2026/vpchuoiskechers](https://github.com/tbsgroup2026/vpchuoiskechers)
+> 📦 **GitHub Repository**: [https://github.com/tbsgroup2026/vpchuoiskechers](https://github.com/tbsgroup2026/vpchuoiskechers)  
+> 🎬 **Kịch bản quay clip báo cáo**: File kèm theo trong repository [`script.docx`](./script.docx) (Đầy đủ kịch bản phân cảnh 5 giai đoạn)
 
 ---
 
 ## 📋 MỤC LỤC TỔNG QUAN
+0. [Báo Cáo Tiến Trình Thực Tập Tốt Nghiệp & Kịch Bản Video](#-0-báo-cáo-tiến-trình-thực-tập-tốt-nghiệp--kịch-bản-video-scriptdocx)
 1. [Giới Thiệu Hệ Thống & Sứ Mệnh](#-1-giới-thiệu-hệ-thống--sứ-mệnh)
 2. [Khung Quản Trị Chiến Lược 1-5-2 Chi Tiết](#-2-khung-quản-trị-chiến-lược-1-5-2-chi-tiết)
 3. [Sơ Đồ Kiến Trúc Tổng Thể Hệ Thống (System Architecture)](#-3-sơ-đồ-kiến-trúc-tổng-thể-hệ-thống-system-architecture)
@@ -31,6 +36,34 @@
 8. [Công Nghệ & Kiến Trúc Kỹ Thuật (Tech Stack)](#-8-công-nghệ--kiến-trúc-kỹ-thuật-tech-stack)
 9. [Cấu Trúc Thư Mục Dự Án Chi Tiết (Project Structure)](#-9-cấu-trúc-thư-mục-dự-án-chi-tiết-project-structure)
 10. [Hướng Dẫn Cài Đặt, Phát Triển & Triển Khai (Setup & Deployment Guide)](#-10-hướng-dẫn-cài-đặt-phát-triển--triển-khai-setup--deployment-guide)
+
+---
+
+## 🎓 0. BÁO CÁO TIẾN TRÌNH THỰC TẬP TỐT NGHIỆP & KỊCH BẢN VIDEO (`SCRIPT.DOCX`)
+
+Dự án này là sản phẩm nòng cốt trong học phần **Thực Tập Tốt Nghiệp** của sinh viên **Phạm Nguyễn Anh Huy (MSSV: 202608001)** — Lớp D22CNTT02, Viện Công nghệ số, Trường Đại học Thủ Dầu Một, thực hiện tại **Tập đoàn Da Giày TBS Group — Văn phòng Chuỗi SKECHERS** dưới sự hướng dẫn của **Ngô Hà Thanh An** (Quản lý CĐS) và **ThS. Trần Bá Minh Sơn** (Giảng viên hướng dẫn).
+
+### ⏳ Tiến Trình Phát Triển 3 Giai Đoạn (Timeline Evolution)
+
+| Giai Đoạn | Hiện Trạng & Thách Thức Nghiệp Vụ | Giải Pháp & Kết Quả Đạt Được |
+| :--- | :--- | :--- |
+| **1. Khởi đầu (Chưa có gì)** *(01/07/2026 - 15/07/2026)* | - Giao việc & báo cáo phân tán qua Zalo cá nhân, trôi tin nhắn, tỷ lệ sót việc lên đến **35%**.<br>- Sự cố dừng chuyền & kiểm tra 5S hiện trường (Gemba Walk) ghi sổ tay giấy, thời gian phản hồi kéo dài **> 4 giờ**.<br>- Sáng kiến cải tiến Kaizen nộp đơn giấy, đo bấm giờ thủ công, xét duyệt kéo dài **3-4 tuần/hồ sơ**.<br>- Phòng họp & đón đoàn chuyên gia Skechers trùng lịch, không có kiểm soát tự động. | - Khảo sát toàn diện quy trình chuỗi cung ứng SKECHERS tại TBS Group.<br>- Lập tài liệu phân tích yêu cầu SRS, đặc tả kiến trúc Serverless Edge.<br>- Thiết kế lược đồ CSDL chuẩn hóa quan hệ trên **Cloudflare D1 Database**.<br>- Định nghĩa ma trận phân quyền 5 cấp (RBAC Matrix). |
+| **2. Hiện tại (Hệ thống hoàn thiện)** *(16/07/2026 - Đến nay)* | - Đã đưa vào vận hành thực tế tại Production: [https://vpchuoiskechers.tbsgroup2026.workers.dev](https://vpchuoiskechers.tbsgroup2026.workers.dev).<br>- Tốc độ phản hồi cực nhanh (**10 - 30ms**) nhờ mạng lưới hơn 300 Edge Data Centers.<br>- Chi phí hạ tầng vận hành máy chủ: **0 USD/tháng**. | - **10 Module số hóa tích hợp**: Kanban công việc cá nhân (`/work/my-tasks`), Gemba Walk 5S minh chứng R2 (`/work/gemba`), Động cơ Kaizen & Hàng đợi Kỹ sư IE (`/work/ci/ie-queue`), Chấm điểm Hội đồng BGK (`/work/kaizen/judge`), Đặt phòng họp thông minh (`/rooms`), Quản lý công tác xe đưa đón (`/business-trip`), Cổng Admin quản trị 384 nhân sự (`/admin`).<br>- Rút ngắn thời gian duyệt Kaizen từ **21 ngày $\rightarrow$ dưới 48 giờ**.<br>- Thời gian phản hồi sự cố 5S giảm từ **4 giờ $\rightarrow$ 15 phút**.<br>- Tỷ lệ trôi việc giảm về **0%**. |
+| **3. Dự kiến Tương lai (Roadmap)** *(Cuối 2026 - 2027)* | - Hiện trường xưởng công nghiệp quy mô lớn có những khu vực sóng Wi-Fi/4G chập chờn.<br>- Khối lượng sáng kiến Kaizen tăng gấp nhiều lần cần công cụ trợ lý hỗ trợ phân loại. | - **AI Vision Inspection**: Tích hợp thị giác máy tính tự động nhận diện vi phạm bảo hộ 5S & sự cố máy móc qua camera.<br>- **AI Kaizen Copilot (LLM)**: Trợ lý ảo đối soát kho tri thức sáng kiến 10 năm của TBS Group, tự động gợi ý giải pháp và tính tiền làm lợi dự kiến.<br>- **PWA Offline-First Mobile**: Ứng dụng di động lưu đệm cục bộ, tự động đồng bộ khi có kết nối trở lại.<br>- **Nhân rộng chuỗi nhà máy vệ tinh**: Mở rộng từ VP Chuỗi sang toàn bộ các nhà máy Kiên Giang 1, 2, 3 và Thoại Sơn. |
+
+---
+
+### 🎬 Kịch Bản Quay Clip Báo Cáo Tiến Trình (`script.docx`)
+
+Để phục vụ sinh viên ghi hình video báo cáo thực tập tốt nghiệp trước Hội đồng Viện Công nghệ số và Doanh nghiệp, repository đã đính kèm tệp văn bản chuẩn hóa:  
+📄 **[`script.docx`](./script.docx)** (Kịch bản phân cảnh chi tiết định dạng Microsoft Word 4 cột: *[Thời lượng] | [Thao tác Màn hình] | [Lời thoại chi tiết Voiceover] | [Ghi chú Kỹ thuật]*).
+
+**Cấu trúc 5 phần của video (Thời lượng chuẩn: 15 – 20 phút):**
+1. **Phần 1 (00:00 - 02:30)**: Lời mở đầu, bối cảnh Tập đoàn TBS Group và hiện trạng ban đầu khi chưa có gì (Pain Points).
+2. **Phần 2 (02:30 - 05:00)**: Kiến trúc hệ thống Serverless Edge Computing (Cloudflare Workers, D1 SQL, R2 Bucket, JWT/RBAC).
+3. **Phần 3 (05:00 - 15:30)**: Live Demo chi tiết từng chức năng trên môi trường Production thực tế (Trang chủ, Đăng nhập, Kanban My-Tasks, Gemba Walk 5S, Động cơ Kaizen & IE Queue, Phòng họp VIP, Cổng Admin).
+4. **Phần 4 (15:30 - 17:30)**: Tổng kết đánh giá kết quả đạt được so với trước thực tập (Before vs After) và kết quả nghiệm thu tại TBS Group.
+5. **Phần 5 (17:30 - 19:30)**: Định hướng mở rộng tương lai (AI Vision, LLM Copilot, Offline PWA) và Lời cảm ơn bế mạc.
 
 ---
 

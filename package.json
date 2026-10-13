@@ -5,9 +5,12 @@
   "scripts": {
     "build": "npx next build web",
     "deploy": "npx wrangler deploy",
-    "capture-zalo": "node scripts/capture-zalo-group.js"
+    "capture-zalo": "node scripts/capture-zalo-group.js",
+    "test:coverage": "cd web && npm run test:coverage",
+    "test:all": "npm run test:coverage"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1149.0",
     "@tabler/icons-react": "^3.19.0",
     "autoprefixer": "^10.4.19",
     "chart.js": "^4.4.4",

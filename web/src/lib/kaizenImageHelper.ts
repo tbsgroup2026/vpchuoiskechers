@@ -113,6 +113,20 @@ export function getValidKaizenImageUrl(
     }
   }
 
+  // Transform Cloudflare R2 bucket URLs to same-origin /cdn-r2/ proxy URLs
+  if (candidate.includes("r2.dev/")) {
+    const r2Key = candidate.split("r2.dev/")[1];
+    if (r2Key) {
+      return `/cdn-r2/${r2Key}`;
+    }
+  }
+  if (candidate.includes("/cdn-r2/")) {
+    const r2Key = candidate.split("/cdn-r2/")[1];
+    if (r2Key) {
+      return `/cdn-r2/${r2Key}`;
+    }
+  }
+
   return candidate;
 }
 
@@ -141,6 +155,16 @@ export function getAllKaizenImageUrls(rawUrl?: string, attachmentsJson?: string)
         if (matchId && matchId[1]) {
           finalUrl = `https://lh3.googleusercontent.com/d/${matchId[1]}`;
         }
+      }
+    } else if (clean.includes("r2.dev/")) {
+      const r2Key = clean.split("r2.dev/")[1];
+      if (r2Key) {
+        finalUrl = `/cdn-r2/${r2Key}`;
+      }
+    } else if (clean.includes("/cdn-r2/")) {
+      const r2Key = clean.split("/cdn-r2/")[1];
+      if (r2Key) {
+        finalUrl = `/cdn-r2/${r2Key}`;
       }
     }
 

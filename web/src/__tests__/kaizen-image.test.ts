@@ -62,4 +62,10 @@ describe('Kaizen Image Helper Tests', () => {
     ]);
     expect(getValidKaizenImageUrl('', untaggedAttachments, 'AFTER', beforeUrl)).toBe('https://res.cloudinary.com/demo/after.jpg');
   });
+
+  it('should transform public R2 bucket URLs to same-origin /cdn-r2/ URLs', () => {
+    const r2Url = 'https://pub-4f6913e79588469588d95eecea9146ea.r2.dev/ktxm8qc9fzyq8rgtmuid.heic';
+    expect(getValidKaizenImageUrl(r2Url)).toBe('/cdn-r2/ktxm8qc9fzyq8rgtmuid.heic');
+    expect(getAllKaizenImageUrls(r2Url)).toEqual(['/cdn-r2/ktxm8qc9fzyq8rgtmuid.heic']);
+  });
 });

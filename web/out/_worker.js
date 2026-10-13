@@ -2283,6 +2283,117 @@ export default {
       return Response.redirect(new URL("/work", request.url), 301);
     }
 
+    // 3. Cloudflare R2 Media Proxy Route (/cdn-r2/<key>)
+    if (url.pathname.startsWith("/cdn-r2/")) {
+      const R2_CORS = {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+        "Access-Control-Allow-Headers": "*",
+        "Access-Control-Expose-Headers": "Content-Length, Content-Type, Content-Range, ETag, Accept-Ranges",
+        "Access-Control-Max-Age": "86400",
+      };
+
+      if (request.method === "OPTIONS") {
+        return new Response(null, { status: 204, headers: R2_CORS });
+      }
+
+      const key = decodeURIComponent(url.pathname.replace(/^\/cdn-r2\//, ""));
+      if (!key) {
+        return new Response("Missing object key", { status: 400, headers: R2_CORS });
+      }
+
+      const guessMime = (filename) => {
+        const ext = (filename || "").split(".").pop().toLowerCase();
+        switch (ext) {
+          case "heic":
+          case "heif":
+            return "image/heic";
+          case "jpg":
+          case "jpeg":
+            return "image/jpeg";
+          case "png":
+            return "image/png";
+          case "webp":
+            return "image/webp";
+          case "gif":
+            return "image/gif";
+          case "svg":
+            return "image/svg+xml";
+          case "mp4":
+            return "video/mp4";
+          case "mov":
+            return "video/quicktime";
+          case "pdf":
+            return "application/pdf";
+          default:
+            return "application/octet-stream";
+        }
+      };
+
+      // 3a. Try reading from bound buckets: env.IMAGE_BUCKET (tbs-img) then env.BUCKET (tbs-business-trips)
+      const buckets = [env.IMAGE_BUCKET, env.BUCKET].filter(Boolean);
+      for (const b of buckets) {
+        if (typeof b.get === "function") {
+          try {
+            const hasRange = request.headers.has("range");
+            const obj = hasRange
+              ? await b.get(key, { range: request.headers })
+              : await b.get(key);
+
+            if (obj) {
+              const headers = new Headers();
+              obj.writeHttpMetadata(headers);
+              headers.set("Access-Control-Allow-Origin", "*");
+              headers.set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+              headers.set("Access-Control-Expose-Headers", "Content-Length, Content-Type, Content-Range, ETag, Accept-Ranges");
+              headers.set("Cache-Control", "public, max-age=31536000, immutable");
+              headers.set("Accept-Ranges", "bytes");
+              if (!headers.get("Content-Type")) {
+                headers.set("Content-Type", guessMime(key));
+              }
+              if (obj.httpEtag) {
+                headers.set("ETag", obj.httpEtag);
+              }
+
+              const status = obj.range ? 206 : 200;
+              return new Response(obj.body, { status, headers });
+            }
+          } catch (r2Err) {
+            console.warn("[CDN-R2] Error accessing bucket for key", key, r2Err);
+          }
+        }
+      }
+
+      // 3b. Fallback: proxy directly to public R2 dev endpoint with CORS headers
+      try {
+        const upstreamUrl = `https://pub-4f6913e79588469588d95eecea9146ea.r2.dev/${key}`;
+        const upstreamResp = await fetch(upstreamUrl, {
+          method: request.method,
+          headers: request.headers
+        });
+        if (upstreamResp.ok || upstreamResp.status === 206) {
+          const respHeaders = new Headers(upstreamResp.headers);
+          respHeaders.set("Access-Control-Allow-Origin", "*");
+          respHeaders.set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+          respHeaders.set("Access-Control-Expose-Headers", "Content-Length, Content-Type, Content-Range, ETag, Accept-Ranges");
+          respHeaders.set("Cache-Control", "public, max-age=31536000, immutable");
+          respHeaders.set("Accept-Ranges", "bytes");
+          if (!respHeaders.get("Content-Type")) {
+            respHeaders.set("Content-Type", guessMime(key));
+          }
+          return new Response(upstreamResp.body, {
+            status: upstreamResp.status,
+            statusText: upstreamResp.statusText,
+            headers: respHeaders
+          });
+        }
+      } catch (proxyErr) {
+        console.error("[CDN-R2] Proxy fallback error for key", key, proxyErr);
+      }
+
+      return new Response("Object Not Found in R2", { status: 404, headers: R2_CORS });
+    }
+
     const SECURE_JSON_HEADERS = { "Content-Type": "application/json" };
 
     const ROLE_ACCOUNTS = {

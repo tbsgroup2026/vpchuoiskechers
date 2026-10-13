@@ -2,7 +2,7 @@
 // Caching Strategy: Cache-First for Cloudinary Media, Stale-While-Revalidate for Static Assets
 // Web Push: Full push handler for multi-device notifications
 
-const CACHE_VERSION = "tbs-sw-v2026.10.13-v2";
+const CACHE_VERSION = "tbs-sw-v2026.10.13-v3";
 const MEDIA_CACHE = `tbs-media-${CACHE_VERSION}`;
 const STATIC_CACHE = `tbs-static-${CACHE_VERSION}`;
 
@@ -97,8 +97,19 @@ self.addEventListener("fetch", (event) => {
           const networkResp = await fetch(proxyUrl);
           if (networkResp && networkResp.status === 200 && !req.headers.has("range")) {
             cache.put(proxyUrl, networkResp.clone()).catch(() => {});
+            return networkResp;
           }
-          return networkResp;
+          if (networkResp && networkResp.ok) {
+            return networkResp;
+          }
+        } catch {}
+
+        try {
+          const directResp = await fetch(req);
+          if (directResp && directResp.status === 200 && !req.headers.has("range")) {
+            cache.put(proxyUrl, directResp.clone()).catch(() => {});
+          }
+          return directResp;
         } catch {
           return new Response("Media unavailable offline", { status: 503 });
         }

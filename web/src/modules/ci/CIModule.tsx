@@ -183,19 +183,7 @@ export function KaizenCardImage({ src, alt, attachmentsJson }: { src?: string; a
   }, [src, attachmentsJson]);
 
   if (!imgSrc || hasError) {
-  
-  useEffect(() => {
-    const scrollSidebar = () => {
-      const activeItem = document.querySelector(".sidebar-item-active");
-      if (activeItem) {
-        activeItem.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
-    };
-    const t = setTimeout(scrollSidebar, 150);
-    return () => clearTimeout(t);
-  }, [selectedRegion, selectedCategory, selectedWorkshop, selectedRegType]);
-
-  return (
+    return (
       <div className="flex flex-col items-center gap-0.5 text-slate-400 select-none">
         <IconPhoto size={26} />
         <span className="text-[10px] font-bold">Chưa có ảnh</span>
@@ -1972,8 +1960,16 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
     }
     return result;
   }, [normalizedProposals, activeUnitInfo, selectedRegion]);
-
-
+  useEffect(() => {
+    const scrollSidebar = () => {
+      const activeItem = document.querySelector(".sidebar-item-active");
+      if (activeItem) {
+        activeItem.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    };
+    const t = setTimeout(scrollSidebar, 150);
+    return () => clearTimeout(t);
+  }, [selectedRegion, selectedCategory, selectedWorkshop, selectedRegType]);
 
   return (
     <div className="min-h-screen bg-[#f1f5f9] text-slate-800 font-sans flex flex-col md:flex-row w-full selection:bg-[#006838] selection:text-white">

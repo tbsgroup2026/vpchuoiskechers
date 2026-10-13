@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   IconSettings,
   IconRefresh,
@@ -90,18 +90,28 @@ export const DEFAULT_TARGET_PPH = 100;
 export const FS_DESIGN_W = 1600;
 const LOI_COLORS = ['#fb7185', '#fb923c', '#facc15', '#4ade80', '#22d3ee', '#a78bfa', '#f472b6', '#94a3b8'];
 
-type Tone = 'ok' | 'warn' | 'bad' | 'none';
+// 5 mức theo % THỰC HIỆN (tuyệt đối, xem toneFor) — thêm 'orange' (85-89.9%) và 'pink' (>100%) so
+// với bản 3 mức cũ (ok/warn/bad), đúng bảng màu người dùng chốt: Đỏ <=85, Cam 85-89.9, Vàng 90-94.9,
+// Xanh 95-100, Hồng >100.
+type Tone = 'pink' | 'ok' | 'warn' | 'orange' | 'bad' | 'none';
 const TONE: Record<Tone, { text: string; ring: string; chipBg: string; chipBorder: string; bar: string }> = {
+  // Hồng dùng FUCHSIA (tím-hồng, ngả tím rõ) thay vì pink-400 thường (trước đây quá gần tông đỏ/rose
+  // của 'bad', dễ nhìn lộn — theo đúng phản hồi người dùng) — tách biệt rõ hẳn trên cả nền tối lẫn
+  // nền trắng, không còn cùng họ màu với đỏ.
+  pink: { text: 'text-fuchsia-300', ring: '#e879f9', chipBg: 'bg-fuchsia-500/10', chipBorder: 'border-fuchsia-400/40', bar: '#e879f9' },
   ok: { text: 'text-emerald-300', ring: '#34d399', chipBg: 'bg-emerald-500/10', chipBorder: 'border-emerald-400/40', bar: '#34d399' },
   warn: { text: 'text-amber-300', ring: '#fbbf24', chipBg: 'bg-amber-500/10', chipBorder: 'border-amber-400/40', bar: '#fbbf24' },
+  orange: { text: 'text-orange-300', ring: '#fb923c', chipBg: 'bg-orange-500/10', chipBorder: 'border-orange-400/40', bar: '#fb923c' },
   bad: { text: 'text-rose-300', ring: '#fb7185', chipBg: 'bg-rose-500/10', chipBorder: 'border-rose-400/40', bar: '#fb7185' },
   none: { text: 'text-slate-400', ring: '#475569', chipBg: 'bg-slate-700/30', chipBorder: 'border-slate-600/40', bar: '#475569' },
 };
 // Bản màu cho khung nền TRẮNG (chỉ dùng ở cấp Line, xem prop `light`) — màu chữ đậm hơn hẳn bản
 // TONE gốc (vốn nhạt để nổi trên nền tối) vì trên nền trắng chữ nhạt sẽ mờ khó đọc.
 const TONE_LIGHT: Record<Tone, { text: string; ring: string; chipBg: string; chipBorder: string; bar: string }> = {
+  pink: { text: 'text-fuchsia-700', ring: '#a21caf', chipBg: 'bg-fuchsia-50', chipBorder: 'border-fuchsia-300', bar: '#a21caf' },
   ok: { text: 'text-emerald-700', ring: '#0d7a5c', chipBg: 'bg-emerald-50', chipBorder: 'border-emerald-300', bar: '#0d7a5c' },
   warn: { text: 'text-amber-700', ring: '#d97706', chipBg: 'bg-amber-50', chipBorder: 'border-amber-300', bar: '#d97706' },
+  orange: { text: 'text-orange-700', ring: '#ea580c', chipBg: 'bg-orange-50', chipBorder: 'border-orange-300', bar: '#ea580c' },
   bad: { text: 'text-rose-700', ring: '#e11d48', chipBg: 'bg-rose-50', chipBorder: 'border-rose-300', bar: '#e11d48' },
   none: { text: 'text-slate-500', ring: '#94a3b8', chipBg: 'bg-slate-100', chipBorder: 'border-slate-300', bar: '#94a3b8' },
 };
@@ -111,6 +121,16 @@ function round1(n: number): number {
 }
 function fmtInt(n: number): string {
   return Math.round(n).toLocaleString('vi-VN');
+}
+// Rút gọn số lượng lớn — CHỈ cấp Line/TV chiếu (chữ to, dễ tràn ô). Số nguyên >= 1000 thì chia 1000,
+// làm tròn 2 số lẻ rồi bỏ hẳn số 0 thừa ở cuối cho ngắn gọn (VD 1800 -> "1,8", 1550 -> "1,55", 1400
+// -> "1,4", 2000 -> "2") — tối đa 3 chữ số có nghĩa, đúng yêu cầu người dùng. Số < 1000 giữ nguyên
+// dạng số nguyên có dấu phân cách nghìn như cũ (fmtInt), không rút gọn gì cả.
+function fmtCompactInt(n: number): string {
+  const rounded = Math.round(n);
+  if (Math.abs(rounded) < 1000) return fmtInt(rounded);
+  const compact = parseFloat((rounded / 1000).toFixed(2));
+  return compact.toLocaleString('vi-VN', { maximumFractionDigits: 2 });
 }
 // Làm tròn LÊN mốc trục "đẹp" (1/2/5 × 10^n) rồi nhân với số khoảng chia — dùng vẽ trục trái/phải
 // biểu đồ giờ (VD max thật 950 → mốc đẹp 200 → trần trục 1200, chia đều 6 khoảng 0-200-...-1200,
@@ -188,10 +208,15 @@ function formatDateVN(dateStr: string): string {
   const [y, m, d] = dateStr.split('-');
   return `${d}/${m}/${y}`;
 }
-function toneFor(pct: number | null | undefined, target = DEFAULT_TARGET_PPH): Tone {
+// Ngưỡng TUYỆT ĐỐI, cố định — KHÔNG đổi theo Target PPH riêng từng nhà máy (configs.targetPphPct,
+// xem trang Cài Đặt): Đỏ <=85, Cam 85-89.9, Vàng 90-94.9, Xanh 95-100, Hồng >100 — theo đúng bảng
+// màu người dùng chốt, áp dụng đồng nhất toàn hệ thống dù nhà máy nào đặt Target khác 100% cũng vậy.
+function toneFor(pct: number | null | undefined): Tone {
   if (pct == null || !Number.isFinite(pct)) return 'none';
-  if (pct >= target) return 'ok';
-  if (pct >= 75) return 'warn';
+  if (pct > 100) return 'pink';
+  if (pct >= 95) return 'ok';
+  if (pct >= 90) return 'warn';
+  if (pct >= 85) return 'orange';
   return 'bad';
 }
 
@@ -243,27 +268,32 @@ function hourlySeries(leaves: PphLeaf[]) {
   const slotSet = new Set<string>();
   for (const l of leaves) for (const s of l.slots) slotSet.add(s.slot);
   const slots = [...slotSet].sort();
+  // Mục tiêu/giờ CỐ ĐỊNH suốt cả biểu đồ — tổng perHourTarget của MỌI leaf, tính 1 LẦN duy nhất,
+  // KHÔNG phụ thuộc leaf đó có khung giờ này trong l.slots hay không. TRƯỚC ĐÂY cộng theo điều
+  // kiện "leaf có khung giờ này" (l.slots.find(...)) — khi các Line trong cùng nhóm khai ca
+  // dài/ngắn khác nhau (VD Line tăng ca tới 21:00 >< Line ca thường hết 16:30), Line ca ngắn hết
+  // khung giữa chừng làm tổng Mục tiêu TỤT XUỐNG sai ngay từ khung đó trở đi — đường lẽ ra phải
+  // thẳng ngang (target/giờ không đổi suốt ca) lại bị quẹo xuống, gây hiểu lầm giảm chỉ tiêu.
+  const targetPerHour = leaves.reduce((s, l) => s + (l.perHourTarget || 0), 0);
   let cumA = 0;
   let cumT = 0;
   return slots.map((slot) => {
     let a = 0;
-    let t = 0;
     let has = false;
     for (const l of leaves) {
       const s = l.slots.find((x) => x.slot === slot);
-      if (!s) continue; // Leaf này không có khung giờ này (ca ngắn hơn) — không tính vào chỉ tiêu giờ đó.
-      t += l.perHourTarget || 0;
+      if (!s) continue; // Leaf này không có khung giờ này (ca ngắn hơn) — không tính SẢN LƯỢNG giờ đó (Mục tiêu vẫn giữ nguyên, xem targetPerHour ở trên).
       if (s.actualQty != null) {
         a += s.actualQty;
         has = true;
       }
     }
     cumA += a;
-    cumT += t;
+    cumT += targetPerHour;
     return {
       slot,
       actual: has ? Math.round(a) : null,
-      target: Math.round(t),
+      target: Math.round(targetPerHour),
       // Luỹ kế (cộng dồn từ đầu ca tới hết khung giờ này) — dùng để vẽ cột TĂNG DẦN đều trong ngày
       // (giống bảng mẫu Excel) thay vì cột từng giờ riêng lẻ lên xuống thất thường.
       cumActual: Math.round(cumA),
@@ -704,7 +734,7 @@ export default function ProductionPerformanceModule() {
                 ? pphLineTitle(lineSel.areaName, lineSel.name)
                 : factory
                   ? factoryCfg?.title || `Kết quả sản xuất — ${factory.name}`
-                  : 'Kết quả sản xuất — Hệ thống Nhà máy'}
+                  : 'Kết quả sản xuất — Văn Phòng Chuỗi Skechers'}
             </h2>
             {/* Cấp Line đổi hẳn dòng phụ thành câu mô tả bảng (giống bảng mẫu Excel) thay vì lặp lại
                 tên Nhà máy (đã gộp vào dòng tiêu đề chính ở trên rồi, xem nhánh trên). */}
@@ -818,7 +848,6 @@ export default function ProductionPerformanceModule() {
         ) : (
           <OverviewBoard
             factories={factories}
-            configs={configs}
             onPick={(id) => {
               setLineSel(null);
               setFactoryId(id);
@@ -1347,23 +1376,20 @@ function TopLoiGiaiPhapPanels({ areas, light = false }: { areas: { id: string; n
 // ---------------------------------------------------------------------------
 function OverviewBoard({
   factories,
-  configs,
   onPick,
 }: {
   factories: PphFactory[];
-  configs: FactoryConfig[];
   onPick: (id: string) => void;
 }) {
   const allLeaves = useMemo(() => factories.flatMap((f) => f.leaves), [factories]);
   const groupRoll = rollup(allLeaves);
 
   const tiles = [
-    { key: '__all__', name: 'PPH Tổ hợp', roll: groupRoll, target: DEFAULT_TARGET_PPH, clickable: false },
+    { key: '__all__', name: 'PPH Tổ hợp', roll: groupRoll, clickable: false },
     ...factories.map((f) => ({
       key: f.id,
       name: `PPH ${f.name}`,
       roll: rollup(f.leaves),
-      target: configs.find((c) => c.factoryId === f.id)?.targetPphPct ?? DEFAULT_TARGET_PPH,
       clickable: true,
     })),
   ];
@@ -1373,7 +1399,7 @@ function OverviewBoard({
       {/* Hàng 1 — 5 ô PPH, SỐ TO */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {tiles.map((t) => {
-          const tone = toneFor(t.roll.pct, t.target);
+          const tone = toneFor(t.roll.pct);
           const Tag = t.clickable ? 'button' : 'div';
           return (
             <Tag
@@ -1403,8 +1429,7 @@ function OverviewBoard({
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {factories.map((f) => {
           const r = rollup(f.leaves);
-          const target = configs.find((c) => c.factoryId === f.id)?.targetPphPct ?? DEFAULT_TARGET_PPH;
-          const tone = toneFor(r.pct, target);
+          const tone = toneFor(r.pct);
           return (
             <Panel key={f.id} title={f.name} right={<span className="text-[11px] font-bold text-slate-400">{f.leaves.length} điểm quét</span>}>
               <div className="grid grid-cols-2 gap-2">
@@ -1440,7 +1465,7 @@ function OverviewBoard({
 
       {/* Hàng 4 — lưới tổ toàn tổ hợp (full, nhiều tổ nên để rộng) */}
       <Panel title="Tình trạng đạt chỉ tiêu">
-        <ToStatusGrid leaves={allLeaves} target={DEFAULT_TARGET_PPH} wide />
+        <ToStatusGrid leaves={allLeaves} wide />
       </Panel>
 
       {/* Hàng 5 — Top Lỗi + Top Giải pháp (biểu đồ tròn). Gộp cả Tổ hợp thành 1 nhóm duy nhất
@@ -1453,7 +1478,7 @@ function OverviewBoard({
 
 // ---------------------------------------------------------------------------
 // Popup: các khung giờ hụt chỉ tiêu của 1 điểm quét — nguyên nhân + giải pháp DO USER NHẬP ở form quét.
-function ShortfallModal({ leaf, target = DEFAULT_TARGET_PPH, onClose }: { leaf: PphLeaf; target?: number; onClose: () => void }) {
+function ShortfallModal({ leaf, onClose }: { leaf: PphLeaf; onClose: () => void }) {
   const filledSlots = leaf.slots.filter((s) => s.filled);
   const reasonRows = leaf.slots.filter((s) => s.filled && (s.shortfallReason || s.shortfallSolution || s.shortfallCauseGroup));
   return (
@@ -1494,7 +1519,7 @@ function ShortfallModal({ leaf, target = DEFAULT_TARGET_PPH, onClose }: { leaf: 
                 {filledSlots.map((s, i) => {
                   const tgt = leaf.perHourTarget;
                   const pct = s.actualQty != null && tgt > 0 ? round1((s.actualQty / tgt) * 100) : null;
-                  const tone: Tone = pct == null ? 'none' : toneFor(pct, target);
+                  const tone: Tone = pct == null ? 'none' : toneFor(pct);
                   return (
                     <tr key={i}>
                       <td className="p-1.5 text-left text-xs font-bold text-cyan-100">{s.slot}</td>
@@ -1552,13 +1577,11 @@ function ShortfallModal({ leaf, target = DEFAULT_TARGET_PPH, onClose }: { leaf: 
 
 function ToStatusGrid({
   leaves,
-  target,
   wide = false,
   light = false,
   tableView = false,
 }: {
   leaves: PphLeaf[];
-  target: number;
   wide?: boolean;
   light?: boolean;
   tableView?: boolean;
@@ -1571,7 +1594,7 @@ function ToStatusGrid({
     // SL (sản lượng luỹ kế thật) đi kèm PPH — cùng điều kiện "chưa có chỉ tiêu -> chưa có gì" với
     // pct, để 1 ô không bị lệch kiểu "SL 0 / PPH —" gây hiểu nhầm là đã bắt đầu quét.
     const actual = l.cumulativeTarget > 0 ? l.cumulativeActual : null;
-    return { leaf: l, id: l.id, name: l.name, pct, actual, tone: toneFor(pct, target) };
+    return { leaf: l, id: l.id, name: l.name, pct, actual, tone: toneFor(pct) };
   });
   const met = cells.filter((c) => c.tone === 'ok').length;
   const active = cells.filter((c) => c.pct != null).length;
@@ -1628,17 +1651,20 @@ function ToStatusGrid({
           </table>
         </div>
         </div>
-        {openLeaf && <ShortfallModal leaf={openLeaf} target={target} onClose={() => setOpenLeaf(null)} />}
+        {openLeaf && <ShortfallModal leaf={openLeaf} onClose={() => setOpenLeaf(null)} />}
       </>
     );
   }
 
   return (
     <>
-      <p className="mb-2 text-[11px] font-bold text-slate-400">
-        {met}/{active || leaves.length} đạt · <span className="text-emerald-300">xanh = đạt</span> ·{' '}
-        <span className="text-amber-300">vàng = gần đạt</span> · <span className="text-rose-300">đỏ = chưa đạt</span> — bấm vào 1 ô để xem
-        số liệu từng giờ
+      <p className="mb-2 flex flex-wrap items-center gap-x-1.5 text-[11px] font-bold text-slate-400">
+        {met}/{active || leaves.length} đạt (95-100%) ·{' '}
+        <span className="text-fuchsia-300">hồng &gt;100%</span> ·{' '}
+        <span className="text-emerald-300">xanh 95-100%</span> ·{' '}
+        <span className="text-amber-300">vàng 90-94,9%</span> ·{' '}
+        <span className="text-orange-300">cam 85-89,9%</span> ·{' '}
+        <span className="text-rose-300">đỏ ≤85%</span> — bấm vào 1 ô để xem số liệu từng giờ
       </p>
       <div
         className={`grid gap-1.5 ${
@@ -1672,7 +1698,7 @@ function ToStatusGrid({
           );
         })}
       </div>
-      {openLeaf && <ShortfallModal leaf={openLeaf} target={target} onClose={() => setOpenLeaf(null)} />}
+      {openLeaf && <ShortfallModal leaf={openLeaf} onClose={() => setOpenLeaf(null)} />}
     </>
   );
 }
@@ -1751,7 +1777,7 @@ export function FactoryBoard({
       {!tv && (
         <div className="grid gap-3 xl:grid-cols-2">
           <Panel light={light} title={`Tình trạng các tổ sản xuất (${statusLeaves.length} điểm quét)`}>
-            <ToStatusGrid leaves={statusLeaves} target={targetPph} light={light} />
+            <ToStatusGrid leaves={statusLeaves} light={light} />
           </Panel>
           <TopLoiGiaiPhapPanels areas={areas} light={light} />
         </div>
@@ -1859,7 +1885,7 @@ function AreaPanel({
   tv?: boolean;
 }) {
   const r = rollup(area.leaves);
-  const tone = toneFor(r.pct, targetPph);
+  const tone = toneFor(r.pct);
   const toneColors = light ? TONE_LIGHT : TONE;
   const lineGroups = useMemo(() => areaToLines(area.id, area.leaves, lines), [area.id, area.leaves, lines]);
   // Có cấu hình Line ở Cài Đặt → LUÔN hiện (kể cả 1 Line). Chưa cấu hình → hiện khi Xưởng có ≥ 2 tổ.
@@ -1959,7 +1985,7 @@ function AreaPanel({
           <div className="grid w-full grid-cols-3 gap-1.5 sm:grid-cols-5">
             {lineGroups.map((lg, i) => {
               const lr = rollup(lg.leaves);
-              const lt = toneFor(lr.pct, targetPph);
+              const lt = toneFor(lr.pct);
               const cardCls = `w-full border px-2 py-1.5 text-center ${tv ? '' : 'rounded-lg transition hover:brightness-125'} ${toneColors[lt].chipBg} ${toneColors[lt].chipBorder}`;
               const inner = (
                 <>
@@ -2097,7 +2123,7 @@ export function LineBoard({
   audioUnlocked?: boolean;
 }) {
   const r = rollup(leaves);
-  const tone = toneFor(r.pct, targetPph);
+  const tone = toneFor(r.pct);
   const teamCards = useMemo(() => sortLeavesTeamDesc(leaves), [leaves]);
 
   // Nhắc TRỄ NHẬP bằng file ghi âm thật (xem PPH_ALERT_AUDIO_BASE ở trên) — CHỈ bật khi alertOverdue
@@ -2278,7 +2304,7 @@ export function LineBoard({
         <>
           <SectionLabel light={light}>{`Tình trạng các tổ (${leaves.length} điểm quét)`}</SectionLabel>
           <Panel light={light}>
-            <ToStatusGrid leaves={teamCards} target={targetPph} light={light} tableView />
+            <ToStatusGrid leaves={teamCards} light={light} tableView />
           </Panel>
         </>
       )}
@@ -2324,6 +2350,68 @@ const BAND_DARK: Record<PctBand, { text: string; chipBg: string; chipBorder: str
   none: { text: 'text-slate-400', chipBg: 'bg-slate-700/30', chipBorder: 'border-slate-600/40' },
 };
 
+// Giá trị 1 ô MiniStat/RefStat: HOẶC chuỗi/node đã format sẵn (giữ nguyên cách cũ — số nguyên đã
+// có dấu phân cách nghìn, gạch ngang '—'... không có số lẻ nào để rút gọn), HOẶC 1 số thô kèm số lẻ
+// ĐANG hiển thị — để ô tự RÚT GỌN DẦN số lẻ khi tràn bề ngang, trước khi phải thu nhỏ cỡ chữ (ảnh
+// mẫu người dùng gửi: ô PPH cấp Line/TV bị tràn thành "0,…" vì PPH chuẩn IE theo mã giày có thể dài
+// hơn hẳn số PPH tự tính). KHÔNG tự đoán rút gọn từ chuỗi có sẵn — dấu ',' (thập phân, vi-VN) và
+// '.' (phân cách nghìn) lẫn lộn tuỳ ô, dễ rút nhầm số nguyên (VD "1.450" hiểu nhầm thành 1,45) —
+// nơi nào cần rút gọn phải truyền raw tường minh (xem các chỗ gọi MiniStat/RefStat bên dưới).
+type StatValue = React.ReactNode | { raw: number; decimals: number; suffix?: string };
+
+// Tự co dần 1 ô số khi tràn bề ngang: value có `raw` thì rút bớt số lẻ thập phân trước (đúng ưu
+// tiên người dùng chốt — "rút gọn số trước, co chữ nếu vẫn dài"); hết số lẻ (hoặc value không có
+// raw để rút, VD số nguyên/gạch ngang) mà vẫn tràn thì thu nhỏ cỡ chữ dần tới mức sàn. Đo bằng
+// scrollWidth/clientWidth thật của DOM — tự hội tụ, dừng hẳn khi vừa khít hoặc chạm mức sàn.
+function useAutoFitStat(value: StatValue) {
+  const isRaw = typeof value === 'object' && value !== null && 'raw' in value;
+  const rawVal = isRaw ? (value as { raw: number }).raw : 0;
+  const maxDecimals = isRaw ? (value as { decimals: number }).decimals : 0;
+  const suffix = isRaw ? ((value as { suffix?: string }).suffix ?? '') : '';
+  const ref = useRef<HTMLDivElement>(null);
+  const [decimals, setDecimals] = useState(maxDecimals);
+  const [scale, setScale] = useState(1);
+
+  // Reset về đủ số lẻ gốc + cỡ chữ 100% khi giá trị gốc đổi — chỉnh state NGAY TRONG RENDER (mẫu
+  // React khuyến nghị cho "adjust state when a prop changes", KHÔNG dùng effect) để không có 1 nhịp
+  // hiện giá trị/cỡ chữ CŨ trước khi effect bên dưới kịp chạy, và để các ô vốn đã vừa vặn (đại đa
+  // số) không bị ảnh hưởng gì. Value KHÔNG có raw (số nguyên/gạch ngang) phải đưa cả NỘI DUNG vào
+  // key — trước đây chỉ khoá theo isRaw/decimals/suffix (luôn giống nhau cho mọi giá trị không-raw)
+  // nên đổi từ "1.450" (từng lỡ tràn, co chữ) sang "290" (thừa chỗ) KHÔNG reset được, cỡ chữ bị kẹt
+  // nhỏ mãi dù dữ liệu mới ngắn hơn hẳn (đúng lỗi ảnh người dùng gửi — SLKH/Ngày tự nhiên nhỏ lại).
+  const resetKey = isRaw ? `raw|${rawVal}|${maxDecimals}|${suffix}` : `node|${String(value)}`;
+  const [prevResetKey, setPrevResetKey] = useState(resetKey);
+  if (prevResetKey !== resetKey) {
+    setPrevResetKey(resetKey);
+    setDecimals(maxDecimals);
+    setScale(1);
+  }
+
+  // Đo DOM thật sau khi vẽ để biết có tràn không — bắt buộc dùng effect (không có cách nào biết
+  // scrollWidth/clientWidth trước khi trình duyệt layout xong), rồi mới chỉnh state theo phép đo đó
+  // — tự hội tụ (dừng khi vừa khít/chạm sàn), không phải kiểu "đồng bộ state" nên không có tuyến
+  // giải pháp nào khác ngoài effect ở đây. Phụ thuộc thêm resetKey (dù không đọc trực tiếp trong
+  // thân effect) để ĐO LẠI mỗi khi giá trị đổi, kể cả khi decimals/scale tình cờ không đổi so với
+  // giá trị trước. Ngưỡng lệch cho phép nới lên 2px (thay vì 1px) — chừa dư cho sai số làm tròn
+  // subpixel khi trình duyệt chạy ở tỉ lệ zoom/DPI lẻ (125%, 150%...), tránh báo tràn giả.
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || el.scrollWidth <= el.clientWidth + 2) return;
+    if (isRaw && decimals > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- đo layout xong mới chỉnh, tự hội tụ
+      setDecimals((d) => d - 1);
+      return;
+    }
+    if (scale > 0.55) setScale((s) => Math.round((s - 0.1) * 100) / 100);
+  }, [isRaw, decimals, scale, resetKey]);
+
+  const content = isRaw
+    ? rawVal.toLocaleString('vi-VN', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) + suffix
+    : (value as React.ReactNode);
+
+  return { ref, content, style: scale < 1 ? { fontSize: `${scale}em` } : undefined };
+}
+
 // Ô chỉ số kiểu bảng Excel mẫu — nhãn phía trên (chữ nhỏ, viết hoa), khối màu chứa giá trị bên
 // dưới. tone="plan" = khối xanh đậm (số liệu KẾ HOẠCH/mục tiêu, giống ảnh mẫu), tone=Tone (ok/
 // warn/bad/none) = tô 3 mức cũ; `band` (nếu truyền) THẮNG tone — tô theo đúng 5 mức màu % ở trên,
@@ -2336,16 +2424,22 @@ function RefStat({
   small = false,
   light = false,
   tv = false,
+  noShrink = false,
 }: {
   label: string;
-  value: React.ReactNode;
+  value: StatValue;
   tone?: 'plan' | Tone;
   band?: PctBand;
   small?: boolean;
   light?: boolean;
   // Chữ/số to hơn hẳn khi chiếu TV (đứng xa mới đọc được) — chỉ có tác dụng khi light=true.
   tv?: boolean;
+  // true = KHÔNG bao giờ tự thu nhỏ cỡ chữ (kể cả khi value là chuỗi dài) — dùng cho các ô đã tự rút
+  // gọn số đủ ngắn ở nguồn (VD fmtCompactInt), người dùng yêu cầu rõ cỡ chữ phải LUÔN đồng đều với
+  // các ô lân cận, không được co nhỏ trong bất kỳ trường hợp nào.
+  noShrink?: boolean;
 }) {
+  const { ref, content, style } = useAutoFitStat(value);
   const t = light ? TONE_LIGHT : TONE;
   const bandColors = light ? BAND_LIGHT : BAND_DARK;
   // Cấp Line (light) — phong cách "bảng biểu truyền thống" theo ĐÚNG ảnh mẫu thật: góc vuông
@@ -2369,11 +2463,13 @@ function RefStat({
         {label}
       </div>
       <div
+        ref={noShrink ? undefined : ref}
+        style={noShrink ? undefined : style}
         className={`w-full truncate text-center font-black ${light ? 'rounded-none' : 'rounded-lg'} ${
           small ? (light ? 'py-1 text-base' : 'py-0.5 text-xs') : light ? (tv ? 'py-2 text-5xl' : 'py-2 text-3xl') : 'py-1 text-sm'
         } ${valueCls}`}
       >
-        {value}
+        {content}
       </div>
     </div>
   );
@@ -2391,15 +2487,21 @@ function MiniStat({
   tone,
   light = false,
   tv = false,
+  noShrink = false,
 }: {
   label: string;
-  value: React.ReactNode;
-  tone: 'a' | 'b';
+  value: StatValue;
+  // 'plan' = 3 ô kế hoạch SLKH/Ngày, SLKH/Giờ, SLKH L.Kế ở cấp Line/TV — xám xanh #64748b chữ trắng
+  // (theo yêu cầu người dùng); ở giao diện tối (không light) dùng chung kiểu tone 'a'.
+  tone: 'a' | 'b' | 'plan';
   light?: boolean;
   // Chữ/số to hơn hẳn khi chiếu TV (đứng xa mới đọc được) — trước đây chỉ phân biệt theo `light`,
   // cùng cỡ chữ dù trong app (xem gần) hay TV (xem xa). Chỉ có tác dụng khi light=true.
   tv?: boolean;
+  // true = KHÔNG bao giờ tự thu nhỏ cỡ chữ — xem chú thích ở RefStat.
+  noShrink?: boolean;
 }) {
+  const { ref, content, style } = useAutoFitStat(value);
   // Cấp Line — BỎ viền đen quanh ô (theo đúng ảnh mẫu thật — chỉ là khối màu đặc, không viền),
   // chữ to hơn hẳn để dễ đọc từ xa.
   // tone='b' cấp Line/TV (light) đổi màu theo yêu cầu — #99CC33 (xanh chanh, đợt trước là #99FF00
@@ -2408,10 +2510,12 @@ function MiniStat({
   // trắng sẽ mờ khó đọc) — khớp đúng quy ước nền sáng/chữ đen đã dùng ở BAND_LIGHT (VD nền
   // #90EE90/#FFD700 cũng chữ đen) trong chính file này.
   const bg = light
-    ? tone === 'a'
-      ? 'bg-emerald-800 text-white'
-      : 'bg-[#99CC33] text-black'
-    : tone === 'a'
+    ? tone === 'plan'
+      ? 'bg-[#64748b] text-white'
+      : tone === 'a'
+        ? 'bg-emerald-800 text-white'
+        : 'bg-[#99CC33] text-black'
+    : tone !== 'b'
       ? 'border border-emerald-500/25 bg-emerald-900/70 text-emerald-100'
       : 'border border-emerald-400/25 bg-emerald-700/40 text-emerald-100';
   return (
@@ -2423,8 +2527,12 @@ function MiniStat({
       >
         {label}
       </div>
-      <div className={`w-full truncate py-1.5 text-center font-black ${light ? `rounded-none ${tv ? 'text-3xl' : 'text-lg'}` : 'rounded-lg text-base'} ${bg}`}>
-        {value}
+      <div
+        ref={noShrink ? undefined : ref}
+        style={noShrink ? undefined : style}
+        className={`w-full truncate py-1.5 text-center font-black ${light ? `rounded-none ${tv ? 'text-3xl' : 'text-lg'}` : 'rounded-lg text-base'} ${bg}`}
+      >
+        {content}
       </div>
     </div>
   );
@@ -2483,7 +2591,6 @@ function TeamPanel({
   // ngoài phạm vi file IE — CHỈ đổi con số HIỆN RA ở đây, không đụng gì tới targetPphPerWorker/
   // actualPphPerWorker phía trên (PPH TH/% PPH vẫn tính từ kế hoạch thật như cũ).
   const displayTargetPph = leaf.pphStandard ?? targetPphPerWorker;
-  const fmt2 = (n: number) => n.toLocaleString('vi-VN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   // Cấp Line (light) — phong cách "bảng biểu truyền thống" theo ảnh mẫu: KHÔNG dùng Panel dùng
   // chung (bo góc lớn, viền mờ) nữa — tự dựng khung riêng góc vuông + viền đen sắc nét, sát nhau
@@ -2533,7 +2640,6 @@ function TeamPanel({
                   productionHours={productionHours}
                   displayTargetPph={displayTargetPph}
                   actualPphPerWorker={actualPphPerWorker}
-                  fmt2={fmt2}
                   tv={tv}
                 />
               </div>
@@ -2569,7 +2675,6 @@ function TeamPanel({
               productionHours={productionHours}
               displayTargetPph={displayTargetPph}
               actualPphPerWorker={actualPphPerWorker}
-              fmt2={fmt2}
               tv={tv}
             />
           )}
@@ -2596,9 +2701,9 @@ function TeamPanel({
         <>
           <div className="grid grid-cols-4 gap-1.5">
             <MiniStat label="SLKH/Ngày" value={plannedQtyDay != null ? fmtInt(plannedQtyDay) : '—'} tone="a" />
-            <MiniStat label="PPH" value={displayTargetPph != null ? fmt2(displayTargetPph) : '—'} tone="b" />
+            <MiniStat label="PPH" value={displayTargetPph != null ? { raw: displayTargetPph, decimals: 2 } : '—'} tone="b" />
             <MiniStat label="LĐ" value={workerCount != null ? fmtInt(workerCount) : '—'} tone="a" />
-            <MiniStat label="TGLV" value={productionHours != null ? String(productionHours).replace('.', ',') : '—'} tone="b" />
+            <MiniStat label="TGLV" value={productionHours != null ? { raw: productionHours, decimals: Number.isInteger(productionHours) ? 0 : 1 } : '—'} tone="b" />
           </div>
           <div className="mt-1.5 grid grid-cols-2 gap-1.5">
             <MiniStat label="SLKH/Giờ" value={fmtInt(leaf.perHourTarget)} tone="a" />
@@ -2625,13 +2730,13 @@ function TeamPanel({
 
           <div className="mt-2.5 grid grid-cols-2 gap-2">
             <RefStat label="SLTH" value={fmtInt(r.actual)} tone="plan" />
-            <RefStat label="% Đạt" value={r.pct == null ? '—' : `${r.pct}%`} band={bandFor(r.pct)} />
-            <RefStat label="PPH TH" value={actualPphPerWorker != null ? fmt2(actualPphPerWorker) : '—'} tone="plan" />
-            <RefStat label="% PPH" value={r.pct == null ? '—' : `${r.pct}%`} band={bandFor(r.pct)} />
+            <RefStat label="% Đạt" value={r.pct == null ? '—' : { raw: r.pct, decimals: Number.isInteger(r.pct) ? 0 : 1, suffix: '%' }} band={bandFor(r.pct)} />
+            <RefStat label="PPH TH" value={actualPphPerWorker != null ? { raw: actualPphPerWorker, decimals: 2 } : '—'} tone="plan" />
+            <RefStat label="% PPH" value={r.pct == null ? '—' : { raw: r.pct, decimals: Number.isInteger(r.pct) ? 0 : 1, suffix: '%' }} band={bandFor(r.pct)} />
           </div>
           <div className="mt-2 grid grid-cols-2 gap-2">
             <RefStat label="Số lỗi" value={leaf.cumulativeErrors != null ? fmtInt(leaf.cumulativeErrors) : '—'} tone="plan" />
-            <RefStat label="% Quality" value={leaf.qualityPct == null ? '—' : `${leaf.qualityPct}%`} band={bandFor(leaf.qualityPct)} />
+            <RefStat label="% Quality" value={leaf.qualityPct == null ? '—' : { raw: leaf.qualityPct, decimals: Number.isInteger(leaf.qualityPct) ? 0 : 1, suffix: '%' }} band={bandFor(leaf.qualityPct)} />
           </div>
         </>
       )}
@@ -2651,7 +2756,6 @@ function TeamPanelBody({
   productionHours,
   displayTargetPph,
   actualPphPerWorker,
-  fmt2,
   tv = false,
 }: {
   leaf: PphLeaf;
@@ -2662,26 +2766,24 @@ function TeamPanelBody({
   productionHours: number | null;
   displayTargetPph: number | null;
   actualPphPerWorker: number | null;
-  fmt2: (n: number) => string;
   tv?: boolean;
 }) {
   return (
     <>
       <div className="grid grid-cols-4 gap-1">
-        <MiniStat label="SLKH/Ngày" value={plannedQtyDay != null ? fmtInt(plannedQtyDay) : '—'} tone="a" light tv={tv} />
-        <MiniStat label="PPH" value={displayTargetPph != null ? fmt2(displayTargetPph) : '—'} tone="b" light tv={tv} />
+        <MiniStat label="SLKH/Ngày" value={plannedQtyDay != null ? fmtCompactInt(plannedQtyDay) : '—'} tone="plan" light tv={tv} noShrink />
+        <MiniStat label="PPH" value={displayTargetPph != null ? { raw: displayTargetPph, decimals: 2 } : '—'} tone="b" light tv={tv} />
         <MiniStat label="LĐ" value={workerCount != null ? fmtInt(workerCount) : '—'} tone="a" light tv={tv} />
-        <MiniStat label="TGLV" value={productionHours != null ? String(productionHours).replace('.', ',') : '—'} tone="b" light tv={tv} />
+        <MiniStat label="TGLV" value={productionHours != null ? { raw: productionHours, decimals: Number.isInteger(productionHours) ? 0 : 1 } : '—'} tone="b" light tv={tv} />
       </div>
 
       {/* Cột trái (2/5): SLKH/Giờ + SLKH L.Kế xếp CHỒNG — cột phải (3/5, rộng hơn hẳn để ảnh
           sản phẩm có chỗ hiện rõ): Mã hàng + ảnh sản phẩm xếp CHỒNG — đúng tỉ lệ ảnh mẫu. */}
       <div className="mt-1 grid grid-cols-5 gap-1">
         <div className="col-span-2 flex flex-col gap-1">
-          <MiniStat label="SLKH/Giờ" value={fmtInt(leaf.perHourTarget)} tone="a" light tv={tv} />
-          {/* Theo yêu cầu người dùng — đổi tone "b" (xanh chanh #99CC33) sang "a" (xanh đậm) để
-              cùng màu với SLKH/Giờ ngay phía trên, không còn xen kẽ 2 tông như trước. */}
-          <MiniStat label="SLKH L.Kế" value={fmtInt(r.proTarget)} tone="a" light tv={tv} />
+          <MiniStat label="SLKH/Giờ" value={fmtCompactInt(leaf.perHourTarget)} tone="plan" light tv={tv} noShrink />
+          {/* Cùng màu với SLKH/Giờ ngay phía trên (tone "plan" — xám xanh #64748b, theo yêu cầu người dùng). */}
+          <MiniStat label="SLKH L.Kế" value={fmtCompactInt(r.proTarget)} tone="plan" light tv={tv} noShrink />
         </div>
         <div className="col-span-3 flex flex-col gap-1">
           <div className={`truncate bg-white px-1 py-1 text-center font-extrabold uppercase tracking-wide text-tbs-dark ${tv ? 'text-xl' : 'text-sm'}`}>
@@ -2708,20 +2810,20 @@ function TeamPanelBody({
 
       {/* Khối kết quả — không viền đen (chỉ khối màu đặc), chữ to, đúng ảnh mẫu thật. */}
       <div className="mt-1 grid grid-cols-2 gap-1">
-        <RefStat label="SLTH" value={fmtInt(r.actual)} light tv={tv} tone="plan" />
+        <RefStat label="SLTH" value={fmtCompactInt(r.actual)} light tv={tv} tone="plan" noShrink />
         {/* Bỏ dấu "%" ở GIÁ TRỊ cho gọn (VD 55% -> 55) — nhãn "% ĐẠT/% PPH/% QUALITY" phía trên đã
             đủ nói rõ đây là phần trăm, không cần lặp lại dấu % trong số — CHỈ áp dụng cấp Line/TV
             (light), Tổng quan/Nhà máy (dark, block TeamPanel phía trên) giữ nguyên có dấu %. */}
-        <RefStat label="% ĐẠT" value={r.pct == null ? '—' : String(r.pct)} light tv={tv} band={bandFor(r.pct)} />
-        <RefStat label="PPH TH" value={actualPphPerWorker != null ? fmt2(actualPphPerWorker) : '—'} light tv={tv} tone="plan" />
-        <RefStat label="% PPH" value={r.pct == null ? '—' : String(r.pct)} light tv={tv} band={bandFor(r.pct)} />
+        <RefStat label="% ĐẠT" value={r.pct == null ? '—' : { raw: r.pct, decimals: Number.isInteger(r.pct) ? 0 : 1 }} light tv={tv} band={bandFor(r.pct)} />
+        <RefStat label="PPH TH" value={actualPphPerWorker != null ? { raw: actualPphPerWorker, decimals: 2 } : '—'} light tv={tv} tone="plan" />
+        <RefStat label="% PPH" value={r.pct == null ? '—' : { raw: r.pct, decimals: Number.isInteger(r.pct) ? 0 : 1 }} light tv={tv} band={bandFor(r.pct)} />
       </div>
 
       {/* Chất lượng RFT — cộng dồn cả ngày (khớp cách SLTH/%ĐẠT/PPHTH/%PPH đã cộng dồn ở trên),
           null (—) khi chưa khung giờ nào có Số lỗi thay vì bịa ra 100%. */}
       <div className="mt-1 grid grid-cols-2 gap-1">
         <RefStat label="SỐ LỖI" value={leaf.cumulativeErrors != null ? fmtInt(leaf.cumulativeErrors) : '—'} light tv={tv} tone="plan" />
-        <RefStat label="% QUALITY" value={leaf.qualityPct == null ? '—' : String(leaf.qualityPct)} light tv={tv} band={bandFor(leaf.qualityPct)} />
+        <RefStat label="% QUALITY" value={leaf.qualityPct == null ? '—' : { raw: leaf.qualityPct, decimals: Number.isInteger(leaf.qualityPct) ? 0 : 1 }} light tv={tv} band={bandFor(leaf.qualityPct)} />
       </div>
     </>
   );

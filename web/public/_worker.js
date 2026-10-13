@@ -1270,6 +1270,15 @@ async function handlePph(request, env, pathname, searchParams, ctx) {
     return pphJson({ success: true, data: tree });
   }
 
+  // ---- Bản CÔNG KHAI của cây trên — cho trang quét /pph-scan?pick=1 (mã QR CHUNG, không gắn cố
+  // định 1 Tổ: người quét tự chọn Nhà máy › Xưởng › Chuyền/Tổ trước khi vào form). Tách route riêng
+  // khỏi /tree ở trên (dùng cho trang Cài Đặt) để không đụng/ảnh hưởng gì tới route đó — xem
+  // PphSettingsView.tsx (không sửa) và PphGeneralQrView.tsx (trang Cài Đặt mới cho mã QR chung).
+  if (sub === "/scan-tree" && request.method === "GET") {
+    const tree = await pphBuildTree(env);
+    return pphJson({ success: true, data: tree });
+  }
+
   // ---- Cấu hình LINE dashboard: đọc CÔNG KHAI (dashboard cần), ghi ở trang Cài Đặt ----
   if (sub === "/dashboard-lines" && request.method === "GET") {
     const lines = await pphGetDashboardLines(env);
@@ -1284,22 +1293,37 @@ async function handlePph(request, env, pathname, searchParams, ctx) {
         if (!String(l.name || "").trim()) return pphJson({ success: false, error: "Có Line chưa đặt tên" }, 400);
       }
       await pphBoardEnsureTable(env);
-      // Ghi đè toàn bộ (giống PUT /slot-windows, /shortfall-causes).
-      const stmts = [
-        env.DB.prepare("DELETE FROM pph_dashboard_lines"),
-        env.DB.prepare("DELETE FROM pph_line_members"),
-      ];
+      // GIỮ ỔN ĐỊNH mã Line qua các lần lưu — TRƯỚC ĐÂY xoá sạch rồi tạo lại toàn bộ với ID MỚI mỗi
+      // lần lưu (kể cả Line không đổi gì), làm hỏng mọi link TV đã lưu trước đó (lineId nằm ngay
+      // trong URL /pph-view). Giờ: Line nào client gửi kèm đúng `id` đang tồn tại thật thì UPDATE
+      // giữ nguyên ID đó; Line không có `id` hợp lệ (Line MỚI thêm ở Cài Đặt) mới cấp ID mới; Line
+      // cũ nào không còn trong danh sách gửi lên (bị xoá ở Cài Đặt) mới bị DELETE đúng dòng đó —
+      // không đụng ID của bất kỳ Line nào vẫn được giữ lại. pph_line_members vẫn xoá-sạch-rồi-tạo
+      // lại như cũ (bảng gán thuần tuý, không ai bookmark trực tiếp nên không cần giữ ổn định).
+      const { results: existingRows } = await env.DB.prepare("SELECT id FROM pph_dashboard_lines").all();
+      const existingIds = new Set((existingRows || []).map((r) => r.id));
+      const keepIds = new Set();
+      const stmts = [env.DB.prepare("DELETE FROM pph_line_members")];
       let so = 0;
       const seenLeaf = new Set();
       for (const l of lines) {
-        const lid = pphNewId("pphline");
-        stmts.push(env.DB.prepare("INSERT INTO pph_dashboard_lines (id, area_id, name, sort_order) VALUES (?, ?, ?, ?)").bind(lid, String(l.areaId).trim(), String(l.name).trim(), so++));
+        const reuseId = typeof l.id === "string" && existingIds.has(l.id) ? l.id : null;
+        const lid = reuseId || pphNewId("pphline");
+        keepIds.add(lid);
+        stmts.push(
+          reuseId
+            ? env.DB.prepare("UPDATE pph_dashboard_lines SET area_id = ?, name = ?, sort_order = ? WHERE id = ?").bind(String(l.areaId).trim(), String(l.name).trim(), so++, lid)
+            : env.DB.prepare("INSERT INTO pph_dashboard_lines (id, area_id, name, sort_order) VALUES (?, ?, ?, ?)").bind(lid, String(l.areaId).trim(), String(l.name).trim(), so++)
+        );
         for (const leafId of (Array.isArray(l.leafIds) ? l.leafIds : [])) {
           const lf = String(leafId || "").trim();
           if (!lf || seenLeaf.has(lf)) continue; // 1 điểm quét chỉ vào 1 line
           seenLeaf.add(lf);
           stmts.push(env.DB.prepare("INSERT INTO pph_line_members (leaf_id, line_id) VALUES (?, ?)").bind(lf, lid));
         }
+      }
+      for (const oldId of existingIds) {
+        if (!keepIds.has(oldId)) stmts.push(env.DB.prepare("DELETE FROM pph_dashboard_lines WHERE id = ?").bind(oldId));
       }
       await env.DB.batch(stmts);
       const out = await pphGetDashboardLines(env);
@@ -1885,10 +1909,11 @@ async function handlePph(request, env, pathname, searchParams, ctx) {
     }
   }
 
-  // ---- Sửa Model/Số lượng công nhân/Sản lượng kế hoạch cả ca của dòng Đầu ca HÔM NAY — công khai,
-  // không đăng nhập, giống hệt /scan (điện thoại tại chuyền không có tài khoản riêng). Sửa RIÊNG
-  // TỪNG field (giống PUT /org) — chỉ field nào CÓ MẶT trong body mới bị ghi đè, cho phép form sửa
-  // từng ô độc lập (xem SlotHistoryPanel ở PphScanClient.tsx). Ban đầu chỉ cho sửa Model (sợ đụng
+  // ---- Sửa Model/Số lượng công nhân/Sản lượng kế hoạch cả ca của dòng Đầu ca, HOẶC Số lượng làm
+  // được/Số lỗi của 1 khung giờ thường (xem nhánh actualQty riêng ngay bên dưới) — HÔM NAY, công
+  // khai, không đăng nhập, giống hệt /scan (điện thoại tại chuyền không có tài khoản riêng). Sửa
+  // RIÊNG TỪNG field (giống PUT /org) — chỉ field nào CÓ MẶT trong body mới bị ghi đè, cho phép form
+  // sửa từng ô độc lập (xem SlotHistoryPanel ở PphScanClient.tsx). Ban đầu chỉ cho sửa Model (sợ đụng
   // số liệu Dashboard cả ngày) nhưng theo yêu cầu người dùng, giờ CŨNG cho sửa workerCount/plannedQty
   // — 2 số này chỉ ảnh hưởng cách suy Mục tiêu/giờ + hiển thị (tính lại ngay lúc đọc, không lưu số
   // suy ra sẵn ở đâu khác) nên sửa xong Dashboard tự đúng ngay, không cần dọn dẹp gì thêm. Luôn tự
@@ -1899,6 +1924,79 @@ async function handlePph(request, env, pathname, searchParams, ctx) {
       const body = await request.json();
       const teamId = String(body.teamId || "").trim();
       if (!teamId) return pphJson({ success: false, error: "Thiếu mã điểm quét" }, 400);
+
+      // ---- Sửa Số lượng làm được (+ Số lỗi kèm theo) của 1 khung giờ ĐÃ NỘP hôm nay — người dùng
+      // hay bấm nhầm số lúc quét. Tính lại "hụt mục tiêu/giờ" theo số MỚI (không giữ nguyên trạng
+      // thái hụt cũ): nếu giờ mới thành hụt thì bắt buộc nhập lại Nguyên nhân/Giải pháp (giống lúc
+      // nộp lần đầu); nếu giờ hết hụt thì tự xoá Nguyên nhân/Giải pháp cũ cho khỏi lệch với số liệu
+      // thật. Công khai, không đăng nhập — cùng cơ chế với Model/Số công nhân/Sản lượng kế hoạch ở
+      // dưới. Luôn tự tính "hôm nay" ở SERVER, không cho sửa khung giờ của ngày cũ.
+      if (body.actualQty !== undefined) {
+        const slot = String(body.slot || "").trim();
+        if (!slot || slot === "08:00") return pphJson({ success: false, error: "Thiếu khung giờ cần sửa" }, 400);
+
+        const actualQty = Number(body.actualQty);
+        if (!Number.isFinite(actualQty) || actualQty < 0) return pphJson({ success: false, error: "Vui lòng nhập đúng Số lượng" }, 400);
+        const errorCount = Number(body.errorCount);
+        if (!Number.isFinite(errorCount) || errorCount < 0) return pphJson({ success: false, error: "Vui lòng nhập đúng Số lỗi" }, 400);
+        if (errorCount > actualQty) return pphJson({ success: false, error: "Số lỗi không thể lớn hơn Số lượng" }, 400);
+
+        const date = pphTodayStr();
+        const setupRow = await env.DB.prepare("SELECT planned_qty, production_hours FROM pph_entries WHERE team_id = ? AND entry_date = ? AND slot = '08:00'").bind(teamId, date).first();
+        const slots = buildPphSlots(setupRow ? setupRow.production_hours : null);
+        const perHourTarget = setupRow && setupRow.planned_qty ? setupRow.planned_qty / (slots.length - 1) : 0;
+        const isShortfall = perHourTarget > 0 && actualQty < Math.round(perHourTarget);
+
+        let shortfallReason = null;
+        let shortfallSolution = null;
+        let shortfallCauseGroup = null;
+        let shortfallCauseSub = null;
+
+        if (isShortfall) {
+          const shortfallSolutionInput = String(body.shortfallSolution || "").trim();
+          if (!shortfallSolutionInput) return pphJson({ success: false, error: "Số lượng mới đang thấp hơn mục tiêu/giờ — vui lòng nhập Giải pháp" }, 400);
+          shortfallSolution = shortfallSolutionInput;
+
+          const groupId = String(body.shortfallCauseGroupId || "").trim();
+          const subId = String(body.shortfallCauseSubId || "").trim();
+          const detail = String(body.shortfallDetail || "").trim();
+          const legacyReason = String(body.shortfallReason || "").trim();
+
+          if (!groupId && legacyReason) {
+            shortfallReason = legacyReason;
+          } else if (groupId === PPH_CAUSE_OTHER_ID) {
+            if (!detail) return pphJson({ success: false, error: "Vui lòng mô tả nguyên nhân cụ thể" }, 400);
+            shortfallCauseGroup = "Khác";
+            shortfallReason = `Khác: ${detail}`;
+          } else {
+            if (!groupId) return pphJson({ success: false, error: "Số lượng mới đang thấp hơn mục tiêu/giờ — vui lòng chọn Nhóm nguyên nhân" }, 400);
+            const causes = await pphGetShortfallCauses(env);
+            const g = causes.find((x) => x.id === groupId);
+            if (!g) return pphJson({ success: false, error: "Nhóm nguyên nhân không còn hợp lệ — vui lòng tải lại trang" }, 400);
+            shortfallCauseGroup = g.name;
+            if (!subId) return pphJson({ success: false, error: `Vui lòng chọn chi tiết nguyên nhân cho nhóm "${g.name}"` }, 400);
+            if (subId === PPH_CAUSE_OTHER_ID) {
+              if (!detail) return pphJson({ success: false, error: "Vui lòng mô tả nguyên nhân cụ thể" }, 400);
+              shortfallCauseSub = "Khác";
+              shortfallReason = `${g.name} › Khác: ${detail}`;
+            } else {
+              const s = g.subs.find((x) => x.id === subId);
+              if (!s) return pphJson({ success: false, error: "Chi tiết nguyên nhân không còn hợp lệ — vui lòng tải lại trang" }, 400);
+              shortfallCauseSub = s.name;
+              shortfallReason = `${g.name} › ${s.name}`;
+            }
+          }
+        }
+
+        const res = await env.DB.prepare(
+          "UPDATE pph_entries SET actual_qty = ?, error_count = ?, shortfall_reason = ?, shortfall_solution = ?, shortfall_cause_group = ?, shortfall_cause_sub = ? WHERE team_id = ? AND entry_date = ? AND slot = ?"
+        ).bind(actualQty, errorCount, shortfallReason, shortfallSolution, shortfallCauseGroup, shortfallCauseSub, teamId, date, slot).run();
+        if (res.meta && res.meta.changes === 0) {
+          return pphJson({ success: false, error: "Chưa có dữ liệu khung giờ này hôm nay để sửa" }, 404);
+        }
+        await pphCacheInvalidate(env, "pph:dashboard");
+        return pphJson({ success: true, isShortfall });
+      }
 
       const sets = [];
       const binds = [];
@@ -1924,9 +2022,37 @@ async function handlePph(request, env, pathname, searchParams, ctx) {
         sets.push("planned_qty = ?");
         binds.push(plannedQty);
       }
+      const date = pphTodayStr();
+      if (body.productionHours !== undefined) {
+        const productionHours = Number(body.productionHours);
+        if (!Number.isFinite(productionHours) || productionHours <= 0 || productionHours > 24) {
+          return pphJson({ success: false, error: "Vui lòng nhập đúng Thời gian sản xuất (giờ)" }, 400);
+        }
+        // Không cho GIẢM Thời gian sản xuất xuống dưới mức đã có khung giờ tăng ca đã nộp số liệu —
+        // buildPphSlots() suy danh sách khung giờ trong ngày TỪ chính số giờ này, giảm xuống sẽ làm
+        // khung đã nộp "mồ côi" (biến mất khỏi danh sách dù dữ liệu vẫn còn nguyên trong CSDL, không
+        // ai thấy lại được qua giao diện nữa).
+        const newSlots = buildPphSlots(productionHours);
+        const filledRows = await env.DB.prepare(
+          "SELECT slot FROM pph_entries WHERE team_id = ? AND entry_date = ? AND slot != '08:00'"
+        ).bind(teamId, date).all();
+        const orphanSlot = (filledRows.results || []).map((r) => r.slot).find((s) => !newSlots.includes(s));
+        if (orphanSlot) {
+          return pphJson({ success: false, error: `Không thể giảm Thời gian sản xuất — khung giờ ${orphanSlot} đã có số liệu` }, 400);
+        }
+        sets.push("production_hours = ?");
+        binds.push(productionHours);
+      }
+      if (body.targetRft !== undefined) {
+        const targetRft = Number(body.targetRft);
+        if (!Number.isFinite(targetRft) || targetRft < 0 || targetRft > 100) {
+          return pphJson({ success: false, error: "Vui lòng nhập đúng Mục tiêu tỉ lệ đạt chất lượng RFT (0-100%)" }, 400);
+        }
+        sets.push("target_rft = ?");
+        binds.push(targetRft);
+      }
       if (sets.length === 0) return pphJson({ success: false, error: "Không có gì để sửa" }, 400);
 
-      const date = pphTodayStr();
       binds.push(teamId, date);
       const res = await env.DB.prepare(
         `UPDATE pph_entries SET ${sets.join(", ")} WHERE team_id = ? AND entry_date = ? AND slot = '08:00'`

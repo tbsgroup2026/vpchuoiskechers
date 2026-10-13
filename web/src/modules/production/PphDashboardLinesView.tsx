@@ -20,7 +20,10 @@ type TreeArea = { id: string; name: string; lines: TreeLine[]; teams: TreeTeam[]
 type TreeFactory = { id: string; name: string; areas: TreeArea[] };
 
 type AreaGroup = { areaId: string; areaName: string; factoryName: string; leaves: { id: string; name: string }[] };
-type EditLine = { key: string; areaId: string; name: string; leafIds: string[] };
+// `id` = mã THẬT của Line bên CSDL (undefined = Line vừa thêm ở màn này, chưa lưu lần nào) — PHẢI
+// giữ lại xuyên suốt từ lúc tải tới lúc lưu, gửi kèm khi lưu để server UPDATE giữ nguyên ID thay vì
+// cấp ID mới cho Line đã có, tránh làm vỡ link TV đã lưu trước đó (xem PUT /api/pph/dashboard-lines).
+type EditLine = { key: string; id?: string; areaId: string; name: string; leafIds: string[] };
 
 let __seq = 0;
 const newKey = () => `ln${Date.now().toString(36)}_${(__seq++).toString(36)}`;
@@ -78,8 +81,9 @@ export default function PphDashboardLinesView({ onBack }: { onBack: () => void }
         setLines(
           (lineRes.lines || [])
             .filter((l: { areaId: string }) => validAreaIds.has(l.areaId))
-            .map((l: { areaId: string; name: string; leafIds: string[] }) => ({
+            .map((l: { id: string; areaId: string; name: string; leafIds: string[] }) => ({
               key: newKey(),
+              id: l.id,
               areaId: l.areaId,
               name: l.name,
               leafIds: (l.leafIds || []).filter((id) => validLeafIds.has(id)),
@@ -156,7 +160,7 @@ export default function PphDashboardLinesView({ onBack }: { onBack: () => void }
   }
 
   async function handleSave() {
-    const cleaned = lines.map((l) => ({ areaId: l.areaId, name: l.name.trim(), leafIds: l.leafIds }));
+    const cleaned = lines.map((l) => ({ id: l.id, areaId: l.areaId, name: l.name.trim(), leafIds: l.leafIds }));
     for (const l of cleaned) {
       if (!l.name) {
         setSaveError('Có Line chưa đặt tên');

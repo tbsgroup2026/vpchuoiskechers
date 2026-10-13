@@ -32,7 +32,11 @@
     {
       "binding": "DB",
       "database_name": "vpchuoiskechers-db",
-      "database_id": "ae3a7efd-ff5d-45c2-8c49-78d1518e3aa1"
+      "database_id": "ae3a7efd-ff5d-45c2-8c49-78d1518e3aa1",
+      // Module PPH (bảng pph_org) dùng binding này — bật remote để `wrangler dev` đọc/ghi THẲNG
+      // D1 thật thay vì bản SQLite local rỗng, cho test đúng dữ liệu thật (Nhà Máy Miền Đông/May/Gò
+      // đã có sẵn). Nhớ: mọi thêm/xoá lúc test local giờ là THAY ĐỔI THẬT trên production.
+      "remote": true
     },
     {
       "binding": "DB_KG",

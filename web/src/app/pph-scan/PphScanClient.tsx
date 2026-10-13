@@ -19,6 +19,7 @@ import {
   IconPercentage,
   IconBug,
   IconRefresh,
+  IconArrowsLeftRight,
 } from '@tabler/icons-react';
 
 type PphSlotEntry = {
@@ -51,7 +52,11 @@ type ScanInfo = {
 
 type ShortfallCauseGroup = { id: string; name: string; subs: { id: string; name: string }[] };
 type ShoeModelSuggestion = { code: string; imageUrl: string };
-type TeamOption = { id: string; name: string; path: string };
+// Hình dạng cây Nhà máy›Xưởng›Chuyền›Tổ — khớp đúng pphBuildTree() bên _worker.js (GET /api/pph/scan-tree).
+type PphTreeTeam = { id: string; name: string };
+type PphTreeLine = { id: string; name: string; teams: PphTreeTeam[] };
+type PphTreeArea = { id: string; name: string; lines: PphTreeLine[]; teams: PphTreeTeam[] };
+type PphTreeFactory = { id: string; name: string; areas: PphTreeArea[] };
 
 const REMEMBERED_NAME_KEY = 'pph_scan_reporter_name';
 // Nhớ mã Tổ lần quét GẦN NHẤT trên CHÍNH điện thoại/máy tính bảng này — phục vụ yêu cầu "thêm vào
@@ -68,6 +73,10 @@ export default function PphScanClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const teamId = searchParams.get('team') || '';
+  // Mã QR CHUNG (không gắn cố định 1 Tổ, tải ở trang Cài Đặt riêng — PphGeneralQrView.tsx) trỏ tới
+  // /pph-scan?pick=1 — LUÔN cho chọn lại vị trí từ đầu, không tự điền/nhớ lần chọn trước (khác hẳn
+  // hành vi REMEMBERED_TEAM_KEY bên dưới, vốn dành cho thiết bị đứng yên tại 1 Tổ cố định).
+  const pickMode = searchParams.get('pick') === '1';
 
   // Trang build tĩnh (output:'export') — lúc build KHÔNG có URL thật nên teamId luôn rỗng trong
   // bản HTML tĩnh ban đầu; chỉ sau khi hydrate xong ở trình duyệt, useSearchParams() mới đọc được
@@ -92,6 +101,7 @@ export default function PphScanClient() {
       } catch {}
       return;
     }
+    if (pickMode) return; // Mã QR chung — luôn hiện chọn vị trí từ đầu, không tự điều hướng theo mã đã nhớ.
     try {
       const remembered = window.localStorage.getItem(REMEMBERED_TEAM_KEY);
       if (remembered) {
@@ -99,7 +109,7 @@ export default function PphScanClient() {
         router.replace(`/pph-scan?team=${encodeURIComponent(remembered)}`);
       }
     } catch {}
-  }, [mounted, teamId, router]);
+  }, [mounted, teamId, pickMode, router]);
 
   const [info, setInfo] = useState<ScanInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -126,6 +136,10 @@ export default function PphScanClient() {
   const [formError, setFormError] = useState<string | null>(null);
   const [success, setSuccess] = useState<{ slot: string } | null>(null);
   const [showSlotPanel, setShowSlotPanel] = useState(false);
+  // 1 người đôi khi nhập hộ/nhập thêm cho Tổ khác (không phải Tổ đã quét/nhớ sẵn trên điện thoại
+  // này) — bấm vào tên Tổ ở đầu trang (mọi màn hình) để mở lại y hệt màn chọn vị trí lúc quét mã
+  // QR chung, không cần quét lại mã mới đổi được Tổ.
+  const [showTeamSwitcher, setShowTeamSwitcher] = useState(false);
   const [countdownLabel, setCountdownLabel] = useState<string | null>(null);
   const [countdownPhase, setCountdownPhase] = useState<'before-open' | 'open' | null>(null);
   const [slotWindows, setSlotWindows] = useState<Record<string, { startTime: string; endTime: string }> | null>(null);
@@ -199,30 +213,28 @@ export default function PphScanClient() {
   // Lưới an toàn khi KHÔNG có mã Tổ trên URL, HOẶC có mã nhưng server báo không hợp lệ (mã cũ/đã
   // xoá) — thực tế đã gặp báo lỗi "Thiếu mã Tổ" dù đã quét QR (nghi trình duyệt trong app Zalo giữ
   // 1 bản Service Worker/cache CŨ từ trước — xem effect huỷ SW phía trên — chỉ tự khỏi SAU KHI đã
-  // tải được đúng bản JS mới nhất, không giúp được ngay LẦN ĐẦU đang bị kẹt). Cho TÌM và CHỌN TAY
-  // đúng Tổ 1 lần từ danh sách (xem TeamPickerFallback), sau đó ghi nhớ lại y hệt vừa quét mã —
-  // không cần đợi sửa được cache/SW hay cấp lại QR mới. Chỉ tải danh sách khi THỰC SỰ cần (1 trong 2
-  // trường hợp trên) — trường hợp bình thường (đã có mã, tra đúng) không tốn thêm lượt gọi API này.
-  const [teamOptions, setTeamOptions] = useState<TeamOption[]>([]);
-  const needsTeamFallback = !teamId || (info !== null && (!info.success || !info.team));
+  // tải được đúng bản JS mới nhất, không giúp được ngay LẦN ĐẦU đang bị kẹt). Cũng chính là màn hình
+  // cho mã QR CHUNG (?pick=1, xem PphGeneralQrView.tsx) tự chọn Nhà máy›Xưởng›Chuyền/Tổ (xem
+  // CascadingTeamPicker) rồi ghi nhớ lại y hệt vừa quét mã riêng — không cần đợi sửa cache/SW hay
+  // cấp lại QR mới. Chỉ tải cây khi THỰC SỰ cần (1 trong các trường hợp trên) — trường hợp bình
+  // thường (đã có mã, tra đúng) không tốn thêm lượt gọi API này.
+  const [teamTree, setTeamTree] = useState<PphTreeFactory[]>([]);
+  const needsTeamFallback = !teamId || pickMode || (info !== null && (!info.success || !info.team));
   useEffect(() => {
-    if (!mounted || !needsTeamFallback || teamOptions.length > 0) return;
-    // Không truyền date — server tự mặc định hôm nay (xem /api/pph/dashboard), chỉ cần danh sách
-    // id/name/path để tìm-chọn, không quan tâm số liệu sản lượng kèm theo.
-    fetch('/api/pph/dashboard')
+    if (!mounted || teamTree.length > 0) return;
+    if (!needsTeamFallback && !showTeamSwitcher) return;
+    fetch('/api/pph/scan-tree')
       .then((r) => r.json())
       .then((res) => {
-        if (!res?.success || !res.data?.factories) return;
-        const opts: TeamOption[] = [];
-        for (const f of res.data.factories) {
-          for (const l of f.leaves || []) {
-            opts.push({ id: l.id, name: l.name, path: l.path || f.name });
-          }
-        }
-        setTeamOptions(opts);
+        if (res?.success && Array.isArray(res.data)) setTeamTree(res.data);
       })
       .catch(() => {});
-  }, [mounted, needsTeamFallback, teamOptions.length]);
+  }, [mounted, needsTeamFallback, showTeamSwitcher, teamTree.length]);
+
+  function switchToTeam(id: string) {
+    setShowTeamSwitcher(false);
+    router.replace(`/pph-scan?team=${encodeURIComponent(id)}`);
+  }
 
   // Giờ mở/đóng từng khung ("Ràng buộc thời gian", cấu hình chung ở trang Cài Đặt) — tải 1 LẦN,
   // dùng để tính đồng hồ đếm ngược bên dưới. Giờ MỞ giờ đây LÀ MỐC THẬT chặn nộp sớm (server tự
@@ -468,10 +480,17 @@ export default function PphScanClient() {
   }
 
   if (!teamId) {
+    // pickMode (mã QR CHUNG, ?pick=1) — đây là màn hình BÌNH THƯỜNG đầu tiên sau khi quét, không
+    // phải lỗi gì cả, nên không tô đỏ/không nói "không hợp lệ" như trường hợp thiếu mã do quét
+    // nhầm/QR hỏng bên dưới.
     return (
       <ScanShell>
-        <StateCard icon={IconAlertTriangle} tone="rose" title="Thiếu mã Tổ" desc="Đường dẫn QR không hợp lệ — vui lòng quét lại mã đã dán tại Tổ." />
-        <TeamPickerFallback teamOptions={teamOptions} onPick={(id) => router.replace(`/pph-scan?team=${encodeURIComponent(id)}`)} />
+        {pickMode ? (
+          <StateCard icon={IconBuildingFactory2} tone="emerald" title="Chọn vị trí báo cáo" desc="Chọn Nhà máy › Xưởng › Chuyền hoặc Tổ bạn đang đứng." />
+        ) : (
+          <StateCard icon={IconAlertTriangle} tone="rose" title="Thiếu mã Tổ" desc="Đường dẫn QR không hợp lệ — vui lòng quét lại mã đã dán tại Tổ." />
+        )}
+        <CascadingTeamPicker tree={teamTree} onPick={(id) => router.replace(`/pph-scan?team=${encodeURIComponent(id)}`)} />
       </ScanShell>
     );
   }
@@ -480,7 +499,7 @@ export default function PphScanClient() {
     return (
       <ScanShell>
         <StateCard icon={IconAlertTriangle} tone="rose" title="Không tìm thấy Tổ" desc={info?.error || 'Mã QR có thể đã cũ — liên hệ quản lý để lấy mã mới.'} />
-        <TeamPickerFallback teamOptions={teamOptions} onPick={(id) => router.replace(`/pph-scan?team=${encodeURIComponent(id)}`)} />
+        <CascadingTeamPicker tree={teamTree} onPick={(id) => router.replace(`/pph-scan?team=${encodeURIComponent(id)}`)} />
       </ScanShell>
     );
   }
@@ -489,7 +508,7 @@ export default function PphScanClient() {
   // lại mã QR mới nhập được khung tiếp theo.
   if (success) {
     return (
-      <ScanShell team={info.team}>
+      <ScanShell team={info.team} onClickTeamInfo={() => setShowTeamSwitcher(true)}>
         <StateCard
           icon={IconCircleCheck}
           tone="emerald"
@@ -497,25 +516,28 @@ export default function PphScanClient() {
           desc={`Cập nhật khung giờ ${success.slot} thành công. Cảm ơn bạn!`}
         />
         <p className="text-center text-[11px] text-slate-400 font-semibold -mt-2">Đang chuyển sang khung tiếp theo...</p>
+        {showTeamSwitcher && <TeamSwitcherModal tree={teamTree} onPick={switchToTeam} onClose={() => setShowTeamSwitcher(false)} />}
       </ScanShell>
     );
   }
 
   if (info.nextAction === 'wait') {
     return (
-      <ScanShell team={info.team} onClickSlotBadge={() => setShowSlotPanel(true)} slotBadgeLabel={info.nextSlot}>
+      <ScanShell team={info.team} onClickTeamInfo={() => setShowTeamSwitcher(true)} onClickSlotBadge={() => setShowSlotPanel(true)} slotBadgeLabel={info.nextSlot}>
         <StateCard icon={IconClock} tone="amber" title="Chưa tới giờ nhập" desc={`Khung tiếp theo lúc ${info.nextSlot}. Quay lại quét sau nhé.`} />
         {showSlotPanel && (
-          <SlotHistoryPanel info={info} teamId={teamId} shoeModels={shoeModels} onClose={() => setShowSlotPanel(false)} onSetupSaved={() => load({ silent: true })} />
+          <SlotHistoryPanel info={info} teamId={teamId} shoeModels={shoeModels} causeGroups={causeGroups} onClose={() => setShowSlotPanel(false)} onSetupSaved={() => load({ silent: true })} />
         )}
+        {showTeamSwitcher && <TeamSwitcherModal tree={teamTree} onPick={switchToTeam} onClose={() => setShowTeamSwitcher(false)} />}
       </ScanShell>
     );
   }
 
   if (info.nextAction === 'done') {
     return (
-      <ScanShell team={info.team}>
+      <ScanShell team={info.team} onClickTeamInfo={() => setShowTeamSwitcher(true)}>
         <StateCard icon={IconCircleCheck} tone="emerald" title="Đã cập nhật đủ hôm nay" desc="Cảm ơn bạn đã báo cáo đầy đủ các khung giờ hôm nay!" />
+        {showTeamSwitcher && <TeamSwitcherModal tree={teamTree} onPick={switchToTeam} onClose={() => setShowTeamSwitcher(false)} />}
       </ScanShell>
     );
   }
@@ -525,6 +547,7 @@ export default function PphScanClient() {
   return (
     <ScanShell
       team={info.team}
+      onClickTeamInfo={() => setShowTeamSwitcher(true)}
       onClickSlotBadge={!isSetup ? () => setShowSlotPanel(true) : undefined}
       slotBadgeLabel={!isSetup ? (info.targetSlot ?? undefined) : undefined}
     >
@@ -774,8 +797,9 @@ export default function PphScanClient() {
       </form>
 
       {showSlotPanel && (
-        <SlotHistoryPanel info={info} teamId={teamId} shoeModels={shoeModels} onClose={() => setShowSlotPanel(false)} onSetupSaved={() => load({ silent: true })} />
+        <SlotHistoryPanel info={info} teamId={teamId} shoeModels={shoeModels} causeGroups={causeGroups} onClose={() => setShowSlotPanel(false)} onSetupSaved={() => load({ silent: true })} />
       )}
+      {showTeamSwitcher && <TeamSwitcherModal tree={teamTree} onPick={switchToTeam} onClose={() => setShowTeamSwitcher(false)} />}
     </ScanShell>
   );
 }
@@ -813,11 +837,13 @@ function ScanShell({
   children,
   onClickSlotBadge,
   slotBadgeLabel,
+  onClickTeamInfo,
 }: {
   team?: { name: string; lineName: string; areaName: string; factoryName: string };
   children: React.ReactNode;
   onClickSlotBadge?: () => void;
   slotBadgeLabel?: string;
+  onClickTeamInfo?: () => void;
 }) {
   return (
     <div
@@ -851,15 +877,39 @@ function ScanShell({
         <div className="bg-white rounded-3xl shadow-xl border border-slate-200/70 p-5 sm:p-6">
           {team && (
             <div className="flex items-center gap-3 pb-4 mb-4 border-b border-slate-100">
-              <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center flex-shrink-0">
-                <IconBuildingFactory2 size={18} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="font-black text-slate-900 text-sm truncate">{team.name}</div>
-                <div className="text-[11px] text-slate-400 font-semibold truncate">
-                  {[team.factoryName, team.areaName, team.lineName].filter(Boolean).join(' › ')}
-                </div>
-              </div>
+              {onClickTeamInfo ? (
+                <button
+                  type="button"
+                  onClick={onClickTeamInfo}
+                  title="Bấm để chọn Tổ khác"
+                  className="flex items-center gap-3 flex-1 min-w-0 text-left group"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center flex-shrink-0">
+                    <IconBuildingFactory2 size={18} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-black text-slate-900 text-sm truncate flex items-center gap-1">
+                      <span className="truncate">{team.name}</span>
+                      <IconArrowsLeftRight size={13} className="text-slate-300 group-hover:text-[#006838] shrink-0" />
+                    </div>
+                    <div className="text-[11px] text-slate-400 font-semibold truncate">
+                      {[team.factoryName, team.areaName, team.lineName].filter(Boolean).join(' › ')}
+                    </div>
+                  </div>
+                </button>
+              ) : (
+                <>
+                  <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center flex-shrink-0">
+                    <IconBuildingFactory2 size={18} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-black text-slate-900 text-sm truncate">{team.name}</div>
+                    <div className="text-[11px] text-slate-400 font-semibold truncate">
+                      {[team.factoryName, team.areaName, team.lineName].filter(Boolean).join(' › ')}
+                    </div>
+                  </div>
+                </>
+              )}
               {onClickSlotBadge && slotBadgeLabel && (
                 <button
                   type="button"
@@ -881,48 +931,144 @@ function ScanShell({
   );
 }
 
-// Lưới an toàn khi thiếu mã Tổ trên URL (xem ghi chú ở useEffect tải teamOptions phía trên) — tìm
-// và bấm chọn tay đúng Tổ từ danh sách toàn hệ thống, khớp theo tên HOẶC đường dẫn Nhà máy›Xưởng›
-// Chuyền (vì số Tổ LẶP LẠI giữa các Xưởng/Nhà máy, VD "Line 6" có cả ở Xưởng May lẫn Gò — gõ mỗi số
-// không đủ phân biệt, phải hiện kèm path để người chọn tự biết đúng Tổ mình). Không hiện khung tìm
-// khi danh sách chưa tải xong (rỗng) — tránh ô tìm trống trơ gây rối lúc mới vào.
-function TeamPickerFallback({ teamOptions, onPick }: { teamOptions: TeamOption[]; onPick: (id: string) => void }) {
-  const [q, setQ] = useState('');
-  const results = useMemo(() => {
-    const query = q.trim().toLowerCase();
-    if (!query) return [];
-    return teamOptions.filter((t) => t.name.toLowerCase().includes(query) || t.path.toLowerCase().includes(query)).slice(0, 8);
-  }, [q, teamOptions]);
+type PickGridItem = { id: string; name: string; drill?: boolean };
 
-  if (teamOptions.length === 0) return null;
+function PickerGrid({ items, onSelect }: { items: PickGridItem[]; onSelect: (item: PickGridItem) => void }) {
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      {items.map((it) => (
+        <button
+          key={it.id}
+          type="button"
+          onClick={() => onSelect(it)}
+          className="flex items-center justify-between gap-1.5 px-3.5 py-3 rounded-xl border border-slate-200 bg-white hover:border-[#006838]/60 hover:bg-emerald-50 text-left transition-colors"
+        >
+          <span className="text-sm font-black text-slate-800 truncate">{it.name}</span>
+          {it.drill && <IconChevronRight size={14} className="text-slate-400 shrink-0" />}
+        </button>
+      ))}
+    </div>
+  );
+}
 
+function PickerBack({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} className="text-[11px] font-bold text-[#006838] hover:underline">
+      {label}
+    </button>
+  );
+}
+
+type CascadeStep =
+  | { level: 'factory' }
+  | { level: 'area'; factory: PphTreeFactory }
+  | { level: 'pick'; factory: PphTreeFactory; area: PphTreeArea }
+  | { level: 'team'; factory: PphTreeFactory; area: PphTreeArea; line: PphTreeLine };
+
+// Chọn tay Nhà máy › Xưởng › Chuyền/Tổ — dùng khi KHÔNG có mã Tổ trên URL: mã QR CHUNG (?pick=1,
+// xem PphGeneralQrView.tsx) luôn đi qua đây; cũng là lưới an toàn khi mã riêng bị hỏng/thiếu (thay
+// hẳn ô tìm kiếm phẳng trước đây). Bám đúng quy tắc "lá của cây" bên server
+// (pphCollectFactoryLeaves() trong _worker.js) — Xưởng trống hẳn tự nó là điểm dừng (VD "Đầu vào"),
+// Tổ có thể nằm thẳng dưới Xưởng hoặc dưới 1 Chuyền, Chuyền không có Tổ con cũng tự nó là điểm dừng.
+function CascadingTeamPicker({ tree, onPick }: { tree: PphTreeFactory[]; onPick: (id: string) => void }) {
+  const [step, setStep] = useState<CascadeStep>({ level: 'factory' });
+
+  if (tree.length === 0) {
+    return <p className="mt-4 text-center text-xs text-slate-400 font-semibold">Đang tải danh sách Nhà máy...</p>;
+  }
+
+  if (step.level === 'factory') {
+    return (
+      <div className="mt-4 space-y-2">
+        <p className="text-center text-xs font-bold text-slate-500">Chọn Nhà máy:</p>
+        <PickerGrid
+          items={tree.map((f) => ({ id: f.id, name: f.name }))}
+          onSelect={(it) => {
+            const factory = tree.find((f) => f.id === it.id);
+            if (factory) setStep({ level: 'area', factory });
+          }}
+        />
+      </div>
+    );
+  }
+
+  if (step.level === 'area') {
+    const { factory } = step;
+    return (
+      <div className="mt-4 space-y-2">
+        <PickerBack label="← Nhà máy khác" onClick={() => setStep({ level: 'factory' })} />
+        <p className="text-center text-xs font-bold text-slate-500">Chọn Xưởng:</p>
+        <PickerGrid
+          items={factory.areas.map((a) => ({ id: a.id, name: a.name }))}
+          onSelect={(it) => {
+            const area = factory.areas.find((a) => a.id === it.id);
+            if (!area) return;
+            if (area.lines.length === 0 && area.teams.length === 0) {
+              onPick(area.id); // Xưởng trống hẳn — tự nó là điểm quét.
+              return;
+            }
+            setStep({ level: 'pick', factory, area });
+          }}
+        />
+      </div>
+    );
+  }
+
+  if (step.level === 'pick') {
+    const { factory, area } = step;
+    const items: PickGridItem[] = [
+      ...area.teams.map((t) => ({ id: t.id, name: t.name })),
+      ...area.lines.map((l) => (l.teams.length === 0 ? { id: l.id, name: l.name } : { id: l.id, name: l.name, drill: true })),
+    ];
+    return (
+      <div className="mt-4 space-y-2">
+        <PickerBack label="← Xưởng khác" onClick={() => setStep({ level: 'area', factory })} />
+        <p className="text-center text-xs font-bold text-slate-500">Chọn Chuyền hoặc Tổ:</p>
+        <PickerGrid
+          items={items}
+          onSelect={(it) => {
+            if (!it.drill) {
+              onPick(it.id);
+              return;
+            }
+            const line = area.lines.find((l) => l.id === it.id);
+            if (line) setStep({ level: 'team', factory, area, line });
+          }}
+        />
+      </div>
+    );
+  }
+
+  const { factory, area, line } = step;
   return (
     <div className="mt-4 space-y-2">
-      <p className="text-center text-xs font-bold text-slate-500">Hoặc tìm và chọn đúng Tổ của bạn:</p>
-      <input
-        type="text"
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        placeholder="Gõ số Tổ, VD: 39"
-        className="w-full px-3.5 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-center focus:outline-none focus:border-[#006838]"
-        autoComplete="off"
-      />
-      {results.length > 0 && (
-        <div className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-          {results.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => onPick(t.id)}
-              className="flex w-full flex-col items-start gap-0.5 px-3.5 py-2.5 text-left hover:bg-emerald-50"
-            >
-              <span className="text-sm font-black text-slate-800">{t.name}</span>
-              <span className="text-[10px] font-semibold text-slate-400">{t.path}</span>
-            </button>
-          ))}
+      <PickerBack label="← Chuyền khác" onClick={() => setStep({ level: 'pick', factory, area })} />
+      <p className="text-center text-xs font-bold text-slate-500">Chọn Tổ:</p>
+      <PickerGrid items={line.teams.map((t) => ({ id: t.id, name: t.name }))} onSelect={(it) => onPick(it.id)} />
+    </div>
+  );
+}
+
+// Modal "Chọn Tổ khác" — mở khi bấm vào tên Tổ ở đầu trang (mọi màn hình, xem onClickTeamInfo ở
+// ScanShell). Dùng lại y hệt CascadingTeamPicker (luôn bắt đầu lại từ Nhà máy vì component tự mount
+// mới mỗi lần modal mở, state step tự reset) — không cần quét lại mã QR để đổi Tổ.
+function TeamSwitcherModal({ tree, onPick, onClose }: { tree: PphTreeFactory[]; onPick: (id: string) => void; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center" onClick={onClose}>
+      <div
+        className="bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-sm max-h-[80vh] overflow-y-auto shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="sticky top-0 bg-white flex items-center justify-between px-5 py-4 border-b border-slate-100">
+          <h3 className="font-black text-slate-900 text-sm">Chọn Tổ khác</h3>
+          <button type="button" onClick={onClose} className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center">
+            <IconX size={14} className="text-slate-500" />
+          </button>
         </div>
-      )}
-      {q.trim() && results.length === 0 && <p className="text-center text-[11px] text-slate-400">Không tìm thấy Tổ nào khớp &quot;{q.trim()}&quot;.</p>}
+        <div className="p-4 pb-5">
+          <CascadingTeamPicker tree={tree} onPick={onPick} />
+        </div>
+      </div>
     </div>
   );
 }
@@ -994,9 +1140,10 @@ function ModelAutocompleteInput({
   );
 }
 
-// 1 dòng chi tiết Đầu ca CÓ THỂ SỬA — dùng chung khuôn hiển thị/sửa cho cả 3 field cho sửa được
-// (Model, Số lượng công nhân, Sản lượng kế hoạch cả ca), chỉ khác Ô NHẬP thật sự (renderInput —
-// Model cần gợi ý ảnh riêng qua ModelAutocompleteInput, 2 field còn lại chỉ cần input số thường).
+// 1 dòng chi tiết Đầu ca CÓ THỂ SỬA — dùng chung khuôn hiển thị/sửa cho cả 5 field cho sửa được
+// (Thời gian sản xuất, Model, Số lượng công nhân, Sản lượng kế hoạch cả ca, Mục tiêu RFT), chỉ
+// khác Ô NHẬP thật sự (renderInput — Model cần gợi ý ảnh riêng qua ModelAutocompleteInput, các
+// field còn lại chỉ cần input số thường).
 function EditableSetupField({
   label,
   displayValue,
@@ -1047,29 +1194,35 @@ function EditableSetupField({
   );
 }
 
-// Bảng xem lại TẤT CẢ khung giờ trong ngày — bấm vào khung ĐÃ NHẬP để xem lại số lượng. RIÊNG
-// Model/Số lượng công nhân/Sản lượng kế hoạch cả ca ở dòng Đầu ca cho SỬA (nhiều khi gõ lộn lúc
-// quét) — số liệu các khung số lượng sau vẫn khoá như cũ (đã dùng tính Dashboard cả ngày, sửa nhầm
-// ảnh hưởng số liệu thật). Sửa xong gọi onSetupSaved() để trang cha tải lại info NGẦM (không bật
-// loading — xem ghi chú ở load() phía trên), Dashboard các cấp cũng tự cập nhật theo vì PUT
-// /api/pph/scan đã tự xoá cache liên quan.
-type SetupFieldKey = 'model' | 'workerCount' | 'plannedQty';
+// Bảng xem lại TẤT CẢ khung giờ trong ngày — bấm vào khung ĐÃ NHẬP để xem lại số lượng. Thời gian
+// sản xuất/Model/Số lượng công nhân/Sản lượng kế hoạch cả ca/Mục tiêu RFT ở dòng Đầu ca, VÀ Số
+// lượng làm được/Số lỗi ở các khung giờ thường đều cho SỬA (nhiều khi gõ lộn lúc quét) — xem
+// EditableSetupField (Đầu ca) và khối sửa
+// Số lượng ngay trong SlotHistoryPanel (khung giờ thường, có kèm form Nguyên nhân/Giải pháp hụt chỉ
+// tiêu nếu số mới sau khi sửa vẫn/mới hụt Mục tiêu/giờ). Sửa xong gọi onSetupSaved() để trang cha
+// tải lại info NGẦM (không bật loading — xem ghi chú ở load() phía trên), Dashboard các cấp cũng tự
+// cập nhật theo vì PUT /api/pph/scan đã tự xoá cache liên quan.
+type SetupFieldKey = 'model' | 'workerCount' | 'plannedQty' | 'productionHours' | 'targetRft';
 const SETUP_FIELD_LABELS: Record<SetupFieldKey, string> = {
   model: 'Model sản xuất',
   workerCount: 'Số lượng công nhân',
   plannedQty: 'Sản lượng kế hoạch cả ca',
+  productionHours: 'Thời gian sản xuất',
+  targetRft: 'Mục tiêu tỉ lệ đạt chất lượng RFT',
 };
 
 function SlotHistoryPanel({
   info,
   teamId,
   shoeModels,
+  causeGroups,
   onClose,
   onSetupSaved,
 }: {
   info: ScanInfo;
   teamId: string;
   shoeModels: ShoeModelSuggestion[];
+  causeGroups: ShortfallCauseGroup[];
   onClose: () => void;
   onSetupSaved: () => void;
 }) {
@@ -1079,8 +1232,103 @@ function SlotHistoryPanel({
   const [fieldDraft, setFieldDraft] = useState('');
   const [savingField, setSavingField] = useState(false);
   const [fieldError, setFieldError] = useState<string | null>(null);
+
+  // ---- Sửa Số lượng làm được + Số lỗi của 1 khung giờ thường (không phải Đầu ca) ----
+  const [editingQty, setEditingQty] = useState(false);
+  const [qtyDraft, setQtyDraft] = useState('');
+  const [errorDraft, setErrorDraft] = useState('');
+  const [qtyCauseGroupId, setQtyCauseGroupId] = useState('');
+  const [qtyCauseSubId, setQtyCauseSubId] = useState('');
+  const [qtyCauseDetail, setQtyCauseDetail] = useState('');
+  const [qtySolution, setQtySolution] = useState('');
+  const [qtySaving, setQtySaving] = useState(false);
+  const [qtyError, setQtyError] = useState<string | null>(null);
+
+  const parsedQtyDraft = qtyDraft.trim() === '' ? null : Number(qtyDraft);
+  // info.perHourTarget server đã làm tròn nguyên sẵn — dùng chung công thức với form nộp chính
+  // (shortfallAmount/isShortfallNow phía trên) để kết quả "có hụt hay không" luôn khớp nhau.
+  const isShortfallQtyDraft =
+    info.perHourTarget != null && info.perHourTarget > 0 && parsedQtyDraft != null && Number.isFinite(parsedQtyDraft) && parsedQtyDraft < info.perHourTarget;
+  const qtyCauseGroup = causeGroups.find((g) => g.id === qtyCauseGroupId) || null;
+  const qtyCauseGroupIsOther = qtyCauseGroupId === CAUSE_OTHER_ID;
+  const qtyCauseSubIsOther = qtyCauseSubId === CAUSE_OTHER_ID;
+  const qtyNeedCauseDetail = qtyCauseGroupIsOther || qtyCauseSubIsOther;
+
   const entries = info.entries || [];
   const currentTarget = info.nextAction === 'quantity' || info.nextAction === 'setup' ? info.targetSlot : null;
+
+  function startEditQty(e: PphSlotEntry) {
+    setEditingQty(true);
+    setQtyDraft(e.actualQty != null ? String(e.actualQty) : '');
+    setErrorDraft(e.errorCount != null ? String(e.errorCount) : '');
+    setQtyCauseGroupId('');
+    setQtyCauseSubId('');
+    setQtyCauseDetail('');
+    setQtySolution('');
+    setQtyError(null);
+  }
+  function cancelEditQty() {
+    setEditingQty(false);
+    setQtyError(null);
+  }
+  async function saveQty(slot: string) {
+    const qty = Number(qtyDraft);
+    if (!Number.isFinite(qty) || qty < 0) {
+      setQtyError('Vui lòng nhập đúng Số lượng');
+      return;
+    }
+    const errCount = Number(errorDraft);
+    if (!Number.isFinite(errCount) || errCount < 0) {
+      setQtyError('Vui lòng nhập đúng Số lỗi');
+      return;
+    }
+    if (errCount > qty) {
+      setQtyError('Số lỗi không thể lớn hơn Số lượng');
+      return;
+    }
+    const body: Record<string, unknown> = { teamId, slot, actualQty: qty, errorCount: errCount };
+    if (isShortfallQtyDraft) {
+      if (!qtyCauseGroupId) {
+        setQtyError('Số lượng mới đang thấp hơn mục tiêu/giờ — vui lòng chọn Nhóm nguyên nhân');
+        return;
+      }
+      if (!qtyCauseGroupIsOther && !qtyCauseSubId) {
+        setQtyError('Vui lòng chọn Chi tiết nguyên nhân');
+        return;
+      }
+      if (qtyNeedCauseDetail && !qtyCauseDetail.trim()) {
+        setQtyError('Vui lòng mô tả nguyên nhân cụ thể');
+        return;
+      }
+      if (!qtySolution.trim()) {
+        setQtyError('Vui lòng nhập Giải pháp');
+        return;
+      }
+      body.shortfallCauseGroupId = qtyCauseGroupId;
+      body.shortfallCauseSubId = qtyCauseSubId;
+      body.shortfallDetail = qtyCauseDetail.trim();
+      body.shortfallSolution = qtySolution.trim();
+    }
+    setQtySaving(true);
+    setQtyError(null);
+    try {
+      const res = await fetch('/api/pph/scan', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }).then((r) => r.json());
+      if (res?.success) {
+        setEditingQty(false);
+        onSetupSaved();
+      } else {
+        setQtyError(res?.error || 'Không sửa được — thử lại');
+      }
+    } catch {
+      setQtyError('Không kết nối được tới hệ thống');
+    } finally {
+      setQtySaving(false);
+    }
+  }
 
   function startEdit(field: SetupFieldKey, currentValue: string) {
     setEditingField(field);
@@ -1098,12 +1346,31 @@ function SlotHistoryPanel({
       setFieldError(`Vui lòng nhập ${SETUP_FIELD_LABELS[editingField]}`);
       return;
     }
-    const body: { teamId: string; model?: string; workerCount?: number; plannedQty?: number } = { teamId };
+    const body: {
+      teamId: string;
+      model?: string;
+      workerCount?: number;
+      plannedQty?: number;
+      productionHours?: number;
+      targetRft?: number;
+    } = { teamId };
     if (editingField === 'model') {
       body.model = trimmed;
     } else {
       const num = Number(trimmed);
-      if (!Number.isFinite(num) || num <= 0) {
+      // targetRft cho phép 0-100 (0% là giá trị hợp lệ, không bị chặn bởi num <= 0 như các field số
+      // lượng khác); productionHours tối đa 24 giờ/ngày — khớp đúng giới hạn backend đang kiểm.
+      if (editingField === 'targetRft') {
+        if (!Number.isFinite(num) || num < 0 || num > 100) {
+          setFieldError('Vui lòng nhập đúng Mục tiêu tỉ lệ đạt chất lượng RFT (0-100%)');
+          return;
+        }
+      } else if (editingField === 'productionHours') {
+        if (!Number.isFinite(num) || num <= 0 || num > 24) {
+          setFieldError('Vui lòng nhập đúng Thời gian sản xuất (giờ, tối đa 24)');
+          return;
+        }
+      } else if (!Number.isFinite(num) || num <= 0) {
         setFieldError(`Vui lòng nhập đúng ${SETUP_FIELD_LABELS[editingField]}`);
         return;
       }
@@ -1167,9 +1434,11 @@ function SlotHistoryPanel({
                     if (!e.filled) return;
                     setExpandedSlot(isExpanded ? null : e.slot);
                     // Đóng/đổi khung giờ đang xem thì thoát luôn chế độ sửa (nếu đang dở) — tránh mở
-                    // lại đúng khung Đầu ca sau đó vẫn còn kẹt form sửa dở từ lượt trước.
+                    // lại đúng khung Đầu ca hoặc khung giờ khác vẫn còn kẹt form sửa dở từ lượt trước.
                     setEditingField(null);
                     setFieldError(null);
+                    setEditingQty(false);
+                    setQtyError(null);
                   }}
                   className={`w-full flex items-center justify-between gap-2 px-3.5 py-3 text-left transition-colors ${
                     e.filled ? 'bg-white hover:bg-slate-50 cursor-pointer' : isCurrent ? 'bg-amber-50/50' : 'bg-slate-50/60'
@@ -1187,7 +1456,29 @@ function SlotHistoryPanel({
                   <div className="px-3.5 pb-3.5 pt-1 bg-slate-50/60 space-y-1 text-xs">
                     {isSetupRow ? (
                       <>
-                        <DetailRow label="Thời gian sản xuất" value={info.setup?.productionHours != null ? `${info.setup.productionHours} giờ` : '—'} />
+                        <EditableSetupField
+                          label="Thời gian sản xuất"
+                          displayValue={info.setup?.productionHours != null ? `${info.setup.productionHours} giờ` : '—'}
+                          editing={editingField === 'productionHours'}
+                          saving={savingField}
+                          error={editingField === 'productionHours' ? fieldError : null}
+                          onStartEdit={() => startEdit('productionHours', info.setup?.productionHours != null ? String(info.setup.productionHours) : '')}
+                          onCancel={cancelEdit}
+                          onSave={saveField}
+                          renderInput={() => (
+                            <input
+                              type="number"
+                              inputMode="decimal"
+                              min="0.5"
+                              max="24"
+                              step="0.5"
+                              value={fieldDraft}
+                              onChange={(ev) => setFieldDraft(ev.target.value)}
+                              autoFocus
+                              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-900 focus:outline-none focus:border-[#006838]"
+                            />
+                          )}
+                        />
                         <EditableSetupField
                           label="Số lượng công nhân"
                           displayValue={e.workerCount ?? '—'}
@@ -1251,12 +1542,126 @@ function SlotHistoryPanel({
                               : '—'
                           }
                         />
-                        <DetailRow label="Mục tiêu tỉ lệ đạt chất lượng RFT" value={e.targetRft != null ? `${e.targetRft}%` : '—'} />
+                        <EditableSetupField
+                          label="Mục tiêu tỉ lệ đạt chất lượng RFT"
+                          displayValue={e.targetRft != null ? `${e.targetRft}%` : '—'}
+                          editing={editingField === 'targetRft'}
+                          saving={savingField}
+                          error={editingField === 'targetRft' ? fieldError : null}
+                          onStartEdit={() => startEdit('targetRft', e.targetRft != null ? String(e.targetRft) : '')}
+                          onCancel={cancelEdit}
+                          onSave={saveField}
+                          renderInput={() => (
+                            <input
+                              type="number"
+                              inputMode="decimal"
+                              min="0"
+                              max="100"
+                              step="0.1"
+                              value={fieldDraft}
+                              onChange={(ev) => setFieldDraft(ev.target.value)}
+                              autoFocus
+                              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-900 focus:outline-none focus:border-[#006838]"
+                            />
+                          )}
+                        />
                       </>
+                    ) : editingQty ? (
+                      <div className="space-y-1.5 rounded-lg bg-white p-2 border border-emerald-200">
+                        <span className="text-slate-400 font-semibold">Số lượng làm được / Số lỗi</span>
+                        <div className="flex gap-2">
+                          <input
+                            type="number"
+                            inputMode="numeric"
+                            min={0}
+                            value={qtyDraft}
+                            onChange={(ev) => setQtyDraft(ev.target.value)}
+                            placeholder="Số lượng"
+                            autoFocus
+                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-900 focus:outline-none focus:border-[#006838]"
+                          />
+                          <input
+                            type="number"
+                            inputMode="numeric"
+                            min={0}
+                            max={qtyDraft || undefined}
+                            value={errorDraft}
+                            onChange={(ev) => setErrorDraft(ev.target.value)}
+                            placeholder="Số lỗi"
+                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-900 focus:outline-none focus:border-[#006838]"
+                          />
+                        </div>
+
+                        {isShortfallQtyDraft && (
+                          <div className="p-2.5 rounded-lg bg-rose-50 border border-rose-200 space-y-2">
+                            <p className="text-[11px] font-bold text-rose-700 flex items-center gap-1.5">
+                              <IconAlertTriangle size={12} className="shrink-0" />
+                              Số mới vẫn/đang hụt Mục tiêu/giờ ({info.perHourTarget} đôi/giờ) — cần nhập lại lý do
+                            </p>
+                            <select
+                              value={qtyCauseGroupId}
+                              onChange={(ev) => { setQtyCauseGroupId(ev.target.value); setQtyCauseSubId(''); setQtyCauseDetail(''); }}
+                              className="w-full px-3 py-2 bg-white border border-rose-200 rounded-lg text-xs font-semibold focus:outline-none focus:border-rose-400"
+                            >
+                              <option value="">— Chọn nhóm nguyên nhân —</option>
+                              {causeGroups.map((g) => (
+                                <option key={g.id} value={g.id}>{g.name}</option>
+                              ))}
+                              <option value={CAUSE_OTHER_ID}>Khác</option>
+                            </select>
+                            {qtyCauseGroupId && !qtyCauseGroupIsOther && qtyCauseGroup && (
+                              <select
+                                value={qtyCauseSubId}
+                                onChange={(ev) => { setQtyCauseSubId(ev.target.value); setQtyCauseDetail(''); }}
+                                className="w-full px-3 py-2 bg-white border border-rose-200 rounded-lg text-xs font-semibold focus:outline-none focus:border-rose-400"
+                              >
+                                <option value="">— Chọn chi tiết —</option>
+                                {qtyCauseGroup.subs.map((s) => (
+                                  <option key={s.id} value={s.id}>{s.name}</option>
+                                ))}
+                                <option value={CAUSE_OTHER_ID}>Khác (nhập cụ thể)</option>
+                              </select>
+                            )}
+                            {qtyNeedCauseDetail && (
+                              <textarea
+                                value={qtyCauseDetail}
+                                onChange={(ev) => setQtyCauseDetail(ev.target.value)}
+                                placeholder="Mô tả nguyên nhân cụ thể..."
+                                rows={2}
+                                className="w-full px-3 py-2 bg-white border border-rose-200 rounded-lg text-xs font-semibold focus:outline-none focus:border-rose-400 resize-none"
+                              />
+                            )}
+                            <textarea
+                              value={qtySolution}
+                              onChange={(ev) => setQtySolution(ev.target.value)}
+                              placeholder="Giải pháp..."
+                              rows={2}
+                              className="w-full px-3 py-2 bg-white border border-rose-200 rounded-lg text-xs font-semibold focus:outline-none focus:border-rose-400 resize-none"
+                            />
+                          </div>
+                        )}
+
+                        {qtyError && <p className="text-[10px] font-bold text-rose-600">{qtyError}</p>}
+                        <div className="flex gap-1.5 pt-0.5">
+                          <button type="button" disabled={qtySaving} onClick={() => saveQty(e.slot)} className="flex-1 rounded-lg bg-[#006838] py-1.5 text-[11px] font-black text-white disabled:opacity-50">
+                            {qtySaving ? 'Đang lưu...' : 'Lưu'}
+                          </button>
+                          <button type="button" disabled={qtySaving} onClick={cancelEditQty} className="flex-1 rounded-lg bg-slate-100 py-1.5 text-[11px] font-black text-slate-600 disabled:opacity-50">
+                            Huỷ
+                          </button>
+                        </div>
+                      </div>
                     ) : (
                       <>
-                        <DetailRow label="Số lượng làm được" value={e.actualQty ?? '—'} />
-                        <DetailRow label="Số lỗi" value={e.errorCount ?? '—'} />
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 min-w-0 space-y-1">
+                            <DetailRow label="Số lượng làm được" value={e.actualQty ?? '—'} />
+                            <DetailRow label="Số lỗi" value={e.errorCount ?? '—'} />
+                          </div>
+                          <button type="button" onClick={() => startEditQty(e)} title="Sửa Số lượng làm được" className="shrink-0 rounded-md p-1 text-slate-400 hover:bg-emerald-50 hover:text-[#006838]">
+                            <IconPencil size={13} />
+                          </button>
+                        </div>
                         {(e.shortfallReason || e.shortfallSolution) && (
                           <div className="pt-1.5 mt-1.5 border-t border-rose-100 space-y-1">
                             <p className="text-rose-600 font-black text-[11px]">⚠️ Hụt mục tiêu/giờ hôm đó:</p>
@@ -1266,11 +1671,13 @@ function SlotHistoryPanel({
                         )}
                       </>
                     )}
-                    <p className="text-[10px] text-slate-400 italic pt-1">
-                      {isSetupRow
-                        ? 'Số lượng công nhân, Model, Sản lượng kế hoạch sửa được (bấm ✎) — số liệu khác đã khoá.'
-                        : 'Chỉ xem lại — không thể chỉnh sửa khung giờ đã qua.'}
-                    </p>
+                    {!editingQty && (
+                      <p className="text-[10px] text-slate-400 italic pt-1">
+                        {isSetupRow
+                          ? 'Thời gian sản xuất, Số lượng công nhân, Model, Sản lượng kế hoạch, Mục tiêu RFT sửa được (bấm ✎) — số liệu khác đã khoá.'
+                          : 'Nhập lộn thì bấm ✎ để sửa lại Số lượng làm được.'}
+                      </p>
+                    )}
                   </div>
                 )}
               </div>

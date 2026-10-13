@@ -29,6 +29,7 @@ import PphFactoryConfigView from './PphFactoryConfigView';
 import PphShoeModelsView from './PphShoeModelsView';
 import PphShoePphTargetsView from './PphShoePphTargetsView';
 import PphTvMediaSlotsView from './PphTvMediaSlotsView';
+import PphGeneralQrView from './PphGeneralQrView';
 
 type PphTeam = { id: string; name: string; imageUrl?: string | null; paused?: boolean };
 type PphLine = { id: string; name: string; imageUrl?: string | null; paused?: boolean; teams: PphTeam[] };
@@ -52,7 +53,7 @@ export default function PphSettingsView({ onClose }: { onClose: () => void }) {
   //   'factory' = cấu hình hiển thị nhà máy (Target PPH %, tiêu đề, tên GĐĐH/QLCL/TH)
   //   'time'    = ràng buộc thời gian
   //   'causes'  = nhóm nguyên nhân hụt chỉ tiêu (5M1E)
-  const [subView, setSubView] = useState<'tree' | 'lines' | 'factory' | 'time' | 'causes' | 'shoeModels' | 'pphTargets' | 'tvMedia'>('tree');
+  const [subView, setSubView] = useState<'tree' | 'lines' | 'factory' | 'time' | 'causes' | 'shoeModels' | 'pphTargets' | 'tvMedia' | 'generalQr'>('tree');
   // CHẾ ĐỘ DEMO — bật thì dashboard Hiệu suất tự sinh số liệu MINH HOẠ (không ghi CSDL) để trình
   // bày giao diện cho sếp. Lưu ở localStorage, dashboard tự đọc.
   const [demoOn, setDemoOn] = useState(false);
@@ -450,6 +451,9 @@ export default function PphSettingsView({ onClose }: { onClose: () => void }) {
   if (subView === 'tvMedia') {
     return <PphTvMediaSlotsView onBack={() => setSubView('tree')} />;
   }
+  if (subView === 'generalQr') {
+    return <PphGeneralQrView onBack={() => setSubView('tree')} />;
+  }
 
   return (
     <div className="space-y-5 my-auto">
@@ -496,6 +500,7 @@ export default function PphSettingsView({ onClose }: { onClose: () => void }) {
               <option value="shoeModels">Ảnh theo Mã Giày</option>
               <option value="pphTargets">PPH Chuẩn theo Mã Giày (IE)</option>
               <option value="tvMedia">Chiếu ảnh/video theo khung giờ (TV)</option>
+              <option value="generalQr">Mã QR Chung (tự chọn vị trí khi quét)</option>
             </select>
           </label>
           <button
@@ -655,13 +660,15 @@ export default function PphSettingsView({ onClose }: { onClose: () => void }) {
                       </div>
                     )}
 
-                    {/* Nút thêm — chỉ hiện khi Xưởng chưa "chốt" thành điểm quét trống */}
-                    {!isLeafArea && (
-                      <div className="flex flex-wrap gap-2 pt-1">
-                        <AddInline type="LINE" parentId={a.id} />
-                        <AddInline type="TEAM" parentId={a.id} />
-                      </div>
-                    )}
+                    {/* Nút thêm — LUÔN hiện kể cả khi Xưởng đang là điểm quét lá (trống hẳn, VD Đầu
+                        vào): bấm thêm thành công thì Xưởng có Chuyền/Tổ con, isLeafArea tự thành
+                        false ở lượt render sau, QrChip của chính Xưởng (dòng isLeafArea phía trên)
+                        tự ẩn đi nhường chỗ cho (các) mục con mới — không cần chọn trước "Xưởng này
+                        sẽ có mục con hay không", lúc nào cũng thêm được. */}
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      <AddInline type="LINE" parentId={a.id} />
+                      <AddInline type="TEAM" parentId={a.id} />
+                    </div>
                   </div>
                 );
               })}

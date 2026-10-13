@@ -38,6 +38,8 @@ import {
 import MaintenanceShell from '@/components/MaintenanceShell';
 import StatCardRow from '@/components/StatCardRow';
 import ParetoChart, { type ParetoItem } from '@/components/charts/ParetoChart';
+import MachineIncidentModal from '@/components/charts/MachineIncidentModal';
+import CategoryDetailModal from '@/components/charts/CategoryDetailModal';
 import TrendChart, { type TrendPoint } from '@/components/charts/TrendChart';
 import Sparkline from '@/components/charts/Sparkline';
 import MultiLineComparisonChart, { type ComparisonSeries } from '@/components/charts/MultiLineComparisonChart';
@@ -69,7 +71,12 @@ type OverviewIncident = {
   createdAt: string;
   acceptedAt: string | null;
   completedAt: string | null;
+  description: string | null;
+  categoryId: string | null;
   categoryName: string | null;
+  customCategoryText: string | null;
+  reporterName: string | null;
+  assignedToName: string | null;
   machineId: string;
   machineCode: string;
   machineName: string;
@@ -78,12 +85,107 @@ type OverviewIncident = {
   lineName: string | null;
 };
 
-type OverviewLog = { id: string; partsReplaced: string | null };
+type OverviewLog = {
+  id: string;
+  incidentId: string | null;
+  startTime: string | null;
+  endTime: string | null;
+  durationMinutes: number | null;
+  repairDetail: string | null;
+  partsReplaced: string | null;
+  technicianName: string | null;
+  machineId: string | null;
+  machineCode: string | null;
+  machineName: string | null;
+};
 
 type PartsPayload = { parts?: { partId: string; name: string; quantity: number }[]; note?: string };
 
 function normalizeStatus(s: string): string {
   return s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/gi, 'd').trim().toLowerCase();
+}
+
+// Chuẩn hoá chữ tự do (bỏ dấu, viết thường, gộp khoảng trắng thừa) để so độ giống nhau — dùng riêng
+// cho việc gộp nhóm các lỗi "Khác" người dùng gõ tự do (xem fuzzyGroupTexts bên dưới).
+function normalizeFreeText(s: string): string {
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/gi, 'd').toLowerCase().trim().replace(/\s+/g, ' ');
+}
+
+// Vài từ viết tắt hay gặp trong mô tả lỗi "Khác" (vd "Lt" = "Lập trình") — độ giống theo ký tự
+// (Levenshtein) không thấy được "Lt" ~ "Lập trình" vì độ dài quá khác nhau, nên khai triển về từ
+// đầy đủ TRƯỚC khi so sánh. Phát hiện thêm từ viết tắt nào thì bổ sung tại đây.
+const KNOWN_ABBREVIATIONS: Record<string, string> = { lt: 'lap trinh' };
+function expandKnownAbbreviations(norm: string): string {
+  return norm.split(' ').map((tok) => KNOWN_ABBREVIATIONS[tok] || tok).join(' ');
+}
+
+// 2 câu có chung ít nhất 1 cụm 2 từ liền nhau (bigram) thì coi là cùng ý nghĩa dù câu chữ khác nhau
+// nhiều (vd "Lập trình size mới" và "Chỉnh lập trình" cùng chứa "lập trình") — bổ sung cho độ giống
+// Levenshtein (vốn chỉ bắt được lỗi gõ/thiếu chữ, không bắt được câu viết khác cấu trúc).
+function sharedSignificantBigram(a: string, b: string): boolean {
+  const bigramsOf = (s: string) => {
+    const toks = s.split(' ').filter(Boolean);
+    const set = new Set<string>();
+    for (let i = 0; i < toks.length - 1; i++) set.add(`${toks[i]} ${toks[i + 1]}`);
+    return set;
+  };
+  const bigramsA = bigramsOf(a);
+  for (const bg of bigramsOf(b)) if (bigramsA.has(bg)) return true;
+  return false;
+}
+
+// Khoảng cách Levenshtein (số bước sửa tối thiểu để biến chuỗi a thành b) — dùng để tính độ giống
+// nhau giữa 2 câu mô tả lỗi "Khác".
+function levenshteinDistance(a: string, b: string): number {
+  const m = a.length;
+  const n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  const dp = new Array(n + 1);
+  for (let j = 0; j <= n; j++) dp[j] = j;
+  for (let i = 1; i <= m; i++) {
+    let prev = dp[0];
+    dp[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const tmp = dp[j];
+      dp[j] = a[i - 1] === b[j - 1] ? prev : 1 + Math.min(prev, dp[j], dp[j - 1]);
+      prev = tmp;
+    }
+  }
+  return dp[n];
+}
+
+// Độ giống nhau 0..1 giữa 2 chuỗi đã chuẩn hoá (1 = giống hệt).
+function textSimilarity(a: string, b: string): number {
+  const maxLen = Math.max(a.length, b.length);
+  if (maxLen === 0) return 1;
+  return 1 - levenshteinDistance(a, b) / maxLen;
+}
+
+// Gộp GẦN ĐÚNG (fuzzy) các câu mô tả lỗi "Khác" gõ tự do — câu nào giống ≥ ngưỡng với 1 nhóm đã có
+// (so với câu đại diện = câu xuất hiện đầu tiên của nhóm đó) thì nhập nhóm đó, không thì tạo nhóm
+// mới. Chấp nhận đánh đổi: có thể gộp nhầm 1 số câu ý nghĩa hơi khác nhau (người dùng đã chọn cách
+// gộp gần đúng thay vì gộp chính xác tuyệt đối).
+function fuzzyGroupTexts(texts: string[]): { label: string; count: number; variants: string[] }[] {
+  const SIMILARITY_THRESHOLD = 0.6;
+  const groups: { normRep: string; label: string; count: number; variants: string[] }[] = [];
+  for (const raw of texts) {
+    const norm = expandKnownAbbreviations(normalizeFreeText(raw));
+    if (!norm) continue;
+    let best: { group: (typeof groups)[number]; score: number } | null = null;
+    for (const g of groups) {
+      const score = textSimilarity(norm, g.normRep);
+      const matches = score >= SIMILARITY_THRESHOLD || sharedSignificantBigram(norm, g.normRep);
+      if (matches && (!best || score > best.score)) best = { group: g, score };
+    }
+    if (best) {
+      best.group.count++;
+      if (!best.group.variants.includes(raw)) best.group.variants.push(raw);
+    } else {
+      groups.push({ normRep: norm, label: raw, count: 1, variants: [raw] });
+    }
+  }
+  return groups.map((g) => ({ label: g.label, count: g.count, variants: g.variants })).sort((a, b) => b.count - a.count);
 }
 
 function minutesBetween(a: string, b: string): number {
@@ -878,14 +980,192 @@ export default function OverviewPage() {
     return Array.from(map, ([label, value]) => ({ label, value }));
   }, [enriched]);
 
+  // Danh mục CHÍNH THỨC nào chiếm QUÁ ÍT (dưới 5% tổng số sự cố cả biểu đồ) sẽ tạm gộp chung vào cột
+  // "Khác" — tránh Pareto hiện quá nhiều cột lẻ tẻ chỉ 1-2 sự cố ("Khác" gốc không tính vào diện
+  // này, nó đã là hũ gộp chung sẵn). Sau khi gộp, "Khác" chiếm 1 cột riêng, nhưng bên trong nó có
+  // thể có 1 nhóm (nhóm chữ tự do gộp gần đúng CỦA Khác gốc, HOẶC 1 danh mục nhỏ vừa gộp vào) chiếm
+  // tỉ trọng lớn trong khối Khác MỚI này — nếu ĐỦ LỚN (>=15% tổng khối Khác mới, HOẶC riêng bản thân
+  // đã >=30 lần dù % còn thấp — 1 lỗi lặp lại tới 30 lần vẫn đáng tách ra xem riêng dù % chưa cao vì
+  // tổng Khác quá lớn), tự động tách nhóm đó ra thành 1 cột riêng ngay trên biểu đồ chính, không còn
+  // tính vào "Khác" nữa. Ngưỡng và cách tách áp dụng chung cho MỌI nhóm đủ điều kiện, không riêng
+  // nhóm cụ thể nào.
+  const SMALL_CATEGORY_MERGE_THRESHOLD = 0.05;
+  const KHAC_PROMOTE_THRESHOLD = 0.15;
+  const KHAC_PROMOTE_MIN_COUNT = 30;
+  const khacFuzzyGroups = useMemo(() => {
+    const totalAll = enriched.length;
+    const rawCounts = new Map<string, number>();
+    for (const i of enriched) {
+      const key = i.categoryName || 'Chưa phân loại';
+      rawCounts.set(key, (rawCounts.get(key) ?? 0) + 1);
+    }
+    const smallCategoryNames = new Set(
+      Array.from(rawCounts, ([name, count]) => ({ name, count }))
+        .filter((c) => c.name !== 'Khác' && totalAll > 0 && c.count / totalAll < SMALL_CATEGORY_MERGE_THRESHOLD)
+        .map((c) => c.name)
+    );
+
+    const khacIncidents = enriched.filter((i) => (i.categoryName || 'Chưa phân loại') === 'Khác');
+    const smallCategoryIncidentCount = enriched.filter((i) => smallCategoryNames.has(i.categoryName || 'Chưa phân loại')).length;
+
+    const texts = khacIncidents.map((i) => i.customCategoryText || i.description || '').filter(Boolean);
+    const textGroups = fuzzyGroupTexts(texts);
+    const textToGroupLabel = new Map<string, string>();
+    for (const g of textGroups) for (const v of g.variants) if (!textToGroupLabel.has(v)) textToGroupLabel.set(v, g.label);
+
+    // MTTA/MTTR/MTTD/Tổng Sự Cố/Tổng Downtime CHỈ RIÊNG từng nhóm — để bấm vào 1 nhóm trong modal
+    // "Khác" là lọc luôn hàng thẻ số liệu theo ĐÚNG nhóm đó, không phải cả khối "Khác".
+    const textGroupsWithKpi = textGroups.map((g) => {
+      const groupIncidents = khacIncidents.filter((i) => g.variants.includes(i.customCategoryText || i.description || ''));
+      return { ...g, kpi: computeScopeKpi(groupIncidents) };
+    });
+
+    // Mỗi danh mục nhỏ vừa gộp = 1 nhóm riêng, label = ĐÚNG tên danh mục gốc — không cần gộp gần
+    // đúng theo chữ (khác Khác gốc toàn chữ tự do không đồng nhất), vì đã có tên chính thức sẵn.
+    const smallCategoryGroups = Array.from(smallCategoryNames, (name) => {
+      const groupIncidents = enriched.filter((i) => (i.categoryName || 'Chưa phân loại') === name);
+      return { label: name, count: rawCounts.get(name) ?? 0, variants: [name], kpi: computeScopeKpi(groupIncidents) };
+    });
+
+    const groups = [...textGroupsWithKpi, ...smallCategoryGroups];
+    const total = khacIncidents.length + smallCategoryIncidentCount;
+    const promotedLabels = new Set(
+      groups.filter((g) => (total > 0 && g.count / total >= KHAC_PROMOTE_THRESHOLD) || g.count >= KHAC_PROMOTE_MIN_COUNT).map((g) => g.label)
+    );
+    return { groups, textToGroupLabel, promotedLabels, total, smallCategoryNames };
+  }, [enriched]);
+
+  // Danh mục HIỆU LỰC của 1 sự cố — "Khác" (gốc hoặc danh mục nhỏ vừa gộp) bị tách thành cột riêng
+  // nếu nhóm của nó đủ lớn, còn lại vẫn tính là "Khác". Dùng chung cho cả paretoByCategory lẫn
+  // categoryDetail để 2 nơi luôn khớp nhau (bấm cột nào ra đúng chi tiết cột đó).
+  function effectiveCategoryOf(i: { categoryName: string | null; customCategoryText: string | null; description: string | null }): string {
+    const key = i.categoryName || 'Chưa phân loại';
+    if (key === 'Khác') {
+      const text = i.customCategoryText || i.description || '';
+      const groupLabel = khacFuzzyGroups.textToGroupLabel.get(text);
+      return groupLabel && khacFuzzyGroups.promotedLabels.has(groupLabel) ? groupLabel : 'Khác';
+    }
+    if (khacFuzzyGroups.smallCategoryNames.has(key)) {
+      return khacFuzzyGroups.promotedLabels.has(key) ? key : 'Khác';
+    }
+    return key;
+  }
+
   const paretoByCategory: ParetoItem[] = useMemo(() => {
     const map = new Map<string, number>();
     for (const i of enriched) {
-      const key = i.categoryName || 'Chưa phân loại';
+      const key = effectiveCategoryOf(i);
       map.set(key, (map.get(key) ?? 0) + 1);
     }
     return Array.from(map, ([label, value]) => ({ label, value }));
-  }, [enriched]);
+  }, [enriched, khacFuzzyGroups]);
+
+  // ---- Click vào cột Pareto "Top Máy" / "Phân Loại Danh Mục Hư hỏng" / "Downtime Theo Tổ-Chuyền"
+  // / "Downtime Theo Phân Xưởng" -> mở modal chi tiết ----
+  const [selectedMachineCode, setSelectedMachineCode] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedLine, setSelectedLine] = useState<string | null>(null);
+  const [selectedArea, setSelectedArea] = useState<string | null>(null);
+
+  const machineDetail = useMemo(() => {
+    if (!selectedMachineCode) return null;
+    const machineIncidents = enriched
+      .filter((i) => i.machineCode === selectedMachineCode)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    const machineLogs = effectiveLogs
+      .filter((l) => l.machineCode === selectedMachineCode)
+      .sort((a, b) => new Date(b.startTime || 0).getTime() - new Date(a.startTime || 0).getTime());
+    const techMap = new Map<string, number>();
+    for (const l of machineLogs) {
+      if (!l.technicianName) continue;
+      techMap.set(l.technicianName, (techMap.get(l.technicianName) ?? 0) + 1);
+    }
+    const techRanking = Array.from(techMap, ([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
+    // Lỗi hay gặp CỦA RIÊNG máy này — gộp theo danh mục lỗi chính thức (categoryName), giống cách
+    // paretoByCategory gộp toàn trang, chỉ thu hẹp phạm vi về 1 máy. "Khác" VẪN giữ 1 dòng gộp chung
+    // ở đây (như trước) — chi tiết từng nội dung cụ thể của "Khác" hiện thêm riêng bên dưới (khacGroups).
+    const issueMap = new Map<string, number>();
+    for (const i of machineIncidents) {
+      const key = i.categoryName || 'Chưa phân loại';
+      issueMap.set(key, (issueMap.get(key) ?? 0) + 1);
+    }
+    const issueRanking = Array.from(issueMap, ([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
+
+    // "Khác" của riêng máy này — gộp gần đúng (fuzzy) từng nội dung cụ thể, KHÔNG áp ngưỡng % như ở
+    // biểu đồ Pareto toàn trang (ở đây phạm vi đã nhỏ theo 1 máy, tách hết luôn cho rõ).
+    const khacTexts = machineIncidents
+      .filter((i) => (i.categoryName || 'Chưa phân loại') === 'Khác')
+      .map((i) => i.customCategoryText || i.description || '')
+      .filter(Boolean);
+    const khacGroups = fuzzyGroupTexts(khacTexts);
+
+    return {
+      machineCode: selectedMachineCode,
+      machineName: machineIncidents[0]?.machineName || machineLogs[0]?.machineName || '',
+      incidents: machineIncidents,
+      logs: machineLogs,
+      techRanking,
+      issueRanking,
+      khacGroups,
+      // MTTA/MTTR/MTTD/Tổng Sự Cố/Tổng Downtime CHỈ RIÊNG máy này — cùng công thức computeScopeKpi
+      // đang dùng cho hàng 5 ô ở đầu trang (Tổng Quan), chỉ khác phạm vi (1 máy thay vì cả nhà máy).
+      kpi: computeScopeKpi(machineIncidents),
+    };
+  }, [selectedMachineCode, enriched, effectiveLogs]);
+
+  // "Khác" -> gộp gần đúng (fuzzy) các mô tả tự do; danh mục khác -> xếp hạng máy đã báo lỗi này.
+  const categoryDetail = useMemo(() => {
+    if (!selectedCategory) return null;
+    const catIncidents = enriched.filter((i) => effectiveCategoryOf(i) === selectedCategory);
+    // MTTA/MTTR/MTTD/Tổng Sự Cố/Tổng Downtime CHỈ RIÊNG danh mục lỗi này (cả 2 nhánh machines/khac
+    // đều dùng chung — luôn tính trên catIncidents, không phụ thuộc mode).
+    const kpi = computeScopeKpi(catIncidents);
+    if (selectedCategory === 'Khác') {
+      // Chỉ còn các nhóm CHƯA đủ lớn để tách riêng — nhóm đủ lớn đã thành cột riêng ở trên rồi.
+      const residualGroups = khacFuzzyGroups.groups.filter((g) => !khacFuzzyGroups.promotedLabels.has(g.label));
+      return { category: selectedCategory, mode: 'khac' as const, groups: residualGroups, machines: undefined, total: catIncidents.length, kpi };
+    }
+    const machineMap = new Map<string, { machineCode: string; machineName: string; count: number }>();
+    for (const i of catIncidents) {
+      const cur = machineMap.get(i.machineCode);
+      if (cur) cur.count++;
+      else machineMap.set(i.machineCode, { machineCode: i.machineCode, machineName: i.machineName, count: 1 });
+    }
+    const machines = Array.from(machineMap.values()).sort((a, b) => b.count - a.count);
+    return { category: selectedCategory, mode: 'machines' as const, machines, groups: undefined, total: catIncidents.length, kpi };
+  }, [selectedCategory, enriched, khacFuzzyGroups]);
+
+  // Xếp hạng máy TRONG 1 Tổ/Chuyền hoặc 1 Phân Xưởng theo TỔNG DOWNTIME (không phải số lần sự cố —
+  // khớp đúng chỉ số chính của 2 biểu đồ Pareto này, khác categoryDetail ở trên xếp theo số lần).
+  const lineDetail = useMemo(() => {
+    if (!selectedLine) return null;
+    const lineIncidents = enriched.filter((i) => i.lineName === selectedLine && i.mttd != null);
+    const machineMap = new Map<string, { machineCode: string; machineName: string; count: number }>();
+    for (const i of lineIncidents) {
+      const cur = machineMap.get(i.machineCode);
+      if (cur) cur.count += i.mttd as number;
+      else machineMap.set(i.machineCode, { machineCode: i.machineCode, machineName: i.machineName, count: Math.round(i.mttd as number) });
+    }
+    const machines = Array.from(machineMap.values())
+      .map((m) => ({ ...m, count: Math.round(m.count) }))
+      .sort((a, b) => b.count - a.count);
+    return { category: selectedLine, machines, total: lineIncidents.length, kpi: computeScopeKpi(lineIncidents) };
+  }, [selectedLine, enriched]);
+
+  const areaDetail = useMemo(() => {
+    if (!selectedArea) return null;
+    const areaIncidents = enriched.filter((i) => i.areaName === selectedArea && i.mttd != null);
+    const machineMap = new Map<string, { machineCode: string; machineName: string; count: number }>();
+    for (const i of areaIncidents) {
+      const cur = machineMap.get(i.machineCode);
+      if (cur) cur.count += i.mttd as number;
+      else machineMap.set(i.machineCode, { machineCode: i.machineCode, machineName: i.machineName, count: Math.round(i.mttd as number) });
+    }
+    const machines = Array.from(machineMap.values())
+      .map((m) => ({ ...m, count: Math.round(m.count) }))
+      .sort((a, b) => b.count - a.count);
+    return { category: selectedArea, machines, total: areaIncidents.length, kpi: computeScopeKpi(areaIncidents) };
+  }, [selectedArea, enriched]);
 
   const paretoByParts: ParetoItem[] = useMemo(() => {
     const map = new Map<string, number>();
@@ -989,7 +1269,10 @@ export default function OverviewPage() {
              KG3/HTĐ trong Tổ Hợp Kiên Giang + Nhà Máy Miền Đông + Văn Phòng Chuỗi), KHÔNG phải chi
              tiết 1 nhà máy. Miền Đông/Văn Phòng Chuỗi chưa có hệ thống MMTB thật kết nối nên luôn
              hiện 0 — khung sẵn sàng tự hiện số thật ngay khi 2 khu vực đó có dữ liệu. */
-          <div ref={dashboardRef} className="relative bg-slate-50 p-3">
+          <div
+            ref={dashboardRef}
+            className="relative bg-slate-50 p-3 [&:fullscreen]:w-screen [&:fullscreen]:h-screen [&:fullscreen]:max-w-none [&:fullscreen]:overflow-y-auto"
+          >
             {/* Nút phóng to/thu nhỏ toàn màn hình — góc trên phải, nổi trên mọi thứ. Icon đổi theo
                 trạng thái đang/không fullscreen (xem toggleFullscreen ở trên). */}
             <button
@@ -1155,7 +1438,7 @@ export default function OverviewPage() {
                               )}
                             </div>
                           </div>
-                          <div className="h-2 rounded-full bg-slate-100 mt-1.5 overflow-hidden">
+                          <div className="w-full h-2 rounded-full bg-slate-100 mt-1.5 overflow-hidden">
                             <div className="h-full rounded-full" style={{ width: `${Math.max(4, u.ratio * 100)}%`, backgroundColor: u.color }} />
                           </div>
                         </div>
@@ -1198,8 +1481,19 @@ export default function OverviewPage() {
                           <td className="py-2.5 px-3 border border-slate-200 text-center font-mono font-bold text-slate-800">{fmtInt(d.kpi.count)}</td>
                           <td className="py-2.5 px-3 border border-slate-200 text-center font-mono font-bold text-slate-800">{fmtMin(d.kpi.downtime)}</td>
                           <td className="py-2.5 px-3 border border-slate-200 text-center">
-                            {delta === null ? <span className="text-slate-400 font-bold">—</span> : (
-                              <span className={`font-bold ${delta <= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{delta > 0 ? '+' : ''}{delta}%</span>
+                            {delta === null ? (
+                              <span className="text-slate-400 font-bold">—</span>
+                            ) : delta === 0 ? (
+                              <span className="inline-flex items-center gap-1 font-bold text-slate-500">
+                                <IconMinus size={14} /> 0%
+                              </span>
+                            ) : (
+                              // Mũi tên luôn khớp đúng chiều tăng/giảm thật; màu: tăng = xanh, giảm = đỏ (khớp
+                              // quy ước đang dùng ở "Xếp Hạng Hiệu Suất" cùng trang — bảng này trước đó bị ngược).
+                              <span className={`inline-flex items-center gap-1 font-bold ${delta < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                                {delta < 0 ? <IconTrendingDown size={14} /> : <IconTrendingUp size={14} />}
+                                {delta > 0 ? '+' : ''}{delta}%
+                              </span>
                             )}
                           </td>
                         </tr>
@@ -1347,21 +1641,21 @@ export default function OverviewPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="bg-white rounded-xl border border-slate-200/80 p-4 sm:p-5 shadow-2xs">
             <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3">Pareto — Downtime Theo Tổ / Chuyền</h2>
-            {loading ? <div className="p-8 text-center text-xs text-slate-400">Đang tải...</div> : <ParetoChart data={paretoByLine} valueLabel="Downtime (phút)" barColor="#006838" showShareLine avgBenchmark={avgDowntimeByLinePrev} avgLabel="TB kỳ trước" />}
+            {loading ? <div className="p-8 text-center text-xs text-slate-400">Đang tải...</div> : <ParetoChart data={paretoByLine} valueLabel="Downtime (phút)" barColor="#006838" showShareLine avgBenchmark={avgDowntimeByLinePrev} avgLabel="TB kỳ trước" onBarClick={setSelectedLine} />}
           </div>
           <div className="bg-white rounded-xl border border-slate-200/80 p-4 sm:p-5 shadow-2xs">
             <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3">Pareto — Downtime Theo Phân Xưởng</h2>
-            {loading ? <div className="p-8 text-center text-xs text-slate-400">Đang tải...</div> : <ParetoChart data={paretoByArea} valueLabel="Downtime (phút)" barColor="#0d9488" showShareLine avgBenchmark={avgDowntimeByAreaPrev} avgLabel="TB kỳ trước" />}
+            {loading ? <div className="p-8 text-center text-xs text-slate-400">Đang tải...</div> : <ParetoChart data={paretoByArea} valueLabel="Downtime (phút)" barColor="#0d9488" showShareLine avgBenchmark={avgDowntimeByAreaPrev} avgLabel="TB kỳ trước" onBarClick={setSelectedArea} />}
           </div>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="bg-white rounded-xl border border-slate-200/80 p-4 sm:p-5 shadow-2xs">
             <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3">Pareto — Top Máy Gặp Sự Cố Nhiều Nhất</h2>
-            {loading ? <div className="p-8 text-center text-xs text-slate-400">Đang tải...</div> : <ParetoChart data={paretoByMachine} valueLabel="Số lượng sự cố" barColor="#1d4ed8" />}
+            {loading ? <div className="p-8 text-center text-xs text-slate-400">Đang tải...</div> : <ParetoChart data={paretoByMachine} valueLabel="Số lượng sự cố" barColor="#1d4ed8" onBarClick={setSelectedMachineCode} />}
           </div>
           <div className="bg-white rounded-xl border border-slate-200/80 p-4 sm:p-5 shadow-2xs">
             <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3">Pareto — Phân Loại Danh Mục Hư hỏng</h2>
-            {loading ? <div className="p-8 text-center text-xs text-slate-400">Đang tải...</div> : <ParetoChart data={paretoByCategory} valueLabel="Số lượng sự cố" barColor="#b91c1c" />}
+            {loading ? <div className="p-8 text-center text-xs text-slate-400">Đang tải...</div> : <ParetoChart data={paretoByCategory} valueLabel="Số lượng sự cố" barColor="#b91c1c" onBarClick={setSelectedCategory} />}
           </div>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -1520,6 +1814,62 @@ export default function OverviewPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Chi tiết máy khi click 1 cột Pareto "Top Máy Gặp Sự Cố Nhiều Nhất" */}
+      {machineDetail && (
+        <MachineIncidentModal
+          machineCode={machineDetail.machineCode}
+          machineName={machineDetail.machineName}
+          incidents={machineDetail.incidents}
+          logs={machineDetail.logs}
+          techRanking={machineDetail.techRanking}
+          issueRanking={machineDetail.issueRanking}
+          khacGroups={machineDetail.khacGroups}
+          kpi={machineDetail.kpi}
+          onClose={() => setSelectedMachineCode(null)}
+        />
+      )}
+
+      {/* Chi tiết danh mục khi click 1 cột Pareto "Phân Loại Danh Mục Hư hỏng" */}
+      {categoryDetail && (
+        <CategoryDetailModal
+          category={categoryDetail.category}
+          total={categoryDetail.total}
+          mode={categoryDetail.mode}
+          machines={categoryDetail.machines}
+          groups={categoryDetail.groups}
+          kpi={categoryDetail.kpi}
+          onClose={() => setSelectedCategory(null)}
+        />
+      )}
+
+      {/* Chi tiết Tổ/Chuyền khi click 1 cột Pareto "Downtime Theo Tổ / Chuyền" */}
+      {lineDetail && (
+        <CategoryDetailModal
+          category={lineDetail.category}
+          total={lineDetail.total}
+          mode="machines"
+          machines={lineDetail.machines}
+          kpi={lineDetail.kpi}
+          machinesHeading="Máy Downtime Nhiều Nhất"
+          unitSuffix="phút"
+          onClose={() => setSelectedLine(null)}
+        />
+      )}
+
+      {/* Chi tiết Phân Xưởng khi click 1 cột Pareto "Downtime Theo Phân Xưởng" */}
+      {areaDetail && (
+        <CategoryDetailModal
+          category={areaDetail.category}
+          total={areaDetail.total}
+          mode="machines"
+          machines={areaDetail.machines}
+          kpi={areaDetail.kpi}
+          machinesHeading="Máy Downtime Nhiều Nhất"
+          unitSuffix="phút"
+          onClose={() => setSelectedArea(null)}
+        />
       )}
     </MaintenanceShell>
   );

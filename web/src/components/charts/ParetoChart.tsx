@@ -30,6 +30,7 @@ export default function ParetoChart({
   showShareLine = false,
   avgBenchmark = null,
   avgLabel = 'TB kỳ trước',
+  onBarClick,
 }: {
   data: ParetoItem[];
   valueLabel?: string;
@@ -42,6 +43,9 @@ export default function ParetoChart({
   // Đường ngang phẳng = mức trung bình (cùng đơn vị với valueLabel) của kỳ liền trước — null thì ẩn.
   avgBenchmark?: number | null;
   avgLabel?: string;
+  // Click vào 1 cột -> trang cha tự quyết định làm gì (vd mở modal chi tiết) — truyền nhãn cột (label)
+  // đã click. Không truyền thì cột không có hiệu ứng/con trỏ click.
+  onBarClick?: (label: string) => void;
 }) {
   const [showValues, setShowValues] = useState(false);
 
@@ -114,21 +118,69 @@ export default function ParetoChart({
               return [entry?.payload?.value ?? value, name];
             }}
           />
-          <Legend wrapperStyle={{ fontSize: 11 }} />
-          <Bar yAxisId="left" dataKey="displayValue" name={valueLabel} fill={barColor} radius={[6, 6, 0, 0]} maxBarSize={44}>
-            {showValues && <LabelList dataKey="value" position="top" style={{ fontSize: 10, fill: '#4b5f56', fontWeight: 700 }} />}
+          {/* Legend vẽ thủ công qua `content` (thay vì để recharts tự gom từ Bar/Line) để gộp luôn
+              "TB kỳ trước" vào chung 1 hàng chú thích — ReferenceLine không tự sinh mục Legend, và
+              trước đây nhãn của nó nổi ngay trên biểu đồ (đè lên đường), tách khỏi hàng chú thích. */}
+          <Legend
+            content={() => {
+              const items: { value: string; dashed?: boolean; rect?: boolean; color: string }[] = [
+                { value: valueLabel, rect: true, color: barColor },
+                ...(showShareLine ? [{ value: 'Tỷ trọng đóng góp (%)', color: '#6366f1' }] : []),
+                ...(avgBenchmark != null ? [{ value: avgLabel, dashed: true, color: '#f97316' }] : []),
+              ];
+              return (
+                <ul className="flex flex-wrap justify-center gap-4 mt-2 text-[11px] font-semibold text-gray-500 list-none p-0">
+                  {items.map((item) => (
+                    <li key={item.value} className="flex items-center gap-1.5">
+                      {item.rect ? (
+                        <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: item.color }} />
+                      ) : (
+                        <svg width="16" height="10" className="shrink-0">
+                          <line x1="0" y1="5" x2="16" y2="5" stroke={item.color} strokeWidth={2} strokeDasharray={item.dashed ? '4 3' : undefined} />
+                        </svg>
+                      )}
+                      {item.value}
+                    </li>
+                  ))}
+                </ul>
+              );
+            }}
+          />
+          <Bar
+            yAxisId="left"
+            dataKey="displayValue"
+            name={valueLabel}
+            fill={barColor}
+            radius={[6, 6, 0, 0]}
+            maxBarSize={44}
+            cursor={onBarClick ? 'pointer' : undefined}
+            onClick={onBarClick ? (d: any) => onBarClick(d.label) : undefined}
+          >
+            {/* Nhãn kèm luôn % tỷ trọng đóng góp (đã tính sẵn ở chartData.sharePct) — không chỉ số
+                lượng thô, để nhìn cột là biết ngay chiếm bao nhiêu % tổng, khớp cách hiện % trong
+                modal chi tiết "Khác". Dùng `content` thay vì `formatter` vì formatter chỉ nhận được
+                đúng giá trị của dataKey, không có sharePct của cùng hàng. */}
+            {showValues && (
+              <LabelList
+                dataKey="value"
+                position="top"
+                content={(props: any) => {
+                  const { x, y, width, value, index } = props;
+                  const pct = chartData[index]?.sharePct ?? 0;
+                  return (
+                    <text x={x + width / 2} y={y - 6} textAnchor="middle" fontSize={10} fontWeight={700} fill="#4b5f56">
+                      {value} ({pct}%)
+                    </text>
+                  );
+                }}
+              />
+            )}
           </Bar>
           {/* Đường ngang phẳng = mức trung bình kỳ liền trước (tuần/tháng trước tuỳ bộ lọc đang chọn)
-              — cùng trục với cột, dễ thấy cột hiện tại đang cao/thấp hơn trung bình cũ bao nhiêu. */}
+              — cùng trục với cột, dễ thấy cột hiện tại đang cao/thấp hơn trung bình cũ bao nhiêu. Nhãn
+              tên đường chuyển xuống Legend chung (payload thủ công ở trên) thay vì nổi trên biểu đồ. */}
           {avgBenchmark != null && (
-            <ReferenceLine
-              yAxisId="left"
-              y={avgBenchmark}
-              stroke="#f97316"
-              strokeWidth={2}
-              strokeDasharray="6 4"
-              label={{ value: avgLabel, position: 'insideTopRight', fontSize: 10, fill: '#f97316', fontWeight: 700 }}
-            />
+            <ReferenceLine yAxisId="left" y={avgBenchmark} stroke="#f97316" strokeWidth={2} strokeDasharray="6 4" />
           )}
           {/* Đường % tỷ trọng đóng góp CỦA RIÊNG từng cột trong tổng — thay cho đường tích luỹ cũ đã
               bỏ; chỉ bật ở 2 biểu đồ Tổ/Chuyền và Phân Xưởng. */}

@@ -2201,6 +2201,13 @@ async function mmtbKgGetInventoryLog(env) {
   return r.ok ? { success: true, ...r.data } : { success: false, error: (r.data && r.data.error) || "Không lấy được nhật ký Kiểm kê từ MMTB Kiên Giang", status: r.status };
 }
 
+// Thời gian phản hồi + đánh giá (skillRating 1-5 sao) của từng nhân viên bảo trì — trả về
+// { incidents: [...], logs: [...] }, dùng cho trang "Thống Kê & Đánh Giá".
+async function mmtbKgGetResponseTime(env) {
+  const r = await mmtbKgCall(env, "/api/response-time");
+  return r.ok ? { success: true, ...r.data } : { success: false, error: (r.data && r.data.error) || "Không lấy được dữ liệu thời gian phản hồi từ MMTB Kiên Giang", status: r.status };
+}
+
 async function mmtbKgGetOverviewReport(env, searchParams) {
   const qs = new URLSearchParams();
   ["factoryId", "areaId", "lineId", "dateFrom", "dateTo"].forEach((k) => {
@@ -12828,6 +12835,18 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
         return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
       } catch (err) {
         return new Response(JSON.stringify({ success: false, error: err.message || "Không lấy được nhật ký Kiểm kê" }), { status: 502, headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    if (url.pathname === "/api/maintenance/response-time" && request.method === "GET") {
+      if (mmtbScopeIsUnconnected(url)) {
+        return new Response(JSON.stringify({ success: true, incidents: [], logs: [] }), { headers: SECURE_JSON_HEADERS });
+      }
+      try {
+        const result = await mmtbKgGetResponseTime(env);
+        return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message || "Không lấy được dữ liệu thời gian phản hồi" }), { status: 502, headers: SECURE_JSON_HEADERS });
       }
     }
 

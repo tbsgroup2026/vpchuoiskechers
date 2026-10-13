@@ -25,6 +25,9 @@ import {
   IconStopwatch,
   IconSpeakerphone,
   IconQrcode,
+  IconFlask,
+  IconGauge,
+  IconChartBar,
 } from '@tabler/icons-react';
 import { MMTB_NAV, MmtbNavEntry } from '@/lib/mmtbNav';
 import { getCurrentUser, getUserDisplayBadgeTitle, logoutUserProfile, UserProfile } from '@/lib/userProfiles';
@@ -56,6 +59,9 @@ const ICONS: Record<string, any> = {
   IconStopwatch,
   IconSpeakerphone,
   IconQrcode,
+  IconFlask,
+  IconGauge,
+  IconChartBar,
 };
 
 function MaintenanceShellInner({
@@ -177,9 +183,16 @@ function MaintenanceShellInner({
   const currentScopeMeta = EQUIPMENT_SCOPES[activeScope] || EQUIPMENT_SCOPES.ALL;
 
   // Scope "Tổng Quan" (ALL) là trang so sánh giữa các nhà máy, KHÔNG phải xem chi tiết 1 nhà máy —
-  // nên chỉ hiện đúng 1 mục "Tổng Quan" trong sidebar, ẩn Danh Sách MMTB/Bảo Dưỡng MMTB/Nhu Cầu
-  // Sửa Chữa/Đề Xuất/Danh Mục (các mục đó chỉ có ý nghĩa khi đang xem 1 nhà máy cụ thể).
-  const visibleNav = activeScope === 'ALL' ? MMTB_NAV.filter((entry) => entry.id === 'overview') : MMTB_NAV;
+  // nên chỉ hiện đúng 3 mục trong sidebar: "Tổng Quan", "KPI Kiểm Soát" (ở đây đổi sang chế độ so
+  // sánh KPI GIỮA CÁC NHÀ MÁY, khác hẳn chế độ xem 1 nhà máy) và "Test Biểu Đồ" — ẩn Danh Sách
+  // MMTB/Bảo Dưỡng MMTB/Nhu Cầu Sửa Chữa/Đề Xuất/Danh Mục (các mục đó chỉ có ý nghĩa khi đang xem 1
+  // nhà máy cụ thể).
+  // "Test Biểu Đồ" chỉ có ý nghĩa ở trang Tổng Quan SO SÁNH 6 đơn vị (scope=ALL) — ẩn hẳn khi đang
+  // xem riêng 1 nhà máy/khu vực cụ thể (Kiên Giang/Miền Đông/Văn Phòng Chuỗi).
+  const visibleNav =
+    activeScope === 'ALL'
+      ? MMTB_NAV.filter((entry) => entry.id === 'overview' || entry.id === 'kpi' || entry.id === 'chart-lab')
+      : MMTB_NAV.filter((entry) => entry.id !== 'chart-lab');
 
   return (
     <div className="min-h-screen bg-[#f8fafc] flex text-slate-800 font-sans antialiased">

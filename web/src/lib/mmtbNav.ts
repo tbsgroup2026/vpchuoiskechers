@@ -7,10 +7,13 @@ export type MmtbNavEntry = MmtbNavLeaf | MmtbNavGroup;
 
 export const MMTB_NAV: MmtbNavEntry[] = [
   { type: 'link', id: 'overview', label: 'Tổng Quan', href: '/maintenance', iconName: 'IconLayoutDashboard' },
+  { type: 'link', id: 'kpi', label: 'KPI Kiểm Soát', href: '/maintenance/kpi', iconName: 'IconGauge' },
+  { type: 'link', id: 'chart-lab', label: 'Test Biểu Đồ', href: '/maintenance/chart-lab', iconName: 'IconFlask' },
   { type: 'link', id: 'machines', label: 'Danh Sách MMTB', href: '/maintenance/machines', iconName: 'IconDeviceLaptop' },
   { type: 'link', id: 'schedule', label: 'Bảo Dưỡng MMTB', href: '/maintenance/schedule', iconName: 'IconTools' },
   { type: 'link', id: 'tickets', label: 'Nhu Cầu Sửa Chữa', href: '/maintenance/tickets', iconName: 'IconClipboardList' },
   { type: 'link', id: 'proposals', label: 'Đề Xuất', href: '/maintenance/proposals', iconName: 'IconBulb' },
+  { type: 'link', id: 'statistics', label: 'Thống Kê & Đánh Giá', href: '/maintenance/statistics', iconName: 'IconChartBar' },
   {
     type: 'group',
     id: 'categories',

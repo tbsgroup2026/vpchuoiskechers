@@ -1,13 +1,25 @@
 'use client';
 
-import { Bar, BarChart, CartesianGrid, Cell, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, CartesianGrid, Cell, ComposedChart, LabelList, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
-export type UnitBarItem = { label: string; value: number; color: string };
+export type UnitBarItem = { label: string; value: number; color: string; prevValue?: number };
 
 // Biểu đồ cột đơn giản — MỖI đơn vị 1 màu cột riêng (khớp màu đang dùng ở card/xếp hạng/bảng),
 // KHÔNG có đường tích luỹ % (khác ParetoChart dùng cho các trang khác) — biểu đồ này chỉ để xem
 // nhanh số sự cố từng đơn vị, không phải phân tích Pareto 80/20.
-export default function UnitBarChart({ data, valueLabel = 'Số sự cố', height = 260 }: { data: UnitBarItem[]; valueLabel?: string; height?: number }) {
+// `showPrevLine` bật thêm 1 đường xám nét đứt nối giá trị KỲ TRƯỚC của TỪNG đơn vị (mỗi đơn vị 1
+// điểm riêng, lên xuống theo đúng dữ liệu — không phải 1 đường thẳng/1 mốc trung bình chung).
+export default function UnitBarChart({
+  data,
+  valueLabel = 'Số sự cố',
+  height = 260,
+  showPrevLine = false,
+}: {
+  data: UnitBarItem[];
+  valueLabel?: string;
+  height?: number;
+  showPrevLine?: boolean;
+}) {
   if (data.length === 0) {
     return <div className="flex items-center justify-center text-xs text-gray-400" style={{ height }}>Chưa có dữ liệu</div>;
   }
@@ -15,7 +27,7 @@ export default function UnitBarChart({ data, valueLabel = 'Số sự cố', heig
     <ResponsiveContainer width="100%" height={height}>
       {/* margin.top chừa chỗ cho số hiện trên đỉnh cột (LabelList) — cột cao nhất chạm sát mép trên
           sẽ bị che số nếu không chừa đủ khoảng trống này. */}
-      <BarChart data={data} margin={{ top: 26, right: 16, left: 0, bottom: 8 }}>
+      <ComposedChart data={data} margin={{ top: 26, right: 16, left: 0, bottom: 8 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#e7ede9" vertical={false} />
         <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#6b7c73' }} />
         <YAxis tick={{ fontSize: 10, fill: '#6b7c73' }} label={{ value: valueLabel, angle: -90, position: 'insideLeft', fontSize: 10, fill: '#6b7c73' }} />
@@ -26,7 +38,10 @@ export default function UnitBarChart({ data, valueLabel = 'Số sự cố', heig
           ))}
           <LabelList dataKey="value" position="top" style={{ fontSize: 11, fontWeight: 700, fill: '#334155' }} />
         </Bar>
-      </BarChart>
+        {showPrevLine && (
+          <Line type="monotone" dataKey="prevValue" name="Kỳ trước" stroke="#94a3b8" strokeWidth={2} strokeDasharray="6 4" dot={{ r: 3, fill: '#94a3b8', strokeWidth: 0 }} isAnimationActive={false} />
+        )}
+      </ComposedChart>
     </ResponsiveContainer>
   );
 }

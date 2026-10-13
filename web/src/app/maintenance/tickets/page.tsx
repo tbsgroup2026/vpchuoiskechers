@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   IconAlertTriangle,
   IconClockHour4,
@@ -15,7 +15,6 @@ import {
   IconFlag,
   IconPhoto,
   IconBriefcase,
-  IconArrowsHorizontal,
 } from '@tabler/icons-react';
 import MaintenanceShell from '@/components/MaintenanceShell';
 import StatCardRow from '@/components/StatCardRow';
@@ -224,11 +223,13 @@ export default function MaintenanceTicketsPage() {
     });
   }, [tickets, search, filterStatus, filterFactoryId, dateFrom, dateTo]);
 
-  // Chưa bấm lọc gì -> dùng ĐÚNG số thật đếm từ server (ticketCounts, không bị giới hạn 200 dòng
-  // an toàn D1) thay vì suy từ `filtered` (= tickets khi chưa lọc, đã bị cắt tối đa 200 dòng nên
-  // "Tổng số sự cố" không bao giờ vượt quá 200 dù tổng thật lớn hơn, VD 370). Đã lọc thì không có
-  // cách nào server đếm hộ đúng theo đúng bộ lọc đó -> vẫn suy từ `filtered` như cũ.
-  const noFilterActive = !search.trim() && !filterStatus && !filterFactoryId && !dateFrom && !dateTo;
+  // Số ở 4 ô thống kê LUÔN nên đúng số thật toàn hệ thống (ticketCounts, không bị giới hạn 200 dòng
+  // an toàn D1 của `tickets` đã tải) khi KHÔNG có bộ lọc tìm kiếm/nhà máy/ngày nào khác đang bật —
+  // filterStatus (đang bấm ô nào) KHÔNG ảnh hưởng việc này, vì ticketCounts đã có sẵn đủ 4 số tổng
+  // PENDING/ACCEPTED/DONE/total rồi, chỉ ảnh hưởng bảng danh sách bên dưới đang lọc theo đúng trạng
+  // thái đó. Trước đây bấm 1 ô trạng thái (VD "Đã hoàn thành") sẽ tính nhầm ra tổng đếm được trong
+  // `filtered` (vốn đã bị giới hạn 200 dòng gần nhất), ra sai số nhỏ hơn số thật rất nhiều.
+  const canTrustServerCounts = !search.trim() && !filterFactoryId && !dateFrom && !dateTo;
   const stats = useMemo(() => {
     let pending = 0, accepted = 0, done = 0;
     for (const t of filtered) {
@@ -236,11 +237,11 @@ export default function MaintenanceTicketsPage() {
       else if (t.status === 'ACCEPTED') accepted++;
       else done++;
     }
-    if (noFilterActive && ticketCounts) {
+    if (canTrustServerCounts && ticketCounts) {
       return { total: ticketCounts.total, pending: ticketCounts.PENDING, accepted: ticketCounts.ACCEPTED, done: ticketCounts.DONE };
     }
     return { total: filtered.length, pending, accepted, done };
-  }, [filtered, noFilterActive, ticketCounts]);
+  }, [filtered, canTrustServerCounts, ticketCounts]);
 
   const [page, setPage] = useState(1);
   useEffect(() => {
@@ -249,6 +250,38 @@ export default function MaintenanceTicketsPage() {
   const pageItems = useMemo(() => filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [filtered, page]);
 
   const [detailTicket, setDetailTicket] = useState<Ticket | null>(null);
+
+  // Thanh cuộn ngang giả ở trên bảng, đồng bộ 2 chiều với thanh cuộn ngang thật của bảng (xem chú
+  // thích tại chỗ dùng) — đo đúng chiều rộng thật của bảng (scrollWidth) bằng ResizeObserver để luôn
+  // khớp, kể cả khi đổi trang/lọc làm nội dung thay đổi độ rộng.
+  const topScrollRef = useRef<HTMLDivElement>(null);
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+  const tableRef = useRef<HTMLTableElement>(null);
+  const [tableWidth, setTableWidth] = useState(0);
+  const syncingRef = useRef<'top' | 'table' | null>(null);
+
+  useEffect(() => {
+    const tableEl = tableRef.current;
+    if (!tableEl) return;
+    const measure = () => setTableWidth(tableEl.scrollWidth);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(tableEl);
+    return () => observer.disconnect();
+  }, [pageItems]);
+
+  function handleTopScroll() {
+    if (syncingRef.current === 'table') return;
+    syncingRef.current = 'top';
+    if (tableScrollRef.current && topScrollRef.current) tableScrollRef.current.scrollLeft = topScrollRef.current.scrollLeft;
+    syncingRef.current = null;
+  }
+  function handleTableScroll() {
+    if (syncingRef.current === 'top') return;
+    syncingRef.current = 'table';
+    if (tableScrollRef.current && topScrollRef.current) topScrollRef.current.scrollLeft = tableScrollRef.current.scrollLeft;
+    syncingRef.current = null;
+  }
 
   return (
     <MaintenanceShell title="Nhu Cầu Sửa Chữa" subtitle="Quản lý yêu cầu khắc phục sự cố MMTB (Work Orders) — SKECHERS / TBS Group II">
@@ -302,17 +335,17 @@ export default function MaintenanceTicketsPage() {
           <DateRangeFilter from={dateFrom} to={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} />
         </div>
 
-        {/* Gợi ý bảng cuộn ngang — bảng có nhiều cột (Loại Lỗi, Nguyên Nhân, Cách Khắc Phục...) tràn
-            khỏi màn hình, overflow-x-auto ở dưới đã cho kéo ngang được nhưng người dùng không để ý
-            có thanh cuộn, nên thêm icon + chữ nhắc ngay phía trên bảng. */}
-        <div className="flex items-center justify-end gap-1.5 px-1 text-[11px] font-semibold text-slate-400">
-          <IconArrowsHorizontal size={15} className="shrink-0" />
-          <span>Kéo ngang để xem thêm cột</span>
+        {/* Thanh cuộn ngang GIẢ đặt ở TRÊN bảng, đồng bộ 2 chiều với thanh cuộn ngang THẬT của bảng
+            bên dưới (qua scrollLeft) — bảng có tới ~90 dòng nên thanh cuộn thật nằm tít dưới cùng,
+            phải cuộn hết trang mới thấy; thanh cuộn giả này cho kéo ngang được ngay mà không cần
+            cuộn xuống. */}
+        <div ref={topScrollRef} onScroll={handleTopScroll} className="overflow-x-auto overflow-y-hidden" style={{ height: 14 }}>
+          <div style={{ width: tableWidth, height: 1 }} />
         </div>
 
         {/* Tickets Table */}
-        <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+        <div ref={tableScrollRef} onScroll={handleTableScroll} className="bg-white rounded-xl border border-slate-200/80 shadow-2xs overflow-x-auto">
+          <table ref={tableRef} className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-100/90 text-[11px] font-bold text-slate-600 uppercase border-b border-slate-200 whitespace-nowrap">
                 <th className="p-3">Mã Ticket</th>

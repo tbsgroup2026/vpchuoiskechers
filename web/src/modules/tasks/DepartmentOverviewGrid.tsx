@@ -145,13 +145,13 @@ export default function DepartmentOverviewGrid({ onSelectDepartment }: Departmen
     try {
       setLoading(true);
       const token = typeof window !== "undefined" ? localStorage.getItem("tbs_token") || sessionStorage.getItem("tbs_token") : "";
-      const res = await fetch("/api/tasks", {
+      const res = await fetch("/api/tasks/aggregate", {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (res.ok) {
         const json = await res.json();
-        if (json.success && Array.isArray(json.tasks)) {
-          setTasks(json.tasks);
+        if (json.success && Array.isArray(json.aggregates)) {
+          setTasks(json.aggregates);
         }
       }
       const now = new Date();
@@ -173,22 +173,14 @@ export default function DepartmentOverviewGrid({ onSelectDepartment }: Departmen
 
   const departmentsWithStats = useMemo(() => {
     return DEFAULT_DEPARTMENTS.map((dept) => {
-      const deptTasks = tasks.filter(
+      const stats = tasks.find(
         (t) => t.department_id && t.department_id.toUpperCase() === dept.id.toUpperCase()
-      );
-      const totalTasks = deptTasks.length;
-      const completedTasks = deptTasks.filter(
-        (t) => t.status === "DONE" || t.progress === 100
-      ).length;
-      const overdueTasks = deptTasks.filter((t) => {
-        if (!t.due_date || t.status === "DONE") return false;
-        return new Date(t.due_date).getTime() < new Date().getTime();
-      }).length;
-      const dueSoonTasks = deptTasks.filter((t) => {
-        if (!t.due_date || t.status === "DONE") return false;
-        const diff = new Date(t.due_date).getTime() - new Date().getTime();
-        return diff >= 0 && diff <= 86400000;
-      }).length;
+      ) || { totalTasks: 0, completedTasks: 0, overdueTasks: 0, dueSoonTasks: 0 };
+      
+      const totalTasks = stats.totalTasks || 0;
+      const completedTasks = stats.completedTasks || 0;
+      const overdueTasks = stats.overdueTasks || 0;
+      const dueSoonTasks = stats.dueSoonTasks || 0;
       const inProgressTasks = Math.max(0, totalTasks - completedTasks);
 
       return {
@@ -235,17 +227,10 @@ export default function DepartmentOverviewGrid({ onSelectDepartment }: Departmen
   }
 
   // Overall totals across all departments
-  const grandTotal = tasks.length;
-  const grandOverdue = tasks.filter((t) => {
-    if (!t.due_date || t.status === "DONE") return false;
-    return new Date(t.due_date).getTime() < new Date().getTime();
-  }).length;
-  const grandDueSoon = tasks.filter((t) => {
-    if (!t.due_date || t.status === "DONE") return false;
-    const diff = new Date(t.due_date).getTime() - new Date().getTime();
-    return diff >= 0 && diff <= 86400000;
-  }).length;
-  const grandCompleted = tasks.filter((t) => t.status === "DONE" || t.progress === 100).length;
+  const grandTotal = tasks.reduce((sum, t) => sum + (t.totalTasks || 0), 0);
+  const grandOverdue = tasks.reduce((sum, t) => sum + (t.overdueTasks || 0), 0);
+  const grandDueSoon = tasks.reduce((sum, t) => sum + (t.dueSoonTasks || 0), 0);
+  const grandCompleted = tasks.reduce((sum, t) => sum + (t.completedTasks || 0), 0);
   const grandInProgress = Math.max(0, grandTotal - grandCompleted);
   const grandPercent = grandTotal > 0 ? Math.round((grandCompleted / grandTotal) * 100) : 0;
 

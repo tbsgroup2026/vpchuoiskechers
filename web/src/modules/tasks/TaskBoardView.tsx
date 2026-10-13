@@ -89,6 +89,47 @@ export default function TaskBoardView() {
   const [loading, setLoading] = useState(true);
   const [isUnauthenticated, setIsUnauthenticated] = useState(false);
 
+  // Pagination per list states
+  const [listTotals, setListTotals] = useState<Record<string, number>>({});
+  const [listHasMore, setListHasMore] = useState<Record<string, boolean>>({});
+  const [loadingList, setLoadingList] = useState<string | null>(null);
+
+  const loadMoreCardsForList = async (listId: string) => {
+    if (loadingList === listId || listHasMore[listId] === false) return;
+    setLoadingList(listId);
+    try {
+      const listCards = cards.filter(c => c.list_id === listId);
+      const oldestCard = listCards.length > 0 ? listCards.reduce((prev, current) => 
+        (new Date(prev.updated_at).getTime() < new Date(current.updated_at).getTime()) ? prev : current
+      ) : null;
+      
+      const cursorUpdatedAt = oldestCard ? oldestCard.updated_at : '';
+      const cursorId = oldestCard ? oldestCard.id : '';
+
+      const token = typeof window !== "undefined" ? localStorage.getItem("tbs_token") || sessionStorage.getItem("tbs_token") : "";
+      const res = await fetch(`/api/task-cards?board_id=${selectedBoardId}&list_id=${listId}&cursor_updated_at=${encodeURIComponent(cursorUpdatedAt)}&cursor_id=${encodeURIComponent(cursorId)}&limit=20`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const json = await res.json();
+      if (json.success && json.cards) {
+        setCards(prev => {
+          const newCards = json.cards.filter((c: any) => !prev.some((p: any) => p.id === c.id));
+          return [...prev, ...newCards];
+        });
+        if (json.totals) {
+          setListTotals(prev => ({ ...prev, ...json.totals }));
+        }
+        if (json.cards.length < 20) {
+          setListHasMore(prev => ({ ...prev, [listId]: false }));
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingList(null);
+    }
+  };
+
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -340,6 +381,9 @@ export default function TaskBoardView() {
         if (json.success) {
           setLists(json.lists || []);
           setCards(json.cards || []);
+          if (json.totals) {
+            setListTotals(json.totals);
+          }
         }
       }
     } catch (e) {}
@@ -1489,7 +1533,7 @@ export default function TaskBoardView() {
                             <h3 className="font-black text-sm text-slate-800 uppercase tracking-wider flex items-center gap-2">
                               <span>{list.name}</span>
                               <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-700 text-[10px] font-bold flex items-center justify-center">
-                                {listCards.length}
+                                {listTotals[list.id] !== undefined ? listTotals[list.id] : '-'}
                               </span>
                             </h3>
                           </div>
@@ -1557,6 +1601,16 @@ export default function TaskBoardView() {
                                 </div>
                               );
                             })}
+                            
+                            {listHasMore[list.id] !== false && (listTotals[list.id] > listCards.length || listCards.length >= 20) && (
+                              <button
+                                onClick={() => loadMoreCardsForList(list.id)}
+                                disabled={loadingList === list.id}
+                                className="w-full py-2 bg-slate-100/50 hover:bg-slate-200 text-slate-600 font-bold text-[11px] rounded-xl transition mt-2 border border-slate-200 shadow-xs"
+                              >
+                                {loadingList === list.id ? "Đang tải..." : "Tải thêm"}
+                              </button>
+                            )}
                           </div>
                         </div>
                       );
@@ -1603,7 +1657,7 @@ export default function TaskBoardView() {
                             <h3 className="font-black text-xs text-slate-700 uppercase tracking-wider flex items-center gap-2">
                               <span>{list.name}</span>
                               <span className="w-5 h-5 rounded-full bg-slate-300/80 text-slate-700 text-[10px] font-bold flex items-center justify-center">
-                                {listCards.length}
+                                {listTotals[list.id] !== undefined ? listTotals[list.id] : '-'}
                               </span>
                             </h3>
                             <button
@@ -1732,6 +1786,16 @@ export default function TaskBoardView() {
                                 </div>
                               );
                             })}
+                            
+                            {listHasMore[list.id] !== false && (listTotals[list.id] > listCards.length || listCards.length >= 20) && (
+                              <button
+                                onClick={() => loadMoreCardsForList(list.id)}
+                                disabled={loadingList === list.id}
+                                className="w-full py-2 bg-slate-100/50 hover:bg-slate-200 text-slate-600 font-bold text-xs rounded-xl transition mt-2 border border-slate-200 shadow-xs"
+                              >
+                                {loadingList === list.id ? "Đang tải..." : "Tải thêm"}
+                              </button>
+                            )}
 
                             {/* Empty Column State */}
                             {listCards.length === 0 && (

@@ -4,8 +4,8 @@ import { useState, useEffect } from "react";
 import { ROLES } from "@/lib/permissions";
 import UserAvatar from "@/components/UserAvatar";
 import { getAllSystemUsers } from "@/lib/userProfiles";
-import { apiFetch } from "@/lib/apiClient";
-import { IconUsers, IconUserPlus, IconLock, IconLockOpen, IconSearch, IconCheck, IconShield, IconBuilding, IconTrash } from "@tabler/icons-react";
+import Link from "next/link";
+import { IconUsers, IconUserPlus, IconLock, IconLockOpen, IconSearch, IconCheck, IconShield, IconBuilding, IconTrash, IconShieldCheck } from "@tabler/icons-react";
 
 interface UserAccount {
   id: string;
@@ -148,6 +148,16 @@ export default function UsersAdminPage() {
           <p className="text-xs text-gray-500 mt-1">
             Gán một hoặc nhiều role cùng lúc, cấu hình phòng ban quản lý (`managedDepartmentId`) cho Trưởng phòng
           </p>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <Link
+            href="/work/kaizen/admin/permissions"
+            className="px-4 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-extrabold transition border border-indigo-200 flex items-center gap-1.5 shadow-2xs"
+          >
+            <IconShieldCheck size={16} />
+            <span>Phân Quyền CI / IE</span>
+          </Link>
         </div>
       </div>
 

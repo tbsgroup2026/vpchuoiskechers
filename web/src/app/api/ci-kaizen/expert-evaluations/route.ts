@@ -69,20 +69,28 @@ export async function GET(request: Request) {
     const isGuest = Boolean((user as any)?.isGuest || roleCode === 'JUDGE_GUEST' || userRoles.includes('judge_guest'));
     const roleLevel = Number((user as any)?.roleLevel || (user as any)?.levelRank || 4);
 
-    // Check MSNV Whitelist in DB
+    // Check MSNV Whitelist & Dynamic Permissions in DB
     const whRow = await db.prepare(`
       SELECT emp_code FROM ci_kaizen_judge_whitelist_msnv WHERE emp_code = ?
     `).bind(userEmp).first().catch(() => null);
-    const staticWhitelist = ['202608001', '202608010', '222102020', '202608002', '202112003', '2026080001', 'LEKHAI', 'DUTHITHANHTINH'];
+    const permJudgeRow = await db.prepare(`
+      SELECT emp_code FROM ci_kaizen_permissions 
+      WHERE UPPER(emp_code) = UPPER(?) AND role_type IN ('JUDGE', 'CI_LEAD', 'ADMIN') AND is_active = 1
+      LIMIT 1
+    `).bind(userEmp).first().catch(() => null);
+    const staticWhitelist = ['202608001', '202608010', '222102020', '202608002', '202112003', '2026080001', '210602002', '201711002', 'LEKHAI', 'DUTHITHANHTINH'];
     const isWhitelistedMsnv =
       Boolean(whRow) ||
+      Boolean(permJudgeRow) ||
       staticWhitelist.includes(userEmp) ||
       userName.includes('anh huy') ||
       userName.includes('lê khải') ||
       userName.includes('le khai') ||
       userName.includes('thanh tình') ||
       userName.includes('thanh tinh') ||
-      userName.includes('dư thị thanh tình');
+      userName.includes('dư thị thanh tình') ||
+      userName.includes('trần thị ngoan') ||
+      userName.includes('ngoan');
 
     // Rule 2.2: Auto-grant full scoring access for BGĐ (roleLevel <= 2 or BOD roles) OR Whitelisted MSNV
     const isAutoGrantFullJudge =

@@ -601,9 +601,7 @@ export default function MeetingRoomsPage() {
         hour: "2-digit",
         minute: "2-digit",
       });
-      const updatedNotes =
-        (targetBooking.notes || "") +
-        ` [APPROVED_BY_RECEPTIONIST_AT_${approvalTime}]`;
+      const updatedNotes = targetBooking.notes || "";
 
       // ✅ Step 2: Call API with await and full payload for UPSERT support
       const doApprove = async (force: boolean = false) => {
@@ -804,6 +802,33 @@ export default function MeetingRoomsPage() {
     }
   };
 
+  const handleCancelScheduledBooking = async (bookingId: string) => {
+    if (!window.confirm("Bạn có chắc chắn muốn xóa (hủy) lịch họp này không?")) return;
+    const targetBooking = bookings.find((b) => b.id === bookingId);
+    setBookings((prev) =>
+      prev.map((b) => (b.id === bookingId ? { ...b, status: "CANCELLED" } : b))
+    );
+    try {
+      await fetch("/api/rooms/booking", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: bookingId, status: "CANCELLED", notes: targetBooking?.notes || "", cancelledAt: new Date().toISOString(), cancelledBy: "Lễ Tân" }),
+      });
+    } catch (e) {}
+    showToast("❌ Lễ Tân đã xóa (hủy) lịch họp thành công.");
+
+    if (targetBooking) {
+      broadcastNotification({
+        title: "❌ Lịch Họp Đã Bị Hủy",
+        message: `Lịch họp "${targetBooking.title}" của ${targetBooking.bookerName} đã bị Lễ Tân hủy bỏ khỏi hệ thống.`,
+        type: "WARNING",
+        targetUser: targetBooking.bookerName,
+        link: "/rooms",
+      });
+    }
+    setSelectedEventModal(null);
+  };
+
   const handleConfirmReassignRoom = async () => {
     if (!reassignModalBooking || !newAssignedRoomId) return;
     const targetRoom = rooms.find((r) => r.id === newAssignedRoomId);
@@ -824,7 +849,7 @@ export default function MeetingRoomsPage() {
       return;
     }
 
-    const updatedNotes = (reassignModalBooking.notes || "") + " [APPROVED_BY_RECEPTIONIST]";
+    const updatedNotes = reassignModalBooking.notes || "";
     setBookings((prev) =>
       prev.map((b) =>
         b.id === reassignModalBooking.id
@@ -3717,12 +3742,22 @@ export default function MeetingRoomsPage() {
                 <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-[#006838] text-[10px] font-extrabold">
                   ✓ Đã đồng bộ D1 Database
                 </span>
-                <button
-                  onClick={() => setSelectedEventModal(null)}
-                  className="px-4 py-1.5 rounded-xl bg-slate-800 text-white font-bold text-xs cursor-pointer"
-                >
-                  Đóng
-                </button>
+                <div className="flex gap-2">
+                  {currentUser?.roleCode === 'LE_TAN' && (
+                     <button
+                       onClick={() => handleCancelScheduledBooking(selectedEventModal.id)}
+                       className="px-4 py-1.5 rounded-xl bg-red-100 text-red-600 font-bold text-xs cursor-pointer hover:bg-red-200"
+                     >
+                       Xóa lịch
+                     </button>
+                  )}
+                  <button
+                    onClick={() => setSelectedEventModal(null)}
+                    className="px-4 py-1.5 rounded-xl bg-slate-800 text-white font-bold text-xs cursor-pointer"
+                  >
+                    Đóng
+                  </button>
+                </div>
               </div>
             </div>
           </div>

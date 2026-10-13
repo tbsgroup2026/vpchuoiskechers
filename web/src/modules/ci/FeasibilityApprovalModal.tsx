@@ -20,6 +20,7 @@ import { getValidKaizenImageUrl } from "@/lib/kaizenImageHelper";
 import { getKaizenDisplayTitle } from "@/lib/kaizenTitleHelper";
 import { formatMax2Decimals, formatVND } from "@/lib/formatNumber";
 import { uploadCloudinaryFile } from "@/lib/cloudinary";
+import { isKaizenVideoUrl } from "@/lib/kaizenVideoHelper";
 
 interface FeasibilityApprovalModalProps {
   isOpen: boolean;
@@ -39,6 +40,7 @@ interface FeasibilityApprovalModalProps {
     total_savings_vnd?: number;
     total_savings_words?: string;
     after_image_url?: string;
+    after_video_url?: string;
     attachments_json?: string;
   }) => void;
 }
@@ -181,13 +183,14 @@ export default function FeasibilityApprovalModal({
 
       let initialMedia: { id: string; type: "image" | "video"; url: string }[] = [];
       const beforeUrl = proposal.before_image_url ? proposal.before_image_url.trim() : "";
+      const beforeVid = (proposal as any).before_video_url ? (proposal as any).before_video_url.trim() : "";
       const rawAfterStr = proposal.after_image_url || (proposal as any).afterImageUrl || "";
 
       if (rawAfterStr) {
         const urls = rawAfterStr.split(",").map((s: string) => s.trim()).filter(Boolean);
         urls.forEach((u: string, idx: number) => {
-          if (u !== beforeUrl) {
-            const isVid = u.endsWith(".mp4") || u.endsWith(".mov") || u.endsWith(".webm") || u.startsWith("data:video");
+          if (u !== beforeUrl && u !== beforeVid) {
+            const isVid = isKaizenVideoUrl(u);
             initialMedia.push({ id: `existing-after-${idx}`, type: isVid ? "video" : "image", url: u });
           }
         });
@@ -198,10 +201,27 @@ export default function FeasibilityApprovalModal({
           if (Array.isArray(parsed)) {
             parsed.forEach((item: any, idx: number) => {
               const u = typeof item === "string" ? item : (item?.url || "");
-              const tag = typeof item === "object" ? (item?.tag || item?.type || "") : "";
-              const isAfterTag = String(tag).toUpperCase() === "AFTER";
-              if (u && typeof u === "string" && u !== beforeUrl && (isAfterTag || !initialMedia.some((m) => m.url === u))) {
-                const isVid = u.endsWith(".mp4") || u.endsWith(".mov") || u.endsWith(".webm") || u.startsWith("data:video");
+              const tag = typeof item === "object" ? String(item?.tag || item?.type || item?.category || item?.phase || "").toUpperCase() : "";
+              const title = typeof item === "object" ? String(item?.title || "").toLowerCase() : "";
+
+              // Bỏ qua nếu là tệp TRƯỚC cải tiến (không đưa vào danh sách Sau Cải Tiến)
+              const isBeforeTag =
+                tag === "BEFORE" ||
+                tag === "VIDEO_BEFORE" ||
+                tag === "IMAGE_BEFORE" ||
+                title.includes("trước") ||
+                title.includes("truoc");
+
+              if (isBeforeTag || u === beforeUrl || u === beforeVid) return;
+
+              const isAfterTag =
+                tag === "AFTER" ||
+                tag === "VIDEO_AFTER" ||
+                tag === "IMAGE_AFTER" ||
+                title.includes("sau");
+
+              if (u && typeof u === "string" && (isAfterTag || !initialMedia.some((m) => m.url === u))) {
+                const isVid = isKaizenVideoUrl(u);
                 if (!initialMedia.some((m) => m.url === u)) {
                   initialMedia.push({ id: `att-${idx}`, type: isVid ? "video" : "image", url: u });
                 }
@@ -224,9 +244,9 @@ export default function FeasibilityApprovalModal({
       const fileList = Array.from(files);
 
       for (const file of fileList) {
-        const isVid = file.type.startsWith("video/") || file.name.endsWith(".mp4") || file.name.endsWith(".mov") || file.name.endsWith(".webm");
+        const isVid = isKaizenVideoUrl(file.name) || file.type.startsWith("video/");
         if (!isVid && !file.type.startsWith("image/")) {
-          setErrorMsg("⚠️ Vui lòng chọn tệp hình ảnh (JPG, PNG, WEBP) hoặc video (MP4, MOV, WEBM)");
+          setErrorMsg("⚠️ Vui lòng chọn tệp hình ảnh (JPG, PNG, WEBP) hoặc video (MP4, MOV, WEBM, M4V, 3GP, AVI, MKV)");
           continue;
         }
 
@@ -385,23 +405,30 @@ export default function FeasibilityApprovalModal({
       }
 
       const mediaUrls = sanitizedMediaUrls;
-      const afterImgUrlStr = mediaUrls.length > 0 ? mediaUrls.join(",") : "";
+      const afterImgUrls = mediaUrls.filter((u) => !isKaizenVideoUrl(u));
+      const afterVidUrls = mediaUrls.filter((u) => isKaizenVideoUrl(u));
+      const afterImgUrlStr = afterImgUrls.length > 0 ? afterImgUrls.join(",") : (mediaUrls.length > 0 ? mediaUrls.join(",") : "");
+      const afterVidUrlStr = afterVidUrls.length > 0 ? afterVidUrls[0] : "";
 
       const attachmentsList: any[] = mediaUrls.map((url) => ({
         url,
         tag: "AFTER",
-        type: url.endsWith(".mp4") || url.endsWith(".mov") || url.endsWith(".webm") ? "video" : "image",
+        type: isKaizenVideoUrl(url) ? "video_after" : "image",
+        title: isKaizenVideoUrl(url) ? "Video SAU Cải Tiến" : undefined,
       }));
 
+      // BẢO LƯU toàn bộ tệp TRƯỚC cải tiến từ attachments_json cũ (cả ảnh lẫn video trước)
       if (proposal.attachments_json) {
         try {
           const existingParsed = JSON.parse(proposal.attachments_json);
           if (Array.isArray(existingParsed)) {
             existingParsed.forEach((item: any) => {
               const u = typeof item === "string" ? item : item?.url;
-              const tag = typeof item === "object" && item !== null ? String(item?.tag || item?.type || item?.category || "").toUpperCase() : "";
-              if (tag === "BEFORE" && u && !attachmentsList.some((a) => a.url === u)) {
-                attachmentsList.unshift(typeof item === "object" ? item : { url: u, tag: "BEFORE", type: "image" });
+              const tag = typeof item === "object" && item !== null ? String(item?.tag || item?.type || item?.category || item?.phase || "").toUpperCase() : "";
+              const title = typeof item === "object" ? String(item?.title || "").toLowerCase() : "";
+              const isBefore = tag === "BEFORE" || tag === "VIDEO_BEFORE" || tag === "IMAGE_BEFORE" || title.includes("trước") || title.includes("truoc");
+              if (isBefore && u && !attachmentsList.some((a) => a.url === u)) {
+                attachmentsList.unshift(typeof item === "object" ? item : { url: u, tag: "BEFORE", type: isKaizenVideoUrl(u) ? "video_before" : "image" });
               }
             });
           }
@@ -451,6 +478,8 @@ export default function FeasibilityApprovalModal({
           product_code: productCode,
           productCode: productCode,
           after_image_url: afterImgUrlStr,
+          after_video_url: afterVidUrlStr,
+          afterVideoUrl: afterVidUrlStr,
           attachments_json: attachmentsJsonStr,
         }),
       });
@@ -481,6 +510,7 @@ export default function FeasibilityApprovalModal({
           total_savings_vnd: json.total_savings_vnd !== undefined ? json.total_savings_vnd : finalTotalSavings,
           total_savings_words: json.total_savings_words !== undefined ? json.total_savings_words : savingsInWords,
           after_image_url: afterImgUrlStr,
+          after_video_url: afterVidUrlStr,
           attachments_json: attachmentsJsonStr,
         });
         onClose();
@@ -690,7 +720,7 @@ export default function FeasibilityApprovalModal({
                     {item.type === "video" ? (
                       <video src={item.url} className="w-full h-full object-cover" />
                     ) : (
-                      <img src={item.url} alt="Sau Cải Tiến" className="w-full h-full object-cover" />
+                      <img src={getValidKaizenImageUrl(item.url)} alt="Sau Cải Tiến" className="w-full h-full object-cover" />
                     )}
 
                     <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-black/60 text-white text-[9px] font-bold backdrop-blur-xs">

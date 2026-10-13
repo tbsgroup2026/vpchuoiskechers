@@ -27,8 +27,10 @@ import {
   IconEdit,
 } from "@tabler/icons-react";
 
+import KaizenPermissionsAdmin from "./KaizenPermissionsAdmin";
+
 export default function JudgeManagementAdmin() {
-  const [activeTab, setActiveTab] = useState<"rounds" | "guests" | "flags" | "reports">("guests");
+  const [activeTab, setActiveTab] = useState<"rounds" | "guests" | "flags" | "reports" | "permissions">("guests");
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -824,6 +826,17 @@ export default function JudgeManagementAdmin() {
         >
           <IconFileSpreadsheet size={15} />
           <span>📊 4. Tổng Hợp &amp; Báo Cáo Chấm Điểm ({reportScores.length})</span>
+        </button>
+        <button
+          onClick={() => setActiveTab("permissions")}
+          className={`px-4 py-2.5 rounded-t-2xl font-black text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
+            activeTab === "permissions"
+              ? "bg-[#006838] text-white shadow-md"
+              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+          }`}
+        >
+          <IconShieldCheck size={15} />
+          <span>🛡️ 5. Phân Quyền CI / IE</span>
         </button>
       </div>
 
@@ -1953,6 +1966,13 @@ export default function JudgeManagementAdmin() {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* TAB 5: PERMISSIONS (PHÂN QUYỀN CI / IE) */}
+      {activeTab === "permissions" && (
+        <div className="pt-2">
+          <KaizenPermissionsAdmin />
         </div>
       )}
 

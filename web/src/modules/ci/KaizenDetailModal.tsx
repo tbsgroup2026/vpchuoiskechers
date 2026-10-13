@@ -6,6 +6,7 @@ import { formatMax2Decimals, formatVND } from "@/lib/formatNumber";
 import { getKaizenDisplayTitle, getKaizenBeforeDescription, getKaizenAfterSolution, getAutoBaremGroupForCategory } from "@/lib/kaizenTitleHelper";
 import {
   IconX,
+  IconLink,
   IconTrophy,
   IconStar,
   IconThumbUp,
@@ -32,7 +33,16 @@ import {
   IconTrendingUp,
   IconCloudUpload,
   IconLoader2,
+  IconZoomIn,
+  IconZoomOut,
+  IconArrowsMaximize,
+  IconPlayerPlay,
+  IconPlayerPause,
+  IconVideo,
+  IconExternalLink,
 } from "@tabler/icons-react";
+import { KaizenImageLightbox, KaizenVideoLightbox } from "./KaizenMediaLightbox";
+import { uploadKaizenMediaWithProgress } from "@/lib/kaizenMediaUpload";
 import { convertNumberToWords } from "@/lib/numberToWords";
 import { KaizenProposal } from "./CIModule";
 import { extractCategoryGroup } from "@/lib/kaizenDataContract";
@@ -40,6 +50,7 @@ import { usePermission } from "@/hooks/usePermission";
 import { resolveEmployeeName } from "@/lib/userProfiles";
 import FeasibilityApprovalModal from "./FeasibilityApprovalModal";
 import { uploadCloudinaryFile } from "@/lib/cloudinary";
+import { splitKaizenMedia, getValidKaizenVideoUrl, getAllKaizenVideoUrls, isKaizenVideoUrl, normalizeKaizenVideoUrl } from "@/lib/kaizenVideoHelper";
 
 interface KaizenDetailModalProps {
   proposal: KaizenProposal;
@@ -51,6 +62,7 @@ interface KaizenDetailModalProps {
   onEvaluate?: () => void;
   onRate?: () => void;
   onSaveSuccess?: (updatedPayload: any) => void;
+  isPublicView?: boolean;
 }
 
 const CATEGORIES = [
@@ -167,6 +179,7 @@ export default function KaizenDetailModal({
   onEvaluate,
   onRate,
   onSaveSuccess,
+  isPublicView = false,
 }: KaizenDetailModalProps) {
   const { user, isExecutiveOrAdmin } = usePermission();
   const levelRank = (user as any)?.levelRank || (user as any)?.roleLevel || 4;
@@ -182,7 +195,22 @@ export default function KaizenDetailModal({
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState<"before" | "after" | null>(null);
+  const [uploadingVideo, setUploadingVideo] = useState<"before" | "after" | null>(null);
+  const [imageUploadProgress, setImageUploadProgress] = useState<number>(0);
+  const [videoUploadProgress, setVideoUploadProgress] = useState<number>(0);
+  const [videoUploadStatus, setVideoUploadStatus] = useState<string>("");
   const [editError, setEditError] = useState<string | null>(null);
+
+  // LIGHTBOX STATES
+  const [imageLightbox, setImageLightbox] = useState<{
+    isOpen: boolean;
+    type: "BEFORE" | "AFTER";
+  }>({ isOpen: false, type: "BEFORE" });
+
+  const [videoLightbox, setVideoLightbox] = useState<{
+    isOpen: boolean;
+    type: "BEFORE" | "AFTER";
+  }>({ isOpen: false, type: "BEFORE" });
 
   const [editForm, setEditForm] = useState({
     title: "",
@@ -205,6 +233,8 @@ export default function KaizenDetailModal({
     total_savings_vnd: 0,
     before_image_url: "",
     after_image_url: "",
+    before_video_url: "",
+    after_video_url: "",
   });
 
   const initEditForm = () => {
@@ -236,6 +266,8 @@ export default function KaizenDetailModal({
       : (pairQty > 0 ? effVal * pairQty : effVal);
     const initTot = existingTot > 0 ? existingTot : calcTot;
 
+    const initMediaSplit = splitKaizenMedia(proposal);
+
     setEditForm({
       title: getKaizenDisplayTitle(proposal),
       product_code: (proposal as any).product_code || proposal.code || "",
@@ -255,8 +287,10 @@ export default function KaizenDetailModal({
       cost_before: costB,
       cost_after: costA,
       total_savings_vnd: initTot,
-      before_image_url: proposal.before_image_url || "",
-      after_image_url: proposal.after_image_url || "",
+      before_image_url: proposal.before_image_url || initMediaSplit.primaryBeforeImage || "",
+      after_image_url: proposal.after_image_url || initMediaSplit.primaryAfterImage || "",
+      before_video_url: (proposal as any).before_video_url || (proposal as any).beforeVideoUrl || initMediaSplit.primaryBeforeVideo || "",
+      after_video_url: (proposal as any).after_video_url || (proposal as any).afterVideoUrl || initMediaSplit.primaryAfterVideo || "",
     });
     setEditError(null);
   };
@@ -278,10 +312,21 @@ export default function KaizenDetailModal({
     }
   }, [proposal?.id]);
 
+  // Bóc tách toàn bộ media của proposal (có fallback attachments_json)
+  const modalMediaSplit = useMemo(() => {
+    return splitKaizenMedia(proposal ? {
+      ...proposal,
+      before_image_url: isEditing ? editForm.before_image_url : proposal.before_image_url,
+      after_image_url: isEditing ? editForm.after_image_url : proposal.after_image_url,
+      before_video_url: isEditing ? editForm.before_video_url : (proposal as any).before_video_url,
+      after_video_url: isEditing ? editForm.after_video_url : (proposal as any).after_video_url,
+    } : null);
+  }, [proposal, isEditing, editForm.before_image_url, editForm.after_image_url, editForm.before_video_url, editForm.after_video_url]);
+
   const [selectedMedia, setSelectedMedia] = useState<{
     type: "image" | "video";
     url: string;
-  } | null>(proposal?.before_image_url ? { type: "image", url: getValidKaizenImageUrl(proposal.before_image_url, proposal.attachments_json) } : null);
+  } | null>(null);
 
   useEffect(() => {
     const curBefore = getValidKaizenImageUrl(isEditing ? editForm.before_image_url : proposal?.before_image_url, proposal?.attachments_json);
@@ -290,10 +335,14 @@ export default function KaizenDetailModal({
       setSelectedMedia({ type: "image", url: curBefore });
     } else if (curAfter) {
       setSelectedMedia({ type: "image", url: curAfter });
+    } else if (modalMediaSplit.primaryBeforeVideo) {
+      setSelectedMedia({ type: "video", url: modalMediaSplit.primaryBeforeVideo });
+    } else if (modalMediaSplit.primaryAfterVideo) {
+      setSelectedMedia({ type: "video", url: modalMediaSplit.primaryAfterVideo });
     } else {
       setSelectedMedia(null);
     }
-  }, [proposal, isEditing, editForm.before_image_url, editForm.after_image_url]);
+  }, [proposal, isEditing, editForm.before_image_url, editForm.after_image_url, modalMediaSplit]);
 
   const isOwner = useMemo(() => {
     if (!user || !proposal) return false;
@@ -304,9 +353,28 @@ export default function KaizenDetailModal({
     return Boolean((uEmp && pEmp && uEmp === pEmp) || (uName && pName && uName === pName));
   }, [user, proposal]);
 
+  const [myDynamicRoles, setMyDynamicRoles] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!user?.empCode) return;
+    const token = typeof window !== "undefined" ? localStorage.getItem("tbs_token") || sessionStorage.getItem("tbs_token") : "";
+    fetch("/api/ci-kaizen/permissions/my-permissions", {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.success && Array.isArray(res.roles)) {
+          setMyDynamicRoles(res.roles);
+        }
+      })
+      .catch(() => {});
+  }, [user?.empCode]);
+
   const canEditOrDelete = useMemo(() => {
+    if (isPublicView) return false;
     if (!user) return false;
     if (isOwner || isExecutiveOrAdmin) return true;
+    if (myDynamicRoles.includes("CI_LEAD") || myDynamicRoles.includes("ADMIN")) return true;
     const uEmp = (user.empCode || "").trim().toUpperCase();
     const uName = (user.name || "").trim().toLowerCase();
     return (
@@ -315,10 +383,19 @@ export default function KaizenDetailModal({
       uName.includes("thanh tình") || uName.includes("thanh tinh") ||
       uName.includes("trần thị ngoan") || uName.includes("ngoan")
     );
-  }, [user, isOwner, isExecutiveOrAdmin]);
+  }, [user, isOwner, isExecutiveOrAdmin, myDynamicRoles]);
 
   const isJudgeOrExecutive = useMemo(() => {
     if (!user) return false;
+    if (
+      myDynamicRoles.includes("JUDGE") ||
+      myDynamicRoles.includes("CI_LEAD") ||
+      myDynamicRoles.includes("IE") ||
+      myDynamicRoles.includes("APPROVER") ||
+      myDynamicRoles.includes("ADMIN")
+    ) {
+      return true;
+    }
     const uEmp = (user.empCode || "").trim().toUpperCase();
     const uName = (user.name || "").trim().toLowerCase();
     const rc = ((user as any)?.roleCode || (user as any)?.role || "").toUpperCase();
@@ -333,7 +410,7 @@ export default function KaizenDetailModal({
 
     if (isExecutiveOrAdmin || isExplicitApprover || levelRank >= 2 || (user as any)?.isGuest) return true;
     return ["TONG_GIAM_DOC", "PHO_TONG_GIAM_DOC", "GIAM_DOC", "PHO_GIAM_DOC", "TRUONG_PHONG", "CI_LEAD", "IE", "QC", "ADMIN", "JUDGE", "INTERNAL_JUDGE"].includes(rc);
-  }, [user, isExecutiveOrAdmin, levelRank]);
+  }, [user, isExecutiveOrAdmin, levelRank, myDynamicRoles]);
 
   const [evalData, setEvalData] = useState<any>(null);
 
@@ -404,26 +481,55 @@ export default function KaizenDetailModal({
   const handleImageUpload = async (file: File, field: "before_image_url" | "after_image_url") => {
     try {
       setUploadingImage(field === "before_image_url" ? "before" : "after");
+      setImageUploadProgress(0);
       setEditError(null);
 
-      const uploadRes = await uploadCloudinaryFile(file, {
-        category: field === "after_image_url" ? "kaizen_after" : "kaizen_before",
-        fileType: "image",
+      const secureUrl = await uploadKaizenMediaWithProgress(file, "image", {
+        maxSizeBytes: 15 * 1024 * 1024,
+        onProgress: (pct) => setImageUploadProgress(pct),
       });
 
-      if (uploadRes.secure_url) {
-        setEditForm((prev) => ({ ...prev, [field]: uploadRes.secure_url }));
-        const cleanUrl = getValidKaizenImageUrl(uploadRes.secure_url);
+      if (secureUrl) {
+        setEditForm((prev) => ({ ...prev, [field]: secureUrl }));
+        const cleanUrl = getValidKaizenImageUrl(secureUrl);
         if (cleanUrl) {
           setSelectedMedia({ type: "image", url: cleanUrl });
         }
       } else {
-        setEditError("❌ Lỗi không nhận được URL từ Cloudinary");
+        setEditError("❌ Lỗi không nhận được URL từ hệ thống");
       }
     } catch (err: any) {
-      setEditError(`❌ Lỗi upload ảnh: ${err.message || "Không thể kết nối Cloudinary"}`);
+      setEditError(`❌ Lỗi upload ảnh: ${err.message || "Không thể tải ảnh"}`);
     } finally {
       setUploadingImage(null);
+      setImageUploadProgress(0);
+    }
+  };
+
+  const handleVideoUpload = async (file: File, field: "before_video_url" | "after_video_url") => {
+    try {
+      setUploadingVideo(field === "before_video_url" ? "before" : "after");
+      setVideoUploadProgress(0);
+      setVideoUploadStatus("Đang chuẩn bị clip...");
+      setEditError(null);
+
+      const secureUrl = await uploadKaizenMediaWithProgress(file, "video", {
+        maxSizeBytes: 50 * 1024 * 1024,
+        onProgress: (pct) => setVideoUploadProgress(pct),
+        onStatusChange: (status) => setVideoUploadStatus(status),
+      });
+
+      if (secureUrl) {
+        setEditForm((prev: any) => ({ ...prev, [field]: secureUrl }));
+      } else {
+        setEditError("❌ Lỗi không nhận được URL video");
+      }
+    } catch (err: any) {
+      setEditError(`❌ Lỗi upload video: ${err.message || "Không thể tải video"}`);
+    } finally {
+      setUploadingVideo(null);
+      setVideoUploadProgress(0);
+      setVideoUploadStatus("");
     }
   };
 
@@ -503,6 +609,8 @@ export default function KaizenDetailModal({
         tong_tien_bang_chu: totalSavingsWords,
         before_image_url: editForm.before_image_url,
         after_image_url: editForm.after_image_url,
+        before_video_url: editForm.before_video_url || "",
+        after_video_url: editForm.after_video_url || "",
       };
 
       let token = "";
@@ -534,6 +642,8 @@ export default function KaizenDetailModal({
       if (res.ok && json.success) {
         const updatedData = { ...payload, ...(json.data || {}) };
         Object.assign(proposal, updatedData);
+        (proposal as any).before_video_url = updatedData.before_video_url || editForm.before_video_url;
+        (proposal as any).after_video_url = updatedData.after_video_url || editForm.after_video_url;
         (proposal as any).time_before_seconds = updatedData.time_before_seconds || timeBefore;
         (proposal as any).time_after_seconds = updatedData.time_after_seconds || timeAfter;
         (proposal as any).timeBeforeSeconds = updatedData.time_before_seconds || timeBefore;
@@ -628,7 +738,7 @@ export default function KaizenDetailModal({
 
   const [canSeeExpertTab, setCanSeeExpertTab] = useState(false);
   const [expertEvalMeta, setExpertEvalMeta] = useState<any>(null);
-  const canSeeAwardTab = isApprovedStep3 && isAssignedJudge;
+  const canSeeAwardTab = !isPublicView && isApprovedStep3 && isAssignedJudge;
 
   useEffect(() => {
     if (!proposal?.id) {
@@ -770,6 +880,42 @@ export default function KaizenDetailModal({
                     title="Ảnh Sau"
                   >
                     <img src={getValidKaizenImageUrl(isEditing ? editForm.after_image_url : (proposal.after_image_url || (proposal as any).afterImageUrl), proposal.attachments_json, "AFTER", isEditing ? editForm.before_image_url : proposal.before_image_url)} alt="" className="w-full h-full object-cover" />
+                  </button>
+                ) : null}
+
+                {modalMediaSplit.primaryBeforeVideo ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const url = modalMediaSplit.primaryBeforeVideo;
+                      if (url) setSelectedMedia({ type: "video", url });
+                    }}
+                    className={`w-10 h-10 rounded-lg overflow-hidden border-2 transition-all cursor-pointer bg-slate-900 flex items-center justify-center text-white ${
+                      selectedMedia?.url === modalMediaSplit.primaryBeforeVideo && selectedMedia?.type === "video"
+                        ? "border-[#006838] ring-2 ring-[#006838]/30"
+                        : "border-slate-200 hover:border-slate-300 opacity-80 hover:opacity-100"
+                    }`}
+                    title="Clip Trước"
+                  >
+                    <IconVideo size={18} className="text-rose-400" />
+                  </button>
+                ) : null}
+
+                {modalMediaSplit.primaryAfterVideo ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const url = modalMediaSplit.primaryAfterVideo;
+                      if (url) setSelectedMedia({ type: "video", url });
+                    }}
+                    className={`w-10 h-10 rounded-lg overflow-hidden border-2 transition-all cursor-pointer bg-slate-900 flex items-center justify-center text-white ${
+                      selectedMedia?.url === modalMediaSplit.primaryAfterVideo && selectedMedia?.type === "video"
+                        ? "border-[#006838] ring-2 ring-[#006838]/30"
+                        : "border-slate-200 hover:border-slate-300 opacity-80 hover:opacity-100"
+                    }`}
+                    title="Clip Sau"
+                  >
+                    <IconVideo size={18} className="text-emerald-400" />
                   </button>
                 ) : null}
               </div>
@@ -1017,13 +1163,28 @@ export default function KaizenDetailModal({
               </div>
             ) : null}
 
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-full h-9 px-3 rounded-xl border border-slate-300 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
-            >
-              <span>✕ Đóng</span>
-            </button>
+            <div className="flex gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  const url = `${window.location.origin}/work/kaizen/${proposal.code}`;
+                  navigator.clipboard.writeText(url);
+                  alert("Đã sao chép liên kết (Permalink) vào bộ nhớ tạm:\n" + url);
+                }}
+                className="flex-1 h-9 px-3 rounded-xl border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
+              >
+                <IconLink size={15} />
+                <span>Sao chép Link</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 h-9 px-3 rounded-xl border border-slate-300 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
+              >
+                <span>✕ Đóng</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -1086,7 +1247,7 @@ export default function KaizenDetailModal({
             )}
 
             <p className="text-xs text-slate-500 font-medium">
-              MSNV: <span className="font-mono text-slate-700 font-bold">{proposal.proposer_emp_code}</span> &bull; KV: <span className="text-slate-700 font-bold">{(isEditing ? editForm.region : proposal.region) || "Nhà Máy Miền Đông"}</span> &bull; Tháng {pMonth}/{pYear}
+              {!isPublicView && <>MSNV: <span className="font-mono text-slate-700 font-bold">{proposal.proposer_emp_code}</span> &bull; </>}KV: <span className="text-slate-700 font-bold">{(isEditing ? editForm.region : proposal.region) || "Nhà Máy Miền Đông"}</span> &bull; Tháng {pMonth}/{pYear}
             </p>
 
             {/* BANNER PHÊ DUYỆT TÍNH KHẢ THI (BƯỚC 3 - QĐ-TBKG) BANNER TOP */}
@@ -1156,7 +1317,7 @@ export default function KaizenDetailModal({
               <span>ℹ️ Thông tin {isEditing ? "(Đang sửa)" : ""}</span>
             </button>
 
-            {canSeeExpertTab && (
+            {canSeeExpertTab && !isPublicView && (
               <button
                 type="button"
                 onClick={() => setActiveTab("expert_review")}
@@ -1170,7 +1331,7 @@ export default function KaizenDetailModal({
               </button>
             )}
 
-            {canSeeAwardTab && (
+            {canSeeAwardTab && !isPublicView && (
               <button
                 type="button"
                 onClick={() => setActiveTab("star_review")}
@@ -1193,13 +1354,20 @@ export default function KaizenDetailModal({
                 editForm={editForm}
                 setEditForm={setEditForm}
                 uploadingImage={uploadingImage}
+                uploadingVideo={uploadingVideo}
+                imageUploadProgress={imageUploadProgress}
+                videoUploadProgress={videoUploadProgress}
+                videoUploadStatus={videoUploadStatus}
                 handleImageUpload={handleImageUpload}
+                handleVideoUpload={handleVideoUpload}
+                onOpenImageLightbox={(type) => setImageLightbox({ isOpen: true, type })}
+                onOpenVideoLightbox={(type) => setVideoLightbox({ isOpen: true, type })}
               />
             )}
-            {activeTab === "expert_review" && canSeeExpertTab && (
+            {activeTab === "expert_review" && canSeeExpertTab && !isPublicView && (
               <TabExpertReviewContent proposal={proposal} isOwner={isOwner} initialEvalData={evalData} />
             )}
-            {activeTab === "star_review" && canSeeAwardTab && (
+            {activeTab === "star_review" && canSeeAwardTab && !isPublicView && (
               <TabAwardReviewContent
                 proposal={proposal}
                 isJudgeOrExecutive={isJudgeOrExecutive}
@@ -1251,6 +1419,23 @@ export default function KaizenDetailModal({
           if (onEvaluate) onEvaluate();
         }}
       />
+
+      {/* LIGHTBOX POPUPS */}
+      <KaizenImageLightbox
+        isOpen={imageLightbox.isOpen}
+        initialType={imageLightbox.type}
+        beforeUrl={getValidKaizenImageUrl(isEditing ? editForm.before_image_url : proposal?.before_image_url, proposal?.attachments_json, "BEFORE")}
+        afterUrl={getValidKaizenImageUrl(isEditing ? editForm.after_image_url : proposal?.after_image_url, proposal?.attachments_json, "AFTER", isEditing ? editForm.before_image_url : proposal?.before_image_url)}
+        onClose={() => setImageLightbox({ isOpen: false, type: "BEFORE" })}
+      />
+
+      <KaizenVideoLightbox
+        isOpen={videoLightbox.isOpen}
+        initialType={videoLightbox.type}
+        beforeVideoUrl={isEditing ? (editForm.before_video_url || modalMediaSplit.primaryBeforeVideo) : (modalMediaSplit.primaryBeforeVideo || ((proposal as any)?.before_video_url || (proposal as any)?.beforeVideoUrl))}
+        afterVideoUrl={isEditing ? (editForm.after_video_url || modalMediaSplit.primaryAfterVideo) : (modalMediaSplit.primaryAfterVideo || ((proposal as any)?.after_video_url || (proposal as any)?.afterVideoUrl))}
+        onClose={() => setVideoLightbox({ isOpen: false, type: "BEFORE" })}
+      />
     </div>
   );
 }
@@ -1261,7 +1446,14 @@ interface TabInfoContentProps {
   editForm: any;
   setEditForm: React.Dispatch<React.SetStateAction<any>>;
   uploadingImage: "before" | "after" | null;
+  uploadingVideo?: "before" | "after" | null;
+  imageUploadProgress?: number;
+  videoUploadProgress?: number;
+  videoUploadStatus?: string;
   handleImageUpload: (file: File, field: "before_image_url" | "after_image_url") => void;
+  handleVideoUpload?: (file: File, field: "before_video_url" | "after_video_url") => void;
+  onOpenImageLightbox?: (type: "BEFORE" | "AFTER") => void;
+  onOpenVideoLightbox?: (type: "BEFORE" | "AFTER") => void;
 }
 
 function TabInfoContent({
@@ -1270,8 +1462,64 @@ function TabInfoContent({
   editForm,
   setEditForm,
   uploadingImage,
+  uploadingVideo,
+  imageUploadProgress = 0,
+  videoUploadProgress = 0,
+  videoUploadStatus = "",
   handleImageUpload,
+  handleVideoUpload,
+  onOpenImageLightbox,
+  onOpenVideoLightbox,
 }: TabInfoContentProps) {
+  const beforeVideoRef = useRef<HTMLVideoElement>(null);
+  const afterVideoRef = useRef<HTMLVideoElement>(null);
+  const [isSyncPlaying, setIsSyncPlaying] = useState<boolean>(false);
+  const [beforeImgError, setBeforeImgError] = useState(false);
+  const [afterImgError, setAfterImgError] = useState(false);
+  const [beforeVideoError, setBeforeVideoError] = useState(false);
+  const [afterVideoError, setAfterVideoError] = useState(false);
+
+  // Phân loại media bằng helper dùng chung
+  const tabMediaSplit = useMemo(() => {
+    return splitKaizenMedia(isEditing ? {
+      ...proposal,
+      before_image_url: editForm.before_image_url,
+      after_image_url: editForm.after_image_url,
+      before_video_url: editForm.before_video_url,
+      after_video_url: editForm.after_video_url,
+    } : proposal);
+  }, [proposal, isEditing, editForm.before_image_url, editForm.after_image_url, editForm.before_video_url, editForm.after_video_url]);
+
+  const beforeVideos = tabMediaSplit.beforeVideos;
+  const afterVideos = tabMediaSplit.afterVideos;
+  const [selectedBeforeVidIdx, setSelectedBeforeVidIdx] = useState(0);
+  const [selectedAfterVidIdx, setSelectedAfterVidIdx] = useState(0);
+
+  const beforeVideoUrl = isEditing
+    ? (editForm.before_video_url || beforeVideos[selectedBeforeVidIdx] || "")
+    : (beforeVideos[selectedBeforeVidIdx] || tabMediaSplit.primaryBeforeVideo || "");
+  const afterVideoUrl = isEditing
+    ? (editForm.after_video_url || afterVideos[selectedAfterVidIdx] || "")
+    : (afterVideos[selectedAfterVidIdx] || tabMediaSplit.primaryAfterVideo || "");
+  const hasBothVideos = Boolean(beforeVideoUrl && afterVideoUrl);
+
+  const handleToggleSyncPlay = () => {
+    const v1 = beforeVideoRef.current;
+    const v2 = afterVideoRef.current;
+    if (!v1 || !v2) return;
+
+    if (isSyncPlaying) {
+      v1.pause();
+      v2.pause();
+      setIsSyncPlaying(false);
+    } else {
+      if (v1.ended) v1.currentTime = 0;
+      if (v2.ended) v2.currentTime = 0;
+      v1.play().catch(() => {});
+      v2.play().catch(() => {});
+      setIsSyncPlaying(true);
+    }
+  };
   const prodCode = isEditing ? editForm.product_code : ((proposal as any).product_code || "");
   const qty = isEditing ? editForm.pair_quantity : Number((proposal as any).quantity || proposal.pair_quantity || (proposal as any).so_luong_giay || 0);
   const pricingDir = isEditing ? editForm.pricing_direction : ((proposal as any).pricing_direction || "THOI_GIAN");
@@ -1857,43 +2105,88 @@ function TabInfoContent({
         );
       })()}
 
-      {/* SO SÁNH HÌNH ẢNH (VỚI CHỨC NĂNG THAY ĐỔI ẢNH KHI EDIT MODE) */}
+      {/* SO SÁNH HÌNH ẢNH */}
       <div className="space-y-3">
         <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-2">
           <span>🖼</span>
           <span>SO SÁNH HÌNH ẢNH</span>
         </h4>
 
-        <div className="grid grid-cols-2 gap-3 sm:gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
           {/* Ảnh Trước */}
           <div className="p-3 sm:p-3.5 rounded-2xl border-2 border-rose-200 bg-rose-50/20 space-y-2 relative">
             <div className="flex items-center justify-between">
               <span className="text-xs font-black text-rose-900">Trước</span>
               {isEditing && (
-                <label className="cursor-pointer px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-[10px] flex items-center gap-1 shadow-xs transition-all">
-                  <IconCloudUpload size={13} />
-                  <span>{uploadingImage === "before" ? "Đang tải..." : "Thay ảnh"}</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    disabled={uploadingImage !== null}
-                    onChange={(e) => {
-                      if (e.target.files?.[0]) handleImageUpload(e.target.files[0], "before_image_url");
-                    }}
-                    className="hidden"
-                  />
-                </label>
+                <div className="flex items-center gap-1.5">
+                  {editForm.before_image_url && (
+                    <button
+                      type="button"
+                      onClick={() => setEditForm((prev: any) => ({ ...prev, before_image_url: "" }))}
+                      className="px-2 py-1 rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-800 text-[10px] font-bold transition-all cursor-pointer"
+                      title="Xóa ảnh trước"
+                    >
+                      Xóa
+                    </button>
+                  )}
+                  <label className="cursor-pointer px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-[10px] flex items-center gap-1 shadow-xs transition-all">
+                    <IconCloudUpload size={13} />
+                    <span>{uploadingImage === "before" ? `Đang tải ${imageUploadProgress}%` : "Thay ảnh"}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      disabled={uploadingImage !== null}
+                      onChange={(e) => {
+                        if (e.target.files?.[0]) handleImageUpload(e.target.files[0], "before_image_url");
+                      }}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
               )}
             </div>
 
             {getValidKaizenImageUrl(isEditing ? editForm.before_image_url : proposal.before_image_url, proposal.attachments_json, "BEFORE") ? (
-              <div className="relative group">
-                <img
-                  src={getValidKaizenImageUrl(isEditing ? editForm.before_image_url : proposal.before_image_url, proposal.attachments_json, "BEFORE")}
-                  alt="Before"
-                  className="w-full h-44 sm:h-52 object-contain rounded-xl border border-rose-200 bg-white"
-                />
-              </div>
+              beforeImgError ? (
+                <div className="w-full h-44 sm:h-52 rounded-xl border border-rose-200 bg-white flex flex-col items-center justify-center text-rose-500 font-bold text-xs gap-1.5 p-3 text-center">
+                  <IconAlertCircle size={22} className="text-rose-400" />
+                  <span>Không tải được ảnh</span>
+                  <button
+                    type="button"
+                    onClick={() => setBeforeImgError(false)}
+                    className="text-[10px] text-slate-500 underline hover:text-slate-700 cursor-pointer"
+                  >
+                    Thử lại
+                  </button>
+                </div>
+              ) : (
+                <div
+                  className="relative group cursor-pointer overflow-hidden rounded-xl border border-rose-200 bg-white"
+                  onClick={() => onOpenImageLightbox && onOpenImageLightbox("BEFORE")}
+                >
+                  <img
+                    src={getValidKaizenImageUrl(isEditing ? editForm.before_image_url : proposal.before_image_url, proposal.attachments_json, "BEFORE")}
+                    alt="Trước cải tiến"
+                    loading="lazy"
+                    onError={() => setBeforeImgError(true)}
+                    className="w-full h-44 sm:h-52 object-contain group-hover:scale-102 transition-transform duration-300"
+                  />
+
+                  {/* Nút phóng to ở góc trên bên phải khung ảnh */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onOpenImageLightbox) onOpenImageLightbox("BEFORE");
+                    }}
+                    aria-label="Phóng to ảnh trước cải tiến"
+                    className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/50 hover:bg-black/85 text-white transition-all shadow-md z-10 cursor-pointer backdrop-blur-xs flex items-center justify-center group-hover:scale-110 active:scale-95"
+                    title="Phóng to ảnh (Nhấn để xem chi tiết)"
+                  >
+                    <IconArrowsMaximize size={15} />
+                  </button>
+                </div>
+              )
             ) : (
               <div className="w-full h-36 sm:h-44 rounded-xl border border-dashed border-rose-200 bg-white flex flex-col items-center justify-center text-slate-400 font-bold text-xs gap-1">
                 <span>Chưa có ảnh trước</span>
@@ -1919,30 +2212,75 @@ function TabInfoContent({
             <div className="flex items-center justify-between">
               <span className="text-xs font-black text-emerald-900">Sau</span>
               {isEditing && (
-                <label className="cursor-pointer px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] flex items-center gap-1 shadow-xs transition-all">
-                  <IconCloudUpload size={13} />
-                  <span>{uploadingImage === "after" ? "Đang tải..." : "Thay ảnh"}</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    disabled={uploadingImage !== null}
-                    onChange={(e) => {
-                      if (e.target.files?.[0]) handleImageUpload(e.target.files[0], "after_image_url");
-                    }}
-                    className="hidden"
-                  />
-                </label>
+                <div className="flex items-center gap-1.5">
+                  {editForm.after_image_url && (
+                    <button
+                      type="button"
+                      onClick={() => setEditForm((prev: any) => ({ ...prev, after_image_url: "" }))}
+                      className="px-2 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-[10px] font-bold transition-all cursor-pointer"
+                      title="Xóa ảnh sau"
+                    >
+                      Xóa
+                    </button>
+                  )}
+                  <label className="cursor-pointer px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] flex items-center gap-1 shadow-xs transition-all">
+                    <IconCloudUpload size={13} />
+                    <span>{uploadingImage === "after" ? `Đang tải ${imageUploadProgress}%` : "Thay ảnh"}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      disabled={uploadingImage !== null}
+                      onChange={(e) => {
+                        if (e.target.files?.[0]) handleImageUpload(e.target.files[0], "after_image_url");
+                      }}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
               )}
             </div>
 
             {getValidKaizenImageUrl(isEditing ? editForm.after_image_url : (proposal.after_image_url || (proposal as any).afterImageUrl), proposal.attachments_json, "AFTER", isEditing ? editForm.before_image_url : proposal.before_image_url) ? (
-              <div className="relative group">
-                <img
-                  src={getValidKaizenImageUrl(isEditing ? editForm.after_image_url : (proposal.after_image_url || (proposal as any).afterImageUrl), proposal.attachments_json, "AFTER", isEditing ? editForm.before_image_url : proposal.before_image_url)}
-                  alt="After"
-                  className="w-full h-44 sm:h-52 object-contain rounded-xl border border-emerald-200 bg-white"
-                />
-              </div>
+              afterImgError ? (
+                <div className="w-full h-44 sm:h-52 rounded-xl border border-emerald-200 bg-white flex flex-col items-center justify-center text-emerald-700 font-bold text-xs gap-1.5 p-3 text-center">
+                  <IconAlertCircle size={22} className="text-emerald-500" />
+                  <span>Không tải được ảnh</span>
+                  <button
+                    type="button"
+                    onClick={() => setAfterImgError(false)}
+                    className="text-[10px] text-slate-500 underline hover:text-slate-700 cursor-pointer"
+                  >
+                    Thử lại
+                  </button>
+                </div>
+              ) : (
+                <div
+                  className="relative group cursor-pointer overflow-hidden rounded-xl border border-emerald-200 bg-white"
+                  onClick={() => onOpenImageLightbox && onOpenImageLightbox("AFTER")}
+                >
+                  <img
+                    src={getValidKaizenImageUrl(isEditing ? editForm.after_image_url : (proposal.after_image_url || (proposal as any).afterImageUrl), proposal.attachments_json, "AFTER", isEditing ? editForm.before_image_url : proposal.before_image_url)}
+                    alt="Sau cải tiến"
+                    loading="lazy"
+                    onError={() => setAfterImgError(true)}
+                    className="w-full h-44 sm:h-52 object-contain group-hover:scale-102 transition-transform duration-300"
+                  />
+
+                  {/* Nút phóng to ở góc trên bên phải khung ảnh */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onOpenImageLightbox) onOpenImageLightbox("AFTER");
+                    }}
+                    aria-label="Phóng to ảnh sau cải tiến"
+                    className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/50 hover:bg-black/85 text-white transition-all shadow-md z-10 cursor-pointer backdrop-blur-xs flex items-center justify-center group-hover:scale-110 active:scale-95"
+                    title="Phóng to ảnh (Nhấn để xem chi tiết)"
+                  >
+                    <IconArrowsMaximize size={15} />
+                  </button>
+                </div>
+              )
             ) : (
               <div className="w-full h-36 sm:h-44 rounded-xl border border-dashed border-emerald-200 bg-white flex flex-col items-center justify-center text-slate-400 font-bold text-xs gap-1">
                 <span>Chưa có ảnh sau</span>
@@ -1954,6 +2292,305 @@ function TabInfoContent({
                       accept="image/*"
                       onChange={(e) => {
                         if (e.target.files?.[0]) handleImageUpload(e.target.files[0], "after_image_url");
+                      }}
+                      className="hidden"
+                    />
+                  </label>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* YÊU CẦU 2: SO SÁNH CLIP */}
+      <div className="space-y-3 pt-1">
+        <div className="flex items-center justify-between">
+          <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-2">
+            <span>🎬</span>
+            <span>SO SÁNH CLIP</span>
+          </h4>
+
+          {hasBothVideos && (
+            <button
+              type="button"
+              onClick={handleToggleSyncPlay}
+              aria-label={isSyncPlaying ? "Tạm dừng cả 2 clip" : "Phát đồng bộ cả 2 clip"}
+              className="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-black text-[10px] flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer active:scale-95"
+              title="Phát hoặc tạm dừng cả 2 clip cùng lúc để so sánh"
+            >
+              {isSyncPlaying ? <IconPlayerPause size={13} /> : <IconPlayerPlay size={13} />}
+              <span>{isSyncPlaying ? "Tạm dừng cả 2" : "Phát đồng bộ"}</span>
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+          {/* Clip Trước */}
+          <div className="p-3 sm:p-3.5 rounded-2xl border-2 border-rose-200 bg-rose-50/20 space-y-2 relative">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-black text-rose-900">Trước cải tiến</span>
+              {isEditing && beforeVideoUrl && (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setEditForm((prev: any) => ({ ...prev, before_video_url: "" }))}
+                    className="px-2 py-1 rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-800 text-[10px] font-bold transition-all cursor-pointer"
+                    title="Xóa clip trước"
+                  >
+                    Xóa clip
+                  </button>
+                  <label className="cursor-pointer px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-[10px] flex items-center gap-1 shadow-xs transition-all">
+                    <IconCloudUpload size={13} />
+                    <span>{uploadingVideo === "before" ? (videoUploadStatus || `Đang tải ${videoUploadProgress}%`) : "Thay clip"}</span>
+                    <input
+                      type="file"
+                      accept="video/mp4,video/webm,video/quicktime,video/*"
+                      disabled={uploadingVideo !== null}
+                      onChange={(e) => {
+                        if (e.target.files?.[0] && handleVideoUpload) handleVideoUpload(e.target.files[0], "before_video_url");
+                      }}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              )}
+            </div>
+
+            {/* Selector khi có nhiều clip trước */}
+            {beforeVideos.length > 1 && (
+              <div className="flex items-center gap-1.5 flex-wrap pb-0.5">
+                <span className="text-[10px] font-bold text-rose-700">Chọn clip:</span>
+                {beforeVideos.map((_, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      setSelectedBeforeVidIdx(idx);
+                      setBeforeVideoError(false);
+                    }}
+                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all cursor-pointer ${
+                      selectedBeforeVidIdx === idx
+                        ? "bg-rose-600 text-white shadow-2xs"
+                        : "bg-rose-100 text-rose-800 hover:bg-rose-200"
+                    }`}
+                  >
+                    Clip {idx + 1}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {beforeVideoUrl ? (
+              beforeVideoError ? (
+                <div className="w-full h-44 sm:h-52 rounded-xl border border-rose-200 bg-white flex flex-col items-center justify-center text-rose-500 font-bold text-xs gap-1.5 p-3 text-center">
+                  <IconAlertCircle size={22} className="text-rose-400" />
+                  <span>Không tải được clip</span>
+                  <div className="flex items-center gap-2 mt-1">
+                    <button
+                      type="button"
+                      onClick={() => setBeforeVideoError(false)}
+                      className="text-[10px] text-slate-500 underline hover:text-slate-700 cursor-pointer"
+                    >
+                      Thử lại
+                    </button>
+                    {beforeVideoUrl && (
+                      <a
+                        href={beforeVideoUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[10px] text-rose-600 underline hover:text-rose-800 cursor-pointer flex items-center gap-0.5 font-bold"
+                      >
+                        <span>Mở trực tiếp</span>
+                        <IconExternalLink size={11} />
+                      </a>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="relative group rounded-xl overflow-hidden border border-rose-200 bg-black/95">
+                  <video
+                    ref={beforeVideoRef}
+                    key={beforeVideoUrl}
+                    src={beforeVideoUrl}
+                    controls
+                    playsInline
+                    preload="metadata"
+                    onError={() => setBeforeVideoError(true)}
+                    className="w-full h-44 sm:h-52 object-contain bg-black/95"
+                  />
+
+                  {/* Nút phóng to video */}
+                  <button
+                    type="button"
+                    onClick={() => onOpenVideoLightbox && onOpenVideoLightbox("BEFORE")}
+                    aria-label="Phóng to clip trước cải tiến"
+                    className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/60 hover:bg-black/90 text-white transition-all shadow-md z-10 cursor-pointer backdrop-blur-xs flex items-center justify-center group-hover:scale-110 active:scale-95"
+                    title="Phóng to clip (Toàn màn hình)"
+                  >
+                    <IconArrowsMaximize size={15} />
+                  </button>
+                </div>
+              )
+            ) : (
+              <div className="w-full h-36 sm:h-44 rounded-xl border border-dashed border-rose-200 bg-white flex flex-col items-center justify-center text-slate-400 font-bold text-xs gap-2 p-3 text-center">
+                <span>Chưa có clip trước cải tiến</span>
+                {isEditing && (
+                  <label className="cursor-pointer px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5">
+                    {uploadingVideo === "before" ? (
+                      <>
+                        <IconLoader2 size={14} className="animate-spin" />
+                        <span>{videoUploadStatus || `Đang tải ${videoUploadProgress}%...`}</span>
+                      </>
+                    ) : (
+                      <>
+                        <IconPlus size={14} />
+                        <span>+ Tải clip lên</span>
+                      </>
+                    )}
+                    <input
+                      type="file"
+                      accept="video/mp4,video/webm,video/quicktime,video/*"
+                      disabled={uploadingVideo !== null}
+                      onChange={(e) => {
+                        if (e.target.files?.[0] && handleVideoUpload) handleVideoUpload(e.target.files[0], "before_video_url");
+                      }}
+                      className="hidden"
+                    />
+                  </label>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Clip Sau */}
+          <div className="p-3 sm:p-3.5 rounded-2xl border-2 border-emerald-200 bg-emerald-50/20 space-y-2 relative">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-black text-emerald-900">Sau cải tiến</span>
+              {isEditing && afterVideoUrl && (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setEditForm((prev: any) => ({ ...prev, after_video_url: "" }))}
+                    className="px-2 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-[10px] font-bold transition-all cursor-pointer"
+                    title="Xóa clip sau"
+                  >
+                    Xóa clip
+                  </button>
+                  <label className="cursor-pointer px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] flex items-center gap-1 shadow-xs transition-all">
+                    <IconCloudUpload size={13} />
+                    <span>{uploadingVideo === "after" ? (videoUploadStatus || `Đang tải ${videoUploadProgress}%`) : "Thay clip"}</span>
+                    <input
+                      type="file"
+                      accept="video/mp4,video/webm,video/quicktime,video/*"
+                      disabled={uploadingVideo !== null}
+                      onChange={(e) => {
+                        if (e.target.files?.[0] && handleVideoUpload) handleVideoUpload(e.target.files[0], "after_video_url");
+                      }}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              )}
+            </div>
+
+            {/* Selector khi có nhiều clip sau */}
+            {afterVideos.length > 1 && (
+              <div className="flex items-center gap-1.5 flex-wrap pb-0.5">
+                <span className="text-[10px] font-bold text-emerald-700">Chọn clip:</span>
+                {afterVideos.map((_, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      setSelectedAfterVidIdx(idx);
+                      setAfterVideoError(false);
+                    }}
+                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all cursor-pointer ${
+                      selectedAfterVidIdx === idx
+                        ? "bg-emerald-600 text-white shadow-2xs"
+                        : "bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
+                    }`}
+                  >
+                    Clip {idx + 1}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {afterVideoUrl ? (
+              afterVideoError ? (
+                <div className="w-full h-44 sm:h-52 rounded-xl border border-emerald-200 bg-white flex flex-col items-center justify-center text-emerald-700 font-bold text-xs gap-1.5 p-3 text-center">
+                  <IconAlertCircle size={22} className="text-emerald-500" />
+                  <span>Không tải được clip</span>
+                  <div className="flex items-center gap-2 mt-1">
+                    <button
+                      type="button"
+                      onClick={() => setAfterVideoError(false)}
+                      className="text-[10px] text-slate-500 underline hover:text-slate-700 cursor-pointer"
+                    >
+                      Thử lại
+                    </button>
+                    {afterVideoUrl && (
+                      <a
+                        href={afterVideoUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[10px] text-emerald-700 underline hover:text-emerald-900 cursor-pointer flex items-center gap-0.5 font-bold"
+                      >
+                        <span>Mở trực tiếp</span>
+                        <IconExternalLink size={11} />
+                      </a>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="relative group rounded-xl overflow-hidden border border-emerald-200 bg-black/95">
+                  <video
+                    ref={afterVideoRef}
+                    key={afterVideoUrl}
+                    src={afterVideoUrl}
+                    controls
+                    playsInline
+                    preload="metadata"
+                    onError={() => setAfterVideoError(true)}
+                    className="w-full h-44 sm:h-52 object-contain bg-black/95"
+                  />
+
+                  {/* Nút phóng to video */}
+                  <button
+                    type="button"
+                    onClick={() => onOpenVideoLightbox && onOpenVideoLightbox("AFTER")}
+                    aria-label="Phóng to clip sau cải tiến"
+                    className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/60 hover:bg-black/90 text-white transition-all shadow-md z-10 cursor-pointer backdrop-blur-xs flex items-center justify-center group-hover:scale-110 active:scale-95"
+                    title="Phóng to clip (Toàn màn hình)"
+                  >
+                    <IconArrowsMaximize size={15} />
+                  </button>
+                </div>
+              )
+            ) : (
+              <div className="w-full h-36 sm:h-44 rounded-xl border border-dashed border-emerald-200 bg-white flex flex-col items-center justify-center text-slate-400 font-bold text-xs gap-2 p-3 text-center">
+                <span>Chưa có clip sau cải tiến</span>
+                {isEditing && (
+                  <label className="cursor-pointer px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5">
+                    {uploadingVideo === "after" ? (
+                      <>
+                        <IconLoader2 size={14} className="animate-spin" />
+                        <span>{videoUploadStatus || `Đang tải ${videoUploadProgress}%...`}</span>
+                      </>
+                    ) : (
+                      <>
+                        <IconPlus size={14} />
+                        <span>+ Tải clip lên</span>
+                      </>
+                    )}
+                    <input
+                      type="file"
+                      accept="video/mp4,video/webm,video/quicktime,video/*"
+                      disabled={uploadingVideo !== null}
+                      onChange={(e) => {
+                        if (e.target.files?.[0] && handleVideoUpload) handleVideoUpload(e.target.files[0], "after_video_url");
                       }}
                       className="hidden"
                     />

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import { ensureKaizenSchema } from '@/lib/kaizenDbMigration';
 import { recordAuditLog } from '@/lib/auditLogger';
-import { getTaskBoardPermissions, getCardPermissions, getSessionUser } from '@/lib/taskPermissions';
+import { getTaskBoardPermissions, getCardPermissions, getSessionUser, checkSelfApproval } from '@/lib/taskPermissions';
 import { updateTaskAtomically } from '@/lib/services/taskCardUpdater';
 
 function getDbBinding(): any {
@@ -65,11 +65,54 @@ export async function GET(request: Request) {
     
     if (tasksSource !== 'legacy') {
       try {
-        const { results } = await db.prepare(`
-          SELECT * FROM tasks
-          WHERE project_id = ? OR department_id = ? OR project_id IS NULL
-          ORDER BY kanban_position ASC, created_at DESC
-        `).bind(boardId, boardId).all();
+        const listId = searchParams.get('list_id');
+        const limit = parseInt(searchParams.get('limit') || '20', 10);
+        const cursorUpdatedAt = searchParams.get('cursor_updated_at');
+        const cursorId = searchParams.get('cursor_id');
+
+        let results;
+        if (listId) {
+          const statusFromListId = (id: string) => id.startsWith('list_') ? id.substring(5) : id;
+          const status = statusFromListId(listId);
+          
+          let query = `
+            SELECT * FROM tasks
+            WHERE (project_id = ? OR department_id = ?) AND status = ?
+          `;
+          const params: any[] = [boardId, boardId, status];
+          
+          if (cursorUpdatedAt && cursorId) {
+            query += ` AND (updated_at < ? OR (updated_at = ? AND id < ?))`;
+            params.push(cursorUpdatedAt, cursorUpdatedAt, cursorId);
+          }
+          
+          query += ` ORDER BY updated_at DESC, id DESC LIMIT ?`;
+          params.push(limit);
+          
+          results = (await db.prepare(query).bind(...params).all()).results;
+        } else {
+          // Initial load: 20 cards per list using ROW_NUMBER partitioned by status
+          results = (await db.prepare(`
+            SELECT * FROM (
+              SELECT *, ROW_NUMBER() OVER(PARTITION BY status ORDER BY updated_at DESC, id DESC) as rn 
+              FROM tasks 
+              WHERE project_id = ? OR department_id = ?
+            ) WHERE rn <= 20
+          `).bind(boardId, boardId).all()).results;
+        }
+
+        // Get total counts per column
+        const totalsResult = (await db.prepare(`
+          SELECT status, COUNT(*) as count 
+          FROM tasks 
+          WHERE project_id = ? OR department_id = ? 
+          GROUP BY status
+        `).bind(boardId, boardId).all()).results;
+        
+        const totals = (totalsResult || []).reduce((acc: any, row: any) => {
+          acc[`list_${row.status}`] = row.count;
+          return acc;
+        }, {});
 
         const cards = (results || []).map((t: any) => ({
           id: t.id,
@@ -102,7 +145,7 @@ export async function GET(request: Request) {
           };
         }
 
-        return NextResponse.json({ success: true, lists: KANBAN_LISTS, cards, source: 'V2_tasks_table' });
+        return NextResponse.json({ success: true, lists: KANBAN_LISTS, cards, totals, source: 'V2_tasks_table' });
       } catch (err) {
         // Fallback
       }
@@ -110,7 +153,7 @@ export async function GET(request: Request) {
 
     await ensureKaizenSchema(db);
     const { results: lists } = await db.prepare('SELECT * FROM task_lists WHERE board_id = ? ORDER BY sort_order ASC').bind(boardId).all();
-    const { results: cards } = await db.prepare('SELECT * FROM task_cards WHERE board_id = ? ORDER BY sort_order ASC, created_at DESC').bind(boardId).all();
+    const { results: cards } = await db.prepare('SELECT * FROM task_cards WHERE board_id = ? ORDER BY sort_order ASC, created_at DESC, id DESC').bind(boardId).all();
     
     const { isManager, empCode } = boardPerm;
     // Fix N+1 for legacy
@@ -219,6 +262,13 @@ export async function PATCH(request: Request) {
     }
     if (newStatus && newStatus === 'REVIEW' && !perm.permissions.canComplete) {
        return NextResponse.json({ success: false, error: 'Bạn không có quyền chuyển thẻ sang chờ duyệt' }, { status: 403 });
+    }
+
+    if (newStatus && (newStatus === 'DONE' || newStatus === 'APPROVED')) {
+      const checkApproval = checkSelfApproval(session.empCode, perm.card, newStatus);
+      if (!checkApproval.allowed) {
+        return NextResponse.json({ success: false, error: checkApproval.error }, { status: 403 });
+      }
     }
 
     if (!perm.permissions.canEditMeta && (assignee_id !== undefined || deadline !== undefined || priority !== undefined || title !== undefined || description !== undefined)) {

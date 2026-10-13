@@ -2,15 +2,26 @@
 -- MIGRATION 0002: MAINTENANCE TICKETS EXTENSION & QC MODULE TABLES
 -- ============================================================
 
--- 1. EXTEND EXISTING MAINTENANCE_TICKETS TABLE WITH INDEPENDENT ALTER STATEMENTS
-ALTER TABLE maintenance_tickets ADD COLUMN created_by TEXT;
-ALTER TABLE maintenance_tickets ADD COLUMN assigned_to TEXT;
-ALTER TABLE maintenance_tickets ADD COLUMN resolved_note TEXT;
-ALTER TABLE maintenance_tickets ADD COLUMN resolved_at DATETIME;
-ALTER TABLE maintenance_tickets ADD COLUMN reopen_reason TEXT;
-ALTER TABLE maintenance_tickets ADD COLUMN source_module TEXT;
-ALTER TABLE maintenance_tickets ADD COLUMN source_record_id TEXT;
-ALTER TABLE maintenance_tickets ADD COLUMN version INTEGER DEFAULT 1;
+CREATE TABLE IF NOT EXISTS maintenance_tickets (
+    id TEXT PRIMARY KEY,
+    ticket_code TEXT,
+    machine_id TEXT,
+    reported_by_id TEXT,
+    priority TEXT DEFAULT 'MEDIUM',
+    status TEXT DEFAULT 'OPEN',
+    description TEXT,
+    created_by TEXT,
+    assigned_to TEXT,
+    resolved_note TEXT,
+    resolved_at DATETIME,
+    reopen_reason TEXT,
+    source_module TEXT,
+    source_record_id TEXT,
+    version INTEGER DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 
 -- 2. CREATE QC DEFECT REPORTS TABLE
 CREATE TABLE IF NOT EXISTS qc_defect_reports (

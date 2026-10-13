@@ -1,0 +1,24 @@
+:root{--bg:#0f1720;--card:#16212d;--ink:#e8eef5;--mute:#8da2b5;--line:#243446;--acc:#3fb6a8;--bad:#ff6b6b;--ok:#5fd18a;font-family:Inter,system-ui,Segoe UI,Roboto,sans-serif}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(1200px 500px at 20% -10%,#1b2d3d,transparent),var(--bg);color:var(--ink);min-height:100vh}
+.shell{max-width:720px;margin:0 auto;padding:20px 16px 60px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+h1{font-size:22px;margin:0;letter-spacing:.2px}
+h2{font-size:16px;margin:0 0 12px;color:var(--acc)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin:14px 0;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+label{display:block;font-size:13px;color:var(--mute);margin:10px 0 4px}
+label.check{display:flex;gap:8px;align-items:center;color:var(--ink)}
+input,select{width:100%;padding:11px 12px;border-radius:10px;border:1px solid var(--line);background:#0e1822;color:var(--ink);font-size:15px}
+input:focus,select:focus,button:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+input[type=checkbox]{width:auto}
+button{margin-top:14px;padding:11px 16px;border-radius:10px;border:0;background:var(--acc);color:#04201c;font-weight:600;font-size:15px;cursor:pointer;transition:transform .12s,filter .12s}
+button:hover{filter:brightness(1.08)}button:active{transform:scale(.98)}
+button:disabled{opacity:.55;cursor:progress}
+button.ghost{margin:0;background:transparent;color:var(--mute);border:1px solid var(--line)}
+.who{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--mute)}
+.msg{min-height:20px;margin:10px 0 0;font-size:14px}
+.msg.error{color:var(--bad)}.msg.ok{color:var(--ok)}.msg.warn{color:#f5c26b}
+.result{margin:6px 0 0;font-size:15px;white-space:pre-line}
+dl.slip{display:grid;grid-template-columns:1fr auto;gap:6px 16px;margin:10px 0 0}
+dl.slip dt{color:var(--mute)}dl.slip dd{margin:0;text-align:right;font-variant-numeric:tabular-nums}
+@media (max-width:420px){.shell{padding:14px 10px}.card{padding:14px}}

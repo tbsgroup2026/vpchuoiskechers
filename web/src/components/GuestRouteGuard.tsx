@@ -10,6 +10,8 @@ export default function GuestRouteGuard() {
 
   useEffect(() => {
     if (!pathname) return;
+    // Bỏ qua hoàn toàn nếu đang ở trang /login để chống vòng lặp redirect
+    if (pathname === "/login" || pathname.startsWith("/login")) return;
 
     const GUEST_ALLOWED_TARGET = "/work/kaizen/van-phong-chuoi";
 
@@ -21,10 +23,16 @@ export default function GuestRouteGuard() {
         })
           .then((res) => {
             if (res.status === 401) {
-              document.cookie = "tbs_token=; path=/; max-age=0";
+              document.cookie = "tbs_token=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT";
               sessionStorage.removeItem("tbs_current_user");
+              sessionStorage.removeItem("tbs_jwt_token");
+              sessionStorage.removeItem("tbs_token");
               localStorage.removeItem("tbs_current_user");
-              window.location.href = "/login?expired=1";
+              localStorage.removeItem("tbs_jwt_token");
+              localStorage.removeItem("tbs_token");
+              if (pathname !== "/login" && !pathname.startsWith("/login")) {
+                window.location.href = "/login?expired=1";
+              }
               return null;
             }
             return res.json();

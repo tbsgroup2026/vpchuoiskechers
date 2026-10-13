@@ -158,7 +158,7 @@ const REGION_MAPPING: Record<string, { factories: string[]; locations: string[] 
   },
   "VP Chuỗi (R&D)": {
     factories: ["Văn Phòng Chuỗi Chính", "Phòng R&D"],
-    locations: ["VP Chuỗi - Trụ sở", "VP Chuỗi - Phòng R&D"]
+    locations: ["Văn phòng chuỗi", "Kiên Giang 1", "Kiên Giang 2", "Kiên Giang 3"]
   }
 };
 

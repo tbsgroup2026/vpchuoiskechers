@@ -88,50 +88,43 @@ export async function uploadCloudinaryFile(
     }
   }
 
-  const siteInfo = getSiteFolder();
-  const targetFolder = options.folder || siteInfo.folder;
+  // Attempt to convert dataURL to a File if necessary
+  if (typeof uploadPayload === 'string') {
+    if (uploadPayload.startsWith('data:')) {
+      const arr = uploadPayload.split(',');
+      const mimeMatch = arr[0].match(/:(.*?);/);
+      const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+      const bstr = atob(arr[1]);
+      let n = bstr.length;
+      const u8arr = new Uint8Array(n);
+      while (n--) {
+        u8arr[n] = bstr.charCodeAt(n);
+      }
+      uploadPayload = new File([u8arr], `upload_${Date.now()}.${mime.split('/')[1] || 'jpg'}`, { type: mime });
+    } else {
+      throw new Error('Chỉ hỗ trợ DataURL hoặc File object.');
+    }
+  }
 
-  const fileName = typeof uploadPayload === "string" ? "dataurl" : uploadPayload.name;
-  const uniquePublicId = generateUniquePublicId(category, fileName, siteInfo.prefix);
-
-  const endpoint = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/${fileType === "video" ? "video" : "image"}/upload`;
-
-  // Attempt 1: With folder & custom public_id
   const formData = new FormData();
-  formData.append("file", uploadPayload);
-  formData.append("upload_preset", CLOUDINARY_PRESET);
-  formData.append("folder", targetFolder);
-  formData.append("public_id", uniquePublicId);
+  formData.append('file', uploadPayload);
+  formData.append('fileType', category.toUpperCase() || 'ATTACHMENT');
 
-  let res = await fetch(endpoint, {
-    method: "POST",
+  const res = await fetch('/api/files/upload', {
+    method: 'POST',
     body: formData,
   });
 
-  let data = await res.json();
+  const data = await res.json();
 
-  // Attempt 2: If failed due to public_id restriction in unsigned preset, retry without public_id
-  if (!res.ok && (data.error?.message?.includes("public_id") || data.error?.message?.includes("preset"))) {
-    const fallbackFormData = new FormData();
-    fallbackFormData.append("file", file);
-    fallbackFormData.append("upload_preset", CLOUDINARY_PRESET);
-
-    res = await fetch(endpoint, {
-      method: "POST",
-      body: fallbackFormData,
-    });
-    data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'Không thể tải tệp lên hệ thống!');
   }
-
-  if (!res.ok || !data.secure_url) {
-    throw new Error(data.error?.message || "Không thể tải tệp lên Cloudinary!");
-  }
-
-  const versionedUrl = formatCloudinaryUrl(data.secure_url, data.version || Date.now());
 
   return {
-    secure_url: versionedUrl,
-    public_id: data.public_id || uniquePublicId,
-    folder: targetFolder,
+    secure_url: data.data.url,
+    public_id: data.data.id,
+    folder: 'r2-storage',
   };
 }
+

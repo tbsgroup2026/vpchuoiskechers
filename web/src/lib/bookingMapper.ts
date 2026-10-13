@@ -21,11 +21,10 @@ export interface NormalizedBooking {
 /**
  * Remove obsolete receptionist status tags from notes
  */
-export function cleanNotes(notes?: string | null): string {
+export function sanitizeNotes(notes?: string | null): string {
   if (!notes) return '';
   return notes
-    .replace(/\[APPROVED_BY_RECEPTIONIST[^\]]*\]/gi, '')
-    .replace(/\[STATUS_[^\]]*\]/gi, '')
+    .replace(/\s*\[[A-Z_]+(?:_BY_[A-Z_]+)?(?:_AT_\d{1,2}:\d{2}(?::\d{2})?)?\]\s*/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -99,7 +98,7 @@ export function normalizeRoomBooking(raw: any, roomsList?: Array<{ id: string; n
     status = 'CONFIRMED';
   }
 
-  const cleanedNotes = cleanNotes(rawNotes);
+  const cleanedNotes = sanitizeNotes(rawNotes);
   const bookingDate = formatBookingDate(raw.bookingDate || raw.booking_date || raw.meeting_date || raw.meetingDate);
   
   let timeSlot = String(raw.timeSlot || raw.time_slot || '').trim();

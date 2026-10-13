@@ -23,6 +23,7 @@ import { INITIAL_ORG_TREE } from "./organizationTree";
 import KaizenDuplicateCompareModal from "./KaizenDuplicateCompareModal";
 import { getValidKaizenImageUrl, getAllKaizenImageUrls } from "@/lib/kaizenImageHelper";
 import { formatMax2Decimals, formatVND } from "@/lib/formatNumber";
+import { uploadKaizenMediaWithProgress } from "@/lib/kaizenMediaUpload";
 
 export const CATEGORIES = [
   { id: "MATERIAL_SAVING", label: "1.Tiết kiệm Vật tư", color: "bg-amber-600 text-white" },
@@ -147,6 +148,9 @@ export default function KaizenPublicSubmitForm({
   const [submittedCode, setSubmittedCode] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState<"before" | "after" | null>(null);
+  const [videoUploadProgress, setVideoUploadProgress] = useState<number>(0);
+  const [videoUploadStatus, setVideoUploadStatus] = useState<string>("");
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [unitTitle, setUnitTitle] = useState<string>("THNM Kiên Giang");
   const [duplicateMatches, setDuplicateMatches] = useState<any[]>([]);
@@ -516,7 +520,7 @@ export default function KaizenPublicSubmitForm({
 
     try {
       setUploading(true);
-      showToast(`☁️ Đang tải ảnh lên Cloudinary...`);
+      showToast(`☁️ Đang tải ảnh lên Cloudflare...`);
       
       const uploadPromises = Array.from(files).map((file) => {
         if (!file.type.startsWith("image/")) {
@@ -525,7 +529,7 @@ export default function KaizenPublicSubmitForm({
         if (file.size > 15 * 1024 * 1024) {
           throw new Error("Dung lượng ảnh tối đa là 15MB");
         }
-        return uploadToCloudinary(file, "image");
+        return uploadKaizenMediaWithProgress(file, "image");
       });
 
       const urls = await Promise.all(uploadPromises);
@@ -556,28 +560,36 @@ export default function KaizenPublicSubmitForm({
     if (!file) return;
 
     if (!file.type.startsWith("video/")) {
-      showToast("❌ Vui lòng chọn file video (MP4, MOV, WEBM, AVI)");
+      showToast("❌ Vui lòng chọn file video hợp lệ (MP4, MOV, WEBM, AVI)");
       return;
     }
 
-    if (file.size > 50 * 1024 * 1024) {
-      showToast("❌ Dung lượng video tối đa là 50MB");
-      return;
-    }
-
+    const isBefore = fieldName === "beforeVideoUrl";
     try {
-      setUploading(true);
-      showToast("🎬 Đang tải video lên Cloudinary...");
-      const videoUrl = await uploadToCloudinary(file, "video");
-      setForm((prev) => ({
-        ...prev,
-        [fieldName]: videoUrl,
-      }));
-      showToast("✅ Video đã tải lên thành công!");
+      setUploadingVideo(isBefore ? "before" : "after");
+      setVideoUploadProgress(0);
+      setVideoUploadStatus("Đang chuẩn bị clip...");
+      showToast("🎬 Đang xử lý & nén video để lưu trữ Cloudflare...");
+
+      const videoUrl = await uploadKaizenMediaWithProgress(file, "video", {
+        maxSizeBytes: 50 * 1024 * 1024,
+        onProgress: (pct) => setVideoUploadProgress(pct),
+        onStatusChange: (status) => setVideoUploadStatus(status),
+      });
+
+      if (videoUrl) {
+        setForm((prev) => ({
+          ...prev,
+          [fieldName]: videoUrl,
+        }));
+        showToast("✅ Video clip đã được nén tối ưu và tải lên Cloudflare thành công!");
+      }
     } catch (err: any) {
-      showToast(`❌ Lỗi tải video: ${err.message}`);
+      showToast(`❌ Lỗi tải video: ${err.message || "Không thể tải lên"}`);
     } finally {
-      setUploading(false);
+      setUploadingVideo(null);
+      setVideoUploadProgress(0);
+      setVideoUploadStatus("");
     }
   };
 
@@ -607,16 +619,32 @@ export default function KaizenPublicSubmitForm({
       return;
     }
 
-    const hasBeforeMedia = !!(
-      (form.before_image_url && form.before_image_url.trim()) ||
-      (form.beforeImageUrl && form.beforeImageUrl.trim()) ||
-      (form.beforeImageLink && form.beforeImageLink.trim()) ||
+    const hasBeforeVideo = !!(
       (form.beforeVideoUrl && form.beforeVideoUrl.trim()) ||
       (form.beforeVideoLink && form.beforeVideoLink.trim())
     );
 
-    if (!hasBeforeMedia) {
-      showToast("⚠️ Vui lòng tải lên hoặc dán link Ảnh/Video TRƯỚC cải tiến (Bắt buộc)!");
+    if (!hasBeforeVideo) {
+      showToast("⚠️ BẮT BUỘC tải lên hoặc dán link Video Clip TRƯỚC cải tiến để Ban Đánh Giá đối chiếu hiện trạng!");
+      const videoEl = document.getElementById("before-video-upload-box");
+      if (videoEl) {
+        videoEl.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+      return;
+    }
+
+    const hasBeforeImage = !!(
+      (form.before_image_url && form.before_image_url.trim()) ||
+      (form.beforeImageUrl && form.beforeImageUrl.trim()) ||
+      (form.beforeImageLink && form.beforeImageLink.trim())
+    );
+
+    if (!hasBeforeImage) {
+      showToast("⚠️ BẮT BUỘC tải lên hoặc dán link Hình ảnh TRƯỚC cải tiến!");
+      const imgEl = document.getElementById("before-image-upload-box");
+      if (imgEl) {
+        imgEl.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
       return;
     }
 
@@ -640,10 +668,29 @@ export default function KaizenPublicSubmitForm({
 
         const allBeforeUrls = getAllKaizenImageUrls(rawBefore);
         const allAfterUrls = getAllKaizenImageUrls(rawAfter);
-        const attachmentsList = [
+        const attachmentsList: any[] = [
           ...allBeforeUrls.map((url) => ({ url, tag: "BEFORE", type: "image" })),
           ...allAfterUrls.map((url) => ({ url, tag: "AFTER", type: "image" })),
         ];
+
+        const beforeVid = form.beforeVideoUrl || form.beforeVideoLink || "";
+        const afterVid = form.afterVideoUrl || form.afterVideoLink || "";
+        if (beforeVid) {
+          attachmentsList.push({
+            type: "video_before",
+            url: beforeVid,
+            tag: "BEFORE",
+            title: "Video TRƯỚC Cải Tiến",
+          });
+        }
+        if (afterVid) {
+          attachmentsList.push({
+            type: "video_after",
+            url: afterVid,
+            tag: "AFTER",
+            title: "Video SAU Cải Tiến",
+          });
+        }
 
         const currentMonth = new Date().getMonth() + 1;
         const currentYear = new Date().getFullYear();
@@ -695,8 +742,10 @@ export default function KaizenPublicSubmitForm({
           attachments: attachmentsList,
           attachmentsJson: JSON.stringify(attachmentsList),
           attachments_json: JSON.stringify(attachmentsList),
-          beforeVideoUrl: "",
-          afterVideoUrl: "",
+          before_video_url: form.beforeVideoUrl || form.beforeVideoLink || "",
+          after_video_url: form.afterVideoUrl || form.afterVideoLink || "",
+          beforeVideoUrl: form.beforeVideoUrl || form.beforeVideoLink || "",
+          afterVideoUrl: form.afterVideoUrl || form.afterVideoLink || "",
           registrationType: "THI_DUA",
           sub_status: "CHO_DUYET",
           trang_thai: "CHO_DUYET",
@@ -1352,32 +1401,145 @@ export default function KaizenPublicSubmitForm({
             </div>
           </div>
 
-          <div className="space-y-3 pb-4 border-b border-slate-200">
-            <div className="flex items-center gap-2 text-indigo-600">
-              <IconPhoto size={18} />
-              <h3 className="font-black text-slate-900 text-xs uppercase tracking-wide flex items-center gap-1">
-                <span>C. HÌNH ẢNH &amp; VIDEO TRƯỚC CẢI TIẾN (ĐÃ XẢY RA / LÃNG PHÍ)</span>
-                <span className="text-rose-600 font-black text-sm">*</span>
-              </h3>
+          <div className="space-y-4 pb-4 border-b border-slate-200">
+            {/* Header Phần C */}
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <IconVideo size={20} className="text-rose-600" />
+                <h3 className="font-black text-slate-900 text-xs sm:text-sm uppercase tracking-wide flex items-center gap-1.5 flex-wrap">
+                  <span>C. HÌNH ẢNH &amp; VIDEO HIỆN TRẠNG TRƯỚC CẢI TIẾN</span>
+                  <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-black uppercase tracking-wider shadow-xs">
+                    BẮT BUỘC CLIP *
+                  </span>
+                </h3>
+              </div>
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-[#006838] text-[11px] font-bold">
+                <IconSparkles size={13} className="text-emerald-600" />
+                <span>⚡ Tự động nén clip lưu trữ Cloudflare</span>
+              </div>
             </div>
 
-            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-2.5 text-[11px] font-bold text-[#006838] flex items-center gap-2">
-              <span>📸</span>
-              <span>Bắt buộc tải lên hoặc dán link Ảnh / Video hiện trạng TRƯỚC cải tiến</span>
+            {/* Banner quy định bắt buộc */}
+            <div className="bg-amber-50 border border-amber-300 rounded-xl p-2.5 text-[11px] font-medium text-amber-950 flex items-start gap-2 shadow-xs">
+              <IconAlertCircle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <strong className="text-amber-900">Quy định bắt buộc: </strong>
+                <span>Cần tải lên <strong>Video Clip quay hiện trạng trước cải tiến</strong> (hoặc link xem clip) và <strong>Hình ảnh thực tế</strong> để Ban Giám Khảo đối chiếu. Hệ thống tự động nén tối ưu clip (giảm 50-70% dung lượng) trước khi lưu vào Cloudflare.</span>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2 p-3.5 rounded-2xl border-2 border-dashed border-emerald-300 bg-emerald-50/30">
+            {/* Grid 2 cột: Cột 1 = Clip Trước (Bắt buộc), Cột 2 = Ảnh Trước (Bắt buộc) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* CỘT 1: CLIP TRƯỚC CẢI TIẾN (BẮT BUỘC) */}
+              <div
+                id="before-video-upload-box"
+                className="space-y-2 p-3.5 rounded-2xl border-2 border-rose-300 bg-rose-50/30 shadow-xs"
+              >
+                <div className="flex items-center justify-between">
+                  <label className="font-black text-rose-900 text-xs flex items-center gap-1.5">
+                    <IconVideo size={16} className="text-rose-600" />
+                    <span>Clip Video TRƯỚC Cải Tiến:</span>
+                    <span className="px-1.5 py-0.5 rounded bg-rose-600 text-white text-[9px] font-black">BẮT BUỘC *</span>
+                  </label>
+                  {form.beforeVideoUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, beforeVideoUrl: "" })}
+                      className="text-[11px] text-rose-600 hover:text-rose-800 font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                    >
+                      <IconTrash size={13} />
+                      <span>Xóa clip</span>
+                    </button>
+                  )}
+                </div>
+
+                {form.beforeVideoUrl ? (
+                  <div className="space-y-2">
+                    <div className="relative rounded-xl overflow-hidden border border-rose-200 bg-black/95">
+                      <video
+                        src={form.beforeVideoUrl}
+                        controls
+                        playsInline
+                        preload="metadata"
+                        className="w-full h-44 object-contain bg-black/95"
+                      />
+                    </div>
+                    <label className="flex items-center justify-center gap-1.5 p-2 bg-white rounded-xl border border-rose-300 cursor-pointer text-center hover:bg-rose-50 text-[11px] font-bold text-rose-800 transition-colors">
+                      <IconUpload size={14} />
+                      <span>Thay clip khác</span>
+                      <input
+                        type="file"
+                        accept="video/mp4,video/webm,video/quicktime,video/*"
+                        disabled={uploadingVideo !== null}
+                        className="hidden"
+                        onChange={(e) => handleVideoUpload(e, "beforeVideoUrl")}
+                      />
+                    </label>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center p-3 h-44 bg-white rounded-xl border-2 border-dashed border-rose-300 cursor-pointer text-center hover:bg-rose-50/50 transition-colors">
+                    {uploadingVideo === "before" ? (
+                      <div className="flex flex-col items-center justify-center gap-2 p-2 w-full">
+                        <IconLoader2 size={26} className="text-rose-600 animate-spin" />
+                        <span className="text-xs font-black text-rose-700">{videoUploadStatus || "Đang xử lý clip..."}</span>
+                        <div className="w-4/5 bg-rose-100 rounded-full h-2 overflow-hidden">
+                          <div
+                            className="bg-rose-600 h-2 rounded-full transition-all duration-300"
+                            style={{ width: `${videoUploadProgress}%` }}
+                          />
+                        </div>
+                        <span className="text-[10px] text-rose-600 font-bold">{videoUploadProgress}%</span>
+                      </div>
+                    ) : (
+                      <>
+                        <IconVideo size={28} className="text-rose-600 mb-1" />
+                        <span className="text-xs font-black text-slate-900">+ Bấm để TẢI CLIP LÊN (Bắt buộc)</span>
+                        <span className="text-[10px] text-slate-500 font-medium mt-0.5">MP4, MOV, WEBM (Tối đa 50MB)</span>
+                        <span className="inline-block mt-1 px-2 py-0.5 bg-emerald-100 text-[#006838] rounded-full text-[9px] font-bold">
+                          ⚡ Tự động nén 720p tiết kiệm Cloudflare
+                        </span>
+                      </>
+                    )}
+                    <input
+                      type="file"
+                      accept="video/mp4,video/webm,video/quicktime,video/*"
+                      disabled={uploadingVideo !== null}
+                      className="hidden"
+                      onChange={(e) => handleVideoUpload(e, "beforeVideoUrl")}
+                    />
+                  </label>
+                )}
+
+                <div className="space-y-1 pt-1">
+                  <label className="text-[10px] font-bold text-slate-600 block">
+                    HOẶC Dán Link Video TRƯỚC (Google Drive, Youtube...):
+                  </label>
+                  <input
+                    type="text"
+                    value={form.beforeVideoLink}
+                    onChange={(e) => setForm({ ...form, beforeVideoLink: e.target.value })}
+                    placeholder="https://drive.google.com/file/d/..."
+                    className="w-full px-3 py-1.5 rounded-xl border border-slate-300 text-[11px] font-medium outline-none focus:border-rose-600"
+                  />
+                </div>
+              </div>
+
+              {/* CỘT 2: ẢNH TRƯỚC CẢI TIẾN (BẮT BUỘC) */}
+              <div
+                id="before-image-upload-box"
+                className="space-y-2 p-3.5 rounded-2xl border-2 border-dashed border-emerald-300 bg-emerald-50/30 shadow-xs"
+              >
                 <div className="flex items-center justify-between">
                   <label className="font-black text-slate-900 text-xs flex items-center gap-1.5">
                     <IconPhoto size={16} className="text-[#006838]" />
-                    <span>Ảnh TRƯỚC Cải Tiến <span className="text-rose-600 font-bold ml-0.5">*</span>:</span>
+                    <span>Ảnh TRƯỚC Cải Tiến:</span>
+                    <span className="px-1.5 py-0.5 rounded bg-emerald-600 text-white text-[9px] font-black">BẮT BUỘC *</span>
                   </label>
                   {(form.before_image_url || form.beforeImageUrl) && (
                     <button
                       type="button"
                       onClick={() => setForm({ ...form, before_image_url: "", beforeImageUrl: "" })}
-                      className="text-[11px] text-rose-600 font-bold flex items-center gap-1 cursor-pointer"
+                      className="text-[11px] text-rose-600 hover:text-rose-800 font-bold flex items-center gap-1 cursor-pointer transition-colors"
                     >
                       <IconTrash size={13} />
                       <span>Xóa tất cả</span>
@@ -1393,7 +1555,7 @@ export default function KaizenPublicSubmitForm({
                         if (!cleanUrl) return null;
                         return (
                           <div key={idx} className="relative group rounded-lg overflow-hidden border border-slate-200 aspect-square">
-                            <img src={cleanUrl} alt={`Before ${idx}`} className="w-full h-full object-cover" />
+                            <img src={getValidKaizenImageUrl(cleanUrl)} alt={`Before ${idx}`} className="w-full h-full object-cover" />
                             <button
                               type="button"
                               onClick={() => {
@@ -1412,7 +1574,7 @@ export default function KaizenPublicSubmitForm({
                         );
                       })}
                     </div>
-                    <label className="flex items-center justify-center gap-1.5 p-2 bg-white rounded-xl border border-emerald-300 cursor-pointer text-center hover:bg-emerald-50 text-[11px] font-bold text-[#006838]">
+                    <label className="flex items-center justify-center gap-1.5 p-2 bg-white rounded-xl border border-emerald-300 cursor-pointer text-center hover:bg-emerald-50 text-[11px] font-bold text-[#006838] transition-colors">
                       <IconUpload size={14} />
                       <span>Thêm ảnh khác</span>
                       <input
@@ -1425,9 +1587,9 @@ export default function KaizenPublicSubmitForm({
                     </label>
                   </div>
                 ) : (
-                  <label className="flex flex-col items-center justify-center p-3 h-32 bg-white rounded-xl border border-slate-200 cursor-pointer text-center hover:bg-emerald-50/50 transition-colors">
+                  <label className="flex flex-col items-center justify-center p-3 h-44 bg-white rounded-xl border border-slate-200 cursor-pointer text-center hover:bg-emerald-50/50 transition-colors">
                     <IconUpload size={24} className="text-[#006838] mb-1" />
-                    <span className="text-[11px] font-black text-slate-900">Upload ảnh (Có thể chọn nhiều ảnh cùng lúc)</span>
+                    <span className="text-[11px] font-black text-slate-900">+ Upload ảnh hiện trạng (Có thể chọn nhiều ảnh)</span>
                     <span className="text-[10px] text-slate-500 font-medium">Hỗ trợ JPG, PNG, WEBP tối đa 15MB/ảnh</span>
                     <input
                       type="file"
@@ -1450,52 +1612,179 @@ export default function KaizenPublicSubmitForm({
                   />
                 </div>
               </div>
+            </div>
 
-              <div className="space-y-2 p-3.5 rounded-2xl border-2 border-dashed border-indigo-200 bg-indigo-50/30">
-                <div className="flex items-center justify-between">
-                  <label className="font-black text-slate-900 text-xs flex items-center gap-1.5">
-                    <IconVideo size={16} className="text-indigo-600" />
-                    <span>Video TRƯỚC Cải Tiến (Quay clip hiện trạng):</span>
-                  </label>
-                  {form.beforeVideoUrl && (
-                    <button
-                      type="button"
-                      onClick={() => setForm({ ...form, beforeVideoUrl: "" })}
-                      className="text-[11px] text-rose-600 font-bold flex items-center gap-1 cursor-pointer"
-                    >
-                      <IconTrash size={13} />
-                      <span>Xóa video</span>
-                    </button>
+            {/* D. CLIP & ẢNH SAU CẢI TIẾN (TÙY CHỌN - BỔ SUNG KHI HOÀN THÀNH) */}
+            <div className="mt-4 pt-4 border-t border-slate-200 space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="font-black text-slate-800 text-xs uppercase tracking-wide flex items-center gap-1.5">
+                  <IconSparkles size={15} className="text-emerald-600" />
+                  <span>D. HÌNH ẢNH &amp; VIDEO SAU CẢI TIẾN</span>
+                  <span className="text-slate-400 font-normal normal-case text-[11px]">(Tùy chọn - bổ sung khi đã thực hiện thành công)</span>
+                </h4>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Video SAU Cải Tiến (Tùy chọn) */}
+                <div className="space-y-2 p-3.5 rounded-2xl border-2 border-dashed border-emerald-200 bg-emerald-50/20">
+                  <div className="flex items-center justify-between">
+                    <label className="font-black text-slate-900 text-xs flex items-center gap-1.5">
+                      <IconVideo size={16} className="text-emerald-600" />
+                      <span>Video SAU Cải Tiến (Kết quả thực hiện):</span>
+                    </label>
+                    {form.afterVideoUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, afterVideoUrl: "" })}
+                        className="text-[11px] text-rose-600 hover:text-rose-800 font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                      >
+                        <IconTrash size={13} />
+                        <span>Xóa video</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {form.afterVideoUrl ? (
+                    <div className="space-y-2">
+                      <video src={form.afterVideoUrl} controls playsInline className="w-full h-36 object-contain rounded-xl border bg-black" />
+                      <label className="flex items-center justify-center gap-1.5 p-2 bg-white rounded-xl border border-emerald-300 cursor-pointer text-center hover:bg-emerald-50 text-[11px] font-bold text-emerald-800 transition-colors">
+                        <IconUpload size={14} />
+                        <span>Thay clip sau khác</span>
+                        <input
+                          type="file"
+                          accept="video/mp4,video/webm,video/quicktime,video/*"
+                          disabled={uploadingVideo !== null}
+                          className="hidden"
+                          onChange={(e) => handleVideoUpload(e, "afterVideoUrl")}
+                        />
+                      </label>
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center p-3 h-36 bg-white rounded-xl border border-slate-200 cursor-pointer text-center hover:bg-emerald-50/50 transition-colors">
+                      {uploadingVideo === "after" ? (
+                        <div className="flex flex-col items-center justify-center gap-2 p-2 w-full">
+                          <IconLoader2 size={24} className="text-emerald-600 animate-spin" />
+                          <span className="text-xs font-black text-emerald-700">{videoUploadStatus || "Đang xử lý clip..."}</span>
+                          <div className="w-4/5 bg-emerald-100 rounded-full h-2 overflow-hidden">
+                            <div
+                              className="bg-emerald-600 h-2 rounded-full transition-all duration-300"
+                              style={{ width: `${videoUploadProgress}%` }}
+                            />
+                          </div>
+                          <span className="text-[10px] text-emerald-600 font-bold">{videoUploadProgress}%</span>
+                        </div>
+                      ) : (
+                        <>
+                          <IconVideo size={24} className="text-emerald-600 mb-1" />
+                          <span className="text-[11px] font-black text-slate-900">+ Upload Video SAU Cải Tiến (Nếu có)</span>
+                          <span className="text-[10px] text-slate-500 font-medium">Hệ thống tự động nén tối ưu (MP4, MOV, WEBM)</span>
+                        </>
+                      )}
+                      <input
+                        type="file"
+                        accept="video/mp4,video/webm,video/quicktime,video/*"
+                        disabled={uploadingVideo !== null}
+                        className="hidden"
+                        onChange={(e) => handleVideoUpload(e, "afterVideoUrl")}
+                      />
+                    </label>
                   )}
+
+                  <div className="space-y-1 pt-1">
+                    <label className="text-[10px] font-bold text-slate-600 block">HOẶC Dán Link Video SAU (Drive, Youtube...):</label>
+                    <input
+                      type="text"
+                      value={form.afterVideoLink}
+                      onChange={(e) => setForm({ ...form, afterVideoLink: e.target.value })}
+                      placeholder="https://drive.google.com/file/d/..."
+                      className="w-full px-3 py-1.5 rounded-xl border border-slate-300 text-[11px] font-medium outline-none focus:border-[#006838]"
+                    />
+                  </div>
                 </div>
 
-                {form.beforeVideoUrl ? (
-                  <div className="space-y-1">
-                    <video src={form.beforeVideoUrl} controls className="w-full h-32 object-cover rounded-xl border bg-black" />
+                {/* Ảnh SAU Cải Tiến (Tùy chọn) */}
+                <div className="space-y-2 p-3.5 rounded-2xl border-2 border-dashed border-emerald-200 bg-emerald-50/20">
+                  <div className="flex items-center justify-between">
+                    <label className="font-black text-slate-900 text-xs flex items-center gap-1.5">
+                      <IconPhoto size={16} className="text-emerald-600" />
+                      <span>Ảnh SAU Cải Tiến (Nếu có):</span>
+                    </label>
+                    {(form.after_image_url || form.afterImageUrl) && (
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, after_image_url: "", afterImageUrl: "" })}
+                        className="text-[11px] text-rose-600 hover:text-rose-800 font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                      >
+                        <IconTrash size={13} />
+                        <span>Xóa tất cả</span>
+                      </button>
+                    )}
                   </div>
-                ) : (
-                  <label className="flex flex-col items-center justify-center p-3 h-32 bg-white rounded-xl border border-slate-200 cursor-pointer text-center hover:bg-indigo-50/50 transition-colors">
-                    <IconVideo size={24} className="text-indigo-600 mb-1" />
-                    <span className="text-[11px] font-black text-slate-900">Upload Video TRƯỚC Cải Tiến</span>
-                    <span className="text-[10px] text-slate-500 font-medium">Hỗ trợ MP4, MOV, WEBM tối đa 50MB</span>
-                    <input
-                      type="file"
-                      accept="video/*"
-                      className="hidden"
-                      onChange={(e) => handleVideoUpload(e, "beforeVideoUrl")}
-                    />
-                  </label>
-                )}
 
-                <div className="space-y-1 pt-1">
-                  <label className="text-[10px] font-bold text-slate-600 block">HOẶC Dán Link Video TRƯỚC (Google Drive, Youtube...):</label>
-                  <input
-                    type="text"
-                    value={form.beforeVideoLink}
-                    onChange={(e) => setForm({ ...form, beforeVideoLink: e.target.value })}
-                    placeholder="https://drive.google.com/file/d/..."
-                    className="w-full px-3 py-1.5 rounded-xl border border-slate-300 text-[11px] font-medium outline-none focus:border-[#006838]"
-                  />
+                  {(form.after_image_url || form.afterImageUrl) ? (
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-3 gap-2 max-h-36 overflow-y-auto p-1 bg-white rounded-xl border border-slate-200">
+                        {(form.after_image_url || form.afterImageUrl).split(",").map((url, idx) => {
+                          const cleanUrl = url.trim();
+                          if (!cleanUrl) return null;
+                          return (
+                            <div key={idx} className="relative group rounded-lg overflow-hidden border border-slate-200 aspect-square">
+                              <img src={getValidKaizenImageUrl(cleanUrl)} alt={`After ${idx}`} className="w-full h-full object-cover" />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const rawStr = form.after_image_url || form.afterImageUrl;
+                                  const currentUrls = rawStr.split(",").map((s) => s.trim()).filter(Boolean);
+                                  const updated = currentUrls.filter((_, i) => i !== idx);
+                                  const joined = updated.join(",");
+                                  setForm({ ...form, after_image_url: joined, afterImageUrl: joined });
+                                }}
+                                className="absolute top-1 right-1 bg-rose-600 text-white rounded-full p-1 shadow-md hover:bg-rose-700 transition cursor-pointer"
+                                title="Xóa ảnh này"
+                              >
+                                <IconX size={10} />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <label className="flex items-center justify-center gap-1.5 p-2 bg-white rounded-xl border border-emerald-300 cursor-pointer text-center hover:bg-emerald-50 text-[11px] font-bold text-[#006838] transition-colors">
+                        <IconUpload size={14} />
+                        <span>Thêm ảnh sau khác</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          className="hidden"
+                          onChange={(e) => handleFileUpload(e, "afterImageUrl")}
+                        />
+                      </label>
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center p-3 h-36 bg-white rounded-xl border border-slate-200 cursor-pointer text-center hover:bg-emerald-50/50 transition-colors">
+                      <IconUpload size={24} className="text-emerald-600 mb-1" />
+                      <span className="text-[11px] font-black text-slate-900">+ Upload ảnh SAU Cải Tiến</span>
+                      <span className="text-[10px] text-slate-500 font-medium">Hỗ trợ JPG, PNG, WEBP tối đa 15MB</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        onChange={(e) => handleFileUpload(e, "afterImageUrl")}
+                      />
+                    </label>
+                  )}
+
+                  <div className="space-y-1 pt-1">
+                    <label className="text-[10px] font-bold text-slate-600 block">HOẶC Dán Link Ảnh SAU (Google Drive...):</label>
+                    <textarea
+                      rows={1}
+                      value={form.afterImageLink}
+                      onChange={(e) => setForm({ ...form, afterImageLink: e.target.value })}
+                      placeholder="https://drive.google.com/file/d/..."
+                      className="w-full px-3 py-1.5 rounded-xl border border-slate-300 text-[11px] font-medium outline-none focus:border-[#006838] resize-none"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -1597,3 +1886,4 @@ export default function KaizenPublicSubmitForm({
     </>
   );
 }
+

@@ -12,8 +12,9 @@ const MEMORY_TRIPS = new Map<string, any>();
 async function handleAutomaticTaskDelegation(db: any, trip: any) {
   if (!db || !trip.creator_emp_code) return;
   
-  // Feature flag check
-  if (process.env.NEXT_PUBLIC_ENABLE_TASK_DELEGATION === 'false') return;
+  // Feature flag check using server-side config
+  const DELEGATION_ENABLED_DEPTS = ['IT_DIGITAL', 'HÀNH_CHÍNH', 'BOD', 'QC_QUALITY'];
+  if (!DELEGATION_ENABLED_DEPTS.includes(trip.department_id || '')) return;
 
   try {
     // Check department configuration (placeholder if table missing)

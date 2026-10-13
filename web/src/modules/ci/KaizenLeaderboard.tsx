@@ -303,6 +303,12 @@ export default function KaizenLeaderboard({
           >
             👑 Admin Quản Lý BGK
           </a>
+          <a
+            href="/work/kaizen/admin/permissions"
+            className="px-3.5 py-1.5 rounded-xl bg-indigo-500/30 hover:bg-indigo-500/50 text-indigo-100 text-xs font-bold transition-all flex items-center gap-1.5 border border-indigo-400/30 shadow-xs"
+          >
+            🛡️ Phân Quyền CI / IE
+          </a>
           <button
             type="button"
             onClick={fetchLeaderboard}

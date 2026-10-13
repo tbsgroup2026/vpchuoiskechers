@@ -24,8 +24,27 @@ export async function POST(request: Request, { params }: { params: { id: string 
       );
     }
 
+    const db = getDbBinding();
+    if (!db) {
+      return NextResponse.json({ success: false, error: 'D1 Database connection unavailable' }, { status: 500 });
+    }
+    await ensureKaizenSchema(db);
+
     const userRole = (session as any).roleCode || (session as any).role || '';
-    const isIEOrAdmin = ['IE', 'SUPER_ADMIN', 'ADMIN', 'TONG_GIAM_DOC', 'PHO_TONG_GIAM_DOC'].includes(userRole);
+    const empCode = String((session as any).empCode || '').trim().toUpperCase();
+    const userRoles = Array.isArray((session as any).roles) ? (session as any).roles : [];
+    let isIEOrAdmin = ['IE', 'SUPER_ADMIN', 'ADMIN', 'TONG_GIAM_DOC', 'PHO_TONG_GIAM_DOC', 'CI_LEAD'].includes(userRole) ||
+      userRoles.includes('ie') || userRoles.includes('ci_lead') || userRoles.includes('admin') ||
+      ['201711002', '210602002', '202608001', '202608010', '222102020', '202112003'].includes(empCode);
+
+    if (!isIEOrAdmin && empCode) {
+      const permRow = await db.prepare(`
+        SELECT id FROM ci_kaizen_permissions 
+        WHERE UPPER(emp_code) = ? AND role_type IN ('IE', 'CI_LEAD', 'ADMIN') AND is_active = 1 
+        LIMIT 1
+      `).bind(empCode).first().catch(() => null);
+      if (permRow) isIEOrAdmin = true;
+    }
 
     if (!isIEOrAdmin) {
       return NextResponse.json(
@@ -41,13 +60,6 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
     const body = await request.json();
     const { time_before, time_after, note } = body;
-
-    const db = getDbBinding();
-    if (!db) {
-      return NextResponse.json({ success: false, error: 'D1 Database connection unavailable' }, { status: 500 });
-    }
-
-    await ensureKaizenSchema(db);
 
     const existing: any = await db.prepare('SELECT * FROM ci_kaizen_proposals WHERE id = ?').bind(proposalId).first();
     if (!existing) {

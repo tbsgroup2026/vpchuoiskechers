@@ -4,7 +4,7 @@
  */
 
 export const R2_PUBLIC_BASE_URL =
-  process.env.NEXT_PUBLIC_R2_PUBLIC_BASE_URL || "https://pub-4f6913e79588469588d95eecea9146ea.r2.dev";
+  process.env.NEXT_PUBLIC_R2_PUBLIC_BASE_URL || "/cdn-r2";
 
 export function convertToR2Url(urlOrKey: string): string {
   if (!urlOrKey) return "";
@@ -20,15 +20,29 @@ export function convertToR2Url(urlOrKey: string): string {
   ) {
     return "";
   }
+
+  // Rewrite any external Cloudflare R2 bucket URLs to local /cdn-r2 proxy to eliminate CORS errors
+  if (clean.includes("r2.dev/")) {
+    const key = clean.substring(clean.indexOf("r2.dev/") + 7).replace(/^\/+/, '');
+    return `${R2_PUBLIC_BASE_URL}/${key}`;
+  }
+  if (clean.includes("r2.cloudflarestorage.com")) {
+    const parts = clean.split(".com/");
+    const key = parts[1] ? parts[1].replace(/^[^\/]+\//, '') : clean;
+    return `${R2_PUBLIC_BASE_URL}/${key.replace(/^\/+/, '')}`;
+  }
+
+  // Already local or proxy URL or data URI
   if (
-    clean.includes("r2.dev") ||
-    clean.includes("r2.cloudflarestorage.com") ||
+    clean.startsWith("/cdn-r2/") ||
     clean.startsWith("/") ||
     clean.startsWith("data:") ||
     clean.startsWith("blob:")
   ) {
     return clean;
   }
+
+  // Convert legacy Cloudinary URLs to R2
   if (clean.includes("res.cloudinary.com")) {
     const uploadIdx = clean.indexOf("/upload/");
     if (uploadIdx !== -1) {
@@ -44,7 +58,7 @@ export function convertToR2Url(urlOrKey: string): string {
         tail = tail.substring(0, tail.indexOf("?"));
       }
       if (tail && tail.includes(".") && tail !== "f_auto" && tail !== "q_auto") {
-        return `${R2_PUBLIC_BASE_URL}/${tail}`;
+        return `${R2_PUBLIC_BASE_URL}/${tail.replace(/^\/+/, '')}`;
       }
       return "";
     }

@@ -48,6 +48,7 @@ export interface HomeClassicProps {
   isLoadingTasks: boolean;
   notifications: NotificationItem[];
   isLoadingNotifications: boolean;
+  onNotificationClick?: (id: string, link?: string) => void;
 }
 
 type TimeFilter = "day" | "week" | "month";
@@ -75,6 +76,7 @@ export default function HomeClassic({
   isLoadingTasks,
   notifications,
   isLoadingNotifications,
+  onNotificationClick,
 }: HomeClassicProps) {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("day");
   const [weekChartPeriod, setWeekChartPeriod] = useState<"this_week" | "last_week">("this_week");
@@ -813,13 +815,17 @@ export default function HomeClassic({
                   <div className="p-6 text-center text-xs text-slate-400">Đang tải thông báo...</div>
                 ) : notifications && notifications.length > 0 ? (
                   notifications.slice(0, 4).map((n) => (
-                    <div key={n.id} className="p-2.5 rounded-lg bg-slate-50 border border-slate-200/80 text-xs flex items-start gap-2">
-                      <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0 mt-1"></span>
+                    <div 
+                      key={n.id} 
+                      className={`p-2.5 rounded-lg border border-slate-200/80 text-xs flex items-start gap-2 cursor-pointer transition ${n.is_read ? 'bg-white opacity-70 hover:opacity-100' : 'bg-slate-50 hover:bg-slate-100'}`}
+                      onClick={() => onNotificationClick?.(n.id, n.link)}
+                    >
+                      {!n.is_read && <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0 mt-1"></span>}
                       <div className="flex-1 min-w-0">
-                        <div className="font-extrabold text-slate-900 truncate">{n.title}</div>
+                        <div className={`text-slate-900 truncate ${n.is_read ? 'font-medium' : 'font-extrabold'}`}>{n.title}</div>
                         <div className="text-[10px] text-slate-500 truncate">{n.message}</div>
                       </div>
-                      <span className="text-[9px] text-slate-400 font-mono whitespace-nowrap">{(n as any).time || (n as any).created_at || "Vừa xong"}</span>
+                      <span className="text-[9px] text-slate-400 font-mono whitespace-nowrap">{(n as any).time || n.date || n.created_at || "Vừa xong"}</span>
                     </div>
                   ))
                 ) : (

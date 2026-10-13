@@ -1176,3 +1176,4 @@ export default function KaizenFiveStepSubmitForm({ onSuccessClose, onCancel }: K
     </div>
   );
 }
+

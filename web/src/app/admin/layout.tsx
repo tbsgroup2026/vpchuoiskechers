@@ -16,6 +16,7 @@ import {
   IconHome,
   IconMenu2,
   IconX,
+  IconShieldCheck,
 } from "@tabler/icons-react";
 import { usePermission } from "@/hooks/usePermission";
 import { PERMISSIONS } from "@/lib/permissions";
@@ -180,6 +181,18 @@ export default function AdminLayout({
             </Link>
 
             <Link
+              href="/work/kaizen/admin/permissions"
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl transition ${
+                pathname === "/work/kaizen/admin/permissions"
+                  ? "bg-white/20 text-white font-black shadow-md border border-white/25"
+                  : "hover:bg-white/10 text-emerald-100/90 hover:text-white"
+              }`}
+            >
+              <IconShieldCheck size={18} className="text-amber-300" />
+              <span>Phân quyền CI / IE</span>
+            </Link>
+
+            <Link
               href="/admin?tab=products"
               className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/10 text-emerald-100/90 hover:text-white transition"
             >
@@ -296,6 +309,14 @@ export default function AdminLayout({
                 >
                   <IconBuilding size={18} />
                   <span>Phòng ban</span>
+                </Link>
+                <Link
+                  href="/work/kaizen/admin/permissions"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/10 text-emerald-100"
+                >
+                  <IconShieldCheck size={18} className="text-amber-300" />
+                  <span>Phân quyền CI / IE</span>
                 </Link>
                 <Link
                   href="/admin?tab=products"

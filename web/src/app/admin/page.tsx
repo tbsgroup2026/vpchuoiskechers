@@ -1782,7 +1782,15 @@ export default function AdminPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
+            <Link
+              href="/work/kaizen/admin/permissions"
+              className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs"
+            >
+              <IconShieldCheck size={15} />
+              <span>Phân Quyền CI / IE</span>
+            </Link>
+
             <Link
               href="/work"
               className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold hover:bg-emerald-50 hover:text-[#004029] transition-colors flex items-center gap-1 shadow-2xs"
@@ -1813,11 +1821,21 @@ export default function AdminPage() {
             <p className="text-xs text-emerald-100/90 font-medium">Quản lý nhân sự SKECHERS, dòng giày tiêu biểu, không gian làm việc và đồng bộ Cloudflare D1 Database.</p>
           </div>
 
-          <div className="flex items-center gap-2 bg-black/20 backdrop-blur-md px-4 py-3 rounded-2xl border border-white/10 text-xs font-mono">
-            <IconKey size={18} className="text-emerald-300" />
-            <div>
-              <span className="text-emerald-200/70 block text-[10px]">TÀI KHOẢN ĐĂNG NHẬP:</span>
-              <span className="text-white font-bold">{adminUser.email}</span>
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <Link
+              href="/work/kaizen/admin/permissions"
+              className="px-4 py-2.5 rounded-2xl bg-white/20 hover:bg-white/30 text-white font-bold text-xs flex items-center gap-2 border border-white/30 backdrop-blur-md transition-all shadow-md shrink-0"
+            >
+              <IconShieldCheck size={16} className="text-amber-300" />
+              <span>Phân Quyền CI / IE & Giám Khảo</span>
+            </Link>
+
+            <div className="flex items-center gap-2 bg-black/20 backdrop-blur-md px-4 py-3 rounded-2xl border border-white/10 text-xs font-mono">
+              <IconKey size={18} className="text-emerald-300" />
+              <div>
+                <span className="text-emerald-200/70 block text-[10px]">TÀI KHOẢN ĐĂNG NHẬP:</span>
+                <span className="text-white font-bold">{adminUser.email}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -2022,7 +2040,17 @@ export default function AdminPage() {
                 <span>⚡ Thao tác nhanh cho Quản trị viên SKECHERS</span>
               </h2>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                <Link
+                  href="/work/kaizen/admin/permissions"
+                  className="p-4 rounded-2xl bg-indigo-50/90 hover:bg-indigo-100 border border-indigo-200 text-left transition-all cursor-pointer space-y-1 group shadow-2xs hover:shadow-md block"
+                >
+                  <div className="text-xs font-extrabold text-indigo-900 flex items-center gap-1.5 font-display">
+                    <IconShieldCheck size={16} className="text-indigo-600" /> Phân Quyền CI / IE & BGK
+                  </div>
+                  <p className="text-[11px] text-slate-600">Cấp quyền đo lường thời gian IE, điều phối CI Lead và chấm điểm BGK theo MSNV.</p>
+                </Link>
+
                 <button
                   onClick={() => setActiveTab("users")}
                   className="p-4 rounded-2xl bg-emerald-50/70 hover:bg-emerald-100/90 border border-emerald-200 text-left transition-all cursor-pointer space-y-1 group shadow-2xs hover:shadow-md"

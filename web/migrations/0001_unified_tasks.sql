@@ -1,8 +1,4 @@
-DROP TABLE IF EXISTS project_members;
-DROP TABLE IF EXISTS tasks;
-DROP TABLE IF EXISTS projects;
-
-CREATE TABLE projects (
+CREATE TABLE IF NOT EXISTS projects (
   id TEXT PRIMARY KEY,
   code TEXT UNIQUE NOT NULL,
   name TEXT NOT NULL,
@@ -16,7 +12,7 @@ CREATE TABLE projects (
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE project_members (
+CREATE TABLE IF NOT EXISTS project_members (
   project_id TEXT NOT NULL,
   emp_code TEXT NOT NULL,
   project_role TEXT DEFAULT 'MEMBER',
@@ -24,7 +20,7 @@ CREATE TABLE project_members (
   PRIMARY KEY (project_id, emp_code)
 );
 
-CREATE TABLE tasks (
+CREATE TABLE IF NOT EXISTS tasks (
   id TEXT PRIMARY KEY,
   code TEXT,
   title TEXT NOT NULL,
@@ -52,9 +48,9 @@ CREATE TABLE tasks (
   UNIQUE(legacy_source, legacy_id)
 );
 
-CREATE INDEX idx_tasks_assignee_emp_code ON tasks(assignee_emp_code);
-CREATE INDEX idx_tasks_assignee_department_id ON tasks(assignee_department_id);
-CREATE INDEX idx_tasks_department_id ON tasks(department_id);
-CREATE INDEX idx_tasks_project_id ON tasks(project_id);
-CREATE INDEX idx_tasks_status ON tasks(status);
-CREATE INDEX idx_tasks_due_date ON tasks(due_date);
+CREATE INDEX IF NOT EXISTS idx_tasks_assignee_emp_code ON tasks(assignee_emp_code);
+CREATE INDEX IF NOT EXISTS idx_tasks_assignee_department_id ON tasks(assignee_department_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_department_id ON tasks(department_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_project_id ON tasks(project_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
+CREATE INDEX IF NOT EXISTS idx_tasks_due_date ON tasks(due_date);

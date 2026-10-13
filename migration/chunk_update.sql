@@ -1,0 +1,1 @@
+UPDATE ci_kaizen_proposals SET before_image_url = 'https://pub-4f6913e79588469588d95eecea9146ea.r2.dev/ikifnggkfz18nielesiv.jpg,https://pub-4f6913e79588469588d95eecea9146ea.r2.dev/tvw08mqordvckikwnl5x.jpg', updated_at = CURRENT_TIMESTAMP WHERE id = 'ci_1788493379259_sip7v';

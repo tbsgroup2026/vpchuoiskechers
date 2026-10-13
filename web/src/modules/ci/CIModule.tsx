@@ -72,7 +72,7 @@ import {
   IconTrophy,
   IconSparkles,
   IconCheck,
-  IconX,
+  IconX, IconMenu2,
   IconSend,
   IconBuildingFactory,
   IconMapPin,
@@ -136,6 +136,8 @@ export interface KaizenProposal {
   tong_tien_bang_chu?: string;
   before_image_url?: string;
   after_image_url?: string;
+  before_video_url?: string;
+  after_video_url?: string;
   attachments_json?: string;
   status: string; // SUBMITTED, UNDER_REVIEW, APPROVED, REJECTED, IMPLEMENTED
   award_title?: string; // Giải Nhất, Giải Nhì, Giải Ba, Ý tưởng
@@ -889,6 +891,7 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
 
   // Sidebar States
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isRegTypeExpanded, setIsRegTypeExpanded] = useState(true);
   const [isRegionExpanded, setIsRegionExpanded] = useState(true);
   const [isThkgExpanded, setIsThkgExpanded] = useState(true);
@@ -904,7 +907,7 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
   }>({
     name: "Phạm Nguyễn Anh Huy",
     title: "IT - Team Chuyển Đổi Số",
-    avatar: "https://res.cloudinary.com/dwl2xtbqa/image/upload/v1787117525/nzcft200bebofw7b4uzg.jpg",
+    avatar: "https://res.cloudinary.com/dwl2xtbqa/image/upload/f_auto,q_auto/v1787117525/nzcft200bebofw7b4uzg.jpg",
     empCode: "202608001",
     roleCode: "TRUONG_PHONG",
   });
@@ -1240,6 +1243,7 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
   const [isEvalModalOpen, setIsEvalModalOpen] = useState(false);
   const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [isPublicMode, setIsPublicMode] = useState(false);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
   const [approvalModalProposal, setApprovalModalProposal] = useState<KaizenProposal | null>(null);
@@ -1263,6 +1267,75 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
   useEffect(() => {
     closeAllModals();
   }, [activeTab, selectedRegType, selectedRegion, selectedCategory, selectedWorkshop]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const user = getCurrentUser();
+    if (!user) {
+      const path = window.location.pathname;
+      const isPermalink = path.match(/^\/work\/kaizen\/[a-zA-Z0-9_-]+$/) && path !== "/work/kaizen/register";
+      if (!isPermalink) {
+         window.location.href = "/login?redirect=/work/kaizen";
+      }
+    }
+  }, []);
+
+  // --- KAIZEN PERMALINK SYNC ---
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (isDetailModalOpen && activeProposal) {
+      const newUrl = `/work/kaizen/${activeProposal.code}`;
+      if (window.location.pathname !== newUrl) {
+        window.history.pushState({ modalOpen: true, code: activeProposal.code }, "", newUrl);
+      }
+    } else if (!isDetailModalOpen) {
+      if (window.location.pathname !== "/work/kaizen" && !window.location.pathname.startsWith("/work/kaizen/register")) {
+        window.history.pushState({ modalOpen: false }, "", "/work/kaizen");
+      }
+    }
+  }, [isDetailModalOpen, activeProposal]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handlePopState = (e: PopStateEvent) => {
+      if (window.location.pathname === "/work/kaizen") {
+        setIsDetailModalOpen(false);
+      } else if (window.location.pathname.startsWith("/work/kaizen/") && window.location.pathname !== "/work/kaizen/register") {
+        const code = window.location.pathname.split("/").pop();
+        if (code) {
+           setProposals(prev => {
+             const found = prev.find(p => p.code === code);
+             if (found) {
+                setActiveProposal(found);
+                setIsDetailModalOpen(true);
+             }
+             return prev;
+           });
+        }
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  // Handle direct access via URL (e.g. /work/kaizen/CI-2026-001)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const path = window.location.pathname;
+    if (path.match(/^\/work\/kaizen\/[a-zA-Z0-9_-]+$/) && path !== "/work/kaizen/register" && proposals.length > 0) {
+      const code = path.split("/").pop();
+      if (code && !isDetailModalOpen) {
+        const found = proposals.find(p => p.code === code);
+        if (found) {
+          setActiveProposal(found);
+          setIsDetailModalOpen(true);
+        } else {
+          showToast("⚠️ Không tìm thấy sáng kiến này hoặc sáng kiến đã bị xóa.");
+          window.history.replaceState(null, "", "/work/kaizen");
+        }
+      }
+    }
+  }, [proposals]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -2059,7 +2132,7 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
 
               <button
                 type="button"
-                onClick={() => { closeAllModals(); setActiveTab("LIBRARY"); }}
+                onClick={() => { closeAllModals(); setActiveTab("LIBRARY"); setIsMobileSidebarOpen(false); }}
                 className={`w-full text-left rounded-xl transition-all cursor-pointer flex items-center gap-2.5 ${
                   isSidebarCollapsed ? "p-2.5 justify-center" : "px-3.5 py-2.5"
                 } ${
@@ -2074,7 +2147,7 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
 
               <button
                 type="button"
-                onClick={() => { closeAllModals(); setActiveTab("DASHBOARD"); }}
+                onClick={() => { closeAllModals(); setActiveTab("DASHBOARD"); setIsMobileSidebarOpen(false); }}
                 className={`w-full text-left rounded-xl transition-all cursor-pointer flex items-center gap-2.5 ${
                   isSidebarCollapsed ? "p-2.5 justify-center" : "px-3.5 py-2.5"
                 } ${
@@ -2089,7 +2162,7 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
 
               <button
                 type="button"
-                onClick={() => { closeAllModals(); setActiveTab("EARLY_WARNING"); }}
+                onClick={() => { closeAllModals(); setActiveTab("EARLY_WARNING"); setIsMobileSidebarOpen(false); }}
                 className={`w-full text-left rounded-xl transition-all cursor-pointer flex items-center gap-2.5 ${
                   isSidebarCollapsed ? "p-2.5 justify-center" : "px-3.5 py-2.5"
                 } ${
@@ -2558,7 +2631,7 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
                       📍 Đơn vị: {activeUnitInfo.label}
                     </span>
                   ) : (
-                    <span className="text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-xl border border-blue-200 text-xs font-black shadow-2xs">
+                    <span className="text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-xl border border-blue-200 text-[10px] sm:text-xs font-black shadow-2xs whitespace-nowrap">
                       🌐 Tổng Quan (7 Đơn Vị)
                     </span>
                   )}
@@ -2567,7 +2640,7 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
 
               <div className="flex items-center gap-2 flex-wrap">
                 <button
-                  onClick={() => { closeAllModals(); setActiveTab("EARLY_WARNING"); }}
+                  onClick={() => { closeAllModals(); setActiveTab("EARLY_WARNING"); setIsMobileSidebarOpen(false); }}
                   className="px-3.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
                 >
                   <IconShieldCheck size={15} />
@@ -2575,7 +2648,7 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
                 </button>
 
                 <button
-                  onClick={() => { closeAllModals(); setActiveTab("DASHBOARD"); }}
+                  onClick={() => { closeAllModals(); setActiveTab("DASHBOARD"); setIsMobileSidebarOpen(false); }}
                   className="px-3.5 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer border border-slate-300 shadow-2xs"
                 >
                   <IconChartBar size={15} />
@@ -3287,10 +3360,14 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
           proposal={activeProposal}
           isOpen={isDetailModalOpen}
           initialTab={detailModalInitialTab}
+          isPublicView={isPublicMode}
           onClose={() => {
             setIsDetailModalOpen(false);
             setDetailModalInitialTab("info");
             fetchMyScores();
+            if (typeof window !== "undefined" && window.history.pushState) {
+              window.history.pushState(null, "", "/work/kaizen");
+            }
           }}
           onEdit={() => {
             setEditingProposal(activeProposal);
@@ -3488,3 +3565,4 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
     </div>
   );
 }
+

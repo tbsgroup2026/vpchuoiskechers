@@ -61,12 +61,7 @@ export default function HeaderControls({
     email?: string;
     phone?: string;
     roleCode?: string;
-  }>({
-    name: "TRƯƠNG BẢO NGỌC",
-    title: "Lễ Tân",
-    department: "HÀNH CHÍNH-LỄ TÂN",
-    avatar: "",
-  });
+  } | null>(null);
 
   // Notifications state
   const [notifications, setNotifications] = useState<AppNotificationItem[]>([]);
@@ -111,26 +106,7 @@ export default function HeaderControls({
         roleCode: cur.roleCode || "LE_TAN",
       });
     } else {
-      // Fallback default: TRƯƠNG BẢO NGỌC - Lễ Tân
-      const defaultUser = SYSTEM_USERS["102603069"] || {
-        empCode: "102603069",
-        name: "TRƯƠNG BẢO NGỌC",
-        title: "Lễ Tân",
-        department: "HÀNH CHÍNH-LỄ TÂN",
-        email: "102603069@tbsgroup.vn",
-        phone: "",
-        avatar: "",
-      };
-      setUser({
-        empCode: defaultUser.empCode,
-        name: defaultUser.name,
-        title: defaultUser.title,
-        department: defaultUser.department,
-        avatar: defaultUser.avatar || "",
-        email: defaultUser.email,
-        phone: defaultUser.phone || "",
-        roleCode: (defaultUser as any).roleCode || "LE_TAN",
-      });
+      setUser(null);
     }
   };
 
@@ -221,13 +197,13 @@ export default function HeaderControls({
     setActiveDropdown(null);
     setProfileMsg(null);
     setEditProfileForm({
-      name: user.name,
-      empCode: user.empCode || "102603069",
-      email: user.email || "102603069@tbsgroup.vn",
-      phone: user.phone || "",
-      title: user.title,
-      department: user.department,
-      avatar: user.avatar,
+      name: (user?.name || ''),
+      empCode: (user?.empCode || '') || "102603069",
+      email: (user?.email || '') || "102603069@tbsgroup.vn",
+      phone: (user?.phone || '') || "",
+      title: (user?.title || ''),
+      department: (user?.department || ''),
+      avatar: (user?.avatar || ''),
     });
     setProfileModalOpen(true);
   };
@@ -253,8 +229,8 @@ export default function HeaderControls({
       if (res.ok) {
         const data = await res.json();
         if (data.secure_url) {
-          if (user.empCode) {
-            setUserAvatar(user.empCode, data.secure_url);
+          if ((user?.empCode || '')) {
+            setUserAvatar((user?.empCode || ''), data.secure_url);
           }
           setEditProfileForm((prev) => ({ ...prev, avatar: data.secure_url }));
           setUser((prev) => ({ ...prev, avatar: data.secure_url }));
@@ -486,18 +462,18 @@ export default function HeaderControls({
           }`}
           aria-expanded={activeDropdown === "user"}
           aria-haspopup="true"
-          aria-label={user.name}
-          title={user.name}
+          aria-label={(user?.name || '')}
+          title={(user?.name || '')}
         >
-          <UserAvatar src={user.avatar} name={user.name} size="sm" />
+          <UserAvatar src={(user?.avatar || '')} name={(user?.name || '')} size="sm" />
           <div className="hidden md:block text-left max-w-[130px] truncate">
             <div className={`text-xs font-extrabold leading-none truncate ${
               isDark ? "text-[#f2dc9a]" : "text-slate-900"
             }`}>
-              {user.name}
+              {(user?.name || '')}
             </div>
             <div className="text-[10px] text-slate-500 font-medium truncate mt-0.5">
-              {user.title || user.department}
+              {(user?.title || '') || (user?.department || '')}
             </div>
           </div>
           <IconChevronDown
@@ -522,12 +498,12 @@ export default function HeaderControls({
               isDark ? "bg-[#0a2f23] border-[#2fd39a]/40" : "bg-slate-50 border-slate-200"
             }`}>
               <div className="flex items-center gap-3">
-                <UserAvatar src={user.avatar} name={user.name} size="lg" />
+                {user && <UserAvatar src={(user?.avatar || '')} name={(user?.name || '')} size="lg" />}
                 <div className="min-w-0 flex-1">
-                  <h4 className="text-sm font-black truncate">{user.name}</h4>
+                  <h4 className="text-sm font-black truncate">{(user?.name || '')}</h4>
                   <p className={`text-xs truncate font-semibold mt-0.5 ${
                     isDark ? "text-[#2fd39a]" : "text-[#006838]"
-                  }`}>{user.title || user.department}</p>
+                  }`}>{(user?.title || '') || (user?.department || '')}</p>
                 </div>
               </div>
               <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 dark:border-white/10">
@@ -536,10 +512,10 @@ export default function HeaderControls({
                     ? "bg-[#2fd39a]/20 text-[#2fd39a] border border-[#2fd39a]/30"
                     : "bg-emerald-100 text-[#006838] border border-emerald-200"
                 }`}>
-                  {user.department}
+                  {(user?.department || '')}
                 </span>
                 <span className="text-[10px] font-mono font-bold opacity-75">
-                  Mã NV: {user.empCode || "102603069"}
+                  Mã NV: {(user?.empCode || '') || "102603069"}
                 </span>
               </div>
             </div>
@@ -634,8 +610,8 @@ export default function HeaderControls({
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                 {lang === "vi"
-                  ? `Bạn có chắc chắn muốn đăng xuất khỏi tài khoản ${user.name}?`
-                  : `Are you sure you want to log out of account ${user.name}?`}
+                  ? `Bạn có chắc chắn muốn đăng xuất khỏi tài khoản ${(user?.name || '')}?`
+                  : `Are you sure you want to log out of account ${(user?.name || '')}?`}
               </p>
             </div>
 
@@ -883,3 +859,4 @@ export default function HeaderControls({
     </div>
   );
 }
+

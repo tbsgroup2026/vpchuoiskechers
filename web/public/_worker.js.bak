@@ -2284,7 +2284,7 @@ export default {
         name: "Phạm Nguyễn Anh Huy",
         title: "TGĐ / Trưởng Phòng IT & CĐS",
         department: "IT - Team Chuyển Đổi Số",
-        avatar: "https://res.cloudinary.com/dwl2xtbqa/image/upload/v1787117525/nzcft200bebofw7b4uzg.jpg",
+        avatar: "https://res.cloudinary.com/ox828jvy/image/upload/v1787117525/nzcft200bebofw7b4uzg.jpg",
         email: "anhy.work.2004@gmail.com",
         phone: "0522511245",
         roleCode: "SUPER_ADMIN",
@@ -2358,7 +2358,7 @@ export default {
         name: "Phạm Nguyễn Anh Huy",
         title: "IT - Team Chuyển Đổi Số",
         department: "IT - Team Chuyển Đổi Số",
-        avatar: "https://res.cloudinary.com/dwl2xtbqa/image/upload/v1787117525/nzcft200bebofw7b4uzg.jpg",
+        avatar: "https://res.cloudinary.com/ox828jvy/image/upload/v1787117525/nzcft200bebofw7b4uzg.jpg",
         email: "anhy.work.2004@gmail.com",
         phone: "0522511245",
         roleCode: "TRUONG_PHONG",
@@ -2369,7 +2369,7 @@ export default {
         name: "Phạm Nguyễn Anh Huy",
         title: "IT - Team Chuyển Đổi Số",
         department: "IT - Team Chuyển Đổi Số",
-        avatar: "https://res.cloudinary.com/dwl2xtbqa/image/upload/v1787117525/nzcft200bebofw7b4uzg.jpg",
+        avatar: "https://res.cloudinary.com/ox828jvy/image/upload/v1787117525/nzcft200bebofw7b4uzg.jpg",
         email: "anhy.work.2004@gmail.com",
         phone: "0522511245",
         roleCode: "TRUONG_PHONG",
@@ -4807,7 +4807,7 @@ export default {
             title: "IT - Team Chuyển Đổi Số",
             department: "IT - Team Chuyển Đổi Số",
             roleCode: "TRUONG_PHONG",
-            avatar: "https://res.cloudinary.com/dwl2xtbqa/image/upload/v1787117525/nzcft200bebofw7b4uzg.jpg",
+            avatar: "https://res.cloudinary.com/ox828jvy/image/upload/v1787117525/nzcft200bebofw7b4uzg.jpg",
           };
         }
         return new Response(JSON.stringify({ success: true, data: profileData }), { headers: CORS });
@@ -6942,7 +6942,7 @@ export default {
             formData.append("upload_preset", preset);
             formData.append("folder", (env && env.CLOUDINARY_FOLDER) || "vpchuoiskechers");
 
-            const cRes = await fetch("https://api.cloudinary.com/v1_1/dwl2xtbqa/image/upload", {
+            const cRes = await fetch("https://api.cloudinary.com/v1_1/ox828jvy/image/upload", {
               method: "POST",
               body: formData,
             });
@@ -8168,7 +8168,7 @@ export default {
             email: "anhy.work.2004@gmail.com",
             phone: "0522511245",
             roleCode: "TRUONG_PHONG",
-            avatar: "https://res.cloudinary.com/dwl2xtbqa/image/upload/v1787117525/nzcft200bebofw7b4uzg.jpg",
+            avatar: "https://res.cloudinary.com/ox828jvy/image/upload/v1787117525/nzcft200bebofw7b4uzg.jpg",
             redirectUrl: "/work",
           },
           "202608002": {

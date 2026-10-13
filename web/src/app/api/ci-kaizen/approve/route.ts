@@ -27,9 +27,23 @@ export async function POST(request: Request) {
     const roleCode = String((session as any)?.roleCode || (session as any)?.role || '').toUpperCase();
     const userEmpCode = String((session as any)?.empCode || '').trim();
     const userName = String((session as any)?.name || (session as any)?.proposer_name || '').toLowerCase();
-    const userRoles = Array.isArray((session as any)?.roles) ? (session as any).roles : [];
-    
+    const db = getDbBinding();
+    if (db) {
+      await ensureKaizenSchema(db);
+    }
+
+    let isDynamicApprover = false;
+    if (db && userEmpCode) {
+      const permRow = await db.prepare(`
+        SELECT id FROM ci_kaizen_permissions
+        WHERE UPPER(emp_code) = UPPER(?) AND role_type IN ('APPROVER', 'CI_LEAD', 'ADMIN') AND is_active = 1
+        LIMIT 1
+      `).bind(userEmpCode).first().catch(() => null);
+      if (permRow) isDynamicApprover = true;
+    }
+
     const isExplicitApprover = 
+      isDynamicApprover ||
       ['202608001', '202608010', '222102020', '210602002', '201711002', '2026080001'].includes(userEmpCode) ||
       userName.includes('anh huy') || userName.includes('lê khải') || userName.includes('le khai') ||
       userName.includes('thanh tình') || userName.includes('thanh tinh') || userName.includes('trần thị ngoan') || userName.includes('ngoan');
@@ -95,14 +109,13 @@ export async function POST(request: Request) {
     const diemTongHop = Math.max(1, toSafeNumber(savedSecs + Math.round(totalSavings / 10000) + scorePoints, 1));
 
     const afterImageUrl = body.after_image_url || body.afterImageUrl || null;
+    const afterVideoUrl = body.after_video_url || body.afterVideoUrl || null;
     const attachmentsJson = body.attachments_json || body.attachmentsJson || null;
     const categoryVal = body.category || null;
 
     const productCodeVal = body.product_code || body.productCode || null;
     const costBeforeVal = toSafeNumber(body.cost_before ?? body.costBefore ?? 0, 0);
     const costAfterVal = toSafeNumber(body.cost_after ?? body.costAfter ?? 0, 0);
-
-    const db = getDbBinding();
 
     if (db) {
       try {
@@ -146,14 +159,12 @@ export async function POST(request: Request) {
               cost_after = CASE WHEN ? >= 0 THEN ? ELSE cost_after END,
               total_savings_words = COALESCE(NULLIF(?, ''), total_savings_words),
               after_image_url = COALESCE(NULLIF(?, ''), after_image_url),
+              after_video_url = COALESCE(NULLIF(?, ''), after_video_url),
               attachments_json = COALESCE(NULLIF(?, ''), attachments_json),
               review_comment = COALESCE(?, review_comment),
               updated_at = CURRENT_TIMESTAMP
           WHERE id = ? OR code = ? OR LOWER(id) = LOWER(?) OR LOWER(code) = LOWER(?)
         `;
-
-        const costBeforeVal = Number(body.cost_before ?? body.costBefore ?? 0);
-        const costAfterVal = Number(body.cost_after ?? body.costAfter ?? 0);
 
         await db
           .prepare(query)
@@ -179,6 +190,7 @@ export async function POST(request: Request) {
             costAfterVal, costAfterVal,
             totalSavingsWordsVal,
             afterImageUrl,
+            afterVideoUrl,
             attachmentsJson,
             note || null,
             targetId,
@@ -258,6 +270,8 @@ export async function POST(request: Request) {
       total_savings_words: totalSavingsWordsVal,
       after_image_url: afterImageUrl,
       afterImageUrl: afterImageUrl,
+      after_video_url: afterVideoUrl,
+      afterVideoUrl: afterVideoUrl,
       attachments_json: attachmentsJson,
     });
   } catch (error: unknown) {

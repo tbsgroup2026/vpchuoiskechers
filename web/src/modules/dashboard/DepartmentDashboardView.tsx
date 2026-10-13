@@ -69,7 +69,7 @@ export default function DepartmentDashboardView({
       try {
         const [usersRes, tasksRes, roomsRes, tripsRes] = await Promise.allSettled([
           fetch("/api/users", { cache: "no-store" }),
-          fetch("/api/tasks", { cache: "no-store" }),
+          fetch(`/api/tasks/aggregate?group_by=assignee&department_id=${encodeURIComponent(departmentCode)}`, { cache: "no-store" }),
           fetch("/api/rooms", { cache: "no-store" }),
           fetch("/api/business-trips", { cache: "no-store" }),
         ]);
@@ -91,8 +91,8 @@ export default function DepartmentDashboardView({
 
         if (isMounted && tasksRes.status === "fulfilled" && tasksRes.value.ok) {
           const tJson = await tasksRes.value.json();
-          if (tJson.success && Array.isArray(tJson.tasks)) {
-            setAllTasks(tJson.tasks);
+          if (tJson.success && Array.isArray(tJson.aggregates)) {
+            setAllTasks(tJson.aggregates);
           }
         }
 
@@ -138,35 +138,21 @@ export default function DepartmentDashboardView({
     });
   }, [allUsers, targetDeptUpper]);
 
-  // Filter department tasks from fetched tasks
-  const deptTasks = useMemo(() => {
-    if (allTasks.length === 0) return [];
-    return allTasks.filter((t) => {
-      const taskDept = (t.department_id || "").toUpperCase();
-      if (!taskDept) return false;
-      return (
-        taskDept === targetDeptUpper ||
-        taskDept.includes(targetDeptUpper) ||
-        targetDeptUpper.includes(taskDept) ||
-        (targetDeptUpper.includes("NHÂN SỰ") && taskDept.includes("HÀNH_CHÍNH")) ||
-        (targetDeptUpper.includes("IT") && taskDept.includes("DIGITAL"))
-      );
-    });
-  }, [allTasks, targetDeptUpper]);
 
   // Map employee rows for EmployeeTable & Performance chart
   const employeeRows: EmployeeRow[] = useMemo(() => {
     if (deptStaff.length === 0) return [];
 
     return deptStaff.map((staff) => {
-      const userTasks = deptTasks.filter((t) => t.assignee_emp_code === staff.empCode);
-      const totalTasks = userTasks.length;
-      const inProgressTasks = userTasks.filter(
-        (t) => (t.status || "").toUpperCase() === "DOING" || (t.status || "").toUpperCase() === "IN_PROGRESS"
-      ).length;
-      const completedTasks = userTasks.filter(
-        (t) => (t.status || "").toUpperCase() === "DONE" || (t.status || "").toUpperCase() === "COMPLETED"
-      ).length;
+      const userAgg = allTasks.find((t: any) => t.assignee_emp_code === staff.empCode) || {
+         totalTasks: 0,
+         completedTasks: 0,
+         doingTasks: 0
+      };
+      
+      const totalTasks = Number(userAgg.totalTasks) || 0;
+      const inProgressTasks = Number(userAgg.doingTasks) || 0;
+      const completedTasks = Number(userAgg.completedTasks) || 0;
 
       // Realistic score calculation based on task completion
       const baseScore = totalTasks > 0 ? 8.5 + Math.min(1.3, (completedTasks / totalTasks) * 1.5) : 9.0;

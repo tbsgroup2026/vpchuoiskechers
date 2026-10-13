@@ -48,6 +48,8 @@ export interface NotificationItem {
   date?: string;
   created_at?: string;
   dotColor?: string;
+  link?: string;
+  is_read?: boolean;
 }
 
 export interface HomeNewProps {
@@ -71,6 +73,7 @@ export interface HomeNewProps {
   allowedModules: any[];
   notifications: NotificationItem[];
   isLoadingNotifications: boolean;
+  onNotificationClick?: (id: string, link?: string) => void;
 }
 
 export default function HomeNew({
@@ -89,6 +92,7 @@ export default function HomeNew({
   allowedModules,
   notifications,
   isLoadingNotifications,
+  onNotificationClick,
 }: HomeNewProps) {
   return (
     <div className="w-full space-y-4 min-w-0 font-sans text-slate-800 antialiased max-w-[1600px] mx-auto pt-2 sm:pt-3">
@@ -486,10 +490,14 @@ export default function HomeNew({
                 ) : (
                   <div className="space-y-2.5 text-xs">
                     {notifications.map((n) => (
-                      <div key={n.id} className="flex items-start gap-2.5 p-1 rounded hover:bg-slate-50 transition cursor-pointer">
-                        <div className={`w-2 h-2 rounded-full ${n.dotColor || 'bg-[#006838]'} shrink-0 mt-1.5`} />
+                      <div 
+                        key={n.id} 
+                        className={`flex items-start gap-2.5 p-1 rounded hover:bg-slate-50 transition cursor-pointer ${n.is_read ? "opacity-60" : ""}`}
+                        onClick={() => onNotificationClick?.(n.id, n.link)}
+                      >
+                        {!n.is_read && <div className={`w-2 h-2 rounded-full ${n.dotColor || 'bg-[#006838]'} shrink-0 mt-1.5`} />}
                         <div className="flex-1 min-w-0 space-y-0.5">
-                          <div className="font-semibold text-slate-900 leading-snug truncate" title={n.title}>
+                          <div className={`font-semibold text-slate-900 leading-snug truncate ${n.is_read ? "font-medium text-slate-600" : ""}`} title={n.title}>
                             {n.title}
                           </div>
                           <div className="flex items-center justify-between text-[10px] text-slate-400 font-normal">

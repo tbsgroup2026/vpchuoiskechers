@@ -2552,7 +2552,7 @@ function TeamPanel({
                       trắng sẵn có của chính ảnh, không lộ viền. */}
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src="https://res.cloudinary.com/dwl2xtbqa/image/upload/v1789779633/thkiengiangshoes/pph_overdue_slogan_pic.jpg"
+                    src="https://res.cloudinary.com/dwl2xtbqa/image/upload/f_auto,q_auto/v1789779633/thkiengiangshoes/pph_overdue_slogan_pic.jpg"
                     alt=""
                     className="h-full w-full object-contain"
                   />
@@ -2726,4 +2726,5 @@ function TeamPanelBody({
     </>
   );
 }
+
 

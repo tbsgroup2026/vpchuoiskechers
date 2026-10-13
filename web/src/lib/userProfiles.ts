@@ -91,7 +91,7 @@ export const SYSTEM_USERS: Record<string, UserProfile> = {
     roleCode: "CI_LEAD",
     roles: ["employee", "department_head", "ci", "ci_lead", "admin"],
     roleLevel: 2,
-    avatar: "https://res.cloudinary.com/dwl2xtbqa/image/upload/v1787117525/nzcft200bebofw7b4uzg.jpg",
+    avatar: "https://res.cloudinary.com/dwl2xtbqa/image/upload/f_auto,q_auto/v1787117525/nzcft200bebofw7b4uzg.jpg",
     redirectUrl: "/work",
     managedDepartmentId: "ci",
   },
@@ -106,7 +106,7 @@ export const SYSTEM_USERS: Record<string, UserProfile> = {
     roleCode: "CI_LEAD",
     roles: ["employee", "department_head", "ci", "ci_lead", "admin"],
     roleLevel: 2,
-    avatar: "https://res.cloudinary.com/dwl2xtbqa/image/upload/v1787117525/nzcft200bebofw7b4uzg.jpg",
+    avatar: "https://res.cloudinary.com/dwl2xtbqa/image/upload/f_auto,q_auto/v1787117525/nzcft200bebofw7b4uzg.jpg",
     redirectUrl: "/work",
     managedDepartmentId: "ci",
   },
@@ -867,12 +867,14 @@ export async function loginWithD1Database(
   let d1Profile: UserProfile | null = null;
 
   let serverJwtToken: string | null = null;
+  let serverHrToken: string | null = null;
   try {
     const res = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        empCode: cleanInput,
+        empCode: normalized || cleanInput,
+        rawInput: cleanInput,
         role: role || cleanInput,
         password: password || "123456",
       }),
@@ -883,6 +885,9 @@ export async function loginWithD1Database(
       if (json.success && json.user) {
         if (json.token) {
           serverJwtToken = json.token;
+        }
+        if (json.hrToken) {
+          serverHrToken = json.hrToken;
         }
         const u = json.user;
         const isGuestUser = Boolean(u.isGuest || u.roleCode === "JUDGE_GUEST" || (typeof u.username === "string" && u.username.toUpperCase().startsWith("BGK")));
@@ -912,7 +917,7 @@ export async function loginWithD1Database(
       }
     } else {
       const errJson = await res.json().catch(() => ({}));
-      throw new Error(errJson.error || "Tên đăng nhập hoặc Mật khẩu không chính xác!");
+      throw new Error(errJson.message || errJson.error || "Mã nhân viên hoặc mật khẩu không chính xác. Mật khẩu mặc định là 123456.");
     }
   } catch (err) {
     if (err instanceof Error) {
@@ -934,6 +939,9 @@ export async function loginWithD1Database(
     localStorage.setItem("tbs_token", token);
     sessionStorage.setItem("tbs_jwt_token", token);
     sessionStorage.setItem("tbs_token", token);
+    // Token HR chỉ giữ trong sessionStorage (hết khi đóng tab), không ghi localStorage.
+    if (serverHrToken) sessionStorage.setItem("tbs_hr_token", serverHrToken);
+    else sessionStorage.removeItem("tbs_hr_token");
     document.cookie = `tbs_token=${token}; path=/; max-age=31536000; SameSite=Lax`;
     window.dispatchEvent(new Event("tbs_profile_updated"));
   }
@@ -1073,5 +1081,6 @@ export function buildEmpCodeNameMap(empCodes: (string | null | undefined)[]): Re
 
   return map;
 }
+
 
 

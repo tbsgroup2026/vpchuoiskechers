@@ -36,11 +36,21 @@ export default function LoginPage() {
 
     if (isExpired) {
       setError("Phiên đăng nhập đã hết hạn hoặc không có quyền. Vui lòng đăng nhập lại.");
+      try {
+        localStorage.removeItem("tbs_jwt_token");
+        localStorage.removeItem("tbs_token");
+        localStorage.removeItem("tbs_current_user");
+        sessionStorage.removeItem("tbs_current_user");
+        sessionStorage.removeItem("tbs_jwt_token");
+        sessionStorage.removeItem("tbs_token");
+        document.cookie = "tbs_token=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      } catch {}
       return;
     }
 
     const curUser = getCurrentUser();
-    if (curUser && curUser.empCode) {
+    const token = typeof window !== "undefined" ? localStorage.getItem("tbs_jwt_token") || localStorage.getItem("tbs_token") : null;
+    if (curUser && curUser.empCode && token) {
       const targetUrl =
         redirectUri && redirectUri.startsWith("/")
           ? redirectUri
@@ -92,8 +102,11 @@ export default function LoginPage() {
 
       router.push(targetUrl);
     } catch (err: unknown) {
-      const message =
+      let message =
         err instanceof Error ? err.message : "Có lỗi xảy ra khi đăng nhập";
+      if (message === "INVALID_CREDENTIALS") {
+        message = "Mã nhân viên hoặc mật khẩu không chính xác. Mật khẩu mặc định là 123456.";
+      }
       setError(message);
 
       // Audit Log Hook for Login Failure
@@ -222,6 +235,10 @@ export default function LoginPage() {
             >
               <span>{loading ? "Đang xác thực..." : "ĐĂNG NHẬP HỆ THỐNG"}</span>
             </button>
+
+            <div className="text-center pt-2 text-[11px] text-gray-500">
+              💡 Mật khẩu mặc định hệ thống: <span className="font-bold text-[#0f4133]">123456</span>
+            </div>
           </form>
         </div>
 

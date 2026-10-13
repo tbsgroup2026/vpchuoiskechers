@@ -11,6 +11,7 @@ dist/
 !.env.template
 gdrive-key.json
 firebase-service-account.json
+*service-account*.json
 *-key.json
 *.json.key
 
@@ -104,3 +105,29 @@ Backup/
 *backup*.sql
 prod_*.sql
 *.dump.sql
+
+web/.staging-credentials.json
+web/scripts/.seed-staging.sql
+web/.dev.vars
+
+web/tools/
+
+web/scratch/
+web/scratch_*.js
+web/test-*.js
+web/.vitest/
+web/coverage/
+patch_*.js
+*.patch
+*results.json
+fail_log.txt
+pass_log.txt
+temp.json
+temp.txt
+payload.json
+api_response.json
+put_secrets.js
+test-*.mjs
+test-*.ts
+route_main*.ts
+grapuco_inspect.json

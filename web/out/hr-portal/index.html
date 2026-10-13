@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cổng nhân sự - Nghỉ phép, chấm công, phiếu lương</title>
+  <meta name="description" content="Biểu mẫu tối thiểu: xin nghỉ nửa ngày, chấm công ca đêm, xem phiếu lương và tải tài liệu.">
+  <link rel="stylesheet" href="/hr-portal/hr.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="top">
+      <h1>Cổng nhân sự</h1>
+      <div id="who" class="who" hidden>
+        <span id="who-name"></span>
+        <button id="btn-logout" type="button" class="ghost">Đăng xuất</button>
+      </div>
+    </header>
+
+    <section id="login-card" class="card" aria-labelledby="login-h">
+      <h2 id="login-h">Đăng nhập</h2>
+      <form id="login-form" novalidate>
+        <label for="empCode">Mã số nhân viên</label>
+        <input id="empCode" name="empCode" autocomplete="username" required>
+        <label for="password">Mật khẩu</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+        <button id="btn-login" type="submit">Đăng nhập</button>
+        <p id="login-msg" class="msg" role="alert" aria-live="polite"></p>
+      </form>
+    </section>
+
+    <div id="app" hidden>
+      <section class="card" aria-labelledby="leave-h">
+        <h2 id="leave-h">Xin nghỉ nửa ngày</h2>
+        <form id="leave-form" novalidate>
+          <label for="leave-date">Ngày nghỉ</label>
+          <input id="leave-date" type="date" required>
+          <label for="leave-session">Buổi</label>
+          <select id="leave-session">
+            <option value="AM">Buổi sáng</option>
+            <option value="PM">Buổi chiều</option>
+          </select>
+          <button id="btn-leave" type="submit">Gửi đơn</button>
+        </form>
+        <p id="leave-msg" class="msg" role="status" aria-live="polite"></p>
+        <p id="leave-result" class="result" data-testid="leave-result"></p>
+      </section>
+
+      <section class="card" aria-labelledby="ts-h">
+        <h2 id="ts-h">Chấm công ca đêm</h2>
+        <form id="ts-form" novalidate>
+          <label for="ts-in">Giờ vào</label>
+          <input id="ts-in" type="datetime-local" required>
+          <label for="ts-out">Giờ ra</label>
+          <input id="ts-out" type="datetime-local" required>
+          <label class="check"><input id="ts-night" type="checkbox" checked> Ca đêm (qua 0h)</label>
+          <button id="btn-ts" type="submit">Ghi chấm công</button>
+        </form>
+        <p id="ts-msg" class="msg" role="status" aria-live="polite"></p>
+        <p id="ts-result" class="result" data-testid="ts-result"></p>
+      </section>
+
+      <section class="card" aria-labelledby="pay-h">
+        <h2 id="pay-h">Phiếu lương của tôi</h2>
+        <button id="btn-payslip" type="button">Xem phiếu lương</button>
+        <p id="pay-msg" class="msg" role="status" aria-live="polite"></p>
+        <div id="pay-result" class="result" data-testid="pay-result"></div>
+      </section>
+
+      <section class="card" aria-labelledby="up-h">
+        <h2 id="up-h">Tải tài liệu lên</h2>
+        <form id="up-form" novalidate>
+          <label for="up-file">Tệp (PDF, PNG, JPG, DOCX, XLSX; tối đa 10MB)</label>
+          <input id="up-file" type="file" required>
+          <button id="btn-up" type="submit">Tải lên</button>
+        </form>
+        <p id="up-msg" class="msg" role="status" aria-live="polite"></p>
+        <p id="up-result" class="result" data-testid="up-result"></p>
+      </section>
+    </div>
+  </main>
+  <script src="/hr-portal/hr.js"></script>
+</body>
+</html>

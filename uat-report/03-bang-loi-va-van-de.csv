@@ -1,0 +1,7 @@
+Module,Loại,Mức độ,Số người bị ảnh hưởng,Nhóm người dùng,Nguồn phát hiện,Mô tả lỗi
+Auth,Bảo mật,Nghiêm trọng,100,Tất cả,Test code,Wildcard API route trả về 200 cho endpoint không tồn tại (vd /api/upload)
+Chấm công,Lỗi,Nghiêm trọng,20,Ca xoay,Cả hai,Ca đêm qua 12h bị tính sai ngày
+Phép,Lỗi,Cao,100,Tất cả,Cả hai,Nghỉ nửa ngày bị trừ nguyên ngày phép
+UI/UX,UX,Trung bình,40,Mobile/Trung niên,Persona,Chữ nhỏ và bảng phiếu lương vỡ layout trên điện thoại 375px
+HR,Lỗi,Trung bình,4,HR,Persona,Xuất Excel lỗi font tiếng Việt
+Hiệu năng,Hiệu năng,Thấp,100,Tất cả,Cả hai,Load 50 concurrent requests mất 738ms (khá tốt nhưng có thể nghẽn lúc 8h sáng)

@@ -43,3 +43,4 @@ export function isPerfDebugActive(): boolean {
     return false;
   }
 }
+

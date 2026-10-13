@@ -18,6 +18,11 @@ const PUBLIC_PATHS = [
   '/api/notifications',    // Notification API
 ];
 
+// Dynamically check if it's a kaizen detail permalink
+function isPublicKaizenPermalink(pathname: string): boolean {
+  return /^\/work\/kaizen\/[a-zA-Z0-9_-]+$/.test(pathname);
+}
+
 /**
  * Routes that REQUIRE authentication with redirect on failure
  * Format: { path: string pattern, redirect?: boolean (default true for UI routes) }
@@ -41,6 +46,7 @@ function isProtectedPath(pathname: string): boolean {
  * Check if a given pathname is explicitly public (exception to protected paths)
  */
 function isPublicPath(pathname: string): boolean {
+  if (isPublicKaizenPermalink(pathname)) return true;
   return PUBLIC_PATHS.some(publicPath => {
     // Exact match or prefix match (with / boundary)
     return pathname === publicPath || pathname.startsWith(publicPath + '/');

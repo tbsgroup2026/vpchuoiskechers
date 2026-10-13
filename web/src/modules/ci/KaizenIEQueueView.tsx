@@ -173,9 +173,15 @@ export default function KaizenIEQueueView() {
               className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
             />
           </div>
+          <a
+            href="/work/kaizen/admin/permissions"
+            className="px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl font-bold text-xs flex items-center gap-1.5 transition"
+          >
+            🛡️ Phân quyền IE
+          </a>
           <button
             onClick={fetchIEQueue}
-            className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs flex items-center gap-1.5 transition"
+            className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs flex items-center gap-1.5 transition cursor-pointer"
           >
             <IconRefresh size={16} /> Làm mới
           </button>

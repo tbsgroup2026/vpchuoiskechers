@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { PERMISSIONS, ROLES, Permission } from "@/lib/permissions";
-import { IconCheck, IconShield, IconDeviceFloppy, IconRefresh } from "@tabler/icons-react";
+import Link from "next/link";
+import { IconCheck, IconShield, IconDeviceFloppy, IconRefresh, IconShieldCheck } from "@tabler/icons-react";
 
 export default function RolesAdminPage() {
   const [rolePermissions, setRolePermissions] = useState<Record<string, Permission[]>>(ROLES);
@@ -78,7 +79,15 @@ export default function RolesAdminPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Link
+            href="/work/kaizen/admin/permissions"
+            className="px-4 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-extrabold transition border border-indigo-200 flex items-center gap-1.5 shadow-2xs"
+          >
+            <IconShieldCheck size={16} />
+            <span>Phân Quyền CI / IE</span>
+          </Link>
+
           <button
             onClick={handleResetDefaults}
             className="px-3.5 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-extrabold transition flex items-center gap-1.5 cursor-pointer"

@@ -31,6 +31,10 @@ export default function PublicBookingPage() {
   const [lookupStatus, setLookupStatus] = useState<"idle" | "found" | "not_found" | "error">("idle");
   const [autoFilledMsnv, setAutoFilledMsnv] = useState("");
 
+  const [isCustomTimeSlot, setIsCustomTimeSlot] = useState(false);
+  const [customStartTime, setCustomStartTime] = useState("08:30");
+  const [customEndTime, setCustomEndTime] = useState("10:00");
+
   const timeSlots = [
     "08:00 - 09:00", "09:00 - 10:00", "10:00 - 11:00", "11:00 - 12:00",
     "13:00 - 14:00", "14:00 - 15:00", "15:00 - 16:00", "16:00 - 17:00",
@@ -296,13 +300,16 @@ export default function PublicBookingPage() {
                     <div className="flex flex-wrap gap-2">
                       {timeSlots.map(slot => {
                         const busy = isSlotBusy(room.id, formData.date, slot);
-                        const selected = formData.roomId === room.id && formData.timeSlot === slot;
+                        const selected = formData.roomId === room.id && formData.timeSlot === slot && !isCustomTimeSlot;
                         return (
                           <button
                             key={slot}
                             type="button"
                             disabled={busy}
-                            onClick={() => setFormData({...formData, roomId: room.id, roomName: room.name, timeSlot: slot})}
+                            onClick={() => {
+                              setIsCustomTimeSlot(false);
+                              setFormData({...formData, roomId: room.id, roomName: room.name, timeSlot: slot});
+                            }}
                             className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
                               busy ? 'bg-slate-100 text-slate-400 cursor-not-allowed line-through' :
                               selected ? 'bg-blue-600 text-white shadow-md' :
@@ -313,7 +320,50 @@ export default function PublicBookingPage() {
                           </button>
                         );
                       })}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsCustomTimeSlot(true);
+                          setFormData({ ...formData, roomId: room.id, roomName: room.name, timeSlot: `${customStartTime} - ${customEndTime}` });
+                        }}
+                        className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                          formData.roomId === room.id && isCustomTimeSlot ? 'bg-blue-600 text-white shadow-md' :
+                          'bg-white border border-slate-300 text-slate-700 hover:border-blue-500 hover:text-blue-600'
+                        }`}
+                      >
+                        Tùy chỉnh...
+                      </button>
                     </div>
+
+                    {formData.roomId === room.id && isCustomTimeSlot && (
+                      <div className="mt-3 p-3 bg-blue-100/50 border border-blue-200 rounded-xl flex items-center gap-3">
+                        <div className="flex-1">
+                          <label className="block text-[11px] font-bold text-slate-500 mb-1">Từ giờ</label>
+                          <input 
+                            type="time" 
+                            value={customStartTime}
+                            onChange={(e) => {
+                              setCustomStartTime(e.target.value);
+                              setFormData({...formData, timeSlot: `${e.target.value} - ${customEndTime}`});
+                            }}
+                            className="w-full px-2 py-1.5 rounded-md text-sm border-slate-200 outline-none"
+                          />
+                        </div>
+                        <div className="text-slate-400 font-bold mt-4">-</div>
+                        <div className="flex-1">
+                          <label className="block text-[11px] font-bold text-slate-500 mb-1">Đến giờ</label>
+                          <input 
+                            type="time" 
+                            value={customEndTime}
+                            onChange={(e) => {
+                              setCustomEndTime(e.target.value);
+                              setFormData({...formData, timeSlot: `${customStartTime} - ${e.target.value}`});
+                            }}
+                            className="w-full px-2 py-1.5 rounded-md text-sm border-slate-200 outline-none"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
                 {rooms.length === 0 && <p className="text-sm text-slate-500 italic">Không có phòng trống.</p>}

@@ -58,7 +58,8 @@ export async function ensureKaizenSchema(db: any, force = false) {
       'ALTER TABLE ci_kaizen_proposals ADD COLUMN customer TEXT',
       'ALTER TABLE ci_kaizen_proposals ADD COLUMN pricing_direction TEXT DEFAULT "THOI_GIAN"',
       'ALTER TABLE ci_kaizen_proposals ADD COLUMN total_savings_words TEXT',
-      'ALTER TABLE ci_kaizen_proposals ADD COLUMN is_edited INTEGER DEFAULT 0',
+      'ALTER TABLE ci_kaizen_proposals ADD COLUMN before_video_url TEXT',
+      'ALTER TABLE ci_kaizen_proposals ADD COLUMN after_video_url TEXT',
       'ALTER TABLE ci_kaizen_proposals ADD COLUMN approval_status TEXT DEFAULT "PHE_DUYET"',
     ];
 
@@ -728,11 +729,18 @@ export async function ensureKaizenSchema(db: any, force = false) {
           // ADMIN
           { role: 'ADMIN', route: '/work/overview', label: 'Dashboard Đa Nhà Máy', icon: 'IconChartBar', sort: 1 },
           { role: 'ADMIN', route: '/work/kaizen', label: 'Thư Viện Sáng Kiến Kaizen', icon: 'IconSparkles', sort: 2 },
-          { role: 'ADMIN', route: '/work/gemba', label: 'Quản Lý GEMBA Audit', icon: 'IconShieldCheck', sort: 3 },
-          { role: 'ADMIN', route: '/maintenance', label: 'Quản Lý Máy Móc Thiết Bị', icon: 'IconBuildingFactory', sort: 4 },
-          { role: 'ADMIN', route: '/work/tasks', label: 'Công Việc (TBS Work)', icon: 'IconList', sort: 5 },
-          { role: 'ADMIN', route: '/work/admin/workspace-config', label: 'Cấu Hình Workspace Role', icon: 'IconSettings', sort: 6 },
-          { role: 'ADMIN', route: '/admin/audit-logs', label: 'Audit Logs Hệ Thống', icon: 'IconHistory', sort: 7 },
+          { role: 'ADMIN', route: '/work/kaizen/admin/permissions', label: 'Phân Quyền CI / IE', icon: 'IconShieldCheck', sort: 3 },
+          { role: 'ADMIN', route: '/work/gemba', label: 'Quản Lý GEMBA Audit', icon: 'IconShieldCheck', sort: 4 },
+          { role: 'ADMIN', route: '/maintenance', label: 'Quản Lý Máy Móc Thiết Bị', icon: 'IconBuildingFactory', sort: 5 },
+          { role: 'ADMIN', route: '/work/tasks', label: 'Công Việc (TBS Work)', icon: 'IconList', sort: 6 },
+          { role: 'ADMIN', route: '/work/admin/workspace-config', label: 'Cấu Hình Workspace Role', icon: 'IconSettings', sort: 7 },
+          { role: 'ADMIN', route: '/admin/audit-logs', label: 'Audit Logs Hệ Thống', icon: 'IconHistory', sort: 8 },
+
+          // CI_LEAD
+          { role: 'CI_LEAD', route: '/work/kaizen', label: 'Quản Trị Kaizen Toàn Chuỗi', icon: 'IconSparkles', sort: 1 },
+          { role: 'CI_LEAD', route: '/work/kaizen/admin/permissions', label: 'Quản Lý Phân Quyền CI / IE', icon: 'IconShieldCheck', sort: 2 },
+          { role: 'CI_LEAD', route: '/work/kaizen/admin/judging', label: 'Quản Trị Ban Giám Khảo', icon: 'IconAward', sort: 3 },
+          { role: 'CI_LEAD', route: '/work/kaizen/ie-queue', label: 'Hàng Chờ Đo Lường IE', icon: 'IconCheck', sort: 4 },
 
           // TONG_GIAM_DOC
           { role: 'TONG_GIAM_DOC', route: '/work/overview', label: 'Dashboard Tổng Quan', icon: 'IconChartBar', sort: 1 },
@@ -1185,6 +1193,59 @@ export async function ensureKaizenSchema(db: any, force = false) {
         declaration_submitted INTEGER DEFAULT 0
       )
     `).run().catch(() => {});
+
+    // D1 CI Kaizen Dynamic Permissions Table
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS ci_kaizen_permissions (
+        id TEXT PRIMARY KEY,
+        emp_code TEXT NOT NULL,
+        emp_name TEXT NOT NULL,
+        role_type TEXT NOT NULL,
+        factory_scope TEXT DEFAULT 'ALL',
+        department TEXT,
+        position TEXT,
+        note TEXT,
+        is_active INTEGER DEFAULT 1,
+        created_by TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(emp_code, role_type)
+      )
+    `).run().catch(() => {});
+
+    await db.prepare(`
+      CREATE INDEX IF NOT EXISTS idx_ci_kaizen_perm_emp ON ci_kaizen_permissions(emp_code)
+    `).run().catch(() => {});
+    await db.prepare(`
+      CREATE INDEX IF NOT EXISTS idx_ci_kaizen_perm_role ON ci_kaizen_permissions(role_type, is_active)
+    `).run().catch(() => {});
+
+    // Seed default key CI/IE members if table is fresh
+    try {
+      const defaultPerms = [
+        { id: "perm_ie_1", emp_code: "210602002", emp_name: "Trần Thị Ngoan", role_type: "IE", factory_scope: "ALL", department: "IE / KT", position: "Kỹ Sư Đo Lường IE", note: "Kỹ sư IE hệ thống" },
+        { id: "perm_judge_1", emp_code: "210602002", emp_name: "Trần Thị Ngoan", role_type: "JUDGE", factory_scope: "ALL", department: "IE / KT", position: "Giám Khảo Chuyên Gia", note: "Ban Giám Khảo hệ thống" },
+        { id: "perm_appr_1", emp_code: "210602002", emp_name: "Trần Thị Ngoan", role_type: "APPROVER", factory_scope: "ALL", department: "IE / KT", position: "Cấp Phê Duyệt", note: "Phê duyệt triển khai" },
+        { id: "perm_ie_2", emp_code: "201711002", emp_name: "Cán Bộ IE", role_type: "IE", factory_scope: "ALL", department: "Kỹ Thuật IE", position: "Kỹ Sư IE", note: "Kỹ sư IE hệ thống" },
+        { id: "perm_ci_1", emp_code: "202608001", emp_name: "Phạm Nguyễn Anh Huy", role_type: "CI_LEAD", factory_scope: "ALL", department: "CẢI TIẾN LIÊN TỤC (CI)", position: "Trưởng Ban CI", note: "Ban điều hành CI & Chuyển đổi số" },
+        { id: "perm_judge_2", emp_code: "202608001", emp_name: "Phạm Nguyễn Anh Huy", role_type: "JUDGE", factory_scope: "ALL", department: "CẢI TIẾN LIÊN TỤC (CI)", position: "Trưởng Ban CI", note: "Ban Giám Khảo hệ thống" },
+        { id: "perm_appr_2", emp_code: "202608001", emp_name: "Phạm Nguyễn Anh Huy", role_type: "APPROVER", factory_scope: "ALL", department: "CẢI TIẾN LIÊN TỤC (CI)", position: "Trưởng Ban CI", note: "Phê duyệt đề xuất" },
+        { id: "perm_ci_2", emp_code: "202608010", emp_name: "Lê Khải", role_type: "CI_LEAD", factory_scope: "ALL", department: "Văn phòng Chuỗi", position: "Cán Bộ Quản Lý CI", note: "Ban điều hành CI" },
+        { id: "perm_judge_3", emp_code: "202608010", emp_name: "Lê Khải", role_type: "JUDGE", factory_scope: "ALL", department: "Văn phòng Chuỗi", position: "Cán Bộ Quản Lý CI", note: "Ban Giám Khảo hệ thống" },
+        { id: "perm_appr_3", emp_code: "202608010", emp_name: "Lê Khải", role_type: "APPROVER", factory_scope: "ALL", department: "Văn phòng Chuỗi", position: "Cán Bộ Quản Lý CI", note: "Phê duyệt đề xuất" },
+        { id: "perm_ci_3", emp_code: "222102020", emp_name: "Dư Thị Thanh Tình", role_type: "CI_LEAD", factory_scope: "ALL", department: "Văn phòng Chuỗi", position: "Ban Điều Hành CI", note: "Ban điều hành CI" },
+        { id: "perm_judge_4", emp_code: "222102020", emp_name: "Dư Thị Thanh Tình", role_type: "JUDGE", factory_scope: "ALL", department: "Văn phòng Chuỗi", position: "Ban Điều Hành CI", note: "Ban Giám Khảo hệ thống" },
+        { id: "perm_appr_4", emp_code: "222102020", emp_name: "Dư Thị Thanh Tình", role_type: "APPROVER", factory_scope: "ALL", department: "Văn phòng Chuỗi", position: "Ban Điều Hành CI", note: "Phê duyệt đề xuất" },
+        { id: "perm_ci_4", emp_code: "202608002", emp_name: "Trần Ngọc Huy", role_type: "CI_LEAD", factory_scope: "ALL", department: "Văn phòng Chuỗi", position: "Kỹ Sư IT - CI", note: "Điều hành CI & Kỹ thuật" },
+        { id: "perm_ie_3", emp_code: "202112003", emp_name: "Lê Khải", role_type: "IE", factory_scope: "ALL", department: "Nhân Sự - Hành Chính", position: "Chuyên Viên Vận Hành", note: "Đo lường thời gian IE" },
+      ];
+      for (const p of defaultPerms) {
+        await db.prepare(`
+          INSERT OR IGNORE INTO ci_kaizen_permissions (id, emp_code, emp_name, role_type, factory_scope, department, position, note, is_active)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+        `).bind(p.id, p.emp_code, p.emp_name, p.role_type, p.factory_scope, p.department, p.position, p.note).run().catch(() => {});
+      }
+    } catch (e) {}
 
     // Add version and write_token for Phase A (Concurrency Control)
     await db.prepare("ALTER TABLE task_cards ADD COLUMN version INTEGER NOT NULL DEFAULT 1").run().catch(() => {});

@@ -36,10 +36,12 @@ export async function GET(request: Request, { params }: { params: { id: string }
     // 1. They are the uploader
     // 2. Or they are the trip creator
     // 3. Or they are admin, executive, receptionist, or accountant.
+    // 4. Or the file is a public Kaizen image.
     // We fetch the trip to check if they are the creator.
     let hasAccess = false;
     
-    if (fileRecord.uploader_emp_code === user.empCode) hasAccess = true;
+    if (fileRecord.file_type === 'KAIZEN_IMAGE' || fileRecord.trip_id === 'kaizen-migration') hasAccess = true; // All authenticated users can see Kaizen images
+    else if (fileRecord.uploader_emp_code === user.empCode) hasAccess = true;
     else if (isAdminUser(user) || isExecutiveOrAdmin(user) || isReceptionistOrAdmin(user) || isAccountantOrAdmin(user)) hasAccess = true;
     else if (fileRecord.trip_id) {
        const trip = await db.prepare('SELECT creator FROM business_trips WHERE id = ?').bind(fileRecord.trip_id).first();

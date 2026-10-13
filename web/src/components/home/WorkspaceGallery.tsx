@@ -61,7 +61,7 @@ export const WORKSPACE_ITEMS: WorkspaceItem[] = [
   },
   {
     id: "kglv-4",
-    title: "Góc nhìn môi trường VPTX",
+    title: "Góc nhìn môi trường",
     subtitle: "Bộ Báo Cáo & Mẫu Tiêu Biểu",
     category: "trung-bay",
     categoryLabel: "Khu Trưng Bày",

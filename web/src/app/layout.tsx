@@ -70,7 +70,7 @@ export default function RootLayout({
               (function() {
                 function autoRecoverChunkError(err) {
                   var str = String((err && (err.message || err.name || err.reason || err)) || '');
-                  if (str.indexOf('ChunkLoadError') !== -1 || str.indexOf('Loading chunk') !== -1 || str.indexOf('Unexpected token') !== -1) {
+                  if (str.indexOf('ChunkLoadError') !== -1 || str.indexOf('Loading chunk') !== -1 || (str.indexOf('Unexpected token') !== -1 && (str.indexOf('/_next/') !== -1 || str.indexOf('.js') !== -1))) {
                     console.warn('Detected stale deploy chunk load error, reloading fresh build assets...', str);
                     if (!sessionStorage.getItem('tbs_chunk_auto_reloaded')) {
                       sessionStorage.setItem('tbs_chunk_auto_reloaded', '1');

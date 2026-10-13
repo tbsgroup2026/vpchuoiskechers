@@ -1,0 +1,13 @@
+{
+  "_readme": "File này dành cho kế toán nhập 8-10 ca tính tay. KHÔNG được điền đáp án thay kế toán. Mỗi phần tử trong 'cases' cần: id, accountant, date (YYYY-MM-DD), legalBasisNote, input{baseSalary, dependents}, expected{insurance, tax, net} (VNĐ, số nguyên đã làm tròn theo cách kế toán). Test đọc file này; nếu trống, test báo cảnh báo và cổng go-live (GO_LIVE=1) sẽ FAIL.",
+  "_schema": {
+    "id": "string, duy nhất, ví dụ ACC-01",
+    "accountant": "họ tên kế toán tính tay",
+    "date": "YYYY-MM-DD",
+    "legalBasisNote": "kế toán ghi văn bản/mức giảm trừ đã áp dụng",
+    "input": { "baseSalary": "number VNĐ/tháng", "dependents": "number" },
+    "expected": { "insurance": "number", "tax": "number", "net": "number" }
+  },
+  "minimumCasesForGoLive": 8,
+  "cases": []
+}

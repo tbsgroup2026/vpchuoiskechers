@@ -2,7 +2,7 @@
 // Caching Strategy: Cache-First for Cloudinary Media, Stale-While-Revalidate for Static Assets
 // Web Push: Full push handler for multi-device notifications
 
-const CACHE_VERSION = "tbs-sw-v2026.10.06-v5";
+const CACHE_VERSION = "tbs-sw-v2026.10.13-v3";
 const MEDIA_CACHE = `tbs-media-${CACHE_VERSION}`;
 const STATIC_CACHE = `tbs-static-${CACHE_VERSION}`;
 
@@ -56,8 +56,12 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // A. Cloudinary Images Cache-First Strategy
-  if (url.hostname.includes("res.cloudinary.com") || url.hostname.includes("cloudinary")) {
+  // A. Media Cache-First Strategy (Cloudinary + Cloudflare R2 /cdn-r2/)
+  if (
+    url.hostname.includes("res.cloudinary.com") ||
+    url.hostname.includes("cloudinary") ||
+    url.pathname.startsWith("/cdn-r2/")
+  ) {
     event.respondWith(
       caches.open(MEDIA_CACHE).then(async (cache) => {
         const cachedResp = await cache.match(req);
@@ -67,10 +71,45 @@ self.addEventListener("fetch", (event) => {
 
         try {
           const networkResp = await fetch(req);
-          if (networkResp && networkResp.status === 200) {
-            cache.put(req, networkResp.clone());
+          // Do not attempt to cache Range requests (206) or video streaming chunks which throw Cache.put NetworkError
+          if (networkResp && networkResp.status === 200 && !req.headers.has("range")) {
+            cache.put(req, networkResp.clone()).catch(() => {});
           }
           return networkResp;
+        } catch {
+          return new Response("Media unavailable offline", { status: 503 });
+        }
+      })
+    );
+    return;
+  }
+
+  // A2. Intercept legacy external R2 bucket URLs (e.g. pub-*.r2.dev) and proxy via /cdn-r2/ to avoid CORS blocks
+  if (url.hostname.includes("r2.dev")) {
+    const key = url.pathname.replace(/^\/+/, '');
+    const proxyUrl = `${self.location.origin}/cdn-r2/${key}`;
+    event.respondWith(
+      caches.open(MEDIA_CACHE).then(async (cache) => {
+        const cachedResp = await cache.match(proxyUrl);
+        if (cachedResp) return cachedResp;
+
+        try {
+          const networkResp = await fetch(proxyUrl);
+          if (networkResp && networkResp.status === 200 && !req.headers.has("range")) {
+            cache.put(proxyUrl, networkResp.clone()).catch(() => {});
+            return networkResp;
+          }
+          if (networkResp && networkResp.ok) {
+            return networkResp;
+          }
+        } catch {}
+
+        try {
+          const directResp = await fetch(req);
+          if (directResp && directResp.status === 200 && !req.headers.has("range")) {
+            cache.put(proxyUrl, directResp.clone()).catch(() => {});
+          }
+          return directResp;
         } catch {
           return new Response("Media unavailable offline", { status: 503 });
         }
@@ -89,7 +128,7 @@ self.addEventListener("fetch", (event) => {
         try {
           const networkResp = await fetch(req);
           if (networkResp && networkResp.status === 200) {
-            cache.put(req, networkResp.clone());
+            cache.put(req, networkResp.clone()).catch(() => {});
           }
           return networkResp;
         } catch (err) {
@@ -106,7 +145,9 @@ self.addEventListener("fetch", (event) => {
       fetch(req).then((networkResp) => {
         if (networkResp && networkResp.status === 200) {
           const cloned = networkResp.clone();
-          caches.open(STATIC_CACHE).then((cache) => cache.put(req, cloned));
+          caches.open(STATIC_CACHE).then((cache) => {
+            cache.put(req, cloned).catch(() => {});
+          }).catch(() => {});
         }
         return networkResp;
       }).catch(async () => {

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import LanguageSelector from "@/components/LanguageSelector";
 import UserAvatar from "@/components/UserAvatar";
 import {
@@ -33,11 +34,23 @@ import {
   IconInfoCircle,
   IconBulb,
   IconCircleCheck,
+  IconLogin,
 } from "@tabler/icons-react";
 
 interface HeaderControlsProps {
   variant?: "light" | "dark";
   className?: string;
+}
+
+export interface HeaderControlsUser {
+  empCode?: string;
+  name: string;
+  title: string;
+  department: string;
+  avatar: string;
+  email?: string;
+  phone?: string;
+  roleCode?: string;
 }
 
 export default function HeaderControls({
@@ -51,22 +64,8 @@ export default function HeaderControls({
   // Single dropdown state: only one open at a time
   const [activeDropdown, setActiveDropdown] = useState<"lang" | "notif" | "user" | null>(null);
 
-  // User state
-  const [user, setUser] = useState<{
-    empCode?: string;
-    name: string;
-    title: string;
-    department: string;
-    avatar: string;
-    email?: string;
-    phone?: string;
-    roleCode?: string;
-  }>({
-    name: "TRƯƠNG BẢO NGỌC",
-    title: "Lễ Tân",
-    department: "HÀNH CHÍNH-LỄ TÂN",
-    avatar: "",
-  });
+  // User state (null when unauthenticated / logged out)
+  const [user, setUser] = useState<HeaderControlsUser | null>(null);
 
   // Notifications state
   const [notifications, setNotifications] = useState<AppNotificationItem[]>([]);
@@ -98,44 +97,51 @@ export default function HeaderControls({
 
   // Load User Data
   const loadUser = () => {
+    if (typeof window === "undefined") {
+      setUser(null);
+      return;
+    }
+
+    const cookies = document.cookie ? document.cookie.split("; ") : [];
+    const tokenCookie = cookies.find((row) => row.startsWith("tbs_token="));
+    const token = tokenCookie ? tokenCookie.split("=")[1] : null;
+
+    if (!token) {
+      setUser(null);
+      return;
+    }
+
     const cur = getCurrentUser();
-    if (cur && cur.name) {
+    if (cur && cur.name && cur.empCode) {
       setUser({
         empCode: cur.empCode,
         name: cur.name,
         title: getUserDisplayBadgeTitle(cur),
-        department: cur.department || "HÀNH CHÍNH-LỄ TÂN",
+        department: cur.department || "Văn Phòng Chuỗi SKECHERS",
         avatar: cur.avatar || "",
         email: cur.email || `${cur.empCode}@tbsgroup.vn`,
         phone: cur.phone || "",
-        roleCode: cur.roleCode || "LE_TAN",
+        roleCode: cur.roleCode || "CBCNV",
       });
     } else {
-      // Fallback default: TRƯƠNG BẢO NGỌC - Lễ Tân
-      const defaultUser = SYSTEM_USERS["102603069"] || {
-        empCode: "102603069",
-        name: "TRƯƠNG BẢO NGỌC",
-        title: "Lễ Tân",
-        department: "HÀNH CHÍNH-LỄ TÂN",
-        email: "102603069@tbsgroup.vn",
-        phone: "",
-        avatar: "",
-      };
-      setUser({
-        empCode: defaultUser.empCode,
-        name: defaultUser.name,
-        title: defaultUser.title,
-        department: defaultUser.department,
-        avatar: defaultUser.avatar || "",
-        email: defaultUser.email,
-        phone: defaultUser.phone || "",
-        roleCode: (defaultUser as any).roleCode || "LE_TAN",
-      });
+      setUser(null);
     }
   };
 
   // Load Notifications Data
   const loadNotifications = async () => {
+    if (typeof window === "undefined") return;
+
+    const cookies = document.cookie ? document.cookie.split("; ") : [];
+    const tokenCookie = cookies.find((row) => row.startsWith("tbs_token="));
+    const token = tokenCookie ? tokenCookie.split("=")[1] : null;
+
+    const cur = getCurrentUser();
+    if (!token || !cur) {
+      setNotifications([]);
+      return;
+    }
+
     setIsLoadingNotifs(true);
     try {
       const list = await notificationService.fetchNotificationsFromApiOrStore();
@@ -151,8 +157,20 @@ export default function HeaderControls({
     loadUser();
     loadNotifications();
 
-    const handleProfileUpdate = () => loadUser();
-    const handleNotifUpdate = () => setNotifications(notificationService.getNotifications());
+    const handleProfileUpdate = () => {
+      loadUser();
+      loadNotifications();
+    };
+    const handleNotifUpdate = () => {
+      const cookies = document.cookie ? document.cookie.split("; ") : [];
+      const token = cookies.find((row) => row.startsWith("tbs_token="));
+      const cur = getCurrentUser();
+      if (token && cur) {
+        setNotifications(notificationService.getNotifications());
+      } else {
+        setNotifications([]);
+      }
+    };
 
     window.addEventListener("tbs_profile_updated", handleProfileUpdate);
     window.addEventListener("tbs_notifications_updated", handleNotifUpdate);
@@ -211,6 +229,8 @@ export default function HeaderControls({
   // Logout Action
   const confirmLogout = () => {
     logoutUserProfile();
+    setUser(null);
+    setNotifications([]);
     setLogoutConfirmOpen(false);
     setActiveDropdown(null);
     router.push("/login");
@@ -218,12 +238,13 @@ export default function HeaderControls({
 
   // Profile Edit Handlers
   const openProfileModal = () => {
+    if (!user) return;
     setActiveDropdown(null);
     setProfileMsg(null);
     setEditProfileForm({
       name: user.name,
-      empCode: user.empCode || "102603069",
-      email: user.email || "102603069@tbsgroup.vn",
+      empCode: user.empCode || "",
+      email: user.email || "",
       phone: user.phone || "",
       title: user.title,
       department: user.department,
@@ -253,11 +274,11 @@ export default function HeaderControls({
       if (res.ok) {
         const data = await res.json();
         if (data.secure_url) {
-          if (user.empCode) {
+          if (user?.empCode) {
             setUserAvatar(user.empCode, data.secure_url);
           }
           setEditProfileForm((prev) => ({ ...prev, avatar: data.secure_url }));
-          setUser((prev) => ({ ...prev, avatar: data.secure_url }));
+          setUser((prev) => (prev ? { ...prev, avatar: data.secure_url } : null));
           setProfileMsg({
             text: t("common.success", undefined, "☁️ Đã lưu avatar mới thành công!"),
             error: false,
@@ -292,7 +313,7 @@ export default function HeaderControls({
         });
       }
 
-      setUser((prev) => ({
+      setUser((prev) => (prev ? {
         ...prev,
         name: editProfileForm.name,
         title: editProfileForm.title,
@@ -300,7 +321,7 @@ export default function HeaderControls({
         email: editProfileForm.email,
         phone: editProfileForm.phone,
         avatar: editProfileForm.avatar,
-      }));
+      } : null));
 
       setProfileMsg({
         text: lang === "vi" ? "Đã lưu cập nhật thông tin cá nhân thành công!" : "Profile saved successfully!",
@@ -362,266 +383,285 @@ export default function HeaderControls({
         onClose={() => setActiveDropdown(null)}
       />
 
-      {/* 2. NOTIFICATION BELL ICON */}
-      <div className="relative">
-        <button
-          type="button"
-          onClick={() => toggleDropdown("notif")}
-          className={`relative p-2 sm:p-2 rounded-full transition-all duration-200 cursor-pointer select-none flex items-center justify-center ${
-            isDark
-              ? "bg-white/10 hover:bg-white/20 text-white"
-              : "bg-slate-100 hover:bg-slate-200 text-slate-700"
-          }`}
-          aria-expanded={activeDropdown === "notif"}
-          aria-haspopup="true"
-          aria-label={lang === "vi" ? "Thông báo" : "Notifications"}
-          title={lang === "vi" ? "Thông báo" : "Notifications"}
-        >
-          <IconBell size={18} />
-          {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-rose-500 text-white text-[9px] font-black leading-none animate-bounce ring-2 ring-white">
-              {unreadCount > 99 ? "99+" : unreadCount}
-            </span>
-          )}
-        </button>
-
-        {/* NOTIFICATION DROPDOWN MENU */}
-        {activeDropdown === "notif" && (
-          <div
-            className={`absolute right-0 top-full mt-2 w-80 sm:w-96 rounded-2xl p-3 shadow-2xl z-50 animate-in fade-in slide-in-from-top-2 duration-150 border ${
-              isDark
-                ? "bg-[#062017] border-[#2fd39a]/60 text-white shadow-[0_25px_60px_rgba(0,0,0,0.95)]"
-                : "bg-white border-slate-200 text-slate-900"
-            }`}
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between pb-2.5 border-b border-slate-200/50 dark:border-white/15 mb-2">
-              <div className="flex items-center gap-2">
-                <IconBell size={16} className={isDark ? "text-[#2fd39a]" : "text-[#006838]"} />
-                <span className="text-xs font-black uppercase tracking-wider">
-                  {lang === "vi" ? "Thông Báo" : "Notifications"}
-                </span>
-                {unreadCount > 0 && (
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                    isDark ? "bg-[#2fd39a]/20 text-[#2fd39a]" : "bg-emerald-100 text-[#006838]"
-                  }`}>
-                    {unreadCount} {lang === "vi" ? "mới" : "new"}
-                  </span>
-                )}
-              </div>
+      {/* 2 & 3. AUTHENTICATED CONTROLS (NOTIF BELL + USER PROFILE) OR GUEST SIGN IN BUTTON */}
+      {user ? (
+        <>
+          {/* NOTIFICATION BELL ICON */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => toggleDropdown("notif")}
+              className={`relative p-2 sm:p-2 rounded-full transition-all duration-200 cursor-pointer select-none flex items-center justify-center ${
+                isDark
+                  ? "bg-white/10 hover:bg-white/20 text-white"
+                  : "bg-slate-100 hover:bg-slate-200 text-slate-700"
+              }`}
+              aria-expanded={activeDropdown === "notif"}
+              aria-haspopup="true"
+              aria-label={lang === "vi" ? "Thông báo" : "Notifications"}
+              title={lang === "vi" ? "Thông báo" : "Notifications"}
+            >
+              <IconBell size={18} />
               {unreadCount > 0 && (
-                <button
-                  type="button"
-                  onClick={handleMarkAllAsRead}
-                  className={`text-[11px] font-bold hover:underline transition-colors cursor-pointer ${
-                    isDark ? "text-[#2fd39a]" : "text-[#006838]"
-                  }`}
-                >
-                  {lang === "vi" ? "Đánh dấu tất cả đã đọc" : "Mark all as read"}
-                </button>
+                <span className="absolute -top-1 -right-1 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-rose-500 text-white text-[9px] font-black leading-none animate-bounce ring-2 ring-white">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
               )}
-            </div>
+            </button>
 
-            {/* List Content */}
-            <div className="max-h-72 overflow-y-auto space-y-1.5 pr-0.5">
-              {isLoadingNotifs ? (
-                <div className="py-8 text-center text-slate-400 text-xs flex items-center justify-center gap-2">
-                  <IconLoader2 size={16} className="animate-spin" />
-                  <span>{lang === "vi" ? "Đang tải thông báo..." : "Loading notifications..."}</span>
+            {/* NOTIFICATION DROPDOWN MENU */}
+            {activeDropdown === "notif" && (
+              <div
+                className={`absolute right-0 top-full mt-2 w-80 sm:w-96 rounded-2xl p-3 shadow-2xl z-50 animate-in fade-in slide-in-from-top-2 duration-150 border ${
+                  isDark
+                    ? "bg-[#062017] border-[#2fd39a]/60 text-white shadow-[0_25px_60px_rgba(0,0,0,0.95)]"
+                    : "bg-white border-slate-200 text-slate-900"
+                }`}
+              >
+                {/* Header */}
+                <div className="flex items-center justify-between pb-2.5 border-b border-slate-200/50 dark:border-white/15 mb-2">
+                  <div className="flex items-center gap-2">
+                    <IconBell size={16} className={isDark ? "text-[#2fd39a]" : "text-[#006838]"} />
+                    <span className="text-xs font-black uppercase tracking-wider">
+                      {lang === "vi" ? "Thông Báo" : "Notifications"}
+                    </span>
+                    {unreadCount > 0 && (
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        isDark ? "bg-[#2fd39a]/20 text-[#2fd39a]" : "bg-emerald-100 text-[#006838]"
+                      }`}>
+                        {unreadCount} {lang === "vi" ? "mới" : "new"}
+                      </span>
+                    )}
+                  </div>
+                  {unreadCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleMarkAllAsRead}
+                      className={`text-[11px] font-bold hover:underline transition-colors cursor-pointer ${
+                        isDark ? "text-[#2fd39a]" : "text-[#006838]"
+                      }`}
+                    >
+                      {lang === "vi" ? "Đánh dấu tất cả đã đọc" : "Mark all as read"}
+                    </button>
+                  )}
                 </div>
-              ) : notifications.length === 0 ? (
-                <div className="py-8 text-center text-slate-400 space-y-1">
-                  <IconBell size={28} className="mx-auto opacity-40" />
-                  <p className="text-xs font-bold">{lang === "vi" ? "Không có thông báo" : "No notifications"}</p>
-                  <p className="text-[10px] opacity-75">{lang === "vi" ? "Bạn đã đọc hết các thông báo mới." : "You have no unread updates."}</p>
+
+                {/* List Content */}
+                <div className="max-h-72 overflow-y-auto space-y-1.5 pr-0.5">
+                  {isLoadingNotifs ? (
+                    <div className="py-8 text-center text-slate-400 text-xs flex items-center justify-center gap-2">
+                      <IconLoader2 size={16} className="animate-spin" />
+                      <span>{lang === "vi" ? "Đang tải thông báo..." : "Loading notifications..."}</span>
+                    </div>
+                  ) : notifications.length === 0 ? (
+                    <div className="py-8 text-center text-slate-400 space-y-1">
+                      <IconBell size={28} className="mx-auto opacity-40" />
+                      <p className="text-xs font-bold">{lang === "vi" ? "Không có thông báo" : "No notifications"}</p>
+                      <p className="text-[10px] opacity-75">{lang === "vi" ? "Bạn đã đọc hết các thông báo mới." : "You have no unread updates."}</p>
+                    </div>
+                  ) : (
+                    notifications.map((item) => (
+                      <div
+                        key={item.id}
+                        onClick={() => handleMarkOneAsRead(item.id, item.link)}
+                        className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                          item.is_read
+                            ? isDark
+                              ? "bg-[#0a2f23]/40 border-white/5 opacity-75 hover:opacity-100"
+                              : "bg-slate-50 border-slate-100 opacity-75 hover:opacity-100"
+                            : isDark
+                            ? "bg-[#0f4133] border-[#2fd39a]/50 shadow-xs"
+                            : "bg-emerald-50/70 border-emerald-200/80 shadow-xs"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between text-xs font-extrabold gap-2">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            {!item.is_read && (
+                              <span className="w-2 h-2 rounded-full bg-rose-500 flex-shrink-0" />
+                            )}
+                            <span className="truncate">{item.title}</span>
+                          </div>
+                          <span className={`text-[10px] font-medium whitespace-nowrap flex-shrink-0 ${
+                            isDark ? "text-[#f2dc9a]" : "text-slate-400"
+                          }`}>
+                            {formatRelativeTime(item.created_at)}
+                          </span>
+                        </div>
+                        <p className="text-[11px] mt-1 line-clamp-2 leading-relaxed opacity-90 font-medium">
+                          {item.message}
+                        </p>
+                      </div>
+                    ))
+                  )}
                 </div>
-              ) : (
-                notifications.map((item) => (
-                  <div
-                    key={item.id}
-                    onClick={() => handleMarkOneAsRead(item.id, item.link)}
-                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-                      item.is_read
-                        ? isDark
-                          ? "bg-[#0a2f23]/40 border-white/5 opacity-75 hover:opacity-100"
-                          : "bg-slate-50 border-slate-100 opacity-75 hover:opacity-100"
-                        : isDark
-                        ? "bg-[#0f4133] border-[#2fd39a]/50 shadow-xs"
-                        : "bg-emerald-50/70 border-emerald-200/80 shadow-xs"
+              </div>
+            )}
+          </div>
+
+          {/* USER MENU (AVATAR + NAME) */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => toggleDropdown("user")}
+              className={`flex items-center gap-2 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full transition-all duration-200 cursor-pointer select-none border shadow-2xs ${
+                isDark
+                  ? "bg-[#0f4133] hover:bg-[#145341] border-[#2fd39a]/50 text-white"
+                  : "bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-800"
+              }`}
+              aria-expanded={activeDropdown === "user"}
+              aria-haspopup="true"
+              aria-label={user.name}
+              title={user.name}
+            >
+              <UserAvatar src={user.avatar} name={user.name} size="sm" />
+              <div className="hidden md:block text-left max-w-[130px] truncate">
+                <div className={`text-xs font-extrabold leading-none truncate ${
+                  isDark ? "text-[#f2dc9a]" : "text-slate-900"
+                }`}>
+                  {user.name}
+                </div>
+                <div className="text-[10px] text-slate-500 font-medium truncate mt-0.5">
+                  {user.title || user.department}
+                </div>
+              </div>
+              <IconChevronDown
+                size={13}
+                className={`transition-transform duration-200 ${
+                  isDark ? "text-[#2fd39a]" : "text-slate-500"
+                } ${activeDropdown === "user" ? "rotate-180" : ""}`}
+              />
+            </button>
+
+            {/* USER MENU DROPDOWN */}
+            {activeDropdown === "user" && (
+              <div
+                className={`absolute right-0 top-full mt-2 w-72 sm:w-80 rounded-3xl p-3.5 shadow-2xl z-50 animate-in fade-in slide-in-from-top-2 duration-150 border text-left ${
+                  isDark
+                    ? "bg-[#062017] border-[#2fd39a]/60 text-white shadow-[0_25px_60px_rgba(0,0,0,0.95)]"
+                    : "bg-white border-slate-200 text-slate-900"
+                }`}
+              >
+                {/* User Info Header Banner */}
+                <div className={`p-3 rounded-2xl border mb-3 space-y-1.5 ${
+                  isDark ? "bg-[#0a2f23] border-[#2fd39a]/40" : "bg-slate-50 border-slate-200"
+                }`}>
+                  <div className="flex items-center gap-3">
+                    <UserAvatar src={user.avatar} name={user.name} size="lg" />
+                    <div className="min-w-0 flex-1">
+                      <h4 className="text-sm font-black truncate">{user.name}</h4>
+                      <p className={`text-xs truncate font-semibold mt-0.5 ${
+                        isDark ? "text-[#2fd39a]" : "text-[#006838]"
+                      }`}>{user.title || user.department}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 dark:border-white/10">
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
+                      isDark
+                        ? "bg-[#2fd39a]/20 text-[#2fd39a] border border-[#2fd39a]/30"
+                        : "bg-emerald-100 text-[#006838] border border-emerald-200"
+                    }`}>
+                      {user.department}
+                    </span>
+                    <span className="text-[10px] font-mono font-bold opacity-75">
+                      Mã NV: {user.empCode || "---"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Menu Links */}
+                <div className="space-y-1">
+                  {/* 1. Thông tin cá nhân */}
+                  <button
+                    type="button"
+                    onClick={openProfileModal}
+                    className={`w-full p-2.5 rounded-xl text-left flex items-center gap-3 text-xs font-bold transition-all cursor-pointer group ${
+                      isDark
+                        ? "bg-[#0a2f23] hover:bg-[#0f4634] text-white border border-[#2fd39a]/20"
+                        : "bg-slate-50 hover:bg-emerald-50 text-slate-800 border border-slate-200"
                     }`}
                   >
-                    <div className="flex items-center justify-between text-xs font-extrabold gap-2">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        {!item.is_read && (
-                          <span className="w-2 h-2 rounded-full bg-rose-500 flex-shrink-0" />
-                        )}
-                        <span className="truncate">{item.title}</span>
-                      </div>
-                      <span className={`text-[10px] font-medium whitespace-nowrap flex-shrink-0 ${
-                        isDark ? "text-[#f2dc9a]" : "text-slate-400"
-                      }`}>
-                        {formatRelativeTime(item.created_at)}
-                      </span>
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                      isDark ? "bg-[#2fd39a]/20 text-[#2fd39a]" : "bg-emerald-100 text-[#006838]"
+                    }`}>
+                      <IconUser size={15} />
                     </div>
-                    <p className="text-[11px] mt-1 line-clamp-2 leading-relaxed opacity-90 font-medium">
-                      {item.message}
-                    </p>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        )}
-      </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-extrabold">{lang === "vi" ? "Thông tin cá nhân" : "Personal Info"}</div>
+                      <div className="text-[10px] opacity-70 truncate">{lang === "vi" ? "Họ tên, email, avatar" : "Name, email & photo"}</div>
+                    </div>
+                  </button>
 
-      {/* 3. USER MENU (AVATAR + NAME) */}
-      <div className="relative">
-        <button
-          type="button"
-          onClick={() => toggleDropdown("user")}
-          className={`flex items-center gap-2 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full transition-all duration-200 cursor-pointer select-none border shadow-2xs ${
+                  {/* 2. Đổi mật khẩu */}
+                  <button
+                    type="button"
+                    onClick={openChangePasswordModal}
+                    className={`w-full p-2.5 rounded-xl text-left flex items-center gap-3 text-xs font-bold transition-all cursor-pointer group ${
+                      isDark
+                        ? "bg-[#0a2f23] hover:bg-[#0f4634] text-white border border-amber-400/20"
+                        : "bg-slate-50 hover:bg-amber-50 text-slate-800 border border-slate-200"
+                    }`}
+                  >
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                      isDark ? "bg-amber-400/20 text-[#f2dc9a]" : "bg-amber-100 text-amber-800"
+                    }`}>
+                      <IconKey size={15} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-extrabold">{lang === "vi" ? "Đổi mật khẩu" : "Change Password"}</div>
+                      <div className="text-[10px] opacity-70 truncate">{lang === "vi" ? "Cập nhật mật khẩu bảo mật" : "Update account password"}</div>
+                    </div>
+                  </button>
+
+                  <div className="my-1 border-t border-slate-200/60 dark:border-white/10" />
+
+                  {/* 3. Đăng xuất */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveDropdown(null);
+                      setLogoutConfirmOpen(true);
+                    }}
+                    className={`w-full p-2.5 rounded-xl text-left flex items-center gap-3 text-xs font-bold transition-all cursor-pointer group ${
+                      isDark
+                        ? "bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-500/30"
+                        : "bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200"
+                    }`}
+                  >
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                      isDark ? "bg-rose-500/20 text-rose-400" : "bg-rose-100 text-rose-600"
+                    }`}>
+                      <IconLogout size={15} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-extrabold">{lang === "vi" ? "Đăng xuất" : "Logout"}</div>
+                      <div className="text-[10px] opacity-70 truncate">{lang === "vi" ? "Thoát phiên làm việc" : "Sign out safely"}</div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </>
+      ) : (
+        /* Guest / Unauthenticated: "Đăng Nhập" Button */
+        <Link
+          href="/login"
+          className={`flex items-center gap-1.5 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full font-bold text-xs transition-all duration-200 cursor-pointer shadow-xs active:scale-95 ${
             isDark
-              ? "bg-[#0f4133] hover:bg-[#145341] border-[#2fd39a]/50 text-white"
-              : "bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-800"
+              ? "bg-gradient-to-r from-[#2fd39a] to-[#25a77b] text-[#041a13] hover:brightness-110 border border-[#2fd39a]/60 shadow-[0_0_15px_rgba(47,211,154,0.25)]"
+              : "bg-[#006838] text-white hover:bg-[#00522c] border border-[#006838]/20 shadow-xs"
           }`}
-          aria-expanded={activeDropdown === "user"}
-          aria-haspopup="true"
-          aria-label={user.name}
-          title={user.name}
+          title={lang === "vi" ? "Đăng nhập hệ thống" : "Sign in to system"}
         >
-          <UserAvatar src={user.avatar} name={user.name} size="sm" />
-          <div className="hidden md:block text-left max-w-[130px] truncate">
-            <div className={`text-xs font-extrabold leading-none truncate ${
-              isDark ? "text-[#f2dc9a]" : "text-slate-900"
-            }`}>
-              {user.name}
-            </div>
-            <div className="text-[10px] text-slate-500 font-medium truncate mt-0.5">
-              {user.title || user.department}
-            </div>
-          </div>
-          <IconChevronDown
-            size={13}
-            className={`transition-transform duration-200 ${
-              isDark ? "text-[#2fd39a]" : "text-slate-500"
-            } ${activeDropdown === "user" ? "rotate-180" : ""}`}
-          />
-        </button>
-
-        {/* USER MENU DROPDOWN */}
-        {activeDropdown === "user" && (
-          <div
-            className={`absolute right-0 top-full mt-2 w-72 sm:w-80 rounded-3xl p-3.5 shadow-2xl z-50 animate-in fade-in slide-in-from-top-2 duration-150 border text-left ${
-              isDark
-                ? "bg-[#062017] border-[#2fd39a]/60 text-white shadow-[0_25px_60px_rgba(0,0,0,0.95)]"
-                : "bg-white border-slate-200 text-slate-900"
-            }`}
-          >
-            {/* User Info Header Banner */}
-            <div className={`p-3 rounded-2xl border mb-3 space-y-1.5 ${
-              isDark ? "bg-[#0a2f23] border-[#2fd39a]/40" : "bg-slate-50 border-slate-200"
-            }`}>
-              <div className="flex items-center gap-3">
-                <UserAvatar src={user.avatar} name={user.name} size="lg" />
-                <div className="min-w-0 flex-1">
-                  <h4 className="text-sm font-black truncate">{user.name}</h4>
-                  <p className={`text-xs truncate font-semibold mt-0.5 ${
-                    isDark ? "text-[#2fd39a]" : "text-[#006838]"
-                  }`}>{user.title || user.department}</p>
-                </div>
-              </div>
-              <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 dark:border-white/10">
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
-                  isDark
-                    ? "bg-[#2fd39a]/20 text-[#2fd39a] border border-[#2fd39a]/30"
-                    : "bg-emerald-100 text-[#006838] border border-emerald-200"
-                }`}>
-                  {user.department}
-                </span>
-                <span className="text-[10px] font-mono font-bold opacity-75">
-                  Mã NV: {user.empCode || "102603069"}
-                </span>
-              </div>
-            </div>
-
-            {/* Menu Links */}
-            <div className="space-y-1">
-              {/* 1. Thông tin cá nhân */}
-              <button
-                type="button"
-                onClick={openProfileModal}
-                className={`w-full p-2.5 rounded-xl text-left flex items-center gap-3 text-xs font-bold transition-all cursor-pointer group ${
-                  isDark
-                    ? "bg-[#0a2f23] hover:bg-[#0f4634] text-white border border-[#2fd39a]/20"
-                    : "bg-slate-50 hover:bg-emerald-50 text-slate-800 border border-slate-200"
-                }`}
-              >
-                <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                  isDark ? "bg-[#2fd39a]/20 text-[#2fd39a]" : "bg-emerald-100 text-[#006838]"
-                }`}>
-                  <IconUser size={15} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="font-extrabold">{lang === "vi" ? "Thông tin cá nhân" : "Personal Info"}</div>
-                  <div className="text-[10px] opacity-70 truncate">{lang === "vi" ? "Họ tên, email, avatar" : "Name, email & photo"}</div>
-                </div>
-              </button>
-
-              {/* 2. Đổi mật khẩu */}
-              <button
-                type="button"
-                onClick={openChangePasswordModal}
-                className={`w-full p-2.5 rounded-xl text-left flex items-center gap-3 text-xs font-bold transition-all cursor-pointer group ${
-                  isDark
-                    ? "bg-[#0a2f23] hover:bg-[#0f4634] text-white border border-amber-400/20"
-                    : "bg-slate-50 hover:bg-amber-50 text-slate-800 border border-slate-200"
-                }`}
-              >
-                <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                  isDark ? "bg-amber-400/20 text-[#f2dc9a]" : "bg-amber-100 text-amber-800"
-                }`}>
-                  <IconKey size={15} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="font-extrabold">{lang === "vi" ? "Đổi mật khẩu" : "Change Password"}</div>
-                  <div className="text-[10px] opacity-70 truncate">{lang === "vi" ? "Cập nhật mật khẩu bảo mật" : "Update account password"}</div>
-                </div>
-              </button>
-
-              <div className="my-1 border-t border-slate-200/60 dark:border-white/10" />
-
-              {/* 3. Đăng xuất */}
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveDropdown(null);
-                  setLogoutConfirmOpen(true);
-                }}
-                className={`w-full p-2.5 rounded-xl text-left flex items-center gap-3 text-xs font-bold transition-all cursor-pointer group ${
-                  isDark
-                    ? "bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-500/30"
-                    : "bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200"
-                }`}
-              >
-                <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                  isDark ? "bg-rose-500/20 text-rose-400" : "bg-rose-100 text-rose-600"
-                }`}>
-                  <IconLogout size={15} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="font-extrabold">{lang === "vi" ? "Đăng xuất" : "Logout"}</div>
-                  <div className="text-[10px] opacity-70 truncate">{lang === "vi" ? "Thoát phiên làm việc" : "Sign out safely"}</div>
-                </div>
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+          <IconLogin size={15} />
+          <span>{lang === "vi" ? "Đăng Nhập" : "Sign In"}</span>
+        </Link>
+      )}
 
       {/* ════════════════════════════════════════════════════════════
           LOGOUT CONFIRMATION MODAL
          ════════════════════════════════════════════════════════════ */}
-      {logoutConfirmOpen && (
+      {logoutConfirmOpen && user && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
           <div className="w-full max-w-sm bg-white dark:bg-[#041a13] border border-slate-200 dark:border-[#2fd39a]/40 rounded-3xl p-6 text-slate-900 dark:text-white space-y-4 shadow-2xl relative text-center animate-in zoom-in-95 duration-150">
             <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 dark:bg-rose-950 dark:text-rose-400 flex items-center justify-center mx-auto">

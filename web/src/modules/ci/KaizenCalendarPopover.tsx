@@ -18,6 +18,13 @@ export interface KaizenCalendarPopoverProps {
   onClear: () => void;
   isProposalMatchingFilters?: (p: any, ignoreDate?: boolean) => boolean;
   proposals?: any[];
+  activeFilters?: {
+    region?: string;
+    workshop?: string;
+    category?: string;
+    regType?: string;
+    searchQuery?: string;
+  };
 }
 
 import { formatVnDateDisplay, formatShortVnDateDisplay } from "@/lib/kaizenDateHelper";

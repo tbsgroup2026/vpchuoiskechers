@@ -48,6 +48,10 @@
     {
       "binding": "BUCKET",
       "bucket_name": "tbs-business-trips"
+    },
+    {
+      "binding": "IMAGE_BUCKET",
+      "bucket_name": "tbs-img"
     }
   ],
   "triggers": {

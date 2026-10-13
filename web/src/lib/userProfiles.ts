@@ -951,20 +951,27 @@ export function logoutUserProfile(): void {
     // 1. Expire cookies across all paths
     document.cookie = "tbs_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
     document.cookie = "tbs_token=; path=/; max-age=0; SameSite=Lax";
+    document.cookie = "tbs_token=; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    document.cookie = "tbs_token=; max-age=0";
     document.cookie = "tbs_user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+    document.cookie = "tbs_user=; path=/; max-age=0; SameSite=Lax";
+    document.cookie = "tbs_user=; expires=Thu, 01 Jan 1970 00:00:00 GMT";
 
     // 2. Clear Session and Local Storage completely
     sessionStorage.removeItem("tbs_current_user");
     localStorage.removeItem("tbs_current_user");
     sessionStorage.removeItem("tbs_token");
     localStorage.removeItem("tbs_token");
+    sessionStorage.removeItem("tbs_jwt_token");
+    localStorage.removeItem("tbs_jwt_token");
     localStorage.removeItem("tbs_user_custom_avatar");
 
     sessionStorage.clear();
     localStorage.clear();
 
-    // 3. Dispatch global profile updated event
+    // 3. Dispatch global profile updated & notifications updated events
     window.dispatchEvent(new Event("tbs_profile_updated"));
+    window.dispatchEvent(new Event("tbs_notifications_updated"));
   } catch (e) {
     console.warn("[logoutUserProfile] Cleanup error:", e);
   }

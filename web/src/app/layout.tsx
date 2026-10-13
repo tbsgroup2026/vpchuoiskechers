@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import DevToolsShield from "@/components/DevToolsShield";
-import MobileBottomNav from "@/components/MobileBottomNav";
+import AppChrome from "@/components/AppChrome";
 import NotificationInitializer from "@/components/NotificationInitializer";
 
 export const viewport: Viewport = {
@@ -111,14 +111,15 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="min-h-full flex flex-col font-sans bg-canvas text-ink pb-16 sm:pb-0">
+      <body className="min-h-full flex flex-col font-sans bg-canvas text-ink">
         <PerformanceProvider>
           <GuestRouteGuard />
           <DevToolsShield />
           <NotificationInitializer />
-          {children}
-          <VersionChecker />
-          <MobileBottomNav />
+          <AppChrome>
+            {children}
+            <VersionChecker />
+          </AppChrome>
           <PerfDebugOverlay />
         </PerformanceProvider>
       </body>

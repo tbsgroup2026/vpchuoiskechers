@@ -943,7 +943,10 @@ function PickerGrid({ items, onSelect }: { items: PickGridItem[]; onSelect: (ite
           onClick={() => onSelect(it)}
           className="flex items-center justify-between gap-1.5 px-3.5 py-3 rounded-xl border border-slate-200 bg-white hover:border-[#006838]/60 hover:bg-emerald-50 text-left transition-colors"
         >
-          <span className="text-sm font-black text-slate-800 truncate">{it.name}</span>
+          {/* Xuống dòng tự nhiên (không truncate 1 dòng) — tên Nhà máy/Xưởng ở đây có thể dài (VD
+              "VĂN PHÒNG CHUỖI SKECHERS") dễ bị cắt mất chữ nếu ép 1 dòng. min-w-0 để span thật sự
+              co lại và xuống dòng được trong flex container, không đẩy nút rộng ra ngoài lưới. */}
+          <span className="min-w-0 flex-1 text-sm font-black leading-tight text-slate-800">{it.name}</span>
           {it.drill && <IconChevronRight size={14} className="text-slate-400 shrink-0" />}
         </button>
       ))}

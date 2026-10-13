@@ -366,7 +366,7 @@ export function matchRegionFilter(propRegionOrObj: any, filterRegion: string): b
   }
 
   if (filterUpper.includes("HOÀN THIỆN ĐẾ") || filterUpper.includes("HOAN THIEN DE") || filterUpper.includes("HTĐ")) {
-    return norm === "Hoàn Thiện Đế";
+    return norm === "Hoàn thiện đế" || (norm as string) === "Hoàn Thiện Đế";
   }
 
   if (filterUpper.includes("KIÊN GIANG 1") || filterUpper.includes("KG 1") || filterUpper.includes("KG1")) {

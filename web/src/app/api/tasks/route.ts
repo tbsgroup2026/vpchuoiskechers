@@ -59,6 +59,9 @@ async function ensureTable(db: any) {
       'ALTER TABLE sys_my_tasks ADD COLUMN history_log TEXT',
       'ALTER TABLE sys_my_tasks ADD COLUMN attachments TEXT',
       'ALTER TABLE sys_my_tasks ADD COLUMN is_test_data INTEGER DEFAULT 0',
+      'ALTER TABLE sys_my_tasks ADD COLUMN parent_task_id TEXT',
+      'ALTER TABLE sys_my_tasks ADD COLUMN blocked_by_task_id TEXT',
+      'ALTER TABLE sys_my_tasks ADD COLUMN assignee_department TEXT',
     ];
 
     for (const sql of migrations) {
@@ -145,7 +148,34 @@ export async function GET(request: Request) {
           }
           return [];
         })(),
+        parent_task_id: r.parent_task_id || null,
+        blocked_by_task_id: r.blocked_by_task_id || null,
+        assignee_department: r.assignee_department || '',
       }));
+
+      // Map dependencies to detect if task is blocked
+      const taskLookup = new Map<string, any>();
+      allTasks.forEach((t) => {
+        taskLookup.set(t.id, t);
+        if (t.code) taskLookup.set(t.code, t);
+      });
+
+      allTasks = allTasks.map((t) => {
+        let isBlocked = false;
+        let blockedByInfo = null;
+        if (t.blocked_by_task_id) {
+          const pred = taskLookup.get(t.blocked_by_task_id);
+          if (pred && pred.status !== 'DONE') {
+            isBlocked = true;
+            blockedByInfo = { id: pred.id, code: pred.code, title: pred.title, status: pred.status };
+          }
+        }
+        return {
+          ...t,
+          is_blocked: isBlocked,
+          blocked_by: blockedByInfo,
+        };
+      });
     }
 
     // Role-based visibility scoping
@@ -180,12 +210,23 @@ export async function GET(request: Request) {
             return isAssignee || isReporter || isReviewer || isInChecklist;
           });
         } else if (filterScope === 'DEPT_ONLY' && isTP) {
-          // Trưởng phòng xem toàn bộ task thuộc phòng ban mình
+          // Trưởng phòng xem toàn bộ task thuộc phòng ban mình + task thuộc dự án ngoài do nhân viên phòng mình phụ trách
           allTasks = allTasks.filter((t: any) => {
             const isOwnDept = userDept !== '' && t.department_id && String(t.department_id).toUpperCase().includes(userDept);
             const isHandoverOldDept = t.handover_status === 'PENDING_HANDOVER' && t.previous_department_id && String(t.previous_department_id).toUpperCase().includes(userDept);
             const isHandoverNewDept = t.handover_status === 'PENDING_HANDOVER' && t.new_department_id && String(t.new_department_id).toUpperCase().includes(userDept);
-            return isOwnDept || isHandoverOldDept || isHandoverNewDept;
+            const isExternalProjectTask = Boolean(t.project_id && t.assignee_department && String(t.assignee_department).toUpperCase().includes(userDept));
+            return isOwnDept || isHandoverOldDept || isHandoverNewDept || isExternalProjectTask;
+          });
+
+          // Gắn nhãn hiển thị trực quan cho task thuộc dự án ngoài
+          allTasks = allTasks.map((t: any) => {
+            const isExternal = Boolean(t.project_id && t.department_id && !String(t.department_id).toUpperCase().includes(userDept));
+            return {
+              ...t,
+              is_external_project_task: isExternal,
+              external_project_label: isExternal ? `Dự án ngoài: ${t.project_id}` : null,
+            };
           });
         }
       }
@@ -303,20 +344,25 @@ export async function POST(request: Request) {
       reject_reason: null,
       history_log: initialHistory,
       is_test_data: body.is_test_data ? 1 : 0,
+      parent_task_id: body.parent_task_id || null,
+      blocked_by_task_id: body.blocked_by_task_id || null,
+      assignee_department: body.assignee_department || session.departmentCode || session.department || '',
     };
 
     await db.prepare(`
       INSERT INTO sys_my_tasks (
         id, code, title, description, department_id, project_id, assignee_emp_code, assignee_name,
         reporter_emp_code, reviewer_emp_code, priority, start_date, due_date, status, progress,
-        tags, checklist, attachments, result_description, reject_reason, history_log, is_test_data, handover_status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'NONE')
+        tags, checklist, attachments, result_description, reject_reason, history_log, is_test_data, handover_status,
+        parent_task_id, blocked_by_task_id, assignee_department
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'NONE', ?, ?, ?)
     `).bind(
       newTask.id, newTask.code, newTask.title, newTask.description, newTask.department_id, newTask.project_id,
       newTask.assignee_emp_code, newTask.assignee_name, newTask.reporter_emp_code, newTask.reviewer_emp_code,
       newTask.priority, newTask.start_date, newTask.due_date, newTask.status, newTask.progress,
       newTask.tags, JSON.stringify(newTask.checklist), JSON.stringify(newTask.attachments),
-      newTask.result_description, newTask.reject_reason, JSON.stringify(newTask.history_log), newTask.is_test_data
+      newTask.result_description, newTask.reject_reason, JSON.stringify(newTask.history_log), newTask.is_test_data,
+      newTask.parent_task_id, newTask.blocked_by_task_id, newTask.assignee_department
     ).run();
 
     // Dispatch notification to Assignee across all enabled channels
@@ -436,6 +482,31 @@ export async function PATCH(request: Request) {
     let newRejectReason = existing.reject_reason;
     let newProgress = progress !== undefined ? progress : existing.progress;
     let newDueDate = dueDate !== undefined ? dueDate : existing.due_date;
+
+    // Giai đoạn 7: Ràng buộc phụ thuộc công việc (Task Dependencies)
+    // Một task có blocked_by_task_id KHÔNG THỂ chuyển sang DOING nếu task phụ thuộc chưa DONE
+    const targetStatus = (newStatus || '').toUpperCase();
+    if (targetStatus === 'DOING' && existing.status !== 'DOING' && existing.blocked_by_task_id) {
+      const predTask: any = await db.prepare(
+        `SELECT id, code, title, status FROM sys_my_tasks WHERE id = ? OR code = ?`
+      ).bind(existing.blocked_by_task_id, existing.blocked_by_task_id).first().catch(() => null);
+
+      if (predTask && predTask.status !== 'DONE') {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `🔒 Nhiệm vụ này đang bị chặn bởi [${predTask.code || predTask.id}]: "${predTask.title}". Nhiệm vụ phụ thuộc phải được hoàn thành (DONE) trước khi bạn có thể bắt đầu (DOING).`,
+            blocked_by: {
+              id: predTask.id,
+              code: predTask.code,
+              title: predTask.title,
+              status: predTask.status,
+            },
+          },
+          { status: 400 }
+        );
+      }
+    }
 
     // Giai đoạn 3.2: Kiểm soát luồng trạng thái nghiêm ngặt
     // 1. Chặn nhân viên tự ý chuyển sang DONE
@@ -606,6 +677,12 @@ export async function PATCH(request: Request) {
       attachmentsArr = body.attachments;
     }
 
+    const newBlockedBy = body.blocked_by_task_id !== undefined ? body.blocked_by_task_id : existing.blocked_by_task_id;
+    const newParentId = body.parent_task_id !== undefined ? body.parent_task_id : existing.parent_task_id;
+    const newAssigneeCode = body.assignee_emp_code !== undefined ? body.assignee_emp_code : existing.assignee_emp_code;
+    const newAssigneeName = body.assignee_name !== undefined ? body.assignee_name : existing.assignee_name;
+    const newAssigneeDept = body.assignee_department !== undefined ? body.assignee_department : existing.assignee_department;
+
     // Update in D1
     await db.prepare(`
       UPDATE sys_my_tasks
@@ -617,6 +694,11 @@ export async function PATCH(request: Request) {
           checklist = ?,
           attachments = ?,
           history_log = ?,
+          blocked_by_task_id = ?,
+          parent_task_id = ?,
+          assignee_emp_code = ?,
+          assignee_name = ?,
+          assignee_department = ?,
           updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `).bind(
@@ -628,6 +710,11 @@ export async function PATCH(request: Request) {
       JSON.stringify(checklistArr),
       JSON.stringify(attachmentsArr),
       JSON.stringify(history),
+      newBlockedBy,
+      newParentId,
+      newAssigneeCode,
+      newAssigneeName,
+      newAssigneeDept,
       taskId
     ).run();
 

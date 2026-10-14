@@ -51,6 +51,7 @@ import {
   IconCopy,
   IconShieldCheck,
   IconArrowBackUp,
+  IconLock,
 } from "@tabler/icons-react";
 
 import { getCurrentUser, normalizeEmpCode, getSystemUser } from "@/lib/userProfiles";
@@ -599,6 +600,15 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
     const isReporter = (task.reporter_emp_code === myCode);
     const isSelfAssigned = (task.reporter_emp_code === myCode && task.assignee_emp_code === myCode);
     const canDirectlyApprove = isAdmin || isExec || isTP || isReporter;
+
+    // Task Dependency Guard: Chặn chuyển sang DOING nếu task phụ thuộc chưa hoàn thành
+    if (newStatus === "DOING" && (task as any).is_blocked) {
+      const pred = (task as any).blocked_by;
+      alert(
+        `🔒 KHÔNG THỂ BẮT ĐẦU (DOING)!\n\nNhiệm vụ này đang bị chặn bởi công việc [${pred?.code || (task as any).blocked_by_task_id}]: "${pred?.title || "Chưa hoàn thành"}".\n\nNhiệm vụ phụ thuộc phải được hoàn thành (DONE) trước khi bạn bắt đầu nhiệm vụ này!`
+      );
+      return;
+    }
 
     if (newStatus === "DONE") {
       setPendingDoneTask(task);
@@ -2096,6 +2106,24 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
                                 {task.priority}
                               </span>
                             </div>
+
+                            {/* Task Dependency Lock Badge */}
+                            {(task as any).is_blocked && (
+                              <div
+                                className="px-2 py-0.5 rounded bg-rose-100 text-rose-800 text-[10px] font-black flex items-center gap-1 border border-rose-300 w-fit"
+                                title={`Bị chặn bởi #${(task as any).blocked_by?.code || (task as any).blocked_by_task_id}: ${(task as any).blocked_by?.title || "Chưa hoàn thành"}`}
+                              >
+                                <IconLock size={11} className="text-rose-600" />
+                                <span>Bị chặn bởi #{(task as any).blocked_by?.code || (task as any).blocked_by_task_id}</span>
+                              </div>
+                            )}
+
+                            {/* Cross-Department Project Task Badge */}
+                            {(task as any).is_external_project_task && (
+                              <div className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 text-[9px] font-black border border-blue-200 w-fit">
+                                🤝 {(task as any).external_project_label || `Dự án ngoài: ${(task as any).project_id}`}
+                              </div>
+                            )}
 
                             <h4 className="text-xs font-bold text-slate-900 group-hover:text-[#006838] transition-colors leading-snug">
                               {task.title}

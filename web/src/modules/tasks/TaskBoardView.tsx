@@ -1,10 +1,12 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { getCurrentUser } from "@/lib/userProfiles";
 import DepartmentOverviewGrid, { DEFAULT_DEPARTMENTS } from "./DepartmentOverviewGrid";
+import DepartmentWorkloadReport from "./DepartmentWorkloadReport";
+import * as XLSX from "xlsx";
 import {
   IconPlus,
   IconCheck,
@@ -549,6 +551,92 @@ export default function TaskBoardView() {
 
     return matchesSearch && matchesColor;
   });
+
+  const workloadTasks = useMemo(() => {
+    return cards.map((c) => ({
+      id: String(c.id),
+      code: c.code || `TSK-${String(c.id).substring(0, 6)}`,
+      title: c.title || "Không có tiêu đề",
+      status: c.status || (c.list_id === "list-done" ? "DONE" : c.list_id === "list-review" ? "REVIEW" : c.list_id === "list-doing" ? "DOING" : "TODO"),
+      progress: typeof c.progress === "number" ? c.progress : (c.status === "DONE" || c.status === "done" ? 100 : 0),
+      priority: c.priority || "MEDIUM",
+      due_date: c.deadline || c.due_date || "",
+      assignee_emp_code: c.assignee_id || "",
+      assignee_name: c.assignee_name || c.assignee_id || "Chưa giao",
+      department_id: activeDepartment,
+      project_id: c.project_id || selectedBoardId,
+      updated_at: c.updated_at || c.created_at,
+    }));
+  }, [cards, activeDepartment, selectedBoardId]);
+
+  const workloadStaff = useMemo(() => {
+    return staffMembers.map((s) => ({
+      empCode: s.empCode,
+      name: s.name,
+      position: s.position,
+      department: s.dept || activeDepartment,
+    }));
+  }, [staffMembers, activeDepartment]);
+
+  const handleExportExcel = () => {
+    if (cards.length === 0) {
+      showToast("⚠️ Không có dữ liệu thẻ công việc để xuất Excel");
+      return;
+    }
+    showToast("📊 Đang kết xuất tệp Excel danh sách công việc & phân bổ nhân sự...");
+
+    const taskRows = cards.map((c, idx) => ({
+      "STT": idx + 1,
+      "Mã Thẻ": c.id,
+      "Tiêu Đề Công Việc": c.title || "",
+      "Mô Tả": c.description || "",
+      "Người Thực Hiện": c.assignee_name || c.assignee_id || "Chưa phân công",
+      "Mã NV": c.assignee_id || "",
+      "Trạng Thái": c.status || "TODO",
+      "Ưu Tiên": c.priority || "Bình thường",
+      "Hạn Chót": c.deadline || c.due_date || "",
+      "Phòng Ban": activeDepartment,
+    }));
+
+    const staffRows = staffMembers.map((s, idx) => {
+      const sCards = cards.filter(
+        (c) =>
+          c.assignee_id === s.empCode ||
+          c.assignee_id === s.name ||
+          (c.assignee_name && c.assignee_name.toLowerCase().includes(s.name.toLowerCase()))
+      );
+      const doing = sCards.filter((c) => c.status === "in_progress" || c.status === "DOING").length;
+      const review = sCards.filter((c) => c.status === "pending_review" || c.status === "REVIEW").length;
+      const done = sCards.filter((c) => c.status === "done" || c.status === "DONE").length;
+      return {
+        "STT": idx + 1,
+        "Mã NV": s.empCode,
+        "Họ Và Tên": s.name,
+        "Vị Trí / Chức Vụ": s.position,
+        "Phòng Ban": s.dept || activeDepartment,
+        "Đang Làm (DOING)": doing,
+        "Chờ Duyệt (REVIEW)": review,
+        "Đã Xong (DONE)": done,
+        "Tổng Số Thẻ": sCards.length,
+        "Trạng Thái Tải": doing > 5 ? "QUÁ TẢI" : doing === 0 ? "ĐANG RẢNH" : "BÌNH THƯỜNG",
+      };
+    });
+
+    const wb = XLSX.utils.book_new();
+    const ws1 = XLSX.utils.json_to_sheet(taskRows);
+    const ws2 = XLSX.utils.json_to_sheet(staffRows);
+
+    ws1["!cols"] = [{ wch: 6 }, { wch: 20 }, { wch: 40 }, { wch: 30 }, { wch: 22 }, { wch: 12 }, { wch: 15 }, { wch: 14 }, { wch: 14 }, { wch: 20 }];
+    ws2["!cols"] = [{ wch: 6 }, { wch: 12 }, { wch: 25 }, { wch: 22 }, { wch: 20 }, { wch: 18 }, { wch: 18 }, { wch: 16 }, { wch: 14 }, { wch: 18 }];
+
+    XLSX.utils.book_append_sheet(wb, ws1, "Danh_Sach_The");
+    XLSX.utils.book_append_sheet(wb, ws2, "Tai_Nhan_Su");
+
+    const dateStr = new Date().toISOString().substring(0, 10);
+    const fileName = `Bao_Cao_Cong_Viec_${activeDepartment.replace(/\s+/g, "_")}_${dateStr}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+    showToast("✅ Đã xuất tệp Excel thành công!");
+  };
 
   if (isUnauthenticated) {
     return (
@@ -1107,134 +1195,26 @@ export default function TaskBoardView() {
 
               {/* Conditional View Tabs Content */}
               {viewTab === "EMPLOYEE_VIEW" ? (
-                /* EMPLOYEE WORKLOAD & PERFORMANCE VIEW */
+                /* EMPLOYEE WORKLOAD & PERFORMANCE VIEW WITH A4 REPORT & QUICK REBALANCE */
                 <div className="space-y-4">
-                  <div className="p-4 rounded-2xl bg-gradient-to-r from-[#006838] to-emerald-800 text-white border border-emerald-700 shadow-sm flex items-center justify-between">
-                    <div>
-                      <h2 className="text-lg font-black flex items-center gap-2">
-                        <IconUsers size={22} className="text-emerald-200" />
-                        <span>Theo Dõi Khối Lượng Công Việc &amp; KPI Nhân Sự Phòng Ban</span>
-                      </h2>
-                      <p className="text-xs text-emerald-100 font-medium">
-                        Phạm vi: {deptParam || activeDepartment} • Trưởng Phòng &amp; Ban Quản Trị giám sát tiến độ công việc từng nhân viên
-                      </p>
-                    </div>
+                  <div className="flex items-center justify-between pb-1">
                     <button
                       type="button"
                       onClick={() => setViewTab("KANBAN")}
-                      className="px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold border border-white/20 transition cursor-pointer"
+                      className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold border border-slate-200 transition cursor-pointer flex items-center gap-1.5"
                     >
-                      ← Bảng Kanban
+                      <span>← Quay lại Bảng Kanban</span>
                     </button>
                   </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {staffMembers.length === 0 ? (
-                      <div className="col-span-full py-12 text-center text-slate-400 text-xs bg-white rounded-2xl border border-slate-200">
-                        Đang tải danh sách nhân sự phòng ban ({activeDepartment})...
-                      </div>
-                    ) : (
-                      staffMembers.map((staff) => {
-                      const staffCards = cards.filter(
-                        (c) =>
-                          c.assignee_id === staff.empCode ||
-                          c.assignee_id === staff.name ||
-                          (c.assignee_name && c.assignee_name.toLowerCase().includes(staff.name.toLowerCase()))
-                      );
-                      const total = staffCards.length;
-                      const done = staffCards.filter((c) => c.status === "done" || c.status === "DONE").length;
-                      const doing = staffCards.filter((c) => c.status === "in_progress" || c.status === "DOING").length;
-                      const review = staffCards.filter((c) => c.status === "pending_review" || c.status === "REVIEW").length;
-                      const help = staffCards.filter((c) => c.status === "need_help" || c.status === "NEED_HELP").length;
-                      const progressPct = total > 0 ? Math.round((done / total) * 100) : 0;
-
-                      return (
-                        <div
-                          key={staff.empCode}
-                          className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs hover:shadow-md transition space-y-3 flex flex-col justify-between"
-                        >
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2.5">
-                                <UserAvatar name={staff.name} size="md" />
-                                <div>
-                                  <h3 className="font-extrabold text-slate-900 text-sm">{staff.name}</h3>
-                                  <span className="text-[10px] text-slate-500 font-mono font-bold block">
-                                    MSNV: {staff.empCode} • {staff.position}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="space-y-1 pt-1">
-                              <div className="flex items-center justify-between text-xs font-extrabold">
-                                <span className="text-slate-500">Tiến Độ Hoàn Thành</span>
-                                <span className="text-[#006838] font-mono">
-                                  {progressPct}% ({done}/{total})
-                                </span>
-                              </div>
-                              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                                <div
-                                  className="bg-gradient-to-r from-emerald-500 to-[#006838] h-full transition-all duration-500 rounded-full"
-                                  style={{ width: `${progressPct}%` }}
-                                ></div>
-                              </div>
-                            </div>
-
-                            <div className="grid grid-cols-4 gap-1 text-[10px] font-black pt-1">
-                              <div className="p-1.5 rounded-lg bg-amber-50 text-amber-900 text-center border border-amber-200">
-                                Đang làm: {doing}
-                              </div>
-                              <div className="p-1.5 rounded-lg bg-blue-50 text-blue-900 text-center border border-blue-200">
-                                Chờ duyệt: {review}
-                              </div>
-                              <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-900 text-center border border-emerald-200">
-                                Xong: {done}
-                              </div>
-                              <div className="p-1.5 rounded-lg bg-rose-50 text-rose-900 text-center border border-rose-200">
-                                Cần giúp: {help}
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="space-y-1.5 pt-2 border-t border-slate-100">
-                            <span className="text-[10px] font-black uppercase text-slate-400 block tracking-wider">
-                              Danh Sách Nhiệm Vụ ({total})
-                            </span>
-                            {staffCards.length > 0 ? (
-                              <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
-                                {staffCards.map((c) => (
-                                  <div
-                                    key={c.id}
-                                    className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs flex items-center justify-between transition"
-                                  >
-                                    <span className="font-bold text-slate-800 truncate max-w-[170px]" title={c.title}>
-                                      {c.title}
-                                    </span>
-                                    <span
-                                      className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${
-                                        c.status === "done" || c.status === "DONE"
-                                          ? "bg-emerald-100 text-emerald-800"
-                                          : c.status === "pending_review" || c.status === "REVIEW"
-                                          ? "bg-indigo-100 text-indigo-800"
-                                          : "bg-amber-100 text-amber-800"
-                                      }`}
-                                    >
-                                      {c.status}
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <span className="text-[11px] text-slate-400 italic block py-1">
-                                Chưa được giao thẻ công việc
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    }))}
-                  </div>
+                  <DepartmentWorkloadReport
+                    tasks={workloadTasks}
+                    staffList={workloadStaff}
+                    deptName={deptParam || activeDepartment}
+                    isManager={isTP}
+                    onTaskReassigned={() => {
+                      if (selectedBoardId) fetchCards(selectedBoardId);
+                    }}
+                  />
                 </div>
               ) : (
                 /* KANBAN MAIN VIEW */
@@ -1465,7 +1445,7 @@ export default function TaskBoardView() {
 
                       <button
                         type="button"
-                        onClick={() => showToast("📊 Bắt đầu tải file Excel danh sách thẻ công việc...")}
+                        onClick={handleExportExcel}
                         className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs flex items-center gap-1 transition border border-slate-200 cursor-pointer"
                       >
                         <IconDownload size={15} /> <span>Xuất Excel</span>

@@ -57,6 +57,7 @@ import { getCurrentUser, normalizeEmpCode, getSystemUser } from "@/lib/userProfi
 import { uploadCloudinaryFile } from "@/lib/cloudinary";
 import { uploadFileToR2 } from "@/lib/imageCompressor";
 import UserAvatar from "@/components/UserAvatar";
+import DepartmentWorkloadReport from "./DepartmentWorkloadReport";
 
 // Fallback dummy structure for external imports
 export const STAFF_MEMBERS: Array<{ empCode: string; name: string; position: string }> = [];
@@ -277,6 +278,9 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
   const [quickAssignee, setQuickAssignee] = useState("");
   const [quickDueDate, setQuickDueDate] = useState(new Date(Date.now() + 3 * 86400000).toISOString().substring(0, 10));
   const [quickSubmitting, setQuickSubmitting] = useState(false);
+
+  // Workload & A4 Report Modal
+  const [isWorkloadModalOpen, setIsWorkloadModalOpen] = useState(false);
 
   // Mobile View States (< 768px)
   const [mobileActiveCol, setMobileActiveCol] = useState<string>("DOING");
@@ -1727,6 +1731,15 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsWorkloadModalOpen(true)}
+              className="px-3.5 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-black shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+              title="Xem phân bổ tải nhân sự phòng ban, xuất Excel và in báo cáo chuẩn A4"
+            >
+              <IconFileSpreadsheet size={15} />
+              <span>Báo Cáo Tải &amp; Xuất Excel</span>
+            </button>
             <button
               type="button"
               onClick={() => {
@@ -3674,6 +3687,51 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
                 Ghi đè dữ liệu
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Workload & A4 Report Modal */}
+      {isWorkloadModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-6xl w-full max-h-[92vh] overflow-y-auto p-5 sm:p-7 relative border border-slate-200">
+            <button
+              type="button"
+              onClick={() => setIsWorkloadModalOpen(false)}
+              className="absolute top-4 right-4 p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer z-10"
+              title="Đóng modal"
+            >
+              <IconX size={20} />
+            </button>
+            <DepartmentWorkloadReport
+              tasks={tasks.map((t) => ({
+                id: t.id,
+                code: t.code,
+                title: t.title,
+                status: t.status,
+                progress: t.progress,
+                priority: t.priority,
+                due_date: t.due_date,
+                assignee_emp_code: t.assignee_emp_code,
+                assignee_name: t.assignee_name,
+                reporter_emp_code: t.reporter_emp_code,
+                department_id: t.department_id || deptCode || "TBS",
+                project_id: t.project_id,
+                result_description: t.result_description,
+                updated_at: t.updated_at,
+              }))}
+              staffList={activeStaffList.map((s) => ({
+                empCode: s.empCode,
+                name: s.name,
+                position: s.position,
+                department: s.department || deptCode || "TBS",
+              }))}
+              deptName={deptCode || "Phòng Ban Pilot TBS"}
+              isManager={!isStaffOnly}
+              onTaskReassigned={() => {
+                fetchTasks();
+              }}
+            />
           </div>
         </div>
       )}

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
+import { dispatchNotification } from '@/lib/serverNotificationService';
 
 export function generateStaticParams() {
   return [{ id: 'sample' }];
@@ -79,6 +80,50 @@ export async function POST(
     await db.prepare(`
       INSERT INTO task_activity_logs (id, task_id, actor_id, action, details) VALUES (?, ?, ?, ?, ?)
     `).bind(logId, taskId, empCode, 'ADD_COMMENT', `Bình luận: "${content.trim().substring(0, 60)}..."`).run();
+
+    // Query task info for notification context
+    const task: any = await db.prepare(`SELECT * FROM sys_my_tasks WHERE id = ?`).bind(taskId).first().catch(() => null);
+    if (task) {
+      // 1. Detect @mentions in comment
+      const mentionMatches = content.match(/@([a-zA-Z0-9_\.\-]+)/g) || [];
+      const mentionedCodes = new Set<string>();
+      for (const m of mentionMatches) {
+        const tag = m.substring(1).trim().toLowerCase();
+        const u: any = await db.prepare(
+          'SELECT emp_code, name FROM sys_users WHERE LOWER(emp_code) = ? OR LOWER(username) = ?'
+        ).bind(tag, tag).first().catch(() => null);
+        if (u && u.emp_code !== empCode) {
+          mentionedCodes.add(u.emp_code);
+        }
+      }
+
+      for (const targetCode of mentionedCodes) {
+        dispatchNotification(db, {
+          recipientEmpCode: targetCode,
+          title: `Được nhắc đến: ${task.title}`,
+          message: `${session.name || empCode} đã nhắc đến bạn: "${content.trim().substring(0, 100)}"`,
+          eventType: 'TASK_MENTION',
+          type: 'TASK',
+          link: `/work?dept=my-tasks&task=${task.id}`,
+          actorEmpCode: empCode,
+          actorName: session.name,
+        }).catch(() => {});
+      }
+
+      // 2. Notify assignee if someone else comments on their task
+      if (task.assignee_emp_code && task.assignee_emp_code !== empCode && !mentionedCodes.has(task.assignee_emp_code)) {
+        dispatchNotification(db, {
+          recipientEmpCode: task.assignee_emp_code,
+          title: `Bình luận mới: ${task.title}`,
+          message: `${session.name || empCode} vừa bình luận: "${content.trim().substring(0, 80)}"`,
+          eventType: 'TASK_MENTION',
+          type: 'INFO',
+          link: `/work?dept=my-tasks&task=${task.id}`,
+          actorEmpCode: empCode,
+          actorName: session.name,
+        }).catch(() => {});
+      }
+    }
 
     return NextResponse.json({
       success: true,

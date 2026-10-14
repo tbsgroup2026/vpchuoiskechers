@@ -528,6 +528,24 @@ export async function ensureKaizenSchema(db: any, force = false) {
     `).run().catch(() => {});
     await db.prepare('ALTER TABLE sys_notifications ADD COLUMN target_role TEXT').run().catch(() => {});
 
+    // D1 User Notification Settings
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS user_notification_settings (
+        user_id TEXT PRIMARY KEY,
+        in_app_enabled INTEGER DEFAULT 1,
+        web_push_enabled INTEGER DEFAULT 1,
+        telegram_enabled INTEGER DEFAULT 0,
+        telegram_chat_id TEXT,
+        zalo_enabled INTEGER DEFAULT 0,
+        notify_assigned INTEGER DEFAULT 1,
+        notify_due_change INTEGER DEFAULT 1,
+        notify_due_warning INTEGER DEFAULT 1,
+        notify_review INTEGER DEFAULT 1,
+        notify_overdue INTEGER DEFAULT 1,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run().catch(() => {});
+
     // D1 Meeting Rooms Table
     await db.prepare(`
       CREATE TABLE IF NOT EXISTS meeting_rooms (

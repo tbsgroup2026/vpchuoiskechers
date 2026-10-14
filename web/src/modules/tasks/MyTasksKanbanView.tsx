@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import Link from "next/link";
 import {
   IconChecklist,
@@ -98,6 +98,7 @@ export interface TaskItem {
   manager_review_comment?: string;
   performance_rating?: number;
   performance_score?: number;
+  updated_at?: string;
 }
 
 export function parseChecklist(checklist: any): Array<{ id: string; title: string; completed: boolean; assignee_name?: string; assignee_emp_code?: string }> {
@@ -217,6 +218,19 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
   const [helpReasonText, setHelpReasonText] = useState("");
   const [helpImageUrl, setHelpImageUrl] = useState<string | null>(null);
   const [helpError, setHelpError] = useState<string | null>(null);
+
+  // OCC Concurrency Conflict Modal state
+  const [conflictModal, setConflictModal] = useState<{
+    task: TaskItem;
+    serverTask: any;
+    message: string;
+    onReload: () => void;
+    onOverwrite: () => void;
+  } | null>(null);
+
+  // Smart polling references (pauses when document.hidden, resumes on visibilitychange)
+  const lastSyncTimeRef = useRef<string>("");
+  const isPollingRef = useRef<boolean>(false);
 
   // Create Task Modal & Attachments
   const [isCreating, setIsCreating] = useState(false);
@@ -390,6 +404,9 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
       const data = await res.json();
       if (data.success && Array.isArray(data.tasks)) {
         setTasks(data.tasks.map((t: any) => ({ ...t, checklist: parseChecklist(t.checklist) })));
+        if (data.latestUpdatedAt) {
+          lastSyncTimeRef.current = data.latestUpdatedAt;
+        }
       }
     } catch {
       console.error("Failed to load tasks");
@@ -397,6 +414,55 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
       setLoading(false);
     }
   };
+
+  const smartPollTasks = useCallback(async () => {
+    if (typeof document !== "undefined" && document.hidden) return;
+    if (isPollingRef.current) return;
+    isPollingRef.current = true;
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("tbs_token") || sessionStorage.getItem("tbs_token") : "";
+      const selectedMember = memberFilter;
+      const base = selectedMember && selectedMember !== "ALL"
+        ? `/api/tasks?assignee_emp_code=${encodeURIComponent(selectedMember)}`
+        : "/api/tasks";
+      const sep = base.includes("?") ? "&" : "?";
+      const url = lastSyncTimeRef.current ? `${base}${sep}updated_since=${encodeURIComponent(lastSyncTimeRef.current)}` : base;
+
+      const res = await fetch(url, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.latestUpdatedAt) {
+          lastSyncTimeRef.current = data.latestUpdatedAt;
+        }
+        if (data.notModified) {
+          return;
+        }
+        if (data.success && Array.isArray(data.tasks) && data.tasks.length > 0) {
+          setTasks(data.tasks.map((t: any) => ({ ...t, checklist: parseChecklist(t.checklist) })));
+        }
+      }
+    } catch {
+      // background polling error ignored
+    } finally {
+      isPollingRef.current = false;
+    }
+  }, [memberFilter]);
+
+  useEffect(() => {
+    const interval = setInterval(smartPollTasks, 8000);
+    const handleVisibilityChange = () => {
+      if (typeof document !== "undefined" && !document.hidden) {
+        smartPollTasks();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [smartPollTasks]);
 
   useEffect(() => {
     // If projectId was passed as prop, don't read from URL
@@ -556,9 +622,47 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ taskId: task.id, status: newStatus }),
+        body: JSON.stringify({
+          taskId: task.id,
+          status: newStatus,
+          expected_updated_at: task.updated_at,
+        }),
       });
       const data = await res.json();
+      if (res.status === 409 || data.conflict) {
+        setTasks(previousTasks);
+        setConflictModal({
+          task,
+          serverTask: data.currentTask,
+          message: data.error || "Dữ liệu công việc vừa được cập nhật bởi thành viên khác.",
+          onReload: () => {
+            fetchTasks();
+            setConflictModal(null);
+          },
+          onOverwrite: async () => {
+            setConflictModal(null);
+            try {
+              const retryRes = await fetch("/api/tasks", {
+                method: "PATCH",
+                headers: {
+                  "Content-Type": "application/json",
+                  ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+                body: JSON.stringify({ taskId: task.id, status: newStatus, force: true }),
+              });
+              const retryData = await retryRes.json();
+              if (retryRes.ok && retryData.success) {
+                fetchTasks();
+              } else {
+                alert(`Lỗi ghi đè: ${retryData.error || "Thất bại"}`);
+              }
+            } catch {
+              alert("Lỗi kết nối khi ghi đè");
+            }
+          },
+        });
+        return;
+      }
       if (!res.ok || !data.success) {
         setTasks(previousTasks);
         alert(`Lỗi khi chuyển trạng thái: ${data.error || "Không thể cập nhật"}`);
@@ -671,9 +775,49 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
           taskId: taskToUpdate.id,
           status: targetStatus,
           resultDescription: resultText.trim(),
+          expected_updated_at: taskToUpdate.updated_at,
         }),
       });
       const data = await res.json();
+      if (res.status === 409 || data.conflict) {
+        setTasks(previousTasks);
+        setConflictModal({
+          task: taskToUpdate,
+          serverTask: data.currentTask,
+          message: data.error || "Dữ liệu công việc vừa được cập nhật bởi thành viên khác.",
+          onReload: () => {
+            fetchTasks();
+            setConflictModal(null);
+          },
+          onOverwrite: async () => {
+            setConflictModal(null);
+            try {
+              const retryRes = await fetch("/api/tasks", {
+                method: "PATCH",
+                headers: {
+                  "Content-Type": "application/json",
+                  ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+                body: JSON.stringify({
+                  taskId: taskToUpdate.id,
+                  status: targetStatus,
+                  resultDescription: resultText.trim(),
+                  force: true,
+                }),
+              });
+              const retryData = await retryRes.json();
+              if (retryRes.ok && retryData.success) {
+                fetchTasks();
+              } else {
+                alert(`Lỗi ghi đè: ${retryData.error || "Thất bại"}`);
+              }
+            } catch {
+              alert("Lỗi kết nối khi ghi đè");
+            }
+          },
+        });
+        return;
+      }
       if (!res.ok || !data.success) {
         setTasks(previousTasks);
         alert(`Lỗi khi nộp kết quả: ${data.error || "Không thể cập nhật"}`);
@@ -3485,6 +3629,51 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
             >
               Đóng menu
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 9: OPTIMISTIC CONCURRENCY CONTROL (OCC) CONFLICT MODAL */}
+      {conflictModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-white rounded-2xl p-6 shadow-2xl border border-rose-200 space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3 text-rose-600">
+              <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center shrink-0">
+                <IconAlertTriangle size={24} />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-slate-900">Xung đột dữ liệu đồng thời</h3>
+                <p className="text-xs text-slate-500">Hai người cùng chỉnh sửa một công việc</p>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-rose-50 rounded-xl border border-rose-200 text-xs text-rose-800 space-y-1">
+              <p className="font-bold">{conflictModal.message}</p>
+              <p className="text-[11px] text-rose-600">
+                Mã công việc: <span className="font-mono font-bold">#{conflictModal.task.code}</span>
+              </p>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Bạn có thể <strong>Nạp lại dữ liệu</strong> để xem nội dung mới nhất từ đồng nghiệp, hoặc chọn <strong>Ghi đè</strong> nếu bạn chắc chắn muốn lưu thay đổi của mình.
+            </p>
+
+            <div className="pt-2 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={conflictModal.onReload}
+                className="px-4 py-2.5 rounded-xl bg-[#006838] hover:bg-emerald-800 text-white text-xs font-black shadow transition cursor-pointer min-h-[44px]"
+              >
+                Nạp lại dữ liệu mới
+              </button>
+              <button
+                type="button"
+                onClick={conflictModal.onOverwrite}
+                className="px-4 py-2.5 rounded-xl border border-rose-300 text-rose-700 hover:bg-rose-50 text-xs font-bold transition cursor-pointer min-h-[44px]"
+              >
+                Ghi đè dữ liệu
+              </button>
+            </div>
           </div>
         </div>
       )}

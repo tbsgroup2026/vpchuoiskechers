@@ -14,6 +14,7 @@ import {
   IconRefresh,
   IconDeviceMobile,
   IconLoader2,
+  IconSettings,
 } from "@tabler/icons-react";
 import {
   getNotificationPermission,
@@ -23,6 +24,7 @@ import {
   NotificationPermissionState,
 } from "@/lib/browserNotifications";
 import PWAInstallGuide from "@/components/PWAInstallGuide";
+import NotificationSettingsModal from "@/components/NotificationSettingsModal";
 import { apiFetch, registerPoller, unregisterPoller } from "@/lib/apiClient";
 import { useLanguage } from "@/components/LanguageProvider";
 
@@ -69,6 +71,7 @@ export default function NotificationCenter() {
   const [hasError, setHasError] = useState(false);
   const [isEnabling, setIsEnabling] = useState(false);
   const [isMarkingAll, setIsMarkingAll] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -508,6 +511,13 @@ export default function NotificationCenter() {
                         <span>{unreadCount === 0 ? "Đã đọc tất cả" : "Đọc tất cả"}</span>
                       </button>
                       <button
+                        onClick={() => setSettingsOpen(true)}
+                        className="w-9 h-9 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center text-white cursor-pointer min-h-[36px] min-w-[36px] active:scale-95 flex-shrink-0"
+                        title="Cài đặt thông báo"
+                      >
+                        <IconSettings size={18} />
+                      </button>
+                      <button
                         onClick={() => setIsOpen(false)}
                         className="w-9 h-9 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center text-white cursor-pointer min-h-[36px] min-w-[36px] active:scale-95 flex-shrink-0"
                         aria-label="Đóng"
@@ -570,6 +580,13 @@ export default function NotificationCenter() {
                   <span>{unreadCount === 0 ? "Đã đọc tất cả" : "Đọc tất cả"}</span>
                 </button>
                 <button
+                  onClick={() => setSettingsOpen(true)}
+                  className="w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white cursor-pointer mr-1"
+                  title="Cài đặt thông báo & kênh nhận"
+                >
+                  <IconSettings size={14} />
+                </button>
+                <button
                   onClick={() => setIsOpen(false)}
                   className="w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white cursor-pointer"
                   aria-label="Đóng"
@@ -596,14 +613,28 @@ export default function NotificationCenter() {
             </div>
 
             {/* Desktop Footer */}
-            <div className="p-2.5 text-center bg-slate-50 border-t border-slate-100">
-              <span className="text-[11px] text-slate-500 font-medium">
-                Văn Phòng Chuỗi SKECHERS - Notification System 24/7
+            <div className="p-2.5 text-center bg-slate-50 border-t border-slate-100 flex items-center justify-between px-3">
+              <span className="text-[10px] text-slate-500 font-medium">
+                Văn Phòng Chuỗi SKECHERS
               </span>
+              <button
+                type="button"
+                onClick={() => setSettingsOpen(true)}
+                className="text-[11px] text-[#006838] font-bold hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <IconSettings size={13} />
+                <span>Cài đặt kênh</span>
+              </button>
             </div>
           </div>
         </>
       )}
+
+      {/* Notification Settings Modal */}
+      <NotificationSettingsModal
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+      />
     </div>
   );
 }

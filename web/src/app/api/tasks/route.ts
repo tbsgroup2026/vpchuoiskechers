@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { verifyToken, getAuthUser, isAdminUser, isDepartmentHead, isExecutiveOrAdmin } from '@/lib/auth';
 import { logAudit } from '@/lib/auditLogger';
 import { syncBackupToDrive } from '@/lib/driveBackup';
+import { dispatchNotification } from '@/lib/serverNotificationService';
 
 function getDbBinding(): any {
   return (process.env as any).DB || (globalThis as any).DB || null;
@@ -201,10 +202,29 @@ export async function GET(request: Request) {
       allTasks = allTasks.filter((t: any) => String(t.project_id || '').toUpperCase() === requestedProject.toUpperCase());
     }
 
+    let maxUpdatedAt = '';
+    for (const t of allTasks) {
+      if (t.updated_at && t.updated_at > maxUpdatedAt) {
+        maxUpdatedAt = t.updated_at;
+      }
+    }
+
+    const updatedSince = searchParams.get('updated_since') || request.headers.get('if-modified-since');
+    if (updatedSince && maxUpdatedAt && maxUpdatedAt <= updatedSince) {
+      return NextResponse.json({
+        success: true,
+        tasks: [],
+        total: 0,
+        notModified: true,
+        latestUpdatedAt: maxUpdatedAt,
+      });
+    }
+
     return NextResponse.json({
       success: true,
       tasks: allTasks,
       total: allTasks.length,
+      latestUpdatedAt: maxUpdatedAt || new Date().toISOString(),
     });
   } catch (error: any) {
     return NextResponse.json(
@@ -299,19 +319,19 @@ export async function POST(request: Request) {
       newTask.result_description, newTask.reject_reason, JSON.stringify(newTask.history_log), newTask.is_test_data
     ).run();
 
-    // Push notification to Assignee if assigned to another employee
+    // Dispatch notification to Assignee across all enabled channels
     if (newTask.assignee_emp_code && newTask.assignee_emp_code !== session.empCode) {
-      const notifId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-      await db.prepare(`
-        INSERT INTO sys_notifications (id, user_id, title, message, type, link, created_at)
-        VALUES (?, ?, ?, ?, 'TASK_ASSIGNED', ?, CURRENT_TIMESTAMP)
-      `).bind(
-        notifId,
-        newTask.assignee_emp_code,
-        `Công việc mới: ${newTask.title}`,
-        `${session.name} đã giao cho bạn công việc [${newTask.code}]. Hạn chót: ${newTask.due_date}`,
-        `/work?dept=my-tasks&task=${newTask.id}`
-      ).run().catch(() => {});
+      dispatchNotification(db, {
+        recipientEmpCode: newTask.assignee_emp_code,
+        recipientName: newTask.assignee_name,
+        title: `Công việc mới: ${newTask.title}`,
+        message: `${session.name} đã giao cho bạn công việc [${newTask.code}]. Hạn chót: ${newTask.due_date}`,
+        eventType: 'TASK_ASSIGNED',
+        type: 'TASK',
+        link: `/work?dept=my-tasks&task=${newTask.id}`,
+        actorEmpCode: session.empCode,
+        actorName: session.name,
+      }).catch(() => {});
     }
 
     logAudit(request, {
@@ -376,6 +396,24 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ success: false, error: 'Không tìm thấy công việc cần cập nhật' }, { status: 404 });
     }
 
+    // Optimistic Concurrency Control (OCC)
+    const expectedUpdatedAt = body.expected_updated_at || body.last_updated_at;
+    if (expectedUpdatedAt && existing.updated_at && !body.force) {
+      const dbTime = new Date(existing.updated_at).getTime();
+      const clientTime = new Date(expectedUpdatedAt).getTime();
+      if (!isNaN(dbTime) && !isNaN(clientTime) && dbTime - clientTime > 2000) {
+        return NextResponse.json(
+          {
+            success: false,
+            conflict: true,
+            error: `Dữ liệu công việc vừa được cập nhật bởi người khác lúc ${existing.updated_at}. Bạn có muốn nạp lại dữ liệu mới nhất không?`,
+            currentTask: existing,
+          },
+          { status: 409 }
+        );
+      }
+    }
+
     // Determine authorization level
     const roleLevel = session.roleLevel || 4;
     const roleCode = (session.roleCode || '').toUpperCase();
@@ -433,19 +471,35 @@ export async function PATCH(request: Request) {
         resultDescription: resultText,
       });
 
-      // Send approval notification to Assignee
+      // Send approval notification across all channels
       if (existing.assignee_emp_code) {
-        const notifId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-        await db.prepare(`
-          INSERT INTO sys_notifications (id, user_id, title, message, type, link, created_at)
-          VALUES (?, ?, ?, ?, 'TASK_APPROVED', ?, CURRENT_TIMESTAMP)
-        `).bind(
-          notifId,
-          existing.assignee_emp_code,
-          `Đã nghiệm thu: ${existing.title}`,
-          `Công việc [${existing.code}] đã được ${session.name} Duyệt đạt (DONE).`,
-          `/work?dept=my-tasks&task=${existing.id}`
-        ).run().catch(() => {});
+        dispatchNotification(db, {
+          recipientEmpCode: existing.assignee_emp_code,
+          title: `Đã nghiệm thu: ${existing.title}`,
+          message: `Công việc [${existing.code}] đã được ${session.name} Duyệt đạt (DONE).`,
+          eventType: 'TASK_APPROVED',
+          type: 'SUCCESS',
+          link: `/work?dept=my-tasks&task=${existing.id}`,
+          actorEmpCode: session.empCode,
+          actorName: session.name,
+        }).catch(() => {});
+      }
+    }
+
+    // 1.1 Yêu cầu nghiệm thu (REVIEW)
+    if (newStatus === 'REVIEW' && existing.status !== 'REVIEW') {
+      const targetReviewer = existing.reviewer_emp_code || existing.reporter_emp_code;
+      if (targetReviewer) {
+        dispatchNotification(db, {
+          recipientEmpCode: targetReviewer,
+          title: `Yêu cầu nghiệm thu: ${existing.title}`,
+          message: `${session.name} đã hoàn tất và yêu cầu bạn nghiệm thu công việc [${existing.code}].`,
+          eventType: 'TASK_REVIEW_REQUEST',
+          type: 'TASK',
+          link: `/work?dept=my-tasks&task=${existing.id}`,
+          actorEmpCode: session.empCode,
+          actorName: session.name,
+        }).catch(() => {});
       }
     }
 
@@ -483,19 +537,18 @@ export async function PATCH(request: Request) {
         reason: reasonText,
       });
 
-      // Send rejection notification to Assignee
+      // Send rejection notification across all channels
       if (existing.assignee_emp_code) {
-        const notifId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-        await db.prepare(`
-          INSERT INTO sys_notifications (id, user_id, title, message, type, link, created_at)
-          VALUES (?, ?, ?, ?, 'TASK_REJECTED', ?, CURRENT_TIMESTAMP)
-        `).bind(
-          notifId,
-          existing.assignee_emp_code,
-          `Bắt làm lại: ${existing.title}`,
-          `${session.name} yêu cầu làm lại công việc [${existing.code}]. Lý do: ${reasonText}`,
-          `/work?dept=my-tasks&task=${existing.id}`
-        ).run().catch(() => {});
+        dispatchNotification(db, {
+          recipientEmpCode: existing.assignee_emp_code,
+          title: `Bắt làm lại: ${existing.title}`,
+          message: `${session.name} yêu cầu làm lại công việc [${existing.code}]. Lý do: ${reasonText}`,
+          eventType: 'TASK_REJECTED',
+          type: 'WARNING',
+          link: `/work?dept=my-tasks&task=${existing.id}`,
+          actorEmpCode: session.empCode,
+          actorName: session.name,
+        }).catch(() => {});
       }
     }
 
@@ -511,19 +564,18 @@ export async function PATCH(request: Request) {
         reason: (dueDateReason || '').trim(),
       });
 
-      // Notify assignee about due date change
+      // Notify assignee about due date change across all channels
       if (existing.assignee_emp_code && existing.assignee_emp_code !== session.empCode) {
-        const notifId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-        await db.prepare(`
-          INSERT INTO sys_notifications (id, user_id, title, message, type, link, created_at)
-          VALUES (?, ?, ?, ?, 'DUE_DATE_CHANGED', ?, CURRENT_TIMESTAMP)
-        `).bind(
-          notifId,
-          existing.assignee_emp_code,
-          `Dời hạn chót: ${existing.title}`,
-          `Hạn chót công việc [${existing.code}] đã đổi từ ${existing.due_date} sang ${newDueDate}.`,
-          `/work?dept=my-tasks&task=${existing.id}`
-        ).run().catch(() => {});
+        dispatchNotification(db, {
+          recipientEmpCode: existing.assignee_emp_code,
+          title: `Dời hạn chót: ${existing.title}`,
+          message: `Hạn chót công việc [${existing.code}] đã đổi từ ${existing.due_date} sang ${newDueDate}.`,
+          eventType: 'TASK_DUE_WARNING',
+          type: 'WARNING',
+          link: `/work?dept=my-tasks&task=${existing.id}`,
+          actorEmpCode: session.empCode,
+          actorName: session.name,
+        }).catch(() => {});
       }
     }
 
@@ -609,6 +661,8 @@ export async function PATCH(request: Request) {
     );
   }
 }
+
+export const PUT = PATCH;
 
 export async function DELETE(request: Request) {
   try {

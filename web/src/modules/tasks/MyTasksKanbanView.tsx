@@ -47,6 +47,10 @@ import {
   IconDownload,
   IconUpload,
   IconPhoto,
+  IconBolt,
+  IconCopy,
+  IconShieldCheck,
+  IconArrowBackUp,
 } from "@tabler/icons-react";
 
 import { getCurrentUser, normalizeEmpCode, getSystemUser } from "@/lib/userProfiles";
@@ -85,6 +89,8 @@ export interface TaskItem {
   checklist: Array<{ id: string; title: string; completed: boolean; assignee_name?: string; assignee_emp_code?: string }>;
   attachments?: TaskAttachment[];
   result_description?: string;
+  reject_reason?: string;
+  completed_at?: string;
   help_reason?: string;
   help_image_url?: string;
   help_notified_to?: string;
@@ -242,6 +248,21 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
   const [staffList, setStaffList] = useState<Array<{ empCode: string; name: string; position: string; department?: string }>>([]);
   const [assigneeSearchText, setAssigneeSearchText] = useState("");
 
+  // Scope Tab: Việc của tôi (MY) vs Việc chung phòng ban (DEPT)
+  const [scopeTab, setScopeTab] = useState<"MY" | "DEPT">("MY");
+
+  // Rejection Modal before DOING
+  const [pendingRejectTask, setPendingRejectTask] = useState<TaskItem | null>(null);
+  const [rejectReasonText, setRejectReasonText] = useState("");
+  const [rejectError, setRejectError] = useState<string | null>(null);
+
+  // Quick Create Modal (5s)
+  const [isQuickCreating, setIsQuickCreating] = useState(false);
+  const [quickTitle, setQuickTitle] = useState("");
+  const [quickAssignee, setQuickAssignee] = useState("");
+  const [quickDueDate, setQuickDueDate] = useState(new Date(Date.now() + 3 * 86400000).toISOString().substring(0, 10));
+  const [quickSubmitting, setQuickSubmitting] = useState(false);
+
   // Bottom Widgets States
   const [recentTab, setRecentTab] = useState<"ALL" | "MY" | "ASSIGNED" | "DONE">("ALL");
   const [selectedCalendarDay, setSelectedCalendarDay] = useState<number>(14);
@@ -382,7 +403,28 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
     fetchTasks();
   }, [projectId]);
 
+  const myCode = normalizedCode || activeUser?.empCode || "";
+  const myTasksCount = useMemo(() => {
+    return tasks.filter((t) => {
+      return (
+        t.assignee_emp_code === myCode ||
+        t.reporter_emp_code === myCode ||
+        (t.assignee_name && activeUser?.name && t.assignee_name.toLowerCase().includes(activeUser.name.toLowerCase()))
+      );
+    }).length;
+  }, [tasks, myCode, activeUser]);
+
+  const deptTasksCount = tasks.length;
+
   const displayTasks = tasks.filter((t) => {
+    if (scopeTab === "MY") {
+      const isMine =
+        t.assignee_emp_code === myCode ||
+        t.reporter_emp_code === myCode ||
+        (t.assignee_name && activeUser?.name && t.assignee_name.toLowerCase().includes(activeUser.name.toLowerCase()));
+      if (!isMine) return false;
+    }
+
     if (activeProjectFilter) {
       const p = activeProjectFilter.toUpperCase();
       const matchesProject =
@@ -475,6 +517,10 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
   }, [filteredTasks]);
 
   const handleMoveStatus = async (task: TaskItem, newStatus: TaskItem["status"]) => {
+    const isReporter = (task.reporter_emp_code === myCode);
+    const isSelfAssigned = (task.reporter_emp_code === myCode && task.assignee_emp_code === myCode);
+    const canDirectlyApprove = isAdmin || isExec || isTP || isReporter;
+
     if (newStatus === "DONE") {
       setPendingDoneTask(task);
       setResultText(task.result_description || "");
@@ -574,13 +620,19 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
 
   const handleConfirmSubmitDone = async () => {
     if (!resultText || resultText.trim().length < 5) {
-      setResultError("BẮT BUỘC: Nhập mô tả kết quả công việc đã thực hiện (tối thiểu 5 ký tự)!");
+      setResultError("BẮT BUỘC: Nhập mô tả tóm tắt kết quả công việc đã thực hiện (tối thiểu 5 ký tự)!");
       return;
     }
 
     if (!pendingDoneTask) return;
 
     const taskToUpdate = pendingDoneTask;
+    const isReporter = (taskToUpdate.reporter_emp_code === myCode);
+    const isSelfAssigned = (taskToUpdate.reporter_emp_code === myCode && taskToUpdate.assignee_emp_code === myCode);
+    const canDirectlyApprove = isAdmin || isExec || isTP || isReporter;
+
+    // If staff submitting task assigned by someone else -> status is REVIEW (Chờ nghiệm thu)
+    const targetStatus = canDirectlyApprove || isSelfAssigned ? "DONE" : "REVIEW";
     const previousTasks = [...tasks];
 
     setTasks((prev) =>
@@ -588,8 +640,8 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
         t.id === taskToUpdate.id
           ? {
               ...t,
-              status: "DONE",
-              progress: 100,
+              status: targetStatus,
+              progress: targetStatus === "DONE" ? 100 : 90,
               result_description: resultText.trim(),
             }
           : t
@@ -608,18 +660,229 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
         },
         body: JSON.stringify({
           taskId: taskToUpdate.id,
-          status: "DONE",
+          status: targetStatus,
           resultDescription: resultText.trim(),
         }),
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
         setTasks(previousTasks);
-        alert(`Lỗi khi hoàn thành task: ${data.error || "Không thể cập nhật"}`);
+        alert(`Lỗi khi nộp kết quả: ${data.error || "Không thể cập nhật"}`);
+      } else {
+        if (targetStatus === "REVIEW") {
+          alert(`Đã nộp kết quả công việc! Công việc đã chuyển sang cột "Chờ duyệt (Review)" để Trưởng phòng / Người giao việc nghiệm thu.`);
+        } else {
+          alert(`Đã nghiệm thu hoàn tất công việc #${taskToUpdate.code}!`);
+        }
       }
     } catch {
       setTasks(previousTasks);
       alert("Lỗi kết nối khi nộp kết quả!");
+    }
+  };
+
+  // Luồng Duyệt nghiệm thu (Chỉ Trưởng phòng, Quản đốc, Lãnh đạo hoặc Người giao việc)
+  const handleApproveTask = async (task: TaskItem) => {
+    const previousTasks = [...tasks];
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.id === task.id
+          ? {
+              ...t,
+              status: "DONE",
+              progress: 100,
+              reject_reason: undefined,
+            }
+          : t
+      )
+    );
+
+    if (selectedTask && selectedTask.id === task.id) {
+      setSelectedTask((prev) => (prev ? { ...prev, status: "DONE", progress: 100, reject_reason: undefined } : null));
+    }
+
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("tbs_token") || sessionStorage.getItem("tbs_token") : "";
+      const res = await fetch("/api/tasks", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          taskId: task.id,
+          status: "DONE",
+          progress: 100,
+          resultDescription: task.result_description || "Đã nghiệm thu đạt yêu cầu",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setTasks(previousTasks);
+        alert(`Lỗi khi duyệt: ${data.error || "Không thể duyệt"}`);
+      } else {
+        alert(`Đã duyệt ĐẠT nghiệm thu công việc #${task.code}!`);
+      }
+    } catch {
+      setTasks(previousTasks);
+      alert("Lỗi kết nối khi duyệt nghiệm thu!");
+    }
+  };
+
+  // Luồng Bắt làm lại (Trả về DOING kèm lý do bắt buộc)
+  const handleConfirmReject = async () => {
+    if (!rejectReasonText || rejectReasonText.trim().length < 5) {
+      setRejectError("BẮT BUỘC: Nhập lý do bắt làm lại (tối thiểu 5 ký tự) để nhân viên nắm rõ!");
+      return;
+    }
+    if (!pendingRejectTask) return;
+
+    const taskToUpdate = pendingRejectTask;
+    const reason = rejectReasonText.trim();
+    const previousTasks = [...tasks];
+
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.id === taskToUpdate.id
+          ? {
+              ...t,
+              status: "DOING",
+              progress: 50,
+              reject_reason: reason,
+            }
+          : t
+      )
+    );
+
+    if (selectedTask && selectedTask.id === taskToUpdate.id) {
+      setSelectedTask((prev) => (prev ? { ...prev, status: "DOING", reject_reason: reason } : null));
+    }
+
+    setPendingRejectTask(null);
+    setRejectReasonText("");
+    setRejectError(null);
+
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("tbs_token") || sessionStorage.getItem("tbs_token") : "";
+      const res = await fetch("/api/tasks", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          taskId: taskToUpdate.id,
+          status: "DOING",
+          rejectReason: reason,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setTasks(previousTasks);
+        alert(`Lỗi khi trả về: ${data.error || "Không thể cập nhật"}`);
+      } else {
+        alert(`Đã yêu cầu làm lại công việc #${taskToUpdate.code}. Nhân viên sẽ nhận được thông báo kèm lý do.`);
+      }
+    } catch {
+      setTasks(previousTasks);
+      alert("Lỗi kết nối khi yêu cầu làm lại!");
+    }
+  };
+
+  // Nhân bản công việc (Duplicate)
+  const handleDuplicateTask = async (task: TaskItem) => {
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("tbs_token") || sessionStorage.getItem("tbs_token") : "";
+      const newDueDate = new Date(Date.now() + 7 * 86400000).toISOString().substring(0, 10);
+      const clonedChecklist = (task.checklist || []).map((c) => ({
+        ...c,
+        id: `chk_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        completed: false,
+      }));
+
+      const bodyData = {
+        title: `${task.title} (Bản sao)`,
+        description: task.description || "",
+        department_id: task.department_id || deptCode || "IT_CDS",
+        assignee_emp_code: task.assignee_emp_code,
+        assignee_name: task.assignee_name,
+        priority: task.priority,
+        due_date: newDueDate,
+        tags: task.tags || "TASK",
+        checklist: clonedChecklist,
+      };
+
+      const res = await fetch("/api/tasks", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(bodyData),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success && data.task) {
+        const created = { ...data.task, checklist: parseChecklist(data.task.checklist) };
+        setTasks((prev) => [created, ...prev]);
+        alert(`Đã nhân bản công việc thành công thành mã #${created.code}!`);
+      } else {
+        alert(`Lỗi nhân bản: ${data.error || "Không thể tạo bản sao"}`);
+      }
+    } catch (e) {
+      console.error("Duplicate task failed", e);
+      alert("Lỗi kết nối khi nhân bản task!");
+    }
+  };
+
+  // Tạo nhanh công việc (Quick Create 5s)
+  const handleQuickCreate = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!quickTitle.trim()) {
+      alert("Vui lòng nhập tiêu đề công việc!");
+      return;
+    }
+    setQuickSubmitting(true);
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("tbs_token") || sessionStorage.getItem("tbs_token") : "";
+      const targetAssignee = quickAssignee || newAssigneeEmpCode || activeUser?.empCode || "202608001";
+      const staffObj = activeStaffList.find((s) => s.empCode === targetAssignee) || activeStaffList[0] || {
+        empCode: targetAssignee,
+        name: activeUser?.name || "Cán Bộ",
+      };
+
+      const res = await fetch("/api/tasks", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          title: quickTitle.trim(),
+          description: "Tạo nhanh từ thanh thao tác",
+          department_id: deptCode || "IT_CDS",
+          assignee_emp_code: staffObj.empCode,
+          assignee_name: staffObj.name,
+          priority: "MEDIUM",
+          due_date: quickDueDate,
+          tags: "QUICK_TASK",
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success && data.task) {
+        const created = { ...data.task, checklist: parseChecklist(data.task.checklist) };
+        setTasks((prev) => [created, ...prev]);
+        setIsQuickCreating(false);
+        setQuickTitle("");
+        alert(`Đã tạo nhanh công việc #${created.code}!`);
+      } else {
+        alert(`Lỗi tạo nhanh: ${data.error || "Không thể tạo"}`);
+      }
+    } catch {
+      alert("Lỗi kết nối khi tạo nhanh công việc!");
+    } finally {
+      setQuickSubmitting(false);
     }
   };
 
@@ -1234,8 +1497,72 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
       )}
 
       {/* SECTION 3: FILTER BAR + ACTION BUTTON (Matches Screenshot 100%) */}
-      <div className="bg-white rounded-xl p-3 border border-slate-200 shadow-2xs flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2 flex-1">
+      <div className="bg-white rounded-xl p-3 border border-slate-200 shadow-2xs flex flex-col gap-3">
+        {/* Row 1: Scope Switcher & Action Buttons */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2 border-b border-slate-100">
+          <div className="inline-flex p-1 bg-slate-100/80 rounded-xl border border-slate-200/80">
+            <button
+              type="button"
+              onClick={() => setScopeTab("MY")}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-2 cursor-pointer ${
+                scopeTab === "MY"
+                  ? "bg-white text-[#006838] shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <IconUser size={15} />
+              <span>Việc Của Tôi</span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                scopeTab === "MY" ? "bg-emerald-100 text-[#006838]" : "bg-slate-200 text-slate-700"
+              }`}>
+                {myTasksCount}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setScopeTab("DEPT")}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-2 cursor-pointer ${
+                scopeTab === "DEPT"
+                  ? "bg-white text-indigo-700 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <IconUsers size={15} />
+              <span>Việc Chung Phòng Ban</span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                scopeTab === "DEPT" ? "bg-indigo-100 text-indigo-800" : "bg-slate-200 text-slate-700"
+              }`}>
+                {tasks.length}
+              </span>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setQuickTitle("");
+                setQuickAssignee(activeUser?.empCode || "");
+                setIsQuickCreating(true);
+              }}
+              className="px-3.5 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-black shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+            >
+              <IconBolt size={15} />
+              <span>+ Tạo Nhanh (5s)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsCreating(true)}
+              className="px-4 py-2 rounded-lg bg-[#006838] hover:bg-[#004d29] text-white text-xs font-black shadow-2xs transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0 active:scale-95"
+            >
+              <IconPlus size={16} />
+              <span>Tạo Công Việc Mới</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Row 2: Filters */}
+        <div className="flex flex-wrap items-center gap-2">
           {/* Dropdown 1: Priority */}
           <div className="relative">
             <select
@@ -1330,16 +1657,6 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
             <IconSearch size={15} className="absolute left-2.5 top-2.5 text-slate-400 pointer-events-none" />
           </div>
         </div>
-
-        {/* Dark Green Action Button */}
-        <button
-          type="button"
-          onClick={() => setIsCreating(true)}
-          className="px-4 py-2 rounded-lg bg-[#006838] hover:bg-[#004d29] text-white text-xs font-black shadow-2xs transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0 active:scale-95"
-        >
-          <IconPlus size={16} />
-          <span>Tạo Công Việc Mới</span>
-        </button>
       </div>
 
       {/* SECTION 4: KANBAN BOARD 6 COLUMNS (Matches Screenshot 100%) */}
@@ -1572,6 +1889,63 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
                               </div>
                             )}
 
+                            {/* Rejection / Redo Banner: show when task has reject_reason and is in DOING */}
+                            {task.reject_reason && task.status === "DOING" && (
+                              <div className="p-2 rounded-lg bg-rose-50 border border-rose-300 space-y-1 text-[10px]">
+                                <div className="flex items-center gap-1 font-black text-rose-900 uppercase tracking-tight">
+                                  <IconArrowBackUp size={13} className="text-rose-600 shrink-0" />
+                                  Yêu Cầu Làm Lại
+                                </div>
+                                <p className="text-[10px] text-rose-800 font-bold line-clamp-2 italic">
+                                  "{task.reject_reason}"
+                                </p>
+                              </div>
+                            )}
+
+                            {/* Review Banner: show when task is in REVIEW status */}
+                            {task.status === "REVIEW" && (
+                              <div className="p-2 rounded-lg bg-indigo-50 border border-indigo-200 space-y-1.5 text-[10px]">
+                                <div className="flex items-center justify-between font-black text-indigo-900 uppercase tracking-tight">
+                                  <span className="flex items-center gap-1">
+                                    <IconShieldCheck size={13} className="text-indigo-600 shrink-0" />
+                                    Chờ Nghiệm Thu
+                                  </span>
+                                  <span className="px-1.5 py-0.2 rounded bg-indigo-600 text-white text-[9px] font-black">
+                                    REVIEW
+                                  </span>
+                                </div>
+                                {task.result_description && (
+                                  <p className="text-[10px] text-indigo-950 font-medium line-clamp-2 italic bg-white/80 p-1 rounded border border-indigo-100">
+                                    "{task.result_description}"
+                                  </p>
+                                )}
+                                {(isTP || isExec || activeUser?.empCode === task.reporter_emp_code) && (
+                                  <div className="flex items-center gap-1.5 pt-0.5" onClick={(e) => e.stopPropagation()}>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleApproveTask(task)}
+                                      className="flex-1 py-1 px-1.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] flex items-center justify-center gap-1 shadow-2xs active:scale-95 cursor-pointer"
+                                    >
+                                      <IconCheck size={12} />
+                                      Duyệt đạt
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setPendingRejectTask(task);
+                                        setRejectReasonText("");
+                                        setRejectError(null);
+                                      }}
+                                      className="flex-1 py-1 px-1.5 rounded bg-rose-600 hover:bg-rose-700 text-white font-black text-[10px] flex items-center justify-center gap-1 shadow-2xs active:scale-95 cursor-pointer"
+                                    >
+                                      <IconArrowBackUp size={12} />
+                                      Làm lại
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
                             {/* Progress Bar */}
                             <div className="space-y-1">
                               <div className="flex items-center justify-between text-[10px] font-bold text-slate-500">
@@ -1611,11 +1985,24 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
 
                             {/* Footer Card Info */}
                             <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500 font-bold">
-                              <div className="flex items-center gap-1 truncate max-w-[110px]">
+                              <div className="flex items-center gap-1 truncate max-w-[100px]">
                                 <UserAvatar name={task.assignee_name} size="xs" />
                                 <span className="truncate">{task.assignee_name}</span>
                               </div>
-                              <span className="font-mono text-slate-400 shrink-0">{task.due_date}</span>
+                              <div className="flex items-center gap-1">
+                                <span className="font-mono text-slate-400 shrink-0">{task.due_date}</span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDuplicateTask(task);
+                                  }}
+                                  title="Nhân bản công việc này"
+                                  className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition cursor-pointer"
+                                >
+                                  <IconCopy size={13} />
+                                </button>
+                              </div>
                             </div>
                           </div>
                         );
@@ -2153,14 +2540,18 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
         </div>
       )}
 
-      {/* MODAL 2: CONFIRM DONE RESULT */}
+      {/* MODAL 2: CONFIRM DONE / REVIEW RESULT */}
       {pendingDoneTask && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-200">
           <div className="w-full max-w-lg bg-white rounded-2xl p-6 shadow-2xl border border-slate-100 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <h3 className="text-base font-black text-slate-900 tracking-tight flex items-center gap-2">
                 <IconCheck className="text-emerald-600" />
-                <span>Nộp Kết Quả Thực Hiện Task</span>
+                <span>
+                  {(isTP || isExec || activeUser?.empCode === pendingDoneTask.reporter_emp_code || pendingDoneTask.reporter_emp_code === pendingDoneTask.assignee_emp_code)
+                    ? "Nghiệm Thu Hoàn Tất Công Việc"
+                    : "Nộp Kết Quả Chờ Nghiệm Thu"}
+                </span>
               </h3>
               <button
                 type="button"
@@ -2171,8 +2562,16 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
               </button>
             </div>
 
-            <p className="text-xs text-slate-600 font-medium">
-              Bạn đang chuyển task <strong className="text-slate-900">#{pendingDoneTask.code}</strong> sang trạng thái <strong>DONE (Hoàn Thành)</strong>.
+            <p className="text-xs text-slate-600 font-medium leading-relaxed">
+              {(isTP || isExec || activeUser?.empCode === pendingDoneTask.reporter_emp_code || pendingDoneTask.reporter_emp_code === pendingDoneTask.assignee_emp_code) ? (
+                <>
+                  Bạn đang hoàn thành và nghiệm thu đạt công việc <strong className="text-slate-900">#{pendingDoneTask.code}</strong> sang trạng thái <strong>DONE (Hoàn Thành)</strong>.
+                </>
+              ) : (
+                <>
+                  Bạn đang nộp kết quả công việc <strong className="text-slate-900">#{pendingDoneTask.code}</strong>. Công việc sẽ được chuyển sang cột <strong>REVIEW (Chờ duyệt)</strong> để Trưởng phòng / Người giao việc nghiệm thu.
+                </>
+              )}
             </p>
 
             {resultError && (
@@ -2183,12 +2582,12 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
 
             <div>
               <label className="block text-xs font-black text-slate-800 mb-1">
-                Mô tả chi tiết kết quả <span className="text-rose-500 font-black ml-0.5">*</span> <span className="text-[10px] text-rose-600 font-bold ml-1">(Bắt buộc)</span>
+                Tóm tắt kết quả công việc <span className="text-rose-500 font-black ml-0.5">*</span> <span className="text-[10px] text-rose-600 font-bold ml-1">(Bắt buộc tối thiểu 5 ký tự)</span>
               </label>
               <textarea
                 rows={4}
                 required
-                placeholder="Nhập mô tả kết quả hoàn thành..."
+                placeholder="Nhập mô tả kết quả hoàn thành, đường dẫn tài liệu hoặc sản phẩm..."
                 value={resultText}
                 onChange={(e) => setResultText(e.target.value)}
                 className="w-full p-3 rounded-lg border border-slate-200 text-xs font-medium outline-none focus:border-[#006838]"
@@ -2209,7 +2608,11 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
                 className="px-4 py-2 rounded-lg bg-[#006838] text-white text-xs font-black shadow-2xs hover:bg-[#004d29] transition flex items-center gap-1.5 cursor-pointer"
               >
                 <IconSend size={15} />
-                <span>Xác Nhận Nộp Kết Quả</span>
+                <span>
+                  {(isTP || isExec || activeUser?.empCode === pendingDoneTask.reporter_emp_code || pendingDoneTask.reporter_emp_code === pendingDoneTask.assignee_emp_code)
+                    ? "Xác Nhận Nghiệm Thu (DONE)"
+                    : "Gửi Nộp Chờ Duyệt (REVIEW)"}
+                </span>
               </button>
             </div>
           </div>
@@ -2311,6 +2714,64 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
                 {selectedTask.description || "Không có mô tả chi tiết."}
               </div>
             </div>
+
+            {/* Reject Reason Banner if present */}
+            {selectedTask.reject_reason && selectedTask.status === "DOING" && (
+              <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-300 space-y-1">
+                <div className="flex items-center gap-1.5 text-xs font-black text-rose-900 uppercase">
+                  <IconArrowBackUp size={16} className="text-rose-600" />
+                  <span>Yêu Cầu Làm Lại Từ Cấp Quản Lý:</span>
+                </div>
+                <p className="text-xs text-rose-900 font-bold italic leading-relaxed">
+                  "{selectedTask.reject_reason}"
+                </p>
+              </div>
+            )}
+
+            {/* Review Banner if in REVIEW */}
+            {selectedTask.status === "REVIEW" && (
+              <div className="p-4 rounded-xl bg-indigo-50 border border-indigo-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black text-indigo-900 uppercase flex items-center gap-1.5">
+                    <IconShieldCheck size={16} className="text-indigo-600" />
+                    <span>Công việc đang chờ nghiệm thu kết quả</span>
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-indigo-600 text-white text-[10px] font-black">
+                    REVIEW
+                  </span>
+                </div>
+                {selectedTask.result_description && (
+                  <div className="text-xs text-indigo-950 font-medium bg-white/90 p-3 rounded-lg border border-indigo-100">
+                    <strong className="block mb-1 text-slate-700">Tóm tắt kết quả nộp:</strong>
+                    {selectedTask.result_description}
+                  </div>
+                )}
+                {(isTP || isExec || activeUser?.empCode === selectedTask.reporter_emp_code) && (
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => handleApproveTask(selectedTask)}
+                      className="flex-1 py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 cursor-pointer"
+                    >
+                      <IconCheck size={16} />
+                      <span>Duyệt Đạt (Chuyển DONE 100%)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPendingRejectTask(selectedTask);
+                        setRejectReasonText("");
+                        setRejectError(null);
+                      }}
+                      className="flex-1 py-2 px-3 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 cursor-pointer"
+                    >
+                      <IconArrowBackUp size={16} />
+                      <span>Bắt Làm Lại (Chuyển DOING)</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Attachments Section (Word, Excel, PDF, Images) */}
             <div className="space-y-2.5">
@@ -2522,6 +2983,15 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
               <div className="flex items-center gap-2">
                 <button
                   type="button"
+                  onClick={() => handleDuplicateTask(selectedTask)}
+                  className="px-3.5 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer active:scale-95"
+                  title="Tạo bản sao của công việc này"
+                >
+                  <IconCopy size={15} />
+                  <span>Nhân Bản</span>
+                </button>
+                <button
+                  type="button"
                   onClick={() => handleDeleteTask(selectedTask.id)}
                   className="px-3.5 py-2 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer active:scale-95"
                   title="Xóa công việc này khỏi hệ thống"
@@ -2641,6 +3111,163 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 6: REJECT & REDO (Bắt làm lại) */}
+      {pendingRejectTask && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-lg bg-white rounded-2xl p-6 shadow-2xl border border-slate-100 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="text-base font-black text-rose-900 tracking-tight flex items-center gap-2">
+                <IconArrowBackUp className="text-rose-600" />
+                <span>Yêu Cầu Làm Lại Công Việc</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setPendingRejectTask(null)}
+                className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition cursor-pointer"
+              >
+                <IconX size={18} />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600 font-medium">
+              Bạn đang yêu cầu nhân viên làm lại task <strong className="text-slate-900">#{pendingRejectTask.code}</strong>: "{pendingRejectTask.title}". Task sẽ chuyển về trạng thái <strong>ĐANG LÀM (DOING)</strong>.
+            </p>
+
+            {rejectError && (
+              <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold">
+                {rejectError}
+              </div>
+            )}
+
+            <div>
+              <label className="block text-xs font-black text-slate-800 mb-1">
+                Lý do bắt buộc làm lại <span className="text-rose-500 font-black ml-0.5">*</span> <span className="text-[10px] text-rose-600 font-bold ml-1">(Tối thiểu 5 ký tự)</span>
+              </label>
+              <textarea
+                rows={4}
+                required
+                placeholder="Nêu rõ điểm chưa đạt, hạng mục cần chỉnh sửa bổ sung..."
+                value={rejectReasonText}
+                onChange={(e) => setRejectReasonText(e.target.value)}
+                className="w-full p-3 rounded-lg border border-slate-200 text-xs font-medium outline-none focus:border-rose-500"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setPendingRejectTask(null)}
+                className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200 transition cursor-pointer"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmReject}
+                className="px-4 py-2 rounded-lg bg-rose-600 text-white text-xs font-black shadow-2xs hover:bg-rose-700 transition flex items-center gap-1.5 cursor-pointer"
+              >
+                <IconArrowBackUp size={15} />
+                <span>Xác Nhận Yêu Cầu Làm Lại</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 7: QUICK CREATE TASK (Tạo nhanh 5s) */}
+      {isQuickCreating && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-white rounded-2xl p-6 shadow-2xl border border-slate-100 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="text-base font-black text-slate-900 tracking-tight flex items-center gap-2">
+                <IconBolt className="text-amber-500" />
+                <span>⚡ Tạo Nhanh Công Việc (5 Giây)</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsQuickCreating(false)}
+                className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition cursor-pointer"
+              >
+                <IconX size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleQuickCreate} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1">
+                  Tên công việc <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  placeholder="Ví dụ: Kiểm tra báo cáo Kaizen tuần 42..."
+                  value={quickTitle}
+                  onChange={(e) => setQuickTitle(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs font-bold outline-none focus:border-[#006838]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1">
+                  Người phụ trách
+                </label>
+                <select
+                  value={quickAssignee}
+                  onChange={(e) => setQuickAssignee(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs font-bold outline-none focus:border-[#006838] bg-white"
+                >
+                  {activeStaffList.map((staff) => (
+                    <option key={staff.empCode} value={staff.empCode}>
+                      👤 {staff.name} — {staff.position} ({staff.empCode})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1">
+                  Hạn hoàn thành (Deadline)
+                </label>
+                <input
+                  type="date"
+                  value={quickDueDate}
+                  onChange={(e) => setQuickDueDate(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs font-bold outline-none focus:border-[#006838] bg-slate-50"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsQuickCreating(false)}
+                  className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200 transition cursor-pointer"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={quickSubmitting}
+                  className="px-5 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white text-xs font-black shadow-2xs transition flex items-center gap-1.5 cursor-pointer active:scale-95"
+                >
+                  {quickSubmitting ? (
+                    <>
+                      <IconLoader2 size={15} className="animate-spin" />
+                      <span>Đang lưu...</span>
+                    </>
+                  ) : (
+                    <>
+                      <IconBolt size={15} />
+                      <span>Tạo Ngay</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

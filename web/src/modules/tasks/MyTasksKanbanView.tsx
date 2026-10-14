@@ -55,6 +55,7 @@ import {
 
 import { getCurrentUser, normalizeEmpCode, getSystemUser } from "@/lib/userProfiles";
 import { uploadCloudinaryFile } from "@/lib/cloudinary";
+import { uploadFileToR2 } from "@/lib/imageCompressor";
 import UserAvatar from "@/components/UserAvatar";
 
 // Fallback dummy structure for external imports
@@ -262,6 +263,14 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
   const [quickAssignee, setQuickAssignee] = useState("");
   const [quickDueDate, setQuickDueDate] = useState(new Date(Date.now() + 3 * 86400000).toISOString().substring(0, 10));
   const [quickSubmitting, setQuickSubmitting] = useState(false);
+
+  // Mobile View States (< 768px)
+  const [mobileActiveCol, setMobileActiveCol] = useState<string>("DOING");
+  const [mobileStatusSheetTask, setMobileStatusSheetTask] = useState<TaskItem | null>(null);
+
+  // File Upload Progress & Network Resilience
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   // Bottom Widgets States
   const [recentTab, setRecentTab] = useState<"ALL" | "MY" | "ASSIGNED" | "DONE">("ALL");
@@ -1086,20 +1095,36 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
 
     try {
       setIsUploadingFile(true);
+      setUploadProgress(15);
+      setUploadError(null);
       let fileUrl = "";
 
-      // Try uploading to Cloudinary
+      // 1. Try uploading to Cloudflare R2 with progress and auto-retry
       try {
-        const isImg = file.type.startsWith("image/");
-        const uploadRes = await uploadCloudinaryFile(file, {
-          category: "task_document",
-          fileType: isImg ? "image" : "auto",
+        const r2Res = await uploadFileToR2(file, "TASK_DOC", {
+          onProgress: (pct) => setUploadProgress(pct),
+          retries: 3,
         });
-        if (uploadRes.secure_url) {
-          fileUrl = uploadRes.secure_url;
+        if (r2Res && (r2Res.url || r2Res.fileUrl)) {
+          fileUrl = r2Res.url || r2Res.fileUrl;
         }
-      } catch (err) {
-        console.warn("Cloudinary upload fallback to blob URL:", err);
+      } catch (r2Err: any) {
+        console.warn("R2 upload fallback to Cloudinary / Blob:", r2Err);
+        // 2. Fallback to Cloudinary
+        try {
+          const isImg = file.type.startsWith("image/");
+          const uploadRes = await uploadCloudinaryFile(file, {
+            category: "task_document",
+            fileType: isImg ? "image" : "auto",
+          });
+          if (uploadRes.secure_url) {
+            fileUrl = uploadRes.secure_url;
+            setUploadProgress(100);
+          }
+        } catch {
+          fileUrl = URL.createObjectURL(file);
+          setUploadProgress(100);
+        }
       }
 
       if (!fileUrl) {
@@ -1151,9 +1176,11 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
         }),
       });
     } catch (err: any) {
+      setUploadError("Lỗi tải tệp: " + (err.message || "Vui lòng thử lại"));
       alert("Lỗi tải tệp: " + err.message);
     } finally {
       setIsUploadingFile(false);
+      setUploadProgress(0);
       e.target.value = "";
     }
   };
@@ -1195,19 +1222,35 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
 
     try {
       setIsUploadingNewTaskFile(true);
+      setUploadProgress(15);
+      setUploadError(null);
       let fileUrl = "";
 
+      // 1. Try uploading to Cloudflare R2 with progress and auto-retry
       try {
-        const isImg = file.type.startsWith("image/");
-        const uploadRes = await uploadCloudinaryFile(file, {
-          category: "task_document",
-          fileType: isImg ? "image" : "auto",
+        const r2Res = await uploadFileToR2(file, "TASK_DOC", {
+          onProgress: (pct) => setUploadProgress(pct),
+          retries: 3,
         });
-        if (uploadRes.secure_url) {
-          fileUrl = uploadRes.secure_url;
+        if (r2Res && (r2Res.url || r2Res.fileUrl)) {
+          fileUrl = r2Res.url || r2Res.fileUrl;
         }
-      } catch (err) {
-        console.warn("Cloudinary upload fallback to blob URL:", err);
+      } catch (r2Err: any) {
+        console.warn("R2 upload fallback to Cloudinary / Blob:", r2Err);
+        try {
+          const isImg = file.type.startsWith("image/");
+          const uploadRes = await uploadCloudinaryFile(file, {
+            category: "task_document",
+            fileType: isImg ? "image" : "auto",
+          });
+          if (uploadRes.secure_url) {
+            fileUrl = uploadRes.secure_url;
+            setUploadProgress(100);
+          }
+        } catch {
+          fileUrl = URL.createObjectURL(file);
+          setUploadProgress(100);
+        }
       }
 
       if (!fileUrl) {
@@ -1236,9 +1279,11 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
 
       setNewAttachments((prev) => [...prev, attachmentItem]);
     } catch (err: any) {
+      setUploadError("Lỗi tải tệp: " + (err.message || "Vui lòng thử lại"));
       alert("Lỗi tải tệp: " + err.message);
     } finally {
       setIsUploadingNewTaskFile(false);
+      setUploadProgress(0);
       e.target.value = "";
     }
   };
@@ -1730,9 +1775,10 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
           </div>
         </div>
       ) : (
-        /* 6 Column Kanban Grid */
-        <div className="overflow-x-auto pb-2">
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3 items-start min-w-[1100px] lg:min-w-0">
+        /* Kanban Board: Mobile 1-Column Tab vs Desktop 6-Column Grid */
+        <div className="space-y-3">
+          {/* Mobile Column Tab Switcher (< 768px) */}
+          <div className="md:hidden flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
             {KANBAN_COLUMNS.map((col) => {
               const colTasks = filteredTasks.filter((t) => {
                 if (col.key === "NEED_HELP") {
@@ -1740,17 +1786,50 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
                 }
                 return t.status === col.key;
               });
-              const isTargetColumn = dragOverCol === col.key;
+              const isSelected = mobileActiveCol === col.key;
               const IconComp = col.IconComponent;
-
               return (
-                <div
+                <button
                   key={col.key}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    e.dataTransfer.dropEffect = "move";
-                    if (dragOverCol !== col.key) setDragOverCol(col.key);
-                  }}
+                  type="button"
+                  onClick={() => setMobileActiveCol(col.key)}
+                  className={`px-3 py-2 rounded-xl text-xs font-black shrink-0 transition flex items-center gap-1.5 min-h-[44px] cursor-pointer ${
+                    isSelected
+                      ? `${col.badge} shadow-xs ring-2 ring-[#006838]/30`
+                      : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  <IconComp size={16} />
+                  <span>{col.title}</span>
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${isSelected ? "bg-white/80" : "bg-slate-100"}`}>
+                    {colTasks.length}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="overflow-x-auto pb-2">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3 items-start w-full md:min-w-[1100px] lg:min-w-0">
+              {KANBAN_COLUMNS.map((col) => {
+                const colTasks = filteredTasks.filter((t) => {
+                  if (col.key === "NEED_HELP") {
+                    return t.status === "NEED_HELP" || (t.priority === "URGENT" && t.status !== "DONE");
+                  }
+                  return t.status === col.key;
+                });
+                const isTargetColumn = dragOverCol === col.key;
+                const IconComp = col.IconComponent;
+                const isMobileHidden = mobileActiveCol !== col.key;
+
+                return (
+                  <div
+                    key={col.key}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = "move";
+                      if (dragOverCol !== col.key) setDragOverCol(col.key);
+                    }}
                   onDragEnter={(e) => {
                     e.preventDefault();
                     if (dragOverCol !== col.key) setDragOverCol(col.key);
@@ -1782,9 +1861,9 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
                       }
                     }
                   }}
-                  className={`rounded-xl p-3 border transition-all duration-200 space-y-3 min-h-[500px] flex flex-col bg-white border-slate-200/90 shadow-2xs ${
+                  className={`rounded-xl p-3 border transition-all duration-200 space-y-3 min-h-[500px] flex-col bg-white border-slate-200/90 shadow-2xs ${
                     isTargetColumn ? "ring-2 ring-[#006838] bg-emerald-50/20" : ""
-                  }`}
+                  } ${isMobileHidden ? "hidden md:flex" : "flex"}`}
                 >
                   {/* Column Header with Icon */}
                   <div className="flex items-center justify-between font-bold text-xs text-slate-800 pb-1">
@@ -1990,6 +2069,17 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
                                 <span className="truncate">{task.assignee_name}</span>
                               </div>
                               <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setMobileStatusSheetTask(task);
+                                  }}
+                                  className="md:hidden px-2 py-1 rounded bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-[#006838] border border-slate-200 text-[10px] font-bold flex items-center gap-0.5 min-h-[36px]"
+                                  title="Đổi trạng thái cột"
+                                >
+                                  <span>Đổi cột ▾</span>
+                                </button>
                                 <span className="font-mono text-slate-400 shrink-0">{task.due_date}</span>
                                 <button
                                   type="button"
@@ -1998,7 +2088,7 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
                                     handleDuplicateTask(task);
                                   }}
                                   title="Nhân bản công việc này"
-                                  className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition cursor-pointer"
+                                  className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition cursor-pointer min-h-[36px] min-w-[36px] flex items-center justify-center"
                                 >
                                   <IconCopy size={13} />
                                 </button>
@@ -2027,6 +2117,7 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
             })}
           </div>
         </div>
+      </div>
       )}
 
       {/* SECTION 5: ROW OF 3 BOTTOM WIDGETS (Matches Screenshot 100%) */}
@@ -2400,6 +2491,34 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
                     </button>
                   </div>
                 </div>
+
+                {/* Upload Progress & Network Retry Alert */}
+                {isUploadingNewTaskFile && (
+                  <div className="space-y-1 p-2 bg-emerald-50 rounded-lg border border-emerald-200 text-xs">
+                    <div className="flex items-center justify-between text-[11px] font-bold text-emerald-800">
+                      <span>Đang nén ảnh & tải lên R2...</span>
+                      <span>{uploadProgress}%</span>
+                    </div>
+                    <div className="w-full h-1.5 rounded-full bg-emerald-100 overflow-hidden">
+                      <div
+                        className="h-full bg-[#006838] transition-all duration-200"
+                        style={{ width: `${uploadProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+                {uploadError && (
+                  <div className="p-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-center justify-between gap-2">
+                    <span>{uploadError}</span>
+                    <button
+                      type="button"
+                      onClick={() => newTaskFileInputRef.current?.click()}
+                      className="px-2 py-0.5 rounded bg-rose-600 text-white text-[10px] font-bold shrink-0 cursor-pointer"
+                    >
+                      Thử lại
+                    </button>
+                  </div>
+                )}
 
                 {newAttachments.length > 0 && (
                   <div className="space-y-1.5 max-h-36 overflow-y-auto p-2 bg-slate-50 rounded-lg border border-slate-200">
@@ -2799,6 +2918,34 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
                   </button>
                 </div>
               </div>
+
+              {/* Upload Progress & Network Retry Alert */}
+              {isUploadingFile && (
+                <div className="space-y-1 p-2 bg-emerald-50 rounded-lg border border-emerald-200 text-xs">
+                  <div className="flex items-center justify-between text-[11px] font-bold text-emerald-800">
+                    <span>Đang nén ảnh & tải lên R2...</span>
+                    <span>{uploadProgress}%</span>
+                  </div>
+                  <div className="w-full h-1.5 rounded-full bg-emerald-100 overflow-hidden">
+                    <div
+                      className="h-full bg-[#006838] transition-all duration-200"
+                      style={{ width: `${uploadProgress}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+              {uploadError && (
+                <div className="p-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-center justify-between gap-2">
+                  <span>{uploadError}</span>
+                  <button
+                    type="button"
+                    onClick={() => taskFileInputRef.current?.click()}
+                    className="px-2 py-0.5 rounded bg-rose-600 text-white text-[10px] font-bold shrink-0 cursor-pointer"
+                  >
+                    Thử lại
+                  </button>
+                </div>
+              )}
 
               {selectedTask.attachments && selectedTask.attachments.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -3268,6 +3415,76 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 8: MOBILE STATUS BOTTOM SHEET (Touch-friendly >= 48px buttons) */}
+      {mobileStatusSheetTask && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-white rounded-t-3xl sm:rounded-2xl p-5 shadow-2xl border border-slate-200 space-y-4 max-h-[85vh] overflow-y-auto animate-in slide-in-from-bottom duration-200">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="min-w-0 flex-1">
+                <span className="text-[10px] font-mono font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                  #{mobileStatusSheetTask.code}
+                </span>
+                <h3 className="text-sm font-black text-slate-900 truncate mt-1">
+                  {mobileStatusSheetTask.title}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMobileStatusSheetTask(null)}
+                className="p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer"
+              >
+                <IconX size={20} />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600 font-bold">
+              Chọn trạng thái chuyển nhanh cho công việc:
+            </p>
+
+            <div className="grid grid-cols-1 gap-2">
+              {KANBAN_COLUMNS.map((col) => {
+                const isCurrent = mobileStatusSheetTask.status === col.key;
+                return (
+                  <button
+                    key={col.key}
+                    type="button"
+                    disabled={isCurrent}
+                    onClick={() => {
+                      const taskToMove = mobileStatusSheetTask;
+                      setMobileStatusSheetTask(null);
+                      handleMoveStatus(taskToMove, col.key as any);
+                    }}
+                    className={`w-full py-3 px-4 rounded-xl text-xs font-black transition flex items-center justify-between min-h-[48px] cursor-pointer ${
+                      isCurrent
+                        ? "bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200"
+                        : `${col.badge} hover:opacity-90 shadow-2xs active:scale-98`
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <col.IconComponent size={18} />
+                      <span>{col.title}</span>
+                    </div>
+                    {isCurrent ? (
+                      <span className="text-[11px] font-bold text-slate-400">(Cột hiện tại)</span>
+                    ) : (
+                      <IconChevronRight size={16} />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setMobileStatusSheetTask(null)}
+              className="w-full py-3 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200 transition min-h-[44px] cursor-pointer"
+            >
+              Đóng menu
+            </button>
           </div>
         </div>
       )}

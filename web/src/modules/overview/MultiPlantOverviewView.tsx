@@ -131,20 +131,20 @@ export default function MultiPlantOverviewView() {
             </NavLink>
           </div>
 
-          <div className="space-y-3 pt-2">
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-600">Tổng Số Đề Xuất:</span>
-              <span className="text-lg font-black text-slate-900 font-mono">{loading ? "..." : kaizenStats?.total_proposals || 0}</span>
+          <div className="grid grid-cols-2 gap-2.5 pt-2">
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex flex-col justify-between">
+              <span className="text-[11px] font-bold text-slate-600">Tổng Đề Xuất:</span>
+              <span className="text-xl font-black text-slate-900 font-mono mt-1">{loading ? "..." : kaizenStats?.total_proposals || 0}</span>
             </div>
 
-            <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100 flex items-center justify-between">
-              <span className="text-xs font-semibold text-emerald-800">Đã Phê Duyệt / Đánh Giá:</span>
-              <span className="text-lg font-black text-emerald-700 font-mono">{loading ? "..." : kaizenStats?.approved_proposals || 0}</span>
+            <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100 flex flex-col justify-between">
+              <span className="text-[11px] font-bold text-emerald-800">Đã Phê Duyệt:</span>
+              <span className="text-xl font-black text-emerald-700 font-mono mt-1">{loading ? "..." : kaizenStats?.approved_proposals || 0}</span>
             </div>
 
-            <div className="p-3 bg-blue-50 rounded-xl border border-blue-100 flex items-center justify-between">
-              <span className="text-xs font-semibold text-blue-800">Tổng TG Tiết Kiệm:</span>
-              <span className="text-sm font-black text-blue-700 font-mono">
+            <div className="col-span-2 p-3 bg-blue-50 rounded-xl border border-blue-100 flex items-center justify-between">
+              <span className="text-xs font-bold text-blue-800">Tổng TG Tiết Kiệm:</span>
+              <span className="text-base font-black text-blue-700 font-mono">
                 ⏱️ {loading ? "..." : formatFormattedNumber(kaizenStats?.total_saved_seconds || 0)} giây
               </span>
             </div>
@@ -152,7 +152,7 @@ export default function MultiPlantOverviewView() {
         </div>
 
         {/* Card 2: GEMBA Audit */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4 hover:shadow-md transition">
+        <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4 hover:shadow-md transition">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center">
@@ -168,26 +168,26 @@ export default function MultiPlantOverviewView() {
             </NavLink>
           </div>
 
-          <div className="space-y-3 pt-2">
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-600">Điểm Đánh Giá GEMBA TB:</span>
-              <span className="text-lg font-black text-purple-700 font-mono">94.8 / 100</span>
+          <div className="grid grid-cols-2 gap-2.5 pt-2">
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex flex-col justify-between">
+              <span className="text-[11px] font-bold text-slate-600">Điểm Đánh Giá TB:</span>
+              <span className="text-xl font-black text-purple-700 font-mono mt-1">94.8 / 100</span>
             </div>
 
-            <div className="p-3 bg-purple-50 rounded-xl border border-purple-100 flex items-center justify-between">
-              <span className="text-xs font-semibold text-purple-900">Lỗi Đã Khắc Phục:</span>
-              <span className="text-lg font-black text-purple-800 font-mono">128 / 132</span>
+            <div className="p-3 bg-purple-50 rounded-xl border border-purple-100 flex flex-col justify-between">
+              <span className="text-[11px] font-bold text-purple-900">Đã Khắc Phục:</span>
+              <span className="text-xl font-black text-purple-800 font-mono mt-1">128 / 132</span>
             </div>
 
-            <div className="p-3 bg-amber-50 rounded-xl border border-amber-100 flex items-center justify-between">
-              <span className="text-xs font-semibold text-amber-900">Lỗi Đang Theo Dõi:</span>
-              <span className="text-sm font-black text-amber-700 font-mono">4 điểm nóng</span>
+            <div className="col-span-2 p-3 bg-amber-50 rounded-xl border border-amber-100 flex items-center justify-between">
+              <span className="text-xs font-bold text-amber-900">Lỗi Đang Theo Dõi:</span>
+              <span className="text-base font-black text-amber-700 font-mono">4 điểm nóng</span>
             </div>
           </div>
         </div>
 
         {/* Card 3: Machinery & Equipment */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4 hover:shadow-md transition">
+        <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4 hover:shadow-md transition">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
@@ -203,20 +203,20 @@ export default function MultiPlantOverviewView() {
             </NavLink>
           </div>
 
-          <div className="space-y-3 pt-2">
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-600">Tổng Số Thiết Bị:</span>
-              <span className="text-lg font-black text-slate-900 font-mono">1,420 máy</span>
+          <div className="grid grid-cols-2 gap-2.5 pt-2">
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex flex-col justify-between">
+              <span className="text-[11px] font-bold text-slate-600">Tổng Số Máy:</span>
+              <span className="text-xl font-black text-slate-900 font-mono mt-1">1,420 máy</span>
             </div>
 
-            <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100 flex items-center justify-between">
-              <span className="text-xs font-semibold text-emerald-800">Hoạt Động Bình Thường:</span>
-              <span className="text-lg font-black text-emerald-700 font-mono">98.2% (OEE)</span>
+            <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100 flex flex-col justify-between">
+              <span className="text-[11px] font-bold text-emerald-800">Chỉ Số OEE:</span>
+              <span className="text-xl font-black text-emerald-700 font-mono mt-1">98.2%</span>
             </div>
 
-            <div className="p-3 bg-rose-50 rounded-xl border border-rose-100 flex items-center justify-between">
-              <span className="text-xs font-semibold text-rose-900">Yêu Cầu Sửa Chữa Đột Xuất:</span>
-              <span className="text-sm font-black text-rose-700 font-mono">2 phiếu</span>
+            <div className="col-span-2 p-3 bg-rose-50 rounded-xl border border-rose-100 flex items-center justify-between">
+              <span className="text-xs font-bold text-rose-900">Sửa Chữa Đột Xuất:</span>
+              <span className="text-base font-black text-rose-700 font-mono">2 phiếu</span>
             </div>
           </div>
         </div>

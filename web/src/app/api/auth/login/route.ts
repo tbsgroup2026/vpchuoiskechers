@@ -459,12 +459,19 @@ export async function POST(request: Request) {
           changesJson: { status: 'SUCCESS', name: demoUser.name, empCode: demoUser.empCode }
         }).catch(() => {});
 
-        return NextResponse.json({
+        const res = NextResponse.json({
           success: true,
           token,
           user: payload,
           redirectUrl: demoUser.redirectUrl,
         });
+        res.cookies.set('tbs_token', token, {
+          path: '/',
+          maxAge: 7 * 24 * 60 * 60, // 7 days pilot session
+          sameSite: 'lax',
+          secure: process.env.NODE_ENV === 'production',
+        });
+        return res;
       } else {
         // Record Central Audit Event for failed login
         await logAudit(request, {
@@ -545,12 +552,19 @@ export async function POST(request: Request) {
           changesJson: { status: 'SUCCESS', empCode: payload.empCode }
         }).catch(() => {});
 
-        return NextResponse.json({
+        const res = NextResponse.json({
           success: true,
           token,
           user: payload,
           redirectUrl: '/work',
         });
+        res.cookies.set('tbs_token', token, {
+          path: '/',
+          maxAge: 7 * 24 * 60 * 60, // 7 days pilot session
+          sameSite: 'lax',
+          secure: process.env.NODE_ENV === 'production',
+        });
+        return res;
       } catch (err: any) {
         if (err.message && err.message.includes('D1_ERROR')) {
            return NextResponse.json({ error: 'Hệ thống đang bảo trì hoặc quá tải dữ liệu (D1 Limits). Vui lòng thử lại sau.' }, { status: 500 });

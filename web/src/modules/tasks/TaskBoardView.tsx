@@ -38,14 +38,8 @@ import {
   IconChevronUp,
 } from "@tabler/icons-react";
 
-// Mock data for department staff members (for Employee workload tab)
-const STAFF_MEMBERS = [
-  { empCode: "202608001", name: "Phạm Nguyễn Anh Huy", position: "Lập trình viên", dept: "Phòng IT & CĐS" },
-  { empCode: "202608002", name: "Nguyễn Văn Hùng", position: "Chuyên viên CDS", dept: "Phòng IT & CĐS" },
-  { empCode: "202608003", name: "Trần Thị Mai", position: "Quản lý Dự án", dept: "Phối Hợp Chuỗi Skechers" },
-  { empCode: "202608004", name: "Lê Hoàng Nam", position: "Chuyên viên QC", dept: "Ban An Toàn & QC" },
-  { empCode: "202608005", name: "Đặng Thu Thảo", position: "Hành chính ISO", dept: "Phòng Hành Chính Nhân Sự" },
-];
+// Department staff members state is dynamically fetched from /api/users based on role and department
+
 
 function UserAvatar({ name, size = "md" }: { name: string; size?: "sm" | "md" | "lg" }) {
   const getInitials = (n: string) => {
@@ -88,6 +82,7 @@ export default function TaskBoardView() {
   const [cards, setCards] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isUnauthenticated, setIsUnauthenticated] = useState(false);
+  const [staffMembers, setStaffMembers] = useState<Array<{ empCode: string; name: string; position: string; dept: string }>>([]);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -121,6 +116,36 @@ export default function TaskBoardView() {
 
   const userDeptCode = (currentUser?.departmentCode || currentUser?.department || "").toUpperCase();
   const activeDepartment = deptParam || (isTP && !isExec ? userDeptCode || "IT_DIGITAL" : "IT_DIGITAL");
+
+  useEffect(() => {
+    const fetchStaff = async () => {
+      try {
+        const token = typeof window !== "undefined" ? localStorage.getItem("tbs_token") || sessionStorage.getItem("tbs_token") : "";
+        const deptFilter = isExec ? (deptParam || "") : (userDeptCode || deptParam || "");
+        const url = deptFilter ? `/api/users?department=${encodeURIComponent(deptFilter)}` : "/api/users";
+        const res = await fetch(url, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (res.ok) {
+          const json = await res.json();
+          const users = json.users || json.data || [];
+          if (Array.isArray(users) && users.length > 0) {
+            setStaffMembers(
+              users.map((u: any) => ({
+                empCode: String(u.emp_code || u.empCode || u.id),
+                name: String(u.name || ""),
+                position: String(u.title || u.vtcv_hien_tai || "Cán Bộ"),
+                dept: String(u.department || u.phong_ban_hien_tai || activeDepartment || ""),
+              }))
+            );
+          }
+        }
+      } catch (e) {
+        console.warn("Failed to fetch staff members", e);
+      }
+    };
+    fetchStaff();
+  }, [deptParam, userDeptCode, isExec, activeDepartment]);
 
   // Search & Filter States
   const [searchQuery, setSearchQuery] = useState("");
@@ -1104,7 +1129,12 @@ export default function TaskBoardView() {
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {STAFF_MEMBERS.map((staff) => {
+                    {staffMembers.length === 0 ? (
+                      <div className="col-span-full py-12 text-center text-slate-400 text-xs bg-white rounded-2xl border border-slate-200">
+                        Đang tải danh sách nhân sự phòng ban ({activeDepartment})...
+                      </div>
+                    ) : (
+                      staffMembers.map((staff) => {
                       const staffCards = cards.filter(
                         (c) =>
                           c.assignee_id === staff.empCode ||
@@ -1203,7 +1233,7 @@ export default function TaskBoardView() {
                           </div>
                         </div>
                       );
-                    })}
+                    }))}
                   </div>
                 </div>
               ) : (
@@ -1824,14 +1854,29 @@ export default function TaskBoardView() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">MSNV Người Thực Hiện:</label>
-                  <input
-                    type="text"
-                    placeholder="VD: 202608001"
-                    value={cardAssignee}
-                    onChange={(e) => setCardAssignee(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono text-slate-900"
-                  />
+                  <label className="font-bold text-slate-700 block mb-1">Người Thực Hiện:</label>
+                  {staffMembers.length > 0 ? (
+                    <select
+                      value={cardAssignee}
+                      onChange={(e) => setCardAssignee(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-800 text-xs"
+                    >
+                      <option value="">-- Chọn nhân sự ({staffMembers.length}) --</option>
+                      {staffMembers.map((s) => (
+                        <option key={s.empCode} value={s.empCode}>
+                          {s.name} ({s.empCode} - {s.position})
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      placeholder="VD: 202608001"
+                      value={cardAssignee}
+                      onChange={(e) => setCardAssignee(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono text-slate-900"
+                    />
+                  )}
                 </div>
 
                 <div>

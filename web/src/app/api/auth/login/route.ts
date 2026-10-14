@@ -497,7 +497,8 @@ export async function POST(request: Request) {
            return NextResponse.json({ error: 'Mã số nhân viên đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.' }, { status: 401 });
         }
 
-        if (!(password === '123456' || password === '21032004' || password === 'Admin@123456')) {
+        const validPass = password === 'Pilot@2026' || password === '123456' || password === '21032004' || password === 'Admin@123456';
+        if (!validPass) {
            await logAudit(request, {
              empCode: userInDb.emp_code,
              empName: userInDb.name,
@@ -510,19 +511,25 @@ export async function POST(request: Request) {
            return NextResponse.json({ error: 'Mật khẩu không chính xác' }, { status: 401 });
         }
 
+        const roleCode = (userInDb.role_code || 'CBCNV').toUpperCase();
+        const roleLevel = userInDb.role_level || (roleCode === 'TONG_GIAM_DOC' || roleCode === 'SUPER_ADMIN' ? 1 : (roleCode === 'GIAM_DOC' || roleCode === 'PHO_TONG_GIAM_DOC' || roleCode === 'PHO_GIAM_DOC') ? 2 : (roleCode === 'TRUONG_PHONG' || roleCode === 'PHO_PHONG' || roleCode === 'QUAN_DOC') ? 3 : 4);
+        const roles = roleLevel === 1 ? ['admin', 'ceo', 'employee'] : roleLevel === 2 ? ['ceo', 'director', 'employee'] : roleLevel === 3 ? ['department_head', 'manager', 'employee'] : roleCode === 'LE_TAN' ? ['employee', 'le_tan'] : roleCode === 'IE' ? ['employee', 'ie'] : ['employee'];
+
         const payload = {
           userId: userInDb.id,
           empCode: userInDb.emp_code,
           name: userInDb.name || `Nhân Viên (${userInDb.emp_code})`,
           title: userInDb.title || 'Chuyên Viên Vận Hành',
           email: userInDb.email || `${userInDb.emp_code}@tbsgroup.vn`,
-          roleId: 7,
-          roleCode: userInDb.role_code || 'CBCNV',
-          roles: ['employee'],
-          roleLevel: 4,
+          roleId: roleLevel === 1 ? 1 : roleLevel === 2 ? 2 : roleLevel === 3 ? 6 : 7,
+          roleCode: roleCode,
+          roles: roles,
+          roleLevel: roleLevel,
           departmentId: 11,
-          departmentCode: 'TO_HOP_NHA_MAY',
+          departmentCode: userInDb.department || 'TBS',
           departmentName: userInDb.department || 'Văn Phòng Chuỗi SKECHERS',
+          mustChangePwd: Boolean(userInDb.must_change_pwd),
+          isTestAccount: Boolean(userInDb.is_test_account),
           redirectUrl: '/work',
         };
 

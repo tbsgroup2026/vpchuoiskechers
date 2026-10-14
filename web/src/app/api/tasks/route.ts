@@ -1,189 +1,10 @@
 import { NextResponse } from 'next/server';
-import { verifyToken, getAuthUser, isAdminUser, isDepartmentHead } from '@/lib/auth';
+import { verifyToken, getAuthUser, isAdminUser, isDepartmentHead, isExecutiveOrAdmin } from '@/lib/auth';
 import { logAudit } from '@/lib/auditLogger';
 import { syncBackupToDrive } from '@/lib/driveBackup';
 
 function getDbBinding(): any {
   return (process.env as any).DB || (globalThis as any).DB || null;
-}
-
-const DEFAULT_TASKS = [
-  {
-    id: "tsk_001",
-    code: "TSK-001",
-    title: "Rùa tự động hóa dây chuyền dán đế 3 Skechers D'Lites",
-    description: "Triển khai hệ thống xe rùa tự động cấp phôi dán đế cho dây chuyền 3 nhà máy Skechers. Cần nghiệm thu chỉ số an toàn và độ chính xác vị trí.",
-    department_id: "IT_DIGITAL",
-    project_id: "PRJ-AUTOMATION",
-    assignee_emp_code: "202608001",
-    assignee_name: "Phạm Nguyễn Anh Huy",
-    reporter_emp_code: "202608002",
-    reviewer_emp_code: "202608002",
-    priority: "HIGH",
-    start_date: "2026-09-01",
-    due_date: "2026-09-15",
-    status: "DOING",
-    progress: 60,
-    tags: "KAIZEN,AUTOMATION",
-    checklist: [
-      { id: "c1", title: "Khảo sát mặt bằng dây chuyền 3", completed: true },
-      { id: "c2", title: "Lập trình cảm biến vị trí xe rùa", completed: true },
-      { id: "c3", title: "Chạy thử nghiệm nghiệm thu 100 sản phẩm", completed: false },
-    ],
-    result_description: "",
-  },
-  {
-    id: "tsk_002",
-    code: "TSK-002",
-    title: "Số hóa quy trình đăng ký xe đi công tác các nhà máy",
-    description: "Xây dựng form điện tử và luồng duyệt tự động cho cán bộ đăng ký xe đi công tác liên nhà máy.",
-    department_id: "HÀNH_CHÍNH",
-    project_id: "PRJ-ADMIN-EXPENSE",
-    assignee_emp_code: "202608001",
-    assignee_name: "Phạm Nguyễn Anh Huy",
-    reporter_emp_code: "202608003",
-    reviewer_emp_code: "202608002",
-    priority: "MEDIUM",
-    start_date: "2026-09-05",
-    due_date: "2026-09-20",
-    status: "TO_DO",
-    progress: 20,
-    tags: "ISO,DIGITAL",
-    checklist: [
-      { id: "c1", title: "Thu thập yêu cầu từ phòng Hành chính", completed: true },
-      { id: "c2", title: "Thiết kế giao diện đặt xe", completed: false },
-    ],
-    result_description: "",
-  },
-  {
-    id: "tsk_003",
-    code: "TSK-003",
-    title: "Nâng cấp hệ thống Andon báo lỗi chuyền may 5",
-    description: "Thay thế bảng LED cũ bằng màn hình Android hiển thị real-time sự cố dừng chuyền.",
-    department_id: "IT_DIGITAL",
-    project_id: "PRJ-AUTOMATION",
-    assignee_emp_code: "202608001",
-    assignee_name: "Phạm Nguyễn Anh Huy",
-    reporter_emp_code: "202608002",
-    reviewer_emp_code: "202608002",
-    priority: "URGENT",
-    start_date: "2026-08-25",
-    due_date: "2026-09-10",
-    status: "REVIEW",
-    progress: 90,
-    tags: "ANDON,GEMBA",
-    checklist: [
-      { id: "c1", title: "Lắp đặt màn hình Android 32 inch", completed: true },
-      { id: "c2", title: "Kết nối WebSocket API báo hiệu", completed: true },
-    ],
-    result_description: "Đã hoàn thành lắp đặt 4 màn hình tại chuyền may 5. Độ trễ báo tín hiệu < 1s.",
-  },
-  {
-    id: "tsk_004",
-    code: "TSK-004",
-    title: "Tự động hóa sao lưu dữ liệu toàn hệ thống lên Google Drive",
-    description: "Cấu hình Service Account Google Drive tự động sao lưu bảng D1 định kỳ theo sự kiện thao tác.",
-    department_id: "IT_DIGITAL",
-    project_id: "PRJ-AUTOMATION",
-    assignee_emp_code: "202608001",
-    assignee_name: "Phạm Nguyễn Anh Huy",
-    reporter_emp_code: "202608002",
-    reviewer_emp_code: "202608002",
-    priority: "HIGH",
-    start_date: "2026-09-10",
-    due_date: "2026-09-12",
-    status: "DONE",
-    progress: 100,
-    tags: "BACKUP,CLOUD",
-    checklist: [
-      { id: "c1", title: "Cấu hình Google Drive Service Account JWT", completed: true, assignee_name: "Phạm Nguyễn Anh Huy", assignee_emp_code: "202608001" },
-      { id: "c2", title: "Phân loại thư mục backup theo chủ đề", completed: true, assignee_name: "Nguyễn Đức Thuấn", assignee_emp_code: "202608005" },
-      { id: "c3", title: "Tối ưu hóa Event-Driven trigger real-time", completed: true, assignee_name: "Trần Văn Hùng", assignee_emp_code: "202608003" },
-    ],
-    result_description: "Đã tích hợp xong Event-Driven Backup tự động đẩy file JSON phân loại vào Google Drive khi user thao tác.",
-  },
-  {
-    id: "tsk_005",
-    code: "TSK-005",
-    title: "Nghiên cứu ứng dụng AI Gemba nhận diện trang phục bảo hộ",
-    description: "Sử dụng camera AI nhận diện công nhân quên đeo khẩu trang hoặc nón bảo hộ khi vào khu vực máy cắt.",
-    department_id: "IT_DIGITAL",
-    project_id: "PRJ-GEMBA-SAFETY",
-    assignee_emp_code: "202608001",
-    assignee_name: "Phạm Nguyễn Anh Huy",
-    reporter_emp_code: "202608002",
-    reviewer_emp_code: "202608002",
-    priority: "LOW",
-    start_date: "2026-09-15",
-    due_date: "2026-10-01",
-    status: "BACKLOG",
-    progress: 0,
-    tags: "AI,SAFETY",
-    checklist: [
-      { id: "c1", title: "Thu thập dataset hình ảnh đồ bảo hộ", completed: false },
-    ],
-    result_description: "",
-  },
-  {
-    id: "tsk_006",
-    code: "TSK-006",
-    title: "Tối ưu tồn kho cửa hàng Skechers Flagship Vincom",
-    description: "Đồng bộ tồn kho real-time giữa kho tổng Kiên Giang và các cửa hàng bán lẻ Skechers trên toàn quốc.",
-    department_id: "RETAIL_SKECHERS",
-    project_id: "PRJ-SKECHERS-RETAIL",
-    assignee_emp_code: "202608001",
-    assignee_name: "Phạm Nguyễn Anh Huy",
-    reporter_emp_code: "202608005",
-    reviewer_emp_code: "202608002",
-    priority: "HIGH",
-    start_date: "2026-09-08",
-    due_date: "2026-09-25",
-    status: "DOING",
-    progress: 75,
-    tags: "SKECHERS,RETAIL",
-    checklist: [
-      { id: "c1", title: "Tích hợp POS API cửa hàng Vincom", completed: true },
-      { id: "c2", title: "Cảnh báo hết hàng tự động cho Quản lý", completed: false },
-    ],
-    result_description: "",
-  },
-  {
-    id: "tsk_007",
-    code: "TSK-007",
-    title: "Triển khai Kaizen giảm 30% thời gian gá dưỡng may quai",
-    description: "Áp dụng gá định hình mẫu 1-5-2 tại Xưởng May 2 giúp tăng năng suất 150 đôi/ngày.",
-    department_id: "PROD_MAY5",
-    project_id: "PRJ-KAIZEN-152",
-    assignee_emp_code: "202608001",
-    assignee_name: "Phạm Nguyễn Anh Huy",
-    reporter_emp_code: "202608008",
-    reviewer_emp_code: "202608002",
-    priority: "HIGH",
-    start_date: "2026-09-02",
-    due_date: "2026-09-18",
-    status: "DOING",
-    progress: 80,
-    tags: "KAIZEN,1-5-2",
-    checklist: [
-      { id: "c1", title: "Chế tạo gá mẫu thử nghiệm", completed: true },
-      { id: "c2", title: "Đánh giá hiệu quả tiết kiệm giây", completed: true },
-    ],
-    result_description: "",
-  }
-];
-
-// Fallback memory state if D1 DB is not bound
-let inMemoryTasks = [...DEFAULT_TASKS];
-
-// Helper function to resolve department manager based on department_id
-function getDepartmentManager(deptId: string): string {
-  const managers: Record<string, string> = {
-    "IT_DIGITAL": "Phạm Nguyễn Anh Huy (IT Lead / Trưởng Phòng IT & CĐS)",
-    "HÀNH_CHÍNH": "Nguyễn Thị Mai (Trưởng Phòng Hành Chính Nhân Sự)",
-    "PROD_MAY5": "Trần Văn Hùng (Quản Đốc Chuyền May 5)",
-    "QC_QUALITY": "Lê Văn Tấn (QC Manager)",
-  };
-  return managers[deptId] || `Trưởng Phòng Phụ Trách (${deptId || "Phòng Ban"})`;
 }
 
 let isTableEnsured = false;
@@ -216,38 +37,34 @@ async function ensureTable(db: any) {
         handover_status TEXT,
         previous_department_id TEXT,
         new_department_id TEXT,
+        reject_reason TEXT,
+        history_log TEXT,
+        attachments TEXT,
+        is_test_data INTEGER DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `).run().catch(() => {});
 
-    // Migration attempt to add columns if table already existed without them
-    await db.prepare(`ALTER TABLE sys_my_tasks ADD COLUMN project_id TEXT`).run().catch(() => {});
-    await db.prepare(`ALTER TABLE sys_my_tasks ADD COLUMN help_reason TEXT`).run().catch(() => {});
-    await db.prepare(`ALTER TABLE sys_my_tasks ADD COLUMN help_notified_to TEXT`).run().catch(() => {});
-    await db.prepare(`ALTER TABLE sys_my_tasks ADD COLUMN handover_status TEXT`).run().catch(() => {});
-    await db.prepare(`ALTER TABLE sys_my_tasks ADD COLUMN previous_department_id TEXT`).run().catch(() => {});
-    await db.prepare(`ALTER TABLE sys_my_tasks ADD COLUMN new_department_id TEXT`).run().catch(() => {});
-    await db.prepare(`ALTER TABLE sys_my_tasks ADD COLUMN attachments TEXT`).run().catch(() => {});
+    // Ensure columns in case table was created with older schema
+    const migrations = [
+      'ALTER TABLE sys_my_tasks ADD COLUMN project_id TEXT',
+      'ALTER TABLE sys_my_tasks ADD COLUMN help_reason TEXT',
+      'ALTER TABLE sys_my_tasks ADD COLUMN help_notified_to TEXT',
+      'ALTER TABLE sys_my_tasks ADD COLUMN handover_status TEXT',
+      'ALTER TABLE sys_my_tasks ADD COLUMN previous_department_id TEXT',
+      'ALTER TABLE sys_my_tasks ADD COLUMN new_department_id TEXT',
+      'ALTER TABLE sys_my_tasks ADD COLUMN reject_reason TEXT',
+      'ALTER TABLE sys_my_tasks ADD COLUMN history_log TEXT',
+      'ALTER TABLE sys_my_tasks ADD COLUMN attachments TEXT',
+      'ALTER TABLE sys_my_tasks ADD COLUMN is_test_data INTEGER DEFAULT 0',
+    ];
+
+    for (const sql of migrations) {
+      await db.prepare(sql).run().catch(() => {});
+    }
 
     isTableEnsured = true;
-
-    const countRes: any = await db.prepare(`SELECT COUNT(*) as cnt FROM sys_my_tasks`).first().catch(() => null);
-    if (!countRes || countRes.cnt === 0) {
-      for (const t of DEFAULT_TASKS) {
-        await db.prepare(`
-          INSERT INTO sys_my_tasks (
-            id, code, title, description, department_id, project_id, assignee_emp_code, assignee_name,
-            reporter_emp_code, reviewer_emp_code, priority, start_date, due_date, status,
-            progress, tags, checklist, result_description, help_reason, help_notified_to, handover_status
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'NONE')
-        `).bind(
-          t.id, t.code, t.title, t.description, t.department_id, (t as any).project_id || null, t.assignee_emp_code, t.assignee_name,
-          t.reporter_emp_code, t.reviewer_emp_code, t.priority, t.start_date, t.due_date, t.status,
-          t.progress, t.tags, JSON.stringify(t.checklist), t.result_description || "", (t as any).help_reason || "", (t as any).help_notified_to || ""
-        ).run().catch(() => {});
-      }
-    }
   } catch (e) {
     console.error("Failed to ensure sys_my_tasks table", e);
   }
@@ -268,55 +85,75 @@ export async function GET(request: Request) {
     const session = token ? await verifyToken(token) : null;
     const db = getDbBinding();
 
+    if (!db) {
+      return NextResponse.json(
+        { success: false, error: 'Không thể kết nối cơ sở dữ liệu D1 (DB binding missing). Tuyệt đối không dùng bộ nhớ tạm.' },
+        { status: 500 }
+      );
+    }
+
+    await ensureTable(db);
+
+    const { searchParams } = new URL(request.url);
+    const filterScope = (searchParams.get('scope') || 'MY_ONLY').toUpperCase();
+    const requestedDept = searchParams.get('department_id') || searchParams.get('dept');
+    const requestedAssignee = searchParams.get('assignee_emp_code') || searchParams.get('empCode');
+    const requestedProject = searchParams.get('project_id') || searchParams.get('project');
+
     let allTasks: any[] = [];
+    const { results } = await db.prepare(`SELECT * FROM sys_my_tasks ORDER BY created_at DESC`).all();
 
-    if (db) {
-      await ensureTable(db);
-      const { results } = await db.prepare(`SELECT * FROM sys_my_tasks ORDER BY created_at DESC`).all();
-      if (results && results.length > 0) {
-        allTasks = results.map((r: any) => ({
-          ...r,
-          checklist: (() => {
-            if (Array.isArray(r.checklist)) return r.checklist;
-            if (typeof r.checklist === 'string' && r.checklist.trim()) {
-              try {
-                let parsed = JSON.parse(r.checklist);
-                if (typeof parsed === 'string') parsed = JSON.parse(parsed);
-                return Array.isArray(parsed) ? parsed : [];
-              } catch {
-                return [];
-              }
+    if (results && results.length > 0) {
+      allTasks = results.map((r: any) => ({
+        ...r,
+        checklist: (() => {
+          if (Array.isArray(r.checklist)) return r.checklist;
+          if (typeof r.checklist === 'string' && r.checklist.trim()) {
+            try {
+              let parsed = JSON.parse(r.checklist);
+              if (typeof parsed === 'string') parsed = JSON.parse(parsed);
+              return Array.isArray(parsed) ? parsed : [];
+            } catch {
+              return [];
             }
-            return [];
-          })(),
-          attachments: (() => {
-            if (Array.isArray(r.attachments)) return r.attachments;
-            if (typeof r.attachments === 'string' && r.attachments.trim()) {
-              try {
-                let parsed = JSON.parse(r.attachments);
-                if (typeof parsed === 'string') parsed = JSON.parse(parsed);
-                return Array.isArray(parsed) ? parsed : [];
-              } catch {
-                return [];
-              }
+          }
+          return [];
+        })(),
+        attachments: (() => {
+          if (Array.isArray(r.attachments)) return r.attachments;
+          if (typeof r.attachments === 'string' && r.attachments.trim()) {
+            try {
+              let parsed = JSON.parse(r.attachments);
+              if (typeof parsed === 'string') parsed = JSON.parse(parsed);
+              return Array.isArray(parsed) ? parsed : [];
+            } catch {
+              return [];
             }
-            return [];
-          })(),
-        }));
-      }
+          }
+          return [];
+        })(),
+        history_log: (() => {
+          if (Array.isArray(r.history_log)) return r.history_log;
+          if (typeof r.history_log === 'string' && r.history_log.trim()) {
+            try {
+              let parsed = JSON.parse(r.history_log);
+              return Array.isArray(parsed) ? parsed : [];
+            } catch {
+              return [];
+            }
+          }
+          return [];
+        })(),
+      }));
     }
 
-    if (allTasks.length === 0) {
-      allTasks = [...inMemoryTasks];
-    }
-
-    // Server-side task scoping & Handover Flow (Fix #11)
+    // Role-based visibility scoping
     if (session) {
       const roleLevel = session.roleLevel || 4;
       const roleCode = (session.roleCode || '').toUpperCase();
       const isAdmin = roleCode === 'SUPER_ADMIN' || roleCode === 'ADMIN' || roleLevel === 1;
       const isExec = isAdmin || roleLevel <= 2;
-      const isTP = !isExec && (roleCode === 'TRUONG_PHONG' || roleCode === 'TP' || roleLevel === 3);
+      const isTP = !isExec && (roleCode === 'TRUONG_PHONG' || roleCode === 'TP' || roleCode === 'QUAN_DOC' || roleLevel === 3);
       const userDept = String(session.departmentCode || session.department || '').toUpperCase();
       const userEmp = session.empCode;
 
@@ -325,53 +162,66 @@ export async function GET(request: Request) {
         return {
           ...t,
           is_pending_handover: isPendingHandover,
-          handover_warning: isPendingHandover ? `⚠️ ĐANG BÀN GIAO: Từ ${t.previous_department_id || 'Phòng cũ'} sang ${t.new_department_id || 'Phòng mới'}` : null,
+          handover_warning: isPendingHandover
+            ? `⚠️ ĐANG BÀN GIAO: Từ ${t.previous_department_id || 'Phòng cũ'} sang ${t.new_department_id || 'Phòng mới'}`
+            : null,
         };
       });
 
-      if (!isExec && session.empCode) {
-        const scopedTasks = allTasks.filter((t: any) => {
-          const isAssignee = t.assignee_emp_code === userEmp;
-          const isReporter = t.reporter_emp_code === userEmp;
-          const isInChecklist = Array.isArray(t.checklist) && t.checklist.some((c: any) => c.assignee_emp_code === userEmp);
-          const isOwnDept = userDept !== '' && t.department_id && String(t.department_id).toUpperCase().includes(userDept);
-          
-          // Fix #11: Handover tasks in PENDING_HANDOVER state must be visible to BOTH old and new Department Heads
-          const isHandoverOldDept = isTP && t.handover_status === 'PENDING_HANDOVER' && t.previous_department_id && String(t.previous_department_id).toUpperCase().includes(userDept);
-          const isHandoverNewDept = isTP && t.handover_status === 'PENDING_HANDOVER' && t.new_department_id && String(t.new_department_id).toUpperCase().includes(userDept);
-
-          return isAssignee || isReporter || isInChecklist || isOwnDept || isHandoverOldDept || isHandoverNewDept;
-        });
-
-        if (scopedTasks.length > 0 || !isTP) {
-          allTasks = scopedTasks;
+      if (!isExec && userEmp) {
+        if (filterScope === 'MY_ONLY') {
+          // Giai đoạn 3.1: Nhân viên chỉ thấy task mình được giao, mình tạo hoặc mình liên quan
+          allTasks = allTasks.filter((t: any) => {
+            const isAssignee = t.assignee_emp_code === userEmp;
+            const isReporter = t.reporter_emp_code === userEmp;
+            const isReviewer = t.reviewer_emp_code === userEmp;
+            const isInChecklist = Array.isArray(t.checklist) && t.checklist.some((c: any) => c.assignee_emp_code === userEmp);
+            return isAssignee || isReporter || isReviewer || isInChecklist;
+          });
+        } else if (filterScope === 'DEPT_ONLY' && isTP) {
+          // Trưởng phòng xem toàn bộ task thuộc phòng ban mình
+          allTasks = allTasks.filter((t: any) => {
+            const isOwnDept = userDept !== '' && t.department_id && String(t.department_id).toUpperCase().includes(userDept);
+            const isHandoverOldDept = t.handover_status === 'PENDING_HANDOVER' && t.previous_department_id && String(t.previous_department_id).toUpperCase().includes(userDept);
+            const isHandoverNewDept = t.handover_status === 'PENDING_HANDOVER' && t.new_department_id && String(t.new_department_id).toUpperCase().includes(userDept);
+            return isOwnDept || isHandoverOldDept || isHandoverNewDept;
+          });
         }
       }
+    }
+
+    // Explicit query parameter filters
+    if (requestedAssignee && requestedAssignee !== 'ALL') {
+      allTasks = allTasks.filter((t: any) => t.assignee_emp_code === requestedAssignee || t.reporter_emp_code === requestedAssignee);
+    }
+    if (requestedDept && requestedDept !== 'ALL') {
+      allTasks = allTasks.filter((t: any) => String(t.department_id || '').toUpperCase().includes(requestedDept.toUpperCase()));
+    }
+    if (requestedProject && requestedProject !== 'ALL') {
+      allTasks = allTasks.filter((t: any) => String(t.project_id || '').toUpperCase() === requestedProject.toUpperCase());
     }
 
     return NextResponse.json({
       success: true,
       tasks: allTasks,
+      total: allTasks.length,
     });
   } catch (error: any) {
-    return NextResponse.json({ success: true, tasks: inMemoryTasks });
+    return NextResponse.json(
+      { success: false, error: `Lỗi truy vấn cơ sở dữ liệu D1: ${error?.message || error}` },
+      { status: 500 }
+    );
   }
 }
 
 export async function POST(request: Request) {
   try {
-    let session = await getAuthUser(request);
+    const session = await getAuthUser(request);
     if (!session || !session.empCode) {
-      session = {
-        userId: 888,
-        empCode: '202608001',
-        name: 'Phạm Nguyễn Anh Huy',
-        roleId: 1,
-        roleCode: 'SUPER_ADMIN',
-        roleLevel: 1,
-        departmentId: 1,
-        departmentCode: 'IT_DIGITAL',
-      };
+      return NextResponse.json(
+        { success: false, error: 'Yêu cầu đăng nhập để tạo công việc mới (401 Unauthorized)' },
+        { status: 401 }
+      );
     }
 
     let body: any = {};
@@ -381,74 +231,89 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Dữ liệu JSON không hợp lệ' }, { status: 400 });
     }
 
-    const {
-      id,
-      code,
-      title,
-      description = '',
-      priority = 'MEDIUM',
-      due_date,
-      project_id = null,
-      assignee_emp_code = session.empCode,
-      assignee_name = session.name || 'Cán Bộ Nhân Viên',
-      department_id = session.departmentCode || 'IT_DIGITAL',
-      tags = 'TASK',
-      checklist = [],
-      attachments = [],
-    } = body;
-
-    if (!title || !title.trim()) {
+    const title = (body.title || '').trim();
+    if (!title) {
       return NextResponse.json({ success: false, error: 'Tiêu đề công việc là bắt buộc' }, { status: 400 });
     }
 
+    const db = getDbBinding();
+    if (!db) {
+      return NextResponse.json(
+        { success: false, error: 'Không thể kết nối cơ sở dữ liệu D1. Tuyệt đối không lưu vào bộ nhớ tạm.' },
+        { status: 500 }
+      );
+    }
+
+    await ensureTable(db);
+
+    const initialStatus = body.status || 'TO_DO';
+    const taskId = `tsk_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const taskCode = body.code || `TSK-${Math.floor(100 + Math.random() * 900)}`;
+
+    const initialHistory = [
+      {
+        action: 'CREATED',
+        by: session.empCode,
+        byName: session.name,
+        at: new Date().toISOString(),
+        status: initialStatus,
+      },
+    ];
+
     const newTask = {
-      id: id || `tsk_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-      code: code || `TSK-${Math.floor(100 + Math.random() * 900)}`,
-      title: title.trim(),
-      description: description.trim(),
-      department_id: department_id || 'IT_DIGITAL',
-      project_id: project_id || null,
-      assignee_emp_code: assignee_emp_code || session.empCode,
-      assignee_name: assignee_name || session.name,
+      id: taskId,
+      code: taskCode,
+      title: title,
+      description: (body.description || '').trim(),
+      department_id: body.department_id || session.departmentCode || session.department || 'TBS',
+      project_id: body.project_id || null,
+      assignee_emp_code: body.assignee_emp_code || session.empCode,
+      assignee_name: body.assignee_name || session.name,
       reporter_emp_code: session.empCode,
-      priority: priority,
-      start_date: new Date().toISOString().substring(0, 10),
-      due_date: due_date || new Date(Date.now() + 7 * 86400000).toISOString().substring(0, 10),
-      status: 'TO_DO',
-      progress: 0,
-      tags: tags || 'TASK',
-      checklist: Array.isArray(checklist) ? checklist : [],
-      attachments: Array.isArray(attachments) ? attachments : [],
-      result_description: '',
-      handover_status: 'NONE',
+      reviewer_emp_code: body.reviewer_emp_code || null,
+      priority: body.priority || 'MEDIUM',
+      start_date: body.start_date || new Date().toISOString().substring(0, 10),
+      due_date: body.due_date || new Date(Date.now() + 7 * 86400000).toISOString().substring(0, 10),
+      status: initialStatus,
+      progress: body.progress || 0,
+      tags: body.tags || 'TASK',
+      checklist: Array.isArray(body.checklist) ? body.checklist : [],
+      attachments: Array.isArray(body.attachments) ? body.attachments : [],
+      result_description: body.result_description || '',
+      reject_reason: null,
+      history_log: initialHistory,
+      is_test_data: body.is_test_data ? 1 : 0,
     };
 
-    const db = getDbBinding();
-    let dbInsertOk = false;
-    if (db) {
-      await ensureTable(db);
-      try {
-        await db.prepare(`
-          INSERT INTO sys_my_tasks (
-            id, code, title, description, department_id, project_id, assignee_emp_code, assignee_name,
-            reporter_emp_code, priority, start_date, due_date, status, progress, tags, checklist, attachments, result_description, handover_status
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'NONE')
-        `).bind(
-          newTask.id, newTask.code, newTask.title, newTask.description, newTask.department_id, newTask.project_id,
-          newTask.assignee_emp_code, newTask.assignee_name, newTask.reporter_emp_code,
-          newTask.priority, newTask.start_date, newTask.due_date, newTask.status,
-          newTask.progress, newTask.tags, JSON.stringify(newTask.checklist), JSON.stringify(newTask.attachments), newTask.result_description
-        ).run();
-        dbInsertOk = true;
-      } catch {}
+    await db.prepare(`
+      INSERT INTO sys_my_tasks (
+        id, code, title, description, department_id, project_id, assignee_emp_code, assignee_name,
+        reporter_emp_code, reviewer_emp_code, priority, start_date, due_date, status, progress,
+        tags, checklist, attachments, result_description, reject_reason, history_log, is_test_data, handover_status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'NONE')
+    `).bind(
+      newTask.id, newTask.code, newTask.title, newTask.description, newTask.department_id, newTask.project_id,
+      newTask.assignee_emp_code, newTask.assignee_name, newTask.reporter_emp_code, newTask.reviewer_emp_code,
+      newTask.priority, newTask.start_date, newTask.due_date, newTask.status, newTask.progress,
+      newTask.tags, JSON.stringify(newTask.checklist), JSON.stringify(newTask.attachments),
+      newTask.result_description, newTask.reject_reason, JSON.stringify(newTask.history_log), newTask.is_test_data
+    ).run();
+
+    // Push notification to Assignee if assigned to another employee
+    if (newTask.assignee_emp_code && newTask.assignee_emp_code !== session.empCode) {
+      const notifId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+      await db.prepare(`
+        INSERT INTO sys_notifications (id, user_id, title, message, type, link, created_at)
+        VALUES (?, ?, ?, ?, 'TASK_ASSIGNED', ?, CURRENT_TIMESTAMP)
+      `).bind(
+        notifId,
+        newTask.assignee_emp_code,
+        `Công việc mới: ${newTask.title}`,
+        `${session.name} đã giao cho bạn công việc [${newTask.code}]. Hạn chót: ${newTask.due_date}`,
+        `/work?dept=my-tasks&task=${newTask.id}`
+      ).run().catch(() => {});
     }
 
-    // Only use in-memory fallback if DB insert did NOT succeed
-    if (!dbInsertOk) {
-      inMemoryTasks = [newTask as any, ...inMemoryTasks];
-    }
-
-    // Google Drive Backup & Audit Log Trigger
     logAudit(request, {
       empCode: session.empCode,
       empName: session.name,
@@ -458,15 +323,18 @@ export async function POST(request: Request) {
       changesJson: newTask,
     }).catch(() => {});
 
-    syncBackupToDrive('TASKS', newTask, 'CREATE_TASK').catch(() => {});
+    syncBackupToDrive('TASKS', { taskId: newTask.id, createdBy: session.empCode }, 'CREATE_TASK').catch(() => {});
 
     return NextResponse.json({
       success: true,
-      message: 'Tạo công việc thành công',
+      message: 'Đã tạo công việc thành công',
       task: newTask,
     });
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: `Lỗi khi lưu công việc vào D1: ${error?.message || error}` },
+      { status: 500 }
+    );
   }
 }
 
@@ -487,182 +355,271 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ success: false, error: 'Dữ liệu JSON không hợp lệ' }, { status: 400 });
     }
 
-    const { taskId, status, resultDescription, helpReason, checklistId, completed, progress } = body;
+    const { taskId, status, resultDescription, rejectReason, helpReason, checklistId, completed, progress, dueDate, dueDateReason } = body;
 
     if (!taskId) {
       return NextResponse.json({ success: false, error: 'taskId là bắt buộc' }, { status: 400 });
     }
 
-    // Medium #10: Validation requirement for result_description when status changes to DONE
-    if (status === 'DONE') {
-      const resultText = (resultDescription || '').trim();
-      if (!resultText || resultText.length < 10) {
+    const db = getDbBinding();
+    if (!db) {
+      return NextResponse.json(
+        { success: false, error: 'Không thể kết nối cơ sở dữ liệu D1. Tuyệt đối không cập nhật bộ nhớ tạm.' },
+        { status: 500 }
+      );
+    }
+
+    await ensureTable(db);
+
+    const existing: any = await db.prepare(`SELECT * FROM sys_my_tasks WHERE id = ?`).bind(taskId).first().catch(() => null);
+    if (!existing) {
+      return NextResponse.json({ success: false, error: 'Không tìm thấy công việc cần cập nhật' }, { status: 404 });
+    }
+
+    // Determine authorization level
+    const roleLevel = session.roleLevel || 4;
+    const roleCode = (session.roleCode || '').toUpperCase();
+    const isAdmin = roleCode === 'SUPER_ADMIN' || roleCode === 'ADMIN' || roleLevel === 1;
+    const isExec = isAdmin || roleLevel <= 2;
+    const isTP = !isExec && (roleCode === 'TRUONG_PHONG' || roleCode === 'TP' || roleCode === 'QUAN_DOC' || roleLevel === 3);
+    const isReporter = session.empCode === existing.reporter_emp_code;
+    const isReviewer = session.empCode === existing.reviewer_emp_code;
+    const isApprover = isAdmin || isExec || isTP || isReporter || isReviewer;
+
+    let history: any[] = [];
+    try {
+      history = typeof existing.history_log === 'string' ? JSON.parse(existing.history_log || '[]') : (existing.history_log || []);
+    } catch {
+      history = [];
+    }
+
+    let newStatus = status !== undefined ? status : existing.status;
+    let newResult = resultDescription !== undefined ? resultDescription : existing.result_description;
+    let newRejectReason = existing.reject_reason;
+    let newProgress = progress !== undefined ? progress : existing.progress;
+    let newDueDate = dueDate !== undefined ? dueDate : existing.due_date;
+
+    // Giai đoạn 3.2: Kiểm soát luồng trạng thái nghiêm ngặt
+    // 1. Chặn nhân viên tự ý chuyển sang DONE
+    if (newStatus === 'DONE' && existing.status !== 'DONE') {
+      if (!isApprover) {
         return NextResponse.json(
           {
             success: false,
-            error: 'Bắt buộc phải nhập mô tả kết quả thực hiện (tối thiểu 10 ký tự) trước khi chuyển công việc sang hoàn thành (DONE)!',
+            error: 'Bạn không có quyền Duyệt nghiệm thu (DONE) công việc này. Chỉ Trưởng/Phó phòng, Quản đốc hoặc Người giao việc mới có quyền bấm Duyệt đạt. Vui lòng chuyển thẻ sang Chờ duyệt (REVIEW).',
+          },
+          { status: 403 }
+        );
+      }
+
+      const resultText = (newResult || '').trim();
+      if (!resultText || resultText.length < 5) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Bắt buộc phải có mô tả kết quả thực hiện (tối thiểu 5 ký tự) trước khi Duyệt nghiệm thu hoàn thành (DONE)!',
           },
           { status: 400 }
         );
       }
+
+      newProgress = 100;
+      newRejectReason = null; // Clear previous rejection
+      history.push({
+        action: 'APPROVED_DONE',
+        by: session.empCode,
+        byName: session.name,
+        at: new Date().toISOString(),
+        resultDescription: resultText,
+      });
+
+      // Send approval notification to Assignee
+      if (existing.assignee_emp_code) {
+        const notifId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+        await db.prepare(`
+          INSERT INTO sys_notifications (id, user_id, title, message, type, link, created_at)
+          VALUES (?, ?, ?, ?, 'TASK_APPROVED', ?, CURRENT_TIMESTAMP)
+        `).bind(
+          notifId,
+          existing.assignee_emp_code,
+          `Đã nghiệm thu: ${existing.title}`,
+          `Công việc [${existing.code}] đã được ${session.name} Duyệt đạt (DONE).`,
+          `/work?dept=my-tasks&task=${existing.id}`
+        ).run().catch(() => {});
+      }
     }
 
-    // Trigger Google Drive Backup Sync & Audit Logging for Update action
+    // 2. Luồng Bắt làm lại (Reject)
+    const isRejectAction = body.action === 'REJECT' || Boolean(rejectReason) || (existing.status === 'REVIEW' && newStatus === 'DOING' && rejectReason);
+    if (isRejectAction) {
+      if (!isApprover) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Chỉ Trưởng phòng, Quản đốc hoặc Người giao việc mới có quyền Bắt làm lại công việc này.',
+          },
+          { status: 403 }
+        );
+      }
+
+      const reasonText = (rejectReason || '').trim();
+      if (!reasonText || reasonText.length < 5) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Bắt buộc phải nhập lý do bắt làm lại (tối thiểu 5 ký tự) để nhân viên biết cần sửa gì!',
+          },
+          { status: 400 }
+        );
+      }
+
+      newStatus = 'DOING';
+      newRejectReason = reasonText;
+      history.push({
+        action: 'REJECTED_REDO',
+        by: session.empCode,
+        byName: session.name,
+        at: new Date().toISOString(),
+        reason: reasonText,
+      });
+
+      // Send rejection notification to Assignee
+      if (existing.assignee_emp_code) {
+        const notifId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+        await db.prepare(`
+          INSERT INTO sys_notifications (id, user_id, title, message, type, link, created_at)
+          VALUES (?, ?, ?, ?, 'TASK_REJECTED', ?, CURRENT_TIMESTAMP)
+        `).bind(
+          notifId,
+          existing.assignee_emp_code,
+          `Bắt làm lại: ${existing.title}`,
+          `${session.name} yêu cầu làm lại công việc [${existing.code}]. Lý do: ${reasonText}`,
+          `/work?dept=my-tasks&task=${existing.id}`
+        ).run().catch(() => {});
+      }
+    }
+
+    // 3. Giai đoạn 3.3: Ghi nhận thay đổi Due Date
+    if (newDueDate && newDueDate !== existing.due_date) {
+      history.push({
+        action: 'DUE_DATE_CHANGED',
+        by: session.empCode,
+        byName: session.name,
+        at: new Date().toISOString(),
+        oldDueDate: existing.due_date,
+        newDueDate: newDueDate,
+        reason: (dueDateReason || '').trim(),
+      });
+
+      // Notify assignee about due date change
+      if (existing.assignee_emp_code && existing.assignee_emp_code !== session.empCode) {
+        const notifId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+        await db.prepare(`
+          INSERT INTO sys_notifications (id, user_id, title, message, type, link, created_at)
+          VALUES (?, ?, ?, ?, 'DUE_DATE_CHANGED', ?, CURRENT_TIMESTAMP)
+        `).bind(
+          notifId,
+          existing.assignee_emp_code,
+          `Dời hạn chót: ${existing.title}`,
+          `Hạn chót công việc [${existing.code}] đã đổi từ ${existing.due_date} sang ${newDueDate}.`,
+          `/work?dept=my-tasks&task=${existing.id}`
+        ).run().catch(() => {});
+      }
+    }
+
+    // Checklist handling
+    let checklistArr: any[] = [];
+    try {
+      checklistArr = typeof existing.checklist === 'string' ? JSON.parse(existing.checklist || '[]') : (existing.checklist || []);
+    } catch {
+      checklistArr = [];
+    }
+
+    if (checklistId !== undefined) {
+      checklistArr = checklistArr.map((c: any) =>
+        c.id === checklistId ? { ...c, completed: Boolean(completed) } : c
+      );
+      const doneCount = checklistArr.filter((c: any) => c.completed).length;
+      newProgress = checklistArr.length > 0 ? Math.round((doneCount / checklistArr.length) * 100) : newProgress;
+    }
+
+    // Attachments handling
+    let attachmentsArr: any[] = [];
+    try {
+      attachmentsArr = typeof existing.attachments === 'string' ? JSON.parse(existing.attachments || '[]') : (existing.attachments || []);
+    } catch {
+      attachmentsArr = [];
+    }
+    if (Array.isArray(body.attachments)) {
+      attachmentsArr = body.attachments;
+    }
+
+    // Update in D1
+    await db.prepare(`
+      UPDATE sys_my_tasks
+      SET status = ?,
+          result_description = ?,
+          reject_reason = ?,
+          progress = ?,
+          due_date = ?,
+          checklist = ?,
+          attachments = ?,
+          history_log = ?,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).bind(
+      newStatus,
+      newResult,
+      newRejectReason,
+      newProgress,
+      newDueDate,
+      JSON.stringify(checklistArr),
+      JSON.stringify(attachmentsArr),
+      JSON.stringify(history),
+      taskId
+    ).run();
+
     logAudit(request, {
       empCode: session.empCode,
       empName: session.name,
       module: 'TASKS',
       action: 'UPDATE_TASK',
       targetId: taskId,
-      changesJson: body,
+      changesJson: { status: newStatus, progress: newProgress, rejectReason: newRejectReason, dueDate: newDueDate },
     }).catch(() => {});
 
-    syncBackupToDrive('TASKS', { taskId, ...body, updatedBy: session.empCode }, 'UPDATE_TASK').catch(() => {});
-
-    const db = getDbBinding();
-    if (db) {
-      await ensureTable(db);
-      const existing: any = await db.prepare(`SELECT * FROM sys_my_tasks WHERE id = ?`).bind(taskId).first().catch(() => null);
-
-      if (existing) {
-        let newStatus = status !== undefined ? status : existing.status;
-        let newResult = resultDescription !== undefined ? resultDescription : existing.result_description;
-        let newHelpReason = helpReason !== undefined ? helpReason : existing.help_reason;
-        let newHelpNotifiedTo = existing.help_notified_to;
-
-        if (newStatus === 'NEED_HELP') {
-          newHelpNotifiedTo = getDepartmentManager(existing.department_id || 'IT_DIGITAL');
-
-          // High #5: Push notification to Department Head / Manager
-          try {
-            const notifId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-            await db.prepare(`
-              INSERT INTO sys_notifications (id, target_role, title, message, type, link, created_at)
-              VALUES (?, 'TRUONG_PHONG', ?, ?, 'WARNING', '/work/tasks', CURRENT_TIMESTAMP)
-            `).bind(
-              notifId,
-              `⚠️ Yêu cầu trợ giúp công việc: ${existing.code || existing.title}`,
-              `Nhân viên ${session.name} vừa báo cần hỗ trợ cho công việc "${existing.title}". Lý do: ${newHelpReason || 'Cần Trưởng phòng tư vấn'}`
-            ).run().catch(() => {});
-          } catch (e) {}
-        }
-
-        let newProgress = progress !== undefined ? progress : existing.progress;
-        let checklistArr = (() => {
-          if (Array.isArray(existing.checklist)) return existing.checklist;
-          if (typeof existing.checklist === 'string' && existing.checklist.trim()) {
-            try {
-              let parsed = JSON.parse(existing.checklist);
-              if (typeof parsed === 'string') parsed = JSON.parse(parsed);
-              return Array.isArray(parsed) ? parsed : [];
-            } catch {
-              return [];
-            }
-          }
-          return [];
-        })();
-
-        if (body.checklist !== undefined && Array.isArray(body.checklist)) {
-          checklistArr = body.checklist;
-          const doneCount = checklistArr.filter((c: any) => c.completed).length;
-          newProgress = checklistArr.length > 0 ? Math.round((doneCount / checklistArr.length) * 100) : newProgress;
-        } else if (checklistId !== undefined) {
-          checklistArr = checklistArr.map((c: any) => c.id === checklistId ? { ...c, completed: Boolean(completed) } : c);
-          const doneCount = checklistArr.filter((c: any) => c.completed).length;
-          newProgress = checklistArr.length > 0 ? Math.round((doneCount / checklistArr.length) * 100) : newProgress;
-        }
-
-        let attachmentsArr = (() => {
-          if (Array.isArray(existing.attachments)) return existing.attachments;
-          if (typeof existing.attachments === 'string' && existing.attachments.trim()) {
-            try {
-              let parsed = JSON.parse(existing.attachments);
-              if (typeof parsed === 'string') parsed = JSON.parse(parsed);
-              return Array.isArray(parsed) ? parsed : [];
-            } catch {
-              return [];
-            }
-          }
-          return [];
-        })();
-
-        if (body.attachments !== undefined && Array.isArray(body.attachments)) {
-          attachmentsArr = body.attachments;
-        }
-
-        if (newStatus === 'DONE') {
-          newProgress = 100;
-        }
-
-        await db.prepare(`
-          UPDATE sys_my_tasks
-          SET status = ?, result_description = ?, help_reason = ?, help_notified_to = ?, progress = ?, checklist = ?, attachments = ?, updated_at = CURRENT_TIMESTAMP
-          WHERE id = ?
-        `).bind(newStatus, newResult, newHelpReason || '', newHelpNotifiedTo || '', newProgress, JSON.stringify(checklistArr), JSON.stringify(attachmentsArr), taskId).run().catch(() => {});
-
-        return NextResponse.json({
-          success: true,
-          message: 'Đã cập nhật công việc',
-          help_notified_to: newHelpNotifiedTo,
-        });
-      }
-    }
-
-    // In-memory update
-    let notifiedManager = '';
-    inMemoryTasks = inMemoryTasks.map((t) => {
-      if (t.id === taskId) {
-        let updatedStatus = status !== undefined ? status : t.status;
-        let updatedResult = resultDescription !== undefined ? resultDescription : t.result_description;
-        let updatedHelpReason = helpReason !== undefined ? helpReason : (t as any).help_reason;
-        let updatedHelpNotifiedTo = (t as any).help_notified_to;
-        let updatedAttachments = body.attachments !== undefined && Array.isArray(body.attachments) ? body.attachments : ((t as any).attachments || []);
-
-        if (updatedStatus === 'NEED_HELP') {
-          updatedHelpNotifiedTo = getDepartmentManager(t.department_id || 'IT_DIGITAL');
-          notifiedManager = updatedHelpNotifiedTo;
-        }
-
-        let updatedProgress = progress !== undefined ? progress : t.progress;
-        let updatedChecklist = [...t.checklist];
-
-        if (checklistId !== undefined) {
-          updatedChecklist = updatedChecklist.map((c) => c.id === checklistId ? { ...c, completed: Boolean(completed) } : c);
-          const doneCount = updatedChecklist.filter((c) => c.completed).length;
-          updatedProgress = updatedChecklist.length > 0 ? Math.round((doneCount / updatedChecklist.length) * 100) : updatedProgress;
-        }
-
-        if (updatedStatus === 'DONE') {
-          updatedProgress = 100;
-        }
-
-        return {
-          ...t,
-          status: updatedStatus as any,
-          result_description: updatedResult,
-          help_reason: updatedHelpReason,
-          help_notified_to: updatedHelpNotifiedTo,
-          progress: updatedProgress,
-          checklist: updatedChecklist,
-          attachments: updatedAttachments,
-        };
-      }
-      return t;
-    });
+    syncBackupToDrive('TASKS', { taskId, updatedBy: session.empCode, status: newStatus }, 'UPDATE_TASK').catch(() => {});
 
     return NextResponse.json({
       success: true,
-      message: 'Đã cập nhật công việc thành công',
-      help_notified_to: notifiedManager,
+      message: 'Đã cập nhật công việc thành công trên D1',
+      task: {
+        id: taskId,
+        status: newStatus,
+        progress: newProgress,
+        reject_reason: newRejectReason,
+        due_date: newDueDate,
+        history_log: history,
+      },
     });
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: `Lỗi cập nhật D1: ${error?.message || error}` },
+      { status: 500 }
+    );
   }
 }
 
 export async function DELETE(request: Request) {
   try {
     const session = await getAuthUser(request);
+    if (!session || !session.empCode) {
+      return NextResponse.json(
+        { success: false, error: 'Yêu cầu đăng nhập để xóa công việc (401 Unauthorized)' },
+        { status: 401 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const taskId = searchParams.get('taskId');
 
@@ -670,32 +627,37 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ success: false, error: 'taskId là bắt buộc' }, { status: 400 });
     }
 
-    // Google Drive Backup & Audit Log Trigger for Delete action
+    const db = getDbBinding();
+    if (!db) {
+      return NextResponse.json(
+        { success: false, error: 'Không thể kết nối cơ sở dữ liệu D1. Tuyệt đối không xóa trên bộ nhớ tạm.' },
+        { status: 500 }
+      );
+    }
+
+    await ensureTable(db);
+
+    await db.prepare(`DELETE FROM sys_my_tasks WHERE id = ?`).bind(taskId).run();
+
     logAudit(request, {
-      empCode: session?.empCode || '202608001',
-      empName: session?.name || 'Admin',
+      empCode: session.empCode,
+      empName: session.name,
       module: 'TASKS',
       action: 'DELETE_TASK',
       targetId: taskId,
       changesJson: { taskId },
     }).catch(() => {});
 
-    syncBackupToDrive('TASKS', { taskId, deletedBy: session?.empCode || '202608001' }, 'DELETE_TASK').catch(() => {});
-
-    const db = getDbBinding();
-    if (db) {
-      await ensureTable(db);
-      await db.prepare(`DELETE FROM sys_my_tasks WHERE id = ?`).bind(taskId).run().catch(() => {});
-    }
-
-    inMemoryTasks = inMemoryTasks.filter((t) => t.id !== taskId);
+    syncBackupToDrive('TASKS', { taskId, deletedBy: session.empCode }, 'DELETE_TASK').catch(() => {});
 
     return NextResponse.json({
       success: true,
-      message: 'Đã xóa công việc thành công',
+      message: 'Đã xóa công việc thành công khỏi D1',
     });
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: `Lỗi xóa công việc D1: ${error?.message || error}` },
+      { status: 500 }
+    );
   }
 }
-

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
 import {
   IconChecklist,
@@ -53,20 +53,8 @@ import { getCurrentUser, normalizeEmpCode, getSystemUser } from "@/lib/userProfi
 import { uploadCloudinaryFile } from "@/lib/cloudinary";
 import UserAvatar from "@/components/UserAvatar";
 
-export const STAFF_MEMBERS = [
-  { empCode: "202608001", name: "Phạm Nguyễn Anh Huy", position: "NV — Lập Trình" },
-  { empCode: "202608002", name: "Trần Ngọc Huy", position: "NV — Lập Trình" },
-  { empCode: "222102020", name: "Dư Thị Thanh Tình", position: "Trưởng Phòng Quản Trị Nguồn Nhân Lực" },
-  { empCode: "211206004", name: "Nguyễn Văn Tình", position: "Trưởng Nhóm Quản Trị Nguồn Nhân Lực" },
-  { empCode: "201606014", name: "Trần Thị Hồng Nhung", position: "Chuyên Viên Quản Trị & Phát Triển NNL" },
-  { empCode: "210612005", name: "Nguyễn Thị Hằng", position: "Chuyên Viên Định Mức & Phân Bổ Ngân Sách TL" },
-  { empCode: "202404001", name: "Nguyễn Ngọc Tuyến", position: "Chuyên Viên Tuyển Dụng & Đào Tạo" },
-  { empCode: "201906023", name: "Đặng Thị Thanh Lịch", position: "Chuyên Viên Nhân Sự Tiền Lương & CS" },
-  { empCode: "202206011", name: "Trần Thị Bích Trâm", position: "Trưởng Nhóm Hành Chính & Lễ Tân" },
-  { empCode: "202203002", name: "Nguyễn Tiến Hạnh", position: "Chuyên Viên Audit & Doanh Trí KLLĐ" },
-  { empCode: "202409009", name: "Nguyễn Kim Nguyên", position: "Nhân Viên Hành Chính - Lễ Tân" },
-  { empCode: "202010004", name: "Nguyễn Minh Hùng", position: "Nhân Viên Hành Chính - Lễ Tân" },
-];
+// Fallback dummy structure for external imports
+export const STAFF_MEMBERS: Array<{ empCode: string; name: string; position: string }> = [];
 
 export interface TaskAttachment {
   id: string;
@@ -251,6 +239,8 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
   const [reporterFilter, setReporterFilter] = useState<string>("ALL");
   const [tagFilter, setTagFilter] = useState<string>("ALL");
   const [memberFilter, setMemberFilter] = useState<string>("ALL");
+  const [staffList, setStaffList] = useState<Array<{ empCode: string; name: string; position: string; department?: string }>>([]);
+  const [assigneeSearchText, setAssigneeSearchText] = useState("");
 
   // Bottom Widgets States
   const [recentTab, setRecentTab] = useState<"ALL" | "MY" | "ASSIGNED" | "DONE">("ALL");
@@ -295,6 +285,66 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
       managementLevel === 3);
 
   const isStaffOnly = !isAdmin && !isExec && !isTP;
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const token = typeof window !== "undefined" ? localStorage.getItem("tbs_token") || sessionStorage.getItem("tbs_token") : "";
+        const deptFilter = isTP && deptCode ? `?department=${encodeURIComponent(deptCode)}` : "";
+        const res = await fetch(`/api/users${deptFilter}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (res.ok) {
+          const json = await res.json();
+          const users = json.users || json.data || [];
+          if (Array.isArray(users) && users.length > 0) {
+            const mapped = users.map((u: any) => ({
+              empCode: String(u.emp_code || u.empCode || u.id),
+              name: String(u.name || ""),
+              position: String(u.title || u.vtcv_hien_tai || "Cán Bộ"),
+              department: String(u.department || u.phong_ban_hien_tai || ""),
+            }));
+            setStaffList(mapped);
+            if (mapped.length > 0) {
+              setNewAssigneeEmpCode((prev) => (prev && mapped.some((m: any) => m.empCode === prev) ? prev : mapped[0].empCode));
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("Failed to fetch users list", e);
+      }
+    };
+    if (isMounted) {
+      fetchUsers();
+    }
+  }, [isMounted, isTP, deptCode]);
+
+  const activeStaffList = useMemo(() => {
+    if (staffList.length > 0) return staffList;
+    if (activeUser) {
+      return [
+        {
+          empCode: activeUser.empCode || "202608001",
+          name: activeUser.name || "Cán Bộ",
+          position: activeUser.title || "Nhân viên",
+          department: deptCode || "",
+        },
+      ];
+    }
+    return [];
+  }, [staffList, activeUser, deptCode]);
+
+  const filteredModalStaffList = useMemo(() => {
+    if (!assigneeSearchText.trim()) return activeStaffList;
+    const q = assigneeSearchText.toLowerCase().trim();
+    return activeStaffList.filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        s.empCode.toLowerCase().includes(q) ||
+        s.position.toLowerCase().includes(q) ||
+        (s.department && s.department.toLowerCase().includes(q))
+    );
+  }, [activeStaffList, assigneeSearchText]);
 
   const fetchTasks = async (targetMember?: string) => {
     try {
@@ -946,7 +996,12 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
       });
     }
 
-    const selectedStaff = STAFF_MEMBERS.find((s) => s.empCode === newAssigneeEmpCode) || STAFF_MEMBERS[0];
+    const selectedStaff = activeStaffList.find((s) => s.empCode === newAssigneeEmpCode) || activeStaffList[0] || {
+      empCode: activeUser?.empCode || "202608001",
+      name: activeUser?.name || "Người tạo",
+      position: "Cán Bộ",
+      department: deptCode || "",
+    };
     const taskAttachments = [...newAttachments];
 
     const createdTask: TaskItem = {
@@ -1209,8 +1264,8 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
                 }}
                 className="pl-8 pr-8 py-2 rounded-lg bg-emerald-50/90 border border-emerald-300 text-xs font-black text-emerald-950 outline-none focus:border-[#006838] transition cursor-pointer appearance-none shadow-2xs"
               >
-                <option value="ALL">👥 Toàn Bộ Phòng Ban ({deptCode || "IT_CDS"})</option>
-                {STAFF_MEMBERS.map((s) => (
+                <option value="ALL">👥 Toàn Bộ Phòng Ban ({deptCode || "Tất Cả"})</option>
+                {activeStaffList.map((s) => (
                   <option key={s.empCode} value={s.empCode}>
                     👤 {s.name} ({s.position})
                   </option>
@@ -1235,8 +1290,8 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
               onChange={(e) => setReporterFilter(e.target.value)}
               className="pl-8 pr-8 py-2 rounded-lg bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 outline-none focus:border-[#006838] transition cursor-pointer appearance-none"
             >
-              <option value="ALL">Phân công</option>
-              {STAFF_MEMBERS.map((s) => (
+              <option value="ALL">Phân công (Tất cả)</option>
+              {activeStaffList.map((s) => (
                 <option key={s.empCode} value={s.empCode}>
                   {s.name}
                 </option>
@@ -1895,15 +1950,25 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Người phụ trách thực hiện</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-slate-700">Người phụ trách thực hiện</label>
+                  <span className="text-[10px] text-slate-400 font-medium">({filteredModalStaffList.length} nhân sự)</span>
+                </div>
+                <input
+                  type="text"
+                  placeholder="🔍 Tìm nhanh theo tên, MSNV, chức vụ..."
+                  value={assigneeSearchText}
+                  onChange={(e) => setAssigneeSearchText(e.target.value)}
+                  className="w-full mb-1.5 px-2.5 py-1 text-xs border border-slate-200 rounded-md focus:border-[#006838] outline-none bg-slate-50"
+                />
                 <select
                   value={newAssigneeEmpCode}
                   onChange={(e) => setNewAssigneeEmpCode(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs font-bold outline-none focus:border-[#006838] bg-white"
                 >
-                  {STAFF_MEMBERS.map((staff) => (
+                  {filteredModalStaffList.map((staff) => (
                     <option key={staff.empCode} value={staff.empCode}>
-                      👤 {staff.name} — {staff.position}
+                      👤 {staff.name} — {staff.position} ({staff.empCode})
                     </option>
                   ))}
                 </select>

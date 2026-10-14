@@ -1,319 +1,154 @@
 import { NextResponse } from 'next/server';
-
+import { getAuthUser, isAdminUser, isExecutiveOrAdmin, isDepartmentHead } from '@/lib/auth';
 
 function getDbBinding(): any {
   return (process.env as any).DB || (globalThis as any).DB || null;
 }
 
-const OFFICIAL_SYSTEM_USERS = [
-  {
-    id: "emp_1",
-    empCode: "202608001",
-    name: "Phạm Nguyễn Anh Huy",
-    email: "anhy.work.2004@gmail.com",
-    phone: "0522511245",
-    title: "Trưởng Phòng IT - Team Chuyển Đổi Số",
-    department: "IT - Team Chuyển Đổi Số",
-    roleCode: "TRUONG_PHONG",
-    status: "ACTIVE",
-    vtcvHienTai: "TP",
-  },
-  {
-    id: "emp_2",
-    empCode: "202608002",
-    name: "Trần Ngọc Huy",
-    email: "tranhuy110421@gmail.com",
-    phone: "0522511246",
-    title: "Kỹ Sư IT - Team Chuyển Đổi Số",
-    department: "IT - Team Chuyển Đổi Số",
-    roleCode: "TRUONG_PHONG",
-    status: "ACTIVE",
-    vtcvHienTai: "TP",
-  },
-  {
-    id: "emp_3",
-    empCode: "202206011",
-    name: "TRẦN THỊ BÍCH TRÂM",
-    email: "202206011@tbsgroup.vn",
-    phone: "0522511247",
-    title: "Trưởng Team Lễ Tân",
-    department: "HÀNH CHÍNH-LỄ TÂN",
-    roleCode: "LE_TAN",
-    status: "ACTIVE",
-    vtcvHienTai: "T.TEAM",
-  },
-  {
-    id: "emp_4",
-    empCode: "202010004",
-    name: "Lễ Tân",
-    email: "letan.202010004@tbsgroup.vn",
-    phone: "0522511248",
-    title: "Nhân Viên Lễ Tân",
-    department: "Văn Phòng Chuỗi SKECHERS",
-    roleCode: "LE_TAN",
-    status: "ACTIVE",
-    vtcvHienTai: "LT",
-  },
-  {
-    id: "emp_5",
-    empCode: "202409009",
-    name: "Lễ Tân",
-    email: "letan.202409009@tbsgroup.vn",
-    phone: "0522511249",
-    title: "Nhân Viên Lễ Tân",
-    department: "Văn Phòng Chuỗi SKECHERS",
-    roleCode: "LE_TAN",
-    status: "ACTIVE",
-    vtcvHienTai: "LT",
-  },
-  {
-    id: "emp_6",
-    empCode: "200405004",
-    name: "Phạm Minh Tùng",
-    email: "200405004@tbsgroup.vn",
-    phone: "0903800000",
-    title: "TGĐ",
-    department: "Ban Điều Hành",
-    roleCode: "TONG_GIAM_DOC",
-    status: "ACTIVE",
-    vtcvHienTai: "TGĐ",
-    vtcvSapXep: "TGĐ",
-  },
-  {
-    id: "emp_7",
-    empCode: "210608003",
-    name: "Vũ Thành Lê",
-    email: "210608003@tbsgroup.vn",
-    phone: "0903800001",
-    title: "GĐ",
-    department: "Ban Giám Đốc",
-    roleCode: "GIAM_DOC",
-    status: "ACTIVE",
-    vtcvHienTai: "PGĐ",
-    vtcvSapXep: "GĐ",
-  },
-  {
-    id: "emp_8",
-    empCode: "210602002",
-    name: "Trần Thị Ngoan",
-    email: "210602002@tbsgroup.vn",
-    phone: "0901234567",
-    title: "Chuyên Viên IE & Phê Duyệt Sáng Kiến Kaizen",
-    department: "Kỹ Thuật Công Nghiệp (IE)",
-    roleCode: "IE",
-    status: "ACTIVE",
-    vtcvHienTai: "IE",
-  },
-  {
-    id: "emp_9",
-    empCode: "201506009",
-    name: "Lê Thúy Diễm",
-    email: "201506009@tbsgroup.vn",
-    phone: "",
-    title: "Chuyên Viên Nhân Sự & Hành Chánh",
-    department: "Nhân Sự - Hành Chính",
-    roleCode: "CBCNV",
-    status: "ACTIVE",
-    vtcvHienTai: "NV",
-  },
-  {
-    id: "emp_10",
-    empCode: "201607010",
-    name: "Nguyễn Thị Đào",
-    email: "201607010@tbsgroup.vn",
-    phone: "",
-    title: "Chuyên Viên Nhân Sự & Hành Chánh",
-    department: "Nhân Sự - Hành Chính",
-    roleCode: "CBCNV",
-    status: "ACTIVE",
-    vtcvHienTai: "NV",
-  },
-  {
-    id: "emp_11",
-    empCode: "201507009",
-    name: "Hồ Thị Thảo",
-    email: "201507009@tbsgroup.vn",
-    phone: "",
-    title: "Chuyên Viên Nhân Sự & Hành Chánh",
-    department: "Nhân Sự - Hành Chính",
-    roleCode: "CBCNV",
-    status: "ACTIVE",
-    vtcvHienTai: "NV",
-  },
-  {
-    id: "emp_12",
-    empCode: "201507015",
-    name: "Đoàn Thị Trinh",
-    email: "201507015@tbsgroup.vn",
-    phone: "",
-    title: "Chuyên Viên Nhân Sự & Hành Chánh",
-    department: "Nhân Sự - Hành Chính",
-    roleCode: "CBCNV",
-    status: "ACTIVE",
-    vtcvHienTai: "NV",
-  },
-  {
-    id: "emp_13",
-    empCode: "212103096",
-    name: "Nguyễn Văn Nguyện",
-    email: "212103096@tbsgroup.vn",
-    phone: "",
-    title: "Chuyên Viên Nhân Sự & Hành Chánh",
-    department: "Nhân Sự - Hành Chính",
-    roleCode: "CBCNV",
-    status: "ACTIVE",
-    vtcvHienTai: "NV",
-  },
-];
-
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const session = await getAuthUser(request);
     const db = getDbBinding();
-    if (db) {
-      try {
-        const query = `SELECT * FROM sys_users ORDER BY id ASC`;
-        const { results } = await db.prepare(query).all();
-        if (results) {
-          return NextResponse.json({
-            success: true,
-            data: results,
-          });
-        }
-      } catch (e) {
-        // Table sys_users might not exist yet
+
+    if (!db) {
+      return NextResponse.json(
+        { success: false, error: 'Không thể kết nối cơ sở dữ liệu D1' },
+        { status: 500 }
+      );
+    }
+
+    const { searchParams } = new URL(request.url);
+    const search = (searchParams.get('search') || searchParams.get('q') || '').trim();
+    const department = (searchParams.get('department') || searchParams.get('dept') || '').trim();
+    const role = (searchParams.get('role') || '').trim();
+    const allAllowed = searchParams.get('all') === 'true';
+
+    // Role-based department restriction for Department Heads (Trưởng phòng)
+    let restrictedDept: string | null = null;
+    if (session && !allAllowed) {
+      const roleLevel = session.roleLevel || 4;
+      const isAdmin = roleLevel === 1;
+      const isExec = isAdmin || roleLevel <= 2;
+      const isTP = !isExec && roleLevel === 3;
+
+      if (isTP && session.department) {
+        restrictedDept = String(session.department);
       }
     }
 
+    let sql = `SELECT * FROM sys_users WHERE status = 'ACTIVE'`;
+    const params: any[] = [];
+
+    const effectiveDept = department || restrictedDept;
+    if (effectiveDept) {
+      sql += ` AND UPPER(department) LIKE UPPER(?)`;
+      params.push(`%${effectiveDept}%`);
+    }
+
+    if (search) {
+      sql += ` AND (UPPER(name) LIKE UPPER(?) OR UPPER(emp_code) LIKE UPPER(?) OR UPPER(title) LIKE UPPER(?))`;
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+    }
+
+    if (role) {
+      sql += ` AND UPPER(role_code) = UPPER(?)`;
+      params.push(role);
+    }
+
+    sql += ` ORDER BY department ASC, name ASC`;
+
+    const { results } = await db.prepare(sql).bind(...params).all();
+    const users = (results || []).map((u: any) => ({
+      id: u.id,
+      empCode: u.emp_code,
+      emp_code: u.emp_code,
+      name: u.name,
+      email: u.email,
+      phone: u.phone,
+      title: u.title,
+      department: u.department,
+      roleCode: u.role_code,
+      role_code: u.role_code,
+      roleLevel: u.role_level || (u.role_code === 'TRUONG_PHONG' ? 3 : u.role_code === 'SUPER_ADMIN' ? 1 : 4),
+      role_level: u.role_level || (u.role_code === 'TRUONG_PHONG' ? 3 : u.role_code === 'SUPER_ADMIN' ? 1 : 4),
+      status: u.status,
+      isTestAccount: Boolean(u.is_test_account),
+      avatar: u.avatar || '',
+    }));
+
     return NextResponse.json({
       success: true,
-      data: [],
+      data: users,
+      count: users.length,
     });
   } catch (error: any) {
-    return NextResponse.json({
-      success: true,
-      data: [],
-    });
+    return NextResponse.json(
+      { success: false, error: `Lỗi truy vấn nhân sự D1: ${error?.message || error}` },
+      { status: 500 }
+    );
   }
 }
 
 export async function POST(request: Request) {
   try {
+    const session = await getAuthUser(request);
+    if (!session || !isAdminUser(session)) {
+      return NextResponse.json(
+        { success: false, error: 'Chỉ Quản trị viên (Admin) mới có quyền tạo nhân sự mới' },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const db = getDbBinding();
 
-    if (db && body.empCode) {
-      try {
-        await db.prepare(`
-          CREATE TABLE IF NOT EXISTS sys_users (
-            id TEXT PRIMARY KEY,
-            emp_code TEXT UNIQUE,
-            name TEXT,
-            email TEXT,
-            phone TEXT,
-            title TEXT,
-            department TEXT,
-            role_code TEXT,
-            status TEXT DEFAULT 'ACTIVE',
-            ngay_vao TEXT,
-            vtcv_hien_tai TEXT,
-            phong_ban_hien_tai TEXT,
-            vtcv_sap TEXT,
-            vtcv_sap_xep TEXT,
-            pb_sap_xep TEXT,
-            bo_phan_moi TEXT,
-            phong_ban_moi TEXT,
-            ghi_chu TEXT,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-          )
-        `).run().catch(() => {});
-
-        const cols = ["ngay_vao", "vtcv_hien_tai", "phong_ban_hien_tai", "vtcv_sap", "vtcv_sap_xep", "pb_sap_xep", "bo_phan_moi", "phong_ban_moi", "ghi_chu"];
-        for (const col of cols) {
-          await db.prepare(`ALTER TABLE sys_users ADD COLUMN ${col} TEXT`).run().catch(() => {});
-        }
-
-        await db.prepare(`
-          INSERT INTO sys_users (
-            id, emp_code, name, email, phone, title, department, role_code, status,
-            ngay_vao, vtcv_hien_tai, phong_ban_hien_tai, vtcv_sap, vtcv_sap_xep,
-            pb_sap_xep, bo_phan_moi, phong_ban_moi, ghi_chu
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          ON CONFLICT(emp_code) DO UPDATE SET
-            name = excluded.name,
-            email = excluded.email,
-            phone = excluded.phone,
-            title = excluded.title,
-            department = excluded.department,
-            role_code = excluded.role_code,
-            status = excluded.status,
-            ngay_vao = excluded.ngay_vao,
-            vtcv_hien_tai = excluded.vtcv_hien_tai,
-            phong_ban_hien_tai = excluded.phong_ban_hien_tai,
-            vtcv_sap = excluded.vtcv_sap,
-            vtcv_sap_xep = excluded.vtcv_sap_xep,
-            pb_sap_xep = excluded.pb_sap_xep,
-            bo_phan_moi = excluded.bo_phan_moi,
-            phong_ban_moi = excluded.phong_ban_moi,
-            ghi_chu = excluded.ghi_chu
-        `).bind(
-          body.id || `emp_${Date.now()}`,
-          body.empCode,
-          body.name || '',
-          body.email || '',
-          body.phone || '',
-          body.title || '',
-          body.department || '',
-          body.roleCode || 'CBCNV',
-          body.status || 'ACTIVE',
-          body.ngay_vao || body.ngayVao || '',
-          body.vtcv_hien_tai || body.vtcvHienTai || '',
-          body.phong_ban_hien_tai || body.phongBanHienTai || '',
-          body.vtcv_sap || body.vtcvSap || '',
-          body.vtcv_sap_xep || body.vtcvSapXep || '',
-          body.pb_sap_xep || body.phongBanSapXep || '',
-          body.bo_phan_moi || body.boPhoanMoi || '',
-          body.phong_ban_moi || body.phongBanMoi || '',
-          body.ghi_chu || body.ghiChu || ''
-        ).run().catch(() => {});
-      } catch (e) {}
+    if (!db) {
+      return NextResponse.json(
+        { success: false, error: 'Không thể kết nối cơ sở dữ liệu D1' },
+        { status: 500 }
+      );
     }
+
+    const empCode = (body.empCode || body.emp_code || '').trim();
+    const name = (body.name || '').trim();
+    if (!empCode || !name) {
+      return NextResponse.json(
+        { success: false, error: 'Mã số nhân viên (empCode) và Họ tên (name) là bắt buộc' },
+        { status: 400 }
+      );
+    }
+
+    const id = body.id || `emp_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const email = body.email || `${empCode.toLowerCase()}@tbsgroup.vn`;
+    const phone = body.phone || '';
+    const title = body.title || 'Cán Bộ Công Nhân Viên';
+    const department = body.department || 'TBS Group';
+    const roleCode = body.roleCode || body.role_code || 'CBCNV';
+    const roleLevel = body.roleLevel || (roleCode === 'TRUONG_PHONG' ? 3 : 4);
+    const passwordHash = body.password_hash || body.passwordHash || 'sha256:298caf1cd8f71e1fc908e8c94a2b79afbccee0cabb9cc659357dbb4247841d02';
+
+    await db.prepare(`
+      INSERT INTO sys_users (
+        id, emp_code, name, email, phone, title, department, role_code, role_level,
+        password_hash, must_change_pwd, status, is_test_account
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'ACTIVE', 0)
+      ON CONFLICT(emp_code) DO UPDATE SET
+        name = excluded.name, email = excluded.email, phone = excluded.phone,
+        title = excluded.title, department = excluded.department, role_code = excluded.role_code,
+        role_level = excluded.role_level
+    `).bind(
+      id, empCode, name, email, phone, title, department, roleCode, roleLevel, passwordHash
+    ).run();
 
     return NextResponse.json({
       success: true,
-      message: 'Cập nhật tài khoản người dùng thành công!',
+      message: 'Đã lưu nhân sự thành công vào D1',
+      user: { id, empCode, name, email, phone, title, department, roleCode, roleLevel },
     });
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
-  }
-}
-
-export async function PUT(request: Request) {
-  return POST(request);
-}
-
-export async function DELETE(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const all = searchParams.get('all');
-    const id = searchParams.get('id');
-    const empCode = searchParams.get('empCode');
-    const db = getDbBinding();
-
-    if (db) {
-      try {
-        if (all === 'true') {
-          await db.prepare(`DELETE FROM sys_users`).run().catch(() => {});
-        } else if (empCode || id) {
-          await db.prepare(`DELETE FROM sys_users WHERE emp_code = ? OR id = ?`).bind(empCode || '', id || '').run().catch(() => {});
-        }
-      } catch (e) {}
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: 'Đã cập nhật trạng thái xóa tài khoản thành công!',
-    });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: `Lỗi khi lưu nhân sự: ${error?.message || error}` },
+      { status: 500 }
+    );
   }
 }

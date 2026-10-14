@@ -2805,7 +2805,9 @@ export default {
             email: userRecord?.email || `${empCode.toLowerCase()}@tbsgroup.vn`,
             phone: userRecord?.phone || "",
             roleCode: userRecord?.role_code || userRecord?.roleCode || "CBCNV",
-            roleLevel: (userRecord?.role_code === "TRUONG_PHONG" ? 3 : (userRecord?.role_code === "SUPER_ADMIN" || userRecord?.role_code === "TONG_GIAM_DOC") ? 1 : 4),
+            roleLevel: userRecord?.role_level ?? (userRecord?.role_code === "TRUONG_PHONG" ? 3 : (userRecord?.role_code === "SUPER_ADMIN" || userRecord?.role_code === "TONG_GIAM_DOC" || userRecord?.role_code === "GIAM_DOC") ? 1 : 4),
+            mustChangePwd: Boolean(userRecord?.must_change_pwd),
+            roles: (userRecord?.role_level <= 2 || userRecord?.role_code === "SUPER_ADMIN" || userRecord?.role_code === "TONG_GIAM_DOC") ? ["admin", "manager"] : (userRecord?.role_level === 3 || userRecord?.role_code === "TRUONG_PHONG") ? ["manager", "department_head"] : ["staff"],
             avatar: userRecord?.avatar || "",
             redirectUrl: userRecord?.redirect_url || userRecord?.redirectUrl || "/work"
           };

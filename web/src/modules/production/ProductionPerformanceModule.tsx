@@ -2771,7 +2771,7 @@ function TeamPanelBody({
   return (
     <>
       <div className="grid grid-cols-4 gap-1">
-        <MiniStat label="SLKH/Ngày" value={plannedQtyDay != null ? fmtCompactInt(plannedQtyDay) : '—'} tone="plan" light tv={tv} noShrink />
+        <MiniStat label="SLKH/Ngày" value={plannedQtyDay != null ? fmtCompactInt(plannedQtyDay) : '—'} tone="a" light tv={tv} noShrink />
         <MiniStat label="PPH" value={displayTargetPph != null ? { raw: displayTargetPph, decimals: 2 } : '—'} tone="b" light tv={tv} />
         <MiniStat label="LĐ" value={workerCount != null ? fmtInt(workerCount) : '—'} tone="a" light tv={tv} />
         <MiniStat label="TGLV" value={productionHours != null ? { raw: productionHours, decimals: Number.isInteger(productionHours) ? 0 : 1 } : '—'} tone="b" light tv={tv} />
@@ -2781,9 +2781,9 @@ function TeamPanelBody({
           sản phẩm có chỗ hiện rõ): Mã hàng + ảnh sản phẩm xếp CHỒNG — đúng tỉ lệ ảnh mẫu. */}
       <div className="mt-1 grid grid-cols-5 gap-1">
         <div className="col-span-2 flex flex-col gap-1">
-          <MiniStat label="SLKH/Giờ" value={fmtCompactInt(leaf.perHourTarget)} tone="plan" light tv={tv} noShrink />
-          {/* Cùng màu với SLKH/Giờ ngay phía trên (tone "plan" — xám xanh #64748b, theo yêu cầu người dùng). */}
-          <MiniStat label="SLKH L.Kế" value={fmtCompactInt(r.proTarget)} tone="plan" light tv={tv} noShrink />
+          <MiniStat label="SLKH/Giờ" value={fmtCompactInt(leaf.perHourTarget)} tone="a" light tv={tv} noShrink />
+          {/* Cùng màu với SLKH/Giờ ngay phía trên (tone "a" — xanh đậm giống LĐ, theo yêu cầu người dùng). */}
+          <MiniStat label="SLKH L.Kế" value={fmtCompactInt(r.proTarget)} tone="a" light tv={tv} noShrink />
         </div>
         <div className="col-span-3 flex flex-col gap-1">
           <div className={`truncate bg-white px-1 py-1 text-center font-extrabold uppercase tracking-wide text-tbs-dark ${tv ? 'text-xl' : 'text-sm'}`}>

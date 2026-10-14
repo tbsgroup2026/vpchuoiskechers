@@ -252,6 +252,37 @@ body {
   animation: pulse-soft 2s ease-in-out infinite;
 }
 
+/* ─── Chớp đỏ cảnh báo Tổ trễ nhập (chỉ dùng ở màn chiếu TV /pph-view — xem TeamPanel trong
+   ProductionPerformanceModule.tsx) — chớp CỨNG (steps, không mờ dần) cho rõ "báo động", không
+   dùng animate-pulse-soft (mờ dần, hợp cho trạng thái bình thường hơn là cảnh báo khẩn). ─── */
+@keyframes blink-red-alert {
+  0%, 49%   { background-color: #ffffff; border-color: #000000; }
+  50%, 100% { background-color: #fecaca; border-color: #dc2626; }
+}
+
+.animate-blink-red-alert {
+  animation: blink-red-alert 2.5s steps(1, end) infinite;
+}
+
+/* Nội dung thẻ Tổ ĐỔI QUA LẠI theo ĐÚNG nhịp (PHẢI khớp thời lượng blink-red-alert ở trên — đổi 1
+   chỗ nhớ đổi cả 3) với blink-red-alert ở trên — nền trắng thì hiện nội dung thường, nền đỏ thì
+   hiện dòng cảnh báo (2 khối xếp CHỒNG bằng CSS grid, xem TeamPanel — grid tự cao theo khối cao
+   hơn, khối cảnh báo tự canh giữa bên trong). */
+@keyframes blink-content-normal {
+  0%, 49%   { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+@keyframes blink-content-warning {
+  0%, 49%   { opacity: 0; }
+  50%, 100% { opacity: 1; }
+}
+.animate-blink-content-normal {
+  animation: blink-content-normal 2.5s steps(1, end) infinite;
+}
+.animate-blink-content-warning {
+  animation: blink-content-warning 2.5s steps(1, end) infinite;
+}
+
 /* ─── Perpetual Float ─── */
 @keyframes float {
   0%, 100% { transform: translateY(0); }

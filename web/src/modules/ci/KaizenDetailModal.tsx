@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { getValidKaizenImageUrl } from "@/lib/kaizenImageHelper";
+import { getValidKaizenImageUrl, getAllKaizenImageUrls } from "@/lib/kaizenImageHelper";
 import { formatMax2Decimals, formatVND } from "@/lib/formatNumber";
 import { getKaizenDisplayTitle, getKaizenBeforeDescription, getKaizenAfterSolution, getAutoBaremGroupForCategory } from "@/lib/kaizenTitleHelper";
 import {
@@ -32,7 +32,9 @@ import {
   IconTrendingUp,
   IconCloudUpload,
   IconLoader2,
+  IconZoomIn,
 } from "@tabler/icons-react";
+import KaizenImageLightboxModal, { LightboxImageItem } from "./KaizenImageLightboxModal";
 import { convertNumberToWords } from "@/lib/numberToWords";
 import { KaizenProposal } from "./CIModule";
 import { extractCategoryGroup } from "@/lib/kaizenDataContract";
@@ -294,6 +296,94 @@ export default function KaizenDetailModal({
       setSelectedMedia(null);
     }
   }, [proposal, isEditing, editForm.before_image_url, editForm.after_image_url]);
+
+  const [lightboxState, setLightboxState] = useState<{
+    isOpen: boolean;
+    initialIndex: number;
+    images: LightboxImageItem[];
+  }>({
+    isOpen: false,
+    initialIndex: 0,
+    images: [],
+  });
+
+  const handleOpenLightbox = (targetTag?: "BEFORE" | "AFTER" | "SELECTED") => {
+    const curBefore = getValidKaizenImageUrl(
+      isEditing ? editForm.before_image_url : proposal.before_image_url,
+      proposal.attachments_json,
+      "BEFORE"
+    );
+    const curAfter = getValidKaizenImageUrl(
+      isEditing ? editForm.after_image_url : (proposal.after_image_url || (proposal as any).afterImageUrl),
+      proposal.attachments_json,
+      "AFTER",
+      isEditing ? editForm.before_image_url : proposal.before_image_url
+    );
+
+    const list: LightboxImageItem[] = [];
+
+    if (curBefore) {
+      list.push({
+        url: curBefore,
+        tag: "BEFORE",
+        title: "Ảnh Trước Cải Tiến",
+        description: isEditing ? editForm.before_description : getKaizenBeforeDescription(proposal),
+      });
+    }
+
+    if (curAfter && curAfter !== curBefore) {
+      list.push({
+        url: curAfter,
+        tag: "AFTER",
+        title: "Ảnh Sau Cải Tiến",
+        description: isEditing ? editForm.after_solution : getKaizenAfterSolution(proposal),
+      });
+    }
+
+    // Include other attachments if available
+    const allImgs = getAllKaizenImageUrls(
+      isEditing ? `${editForm.before_image_url},${editForm.after_image_url}` : proposal.before_image_url,
+      proposal.attachments_json
+    );
+    allImgs.forEach((u, i) => {
+      if (u && u !== curBefore && u !== curAfter) {
+        list.push({
+          url: u,
+          tag: `Đính kèm ${i + 1}`,
+          title: `Ảnh đính kèm ${i + 1}`,
+        });
+      }
+    });
+
+    if (list.length === 0) {
+      if (selectedMedia?.type === "image" && selectedMedia.url) {
+        list.push({
+          url: selectedMedia.url,
+          title: "Hình ảnh Kaizen",
+        });
+      } else {
+        return;
+      }
+    }
+
+    let targetIdx = 0;
+    if (targetTag === "AFTER") {
+      const aIdx = list.findIndex((it) => it.tag === "AFTER");
+      if (aIdx >= 0) targetIdx = aIdx;
+    } else if (targetTag === "BEFORE") {
+      const bIdx = list.findIndex((it) => it.tag === "BEFORE");
+      if (bIdx >= 0) targetIdx = bIdx;
+    } else if (targetTag === "SELECTED" && selectedMedia?.url) {
+      const sIdx = list.findIndex((it) => it.url === selectedMedia.url);
+      if (sIdx >= 0) targetIdx = sIdx;
+    }
+
+    setLightboxState({
+      isOpen: true,
+      initialIndex: targetIdx,
+      images: list,
+    });
+  };
 
   const isOwner = useMemo(() => {
     if (!user || !proposal) return false;
@@ -715,13 +805,42 @@ export default function KaizenDetailModal({
 
             {/* KHOẢNG ẢNH BẢO ĐẢM ASPECT 16/9, MAX HEIGHT 130PX & PLACEHOLDER XÁM NHẠT */}
             <div className="space-y-1.5">
-              <div className="relative w-full aspect-video max-h-[135px] bg-slate-100 rounded-xl overflow-hidden border border-slate-200 shadow-2xs flex items-center justify-center">
+              <div
+                onClick={() => {
+                  if (selectedMedia?.type === "image" && selectedMedia.url) {
+                    handleOpenLightbox("SELECTED");
+                  }
+                }}
+                className={`relative w-full aspect-video max-h-[135px] bg-slate-100 rounded-xl overflow-hidden border border-slate-200 shadow-2xs flex items-center justify-center group ${
+                  selectedMedia?.type === "image" && selectedMedia.url ? "cursor-zoom-in" : ""
+                }`}
+              >
                 {selectedMedia?.type === "image" && selectedMedia.url ? (
-                  <img
-                    src={selectedMedia.url}
-                    alt="Selected"
-                    className="w-full h-full object-cover"
-                  />
+                  <>
+                    <img
+                      src={selectedMedia.url}
+                      alt="Selected"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                    <div className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none backdrop-blur-[1px]">
+                      <span className="px-2.5 py-1 rounded-lg bg-white/95 text-slate-800 font-bold text-[11px] shadow-md flex items-center gap-1">
+                        <IconZoomIn size={13} className="text-emerald-600" />
+                        <span>Phóng to</span>
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenLightbox("SELECTED");
+                      }}
+                      className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-md bg-slate-900/70 hover:bg-slate-900 text-white font-bold text-[9px] flex items-center gap-1 backdrop-blur-sm transition-all shadow-xs cursor-pointer z-10"
+                      title="Phóng to ảnh"
+                    >
+                      <IconZoomIn size={11} />
+                      <span>Phóng to</span>
+                    </button>
+                  </>
                 ) : selectedMedia?.type === "video" && selectedMedia.url ? (
                   <video
                     src={selectedMedia.url}
@@ -1194,6 +1313,7 @@ export default function KaizenDetailModal({
                 setEditForm={setEditForm}
                 uploadingImage={uploadingImage}
                 handleImageUpload={handleImageUpload}
+                onOpenLightbox={handleOpenLightbox}
               />
             )}
             {activeTab === "expert_review" && canSeeExpertTab && (
@@ -1251,6 +1371,16 @@ export default function KaizenDetailModal({
           if (onEvaluate) onEvaluate();
         }}
       />
+
+      {/* KAIZEN IMAGE LIGHTBOX MODAL */}
+      <KaizenImageLightboxModal
+        isOpen={lightboxState.isOpen}
+        onClose={() => setLightboxState((prev) => ({ ...prev, isOpen: false }))}
+        images={lightboxState.images}
+        initialIndex={lightboxState.initialIndex}
+        proposalTitle={getKaizenDisplayTitle(proposal)}
+        proposalCode={proposal.code || proposal.id}
+      />
     </div>
   );
 }
@@ -1262,6 +1392,7 @@ interface TabInfoContentProps {
   setEditForm: React.Dispatch<React.SetStateAction<any>>;
   uploadingImage: "before" | "after" | null;
   handleImageUpload: (file: File, field: "before_image_url" | "after_image_url") => void;
+  onOpenLightbox?: (targetTag?: "BEFORE" | "AFTER" | "SELECTED") => void;
 }
 
 function TabInfoContent({
@@ -1271,6 +1402,7 @@ function TabInfoContent({
   setEditForm,
   uploadingImage,
   handleImageUpload,
+  onOpenLightbox,
 }: TabInfoContentProps) {
   const prodCode = isEditing ? editForm.product_code : ((proposal as any).product_code || "");
   const qty = isEditing ? editForm.pair_quantity : Number((proposal as any).quantity || proposal.pair_quantity || (proposal as any).so_luong_giay || 0);
@@ -1868,7 +2000,20 @@ function TabInfoContent({
           {/* Ảnh Trước */}
           <div className="p-3 sm:p-3.5 rounded-2xl border-2 border-rose-200 bg-rose-50/20 space-y-2 relative">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-black text-rose-900">Trước</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-black text-rose-900">Trước</span>
+                {getValidKaizenImageUrl(isEditing ? editForm.before_image_url : proposal.before_image_url, proposal.attachments_json, "BEFORE") && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenLightbox?.("BEFORE")}
+                    className="px-2 py-0.5 rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold text-[10px] flex items-center gap-1 transition-all cursor-pointer border border-rose-200 shadow-2xs"
+                    title="Phóng to ảnh Trước"
+                  >
+                    <IconZoomIn size={12} />
+                    <span>Phóng to</span>
+                  </button>
+                )}
+              </div>
               {isEditing && (
                 <label className="cursor-pointer px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-[10px] flex items-center gap-1 shadow-xs transition-all">
                   <IconCloudUpload size={13} />
@@ -1887,12 +2032,35 @@ function TabInfoContent({
             </div>
 
             {getValidKaizenImageUrl(isEditing ? editForm.before_image_url : proposal.before_image_url, proposal.attachments_json, "BEFORE") ? (
-              <div className="relative group">
+              <div
+                onClick={() => onOpenLightbox?.("BEFORE")}
+                className="relative group cursor-zoom-in rounded-xl overflow-hidden border border-rose-200 bg-white"
+              >
                 <img
                   src={getValidKaizenImageUrl(isEditing ? editForm.before_image_url : proposal.before_image_url, proposal.attachments_json, "BEFORE")}
                   alt="Before"
-                  className="w-full h-44 sm:h-52 object-contain rounded-xl border border-rose-200 bg-white"
+                  className="w-full h-44 sm:h-52 object-contain group-hover:scale-[1.02] transition-transform duration-200"
                 />
+                {/* Floating zoom button in corner */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenLightbox?.("BEFORE");
+                  }}
+                  className="absolute top-2 right-2 px-2 py-1 rounded-lg bg-slate-900/70 hover:bg-slate-900 text-white font-bold text-[10px] flex items-center gap-1 backdrop-blur-sm transition-all shadow-md cursor-pointer z-10"
+                  title="Phóng to ảnh Trước"
+                >
+                  <IconZoomIn size={12} />
+                  <span>Phóng to</span>
+                </button>
+                {/* Hover overlay hint */}
+                <div className="absolute inset-0 bg-slate-950/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                  <span className="px-3 py-1.5 rounded-xl bg-white/95 text-slate-800 font-bold text-xs shadow-lg flex items-center gap-1.5 backdrop-blur-sm">
+                    <IconZoomIn size={15} className="text-rose-600" />
+                    <span>Click để phóng to ảnh</span>
+                  </span>
+                </div>
               </div>
             ) : (
               <div className="w-full h-36 sm:h-44 rounded-xl border border-dashed border-rose-200 bg-white flex flex-col items-center justify-center text-slate-400 font-bold text-xs gap-1">
@@ -1917,7 +2085,20 @@ function TabInfoContent({
           {/* Ảnh Sau */}
           <div className="p-3 sm:p-3.5 rounded-2xl border-2 border-emerald-200 bg-emerald-50/20 space-y-2 relative">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-black text-emerald-900">Sau</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-black text-emerald-900">Sau</span>
+                {getValidKaizenImageUrl(isEditing ? editForm.after_image_url : (proposal.after_image_url || (proposal as any).afterImageUrl), proposal.attachments_json, "AFTER", isEditing ? editForm.before_image_url : proposal.before_image_url) && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenLightbox?.("AFTER")}
+                    className="px-2 py-0.5 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-bold text-[10px] flex items-center gap-1 transition-all cursor-pointer border border-emerald-200 shadow-2xs"
+                    title="Phóng to ảnh Sau"
+                  >
+                    <IconZoomIn size={12} />
+                    <span>Phóng to</span>
+                  </button>
+                )}
+              </div>
               {isEditing && (
                 <label className="cursor-pointer px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] flex items-center gap-1 shadow-xs transition-all">
                   <IconCloudUpload size={13} />
@@ -1936,12 +2117,35 @@ function TabInfoContent({
             </div>
 
             {getValidKaizenImageUrl(isEditing ? editForm.after_image_url : (proposal.after_image_url || (proposal as any).afterImageUrl), proposal.attachments_json, "AFTER", isEditing ? editForm.before_image_url : proposal.before_image_url) ? (
-              <div className="relative group">
+              <div
+                onClick={() => onOpenLightbox?.("AFTER")}
+                className="relative group cursor-zoom-in rounded-xl overflow-hidden border border-emerald-200 bg-white"
+              >
                 <img
                   src={getValidKaizenImageUrl(isEditing ? editForm.after_image_url : (proposal.after_image_url || (proposal as any).afterImageUrl), proposal.attachments_json, "AFTER", isEditing ? editForm.before_image_url : proposal.before_image_url)}
                   alt="After"
-                  className="w-full h-44 sm:h-52 object-contain rounded-xl border border-emerald-200 bg-white"
+                  className="w-full h-44 sm:h-52 object-contain group-hover:scale-[1.02] transition-transform duration-200"
                 />
+                {/* Floating zoom button in corner */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenLightbox?.("AFTER");
+                  }}
+                  className="absolute top-2 right-2 px-2 py-1 rounded-lg bg-slate-900/70 hover:bg-slate-900 text-white font-bold text-[10px] flex items-center gap-1 backdrop-blur-sm transition-all shadow-md cursor-pointer z-10"
+                  title="Phóng to ảnh Sau"
+                >
+                  <IconZoomIn size={12} />
+                  <span>Phóng to</span>
+                </button>
+                {/* Hover overlay hint */}
+                <div className="absolute inset-0 bg-slate-950/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                  <span className="px-3 py-1.5 rounded-xl bg-white/95 text-slate-800 font-bold text-xs shadow-lg flex items-center gap-1.5 backdrop-blur-sm">
+                    <IconZoomIn size={15} className="text-emerald-600" />
+                    <span>Click để phóng to ảnh</span>
+                  </span>
+                </div>
               </div>
             ) : (
               <div className="w-full h-36 sm:h-44 rounded-xl border border-dashed border-emerald-200 bg-white flex flex-col items-center justify-center text-slate-400 font-bold text-xs gap-1">

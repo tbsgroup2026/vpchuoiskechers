@@ -22,7 +22,8 @@ import UserAvatar from "@/components/UserAvatar";
 import { getCurrentUser } from "@/lib/userProfiles";
 import { getValidKaizenImageUrl, getAllKaizenImageUrls } from "@/lib/kaizenImageHelper";
 import { formatMax2Decimals } from "@/lib/formatNumber";
-import { getKaizenDisplayTitle } from "@/lib/kaizenTitleHelper";
+import { getKaizenDisplayTitle, getKaizenBeforeDescription, getKaizenAfterSolution } from "@/lib/kaizenTitleHelper";
+import KaizenImageLightboxModal, { LightboxImageItem } from "./KaizenImageLightboxModal";
 import { apiFetch, registerPoller, unregisterPoller } from "@/lib/apiClient";
 import {
   STANDARD_DASHBOARD_REGIONS,
@@ -101,6 +102,7 @@ import {
   IconUserCheck,
   IconVideo,
   IconExternalLink,
+  IconZoomIn,
 } from "@tabler/icons-react";
 import { formatTitleWithDepartment } from "@/lib/userProfiles";
 import { usePermission } from "@/hooks/usePermission";
@@ -171,7 +173,17 @@ export interface KaizenProposal {
   updated_at?: string;
 }
 
-export function KaizenCardImage({ src, alt, attachmentsJson }: { src?: string; alt?: string; attachmentsJson?: string }) {
+export function KaizenCardImage({
+  src,
+  alt,
+  attachmentsJson,
+  onZoom,
+}: {
+  src?: string;
+  alt?: string;
+  attachmentsJson?: string;
+  onZoom?: (e: React.MouseEvent) => void;
+}) {
   const initialUrl = getValidKaizenImageUrl(src, attachmentsJson);
   const [imgSrc, setImgSrc] = useState(initialUrl);
   const [hasError, setHasError] = useState(!initialUrl);
@@ -192,20 +204,36 @@ export function KaizenCardImage({ src, alt, attachmentsJson }: { src?: string; a
   }
 
   return (
-    <img
-      src={imgSrc}
-      alt=""
-      onError={() => {
-        const all = getAllKaizenImageUrls(src, attachmentsJson);
-        const next = all.find((u) => u !== imgSrc);
-        if (next) {
-          setImgSrc(next);
-        } else {
-          setHasError(true);
-        }
-      }}
-      className="w-full h-full object-cover group-hover/img:scale-105 transition-transform duration-500"
-    />
+    <div className="relative w-full h-full">
+      <img
+        src={imgSrc}
+        alt=""
+        onError={() => {
+          const all = getAllKaizenImageUrls(src, attachmentsJson);
+          const next = all.find((u) => u !== imgSrc);
+          if (next) {
+            setImgSrc(next);
+          } else {
+            setHasError(true);
+          }
+        }}
+        className="w-full h-full object-cover group-hover/img:scale-105 transition-transform duration-500"
+      />
+      {onZoom && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onZoom(e);
+          }}
+          className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-lg bg-slate-900/75 hover:bg-slate-900 text-white font-bold text-[10px] flex items-center gap-1 opacity-0 group-hover/img:opacity-100 transition-all shadow-md backdrop-blur-xs cursor-pointer z-10"
+          title="Phóng to ảnh"
+        >
+          <IconZoomIn size={12} />
+          <span>Phóng to</span>
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -1234,7 +1262,65 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
   const [approvalModalProposal, setApprovalModalProposal] = useState<KaizenProposal | null>(null);
   const [activeProposal, setActiveProposal] = useState<KaizenProposal | null>(null);
 
+  const [cardLightbox, setCardLightbox] = useState<{
+    isOpen: boolean;
+    images: LightboxImageItem[];
+    initialIndex: number;
+    proposalTitle?: string;
+    proposalCode?: string | number;
+  }>({
+    isOpen: false,
+    images: [],
+    initialIndex: 0,
+  });
+
+  const handleOpenCardLightbox = (prop: KaizenProposal, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const curBefore = getValidKaizenImageUrl(prop.before_image_url, prop.attachments_json, "BEFORE");
+    const curAfter = getValidKaizenImageUrl(prop.after_image_url, prop.attachments_json, "AFTER", prop.before_image_url);
+
+    const list: LightboxImageItem[] = [];
+    if (curBefore) {
+      list.push({
+        url: curBefore,
+        tag: "BEFORE",
+        title: "Ảnh Trước Cải Tiến",
+        description: getKaizenBeforeDescription(prop),
+      });
+    }
+    if (curAfter && curAfter !== curBefore) {
+      list.push({
+        url: curAfter,
+        tag: "AFTER",
+        title: "Ảnh Sau Cải Tiến",
+        description: getKaizenAfterSolution(prop),
+      });
+    }
+
+    const allUrls = getAllKaizenImageUrls(prop.before_image_url, prop.attachments_json);
+    allUrls.forEach((u, i) => {
+      if (u && u !== curBefore && u !== curAfter) {
+        list.push({
+          url: u,
+          tag: `Đính kèm ${i + 1}`,
+          title: `Ảnh đính kèm ${i + 1}`,
+        });
+      }
+    });
+
+    if (list.length > 0) {
+      setCardLightbox({
+        isOpen: true,
+        images: list,
+        initialIndex: 0,
+        proposalTitle: getKaizenDisplayTitle(prop),
+        proposalCode: prop.code || prop.id,
+      });
+    }
+  };
+
   const closeAllModals = () => {
+    setCardLightbox((prev) => ({ ...prev, isOpen: false }));
     setIsCreateModalOpen(false);
     setIsFiveStepModalOpen(false);
     setIsDetailModalOpen(false);
@@ -3022,6 +3108,7 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
                             src={prop.before_image_url}
                             alt={prop.title}
                             attachmentsJson={prop.attachments_json}
+                            onZoom={(e) => handleOpenCardLightbox(prop, e)}
                           />
 
                           <div className="absolute top-1.5 right-1.5 pointer-events-none z-10">
@@ -3303,6 +3390,18 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
             fetchProposals();
           }}
           onSaveSuccess={handleProposalUpdated}
+        />
+      )}
+
+      {/* CARD IMAGE LIGHTBOX MODAL */}
+      {cardLightbox.isOpen && (
+        <KaizenImageLightboxModal
+          isOpen={cardLightbox.isOpen}
+          onClose={() => setCardLightbox((prev) => ({ ...prev, isOpen: false }))}
+          images={cardLightbox.images}
+          initialIndex={cardLightbox.initialIndex}
+          proposalTitle={cardLightbox.proposalTitle}
+          proposalCode={cardLightbox.proposalCode}
         />
       )}
 

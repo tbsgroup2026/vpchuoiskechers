@@ -4828,26 +4828,14 @@ export default {
 
     // ============================================================
     // ============================================================
-    // API ROUTE: GET /api/test-backup (Immediate Test Backup Trigger)
+    // /api/test-backup ĐÃ GỠ (15/10/2026): endpoint cũ không cần đăng nhập và cho phép
+    // xuất toàn bộ D1 tới URL tùy ý qua ?url=. Kiểm tra backup dùng POST /api/admin/backup (quyền admin).
     // ============================================================
     if (url.pathname === "/api/test-backup") {
-      const CORS_HEADERS = {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-      };
-      try {
-        const testUser = { empCode: "202608001", roleCode: "TRUONG_PHONG", id: "emp_1" };
-        await recordAuditLog(testUser, "SYSTEM_ADMIN", "MANUAL_TEST_BACKUP", "TEST_001", { test_note: "Kiem tra day file backup len Google Drive" }, request);
-        const overrideUrl = url.searchParams.get("url") || url.searchParams.get("webapp_url");
-        const backupResult = await triggerEventDrivenDriveBackup(env, "TEST_SUITE", "202608001", overrideUrl);
-        return new Response(JSON.stringify({
-          success: true,
-          message: "🎉 Đã chạy xong test sao lưu!",
-          backupResult: backupResult
-        }), { headers: CORS_HEADERS });
-      } catch (err) {
-        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS_HEADERS });
-      }
+      return new Response(JSON.stringify({ success: false, error: "NOT_FOUND" }), {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
     // ============================================================
@@ -6327,9 +6315,10 @@ export default {
     // REAL-TIME EVENT-DRIVEN GOOGLE DRIVE BACKUP & AUDIT LOGGING
     // ============================================================
 
-    async function triggerEventDrivenDriveBackup(env, moduleName, empCode, overrideWebAppUrl) {
+    async function triggerEventDrivenDriveBackup(env, moduleName, empCode) {
+      // Đích backup chỉ lấy từ biến môi trường, không nhận URL từ request
       if (!env || !env.DB) return { success: false, reason: "DB binding missing" };
-      const webAppUrl = overrideWebAppUrl || env.GDRIVE_WEBAPP_URL || env.GOOGLE_WEBAPP_URL;
+      const webAppUrl = env.GDRIVE_WEBAPP_URL || env.GOOGLE_WEBAPP_URL;
       const clientEmail = env.GDRIVE_CLIENT_EMAIL || env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
       const privateKey = env.GDRIVE_PRIVATE_KEY || env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY;
 
@@ -6416,7 +6405,7 @@ export default {
 
         // METHOD 1: Google Apps Script Web App (Recommended for Personal Google Drive without quota limits)
         const defaultWebAppUrl = "https://script.google.com/macros/s/AKfycbyIpvFGkvd022GKMKRBzFUR11mvH7RIuKyh-hX7-ans-R296oIn9CNMyLCq4CmqNOm9zg/exec";
-        const targetWebAppUrl = overrideWebAppUrl || env.GDRIVE_WEBAPP_URL || env.GOOGLE_WEBAPP_URL || defaultWebAppUrl;
+        const targetWebAppUrl = env.GDRIVE_WEBAPP_URL || env.GOOGLE_WEBAPP_URL || defaultWebAppUrl;
 
         if (targetWebAppUrl) {
           const uploadedResults = [];

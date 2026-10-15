@@ -13,7 +13,7 @@ import {
   IconCamera,
   IconBuildingFactory,
 } from "@tabler/icons-react";
-import { loginWithD1Database, getCurrentUser } from "@/lib/userProfiles";
+import { loginWithD1Database, getCurrentUser, changePassword } from "@/lib/userProfiles";
 import { logLoginLogoutEvent } from "@/lib/webhookAuditClient";
 import { useLanguage } from "@/components/LanguageProvider";
 
@@ -26,6 +26,11 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  // Bước đổi mật khẩu bắt buộc (mật khẩu mặc định hoặc do quản trị viên cấp)
+  const [mustChange, setMustChange] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [pendingTarget, setPendingTarget] = useState("/work");
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -90,6 +95,11 @@ export default function LoginPage() {
           ? "/admin"
           : profile.redirectUrl || "/work";
 
+      if (profile.mustChangePwd) {
+        setPendingTarget(targetUrl);
+        setMustChange(true);
+        return;
+      }
       router.push(targetUrl);
     } catch (err: unknown) {
       const message =
@@ -103,6 +113,28 @@ export default function LoginPage() {
         action: 'Đăng nhập',
         result: 'Thất bại'
       });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    if (newPassword.length < 8) {
+      setError("Mật khẩu mới phải có ít nhất 8 ký tự");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError("Mật khẩu nhập lại không khớp");
+      return;
+    }
+    try {
+      setLoading(true);
+      await changePassword(password, newPassword);
+      router.push(pendingTarget);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Không đổi được mật khẩu");
     } finally {
       setLoading(false);
     }
@@ -141,7 +173,58 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {/* Form Đăng nhập trực tiếp */}
+          {mustChange ? (
+            <form onSubmit={handleChangePassword} className="space-y-4">
+              <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-semibold">
+                Đây là lần đăng nhập đầu tiên hoặc mật khẩu vừa được cấp lại. Vui lòng đặt mật khẩu mới (ít nhất 8 ký tự) để tiếp tục.
+              </div>
+              {error && (
+                <div className="p-3.5 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center gap-2">
+                  <span>⚠️ {error}</span>
+                </div>
+              )}
+              <div className="space-y-1.5">
+                <label htmlFor="newPassword" className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
+                  <IconLock size={16} className="text-gray-500" />
+                  <span>Mật khẩu mới *</span>
+                </label>
+                <input
+                  id="newPassword"
+                  type="password"
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full px-4 py-3 bg-[#eef4ff] border border-blue-100 rounded-2xl text-xs font-bold text-gray-900 focus:outline-none focus:bg-white focus:border-[#08221a] focus:ring-2 focus:ring-[#08221a]/10 transition-all"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label htmlFor="confirmPassword" className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
+                  <IconLock size={16} className="text-gray-500" />
+                  <span>Nhập lại mật khẩu mới *</span>
+                </label>
+                <input
+                  id="confirmPassword"
+                  type="password"
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full px-4 py-3 bg-[#eef4ff] border border-blue-100 rounded-2xl text-xs font-bold text-gray-900 focus:outline-none focus:bg-white focus:border-[#08221a] focus:ring-2 focus:ring-[#08221a]/10 transition-all"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-[#08221a] via-[#0f4133] to-[#08221a] text-white font-extrabold text-xs uppercase tracking-wider shadow-xl shadow-emerald-950/20 hover:brightness-110 active:scale-[0.99] disabled:opacity-50 transition-all duration-200 flex items-center justify-center gap-2 mt-4 cursor-pointer"
+              >
+                <span>{loading ? "Đang lưu..." : "ĐẶT MẬT KHẨU MỚI"}</span>
+              </button>
+            </form>
+          ) : (
+          /* Form Đăng nhập trực tiếp */
           <form onSubmit={handleLogin} className="space-y-4">
             {error && (
               <div className="p-3.5 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center gap-2">
@@ -223,6 +306,7 @@ export default function LoginPage() {
               <span>{loading ? "Đang xác thực..." : "ĐĂNG NHẬP HỆ THỐNG"}</span>
             </button>
           </form>
+          )}
         </div>
 
         {/* Footer nhỏ cuối form */}

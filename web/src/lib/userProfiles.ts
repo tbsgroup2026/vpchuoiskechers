@@ -1,6 +1,8 @@
 import { EquipmentScope } from './equipmentScope';
 
 export interface UserProfile {
+  /** Server yêu cầu đổi mật khẩu trước khi dùng hệ thống (mật khẩu mặc định / do quản trị cấp) */
+  mustChangePwd?: boolean;
   userId: number;
   empCode: string;
   name: string;
@@ -867,6 +869,7 @@ export async function loginWithD1Database(
   let d1Profile: UserProfile | null = null;
 
   let serverJwtToken: string | null = null;
+  let mustChangePwd = false;
   try {
     const res = await fetch("/api/auth/login", {
       method: "POST",
@@ -874,7 +877,7 @@ export async function loginWithD1Database(
       body: JSON.stringify({
         empCode: cleanInput,
         role: role || cleanInput,
-        password: password || "123456",
+        password: password || "",
       }),
     });
 
@@ -884,6 +887,7 @@ export async function loginWithD1Database(
         if (json.token) {
           serverJwtToken = json.token;
         }
+        mustChangePwd = Boolean(json.mustChangePwd);
         const u = json.user;
         const isGuestUser = Boolean(u.isGuest || u.roleCode === "JUDGE_GUEST" || (typeof u.username === "string" && u.username.toUpperCase().startsWith("BGK")));
         const mappedCode = isGuestUser ? (u.empCode || u.username || normalized) : normalizeEmpCode(u.empCode || u.emp_code || normalized);
@@ -912,7 +916,7 @@ export async function loginWithD1Database(
       }
     } else {
       const errJson = await res.json().catch(() => ({}));
-      throw new Error(errJson.error || "Tên đăng nhập hoặc Mật khẩu không chính xác!");
+      throw new Error(errJson.message || errJson.error || "Tên đăng nhập hoặc Mật khẩu không chính xác!");
     }
   } catch (err) {
     if (err instanceof Error) {
@@ -921,7 +925,11 @@ export async function loginWithD1Database(
     throw new Error("Lỗi kết nối máy chủ khi đăng nhập!");
   }
 
-  const finalProfile = d1Profile || loginUserProfile(normalized, password);
+  // Chỉ chấp nhận phiên do server cấp (JWT có chữ ký); không còn đăng nhập cục bộ hay token tự tạo
+  if (!d1Profile || !serverJwtToken) {
+    throw new Error("Đăng nhập không thành công, vui lòng thử lại");
+  }
+  const finalProfile = { ...d1Profile, mustChangePwd } as UserProfile;
 
   if (typeof window !== "undefined") {
     if (finalProfile.avatar && finalProfile.avatar !== "/images/tbs-logo.png" && !finalProfile.avatar.includes("unsplash.com")) {
@@ -929,7 +937,7 @@ export async function loginWithD1Database(
     }
     sessionStorage.setItem("tbs_current_user", JSON.stringify(finalProfile));
     localStorage.setItem("tbs_current_user", JSON.stringify(finalProfile));
-    const token = serverJwtToken || `tbs_token_${finalProfile.empCode}_${Date.now()}`;
+    const token = serverJwtToken;
     localStorage.setItem("tbs_jwt_token", token);
     localStorage.setItem("tbs_token", token);
     sessionStorage.setItem("tbs_jwt_token", token);
@@ -1081,4 +1089,31 @@ export function buildEmpCodeNameMap(empCodes: (string | null | undefined)[]): Re
   return map;
 }
 
-
+/**
+ * Đổi mật khẩu của người đang đăng nhập. Server thu hồi token cũ và cấp token mới.
+ */
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("tbs_jwt_token") : null;
+  const res = await fetch("/api/auth/change-password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    throw new Error(json.message || json.error || "Không đổi được mật khẩu");
+  }
+  if (typeof window !== "undefined") {
+    if (json.token) {
+      localStorage.setItem("tbs_jwt_token", json.token);
+      localStorage.setItem("tbs_token", json.token);
+    }
+    for (const store of [sessionStorage, localStorage]) {
+      const raw = store.getItem("tbs_current_user");
+      if (!raw) continue;
+      try {
+        store.setItem("tbs_current_user", JSON.stringify({ ...JSON.parse(raw), mustChangePwd: false }));
+      } catch {}
+    }
+  }
+}

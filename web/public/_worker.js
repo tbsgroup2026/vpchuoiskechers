@@ -135,69 +135,179 @@ const WORKER_SYSTEM_USER_MAP = {
 };
 
 
-function parseSessionWorker(token) {
-  if (!token) {
-    return {
-      userId: '202608001',
-      empCode: '202608001',
-      name: 'Phạm Nguyễn Anh Huy',
-      roleCode: 'TRUONG_PHONG',
-      roleLevel: 3,
-      departmentCode: 'IT_CDS',
-      title: 'Trưởng Phòng IT & CĐS',
-    };
-  }
+// ════════════════════════════════════════════════════════════════════════
+// XÁC THỰC TẬP TRUNG (bản vá bảo mật 15/10/2026)
+// Chỉ chấp nhận JWT HS256 có chữ ký hợp lệ (JWT_SECRET đặt bằng `wrangler secret put`),
+// lấy từ header Authorization hoặc cookie tbs_token. Không còn MSNV mặc định, không nhận
+// header X-User-Emp-Code hay token dạng chuỗi tbs_token_<MSNV>_... để xác thực.
+// ════════════════════════════════════════════════════════════════════════
+const AUTH_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60;
+const AUTH_MAX_FAILED_ATTEMPTS = 5;
+const AUTH_LOCK_MINUTES = 15;
+const AUTH_PBKDF2_ITERATIONS = 100000;
+// Danh sách mã vai/MSNV điều hành giữ nguyên như trước (tài khoản dev/control bỏ qua kiểm tra vai có chủ đích)
+const AUTH_EXEC_CODES = ["TONG_GIAM_DOC", "PHO_TONG_GIAM_DOC", "GIAM_DOC", "PHO_GIAM_DOC", "SYSTEM_ADMIN", "ADMIN-2026", "202608001", "202608002", "201711002", "210602002", "202608010", "222102020", "2026080001"];
+const AUTH_DISABLED_STATUSES = ["INACTIVE", "DISABLED", "LOCKED", "RESIGNED", "DELETED"];
+
+function authBytesToB64Url(bytes) {
+  let bin = "";
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin).replace(/=+$/, "").replace(/\+/g, "-").replace(/\//g, "_");
+}
+
+function authB64UrlToBytes(str) {
+  const b64 = String(str).replace(/-/g, "+").replace(/_/g, "/");
+  const bin = atob(b64 + "=".repeat((4 - (b64.length % 4)) % 4));
+  return Uint8Array.from(bin, (c) => c.charCodeAt(0));
+}
+
+function authJsonB64Url(obj) {
+  return authBytesToB64Url(new TextEncoder().encode(JSON.stringify(obj)));
+}
+
+async function authHmacKey(secret, usage) {
+  return crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, [usage]);
+}
+
+async function signAuthToken(payload, secret) {
+  const data = `${authJsonB64Url({ alg: "HS256", typ: "JWT" })}.${authJsonB64Url(payload)}`;
+  const sig = await crypto.subtle.sign("HMAC", await authHmacKey(secret, "sign"), new TextEncoder().encode(data));
+  return `${data}.${authBytesToB64Url(new Uint8Array(sig))}`;
+}
+
+async function verifyAuthToken(token, secret) {
+  if (!token || !secret || typeof token !== "string") return null;
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
   try {
-    const parts = token.split('.');
-    if (parts.length === 3) {
-      const payloadBase64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-      const jsonStr = atob(payloadBase64);
-      const parsed = JSON.parse(jsonStr);
-      if (parsed && (parsed.empCode || parsed.userId || parsed.roleCode)) {
-        const matchedUser = WORKER_SYSTEM_USER_MAP[parsed.empCode];
-        return {
-          userId: parsed.userId || parsed.empCode || '202608001',
-          empCode: parsed.empCode || '202608001',
-          name: parsed.name || matchedUser?.name || `Cán bộ (${parsed.empCode})`,
-          roleCode: parsed.roleCode || matchedUser?.roleCode || 'TRUONG_PHONG',
-          roleLevel: parsed.roleLevel || matchedUser?.roleLevel || 3,
-          departmentCode: parsed.departmentCode || matchedUser?.departmentCode || 'TBS',
-          title: parsed.title || matchedUser?.title || 'Trưởng Phòng / Cán Bộ Quản Lý',
-        };
-      }
-    }
-  } catch (e) {}
-
-  let empCode = "";
-  if (token.includes('tbs_token')) {
-    const match = token.match(/tbs_token_([^_]+)/);
-    if (match && match[1]) empCode = match[1];
-  } else {
-    empCode = token.replace("Bearer ", "").trim();
+    const header = JSON.parse(new TextDecoder().decode(authB64UrlToBytes(parts[0])));
+    if (!header || header.alg !== "HS256") return null;
+    const valid = await crypto.subtle.verify(
+      "HMAC",
+      await authHmacKey(secret, "verify"),
+      authB64UrlToBytes(parts[2]),
+      new TextEncoder().encode(`${parts[0]}.${parts[1]}`),
+    );
+    if (!valid) return null;
+    const payload = JSON.parse(new TextDecoder().decode(authB64UrlToBytes(parts[1])));
+    if (!payload || !payload.empCode || !payload.exp || payload.exp < Math.floor(Date.now() / 1000)) return null;
+    return payload;
+  } catch (e) {
+    return null;
   }
+}
 
-  if (empCode && empCode !== "null" && empCode !== "undefined") {
-    const matchedUser = WORKER_SYSTEM_USER_MAP[empCode];
-    return {
-      userId: empCode,
-      empCode: empCode,
-      name: matchedUser?.name || `Cán bộ (${empCode})`,
-      roleCode: matchedUser?.roleCode || 'CBCNV',
-      roleLevel: matchedUser?.roleLevel || 4,
-      departmentCode: matchedUser?.departmentCode || 'TBS',
-      title: matchedUser?.title || 'Chuyên Viên Vận Hành',
-    };
+function getRequestAuthToken(request) {
+  const auth = request.headers.get("Authorization") || "";
+  if (auth.startsWith("Bearer ")) {
+    const t = auth.slice(7).trim();
+    if (t) return t;
   }
+  const m = (request.headers.get("Cookie") || "").match(/(?:^|;\s*)tbs_token=([^;]+)/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
 
+async function authSha256Hex(text) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function authIsExecutive(empCode, roleCode) {
+  return AUTH_EXEC_CODES.includes(String(roleCode || "").toUpperCase()) || AUTH_EXEC_CODES.includes(String(empCode || "").toUpperCase());
+}
+
+function authDepartmentFor(roleCode, isExecutiveOrAdmin) {
+  if (isExecutiveOrAdmin) return "Ban Giám Đốc";
+  return { LE_TAN: "Lễ Tân", KE_TOAN: "Kế Toán", NHAN_SU: "Nhân Sự", KY_THUAT: "Bảo Trì" }[roleCode] || "Văn Phòng";
+}
+
+function authIsGuestCode(empCode, roleCode) {
+  const c = String(empCode || "").toUpperCase();
+  return c.startsWith("BGK") || c.startsWith("GUEST_") || String(roleCode || "").toUpperCase() === "JUDGE_GUEST";
+}
+
+/** Phiên đăng nhập của request; null nếu không có JWT hợp lệ. Không bao giờ trả MSNV mặc định. */
+async function resolveAuthSession(request, env) {
+  const secret = env && env.JWT_SECRET;
+  if (!secret) return null; // thiếu secret thì từ chối tất cả
+  const token = getRequestAuthToken(request);
+  const payload = await verifyAuthToken(token, secret);
+  if (!payload) return null;
+  if (env.DB) {
+    try {
+      const hash = await authSha256Hex(token);
+      const revoked = await env.DB.prepare("SELECT id FROM token_blacklist WHERE token_hash IN (?, ?) LIMIT 1").bind(hash, token).first();
+      if (revoked) return null;
+    } catch (e) {}
+  }
+  const empCode = String(payload.empCode).toUpperCase();
+  const roleCode = String(payload.roleCode || "CBCNV").toUpperCase();
+  const isExecutiveOrAdmin = authIsExecutive(empCode, roleCode);
   return {
-    userId: '202608001',
-    empCode: '202608001',
-    name: 'Phạm Nguyễn Anh Huy',
-    roleCode: 'TRUONG_PHONG',
-    roleLevel: 3,
-    departmentCode: 'IT_CDS',
-    title: 'Trưởng Phòng IT & CĐS',
+    token,
+    payload,
+    empCode,
+    roleCode,
+    roleLevel: Number(payload.roleLevel) || 4,
+    name: payload.name || `Cán Bộ (${empCode})`,
+    title: payload.title || "",
+    departmentCode: payload.departmentCode || "TBS",
+    department: payload.department || authDepartmentFor(roleCode, isExecutiveOrAdmin),
+    isExecutiveOrAdmin,
+    mustChangePwd: Boolean(payload.mcp),
   };
+}
+
+/** Dạng phiên cũ cho các endpoint từng dùng parseSessionWorker; null khi chưa đăng nhập hoặc phải đổi mật khẩu */
+function toLegacySession(s) {
+  if (!s || s.mustChangePwd) return null;
+  return { userId: s.empCode, empCode: s.empCode, name: s.name, roleCode: s.roleCode, roleLevel: s.roleLevel, departmentCode: s.departmentCode, title: s.title };
+}
+
+/** Mật khẩu băm PBKDF2-SHA256, muối ngẫu nhiên 16 byte */
+async function hashAuthPassword(password, saltB64Url, iterations = AUTH_PBKDF2_ITERATIONS) {
+  const salt = saltB64Url ? authB64UrlToBytes(saltB64Url) : crypto.getRandomValues(new Uint8Array(16));
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(String(password)), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations }, key, 256);
+  return { hash: authBytesToB64Url(new Uint8Array(bits)), salt: authBytesToB64Url(salt), iterations };
+}
+
+function authTimingSafeEqual(a, b) {
+  if (typeof a !== "string" || typeof b !== "string" || a.length !== b.length) return false;
+  let r = 0;
+  for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return r === 0;
+}
+
+async function verifyAuthPassword(password, cred) {
+  if (!cred || !cred.password_hash || !cred.password_salt) return false;
+  const { hash } = await hashAuthPassword(String(password || ""), cred.password_salt, Number(cred.iterations) || AUTH_PBKDF2_ITERATIONS);
+  return authTimingSafeEqual(hash, cred.password_hash);
+}
+
+async function ensureAuthCredentialTable(db) {
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS auth_credentials (
+      emp_code TEXT PRIMARY KEY,
+      password_hash TEXT NOT NULL,
+      password_salt TEXT NOT NULL,
+      iterations INTEGER NOT NULL,
+      must_change INTEGER NOT NULL DEFAULT 1,
+      failed_attempts INTEGER NOT NULL DEFAULT 0,
+      locked_until TEXT,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_by TEXT
+    )
+  `).run();
+}
+
+function authCookie(token, maxAge) {
+  return `tbs_token=${token}; Path=/; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=Lax`;
+}
+
+/** Đã thay bằng phiên xác thực tập trung (__authSession). Giữ tên hàm để mã cũ còn sót không tự cấp phiên mặc định. */
+function parseSessionWorker() {
+  return null;
 }
 
 function withCacheHeaders(response, isHtml = false, pathname = "") {
@@ -2390,6 +2500,15 @@ export default {
       "Access-Control-Allow-Headers": "*",
     };
 
+    // Không phục vụ mã nguồn worker dưới dạng file tĩnh
+    if (url.pathname === "/_worker.js" || url.pathname.startsWith("/_worker.js/")) {
+      return new Response("Not Found", { status: 404 });
+    }
+
+    // Xác thực tập trung một lần cho mỗi request (JWT có chữ ký; xem resolveAuthSession)
+    const __authSession = await resolveAuthSession(request, env);
+    const __legacySession = toLegacySession(__authSession);
+
     // 1. HTTP to HTTPS 301 Permanent Redirect
     const proto = request.headers.get("x-forwarded-proto") || url.protocol.replace(":", "");
     if (proto === "http") {
@@ -2756,7 +2875,13 @@ export default {
     // ============================================================
     // D1 API ROUTE: /api/auth/login, /api/auth/me, /api/auth/logout
     // ============================================================
-    if (url.pathname === "/api/auth/login" || url.pathname === "/api/auth/me" || url.pathname === "/api/auth/logout") {
+    if (
+      url.pathname === "/api/auth/login" ||
+      url.pathname === "/api/auth/me" ||
+      url.pathname === "/api/auth/logout" ||
+      url.pathname === "/api/auth/change-password" ||
+      url.pathname === "/api/auth/admin/set-password"
+    ) {
       const CORS = {
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*",
@@ -2764,87 +2889,253 @@ export default {
         "Access-Control-Allow-Headers": "Content-Type, Authorization",
       };
       if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+      const json = (obj, status = 200, extra = {}) => new Response(JSON.stringify(obj), { status, headers: { ...CORS, ...extra } });
+      const secret = env && env.JWT_SECRET;
+      const defaultPassword = (env && env.DEFAULT_INITIAL_PASSWORD) || "123456";
+
+      const issueToken = (p, mustChange) => {
+        const now = Math.floor(Date.now() / 1000);
+        return signAuthToken(
+          {
+            empCode: p.empCode,
+            roleCode: p.roleCode,
+            roleLevel: p.roleLevel,
+            name: p.name,
+            title: p.title,
+            department: p.department,
+            mcp: mustChange ? 1 : 0,
+            iat: now,
+            exp: now + AUTH_TOKEN_TTL_SECONDS,
+          },
+          secret,
+        );
+      };
+      const loadCredential = async (empCode) => {
+        await ensureAuthCredentialTable(env.DB);
+        return env.DB.prepare("SELECT * FROM auth_credentials WHERE emp_code = ?").bind(empCode).first();
+      };
+      const saveCredential = async (empCode, password, mustChange, updatedBy) => {
+        await ensureAuthCredentialTable(env.DB);
+        const h = await hashAuthPassword(password);
+        await env.DB.prepare(`
+          INSERT INTO auth_credentials (emp_code, password_hash, password_salt, iterations, must_change, failed_attempts, locked_until, updated_at, updated_by)
+          VALUES (?, ?, ?, ?, ?, 0, NULL, CURRENT_TIMESTAMP, ?)
+          ON CONFLICT(emp_code) DO UPDATE SET
+            password_hash = excluded.password_hash, password_salt = excluded.password_salt, iterations = excluded.iterations,
+            must_change = excluded.must_change, failed_attempts = 0, locked_until = NULL,
+            updated_at = CURRENT_TIMESTAMP, updated_by = excluded.updated_by
+        `).bind(empCode, h.hash, h.salt, h.iterations, mustChange ? 1 : 0, updatedBy).run();
+      };
+      const revokeToken = async (session) => {
+        if (!session || !env.DB) return;
+        try {
+          await env.DB.prepare("INSERT OR IGNORE INTO token_blacklist (token_hash, emp_code, expires_at, reason) VALUES (?, ?, ?, ?)")
+            .bind(await authSha256Hex(session.token), session.empCode, new Date(session.payload.exp * 1000).toISOString(), "LOGOUT")
+            .run();
+        } catch (e) {}
+      };
+      const validateNewPassword = (pw, empCode) => {
+        if (typeof pw !== "string" || pw.length < 8) return "Mật khẩu mới phải có ít nhất 8 ký tự";
+        if (pw.length > 128) return "Mật khẩu mới quá dài";
+        if (pw === defaultPassword) return "Không được dùng lại mật khẩu mặc định";
+        if (pw.toUpperCase() === String(empCode).toUpperCase()) return "Mật khẩu không được trùng MSNV";
+        return null;
+      };
+
+      // Đăng xuất: thu hồi token hiện tại
+      if (url.pathname === "/api/auth/logout") {
+        await revokeToken(__authSession);
+        return json({ success: true, message: "Đã đăng xuất thành công" }, 200, {
+          "Set-Cookie": "tbs_token=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax",
+        });
+      }
+
+      if (url.pathname === "/api/auth/me") {
+        const s = __authSession;
+        if (!s) return json({ success: false, error: "UNAUTHORIZED" }, 401);
+        return json({
+          success: true,
+          mustChangePwd: s.mustChangePwd,
+          user: {
+            userId: s.empCode,
+            empCode: s.empCode,
+            name: s.name,
+            roleCode: s.roleCode,
+            roleLevel: s.roleLevel,
+            title: s.title,
+            department: s.department,
+            departmentCode: s.departmentCode,
+            isGuest: authIsGuestCode(s.empCode, s.roleCode),
+            mustChangePwd: s.mustChangePwd,
+          },
+        });
+      }
+
+      if (!secret) {
+        return json({ success: false, error: "AUTH_NOT_CONFIGURED", message: "Hệ thống chưa cấu hình khóa đăng nhập (JWT_SECRET)" }, 503);
+      }
+      if (!env.DB) return json({ success: false, error: "DB_UNAVAILABLE" }, 503);
 
       if (url.pathname === "/api/auth/login" && request.method === "POST") {
         try {
           const body = await request.json().catch(() => ({}));
-          const cleanEmp = (body.empCode || body.emp_code || body.role || "").toString().trim();
-          if (!cleanEmp) {
-            return new Response(JSON.stringify({ success: false, error: "Vui lòng nhập Mã số nhân viên (MSNV)" }), { status: 400, headers: CORS });
-          }
+          const loginId = String(body.empCode || body.emp_code || body.role || "").trim();
+          const password = typeof body.password === "string" ? body.password : "";
+          const invalid = () => json({ success: false, error: "INVALID_CREDENTIALS", message: "MSNV hoặc mật khẩu không đúng" }, 401);
+          if (!loginId || !password) return json({ success: false, error: "MISSING_CREDENTIALS", message: "Vui lòng nhập MSNV và mật khẩu" }, 400);
 
           let userRecord = null;
-          if (env && env.DB) {
-            try {
-              userRecord = await env.DB.prepare("SELECT * FROM sys_users WHERE UPPER(emp_code) = UPPER(?) OR UPPER(email) = UPPER(?)").bind(cleanEmp, cleanEmp).first().catch(() => null);
-            } catch (e) {}
-          }
-
-          if (!userRecord && ROLE_ACCOUNTS[cleanEmp]) {
-            const r = ROLE_ACCOUNTS[cleanEmp];
+          try {
+            userRecord = await env.DB.prepare("SELECT * FROM sys_users WHERE UPPER(emp_code) = UPPER(?) OR UPPER(email) = UPPER(?) LIMIT 1")
+              .bind(loginId, loginId)
+              .first();
+          } catch (e) {}
+          const roleAccount = ROLE_ACCOUNTS[loginId.toUpperCase()] || ROLE_ACCOUNTS[loginId];
+          if (!userRecord && roleAccount) {
             userRecord = {
-              emp_code: r.empCode,
-              name: r.name,
-              title: r.title,
-              department: r.department,
-              email: r.email,
-              phone: r.phone || "",
-              role_code: r.roleCode,
-              avatar: r.avatar || "",
-              redirect_url: r.redirectUrl || "/work"
+              emp_code: roleAccount.empCode,
+              name: roleAccount.name,
+              title: roleAccount.title,
+              department: roleAccount.department,
+              email: roleAccount.email,
+              phone: roleAccount.phone || "",
+              role_code: roleAccount.roleCode,
+              avatar: roleAccount.avatar || "",
+              redirect_url: roleAccount.redirectUrl || "/work",
             };
           }
+          const sysUser = WORKER_SYSTEM_USER_MAP[loginId.toUpperCase()];
+          if (!userRecord && sysUser) {
+            userRecord = { emp_code: loginId.toUpperCase(), name: sysUser.name, title: sysUser.title, role_code: sysUser.roleCode, role_level: sysUser.roleLevel };
+          }
+          if (!userRecord) return invalid();
+          if (AUTH_DISABLED_STATUSES.includes(String(userRecord.status || "ACTIVE").toUpperCase())) {
+            return json({ success: false, error: "ACCOUNT_DISABLED", message: "Tài khoản đã bị vô hiệu hóa" }, 403);
+          }
 
-          const empCode = userRecord?.emp_code || userRecord?.empCode || cleanEmp;
-          const userProfile = {
-            userId: userRecord?.id || 205,
-            empCode: empCode,
-            name: userRecord?.name || userRecord?.emp_name || `Cán bộ (${empCode})`,
-            title: userRecord?.title || "Cán bộ công nhân viên",
-            department: userRecord?.department || "Văn Phòng Chuỗi SKECHERS",
-            email: userRecord?.email || `${empCode.toLowerCase()}@tbsgroup.vn`,
-            phone: userRecord?.phone || "",
-            roleCode: userRecord?.role_code || userRecord?.roleCode || "CBCNV",
-            roleLevel: userRecord?.role_level ?? (userRecord?.role_code === "TRUONG_PHONG" ? 3 : (userRecord?.role_code === "SUPER_ADMIN" || userRecord?.role_code === "TONG_GIAM_DOC" || userRecord?.role_code === "GIAM_DOC") ? 1 : 4),
-            mustChangePwd: Boolean(userRecord?.must_change_pwd),
-            roles: (userRecord?.role_level <= 2 || userRecord?.role_code === "SUPER_ADMIN" || userRecord?.role_code === "TONG_GIAM_DOC") ? ["admin", "manager"] : (userRecord?.role_level === 3 || userRecord?.role_code === "TRUONG_PHONG") ? ["manager", "department_head"] : ["staff"],
-            avatar: userRecord?.avatar || "",
-            redirectUrl: userRecord?.redirect_url || userRecord?.redirectUrl || "/work"
-          };
+          const empCode = String(userRecord.emp_code || userRecord.empCode).toUpperCase();
+          const roleCode = String(userRecord.role_code || userRecord.roleCode || "CBCNV").toUpperCase();
+          const isGuest = authIsGuestCode(empCode, roleCode);
+          const cred = await loadCredential(empCode);
+          if (cred && cred.locked_until && new Date(cred.locked_until).getTime() > Date.now()) {
+            return json({ success: false, error: "ACCOUNT_LOCKED", message: `Tài khoản tạm khóa do nhập sai nhiều lần. Vui lòng thử lại sau ${AUTH_LOCK_MINUTES} phút.` }, 429);
+          }
 
-          const token = `tbs_token_${empCode}_${Date.now()}`;
-          return new Response(JSON.stringify({
-            success: true,
-            message: "Đăng nhập thành công",
-            token,
-            user: userProfile
-          }), {
-            headers: {
-              ...CORS,
-              "Set-Cookie": `tbs_token=${token}; Path=/; Max-Age=31536000; SameSite=Lax`
+          // Chưa có mật khẩu riêng: dùng mật khẩu mặc định và bắt đổi ngay. Tài khoản BGK bắt buộc có mật khẩu do quản trị cấp.
+          let ok = false;
+          let mustChange = true;
+          if (cred) {
+            ok = await verifyAuthPassword(password, cred);
+            mustChange = Number(cred.must_change) === 1;
+          } else if (!isGuest) {
+            ok = authTimingSafeEqual(password, defaultPassword);
+          }
+
+          if (!ok) {
+            const attempts = (cred ? Number(cred.failed_attempts) || 0 : 0) + 1;
+            const lockUntil = attempts >= AUTH_MAX_FAILED_ATTEMPTS ? new Date(Date.now() + AUTH_LOCK_MINUTES * 60000).toISOString() : null;
+            try {
+              if (cred) {
+                await env.DB.prepare("UPDATE auth_credentials SET failed_attempts = ?, locked_until = ? WHERE emp_code = ?")
+                  .bind(lockUntil ? 0 : attempts, lockUntil, empCode)
+                  .run();
+              } else if (!isGuest) {
+                const h = await hashAuthPassword(defaultPassword);
+                await env.DB.prepare(
+                  "INSERT OR IGNORE INTO auth_credentials (emp_code, password_hash, password_salt, iterations, must_change, failed_attempts, locked_until, updated_by) VALUES (?, ?, ?, ?, 1, ?, ?, 'SYSTEM')",
+                ).bind(empCode, h.hash, h.salt, h.iterations, lockUntil ? 0 : attempts, lockUntil).run();
+              }
+            } catch (e) {}
+            await recordAuditLogDetailed({ empCode, roleCode }, "auth", "LOGIN_FAILED", empCode, null, { attempts, locked: Boolean(lockUntil) }, request);
+            if (isGuest && !cred) {
+              return json({ success: false, error: "PASSWORD_NOT_SET", message: "Tài khoản Ban giám khảo chưa được cấp mật khẩu. Vui lòng liên hệ quản trị viên." }, 401);
             }
-          });
+            return invalid();
+          }
+          if (cred && (Number(cred.failed_attempts) || cred.locked_until)) {
+            await env.DB.prepare("UPDATE auth_credentials SET failed_attempts = 0, locked_until = NULL WHERE emp_code = ?").bind(empCode).run().catch(() => {});
+          }
+
+          const roleLevel =
+            userRecord.role_level ??
+            (roleCode === "TRUONG_PHONG" ? 3 : roleCode === "SUPER_ADMIN" || roleCode === "TONG_GIAM_DOC" ? 1 : 4);
+          const userProfile = {
+            userId: userRecord.id || empCode,
+            empCode,
+            name: userRecord.name || userRecord.emp_name || `Cán bộ (${empCode})`,
+            title: userRecord.title || "Cán bộ công nhân viên",
+            department: userRecord.department || "Văn Phòng Chuỗi SKECHERS",
+            email: userRecord.email || "",
+            phone: userRecord.phone || "",
+            roleCode,
+            roleLevel,
+            roles: isGuest ? ["judge_guest"] : roleLevel <= 2 || roleCode === "SUPER_ADMIN" || roleCode === "TONG_GIAM_DOC" ? ["admin", "manager"] : roleCode === "TRUONG_PHONG" ? ["manager"] : ["employee"],
+            isGuest,
+            mustChangePwd: mustChange,
+            avatar: userRecord.avatar || "",
+            redirectUrl: userRecord.redirect_url || userRecord.redirectUrl || "/work",
+          };
+          const token = await issueToken(userProfile, mustChange);
+          await recordAuditLogDetailed({ empCode, roleCode }, "auth", "LOGIN_SUCCESS", empCode, null, { mustChange }, request);
+          return json(
+            {
+              success: true,
+              message: mustChange ? "Đăng nhập thành công. Vui lòng đổi mật khẩu trước khi tiếp tục." : "Đăng nhập thành công",
+              token,
+              mustChangePwd: mustChange,
+              user: userProfile,
+            },
+            200,
+            { "Set-Cookie": authCookie(token, AUTH_TOKEN_TTL_SECONDS) },
+          );
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS });
+          return json({ success: false, error: "LOGIN_ERROR", message: "Không đăng nhập được, vui lòng thử lại" }, 500);
         }
       }
 
-      if (url.pathname === "/api/auth/me") {
-        const authHeader = request.headers.get("authorization");
-        const token = authHeader ? authHeader.replace("Bearer ", "") : null;
-        const session = token ? parseSessionWorker(token) : null;
-        if (!session) return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED" }), { status: 401, headers: CORS });
-        return new Response(JSON.stringify({ success: true, user: session }), { headers: CORS });
-      }
-
-      if (url.pathname === "/api/auth/logout") {
-        return new Response(JSON.stringify({ success: true, message: "Đã đăng xuất thành công" }), {
-          headers: {
-            ...CORS,
-            "Set-Cookie": "tbs_token=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT"
-          }
+      if (url.pathname === "/api/auth/change-password" && request.method === "POST") {
+        const s = __authSession;
+        if (!s) return json({ success: false, error: "UNAUTHORIZED" }, 401);
+        const body = await request.json().catch(() => ({}));
+        const current = typeof body.currentPassword === "string" ? body.currentPassword : "";
+        const next = typeof body.newPassword === "string" ? body.newPassword : "";
+        const cred = await loadCredential(s.empCode);
+        const currentOk = cred
+          ? await verifyAuthPassword(current, cred)
+          : !authIsGuestCode(s.empCode, s.roleCode) && authTimingSafeEqual(current, defaultPassword);
+        if (!currentOk) return json({ success: false, error: "INVALID_CURRENT_PASSWORD", message: "Mật khẩu hiện tại không đúng" }, 400);
+        const weak = validateNewPassword(next, s.empCode);
+        if (weak) return json({ success: false, error: "WEAK_PASSWORD", message: weak }, 400);
+        await saveCredential(s.empCode, next, false, s.empCode);
+        await revokeToken(s);
+        const token = await issueToken(s, false);
+        await recordAuditLogDetailed({ empCode: s.empCode, roleCode: s.roleCode }, "auth", "PASSWORD_CHANGED", s.empCode, null, { by: "SELF" }, request);
+        return json({ success: true, message: "Đổi mật khẩu thành công", token, mustChangePwd: false }, 200, {
+          "Set-Cookie": authCookie(token, AUTH_TOKEN_TTL_SECONDS),
         });
       }
+
+      // Quản trị viên cấp/đặt lại mật khẩu (kể cả tài khoản Ban giám khảo)
+      if (url.pathname === "/api/auth/admin/set-password" && request.method === "POST") {
+        const s = __authSession;
+        if (!s || s.mustChangePwd) return json({ success: false, error: "UNAUTHORIZED" }, 401);
+        if (!s.isExecutiveOrAdmin && !["SUPER_ADMIN", "ADMIN", "SYSTEM_ADMIN"].includes(s.roleCode)) {
+          return json({ success: false, error: "FORBIDDEN", message: "Chỉ quản trị viên được cấp mật khẩu" }, 403);
+        }
+        const body = await request.json().catch(() => ({}));
+        const target = String(body.empCode || "").trim().toUpperCase();
+        const pw = typeof body.newPassword === "string" ? body.newPassword : "";
+        const mustChange = body.mustChange !== false;
+        if (!target) return json({ success: false, error: "MISSING_EMP_CODE" }, 400);
+        if (pw.length < 8 || pw.toUpperCase() === target) {
+          return json({ success: false, error: "WEAK_PASSWORD", message: "Mật khẩu phải có ít nhất 8 ký tự và khác MSNV" }, 400);
+        }
+        await saveCredential(target, pw, mustChange, s.empCode);
+        await recordAuditLogDetailed({ empCode: s.empCode, roleCode: s.roleCode }, "auth", "ADMIN_SET_PASSWORD", target, null, { target, mustChange }, request);
+        return json({ success: true, message: `Đã đặt mật khẩu cho ${target}` });
+      }
+
+      return json({ success: false, error: "NOT_FOUND" }, 404);
     }
 
     // ============================================================
@@ -4225,7 +4516,8 @@ export default {
 
       const authHeader = request.headers.get("authorization");
       const token = authHeader ? authHeader.replace("Bearer ", "") : null;
-      const session = parseSessionWorker(token);
+      const session = __legacySession;
+      if (!session) return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập" }), { status: 401, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
       const empCode = session?.empCode || session?.userId || "202608001";
       const requestedDept = url.searchParams.get("department_id") || url.searchParams.get("dept");
 
@@ -4328,7 +4620,8 @@ export default {
 
       const authHeader = request.headers.get("authorization");
       const token = authHeader ? authHeader.replace("Bearer ", "") : null;
-      const session = parseSessionWorker(token);
+      const session = __legacySession;
+      if (!session) return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập" }), { status: 401, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
       const empCode = session?.empCode || session?.userId || "202608001";
       const boardId = url.searchParams.get("board_id") || "tb_dept_it";
 
@@ -4652,7 +4945,8 @@ export default {
 
       const authHeader = request.headers.get("authorization");
       const token = authHeader ? authHeader.replace("Bearer ", "") : null;
-      const session = parseSessionWorker(token);
+      const session = __legacySession;
+      if (!session) return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập" }), { status: 401, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
       const empCode = session?.empCode || session?.userId || "202608001";
       const userProfile = WORKER_SYSTEM_USER_MAP[empCode] || null;
       const userRoleLevel = session?.roleLevel ?? (userProfile?.roleLevel ?? (userProfile?.roleCode === "TRUONG_PHONG" ? 3 : userProfile?.roleCode === "SUPER_ADMIN" ? 1 : 4));
@@ -5157,7 +5451,8 @@ export default {
         return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập để truy cập Task Board" }), { status: 401, headers: CORS });
       }
 
-      const session = parseSessionWorker(token);
+      const session = __legacySession;
+      if (!session) return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập" }), { status: 401, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
       const empCode = session?.empCode || session?.userId || "202608001";
       const userProfile = ROLE_ACCOUNTS[empCode] || null;
       const userRoleLevel = session?.roleLevel ?? (userProfile?.roleCode === "TRUONG_PHONG" ? 3 : userProfile?.roleCode === "SYSTEM_ADMIN" || userProfile?.roleCode === "TONG_GIAM_DOC" ? 1 : 4);
@@ -5254,7 +5549,8 @@ export default {
       const token = authHeader ? authHeader.replace("Bearer ", "") : null;
       if (!token) return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED" }), { status: 401, headers: CORS });
 
-      const session = parseSessionWorker(token);
+      const session = __legacySession;
+      if (!session) return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập" }), { status: 401, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
       const empCode = session?.empCode || session?.userId || "202608001";
 
       let cards = [];
@@ -5289,7 +5585,8 @@ export default {
       const token = authHeader ? authHeader.replace("Bearer ", "") : null;
       if (!token) return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED" }), { status: 401, headers: CORS });
 
-      const session = parseSessionWorker(token);
+      const session = __legacySession;
+      if (!session) return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập" }), { status: 401, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
       const reviewerId = session?.empCode || session?.userId || "MANAGER";
       const parts = url.pathname.split("/");
       const cardId = parts[3];
@@ -5373,7 +5670,8 @@ export default {
       const token = authHeader ? authHeader.replace("Bearer ", "") : null;
       if (!token) return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED" }), { status: 401, headers: CORS });
 
-      const session = parseSessionWorker(token);
+      const session = __legacySession;
+      if (!session) return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập" }), { status: 401, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
       const empCode = session?.empCode || session?.userId || "202608001";
 
       if (request.method === "GET") {
@@ -5486,7 +5784,7 @@ export default {
 
       const authHeader = request.headers.get("authorization");
       const token = authHeader ? authHeader.replace("Bearer ", "") : null;
-      const session = token ? parseSessionWorker(token) : null;
+      const session = __legacySession;
       const roleParam = url.searchParams.get("role");
 
       let roleCode = "NHAN_VIEN";
@@ -5653,7 +5951,8 @@ export default {
       const token = authHeader ? authHeader.replace("Bearer ", "") : null;
       if (!token) return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập" }), { status: 401, headers: CORS });
 
-      const session = parseSessionWorker(token);
+      const session = __legacySession;
+      if (!session) return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập" }), { status: 401, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
       const empCode = session?.empCode || session?.userId || "202608001";
 
       try {
@@ -5850,7 +6149,8 @@ export default {
       const token = authHeader ? authHeader.replace("Bearer ", "") : null;
       if (!token) return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED" }), { status: 401, headers: CORS });
 
-      const session = parseSessionWorker(token);
+      const session = __legacySession;
+      if (!session) return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập" }), { status: 401, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
       const empCode = session?.empCode || session?.userId || "202608001";
 
       try {
@@ -5919,7 +6219,8 @@ export default {
       const token = authHeader ? authHeader.replace("Bearer ", "") : null;
       if (!token) return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED" }), { status: 401, headers: CORS });
 
-      const session = parseSessionWorker(token);
+      const session = __legacySession;
+      if (!session) return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập" }), { status: 401, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
       const empCode = session?.empCode || session?.userId || "202608001";
 
       try {
@@ -5965,7 +6266,8 @@ export default {
 
       const authHeader = request.headers.get("authorization");
       const token = authHeader ? authHeader.replace("Bearer ", "") : null;
-      const session = parseSessionWorker(token);
+      const session = __legacySession;
+      if (!session) return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập" }), { status: 401, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
       const empCode = session?.empCode || session?.userId || "202608001";
 
       try {
@@ -7506,115 +7808,18 @@ export default {
     }
 
     async function verifyServerAuth(req, envObj) {
-      try {
-        let authHeader = req.headers.get("Authorization") || "";
-        let cookieHeader = req.headers.get("Cookie") || "";
-        let tokenStr = null;
-
-        if (authHeader.startsWith("Bearer ")) {
-          tokenStr = authHeader.replace("Bearer ", "").trim();
-        } else if (cookieHeader) {
-          const match = cookieHeader.match(/tbs_token=([^;]+)/);
-          if (match && match[1]) {
-            tokenStr = match[1];
-          }
-        }
-
-        if (!tokenStr) {
-          const empCodeHeader = req ? (req.headers.get("x-user-emp-code") || req.headers.get("X-User-Emp-Code")) : null;
-          if (empCodeHeader) {
-            const empCode = empCodeHeader.trim().toUpperCase();
-            const EXECS = ["TONG_GIAM_DOC", "PHO_TONG_GIAM_DOC", "GIAM_DOC", "PHO_GIAM_DOC", "SYSTEM_ADMIN", "ADMIN-2026", "202608001", "202608002", "201711002", "210602002", "202608010", "222102020", "2026080001"];
-            const isExecutiveOrAdmin = EXECS.includes(empCode);
-            return {
-              authenticated: true,
-              empCode,
-              roleCode: isExecutiveOrAdmin ? "ADMIN" : "USER",
-              name: `Cán Bộ (${empCode})`,
-              isExecutiveOrAdmin,
-              department: "Văn Phòng",
-              user: { empCode }
-            };
-          }
-          return { authenticated: false };
-        }
-
-        // Check server-side token blacklist
-        if (envObj && envObj.DB && tokenStr) {
-          try {
-            // Auto-clean expired blacklisted tokens
-            await envObj.DB.prepare(
-              "DELETE FROM token_blacklist WHERE expires_at < CURRENT_TIMESTAMP"
-            ).run().catch(() => {});
-
-            const bl = await envObj.DB.prepare(
-              "SELECT id FROM token_blacklist WHERE token_hash = ? LIMIT 1"
-            ).bind(tokenStr).first();
-
-            if (bl) {
-              console.warn(`[Auth Check] Token ${tokenStr.substring(0, 15)}... is revoked!`);
-              return { authenticated: false };
-            }
-          } catch (e) {}
-        }
-
-        const secretStr = (envObj && envObj.JWT_SECRET) || (typeof process !== "undefined" && process.env ? process.env.JWT_SECRET : "") || "";
-        
-        let payload = null;
-        if (secretStr) {
-          payload = await verifyJWT(tokenStr, secretStr);
-        }
-
-        // Safe fallback ONLY for legacy session cookies format during transition
-        if (!payload && (tokenStr.startsWith("token_") || tokenStr.includes("tbs_token"))) {
-          const match = tokenStr.match(/tbs_token_([^_]+)_/);
-          if (match && match[1]) {
-            payload = { empCode: match[1].toUpperCase(), roleCode: "USER" };
-          } else {
-            const parts = tokenStr.split("_");
-            if (parts.length >= 3) {
-              payload = { empCode: parts[1].toUpperCase(), roleCode: parts.slice(2).join("_").toUpperCase() };
-            }
-          }
-        }
-
-        if (!payload || !payload.empCode) {
-          const empCodeHeader = req ? (req.headers.get("x-user-emp-code") || req.headers.get("X-User-Emp-Code")) : null;
-          if (empCodeHeader) {
-            const empCode = empCodeHeader.trim().toUpperCase();
-            const EXECS = ["TONG_GIAM_DOC", "PHO_TONG_GIAM_DOC", "GIAM_DOC", "PHO_GIAM_DOC", "SYSTEM_ADMIN", "ADMIN-2026", "202608001", "202608002", "201711002", "210602002", "202608010", "222102020", "2026080001"];
-            const isExecutiveOrAdmin = EXECS.includes(empCode);
-            return {
-              authenticated: true,
-              empCode,
-              roleCode: isExecutiveOrAdmin ? "ADMIN" : "USER",
-              name: `Cán Bộ (${empCode})`,
-              isExecutiveOrAdmin,
-              department: "Văn Phòng",
-              user: { empCode }
-            };
-          }
-          return { authenticated: false };
-        }
-
-        const empCode = payload.empCode.toUpperCase();
-        const roleCode = (payload.roleCode || "CBCNV").toUpperCase();
-
-        const EXECS = ["TONG_GIAM_DOC", "PHO_TONG_GIAM_DOC", "GIAM_DOC", "PHO_GIAM_DOC", "SYSTEM_ADMIN", "ADMIN-2026", "202608001", "202608002", "201711002", "210602002", "202608010", "222102020", "2026080001"];
-        const isExecutiveOrAdmin = EXECS.includes(roleCode) || EXECS.includes(empCode);
-
-        return {
-          authenticated: true,
-          empCode,
-          roleCode,
-          name: (payload && payload.name) ? payload.name : `Cán Bộ (${empCode})`,
-          isExecutiveOrAdmin,
-          department: isExecutiveOrAdmin ? "Ban Giám Đốc" : (roleCode === "LE_TAN" ? "Lễ Tân" : (roleCode === "KE_TOAN" ? "Kế Toán" : (roleCode === "NHAN_SU" ? "Nhân Sự" : (roleCode === "KY_THUAT" ? "Bảo Trì" : "Văn Phòng")))),
-          user: payload
-        };
-      } catch (err) {
-        return { authenticated: false };
-      }
+      // Bản vá 15/10/2026: chỉ nhận JWT có chữ ký; không nhận X-User-Emp-Code hay token dạng chuỗi
+      const s = req === request ? __authSession : await resolveAuthSession(req, envObj || env);
+      if (!s || s.mustChangePwd) return { authenticated: false };
+      return {
+        authenticated: true,
+        empCode: s.empCode,
+        roleCode: s.roleCode,
+        name: s.name,
+        isExecutiveOrAdmin: s.isExecutiveOrAdmin,
+        department: authDepartmentFor(s.roleCode, s.isExecutiveOrAdmin),
+        user: s.payload,
+      };
     }
 
     function checkModulePermission(user, moduleKey, action = "READ") {

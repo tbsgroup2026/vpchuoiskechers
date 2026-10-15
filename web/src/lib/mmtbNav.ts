@@ -10,6 +10,7 @@ export const MMTB_NAV: MmtbNavEntry[] = [
   { type: 'link', id: 'kpi', label: 'KPI Kiểm Soát', href: '/maintenance/kpi', iconName: 'IconGauge' },
   { type: 'link', id: 'chart-lab', label: 'Test Biểu Đồ', href: '/maintenance/chart-lab', iconName: 'IconFlask' },
   { type: 'link', id: 'machines', label: 'Danh Sách MMTB', href: '/maintenance/machines', iconName: 'IconDeviceLaptop' },
+  { type: 'link', id: 'machines-verified', label: 'Danh Sách Kiểm Kê', href: '/maintenance/machines-verified', iconName: 'IconCircleCheck' },
   { type: 'link', id: 'schedule', label: 'Bảo Dưỡng MMTB', href: '/maintenance/schedule', iconName: 'IconTools' },
   { type: 'link', id: 'tickets', label: 'Nhu Cầu Sửa Chữa', href: '/maintenance/tickets', iconName: 'IconClipboardList' },
   { type: 'link', id: 'proposals', label: 'Đề Xuất', href: '/maintenance/proposals', iconName: 'IconBulb' },
@@ -27,7 +28,8 @@ export const MMTB_NAV: MmtbNavEntry[] = [
       { type: 'link', id: 'cat-status', label: 'Trạng Thái Máy', href: '/maintenance/categories/machine-status', iconName: 'IconCircleCheck' },
       { type: 'link', id: 'cat-types', label: 'Phân Loại Máy', href: '/maintenance/categories/machine-types', iconName: 'IconDeviceLaptop' },
       { type: 'link', id: 'cat-parts', label: 'Phụ Tùng / Linh Kiện', href: '/maintenance/categories/parts', iconName: 'IconPackage' },
-      { type: 'link', id: 'qr-gemba', label: 'QR Gemba', href: '/maintenance/categories/qr-gemba', iconName: 'IconQrcode' },
+      // QR Gemba — ẩn khỏi sidebar theo yêu cầu người dùng (route /maintenance/categories/qr-gemba
+      // vẫn còn nguyên, chỉ không hiện link điều hướng tới nữa).
     ],
   },
 ];

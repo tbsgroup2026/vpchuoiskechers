@@ -7,7 +7,7 @@ export default function MachineTypesPage() {
     <CategoriesManager
       tabKeys={['MACHINE_TYPE']}
       pageTitle="Phân Loại Máy"
-      pageSubtitle="Danh mục phân loại máy — Tổ hợp Kiên Giang"
+      pageSubtitle="Danh mục phân loại máy"
     />
   );
 }

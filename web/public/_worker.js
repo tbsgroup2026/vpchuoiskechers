@@ -393,6 +393,19 @@ async function ensureWorkerTables(db) {
         ).run().catch(() => {});
       }
     }
+
+    // Cài đặt hiển thị Pareto "Phân Loại Danh Mục Hư hỏng" (ẩn cột "Khác" + ngưỡng gộp) — LƯU CHUNG
+    // theo từng scope (Kiên Giang/Miền Đông độc lập), áp dụng cho MỌI người xem, không phải
+    // localStorage riêng từng máy — xem GET/PUT /api/maintenance/failure-category-pareto-settings.
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS failure_category_pareto_settings (
+        scope TEXT PRIMARY KEY,
+        hide_other INTEGER NOT NULL DEFAULT 0,
+        min_count INTEGER NOT NULL DEFAULT 30,
+        updated_by TEXT,
+        updated_at TEXT
+      )
+    `).run().catch(() => {});
   } catch (e) {}
 }
 const SECURE_JSON_HEADERS = {
@@ -2211,13 +2224,23 @@ async function mmtbKgGetToken(env) {
   return await mmtbKgLogin(env);
 }
 
-// GET-only call sang tbsMayMoc — 401 (token hết hạn) thì tự đăng nhập lại đúng 1 lần rồi thử lại;
-// 5xx (backend thật đang quá tải thoáng qua, VD do dội request) thì chờ ngắn rồi thử lại đúng 1 lần
-// với CÙNG token trước khi trả lỗi thật về giao diện.
-async function mmtbKgCall(env, path) {
+// Gọi tbsMayMoc — mặc định GET (đọc), truyền options.method/options.body để GHI (POST/PUT/DELETE,
+// dùng chung đúng 1 tài khoản dịch vụ + token đang có sẵn cho đọc — xem ghi chú requireAdmin() bên
+// tbsMayMoc: chấp nhận CHUNG 1 loại JWT Bearer cho cả đọc lẫn ghi, không cần quyền riêng gì thêm).
+// 401 (token hết hạn) thì tự đăng nhập lại đúng 1 lần rồi thử lại; 5xx (backend thật đang quá tải
+// thoáng qua, VD do dội request) thì chờ ngắn rồi thử lại đúng 1 lần với CÙNG token trước khi trả
+// lỗi thật về giao diện.
+async function mmtbKgCall(env, path, options) {
+  const method = (options && options.method) || "GET";
+  const body = options && options.body;
   const doFetch = async (tok) => {
     const res = await fetch(`${env.TBSMAYMOC_API_URL}${path}`, {
-      headers: { Authorization: `Bearer ${tok}` },
+      method,
+      headers: {
+        Authorization: `Bearer ${tok}`,
+        ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+      },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
     });
     const data = await res.json().catch(() => ({}));
     return { ok: res.ok, status: res.status, data };
@@ -2246,7 +2269,7 @@ async function mmtbKgGetMachines(env) {
   if (!r.ok) return { success: false, error: (r.data && r.data.error) || "Không lấy được dữ liệu máy móc từ MMTB Kiên Giang", status: r.status };
   if (!Array.isArray(r.data)) return { success: false, error: "Dữ liệu máy móc trả về không hợp lệ, thử lại sau" };
   const data = r.data.map((m) => ({
-    id: m.id, code: m.code, name: m.name, serial: m.serialNumber,
+    id: m.id, code: m.code, name: m.name, serial: m.serialNumber, model: m.model || null,
     factoryId: m.area && m.area.parent ? m.area.parent.id : null,
     factoryName: m.area && m.area.parent ? m.area.parent.name : null,
     areaId: m.area ? m.area.id : null, areaName: m.area ? m.area.name : null,
@@ -2260,6 +2283,28 @@ async function mmtbKgGetMachines(env) {
     qrData: m.code,
   }));
   return { success: true, data };
+}
+
+// Ghi (tạo/sửa/xoá) THẬT sang tbsMayMoc — dùng CHUNG đúng tài khoản/token đang dùng để đọc (xem
+// ghi chú requireAdmin() bên tbsMayMoc: 1 JWT Bearer dùng được cho cả đọc lẫn ghi, server đó tự
+// kiểm tra phạm vi Nhà máy của tài khoản, không cho sửa/xoá máy NGOÀI phạm vi dù có token hợp lệ).
+// `payload` chuyển thẳng (pass-through) từ body FE gửi lên — tbsMayMoc tự validate field bắt buộc.
+async function mmtbKgCreateMachine(env, payload) {
+  const r = await mmtbKgCall(env, "/api/machines", { method: "POST", body: payload });
+  if (!r.ok) return { success: false, error: (r.data && r.data.error) || "Không tạo được máy mới trên MMTB Kiên Giang", status: r.status };
+  return { success: true, data: r.data };
+}
+
+async function mmtbKgUpdateMachine(env, id, payload) {
+  const r = await mmtbKgCall(env, `/api/machines/${encodeURIComponent(id)}`, { method: "PUT", body: payload });
+  if (!r.ok) return { success: false, error: (r.data && r.data.error) || "Không sửa được máy trên MMTB Kiên Giang", status: r.status };
+  return { success: true, data: r.data };
+}
+
+async function mmtbKgDeleteMachine(env, id) {
+  const r = await mmtbKgCall(env, `/api/machines/${encodeURIComponent(id)}`, { method: "DELETE" });
+  if (!r.ok) return { success: false, error: (r.data && r.data.error) || "Không xoá được máy trên MMTB Kiên Giang", status: r.status };
+  return { success: true };
 }
 
 async function mmtbKgGetTickets(env) {
@@ -2302,6 +2347,28 @@ async function mmtbKgGetCategories(env, type, parentId) {
   const qs = `?type=${type}${parentId ? `&parentId=${encodeURIComponent(parentId)}` : ""}`;
   const r = await mmtbKgCall(env, `/api/categories${qs}`);
   return r.ok ? { success: true, data: r.data } : { success: false, error: (r.data && r.data.error) || "Không lấy được danh mục từ MMTB Kiên Giang", status: r.status };
+}
+
+// Ghi (tạo/sửa/xoá) THẬT sang tbsMayMoc — xem chú thích đầy đủ ở mmtbKgCreateMachine, hệt nhau,
+// chỉ khác endpoint. tbsMayMoc tự chặn Admin phạm vi tạo/sửa/xoá FACTORY/FACTORY_GROUP/CHAIN
+// (403) và tự gán cha = đúng phạm vi cho MAINTENANCE_PERIOD/MACHINE_STATUS — không cần tự kiểm
+// tra lại ở đây.
+async function mmtbKgCreateCategory(env, payload) {
+  const r = await mmtbKgCall(env, "/api/categories", { method: "POST", body: payload });
+  if (!r.ok) return { success: false, error: (r.data && r.data.error) || "Không tạo được danh mục trên MMTB Kiên Giang", status: r.status };
+  return { success: true, data: r.data };
+}
+
+async function mmtbKgUpdateCategory(env, id, payload) {
+  const r = await mmtbKgCall(env, `/api/categories/${encodeURIComponent(id)}`, { method: "PUT", body: payload });
+  if (!r.ok) return { success: false, error: (r.data && r.data.error) || "Không sửa được danh mục trên MMTB Kiên Giang", status: r.status };
+  return { success: true, data: r.data };
+}
+
+async function mmtbKgDeleteCategory(env, id) {
+  const r = await mmtbKgCall(env, `/api/categories/${encodeURIComponent(id)}`, { method: "DELETE" });
+  if (!r.ok) return { success: false, error: (r.data && r.data.error) || "Không xoá được danh mục trên MMTB Kiên Giang", status: r.status };
+  return { success: true };
 }
 
 async function mmtbKgGetFailureCategories(env) {
@@ -2363,13 +2430,307 @@ async function mmtbKgGetEmployees(env) {
   return r.ok ? { success: true, data: r.data } : { success: false, error: (r.data && r.data.error) || "Không lấy được nhân sự từ MMTB Kiên Giang", status: r.status };
 }
 
-// Văn phòng Chuỗi (OFFICE) và Nhà Máy Miền Đông (EAST) CHƯA có hệ thống MMTB thật nào kết nối —
-// chỉ Tổ Hợp Kiên Giang (KIEN_GIANG) có dữ liệu thật từ tbs-quanlymaymoc.workers.dev. Khi FE gọi
-// API kèm ?scope=OFFICE|EAST, các route /api/maintenance/* bên dưới trả rỗng ngay (KHÔNG gọi
-// backend Kiên Giang) để dữ liệu Kiên Giang không bị lẫn sang 2 khu vực chưa kết nối này.
+// Ghi (tạo/sửa/xoá) THẬT sang tbsMayMoc — xem chú thích đầy đủ ở mmtbKgCreateMachine phía trên,
+// hệt nhau, chỉ khác endpoint. tbsMayMoc tự chặn tạo/sửa tài khoản role=ADMIN cho tài khoản dịch
+// vụ phạm vi (AMDKG/ADSKMD không phải toàn quyền) — không cần tự kiểm tra lại ở đây.
+async function mmtbKgCreateEmployee(env, payload) {
+  const r = await mmtbKgCall(env, "/api/employees", { method: "POST", body: payload });
+  if (!r.ok) return { success: false, error: (r.data && r.data.error) || "Không tạo được nhân viên trên MMTB Kiên Giang", status: r.status };
+  return { success: true, data: r.data };
+}
+
+async function mmtbKgUpdateEmployee(env, id, payload) {
+  const r = await mmtbKgCall(env, `/api/employees/${encodeURIComponent(id)}`, { method: "PUT", body: payload });
+  if (!r.ok) return { success: false, error: (r.data && r.data.error) || "Không sửa được nhân viên trên MMTB Kiên Giang", status: r.status };
+  return { success: true, data: r.data };
+}
+
+async function mmtbKgDeleteEmployee(env, id) {
+  const r = await mmtbKgCall(env, `/api/employees/${encodeURIComponent(id)}`, { method: "DELETE" });
+  if (!r.ok) return { success: false, error: (r.data && r.data.error) || "Không xoá được nhân viên trên MMTB Kiên Giang", status: r.status };
+  return { success: true };
+}
+
+// ════════════════════════════════════════════════════════════════
+// 🏭 MMTB-MD (Nhà Máy Miền Đông / SK MĐ) — CHỈ ĐỌC, xem dữ liệu máy móc/bảo trì THẬT
+// ════════════════════════════════════════════════════════════════
+// Y HỆT khối MMTB-KG phía trên, chỉ khác: tài khoản dịch vụ riêng (MMTB_SKMD_AUTO_LOGIN_EMP_CODE/
+// PASSWORD — admin "ADSKMD" được tạo bên tbsMayMoc, giới hạn phạm vi CHỈ thấy Nhà máy "SK MĐ", xem
+// User.scopeCategoryId bên tbsMayMoc) và cache key riêng ("mmtbmd:token" thay vì "mmtbkg:token") —
+// để 2 token không đè lên nhau trong bảng pph_cache dùng chung. KHÔNG đụng gì tới khối mmtbKg* ở
+// trên (vẫn nguyên như cũ cho Tổ hợp KG).
+let mmtbMdLoginInFlight = null;
+
+async function mmtbMdLogin(env) {
+  if (mmtbMdLoginInFlight) return mmtbMdLoginInFlight;
+  mmtbMdLoginInFlight = (async () => {
+    const employeeCode = env.MMTB_SKMD_AUTO_LOGIN_EMP_CODE || "ADSKMD";
+    const password = env.MMTB_SKMD_AUTO_LOGIN_PASSWORD || "123456";
+    const res = await fetch(`${env.TBSMAYMOC_API_URL}/api/mobile/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ employeeCode, password }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.token) throw new Error((data && data.error) || "Không đăng nhập được vào hệ thống MMTB SK Miền Đông");
+    await pphCacheSet(env, "mmtbmd:token", { token: data.token }, 6 * 60 * 60);
+    return data.token;
+  })();
+  try {
+    return await mmtbMdLoginInFlight;
+  } finally {
+    mmtbMdLoginInFlight = null;
+  }
+}
+
+async function mmtbMdGetToken(env) {
+  if (!env.TBSMAYMOC_API_URL) throw new Error("Thiếu cấu hình TBSMAYMOC_API_URL");
+  const cached = await pphCacheGetWithStaleInfo(env, "mmtbmd:token");
+  if (cached && cached.value && cached.value.token) return cached.value.token;
+  return await mmtbMdLogin(env);
+}
+
+async function mmtbMdCall(env, path, options) {
+  const method = (options && options.method) || "GET";
+  const body = options && options.body;
+  const doFetch = async (tok) => {
+    const res = await fetch(`${env.TBSMAYMOC_API_URL}${path}`, {
+      method,
+      headers: {
+        Authorization: `Bearer ${tok}`,
+        ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+      },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+    const data = await res.json().catch(() => ({}));
+    return { ok: res.ok, status: res.status, data };
+  };
+  const token = await mmtbMdGetToken(env);
+  let result = await doFetch(token);
+  if (result.status === 401) {
+    const freshToken = await mmtbMdLogin(env);
+    result = await doFetch(freshToken);
+  } else if (result.status >= 500) {
+    await new Promise((r) => setTimeout(r, 400));
+    result = await doFetch(token);
+  }
+  return result;
+}
+
+function mmtbMdAreaLabel(area) {
+  if (!area) return "Chưa gán khu vực";
+  return area.parent ? `${area.parent.name} > ${area.name}` : area.name;
+}
+
+const MMTBMD_INCIDENT_STATUS_LABEL = { PENDING: "Chưa ai nhận", ACCEPTED: "Đang xử lý", DONE: "Đã hoàn thành" };
+
+async function mmtbMdGetMachines(env) {
+  const r = await mmtbMdCall(env, "/api/machines");
+  if (!r.ok) return { success: false, error: (r.data && r.data.error) || "Không lấy được dữ liệu máy móc từ MMTB SK Miền Đông", status: r.status };
+  if (!Array.isArray(r.data)) return { success: false, error: "Dữ liệu máy móc trả về không hợp lệ, thử lại sau" };
+  const data = r.data.map((m) => ({
+    id: m.id, code: m.code, name: m.name, serial: m.serialNumber, model: m.model || null,
+    factoryId: m.area && m.area.parent ? m.area.parent.id : null,
+    factoryName: m.area && m.area.parent ? m.area.parent.name : null,
+    areaId: m.area ? m.area.id : null, areaName: m.area ? m.area.name : null,
+    zone: mmtbMdAreaLabel(m.area),
+    teamId: m.team ? m.team.id : null, teamName: m.team ? m.team.name : null,
+    lineId: m.productionLine ? m.productionLine.id : null, lineName: m.productionLine ? m.productionLine.name : null,
+    machineTypeId: m.machineType ? m.machineType.id : null, machineTypeName: m.machineType ? m.machineType.name : null,
+    statusId: m.status.id, statusName: m.status.name, statusColorHex: m.status.colorHex, status: m.status.name,
+    originalCost: m.originalCost, depreciationPercent: m.depreciationPercent, remainingValue: m.remainingValue,
+    images: Array.isArray(m.images) ? m.images : [],
+    qrData: m.code,
+  }));
+  return { success: true, data };
+}
+
+// Ghi (tạo/sửa/xoá) THẬT sang tbsMayMoc cho SK Miền Đông — xem chú thích đầy đủ ở bản Kiên Giang
+// (mmtbKgCreateMachine) phía trên, hệt nhau, chỉ khác token/tài khoản (ADSKMD, phạm vi SK MĐ).
+async function mmtbMdCreateMachine(env, payload) {
+  const r = await mmtbMdCall(env, "/api/machines", { method: "POST", body: payload });
+  if (!r.ok) return { success: false, error: (r.data && r.data.error) || "Không tạo được máy mới trên MMTB SK Miền Đông", status: r.status };
+  return { success: true, data: r.data };
+}
+
+async function mmtbMdUpdateMachine(env, id, payload) {
+  const r = await mmtbMdCall(env, `/api/machines/${encodeURIComponent(id)}`, { method: "PUT", body: payload });
+  if (!r.ok) return { success: false, error: (r.data && r.data.error) || "Không sửa được máy trên MMTB SK Miền Đông", status: r.status };
+  return { success: true, data: r.data };
+}
+
+async function mmtbMdDeleteMachine(env, id) {
+  const r = await mmtbMdCall(env, `/api/machines/${encodeURIComponent(id)}`, { method: "DELETE" });
+  if (!r.ok) return { success: false, error: (r.data && r.data.error) || "Không xoá được máy trên MMTB SK Miền Đông", status: r.status };
+  return { success: true };
+}
+
+async function mmtbMdGetTickets(env) {
+  const r = await mmtbMdCall(env, "/api/incidents?limit=200");
+  if (!r.ok) return { success: false, error: (r.data && r.data.error) || "Không lấy được dữ liệu sự cố từ MMTB SK Miền Đông", status: r.status };
+  if (!r.data || !Array.isArray(r.data.items)) return { success: false, error: "Dữ liệu sự cố trả về không hợp lệ, thử lại sau" };
+  const data = r.data.items
+    .filter((i) => !i.isMaintenanceDue)
+    .map((i) => ({
+      id: i.id,
+      ticketCode: `SC-${String(i.id).slice(-6).toUpperCase()}`,
+      machineCode: i.machine.code, machineName: i.machine.name,
+      zone: i.machine.areaName, factoryName: i.machine.factoryName,
+      location: i.machine.location,
+      productionLine: i.machine.productionLineName || null,
+      team: i.machine.teamName || null,
+      reporter: i.reporter ? i.reporter.name : "—",
+      mechanic: i.assignedTo ? i.assignedTo.name : null,
+      errorType: i.categoryName || i.description, description: i.description,
+      errorTypeOther: i.customCategoryText || null,
+      status: i.status, statusLabel: MMTBMD_INCIDENT_STATUS_LABEL[i.status],
+      priority: i.priority || null,
+      images: Array.isArray(i.images) ? i.images : [],
+      beforeImages: Array.isArray(i.beforeImages) ? i.beforeImages : [],
+      holdReason: i.holdReason || null,
+      holdAt: i.holdAt || null,
+      reportedAt: i.createdAt, acceptedAt: i.acceptedAt, completedAt: i.completedAt,
+      repairDetail: i.repairDetail || null,
+      partsReplaced: i.partsReplaced || null,
+      repairNote: i.repairNote || null,
+      durationMinutes: i.durationMinutes ?? null,
+    }));
+  return { success: true, data, counts: r.data.counts || null };
+}
+
+const MMTBMD_CATEGORY_TYPES = ["FACTORY", "AREA", "PRODUCTION_LINE", "TEAM", "MACHINE_TYPE", "PART", "MAINTENANCE_PERIOD", "MACHINE_STATUS"];
+
+async function mmtbMdGetCategories(env, type, parentId) {
+  if (!type || MMTBMD_CATEGORY_TYPES.indexOf(type) === -1) return { success: false, error: "Loại danh mục không hợp lệ", status: 400 };
+  const qs = `?type=${type}${parentId ? `&parentId=${encodeURIComponent(parentId)}` : ""}`;
+  const r = await mmtbMdCall(env, `/api/categories${qs}`);
+  return r.ok ? { success: true, data: r.data } : { success: false, error: (r.data && r.data.error) || "Không lấy được danh mục từ MMTB SK Miền Đông", status: r.status };
+}
+
+async function mmtbMdCreateCategory(env, payload) {
+  const r = await mmtbMdCall(env, "/api/categories", { method: "POST", body: payload });
+  if (!r.ok) return { success: false, error: (r.data && r.data.error) || "Không tạo được danh mục trên MMTB SK Miền Đông", status: r.status };
+  return { success: true, data: r.data };
+}
+
+async function mmtbMdUpdateCategory(env, id, payload) {
+  const r = await mmtbMdCall(env, `/api/categories/${encodeURIComponent(id)}`, { method: "PUT", body: payload });
+  if (!r.ok) return { success: false, error: (r.data && r.data.error) || "Không sửa được danh mục trên MMTB SK Miền Đông", status: r.status };
+  return { success: true, data: r.data };
+}
+
+async function mmtbMdDeleteCategory(env, id) {
+  const r = await mmtbMdCall(env, `/api/categories/${encodeURIComponent(id)}`, { method: "DELETE" });
+  if (!r.ok) return { success: false, error: (r.data && r.data.error) || "Không xoá được danh mục trên MMTB SK Miền Đông", status: r.status };
+  return { success: true };
+}
+
+async function mmtbMdGetFailureCategories(env) {
+  const r = await mmtbMdCall(env, "/api/failure-categories");
+  return r.ok ? { success: true, data: r.data } : { success: false, error: (r.data && r.data.error) || "Không lấy được danh mục hư từ MMTB SK Miền Đông", status: r.status };
+}
+
+// Ghi (tạo/sửa/xoá) THẬT sang tbsMayMoc — CHỈ dùng cho Nhà Máy Miền Đông (SK MĐ chưa có danh mục
+// hư riêng, cần tự tạo). Tổ hợp Kiên Giang GIỮ NGUYÊN chỉ đọc — không thêm mmtbKgCreate/Update/
+// DeleteFailureCategory vì tbsMayMoc tự ẩn 10 mục "Chung" đang dùng ổn định ngay khi 1 phạm vi tự
+// tạo dù chỉ 1 mục riêng (xem GET /api/failure-categories bên tbsMayMoc) — route handler phía dưới
+// tự chặn mọi scope khác EAST, không gọi tới các hàm này.
+async function mmtbMdCreateFailureCategory(env, payload) {
+  const r = await mmtbMdCall(env, "/api/failure-categories", { method: "POST", body: payload });
+  if (!r.ok) return { success: false, error: (r.data && r.data.error) || "Không tạo được danh mục hư trên MMTB SK Miền Đông", status: r.status };
+  return { success: true, data: r.data };
+}
+
+async function mmtbMdUpdateFailureCategory(env, id, payload) {
+  const r = await mmtbMdCall(env, `/api/failure-categories/${encodeURIComponent(id)}`, { method: "PUT", body: payload });
+  if (!r.ok) return { success: false, error: (r.data && r.data.error) || "Không sửa được danh mục hư trên MMTB SK Miền Đông", status: r.status };
+  return { success: true, data: r.data };
+}
+
+async function mmtbMdDeleteFailureCategory(env, id) {
+  const r = await mmtbMdCall(env, `/api/failure-categories/${encodeURIComponent(id)}`, { method: "DELETE" });
+  if (!r.ok) return { success: false, error: (r.data && r.data.error) || "Không xoá được danh mục hư trên MMTB SK Miền Đông", status: r.status };
+  return { success: true };
+}
+
+async function mmtbMdGetSchedule(env) {
+  const r = await mmtbMdCall(env, "/api/maintenance-schedule");
+  return r.ok ? { success: true, ...r.data } : { success: false, error: (r.data && r.data.error) || "Không lấy được lịch bảo trì từ MMTB SK Miền Đông", status: r.status };
+}
+
+async function mmtbMdGetLogs(env, limit) {
+  const r = await mmtbMdCall(env, `/api/maintenance-logs?limit=${limit || 150}`);
+  return r.ok ? { success: true, data: r.data } : { success: false, error: (r.data && r.data.error) || "Không lấy được lịch sử bảo trì từ MMTB SK Miền Đông", status: r.status };
+}
+
+async function mmtbMdGetInventoryLog(env) {
+  const r = await mmtbMdCall(env, "/api/inventory-log");
+  return r.ok ? { success: true, ...r.data } : { success: false, error: (r.data && r.data.error) || "Không lấy được nhật ký Kiểm kê từ MMTB SK Miền Đông", status: r.status };
+}
+
+async function mmtbMdGetResponseTime(env) {
+  const r = await mmtbMdCall(env, "/api/response-time");
+  return r.ok ? { success: true, ...r.data } : { success: false, error: (r.data && r.data.error) || "Không lấy được dữ liệu thời gian phản hồi từ MMTB SK Miền Đông", status: r.status };
+}
+
+async function mmtbMdGetOverviewReport(env, searchParams) {
+  const qs = new URLSearchParams();
+  ["factoryId", "areaId", "lineId", "dateFrom", "dateTo"].forEach((k) => {
+    const v = searchParams.get(k);
+    if (v) qs.set(k, v);
+  });
+  const suffix = qs.toString() ? `?${qs.toString()}` : "";
+  const r = await mmtbMdCall(env, `/api/overview-report${suffix}`);
+  return r.ok ? { success: true, ...r.data } : { success: false, error: (r.data && r.data.error) || "Không lấy được dữ liệu tổng quan từ MMTB SK Miền Đông", status: r.status };
+}
+
+async function mmtbMdGetProposals(env) {
+  const r = await mmtbMdCall(env, "/api/admin/proposals");
+  return r.ok ? { success: true, data: r.data } : { success: false, error: (r.data && r.data.error) || "Không lấy được đề xuất từ MMTB SK Miền Đông", status: r.status };
+}
+
+async function mmtbMdGetWorkRequests(env) {
+  const r = await mmtbMdCall(env, "/api/mobile/work-requests");
+  return r.ok ? { success: true, data: r.data } : { success: false, error: (r.data && r.data.error) || "Không lấy được dữ liệu Việc khác từ MMTB SK Miền Đông", status: r.status };
+}
+
+async function mmtbMdGetEmployees(env) {
+  const r = await mmtbMdCall(env, "/api/employees");
+  return r.ok ? { success: true, data: r.data } : { success: false, error: (r.data && r.data.error) || "Không lấy được nhân sự từ MMTB SK Miền Đông", status: r.status };
+}
+
+async function mmtbMdCreateEmployee(env, payload) {
+  const r = await mmtbMdCall(env, "/api/employees", { method: "POST", body: payload });
+  if (!r.ok) return { success: false, error: (r.data && r.data.error) || "Không tạo được nhân viên trên MMTB SK Miền Đông", status: r.status };
+  return { success: true, data: r.data };
+}
+
+async function mmtbMdUpdateEmployee(env, id, payload) {
+  const r = await mmtbMdCall(env, `/api/employees/${encodeURIComponent(id)}`, { method: "PUT", body: payload });
+  if (!r.ok) return { success: false, error: (r.data && r.data.error) || "Không sửa được nhân viên trên MMTB SK Miền Đông", status: r.status };
+  return { success: true, data: r.data };
+}
+
+async function mmtbMdDeleteEmployee(env, id) {
+  const r = await mmtbMdCall(env, `/api/employees/${encodeURIComponent(id)}`, { method: "DELETE" });
+  if (!r.ok) return { success: false, error: (r.data && r.data.error) || "Không xoá được nhân viên trên MMTB SK Miền Đông", status: r.status };
+  return { success: true };
+}
+
+// Văn phòng Chuỗi (OFFICE) CHƯA có hệ thống MMTB thật nào kết nối. Nhà Máy Miền Đông (EAST) VÀ Tổ
+// Hợp Kiên Giang (KIEN_GIANG) đều đã kết nối thật (2 tài khoản dịch vụ riêng, xem mmtbKg*/mmtbMd*
+// phía trên) — route gọi hàm nào theo đúng scope, xem mmtbPickByScope() ngay dưới đây.
 function mmtbScopeIsUnconnected(url) {
   const scope = (url.searchParams.get("scope") || "").toUpperCase();
-  return scope === "OFFICE" || scope === "EAST";
+  return scope === "OFFICE";
+}
+
+// Mỗi route /api/maintenance/* nhận 2 hàm (bản Kiên Giang + bản Miền Đông) và TỰ CHỌN đúng hàm theo
+// ?scope= trên URL — mặc định (scope rỗng hoặc bất kỳ giá trị nào khác EAST) vẫn là Kiên Giang,
+// giữ nguyên hành vi cũ cho mọi nơi gọi KHÔNG kèm scope=EAST tường minh.
+function mmtbPickByScope(url, kgFn, mdFn) {
+  const scope = (url.searchParams.get("scope") || "").toUpperCase();
+  return scope === "EAST" ? mdFn : kgFn;
 }
 
 export default {
@@ -12887,51 +13248,73 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
     // ⚙️ MAINTENANCE MACHINES REALTIME D1 APIS
     // ════════════════════════════════════════════════════════════════
     if (url.pathname.startsWith("/api/maintenance/machines")) {
-      if (env.DB) {
-        try {
-          await env.DB.prepare(`
-            CREATE TABLE IF NOT EXISTS machines (
-                id TEXT PRIMARY KEY, code TEXT NOT NULL UNIQUE, name TEXT NOT NULL, serial TEXT,
-                zone TEXT NOT NULL, status TEXT DEFAULT 'OPERATING', qr_data TEXT NOT NULL,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            );
-          `).run();
-        } catch(e) {}
-      }
+      // Ghi THẬT sang tbsMayMoc (không còn bảng `machines` cục bộ nữa — bảng đó TRƯỚC ĐÂY hoàn
+      // toàn tách biệt khỏi dữ liệu thật đang hiển thị ở GET, Thêm/Sửa máy tưởng đã lưu nhưng thực
+      // ra không đụng gì tới máy thật). `/api/maintenance/machines/:id` (PUT/DELETE) tách id ra từ
+      // đường dẫn; `/api/maintenance/machines` (POST, không có id) là tạo máy mới.
+      const machineIdMatch = url.pathname.match(/^\/api\/maintenance\/machines\/([^/]+)$/);
+      const machineId = machineIdMatch ? decodeURIComponent(machineIdMatch[1]) : null;
 
       if (request.method === "GET") {
         if (mmtbScopeIsUnconnected(url)) {
           return new Response(JSON.stringify({ success: true, data: [] }), { headers: SECURE_JSON_HEADERS });
         }
         try {
-          const result = await mmtbKgGetMachines(env);
+          const result = await mmtbPickByScope(url, mmtbKgGetMachines, mmtbMdGetMachines)(env);
           return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
         } catch (err) {
           return new Response(JSON.stringify({ success: false, error: err.message || "Không lấy được dữ liệu máy móc" }), { status: 502, headers: SECURE_JSON_HEADERS });
         }
       }
 
-      if (request.method === "POST" || request.method === "PUT") {
+      if (request.method === "POST") {
         try {
-          const body = await request.json();
           const user = await verifyServerAuth(request);
           if (!user || !user.authenticated) {
             return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập để thực hiện chức năng này!" }), { status: 401, headers: SECURE_JSON_HEADERS });
           }
-          const mcId = body.id || `mc_${Date.now()}`;
-
-          if (env.DB) {
-            await env.DB.prepare(`
-              INSERT OR REPLACE INTO machines (id, code, name, serial, zone, status, qr_data, updated_at)
-              VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-            `).bind(
-              mcId, body.code, body.name, body.serial || "", body.zone || "Khu A",
-              body.status || "OPERATING", body.qrData || body.code
-            ).run();
+          if (mmtbScopeIsUnconnected(url)) {
+            return new Response(JSON.stringify({ success: false, error: "Khu vực này chưa kết nối hệ thống MMTB thật" }), { status: 400, headers: SECURE_JSON_HEADERS });
           }
+          const body = await request.json();
+          const result = await mmtbPickByScope(url, mmtbKgCreateMachine, mmtbMdCreateMachine)(env, body);
+          if (result.success) await recordAuditLog(user, "maintenance", "CREATE_MACHINE", (result.data && result.data.id) || null, null, body, request);
+          return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
+        } catch (err) {
+          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+        }
+      }
 
-          await recordAuditLog(user, "maintenance", "SAVE_MACHINE", mcId, null, body, request);
-          return new Response(JSON.stringify({ success: true, message: "Đã lưu danh mục máy móc vào CSDL D1!", id: mcId }), { headers: SECURE_JSON_HEADERS });
+      if (request.method === "PUT" && machineId) {
+        try {
+          const user = await verifyServerAuth(request);
+          if (!user || !user.authenticated) {
+            return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập để thực hiện chức năng này!" }), { status: 401, headers: SECURE_JSON_HEADERS });
+          }
+          if (mmtbScopeIsUnconnected(url)) {
+            return new Response(JSON.stringify({ success: false, error: "Khu vực này chưa kết nối hệ thống MMTB thật" }), { status: 400, headers: SECURE_JSON_HEADERS });
+          }
+          const body = await request.json();
+          const result = await mmtbPickByScope(url, mmtbKgUpdateMachine, mmtbMdUpdateMachine)(env, machineId, body);
+          if (result.success) await recordAuditLog(user, "maintenance", "UPDATE_MACHINE", machineId, null, body, request);
+          return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
+        } catch (err) {
+          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+        }
+      }
+
+      if (request.method === "DELETE" && machineId) {
+        try {
+          const user = await verifyServerAuth(request);
+          if (!user || !user.authenticated) {
+            return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập để thực hiện chức năng này!" }), { status: 401, headers: SECURE_JSON_HEADERS });
+          }
+          if (mmtbScopeIsUnconnected(url)) {
+            return new Response(JSON.stringify({ success: false, error: "Khu vực này chưa kết nối hệ thống MMTB thật" }), { status: 400, headers: SECURE_JSON_HEADERS });
+          }
+          const result = await mmtbPickByScope(url, mmtbKgDeleteMachine, mmtbMdDeleteMachine)(env, machineId);
+          if (result.success) await recordAuditLog(user, "maintenance", "DELETE_MACHINE", machineId, null, null, request);
+          return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
         } catch (err) {
           return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
@@ -12947,7 +13330,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           return new Response(JSON.stringify({ success: true, data: [], counts: { PENDING: 0, ACCEPTED: 0, DONE: 0, total: 0 } }), { headers: SECURE_JSON_HEADERS });
         }
         try {
-          const result = await mmtbKgGetTickets(env);
+          const result = await mmtbPickByScope(url, mmtbKgGetTickets, mmtbMdGetTickets)(env);
           return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
         } catch (err) {
           return new Response(JSON.stringify({ success: false, error: err.message || "Không lấy được dữ liệu sự cố" }), { status: 502, headers: SECURE_JSON_HEADERS });
@@ -13046,7 +13429,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
         return new Response(JSON.stringify({ success: true, machines: [], periods: [], completedThisMonth: 0 }), { headers: SECURE_JSON_HEADERS });
       }
       try {
-        const result = await mmtbKgGetSchedule(env);
+        const result = await mmtbPickByScope(url, mmtbKgGetSchedule, mmtbMdGetSchedule)(env);
         return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
       } catch (err) {
         return new Response(JSON.stringify({ success: false, error: err.message || "Không lấy được lịch bảo trì" }), { status: 502, headers: SECURE_JSON_HEADERS });
@@ -13058,7 +13441,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
         return new Response(JSON.stringify({ success: true, data: [] }), { headers: SECURE_JSON_HEADERS });
       }
       try {
-        const result = await mmtbKgGetLogs(env, url.searchParams.get("limit"));
+        const result = await mmtbPickByScope(url, mmtbKgGetLogs, mmtbMdGetLogs)(env, url.searchParams.get("limit"));
         return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
       } catch (err) {
         return new Response(JSON.stringify({ success: false, error: err.message || "Không lấy được lịch sử bảo trì" }), { status: 502, headers: SECURE_JSON_HEADERS });
@@ -13070,7 +13453,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
         return new Response(JSON.stringify({ success: true, rows: [] }), { headers: SECURE_JSON_HEADERS });
       }
       try {
-        const result = await mmtbKgGetInventoryLog(env);
+        const result = await mmtbPickByScope(url, mmtbKgGetInventoryLog, mmtbMdGetInventoryLog)(env);
         return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
       } catch (err) {
         return new Response(JSON.stringify({ success: false, error: err.message || "Không lấy được nhật ký Kiểm kê" }), { status: 502, headers: SECURE_JSON_HEADERS });
@@ -13082,7 +13465,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
         return new Response(JSON.stringify({ success: true, incidents: [], logs: [] }), { headers: SECURE_JSON_HEADERS });
       }
       try {
-        const result = await mmtbKgGetResponseTime(env);
+        const result = await mmtbPickByScope(url, mmtbKgGetResponseTime, mmtbMdGetResponseTime)(env);
         return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
       } catch (err) {
         return new Response(JSON.stringify({ success: false, error: err.message || "Không lấy được dữ liệu thời gian phản hồi" }), { status: 502, headers: SECURE_JSON_HEADERS });
@@ -13094,7 +13477,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
         return new Response(JSON.stringify({ success: true, incidents: [], logs: [] }), { headers: SECURE_JSON_HEADERS });
       }
       try {
-        const result = await mmtbKgGetOverviewReport(env, url.searchParams);
+        const result = await mmtbPickByScope(url, mmtbKgGetOverviewReport, mmtbMdGetOverviewReport)(env, url.searchParams);
         return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
       } catch (err) {
         return new Response(JSON.stringify({ success: false, error: err.message || "Không lấy được dữ liệu tổng quan" }), { status: 502, headers: SECURE_JSON_HEADERS });
@@ -13106,7 +13489,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
         return new Response(JSON.stringify({ success: true, data: [] }), { headers: SECURE_JSON_HEADERS });
       }
       try {
-        const result = await mmtbKgGetProposals(env);
+        const result = await mmtbPickByScope(url, mmtbKgGetProposals, mmtbMdGetProposals)(env);
         return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
       } catch (err) {
         return new Response(JSON.stringify({ success: false, error: err.message || "Không lấy được đề xuất" }), { status: 502, headers: SECURE_JSON_HEADERS });
@@ -13118,7 +13501,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
         return new Response(JSON.stringify({ success: true, data: { items: [] } }), { headers: SECURE_JSON_HEADERS });
       }
       try {
-        const result = await mmtbKgGetWorkRequests(env);
+        const result = await mmtbPickByScope(url, mmtbKgGetWorkRequests, mmtbMdGetWorkRequests)(env);
         return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
       } catch (err) {
         return new Response(JSON.stringify({ success: false, error: err.message || "Không lấy được dữ liệu Việc khác" }), { status: 502, headers: SECURE_JSON_HEADERS });
@@ -13130,10 +13513,65 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
         return new Response(JSON.stringify({ success: true, data: [] }), { headers: SECURE_JSON_HEADERS });
       }
       try {
-        const result = await mmtbKgGetEmployees(env);
+        const result = await mmtbPickByScope(url, mmtbKgGetEmployees, mmtbMdGetEmployees)(env);
         return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
       } catch (err) {
         return new Response(JSON.stringify({ success: false, error: err.message || "Không lấy được nhân sự" }), { status: 502, headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    if (url.pathname === "/api/maintenance/employees" && request.method === "POST") {
+      try {
+        const user = await verifyServerAuth(request);
+        if (!user || !user.authenticated) {
+          return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập để thực hiện chức năng này!" }), { status: 401, headers: SECURE_JSON_HEADERS });
+        }
+        if (mmtbScopeIsUnconnected(url)) {
+          return new Response(JSON.stringify({ success: false, error: "Khu vực này chưa kết nối hệ thống MMTB thật" }), { status: 400, headers: SECURE_JSON_HEADERS });
+        }
+        const body = await request.json();
+        const result = await mmtbPickByScope(url, mmtbKgCreateEmployee, mmtbMdCreateEmployee)(env, body);
+        if (result.success) await recordAuditLog(user, "maintenance", "CREATE_EMPLOYEE", (result.data && result.data.id) || null, null, { ...body, password: undefined }, request);
+        return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    const employeeIdMatch = url.pathname.match(/^\/api\/maintenance\/employees\/([^/]+)$/);
+    if (employeeIdMatch && request.method === "PUT") {
+      try {
+        const user = await verifyServerAuth(request);
+        if (!user || !user.authenticated) {
+          return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập để thực hiện chức năng này!" }), { status: 401, headers: SECURE_JSON_HEADERS });
+        }
+        if (mmtbScopeIsUnconnected(url)) {
+          return new Response(JSON.stringify({ success: false, error: "Khu vực này chưa kết nối hệ thống MMTB thật" }), { status: 400, headers: SECURE_JSON_HEADERS });
+        }
+        const employeeId = decodeURIComponent(employeeIdMatch[1]);
+        const body = await request.json();
+        const result = await mmtbPickByScope(url, mmtbKgUpdateEmployee, mmtbMdUpdateEmployee)(env, employeeId, body);
+        if (result.success) await recordAuditLog(user, "maintenance", "UPDATE_EMPLOYEE", employeeId, null, { ...body, password: undefined }, request);
+        return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+      }
+    }
+    if (employeeIdMatch && request.method === "DELETE") {
+      try {
+        const user = await verifyServerAuth(request);
+        if (!user || !user.authenticated) {
+          return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập để thực hiện chức năng này!" }), { status: 401, headers: SECURE_JSON_HEADERS });
+        }
+        if (mmtbScopeIsUnconnected(url)) {
+          return new Response(JSON.stringify({ success: false, error: "Khu vực này chưa kết nối hệ thống MMTB thật" }), { status: 400, headers: SECURE_JSON_HEADERS });
+        }
+        const employeeId = decodeURIComponent(employeeIdMatch[1]);
+        const result = await mmtbPickByScope(url, mmtbKgDeleteEmployee, mmtbMdDeleteEmployee)(env, employeeId);
+        if (result.success) await recordAuditLog(user, "maintenance", "DELETE_EMPLOYEE", employeeId, null, null, request);
+        return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
       }
     }
 
@@ -13142,10 +13580,103 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
         return new Response(JSON.stringify({ success: true, data: [] }), { headers: SECURE_JSON_HEADERS });
       }
       try {
-        const result = await mmtbKgGetFailureCategories(env);
+        const result = await mmtbPickByScope(url, mmtbKgGetFailureCategories, mmtbMdGetFailureCategories)(env);
         return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
       } catch (err) {
         return new Response(JSON.stringify({ success: false, error: err.message || "Không lấy được danh mục hư" }), { status: 502, headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    // Thêm/Sửa/Xoá Danh mục hư — CHỈ mở cho Nhà Máy Miền Đông (scope=EAST), theo xác nhận của
+    // người dùng. Tổ hợp Kiên Giang vẫn CHỈ ĐỌC danh sách "Chung" hiện có, không mở ghi ở đây.
+    if (url.pathname === "/api/maintenance/failure-categories" && request.method === "POST") {
+      try {
+        const user = await verifyServerAuth(request);
+        if (!user || !user.authenticated) {
+          return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập để thực hiện chức năng này!" }), { status: 401, headers: SECURE_JSON_HEADERS });
+        }
+        if (url.searchParams.get("scope") !== "EAST") {
+          return new Response(JSON.stringify({ success: false, error: "Chỉ Nhà Máy Miền Đông được tạo danh mục hư riêng" }), { status: 403, headers: SECURE_JSON_HEADERS });
+        }
+        const body = await request.json();
+        const result = await mmtbMdCreateFailureCategory(env, body);
+        if (result.success) await recordAuditLog(user, "maintenance", "CREATE_FAILURE_CATEGORY", (result.data && result.data.id) || null, null, body, request);
+        return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    const failureCategoryIdMatch = url.pathname.match(/^\/api\/maintenance\/failure-categories\/([^/]+)$/);
+    if (failureCategoryIdMatch && request.method === "PUT") {
+      try {
+        const user = await verifyServerAuth(request);
+        if (!user || !user.authenticated) {
+          return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập để thực hiện chức năng này!" }), { status: 401, headers: SECURE_JSON_HEADERS });
+        }
+        if (url.searchParams.get("scope") !== "EAST") {
+          return new Response(JSON.stringify({ success: false, error: "Chỉ Nhà Máy Miền Đông được sửa danh mục hư riêng" }), { status: 403, headers: SECURE_JSON_HEADERS });
+        }
+        const failureCategoryId = decodeURIComponent(failureCategoryIdMatch[1]);
+        const body = await request.json();
+        const result = await mmtbMdUpdateFailureCategory(env, failureCategoryId, body);
+        if (result.success) await recordAuditLog(user, "maintenance", "UPDATE_FAILURE_CATEGORY", failureCategoryId, null, body, request);
+        return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+      }
+    }
+    if (failureCategoryIdMatch && request.method === "DELETE") {
+      try {
+        const user = await verifyServerAuth(request);
+        if (!user || !user.authenticated) {
+          return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập để thực hiện chức năng này!" }), { status: 401, headers: SECURE_JSON_HEADERS });
+        }
+        if (url.searchParams.get("scope") !== "EAST") {
+          return new Response(JSON.stringify({ success: false, error: "Chỉ Nhà Máy Miền Đông được xoá danh mục hư riêng" }), { status: 403, headers: SECURE_JSON_HEADERS });
+        }
+        const failureCategoryId = decodeURIComponent(failureCategoryIdMatch[1]);
+        const result = await mmtbMdDeleteFailureCategory(env, failureCategoryId);
+        if (result.success) await recordAuditLog(user, "maintenance", "DELETE_FAILURE_CATEGORY", failureCategoryId, null, null, request);
+        return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    // Cài đặt hiển thị Pareto "Phân Loại Danh Mục Hư hỏng" (trang Tổng Quan /maintenance) — ẩn/hiện
+    // cột "Khác" + ngưỡng số lần tối thiểu để tách cột riêng. LƯU THEO SCOPE (Kiên Giang/Miền Đông
+    // độc lập, theo xác nhận người dùng), dùng CHUNG cho mọi người xem — 1 người đổi là đổi cho tất
+    // cả, không phải cài đặt riêng từng trình duyệt.
+    if (url.pathname === "/api/maintenance/failure-category-pareto-settings" && request.method === "GET") {
+      try {
+        await ensureWorkerTables(env.DB);
+        const scopeParam = url.searchParams.get("scope") || "KIEN_GIANG";
+        const row = await env.DB.prepare("SELECT hide_other, min_count FROM failure_category_pareto_settings WHERE scope = ?").bind(scopeParam).first();
+        const data = { hideOther: row ? !!row.hide_other : false, minCount: row ? Number(row.min_count) : 30 };
+        return new Response(JSON.stringify({ success: true, data }), { headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message || "Không lấy được cài đặt biểu đồ" }), { status: 500, headers: SECURE_JSON_HEADERS });
+      }
+    }
+    if (url.pathname === "/api/maintenance/failure-category-pareto-settings" && request.method === "PUT") {
+      try {
+        const user = await verifyServerAuth(request);
+        if (!user || !user.authenticated) {
+          return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập để thực hiện chức năng này!" }), { status: 401, headers: SECURE_JSON_HEADERS });
+        }
+        await ensureWorkerTables(env.DB);
+        const scopeParam = url.searchParams.get("scope") || "KIEN_GIANG";
+        const body = await request.json();
+        const hideOther = body.hideOther ? 1 : 0;
+        const minCount = Number.isFinite(Number(body.minCount)) && Number(body.minCount) > 0 ? Math.round(Number(body.minCount)) : 30;
+        const nowIso = new Date().toISOString();
+        await env.DB.prepare(
+          "INSERT INTO failure_category_pareto_settings (scope, hide_other, min_count, updated_by, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(scope) DO UPDATE SET hide_other = excluded.hide_other, min_count = excluded.min_count, updated_by = excluded.updated_by, updated_at = excluded.updated_at"
+        ).bind(scopeParam, hideOther, minCount, user.empCode || user.name || null, nowIso).run();
+        return new Response(JSON.stringify({ success: true, data: { hideOther: !!hideOther, minCount } }), { headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message || "Không lưu được cài đặt biểu đồ" }), { status: 500, headers: SECURE_JSON_HEADERS });
       }
     }
 
@@ -13154,7 +13685,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
         return new Response(JSON.stringify({ success: true, data: [] }), { headers: SECURE_JSON_HEADERS });
       }
       try {
-        const result = await mmtbKgGetCategories(env, url.searchParams.get("type"), url.searchParams.get("parentId"));
+        const result = await mmtbPickByScope(url, mmtbKgGetCategories, mmtbMdGetCategories)(env, url.searchParams.get("type"), url.searchParams.get("parentId"));
         return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
       } catch (err) {
         return new Response(JSON.stringify({ success: false, error: err.message || "Không lấy được danh mục" }), { status: 502, headers: SECURE_JSON_HEADERS });
@@ -13168,10 +13699,65 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
         return new Response(JSON.stringify({ success: true, data: [] }), { headers: SECURE_JSON_HEADERS });
       }
       try {
-        const result = await mmtbKgGetCategories(env, url.searchParams.get("type"), url.searchParams.get("parentId"));
+        const result = await mmtbPickByScope(url, mmtbKgGetCategories, mmtbMdGetCategories)(env, url.searchParams.get("type"), url.searchParams.get("parentId"));
         return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
       } catch (err) {
         return new Response(JSON.stringify({ success: false, error: err.message || "Không lấy được danh mục" }), { status: 502, headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    if (url.pathname === "/api/mmtb-kg/categories" && request.method === "POST") {
+      try {
+        const user = await verifyServerAuth(request);
+        if (!user || !user.authenticated) {
+          return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập để thực hiện chức năng này!" }), { status: 401, headers: SECURE_JSON_HEADERS });
+        }
+        if (mmtbScopeIsUnconnected(url)) {
+          return new Response(JSON.stringify({ success: false, error: "Khu vực này chưa kết nối hệ thống MMTB thật" }), { status: 400, headers: SECURE_JSON_HEADERS });
+        }
+        const body = await request.json();
+        const result = await mmtbPickByScope(url, mmtbKgCreateCategory, mmtbMdCreateCategory)(env, body);
+        if (result.success) await recordAuditLog(user, "maintenance", "CREATE_CATEGORY", (result.data && result.data.id) || null, null, body, request);
+        return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    const categoryIdMatch = url.pathname.match(/^\/api\/mmtb-kg\/categories\/([^/]+)$/);
+    if (categoryIdMatch && request.method === "PUT") {
+      try {
+        const user = await verifyServerAuth(request);
+        if (!user || !user.authenticated) {
+          return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập để thực hiện chức năng này!" }), { status: 401, headers: SECURE_JSON_HEADERS });
+        }
+        if (mmtbScopeIsUnconnected(url)) {
+          return new Response(JSON.stringify({ success: false, error: "Khu vực này chưa kết nối hệ thống MMTB thật" }), { status: 400, headers: SECURE_JSON_HEADERS });
+        }
+        const categoryId = decodeURIComponent(categoryIdMatch[1]);
+        const body = await request.json();
+        const result = await mmtbPickByScope(url, mmtbKgUpdateCategory, mmtbMdUpdateCategory)(env, categoryId, body);
+        if (result.success) await recordAuditLog(user, "maintenance", "UPDATE_CATEGORY", categoryId, null, body, request);
+        return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+      }
+    }
+    if (categoryIdMatch && request.method === "DELETE") {
+      try {
+        const user = await verifyServerAuth(request);
+        if (!user || !user.authenticated) {
+          return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập để thực hiện chức năng này!" }), { status: 401, headers: SECURE_JSON_HEADERS });
+        }
+        if (mmtbScopeIsUnconnected(url)) {
+          return new Response(JSON.stringify({ success: false, error: "Khu vực này chưa kết nối hệ thống MMTB thật" }), { status: 400, headers: SECURE_JSON_HEADERS });
+        }
+        const categoryId = decodeURIComponent(categoryIdMatch[1]);
+        const result = await mmtbPickByScope(url, mmtbKgDeleteCategory, mmtbMdDeleteCategory)(env, categoryId);
+        if (result.success) await recordAuditLog(user, "maintenance", "DELETE_CATEGORY", categoryId, null, null, request);
+        return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
       }
     }
 

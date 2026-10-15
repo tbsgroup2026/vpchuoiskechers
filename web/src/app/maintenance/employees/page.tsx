@@ -208,7 +208,7 @@ export default function EmployeesPage() {
         isTeamLead: formData.role === 'MAINTENANCE' ? formData.isTeamLead : false,
         extraAreaIds: formData.role === 'MAINTENANCE' && formData.isTeamLead ? formData.extraAreaIds : [],
       };
-      const url = editingId ? `/api/maintenance/employees/${editingId}` : '/api/maintenance/employees';
+      const url = editingId ? `/api/maintenance/employees/${editingId}?scope=${scope}` : `/api/maintenance/employees?scope=${scope}`;
       const res = await fetch(url, {
         method: editingId ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -253,7 +253,7 @@ export default function EmployeesPage() {
     if (!confirm(`Xoá tài khoản "${e.name}" (${e.employeeCode})? Nhân viên này sẽ không đăng nhập được nữa.`)) return;
     setDeletingId(e.id);
     try {
-      const res = await fetch(`/api/maintenance/employees/${e.id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/maintenance/employees/${e.id}?scope=${scope}`, { method: 'DELETE' });
       const result = await res.json();
       if (!result.success) {
         alert(result.error || 'Không xoá được');
@@ -414,6 +414,12 @@ export default function EmployeesPage() {
           <div className="flex items-center gap-2">
             <RefreshButton onClick={() => load(true)} loading={refreshing} />
             <button
+              onClick={openCreateForm}
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#006838] text-white text-xs font-bold hover:opacity-90"
+            >
+              <IconPlus size={15} /> Thêm Nhân Viên
+            </button>
+            <button
               onClick={handleExport}
               disabled={filtered.length === 0}
               className="px-4 py-2.5 rounded-xl bg-accent text-white text-xs font-bold hover:bg-accent-light disabled:opacity-40"
@@ -480,7 +486,27 @@ export default function EmployeesPage() {
                   <td className="p-4">{e.area?.name ?? '-'}</td>
                   <td className="p-4">{e.isTeamLead ? '✓' : '-'}</td>
                   <td className="p-4 text-center">
-                    <span className="text-gray-300">—</span>
+                    {e.role === 'ADMIN' ? (
+                      <span className="text-gray-300">—</span>
+                    ) : (
+                      <div className="flex items-center justify-center gap-1.5">
+                        <button
+                          onClick={() => openEditForm(e)}
+                          title="Sửa"
+                          className="p-1.5 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 cursor-pointer"
+                        >
+                          <IconPencil size={14} />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(e)}
+                          disabled={deletingId === e.id}
+                          title="Xoá"
+                          className="p-1.5 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100 cursor-pointer disabled:opacity-50"
+                        >
+                          <IconTrash size={14} />
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}

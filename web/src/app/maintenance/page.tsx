@@ -34,6 +34,7 @@ import {
   IconClipboardList,
   IconMaximize,
   IconMinimize,
+  IconSettings,
 } from '@tabler/icons-react';
 import MaintenanceShell from '@/components/MaintenanceShell';
 import StatCardRow from '@/components/StatCardRow';
@@ -894,16 +895,29 @@ export default function OverviewPage() {
     };
   }, [enriched]);
 
+  // "Ngày" / "Tuần" — gộp biểu đồ Xu Hướng theo từng ngày lịch (chi tiết hơn) hoặc theo tuần ISO
+  // (mặc định, như trước) — chỉ đổi cách gộp nhóm trên CHÍNH khoảng ngày đang lọc ở đầu trang,
+  // không phải 1 bộ lọc ngày riêng.
+  const [trendGranularity, setTrendGranularity] = useState<'week' | 'day'>('week');
+
   const trendData: TrendPoint[] = useMemo(() => {
     type Bucket = { key: number; label: string; mttaSum: number; mttaN: number; mttrSum: number; mttrN: number; mttdSum: number; mttdN: number; downtime: number };
     const buckets = new Map<number, Bucket>();
     for (const i of enriched) {
       const d = new Date(i.createdAt);
-      const wk = isoWeek(d);
-      const key = d.getUTCFullYear() * 100 + wk;
+      let key: number;
+      let label: string;
+      if (trendGranularity === 'day') {
+        key = d.getUTCFullYear() * 10000 + (d.getUTCMonth() + 1) * 100 + d.getUTCDate();
+        label = `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+      } else {
+        const wk = isoWeek(d);
+        key = d.getUTCFullYear() * 100 + wk;
+        label = `Tuần ${wk}`;
+      }
       let b = buckets.get(key);
       if (!b) {
-        b = { key, label: `Tuần ${wk}`, mttaSum: 0, mttaN: 0, mttrSum: 0, mttrN: 0, mttdSum: 0, mttdN: 0, downtime: 0 };
+        b = { key, label, mttaSum: 0, mttaN: 0, mttrSum: 0, mttrN: 0, mttdSum: 0, mttdN: 0, downtime: 0 };
         buckets.set(key, b);
       }
       if (i.mtta != null) { b.mttaSum += i.mtta; b.mttaN++; }
@@ -919,7 +933,7 @@ export default function OverviewPage() {
         mttd: b.mttdN ? round1(b.mttdSum / b.mttdN) : 0,
         downtime: round1(b.downtime),
       }));
-  }, [enriched]);
+  }, [enriched, trendGranularity]);
 
   // Tách hẳn 2 cấp — KHÔNG dùng chung fallback nữa: sự cố không có Tổ/Chuyền thì không tính vào
   // paretoByLine (chỉ hiện ở paretoByArea theo đúng Phân Xưởng của nó), tránh chồng chéo dữ liệu
@@ -980,85 +994,147 @@ export default function OverviewPage() {
     return Array.from(map, ([label, value]) => ({ label, value }));
   }, [enriched]);
 
-  // Danh mục CHÍNH THỨC nào chiếm QUÁ ÍT (dưới 5% tổng số sự cố cả biểu đồ) sẽ tạm gộp chung vào cột
-  // "Khác" — tránh Pareto hiện quá nhiều cột lẻ tẻ chỉ 1-2 sự cố ("Khác" gốc không tính vào diện
-  // này, nó đã là hũ gộp chung sẵn). Sau khi gộp, "Khác" chiếm 1 cột riêng, nhưng bên trong nó có
-  // thể có 1 nhóm (nhóm chữ tự do gộp gần đúng CỦA Khác gốc, HOẶC 1 danh mục nhỏ vừa gộp vào) chiếm
-  // tỉ trọng lớn trong khối Khác MỚI này — nếu ĐỦ LỚN (>=15% tổng khối Khác mới, HOẶC riêng bản thân
-  // đã >=30 lần dù % còn thấp — 1 lỗi lặp lại tới 30 lần vẫn đáng tách ra xem riêng dù % chưa cao vì
-  // tổng Khác quá lớn), tự động tách nhóm đó ra thành 1 cột riêng ngay trên biểu đồ chính, không còn
-  // tính vào "Khác" nữa. Ngưỡng và cách tách áp dụng chung cho MỌI nhóm đủ điều kiện, không riêng
-  // nhóm cụ thể nào.
-  const SMALL_CATEGORY_MERGE_THRESHOLD = 0.05;
-  const KHAC_PROMOTE_THRESHOLD = 0.15;
-  const KHAC_PROMOTE_MIN_COUNT = 30;
+  // Cài đặt hiển thị biểu đồ Pareto "Phân Loại Danh Mục Hư hỏng" — ẩn/hiện cột "Khác" + ngưỡng số
+  // lần tối thiểu để 1 danh mục/nhóm lỗi được tách cột riêng. LƯU CHUNG theo scope (xem
+  // /api/maintenance/failure-category-pareto-settings) — 1 người đổi, mọi người xem cùng khu vực
+  // đều thấy, không phải cài đặt riêng từng trình duyệt. Mặc định 30 lần khi chưa ai chỉnh.
+  const [paretoSettings, setParetoSettings] = useState<{ hideOther: boolean; minCount: number } | null>(null);
+  const [showParetoSettingsModal, setShowParetoSettingsModal] = useState(false);
+  const [paretoSettingsDraft, setParetoSettingsDraft] = useState({ hideOther: false, minCount: 30 });
+  const [savingParetoSettings, setSavingParetoSettings] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/maintenance/failure-category-pareto-settings?scope=${scope}`)
+      .then((r) => r.json())
+      .then((result) => {
+        if (cancelled) return;
+        if (result.success) setParetoSettings(result.data);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [scope]);
+
+  async function saveParetoSettings() {
+    setSavingParetoSettings(true);
+    try {
+      const res = await fetch(`/api/maintenance/failure-category-pareto-settings?scope=${scope}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(paretoSettingsDraft),
+      });
+      const result = await res.json();
+      if (result.success) {
+        setParetoSettings(result.data);
+        setShowParetoSettingsModal(false);
+      }
+    } catch {
+      // Lỗi kết nối — giữ nguyên modal để người dùng thử lại, không cần banner riêng.
+    } finally {
+      setSavingParetoSettings(false);
+    }
+  }
+
+  const paretoMinCount = paretoSettings?.minCount ?? 30;
+
+  // Phiếu "Duy Tu Bảo Dưỡng" định kỳ (isMaintenanceDue bên tbsMayMoc) KHÔNG phải báo hư hỏng nên
+  // KHÔNG có danh mục hư (categoryName null) — loại hẳn khỏi biểu đồ NÀY (không tính cả số lượng
+  // lẫn %, theo xác nhận người dùng), tránh lẫn vào phân tích "máy hay hư vì gì". Các biểu đồ/KPI
+  // khác (Top Máy, Downtime theo Tổ/Chuyền, Xu Hướng...) vẫn tính đầy đủ incidents như cũ.
+  const categoryEligibleIncidents = useMemo(() => enriched.filter((i) => i.categoryName != null), [enriched]);
+
   const khacFuzzyGroups = useMemo(() => {
-    const totalAll = enriched.length;
+    type Candidate = { label: string; count: number; officialKeys: string[]; khacVariants: string[] };
+
     const rawCounts = new Map<string, number>();
-    for (const i of enriched) {
-      const key = i.categoryName || 'Chưa phân loại';
+    for (const i of categoryEligibleIncidents) {
+      const key = i.categoryName as string;
       rawCounts.set(key, (rawCounts.get(key) ?? 0) + 1);
     }
-    const smallCategoryNames = new Set(
-      Array.from(rawCounts, ([name, count]) => ({ name, count }))
-        .filter((c) => c.name !== 'Khác' && totalAll > 0 && c.count / totalAll < SMALL_CATEGORY_MERGE_THRESHOLD)
-        .map((c) => c.name)
-    );
+    const officialCandidates: Candidate[] = Array.from(rawCounts, ([name, count]) => ({
+      label: name, count, officialKeys: [name], khacVariants: [],
+    })).filter((c) => c.label !== 'Khác');
 
-    const khacIncidents = enriched.filter((i) => (i.categoryName || 'Chưa phân loại') === 'Khác');
-    const smallCategoryIncidentCount = enriched.filter((i) => smallCategoryNames.has(i.categoryName || 'Chưa phân loại')).length;
+    const khacIncidents = categoryEligibleIncidents.filter((i) => i.categoryName === 'Khác');
+    const khacTexts = khacIncidents.map((i) => i.customCategoryText || i.description || '').filter(Boolean);
+    const khacCandidates: Candidate[] = fuzzyGroupTexts(khacTexts).map((g) => ({
+      label: g.label, count: g.count, officialKeys: [], khacVariants: g.variants,
+    }));
 
-    const texts = khacIncidents.map((i) => i.customCategoryText || i.description || '').filter(Boolean);
-    const textGroups = fuzzyGroupTexts(texts);
-    const textToGroupLabel = new Map<string, string>();
-    for (const g of textGroups) for (const v of g.variants) if (!textToGroupLabel.has(v)) textToGroupLabel.set(v, g.label);
+    // Gộp các ỨNG VIÊN trùng ý nghĩa (so khớp gần đúng — dùng lại đúng hàm đang so chữ tự do trong
+    // Khác) TRƯỚC khi xét ngưỡng tách cột — xử lý từ nhóm LỚN -> NHỎ nên nhãn nhóm lớn hơn luôn
+    // được giữ lại, nhóm nhỏ trùng ý (vd "Lt size mới" trùng ý "Lập trình size mới") tự động cộng
+    // dồn vào thay vì nằm lẻ trong "Khác". Áp dụng cho MỌI cặp đủ điều kiện, không riêng trường
+    // hợp cụ thể nào.
+    const sortedCandidates = [...officialCandidates, ...khacCandidates].sort((a, b) => b.count - a.count);
+    const merged: (Candidate & { normLabel: string })[] = [];
+    for (const cand of sortedCandidates) {
+      const norm = expandKnownAbbreviations(normalizeFreeText(cand.label));
+      const target = merged.find((m) => textSimilarity(norm, m.normLabel) >= 0.6 || sharedSignificantBigram(norm, m.normLabel));
+      if (target) {
+        target.count += cand.count;
+        target.officialKeys.push(...cand.officialKeys);
+        target.khacVariants.push(...cand.khacVariants);
+      } else {
+        merged.push({ ...cand, normLabel: norm, officialKeys: [...cand.officialKeys], khacVariants: [...cand.khacVariants] });
+      }
+    }
 
-    // MTTA/MTTR/MTTD/Tổng Sự Cố/Tổng Downtime CHỈ RIÊNG từng nhóm — để bấm vào 1 nhóm trong modal
-    // "Khác" là lọc luôn hàng thẻ số liệu theo ĐÚNG nhóm đó, không phải cả khối "Khác".
-    const textGroupsWithKpi = textGroups.map((g) => {
-      const groupIncidents = khacIncidents.filter((i) => g.variants.includes(i.customCategoryText || i.description || ''));
-      return { ...g, kpi: computeScopeKpi(groupIncidents) };
-    });
+    // Ngưỡng THỐNG NHẤT — đạt đủ số lần thì tách cột riêng, dưới đó gộp vào "Khác" — áp dụng chung
+    // cho CẢ danh mục chính thức ít gặp LẪN nhóm lỗi tự do gộp trong Khác.
+    const residual = merged.filter((m) => m.count < paretoMinCount);
 
-    // Mỗi danh mục nhỏ vừa gộp = 1 nhóm riêng, label = ĐÚNG tên danh mục gốc — không cần gộp gần
-    // đúng theo chữ (khác Khác gốc toàn chữ tự do không đồng nhất), vì đã có tên chính thức sẵn.
-    const smallCategoryGroups = Array.from(smallCategoryNames, (name) => {
-      const groupIncidents = enriched.filter((i) => (i.categoryName || 'Chưa phân loại') === name);
-      return { label: name, count: rawCounts.get(name) ?? 0, variants: [name], kpi: computeScopeKpi(groupIncidents) };
-    });
+    const officialKeyToFinalLabel = new Map<string, string>();
+    const khacVariantToFinalLabel = new Map<string, string>();
+    for (const m of merged) {
+      const finalLabel = m.count >= paretoMinCount ? m.label : 'Khác';
+      for (const k of m.officialKeys) officialKeyToFinalLabel.set(k, finalLabel);
+      for (const v of m.khacVariants) if (!khacVariantToFinalLabel.has(v)) khacVariantToFinalLabel.set(v, finalLabel);
+    }
 
-    const groups = [...textGroupsWithKpi, ...smallCategoryGroups];
-    const total = khacIncidents.length + smallCategoryIncidentCount;
-    const promotedLabels = new Set(
-      groups.filter((g) => (total > 0 && g.count / total >= KHAC_PROMOTE_THRESHOLD) || g.count >= KHAC_PROMOTE_MIN_COUNT).map((g) => g.label)
-    );
-    return { groups, textToGroupLabel, promotedLabels, total, smallCategoryNames };
-  }, [enriched]);
+    // MTTA/MTTR/MTTD/Tổng Sự Cố/Tổng Downtime CHỈ RIÊNG từng nhóm còn lại trong "Khác" — để bấm vào
+    // 1 nhóm trong modal "Khác" là lọc luôn hàng thẻ số liệu theo ĐÚNG nhóm đó.
+    const residualWithKpi = residual
+      .map((m) => {
+        const groupIncidents = categoryEligibleIncidents.filter((i) => {
+          if (i.categoryName === 'Khác') return m.khacVariants.includes(i.customCategoryText || i.description || '');
+          return m.officialKeys.includes(i.categoryName as string);
+        });
+        return { label: m.label, count: m.count, variants: [...m.khacVariants, ...m.officialKeys], kpi: computeScopeKpi(groupIncidents) };
+      })
+      .sort((a, b) => b.count - a.count);
 
-  // Danh mục HIỆU LỰC của 1 sự cố — "Khác" (gốc hoặc danh mục nhỏ vừa gộp) bị tách thành cột riêng
-  // nếu nhóm của nó đủ lớn, còn lại vẫn tính là "Khác". Dùng chung cho cả paretoByCategory lẫn
-  // categoryDetail để 2 nơi luôn khớp nhau (bấm cột nào ra đúng chi tiết cột đó).
-  function effectiveCategoryOf(i: { categoryName: string | null; customCategoryText: string | null; description: string | null }): string {
-    const key = i.categoryName || 'Chưa phân loại';
-    if (key === 'Khác') {
+    return { officialKeyToFinalLabel, khacVariantToFinalLabel, residualWithKpi };
+  }, [categoryEligibleIncidents, paretoMinCount]);
+
+  // Danh mục HIỆU LỰC của 1 sự cố — "Khác" (gốc hoặc nhóm nhỏ vừa gộp) bị tách thành cột riêng nếu
+  // nhóm của nó đủ lớn (sau khi đã gộp các ứng viên trùng ý), còn lại vẫn tính là "Khác". Phiếu Duy
+  // Tu Bảo Dưỡng (categoryName null) trả về null — KHÔNG thuộc biểu đồ này. Dùng chung cho cả
+  // paretoByCategory lẫn categoryDetail để 2 nơi luôn khớp nhau (bấm cột nào ra đúng chi tiết đó).
+  function effectiveCategoryOf(i: { categoryName: string | null; customCategoryText: string | null; description: string | null }): string | null {
+    if (i.categoryName == null) return null;
+    if (i.categoryName === 'Khác') {
       const text = i.customCategoryText || i.description || '';
-      const groupLabel = khacFuzzyGroups.textToGroupLabel.get(text);
-      return groupLabel && khacFuzzyGroups.promotedLabels.has(groupLabel) ? groupLabel : 'Khác';
+      return khacFuzzyGroups.khacVariantToFinalLabel.get(text) || 'Khác';
     }
-    if (khacFuzzyGroups.smallCategoryNames.has(key)) {
-      return khacFuzzyGroups.promotedLabels.has(key) ? key : 'Khác';
-    }
-    return key;
+    return khacFuzzyGroups.officialKeyToFinalLabel.get(i.categoryName) || i.categoryName;
   }
 
   const paretoByCategory: ParetoItem[] = useMemo(() => {
     const map = new Map<string, number>();
-    for (const i of enriched) {
+    for (const i of categoryEligibleIncidents) {
       const key = effectiveCategoryOf(i);
+      if (key == null) continue;
       map.set(key, (map.get(key) ?? 0) + 1);
     }
     return Array.from(map, ([label, value]) => ({ label, value }));
-  }, [enriched, khacFuzzyGroups]);
+  }, [categoryEligibleIncidents, khacFuzzyGroups]);
+
+  const paretoByCategoryTotal = useMemo(() => paretoByCategory.reduce((s, d) => s + d.value, 0), [paretoByCategory]);
+  const paretoByCategoryDisplay = useMemo(
+    () => (paretoSettings?.hideOther ? paretoByCategory.filter((d) => d.label !== 'Khác') : paretoByCategory),
+    [paretoByCategory, paretoSettings]
+  );
 
   // ---- Click vào cột Pareto "Top Máy" / "Phân Loại Danh Mục Hư hỏng" / "Downtime Theo Tổ-Chuyền"
   // / "Downtime Theo Phân Xưởng" -> mở modal chi tiết ----
@@ -1122,8 +1198,7 @@ export default function OverviewPage() {
     const kpi = computeScopeKpi(catIncidents);
     if (selectedCategory === 'Khác') {
       // Chỉ còn các nhóm CHƯA đủ lớn để tách riêng — nhóm đủ lớn đã thành cột riêng ở trên rồi.
-      const residualGroups = khacFuzzyGroups.groups.filter((g) => !khacFuzzyGroups.promotedLabels.has(g.label));
-      return { category: selectedCategory, mode: 'khac' as const, groups: residualGroups, machines: undefined, total: catIncidents.length, kpi };
+      return { category: selectedCategory, mode: 'khac' as const, groups: khacFuzzyGroups.residualWithKpi, machines: undefined, total: catIncidents.length, kpi };
     }
     const machineMap = new Map<string, { machineCode: string; machineName: string; count: number }>();
     for (const i of catIncidents) {
@@ -1626,12 +1701,28 @@ export default function OverviewPage() {
         <>
         {/* Trend Analysis Section */}
         <div className="bg-white rounded-xl border border-slate-200/80 p-4 sm:p-5 shadow-2xs">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between flex-wrap gap-3 mb-3">
             <div>
-              <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Xu Hướng Thời Gian Phản Hồi Theo Tuần</h2>
+              <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Xu Hướng Thời Gian Phản Hồi Theo {trendGranularity === 'day' ? 'Ngày' : 'Tuần'}</h2>
               <p className="text-xs text-slate-500 mt-0.5">
                 Biểu đồ theo dõi tổng thời gian dừng máy (Downtime) và các chỉ số MTTA/MTTR/MTTD
               </p>
+            </div>
+            <div className="flex items-center gap-1 bg-gray-50 rounded-lg p-1 border border-gray-200 shrink-0">
+              <button
+                onClick={() => setTrendGranularity('day')}
+                style={{ height: 26, lineHeight: '26px' }}
+                className={`flex items-center justify-center px-2.5 rounded-md text-[11px] font-bold leading-none transition cursor-pointer ${trendGranularity === 'day' ? 'bg-[#006838] text-white' : 'text-gray-500 hover:text-emerald-900'}`}
+              >
+                Ngày
+              </button>
+              <button
+                onClick={() => setTrendGranularity('week')}
+                style={{ height: 26, lineHeight: '26px' }}
+                className={`flex items-center justify-center px-2.5 rounded-md text-[11px] font-bold leading-none transition cursor-pointer ${trendGranularity === 'week' ? 'bg-[#006838] text-white' : 'text-gray-500 hover:text-emerald-900'}`}
+              >
+                Tuần
+              </button>
             </div>
           </div>
           {loading ? <div className="p-8 text-center text-xs text-slate-400">Đang tải biểu đồ xu hướng...</div> : <TrendChart data={trendData} />}
@@ -1654,8 +1745,24 @@ export default function OverviewPage() {
             {loading ? <div className="p-8 text-center text-xs text-slate-400">Đang tải...</div> : <ParetoChart data={paretoByMachine} valueLabel="Số lượng sự cố" barColor="#1d4ed8" onBarClick={setSelectedMachineCode} />}
           </div>
           <div className="bg-white rounded-xl border border-slate-200/80 p-4 sm:p-5 shadow-2xs">
-            <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3">Pareto — Phân Loại Danh Mục Hư hỏng</h2>
-            {loading ? <div className="p-8 text-center text-xs text-slate-400">Đang tải...</div> : <ParetoChart data={paretoByCategory} valueLabel="Số lượng sự cố" barColor="#b91c1c" onBarClick={setSelectedCategory} />}
+            <button
+              onClick={() => { setParetoSettingsDraft({ hideOther: paretoSettings?.hideOther ?? false, minCount: paretoSettings?.minCount ?? 30 }); setShowParetoSettingsModal(true); }}
+              title="Cài đặt hiển thị biểu đồ"
+              className="flex items-center gap-1.5 text-xs font-bold text-slate-800 uppercase tracking-wider mb-3 cursor-pointer hover:text-[#006838] transition-colors"
+            >
+              <IconSettings size={13} /> Pareto — Phân Loại Danh Mục Hư hỏng
+            </button>
+            {loading ? (
+              <div className="p-8 text-center text-xs text-slate-400">Đang tải...</div>
+            ) : (
+              <ParetoChart
+                data={paretoByCategoryDisplay}
+                valueLabel="Số lượng sự cố"
+                barColor="#b91c1c"
+                onBarClick={setSelectedCategory}
+                totalOverride={paretoSettings?.hideOther ? paretoByCategoryTotal : undefined}
+              />
+            )}
           </div>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -1829,6 +1936,46 @@ export default function OverviewPage() {
           kpi={machineDetail.kpi}
           onClose={() => setSelectedMachineCode(null)}
         />
+      )}
+
+      {/* Cài đặt hiển thị Pareto "Phân Loại Danh Mục Hư hỏng" — bấm vào tiêu đề biểu đồ để mở. Lưu
+          CHUNG theo scope đang xem (xem saveParetoSettings ở trên), áp dụng cho mọi người xem. */}
+      {showParetoSettingsModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-sm w-full shadow-2xl space-y-4">
+            <h3 className="font-bold text-lg text-slate-900">Cài Đặt Biểu Đồ Phân Loại Danh Mục Hư</h3>
+            <p className="text-[11px] text-slate-500">
+              Áp dụng chung cho mọi người xem khu vực này — không phải cài đặt riêng máy bạn.
+            </p>
+            <label className="flex items-center gap-2 text-xs font-semibold text-gray-600 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={paretoSettingsDraft.hideOther}
+                onChange={(e) => setParetoSettingsDraft((d) => ({ ...d, hideOther: e.target.checked }))}
+              />
+              Ẩn cột &quot;Khác&quot; khỏi biểu đồ
+            </label>
+            <label className="block text-xs font-semibold text-gray-600 space-y-1">
+              <span>Ngưỡng tách cột riêng (số lần sự cố)</span>
+              <input
+                type="number"
+                min={1}
+                value={paretoSettingsDraft.minCount}
+                onChange={(e) => setParetoSettingsDraft((d) => ({ ...d, minCount: Number(e.target.value) || 1 }))}
+                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-normal"
+              />
+              <span className="block text-[10px] text-slate-400 font-normal">
+                Danh mục hoặc nhóm lỗi nào đạt từ số lần này trở lên sẽ hiện cột riêng, dưới đó gộp vào &quot;Khác&quot;.
+              </span>
+            </label>
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button type="button" onClick={() => setShowParetoSettingsModal(false)} className="px-4 py-2.5 rounded-xl bg-gray-100 text-gray-600 text-xs font-bold hover:bg-gray-200">Huỷ</button>
+              <button type="button" onClick={saveParetoSettings} disabled={savingParetoSettings} className="px-5 py-2.5 rounded-xl bg-accent text-white text-xs font-bold hover:bg-accent-light disabled:opacity-50">
+                {savingParetoSettings ? 'Đang lưu...' : 'Lưu Cài Đặt'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Chi tiết danh mục khi click 1 cột Pareto "Phân Loại Danh Mục Hư hỏng" */}

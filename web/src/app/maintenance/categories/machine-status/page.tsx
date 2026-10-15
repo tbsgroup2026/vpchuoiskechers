@@ -7,7 +7,7 @@ export default function MachineStatusPage() {
     <CategoriesManager
       tabKeys={['MACHINE_STATUS']}
       pageTitle="Trạng Thái Máy"
-      pageSubtitle="Danh mục trạng thái máy — Tổ hợp Kiên Giang"
+      pageSubtitle="Danh mục trạng thái máy"
     />
   );
 }

@@ -23,7 +23,7 @@ const TARGETS = { mtta: 5, mttr: 25, mttd: 30 };
 // thang phút nhỏ) để 3 đường KPI không bị "dẹt" xuống gần 0 khi vẽ chung 1 trục với Downtime.
 export default function TrendChart({ data, height = 340 }: { data: TrendPoint[]; height?: number }) {
   const [mode, setMode] = useState<'line' | 'bar'>('line');
-  const [visible, setVisible] = useState({ mtta: true, mttr: true, mttd: true });
+  const [visible, setVisible] = useState({ mtta: true, mttr: true, mttd: true, downtime: true });
 
   if (data.length === 0) {
     return <div className="flex items-center justify-center text-xs text-gray-400" style={{ height }}>Chưa có dữ liệu trong khoảng thời gian này</div>;
@@ -44,17 +44,28 @@ export default function TrendChart({ data, height = 340 }: { data: TrendPoint[];
               {k}
             </label>
           ))}
+          <label className="flex items-center gap-1.5 text-[11px] font-bold text-gray-600 cursor-pointer select-none uppercase">
+            <input
+              type="checkbox"
+              checked={visible.downtime}
+              onChange={(e) => setVisible((v) => ({ ...v, downtime: e.target.checked }))}
+              className="accent-emerald-600"
+            />
+            Tổng Downtime
+          </label>
         </div>
         <div className="flex items-center gap-1 bg-gray-50 rounded-lg p-1 border border-gray-200">
           <button
             onClick={() => setMode('line')}
-            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[11px] font-bold transition ${mode === 'line' ? 'bg-[#006838] text-white' : 'text-gray-500 hover:text-emerald-900'}`}
+            style={{ height: 26, lineHeight: '26px' }}
+            className={`flex items-center justify-center gap-1 px-2.5 rounded-md text-[11px] font-bold leading-none transition ${mode === 'line' ? 'bg-[#006838] text-white' : 'text-gray-500 hover:text-emerald-900'}`}
           >
             <IconChartLine size={13} /> Đường
           </button>
           <button
             onClick={() => setMode('bar')}
-            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[11px] font-bold transition ${mode === 'bar' ? 'bg-[#006838] text-white' : 'text-gray-500 hover:text-emerald-900'}`}
+            style={{ height: 26, lineHeight: '26px' }}
+            className={`flex items-center justify-center gap-1 px-2.5 rounded-md text-[11px] font-bold leading-none transition ${mode === 'bar' ? 'bg-[#006838] text-white' : 'text-gray-500 hover:text-emerald-900'}`}
           >
             <IconChartBar size={13} /> Cột
           </button>
@@ -70,11 +81,11 @@ export default function TrendChart({ data, height = 340 }: { data: TrendPoint[];
           <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e7ede9', fontSize: 11, boxShadow: '0 8px 24px rgba(12,31,25,0.12)' }} />
           <Legend wrapperStyle={{ fontSize: 11 }} />
 
-          {mode === 'bar' ? (
+          {visible.downtime && (mode === 'bar' ? (
             <Bar yAxisId="left" dataKey="downtime" name="Tổng Downtime" fill="#a7d9c4" radius={[6, 6, 0, 0]} maxBarSize={26} />
           ) : (
             <Line yAxisId="left" type="monotone" dataKey="downtime" name="Tổng Downtime" stroke="#0d7a5c" strokeWidth={2.5} dot={{ r: 3 }} />
-          )}
+          ))}
 
           {/* Chế độ "Cột" -> đổi luôn cả 3 đường KPI này thành cột (không chỉ mỗi Tổng Downtime như
               trước) — bấm 1 nút là toàn bộ biểu đồ chuyển kiểu, khớp đúng yêu cầu. */}

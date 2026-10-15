@@ -5,15 +5,18 @@ import { IconPlus, IconPencil, IconTrash } from '@tabler/icons-react';
 import MaintenanceShell from '@/components/MaintenanceShell';
 import RefreshButton from '@/components/RefreshButton';
 import { readMaintenanceCache, writeMaintenanceCache } from '@/lib/maintenanceCache';
-import { getCurrentMmtbScope } from '@/lib/equipmentScope';
+import { getCurrentMmtbScope, EQUIPMENT_SCOPES } from '@/lib/equipmentScope';
 
 type FailureCategory = { id: string; name: string; isOther: boolean; order: number; scopeCategoryId: string | null };
 
 // Danh mục hư — hiện ra khi nhân viên báo sự cố trên App Mobile Native. Mục có nhãn "Chung" dùng
-// CHUNG cho mọi nhà máy (chỉ xem ở đây) — mục bạn tự thêm chỉ áp dụng riêng cho Tổ hợp KG.
+// CHUNG cho mọi nhà máy (chỉ xem). Thêm/Sửa/Xoá CHỈ mở cho Nhà Máy Miền Đông (xác nhận với người
+// dùng — Kiên Giang giữ nguyên chỉ đọc 10 mục Chung đang dùng ổn định, xem _worker.js route
+// /api/maintenance/failure-categories POST/PUT/DELETE tự chặn mọi scope khác EAST).
 export default function FailureCategoriesPage() {
   // Mỗi khu vực có dữ liệu MMTB riêng — cache key phải theo scope (xem machines/page.tsx).
   const scope = getCurrentMmtbScope();
+  const canWrite = scope === 'EAST';
   const ck = (key: string) => `${key}_${scope}`;
 
   const [categories, setCategories] = useState<FailureCategory[]>(() => readMaintenanceCache<FailureCategory[]>(ck('failure_categories')) || []);
@@ -80,7 +83,7 @@ export default function FailureCategoriesPage() {
     setSubmitting(true);
     setFormError(null);
     try {
-      const url = editingId ? `/api/maintenance/failure-categories/${editingId}` : '/api/maintenance/failure-categories';
+      const url = editingId ? `/api/maintenance/failure-categories/${editingId}?scope=${scope}` : `/api/maintenance/failure-categories?scope=${scope}`;
       const body = { name: formName.trim(), isOther: formIsOther, order: Number(formOrder) || 0 };
       const res = await fetch(url, {
         method: editingId ? 'PUT' : 'POST',
@@ -105,7 +108,7 @@ export default function FailureCategoriesPage() {
     if (!confirm(`Xoá "${c.name}"?`)) return;
     setDeletingId(c.id);
     try {
-      const res = await fetch(`/api/maintenance/failure-categories/${c.id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/maintenance/failure-categories/${c.id}?scope=${scope}`, { method: 'DELETE' });
       const result = await res.json();
       if (!result.success) {
         alert(result.error || 'Không xoá được');
@@ -120,7 +123,7 @@ export default function FailureCategoriesPage() {
   }
 
   return (
-    <MaintenanceShell title="Danh Mục Hư" subtitle="Danh mục lỗi khi báo sự cố — Tổ hợp Kiên Giang">
+    <MaintenanceShell title="Danh Mục Hư" subtitle={`Danh mục lỗi khi báo sự cố — ${EQUIPMENT_SCOPES[scope].label}`}>
       <div className="p-4 sm:p-6 space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
@@ -129,6 +132,14 @@ export default function FailureCategoriesPage() {
           </div>
           <div className="flex items-center gap-2">
             <RefreshButton onClick={() => load(true)} loading={refreshing} />
+            {canWrite && (
+              <button
+                onClick={openCreateForm}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#006838] text-white text-xs font-bold hover:bg-[#004d28] cursor-pointer transition-colors"
+              >
+                <IconPlus size={15} /> Thêm Danh Mục
+              </button>
+            )}
           </div>
         </div>
 
@@ -150,6 +161,21 @@ export default function FailureCategoriesPage() {
                       {c.isOther && <span className="px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded text-[10px] font-bold">Khác (nhập tự do)</span>}
                     </div>
                   </div>
+                  {canWrite && !shared && (
+                    <div className="flex items-center gap-1.5">
+                      <button onClick={() => openEditForm(c)} title="Sửa" className="p-1.5 bg-blue-50 text-blue-600 rounded-md hover:bg-blue-100 cursor-pointer">
+                        <IconPencil size={15} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(c)}
+                        disabled={deletingId === c.id}
+                        title="Xoá"
+                        className="p-1.5 bg-rose-50 text-rose-600 rounded-md hover:bg-rose-100 disabled:opacity-40 cursor-pointer"
+                      >
+                        <IconTrash size={15} />
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             })}

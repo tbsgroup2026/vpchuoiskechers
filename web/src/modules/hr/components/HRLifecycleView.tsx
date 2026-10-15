@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { HROnboardingTask, HROffboardingTask } from "../types";
 import { IconCheck, IconUserCheck, IconUserMinus, IconAlertCircle } from "@tabler/icons-react";
+import { LOGISTICS_MODULE_DISPLAY_NAME } from "@/constants/modules";
 
 export default function HRLifecycleView() {
   const [tab, setTab] = useState<"onboarding" | "probation" | "offboarding">("onboarding");
@@ -125,7 +126,7 @@ export default function HRLifecycleView() {
           <div className="space-y-3">
             {[
               { name: "Lê Hoàng Yến", dept: "Nhân Sự - Hành Chánh", end: "2026-08-31", score: "Đánh giá A - Khuyên ký chính thức" },
-              { name: "Trần Văn Nam", dept: "Kho & Logistics", end: "2026-09-05", score: "Đang chờ quản lý đánh giá" },
+              { name: "Trần Văn Nam", dept: LOGISTICS_MODULE_DISPLAY_NAME, end: "2026-09-05", score: "Đang chờ quản lý đánh giá" },
             ].map((p, idx) => (
               <div key={idx} className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-3">
                 <div>

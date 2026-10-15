@@ -26,6 +26,7 @@ import RDModule from "@/modules/rd/RDModule";
 import CNCIWrapper from "@/modules/ci/CNCIWrapper";
 import { StrategicManagementContent } from "@/components/home/StrategicManagementDashboard";
 import ProjectsOverviewPage from "@/modules/tasks/ProjectsOverviewPage";
+import { LOGISTICS_MODULE_DISPLAY_NAME, LOGISTICS_MODULE_DESCRIPTION } from "@/constants/modules";
 
 import {
   IconHome,
@@ -709,8 +710,8 @@ export default function WorkDashboardPage({ initialDept }: { initialDept?: strin
     },
     logistics: {
       bg: "/images/KGLV/phong-thu-vien-vat-tu.png",
-      title: "Kho & Logistics",
-      sub: "Logistics, vật tư & chuỗi cung ứng chuỗi nhà máy SKECHERS.",
+      title: LOGISTICS_MODULE_DISPLAY_NAME,
+      sub: LOGISTICS_MODULE_DESCRIPTION,
       appCount: 7,
     },
     factory: {
@@ -823,8 +824,8 @@ export default function WorkDashboardPage({ initialDept }: { initialDept?: strin
     {
       id: "logistics",
       num: "12",
-      name: "Kho & Logistics",
-      sub: "Cung ứng vật tư & vận chuyển",
+      name: LOGISTICS_MODULE_DISPLAY_NAME,
+      sub: LOGISTICS_MODULE_DESCRIPTION,
       icon: IconTruck,
       hasData: false,
     },
@@ -1045,12 +1046,13 @@ export default function WorkDashboardPage({ initialDept }: { initialDept?: strin
                 </div>
 
                 <div className="flex-1 min-w-0">
-                  <h4 className="text-xs sm:text-sm font-extrabold truncate tracking-tight">
+                  <h4 className="text-xs sm:text-sm font-extrabold line-clamp-2 leading-snug tracking-tight" title={dept.name}>
                     {dept.name}
                   </h4>
                   <p
                     className={`text-[11px] truncate mt-0.5 font-medium ${isSelected ? "text-emerald-100" : "text-slate-500"
                       }`}
+                    title={dept.sub}
                   >
                     {dept.sub}
                   </p>
@@ -1361,8 +1363,8 @@ export default function WorkDashboardPage({ initialDept }: { initialDept?: strin
                         <IconComp size={20} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="text-xs font-extrabold truncate">{dept.name}</div>
-                        <div className={`text-[10px] truncate ${isSelected ? "text-emerald-100" : "text-slate-500"}`}>{dept.sub}</div>
+                        <div className="text-xs font-extrabold line-clamp-2 leading-snug" title={dept.name}>{dept.name}</div>
+                        <div className={`text-[10px] truncate ${isSelected ? "text-emerald-100" : "text-slate-500"}`} title={dept.sub}>{dept.sub}</div>
                       </div>
                     </button>
                   );
@@ -2021,8 +2023,8 @@ export default function WorkDashboardPage({ initialDept }: { initialDept?: strin
                   >
                     <IconComp size={20} className="flex-shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <div className="text-xs font-extrabold truncate">{dept.name}</div>
-                      <div className={`text-[10px] truncate ${isSelected ? "text-emerald-100" : "text-slate-500"}`}>{dept.sub}</div>
+                      <div className="text-xs font-extrabold line-clamp-2 leading-snug" title={dept.name}>{dept.name}</div>
+                      <div className={`text-[10px] truncate ${isSelected ? "text-emerald-100" : "text-slate-500"}`} title={dept.sub}>{dept.sub}</div>
                     </div>
                   </button>
                 );

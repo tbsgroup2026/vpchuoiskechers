@@ -28,6 +28,7 @@ import {
   IconLayoutGrid,
 } from "@tabler/icons-react";
 import { getCurrentUser, normalizeEmpCode, getSystemUser } from "@/lib/userProfiles";
+import { LOGISTICS_MODULE_DISPLAY_NAME } from "@/constants/modules";
 
 interface OverviewDashboardProps {
   onSelectDept?: (deptId: string) => void;
@@ -265,7 +266,7 @@ const DEPT_KPI_CONFIGS: Record<string, DepartmentKpiConfig> = {
   },
   logistics: {
     id: "logistics",
-    name: "Kho & Logistics",
+    name: LOGISTICS_MODULE_DISPLAY_NAME,
     headcount: "45",
     headcountSub: "33 dây chuyền cung ứng",
     tasksCount: "51",
@@ -444,7 +445,7 @@ export default function OverviewDashboard({
     if (deptCode.includes("KE_TOAN") || deptCode.includes("FINANCE") || rawDeptName.includes("KẾ TOÁN")) return "finance";
     if (deptCode.includes("RD") || rawDeptName.includes("R&D")) return "rd";
     if (deptCode.includes("QC") || rawDeptName.includes("CHẤT LƯỢNG")) return "qc";
-    if (deptCode.includes("LOGISTICS") || rawDeptName.includes("LOGISTICS") || rawDeptName.includes("KHO")) return "logistics";
+    if (deptCode.includes("LOGISTICS") || rawDeptName.includes("LOGISTICS") || rawDeptName.includes("KHO") || rawDeptName.includes("PHÂN PHỐI") || rawDeptName.includes("CHUẨN BỊ")) return "logistics";
     if (deptCode.includes("SAN_XUAT") || rawDeptName.includes("SẢN XUẤT") || rawDeptName.includes("NHÀ MÁY")) return "production";
     if (deptCode.includes("CI") || rawDeptName.includes("CẢI TIẾN")) return "ci";
     return "hr";

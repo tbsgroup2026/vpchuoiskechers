@@ -22,6 +22,7 @@ import {
   IconChevronRight,
   IconLayersSubtract,
 } from "@tabler/icons-react";
+import { LOGISTICS_MODULE_DISPLAY_NAME } from "@/constants/modules";
 
 interface HRManagerDashboardProps {
   onNavigateTab: (tab: string) => void;
@@ -247,7 +248,7 @@ export default function HRManagerDashboard({
               {[
                 { name: "Khối Sản Xuất & NM1", count: 2450, pct: "57%" },
                 { name: "Khối QC & Chất lượng", count: 420, pct: "10%" },
-                { name: "Kho & Logistics", count: 380, pct: "9%" },
+                { name: LOGISTICS_MODULE_DISPLAY_NAME, count: 380, pct: "9%" },
                 { name: "Kinh Doanh & Xuất Khẩu", count: 310, pct: "7%" },
                 { name: "Kế Toán / HR / Admin", count: 286, pct: "6.6%" },
                 { name: "Khối IT & CĐS", count: 140, pct: "3.2%" },

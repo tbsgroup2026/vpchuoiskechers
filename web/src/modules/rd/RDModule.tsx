@@ -38,6 +38,7 @@ import {
   IconLeaf,
 } from "@tabler/icons-react";
 import { RDSampleItem } from "./types";
+import { LOGISTICS_MODULE_DISPLAY_NAME } from "@/constants/modules";
 
 interface RDModuleProps {
   userName?: string;
@@ -286,7 +287,7 @@ export default function RDModule({
               { id: "finance", name: "Kế toán", icon: IconCalculator, color: "text-emerald-700", bg: "bg-emerald-50" },
               { id: "rd", name: "R&D", icon: IconFlask, color: "text-purple-700", bg: "bg-purple-50" },
               { id: "qc", name: "QC", icon: IconShieldCheck, color: "text-teal-700", bg: "bg-teal-50" },
-              { id: "logistics", name: "Kho & Logistics", icon: IconTruck, color: "text-amber-700", bg: "bg-amber-50" },
+              { id: "logistics", name: LOGISTICS_MODULE_DISPLAY_NAME, icon: IconTruck, color: "text-amber-700", bg: "bg-amber-50" },
               { id: "admin", name: "Hành chính", icon: IconBuilding, color: "text-blue-700", bg: "bg-blue-50" },
               { id: "factory", name: "Nhà máy", icon: IconBuildingFactory, color: "text-indigo-700", bg: "bg-indigo-50" },
               { id: "tasks", name: "Công việc", icon: IconClipboardList, color: "text-amber-800", bg: "bg-amber-50" },
@@ -303,12 +304,13 @@ export default function RDModule({
                 <button
                   key={idx}
                   onClick={() => onSelectDept?.(item.id)}
+                  title={item.name}
                   className="flex flex-col items-center text-center p-1.5 rounded-xl border border-slate-200/70 hover:border-[#006838] hover:shadow-2xs transition-all group bg-white cursor-pointer"
                 >
                   <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-transform group-hover:scale-110 ${item.bg} ${item.color}`}>
                     <IconComp size={16} />
                   </div>
-                  <span className="text-[9px] font-bold text-slate-700 mt-1 truncate w-full group-hover:text-[#006838] transition-colors leading-tight">
+                  <span className="text-[9px] font-bold text-slate-700 mt-1 truncate w-full group-hover:text-[#006838] transition-colors leading-tight" title={item.name}>
                     {item.name}
                   </span>
                 </button>

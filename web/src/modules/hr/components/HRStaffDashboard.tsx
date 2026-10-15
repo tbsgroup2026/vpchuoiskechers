@@ -13,6 +13,7 @@ import {
   IconSearch,
   IconChevronRight,
 } from "@tabler/icons-react";
+import { LOGISTICS_MODULE_DISPLAY_NAME } from "@/constants/modules";
 
 interface HRStaffDashboardProps {
   onNavigateTab: (tab: string) => void;
@@ -21,7 +22,7 @@ interface HRStaffDashboardProps {
 export default function HRStaffDashboard({ onNavigateTab }: HRStaffDashboardProps) {
   const [filterQuarter, setFilterQuarter] = useState("q3");
   const [todoItems, setTodoItems] = useState([
-    { id: 1, text: "Kiểm tra bằng cấp & KSK gốc của 4 nhân viên mới khối Logistics", done: true, tag: "Hồ sơ" },
+    { id: 1, text: `Kiểm tra bằng cấp & KSK gốc của 4 nhân viên mới khối ${LOGISTICS_MODULE_DISPLAY_NAME}`, done: true, tag: "Hồ sơ" },
     { id: 2, text: "Gửi email xác nhận Onboarding & tạo tài khoản cho Lê Hoàng Yến", done: true, tag: "Onboarding" },
     { id: 3, text: "In thẻ nhân viên & cấp phát đồng phục ca 2 nhà máy NM1", done: false, tag: "Hành chính" },
     { id: 4, text: "Xử lý 5 đơn xin nghỉ phép đã được Quản lý trực tiếp duyệt", done: false, tag: "Nghỉ phép" },

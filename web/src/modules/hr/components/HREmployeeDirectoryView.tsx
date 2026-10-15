@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { HREmployee } from "../types";
 import UserAvatar from "@/components/UserAvatar";
+import { LOGISTICS_MODULE_DISPLAY_NAME } from "@/constants/modules";
 import {
   IconSearch,
   IconDownload,
@@ -42,7 +43,7 @@ const INITIAL_HEADCOUNT = [
   { id: "HC-2", dept: "Khối IT & Chuyển đổi số", quota: 150, current: 140, status: "Thiếu định biên" },
   { id: "HC-3", dept: "Nhân Sự - Hành Chánh", quota: 290, current: 286, status: "Đạt 98%" },
   { id: "HC-4", dept: "Kế Toán & Tài Chính", quota: 100, current: 100, status: "Đạt 100%" },
-  { id: "HC-5", dept: "Kho & Logistics Skechers HQ", quota: 180, current: 175, status: "Thiếu định biên" },
+  { id: "HC-5", dept: `${LOGISTICS_MODULE_DISPLAY_NAME} Skechers HQ`, quota: 180, current: 175, status: "Thiếu định biên" },
 ];
 
 const INITIAL_TRANSFERS = [

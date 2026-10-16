@@ -144,6 +144,7 @@ export interface PlanOrderRow {
 export interface PlanChange {
   id: number;
   order_id: string | null;
+  order_code?: string | null;
   action: string;
   reason: string | null;
   before_json: string | null;
@@ -154,21 +155,18 @@ export interface PlanChange {
 
 export interface CanIssueResult {
   ok: boolean;
-  reasons: string[];
+  reason?: string;
 }
 
 export interface WeekLoad {
   week: string;
-  plantLoads: {
-    plant: string;
-    lines: { line: string; load: number; capacity: number; over: boolean }[];
-    totalLoad: number;
-    totalCapacity: number;
-    over: boolean;
-  }[];
-  totalLoad: number;
-  totalCapacity: number;
+  load: number;
+  capacity: number;
   over: boolean;
+  /** "Nhà máy · Chuyền" vượt năng lực trong tuần */
+  overLines: string[];
+  /** Chi tiết từng nhà máy · chuyền (Tầng 2) */
+  lines: { plant: string; line: string; load: number; capacity: number; over: boolean }[];
 }
 
 export interface PlanViewResponse {
@@ -182,7 +180,7 @@ export interface PlanViewResponse {
   page?: number;
   pageSize?: number;
   loads?: WeekLoad[];
-  errors?: { orderId: string; error: string }[];
+  errors?: string[];
   canIssue?: CanIssueResult;
   changes?: PlanChange[];
   canEdit?: boolean;
@@ -207,9 +205,9 @@ export interface ConditionItem {
   bottleneck: string | null;
   status: "ready" | "missing" | "activated" | "issued";
   ready: boolean;
-  missing: { key: string; label: string; dept: string }[];
-  noSilent: { required: boolean; done: boolean; at: string | null; daysSince: number; overdue: boolean };
-  handover: Record<string, string | null>;
+  items: { key: string; label: string; ok: boolean; at: string | null }[];
+  missing: { label: string; dept: string }[];
+  noSilent: { required: boolean; ok: boolean; at: string | null; day: number | null; of: number; overdue: boolean };
 }
 
 export interface ConditionsResponse {

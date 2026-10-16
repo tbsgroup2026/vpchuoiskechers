@@ -52,13 +52,15 @@ describe("Kế hoạch cuốn chiếu 4 tuần", () => {
     const loads = capacityByWeek(weeks, lines, orders, () => S.line_capacity_week);
     expect(loads[0]).toMatchObject({ load: 11000, capacity: 9000, over: true });
     expect(loads[0].overLines).toEqual(["KG1 · L1"]);
+    expect(loads[0].lines).toEqual([{ plant: "KG1", line: "L1", load: 11000, capacity: 9000, over: true }]);
+    expect(loads[1].lines).toEqual([{ plant: "KG1", line: "L2", load: 2000, capacity: 9000, over: false }]);
     expect(loads[1]).toMatchObject({ load: 2000, over: false });
     expect(loads[2]).toMatchObject({ load: 0, capacity: 0, over: false });
   });
 
   it("không ban hành khi chưa duyệt hoặc có tuần vượt năng lực", () => {
-    const ok = [{ week: "w", load: 1, capacity: 2, over: false, overLines: [] }];
-    const over = [{ week: "w", load: 3, capacity: 2, over: true, overLines: ["KG1 · L1"] }];
+    const ok = [{ week: "w", load: 1, capacity: 2, over: false, overLines: [], lines: [] }];
+    const over = [{ week: "w", load: 3, capacity: 2, over: true, overLines: ["KG1 · L1"], lines: [] }];
     expect(canIssue("DRAFT", ok, []).ok).toBe(false);
     expect(canIssue("PENDING", ok, []).ok).toBe(false);
     expect(canIssue("APPROVED", over, []).ok).toBe(false);

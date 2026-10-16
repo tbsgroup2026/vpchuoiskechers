@@ -10708,7 +10708,7 @@ export default {
     if (
       url.pathname === "/api/ci-kaizen" ||
       url.pathname === "/api/ci-kaizen/" ||
-      (url.pathname.endsWith("/approve") && !url.pathname.startsWith("/api/warehouse/"))
+      (url.pathname.endsWith("/approve") && !url.pathname.startsWith("/api/warehouse/") && !url.pathname.startsWith("/api/scm/"))
     ) {
       if (!env.DB) {
         return new Response(

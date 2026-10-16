@@ -275,7 +275,7 @@ export default function ScmPlanning({ me, site, onBack, notify, onSiteChange }: 
   const rows = data?.rows || [];
   const loads = data?.loads || [];
   const changes = data?.changes || [];
-  const canIssue = data?.canIssue || { ok: false, reasons: ["Chưa tải dữ liệu"] };
+  const canIssue = data?.canIssue || { ok: false, reason: "Chưa tải dữ liệu" };
   const canEdit = Boolean(data?.canEdit);
   const canApprove = Boolean(data?.canApprove);
   const isDraft = plan?.status === "DRAFT";
@@ -298,7 +298,7 @@ export default function ScmPlanning({ me, site, onBack, notify, onSiteChange }: 
           <button type="button" className={btnGhost} onClick={load} disabled={loading}><IconRefresh size={16} /> Làm mới</button>
           {canEdit && (
             <button type="button" className={btnPrimary} onClick={() => setShowNewOrder(true)}>
-              <IconPlus size={16} /> + Nhận đơn từ Kinh doanh
+              <IconPlus size={16} /> Nhận đơn từ Kinh doanh
             </button>
           )}
         </div>
@@ -362,6 +362,7 @@ export default function ScmPlanning({ me, site, onBack, notify, onSiteChange }: 
               )}
 
               {/* Nút Ban hành Kế hoạch 312: bắt buộc có id="ke-hoach-312" */}
+              {plan.status !== "ISSUED" && (
               <div className="relative group">
                 <button
                   type="button"
@@ -369,21 +370,20 @@ export default function ScmPlanning({ me, site, onBack, notify, onSiteChange }: 
                   className={`${btnPrimary} ${!canIssue.ok ? "opacity-50 cursor-not-allowed bg-slate-400 hover:bg-slate-400" : ""}`}
                   disabled={!canIssue.ok || actionBusy || !canEdit}
                   onClick={() => handlePlanAction("issue")}
-                  title={!canIssue.ok ? canIssue.reasons.join(". ") : "Ban hành kế hoạch 312"}
+                  title={!canIssue.ok ? canIssue.reason || "Chưa thể ban hành" : "Ban hành kế hoạch 312"}
                 >
                   <IconSend size={15} /> Ban hành Kế hoạch 312
                 </button>
                 {!canIssue.ok && (
                   <div className="absolute top-full mt-1.5 right-0 z-20 hidden group-hover:block w-72 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-800 shadow-lg leading-relaxed">
                     <p className="font-bold mb-1 flex items-center gap-1"><IconAlertTriangle size={14} /> Chưa thể ban hành:</p>
-                    <ul className="list-disc pl-4 space-y-0.5">
-                      {canIssue.reasons.map((r, i) => <li key={i}>{r}</li>)}
-                    </ul>
+                    <p>{canIssue.reason || "Chưa đủ điều kiện ban hành"}</p>
                   </div>
                 )}
               </div>
+              )}
 
-              {plan.status === "ISSUED" && canEdit && (
+              {plan.status === "ISSUED" && !plan.tier2_sent_at && canEdit && (
                 <button type="button" className={btnGhost} onClick={() => handlePlanAction("tier2")} disabled={actionBusy}>
                   <IconArrowRight size={15} /> Chuyển Tầng 2
                 </button>
@@ -395,7 +395,7 @@ export default function ScmPlanning({ me, site, onBack, notify, onSiteChange }: 
                 </button>
               )}
 
-              {plan.status !== "DRAFT" && canEdit && (
+              {(plan.status === "PENDING" || plan.status === "APPROVED") && canEdit && (
                 <button type="button" className={btnGhost} onClick={() => setReopenModal(true)} disabled={actionBusy}>
                   <IconEdit size={15} /> Mở lại nháp
                 </button>
@@ -622,7 +622,7 @@ export default function ScmPlanning({ me, site, onBack, notify, onSiteChange }: 
                     {loads.map((ld, i) => (
                       <td key={i} className={`px-2 py-2.5 text-center border-l border-slate-200 ${ld.over ? "bg-red-50 text-red-700 font-black" : "text-slate-800"}`}>
                         <div className="tabular-nums">
-                          {ld.totalLoad.toLocaleString("vi-VN")} / {ld.totalCapacity.toLocaleString("vi-VN")}
+                          {ld.load.toLocaleString("vi-VN")} / {ld.capacity.toLocaleString("vi-VN")}
                         </div>
                         {ld.over && (
                           <span className="inline-block mt-0.5 rounded bg-red-600 text-white text-[9px] px-1.5 py-0.2">
@@ -636,6 +636,102 @@ export default function ScmPlanning({ me, site, onBack, notify, onSiteChange }: 
                 </tfoot>
               )}
             </table>
+          </div>
+
+          {/* Danh sách dạng thẻ (điện thoại) */}
+          <div className="md:hidden space-y-2.5">
+            {loads.length > 0 && (
+              <div className="grid grid-cols-2 gap-1.5">
+                {loads.map((ld, i) => (
+                  <div key={ld.week} className={`rounded-xl border px-2.5 py-1.5 text-[11px] ${ld.over ? "border-red-300 bg-red-50 text-red-800" : "border-slate-200 bg-white text-slate-700"}`}>
+                    <span className="font-bold">Tuần {i + 1}</span> · {ld.load.toLocaleString("vi-VN")} / {ld.capacity.toLocaleString("vi-VN")}
+                    {ld.over && <span className="ml-1 font-black">Quá tải</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+            {rows.length === 0 ? (
+              <p className="rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-center text-xs text-slate-400">Không có đơn hàng nào khớp với điều kiện lọc</p>
+            ) : (
+              rows.map((r) => (
+                <div key={r.id} className="rounded-2xl border border-slate-200 bg-white p-3.5 space-y-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-mono text-sm font-bold text-slate-900 whitespace-nowrap">
+                        <span className="text-slate-400">#{r.priority}</span> {r.code}
+                      </p>
+                      <p className="text-[11px] text-slate-500">{r.qty.toLocaleString("vi-VN")} đôi · xuất {fmtDMY(r.shipDate)}</p>
+                    </div>
+                    {canEdit && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShipDateTarget({ orderId: r.id, orderCode: r.code, currentShipDate: r.shipDate });
+                          setNewShipDate(r.shipDate);
+                        }}
+                        className="shrink-0 rounded-full border border-slate-200 px-2.5 py-1 text-[11px] font-bold text-slate-700"
+                      >
+                        Đổi ngày xuất
+                      </button>
+                    )}
+                  </div>
+                  <div className="divide-y divide-slate-100 rounded-xl border border-slate-100">
+                    {r.cells.map((cell, idx) => {
+                      const weekStart = weeks[idx];
+                      return (
+                        <div key={idx} className="flex items-center justify-between gap-2 px-2.5 py-1.5 text-[11px]">
+                          <span className="text-slate-500 whitespace-nowrap">Tuần {idx + 1} · {fmtDMY(weekStart)}</span>
+                          {cell ? (
+                            <span className="flex items-center gap-2">
+                              <span className="rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-0.5 font-bold text-emerald-800">{cell.plant} - {cell.line}</span>
+                              {isDraft && canEdit && (
+                                <>
+                                  <button type="button" className="underline text-slate-500" onClick={() => setAssignTarget({ orderId: r.id, orderCode: r.code, week: weekStart, current: cell })}>Sửa</button>
+                                  <button
+                                    type="button"
+                                    className="underline text-slate-500"
+                                    onClick={() => {
+                                      setMoveTarget({ orderId: r.id, orderCode: r.code, fromWeek: weekStart });
+                                      setMoveTargetWeek(weeks.find((w) => w !== weekStart) || "");
+                                    }}
+                                  >
+                                    Dời
+                                  </button>
+                                </>
+                              )}
+                            </span>
+                          ) : isDraft && canEdit ? (
+                            <button
+                              type="button"
+                              onClick={() => setAssignTarget({ orderId: r.id, orderCode: r.code, week: weekStart, current: null })}
+                              className="rounded-lg border border-dashed border-slate-300 px-2 py-0.5 text-slate-500"
+                            >
+                              + Phân bổ
+                            </button>
+                          ) : (
+                            <span className="text-slate-300">-</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="font-semibold text-slate-600">No Silent</span>
+                    {!r.noSilent.required ? (
+                      <span className="text-slate-400">Không yêu cầu</span>
+                    ) : r.noSilent.doneAt ? (
+                      <span className="inline-flex items-center gap-1 font-bold text-emerald-700"><IconCheck size={13} /> {fmtDMY(r.noSilent.doneAt)}</span>
+                    ) : r.noSilent.canSend && canEdit ? (
+                      <button type="button" onClick={() => handleSendNoSilent(r.id, r.code)} disabled={actionBusy} className="rounded-full bg-amber-500 px-2.5 py-1 font-bold text-white">
+                        Gửi No Silent
+                      </button>
+                    ) : (
+                      <span className="text-slate-500">Chờ duyệt KH</span>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
 
           {/* Phân trang */}
@@ -666,11 +762,12 @@ export default function ScmPlanning({ me, site, onBack, notify, onSiteChange }: 
                     Tuần {wIdx + 1}: Bắt đầu {fmtDMY(ld.week)}
                   </span>
                   <span className={`text-xs font-bold ${ld.over ? "text-red-700" : "text-slate-600"}`}>
-                    Tải: {ld.totalLoad.toLocaleString("vi-VN")} / {ld.totalCapacity.toLocaleString("vi-VN")} sp
+                    Tải: {ld.load.toLocaleString("vi-VN")} / {ld.capacity.toLocaleString("vi-VN")} sp
                   </span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                  {ld.plantLoads.map((pl) => (
+                  {ld.lines.length === 0 && <p className="text-xs text-slate-400">Chưa phân bổ chuyền nào trong tuần này</p>}
+                  {groupByPlant(ld.lines).map((pl) => (
                     <div key={pl.plant} className="rounded-lg bg-slate-50 p-2.5 border border-slate-100 space-y-1">
                       <span className="font-bold text-xs text-slate-800">{pl.plant}</span>
                       <div className="space-y-0.5 text-[11px] text-slate-600">
@@ -703,12 +800,12 @@ export default function ScmPlanning({ me, site, onBack, notify, onSiteChange }: 
               {changes.map((ch) => (
                 <div key={ch.id} className="py-2.5 flex flex-wrap items-baseline justify-between gap-2">
                   <div className="space-y-0.5">
-                    <span className="font-bold text-slate-800 mr-2">{ch.action}</span>
+                    <span className="font-bold text-slate-800 mr-2">{CHANGE_LABEL[ch.action] ?? ch.action}</span>
                     {ch.reason && <span className="text-slate-600 italic">Lý do: &quot;{ch.reason}&quot;</span>}
-                    {ch.order_id && <span className="block text-[11px] text-slate-500 font-mono">Đơn: {ch.order_id}</span>}
+                    {ch.order_id && <span className="block text-[11px] text-slate-500 font-mono">Đơn: {ch.order_code || ch.order_id}</span>}
                   </div>
                   <div className="text-[11px] text-slate-400">
-                    Bởi <b>{ch.created_by}</b> · {ch.created_at}
+                    Bởi <b>{ch.created_by}</b> · {fmtDMY(ch.created_at.slice(0, 10))} {ch.created_at.slice(11, 16)}
                   </div>
                 </div>
               ))}
@@ -1058,3 +1155,24 @@ function NewOrderModal({
     </div>
   );
 }
+
+/** Nhóm chi tiết chuyền theo nhà máy cho kế hoạch Tầng 2 */
+function groupByPlant(lines: WeekLoad["lines"]): { plant: string; lines: WeekLoad["lines"] }[] {
+  const map = new Map<string, WeekLoad["lines"]>();
+  for (const l of lines) map.set(l.plant, [...(map.get(l.plant) ?? []), l]);
+  return Array.from(map, ([plant, ls]) => ({ plant, lines: ls }));
+}
+
+/** Tên hiển thị của thao tác trong nhật ký kế hoạch */
+const CHANGE_LABEL: Record<string, string> = {
+  SET_LINE: "Phân bổ chuyền",
+  CLEAR_LINE: "Bỏ phân bổ",
+  MOVE_WEEK: "Dời tuần",
+  SET_CAPACITY: "Đổi năng lực",
+  SUBMIT: "Gửi duyệt",
+  APPROVE: "Phê duyệt",
+  REOPEN: "Mở lại nháp",
+  ISSUE: "Ban hành Kế hoạch 312",
+  TIER2: "Chuyển Tầng 2",
+  ROLL_FORWARD: "Thêm tuần mới",
+};

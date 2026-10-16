@@ -135,7 +135,18 @@ cd .. && npx wrangler deploy         # CHỈ khi người dùng đồng ý deplo
 
 ---
 
-## 4. ĐANG LÀM DỞ: SCM Bước 2 (Kế hoạch & CCƯ, Mua hàng)
+## 4. SCM Bước 2 (Kế hoạch & CCƯ, Mua hàng): XONG Ở LOCAL, CHỜ NGƯỜI DÙNG DUYỆT
+
+> Cập nhật 16/10/2026 tối: Antigravity đã viết `ScmPlanning.tsx` và `ScmPurchasing.tsx` (commit `25ae9237`). Claude rà lại và sửa:
+> - **Lỗi nghiêm trọng:** route Kaizen trong `_worker.js` bắt mọi path kết thúc `/approve`, nên `POST /api/scm/plans/:id/approve` bị lỗi 500. Đã loại trừ `/api/scm/`.
+> - Kiểu dữ liệu trong `client.ts` không khớp server (`canIssue.reason`, `WeekLoad`, `errors`, điều kiện `items`/`noSilent`). Đã sửa client và UI theo JSON thật. `WeekLoad` có thêm `lines` để hiển thị Tầng 2.
+> - Đơn đã xong bước 6 nhưng không có PO giờ được tính là "Đã phát hành PO".
+> - Nhật ký kế hoạch hiện tên thao tác tiếng Việt, mã đơn và ngày dd/mm/yyyy.
+> - Các nút được ẩn hoặc hiện theo trạng thái của kế hoạch.
+> - Thêm dạng thẻ cho điện thoại ở cả 2 màn.
+>
+> Kết quả test API local: `scm_step2_test.mjs` đạt 41/41, Bước 1 đạt 34/34; có audit cho mọi thao tác ghi. **Chưa áp 0016 lên production, chưa deploy.**
+
 
 Trạng thái: **chưa commit, chưa deploy, migration 0016 chưa áp ở đâu.** Backend xong; typecheck strict đạt; 106 test đạt (kiểm tra ngày 16/10/2026).
 

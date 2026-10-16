@@ -47,6 +47,8 @@ export interface WeekLoad {
   capacity: number;
   over: boolean;
   overLines: string[];
+  /** Chi tiết từng nhà máy · chuyền (kế hoạch Tầng 2) */
+  lines: { plant: string; line: string; load: number; capacity: number; over: boolean }[];
 }
 
 /** Tải so với năng lực từng tuần; tuần vượt khi có chuyền nào tải lớn hơn năng lực của chuyền đó */
@@ -68,13 +70,15 @@ export function capacityByWeek(
     let load = 0;
     let capacity = 0;
     const overLines: string[] = [];
+    const detail: WeekLoad["lines"] = [];
     for (const v of byLine.values()) {
       const cap = capacityOf(v.plant, v.line, week);
+      detail.push({ ...v, capacity: cap, over: v.load > cap });
       load += v.load;
       capacity += cap;
       if (v.load > cap) overLines.push(`${v.plant} · ${v.line}`);
     }
-    return { week, load, capacity, over: overLines.length > 0, overLines };
+    return { week, load, capacity, over: overLines.length > 0, overLines, lines: detail.sort((a, b) => `${a.plant}${a.line}`.localeCompare(`${b.plant}${b.line}`)) };
   });
 }
 

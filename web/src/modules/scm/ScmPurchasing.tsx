@@ -586,40 +586,28 @@ export default function ScmPurchasing({ me, site, onBack, notify }: Props) {
                         <td className="px-3 py-2.5 text-right font-bold tabular-nums">{o.qty.toLocaleString("vi-VN")}</td>
                         <td className="px-3 py-2.5 whitespace-nowrap">{fmtDMY(o.shipDate)}</td>
 
-                        {/* BOM */}
-                        <td className="px-3 py-2.5 text-center">
-                          {o.handover.bom ? (
-                            <span className="inline-flex text-emerald-600" title={`BOM: ${fmtDMY(o.handover.bom)}`}><IconCheck size={16} /></span>
-                          ) : (
-                            <span className="inline-flex text-red-500" title="Chưa có BOM"><IconX size={16} /></span>
-                          )}
-                        </td>
-
-                        {/* Wink */}
-                        <td className="px-3 py-2.5 text-center">
-                          {o.handover.wink ? (
-                            <span className="inline-flex text-emerald-600" title={`Wink: ${fmtDMY(o.handover.wink)}`}><IconCheck size={16} /></span>
-                          ) : (
-                            <span className="inline-flex text-red-500" title="Chưa có Wink"><IconX size={16} /></span>
-                          )}
-                        </td>
-
-                        {/* Giày mẫu */}
-                        <td className="px-3 py-2.5 text-center">
-                          {o.handover.giay_mau ? (
-                            <span className="inline-flex text-emerald-600" title={`Giày mẫu: ${fmtDMY(o.handover.giay_mau)}`}><IconCheck size={16} /></span>
-                          ) : (
-                            <span className="inline-flex text-red-500" title="Chưa có Giày mẫu"><IconX size={16} /></span>
-                          )}
-                        </td>
+                        {/* BOM, Wink, Giày mẫu (Kinh doanh bàn giao) */}
+                        {o.items.map((it) => (
+                          <td key={it.key} className="px-3 py-2.5 text-center">
+                            {it.ok ? (
+                              <span className="inline-flex text-emerald-600" title={`${it.label}: ${it.at ? fmtDMY(it.at.slice(0, 10)) : "đã có"}`} aria-label={`${it.label} đã có`}><IconCheck size={16} /></span>
+                            ) : (
+                              <span className="inline-flex text-red-500" title={`Chưa có ${it.label}`} aria-label={`Chưa có ${it.label}`}><IconX size={16} /></span>
+                            )}
+                          </td>
+                        ))}
 
                         {/* No Silent */}
                         <td className="px-3 py-2.5 text-center whitespace-nowrap">
                           {!o.noSilent.required ? (
                             <span className="text-slate-400 text-[11px]">Không yêu cầu</span>
-                          ) : o.noSilent.done ? (
-                            <span className="inline-flex items-center gap-1 text-emerald-700 font-bold text-[11px]" title={`Bàn giao ${fmtDMY(o.noSilent.at)}`}>
-                              <IconCheck size={14} /> {fmtDMY(o.noSilent.at)}
+                          ) : o.noSilent.at ? (
+                            <span
+                              className={`inline-flex items-center gap-1 font-bold text-[11px] ${o.noSilent.overdue ? "text-red-700" : "text-emerald-700"}`}
+                              title={`Bàn giao No Silent ${fmtDMY(o.noSilent.at)}`}
+                            >
+                              {o.noSilent.overdue ? <IconAlertTriangle size={14} /> : <IconCheck size={14} />}
+                              {isIssued ? fmtDMY(o.noSilent.at) : `Ngày ${o.noSilent.day}/${o.noSilent.of}`}
                             </span>
                           ) : (
                             <span className="text-amber-700 font-bold text-[11px]">Chưa có</span>
@@ -691,6 +679,63 @@ export default function ScmPurchasing({ me, site, onBack, notify }: Props) {
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* Danh sách dạng thẻ (điện thoại) */}
+          <div className="md:hidden space-y-2.5">
+            {condItems.length === 0 ? (
+              <p className="rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-center text-xs text-slate-400">Không có đơn hàng nào khớp với điều kiện lọc</p>
+            ) : (
+              condItems.map((o) => (
+                <div key={o.id} className="rounded-2xl border border-slate-200 bg-white p-3.5 space-y-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-mono text-sm font-bold text-slate-900 whitespace-nowrap">{o.code}</p>
+                      {o.poNo && <p className="font-mono text-[11px] font-bold text-[#006838]">{o.poNo}</p>}
+                      <p className="text-[11px] text-slate-500">{o.plant || "-"} · {o.qty.toLocaleString("vi-VN")} đôi · xuất {fmtDMY(o.shipDate)}</p>
+                    </div>
+                    <span
+                      className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${
+                        o.status === "missing" ? "border-red-200 bg-red-50 text-red-800" : o.status === "activated" ? "border-sky-200 bg-sky-50 text-sky-800" : "border-emerald-200 bg-emerald-50 text-emerald-800"
+                      }`}
+                    >
+                      {o.status === "issued" ? "Đã phát hành PO" : o.status === "activated" ? "Đã kích hoạt" : o.status === "ready" ? "Đủ điều kiện" : "Thiếu điều kiện"}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 text-[11px]">
+                    {o.items.map((it) => (
+                      <span key={it.key} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-semibold ${it.ok ? "border-emerald-200 text-emerald-700" : "border-red-300 border-dashed text-red-700"}`}>
+                        {it.ok ? <IconCheck size={12} /> : <IconX size={12} />} {it.label}
+                      </span>
+                    ))}
+                    {o.noSilent.required && (
+                      <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-semibold ${!o.noSilent.at ? "border-dashed border-amber-300 text-amber-800" : o.noSilent.overdue ? "border-red-300 text-red-700" : "border-emerald-200 text-emerald-700"}`}>
+                        No Silent {o.noSilent.at ? (o.status === "issued" ? fmtDMY(o.noSilent.at) : `ngày ${o.noSilent.day}/${o.noSilent.of}`) : "chưa có"}
+                      </span>
+                    )}
+                  </div>
+                  {o.missing.length > 0 && (
+                    <p className="text-[11px] text-red-700">Thiếu: {o.missing.map((m) => `${m.label} (${m.dept})`).join(", ")}</p>
+                  )}
+                  {o.bottleneck && <p className="text-[11px] font-semibold text-amber-800">{o.bottleneck}</p>}
+                  {canEdit && o.status !== "issued" && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {o.status === "ready" && (
+                        <button type="button" className={btnPrimary} onClick={() => handleActivate(o.id, o.code)} disabled={busy}>Kích hoạt đặt hàng</button>
+                      )}
+                      {o.status === "activated" && (
+                        <button type="button" className={btnPrimary} onClick={() => handleIssuePo(o.id, o.code)} disabled={busy}>Phát hành PO</button>
+                      )}
+                      {o.status === "missing" && (
+                        <button type="button" className={btnWarn} onClick={() => handleReportBottleneck(o.id, o.code)} disabled={busy}>
+                          <IconFlag size={14} /> Báo điểm nghẽn
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
           </div>
 
           {/* Phân trang */}

@@ -112,7 +112,7 @@ async function planView(c: Step2Ctx, plan: PlanRow) {
   const loads = capacityByWeek(weeks, lines, planOrders, await capacityFn(c.db, weeks, c.settings));
   const errors = validatePlan(weeks, lines);
   const { results: changes } = await c.db
-    .prepare("SELECT id, order_id, action, reason, before_json, after_json, created_by, created_at FROM scm_plan_changes WHERE plan_id = ? ORDER BY id DESC LIMIT 40")
+    .prepare("SELECT c.id, c.order_id, o.code AS order_code, c.action, c.reason, c.before_json, c.after_json, c.created_by, c.created_at FROM scm_plan_changes c LEFT JOIN scm_orders o ON o.id = c.order_id WHERE c.plan_id = ? ORDER BY c.id DESC LIMIT 40")
     .bind(plan.id)
     .all();
   const rows = orders
@@ -372,7 +372,7 @@ async function poMap(db: D1) {
 
 function conditionRow(c: Step2Ctx, o: LoadedOrder, handover: Record<string, string | null>, po: PoRow | undefined) {
   const cond = orderConditions(
-    { handover, noSilent: Number(o.row.no_silent) === 1, noSilentAt: o.done[5] ?? null, activatedAt: po?.activated_at, issuedAt: po?.issued_at },
+    { handover, noSilent: Number(o.row.no_silent) === 1, noSilentAt: o.done[5] ?? null, activatedAt: po?.activated_at, issuedAt: po?.issued_at ?? o.done[6] ?? null },
     c.today,
     c.settings,
   );
@@ -387,7 +387,7 @@ function conditionRow(c: Step2Ctx, o: LoadedOrder, handover: Record<string, stri
     infoDeadline: o.view.infoDeadline,
     poNo: po?.po_no ?? null,
     activatedAt: po?.activated_at ?? null,
-    issuedAt: po?.issued_at ?? null,
+    issuedAt: po?.issued_at ?? o.done[6] ?? null,
     step2Done: Boolean(o.done[2]),
     bottleneck: o.row.bottleneck_note ?? null,
     ...cond,
@@ -468,7 +468,7 @@ async function purchasing(c: Step2Ctx): Promise<Response> {
       if (!po?.activated_at) return c.fail(400, "NOT_ACTIVATED", "Hãy kích hoạt đặt hàng trước khi phát hành PO");
       if (po.issued_at) return c.fail(400, "ISSUED", `Đơn đã có PO ${po.po_no}`);
       const step = c.completeStep(order, 6, "Phát hành PO");
-      if ("error" in step) return c.fail(400, "DEPENDENCY", step.error);
+      if ("error" in step) return c.fail(400, order.done[6] ? "ALREADY_DONE" : "DEPENDENCY", step.error);
       const seq = await db.prepare("SELECT COUNT(*) AS n FROM scm_purchase_orders WHERE po_no LIKE ?").bind(`${poNumber(0, c.today).slice(0, 8)}%`).first<{ n: number }>();
       const poNo = poNumber((seq?.n ?? 0) + 1, c.today);
       const arrival = expectedArrival(at, Number(order.row.supplier_lead_time), Number(order.row.transport_days), order.row.eta);

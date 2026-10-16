@@ -197,6 +197,7 @@ function SessionsTab({ me, locMap, locations, notify }: { me: Me; locMap: Map<st
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [scanNow, setScanNow] = useState(false);
   const [creating, setCreating] = useState(false);
 
   const load = useCallback(async () => {
@@ -214,7 +215,7 @@ function SessionsTab({ me, locMap, locations, notify }: { me: Me; locMap: Map<st
   useEffect(() => { load(); }, [load]);
 
   if (openId) {
-    return <SessionDetail id={openId} me={me} locMap={locMap} locations={locations} notify={notify} onBack={() => { setOpenId(null); load(); }} />;
+    return <SessionDetail id={openId} me={me} locMap={locMap} locations={locations} notify={notify} autoCamera={scanNow} onBack={() => { setOpenId(null); setScanNow(false); load(); }} />;
   }
 
   return (
@@ -228,6 +229,24 @@ function SessionsTab({ me, locMap, locations, notify }: { me: Me; locMap: Map<st
           ) : null}
         </div>
       </div>
+
+      {sessions.some((s) => s.status === "OPEN") ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 space-y-2">
+          <p className="flex items-center gap-1.5 text-sm font-black text-emerald-900"><IconBarcode size={18} /> Quét đếm ngay</p>
+          <div className="flex flex-wrap gap-2">
+            {sessions.filter((s) => s.status === "OPEN").slice(0, 4).map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                className={btnPrimary}
+                onClick={() => { setScanNow(true); setOpenId(s.id); }}
+              >
+                <IconCamera size={14} /> {s.type === "RECEIVING" ? "Kiểm hàng về" : "Kiểm kê"}: {s.title}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {creating ? <CreateSessionForm notify={notify} onDone={(id) => { setCreating(false); if (id) setOpenId(id); else load(); }} /> : null}
 
@@ -372,7 +391,7 @@ function CreateSessionForm({ notify, onDone }: { notify: Notify; onDone: (id?: s
 
 type LineFilter = "all" | "pending" | "diff" | "ok" | "extra";
 
-function SessionDetail({ id, me, locMap, locations, notify, onBack }: { id: string; me: Me; locMap: Map<string, Location>; locations: Location[]; notify: Notify; onBack: () => void }) {
+function SessionDetail({ id, me, locMap, locations, notify, autoCamera, onBack }: { id: string; me: Me; locMap: Map<string, Location>; locations: Location[]; notify: Notify; autoCamera?: boolean; onBack: () => void }) {
   const [session, setSession] = useState<Session | null>(null);
   const [lines, setLines] = useState<Line[]>([]);
   const [scans, setScans] = useState<Scan[]>([]);
@@ -380,7 +399,7 @@ function SessionDetail({ id, me, locMap, locations, notify, onBack }: { id: stri
   const [qty, setQty] = useState("1");
   const [mode, setMode] = useState<"add" | "set">("add");
   const [codeInput, setCodeInput] = useState("");
-  const [camera, setCamera] = useState(false);
+  const [camera, setCamera] = useState(Boolean(autoCamera));
   const [last, setLast] = useState<{ ok: boolean; text: string; sub?: string } | null>(null);
   const [filter, setFilter] = useState<LineFilter>("all");
   const [search, setSearch] = useState("");
@@ -414,11 +433,6 @@ function SessionDetail({ id, me, locMap, locations, notify, onBack }: { id: stri
         setLast({ ok: true, text: `Vị trí hiện tại: ${c}`, sub: locLabel(c, locMap) });
         return;
       }
-      if (session?.type === "STOCKTAKE" && !currentLoc) {
-        setLast({ ok: false, text: "Hãy quét mã vị trí (nhãn kệ/tầng/ô) trước khi quét hàng" });
-        try { navigator.vibrate?.([80, 60, 80]); } catch {}
-        return;
-      }
       try {
         const r = await api<{ line: Line; outOfList: boolean; expectedAt: { location_code: string; qty: number }[] }>(`sessions/${encodeURIComponent(id)}/scan`, {
           method: "POST",
@@ -438,14 +452,15 @@ function SessionDetail({ id, me, locMap, locations, notify, onBack }: { id: stri
             ? `Sai vị trí? Sổ sách ở: ${r.expectedAt.map((x) => `${x.location_code} (${fmtNum(x.qty)})`).join(", ")}`
             : "Mã ngoài danh sách phiếu"
           : diff === 0 ? "Đủ số lượng" : diff > 0 ? `Thừa ${fmtNum(diff)}` : `Còn thiếu ${fmtNum(-diff)}`;
-        setLast({ ok: !r.outOfList, text: `${l.item_code} · ${l.name || ""}`, sub: `Đếm ${fmtNum(l.counted_qty)} / sổ ${fmtNum(l.expected_qty)} ${l.unit_label || ""} · ${warn}` });
+        const at = l.location_code ? ` · tại ${l.location_code}` : " · chưa gắn vị trí";
+        setLast({ ok: !r.outOfList, text: `${l.item_code} · ${l.name || ""}`, sub: `Đếm ${fmtNum(l.counted_qty)} / sổ ${fmtNum(l.expected_qty)} ${l.unit_label || ""}${at} · ${warn}` });
         if (r.outOfList) { try { navigator.vibrate?.([80, 60, 80]); } catch {} }
         if (mode === "set") setMode("add");
       } catch (e) {
         setLast({ ok: false, text: (e as Error).message });
       }
     });
-  }, [currentLoc, id, locMap, mode, qty, session?.type]);
+  }, [currentLoc, id, locMap, mode, qty]);
 
   const submitInput = (e: React.FormEvent) => {
     e.preventDefault();
@@ -522,10 +537,10 @@ function SessionDetail({ id, me, locMap, locations, notify, onBack }: { id: stri
               {currentLoc ? (
                 <span className="rounded-lg bg-emerald-50 px-2 py-1 font-bold text-emerald-800">{currentLoc} · {locLabel(currentLoc, locMap)}</span>
               ) : (
-                <span className="text-amber-700">Chưa chọn — quét nhãn vị trí hoặc chọn bên cạnh</span>
+                <span className="text-slate-500">Không bắt buộc. Quét nhãn vị trí hoặc chọn bên cạnh để đếm theo từng ô</span>
               )}
               <select className="rounded-lg border border-slate-200 px-2 py-1" value={currentLoc} onChange={(e) => setCurrentLoc(e.target.value)} aria-label="Chọn vị trí">
-                <option value="">{session.type === "RECEIVING" ? "Không gắn vị trí" : "Chọn vị trí…"}</option>
+                <option value="">Không gắn vị trí</option>
                 {locations.filter((l) => !session.scope || l.code.startsWith(session.scope)).map((l) => (
                   <option key={l.code} value={l.code}>{l.code}</option>
                 ))}

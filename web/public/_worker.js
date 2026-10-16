@@ -15482,7 +15482,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
             const qty = num(body.qty ?? 1);
             const mode = body.mode === "set" ? "set" : "add";
             if (!itemCode) return bad("Thiếu mã hàng");
-            if (session.type === "STOCKTAKE" && !lc) return bad("Kiểm kê tồn: hãy quét mã vị trí (kệ/tầng/ô) trước khi quét hàng");
+            // Vị trí không bắt buộc: thiếu vị trí thì cộng vào dòng của mã hàng trong phiếu (hoặc ghi "chưa gắn vị trí")
             if (lc) {
               const locRow = await db.prepare("SELECT code FROM wh_locations WHERE code = ?").bind(lc).first();
               if (!locRow) return bad(`Vị trí ${lc} chưa có trong danh mục`);
@@ -15491,6 +15491,10 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
             let line = await db.prepare("SELECT * FROM wh_count_lines WHERE session_id = ? AND item_code = ? AND location_code = ?").bind(sessionId, itemCode, lc).first();
             if (!line && session.type === "RECEIVING") {
               line = await db.prepare("SELECT * FROM wh_count_lines WHERE session_id = ? AND item_code = ? ORDER BY (location_code = '') DESC LIMIT 1").bind(sessionId, itemCode).first();
+            }
+            // Kiểm kê không quét vị trí: cộng vào dòng của mã hàng trong phiếu, ưu tiên ô chưa đếm đủ
+            if (!line && !lc) {
+              line = await db.prepare("SELECT * FROM wh_count_lines WHERE session_id = ? AND item_code = ? ORDER BY (counted_qty < expected_qty) DESC, in_list DESC, location_code LIMIT 1").bind(sessionId, itemCode).first();
             }
             const item = await db.prepare("SELECT * FROM wh_items WHERE code = ?").bind(itemCode).first();
             if (!line) {

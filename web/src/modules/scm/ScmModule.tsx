@@ -253,7 +253,11 @@ function ScmOverview({ me, site, onSite, onOpen }: { me: ScmMe; site: string; on
                 badge={badgeOf(c.screen)}
                 desc={c.desc}
                 items={c.items}
-                onOpen={() => onOpen(c.screen)}
+                onOpen={() => {
+                  // Màn Kho của module làm ở Bước 3; trong lúc chờ, thẻ Kho mở thẳng màn Kiểm hàng & vị trí đang dùng
+                  if (c.screen === "warehouse") window.location.href = "/warehouse";
+                  else onOpen(c.screen);
+                }}
               />
             ))}
           </div>

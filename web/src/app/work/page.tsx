@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useLayoutEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import NotificationCenter from "@/components/NotificationCenter";
@@ -28,7 +28,7 @@ import CNCIWrapper from "@/modules/ci/CNCIWrapper";
 import { StrategicManagementContent } from "@/components/home/StrategicManagementDashboard";
 import ProjectsOverviewPage from "@/modules/tasks/ProjectsOverviewPage";
 import { LOGISTICS_MODULE_DISPLAY_NAME, LOGISTICS_MODULE_DESCRIPTION } from "@/constants/modules";
-import LogisticsDemoApp from "@/modules/logistics-demo/LogisticsDemoApp";
+import ScmModule from "@/modules/scm/ScmModule";
 
 import {
   IconHome,
@@ -1512,20 +1512,10 @@ function WorkDashboardPage({ initialDept }: { initialDept?: string | null }) {
           )}
 
           {/* IF R&D (PHÁT TRIỂN SẢN PHẨM) IS SELECTED */}
-          {/* KẾ HOẠCH CHUẨN BỊ & TRUNG TÂM PHÂN PHỐI – BẢN DEMO */}
+          {/* KẾ HOẠCH CHUẨN BỊ & TRUNG TÂM PHÂN PHỐI: module SCM (web/src/modules/scm) */}
           {selectedDept === "logistics" && (
-            <div className="w-full space-y-4">
-              <a
-                href="/warehouse"
-                className="flex items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 hover:bg-emerald-100 transition"
-              >
-                <span className="min-w-0">
-                  <span className="block text-sm font-black text-emerald-900">Kho thực tế · Kiểm hàng & vị trí kệ/tầng</span>
-                  <span className="block text-xs text-emerald-800/80">Kiểm hàng về, kiểm kê tồn bằng camera/barcode, import file, tra vị trí Kho → Khu → Kệ → Tầng → Ô</span>
-                </span>
-                <span className="shrink-0 rounded-xl bg-emerald-700 px-3 py-2 text-xs font-bold text-white">Mở</span>
-              </a>
-              <LogisticsDemoApp />
+            <div className="w-full">
+              <ScmModule />
             </div>
           )}
 
@@ -2067,19 +2057,6 @@ function WorkDashboardPage({ initialDept }: { initialDept?: string | null }) {
   );
 }
 
-/**
- * Link chia sẻ bản demo cho Ban điều hành: /work?dept=logistics&demo=1
- * chỉ render màn hình demo toàn trang, không hiện sidebar hay module khác.
- * useLayoutEffect chạy trước khi trình duyệt vẽ nên không bị nháy giao diện /work.
- */
 export default function WorkPage(props: { initialDept?: string | null }) {
-  const [standaloneDemo, setStandaloneDemo] = useState(false);
-  useIsomorphicLayoutEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("dept") === "logistics" && params.get("demo") === "1") setStandaloneDemo(true);
-  }, []);
-  if (standaloneDemo) return <LogisticsDemoApp standalone />;
   return <WorkDashboardPage {...props} />;
 }
-
-const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;

@@ -1,3 +1,6 @@
+// Module "Kế hoạch chuẩn bị và trung tâm phân phối" (SCM): logic và API ở web/src/modules/scm (wrangler bundle file này)
+import { handleScmApi, runScmHourly } from "../src/modules/scm/server.ts";
+
 
 // ==================== ZALO LLM BOT LOGIC ====================
 async function askLLM(env, messages) {
@@ -14704,6 +14707,17 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
     // Quyền: Admin chỉ định Quản lý kho (MANAGER); Quản lý kho cấp quyền sửa vị trí (EDITOR).
     // Mọi người đã đăng nhập: xem, tra cứu và quét đếm trong phiếu đang mở.
     // ============================================================
+    // ============================================================
+    // KẾ HOẠCH CHUẨN BỊ VÀ TRUNG TÂM PHÂN PHỐI (SCM): /api/scm/*
+    // ============================================================
+    if (url.pathname.startsWith("/api/scm/")) {
+      return handleScmApi(request, env, {
+        verifyServerAuth: (req) => verifyServerAuth(req, env),
+        notify: (empCode, data) => createAndPushNotification(empCode, data),
+        headers: SECURE_JSON_HEADERS,
+      });
+    }
+
     if (url.pathname.startsWith("/api/warehouse/")) {
       const reply = (obj, status = 200) => new Response(JSON.stringify(obj), { status, headers: SECURE_JSON_HEADERS });
       const forbid = (message) => reply({ success: false, error: "FORBIDDEN", message }, 403);
@@ -18118,6 +18132,13 @@ async function ensureKaizenGuestTable(env) {
 
   // ⏰ Cloudflare Worker Cron Trigger Handler (Daily System Backup & Kaizen Sync)
   async scheduled(event, env, ctx) {
+    // Nhịp mỗi giờ: chỉ chạy tác vụ SCM (leo thang theo giờ cấu hình trong scm_settings).
+    // Các tác vụ cũ (đồng bộ Kaizen, backup) giữ nguyên ở lịch 0 19 * * *.
+    if (event.cron === "0 * * * *") {
+      if (env.DB) ctx.waitUntil(runScmHourly(env.DB).catch((e) => console.error("[SCM CRON]", e)));
+      return;
+    }
+
     // 1. Continuous Kaizen Sync Pull (Cron Trigger every 1-2 mins)
     if (env.DB) {
       try {

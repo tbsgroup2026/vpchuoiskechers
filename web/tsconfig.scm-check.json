@@ -1,0 +1,6 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "strict": true, "noEmit": true, "skipLibCheck": true, "incremental": false },
+  "include": ["next-env.d.ts", "src/modules/scm/**/*.ts", "src/modules/scm/**/*.tsx", "src/components/hub/**/*.tsx"],
+  "exclude": ["node_modules"]
+}

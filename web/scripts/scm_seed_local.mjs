@@ -59,6 +59,7 @@ const SCENARIOS = [
 ];
 
 const lines = ["-- Seed SCM demo cho D1 local (sinh lúc " + new Date().toISOString() + ", hôm nay = " + today + ")"];
+lines.push("DELETE FROM scm_handover_items WHERE order_id LIKE 'seed_%';");
 lines.push("DELETE FROM scm_order_steps WHERE order_id LIKE 'seed_%';");
 lines.push("DELETE FROM scm_orders WHERE id LIKE 'seed_%';");
 lines.push(
@@ -103,6 +104,13 @@ SCENARIOS.forEach(([shipIn, lead, transport, origin, doneSteps, doneAgo, noSilen
     const idx = doneSteps.indexOf(k);
     const doneAt = idx >= 0 ? `${add(today, -doneAgo + idx)} 09:00:00` : null;
     lines.push(`INSERT INTO scm_order_steps (order_id, step_no, owner_dept, done_at, done_by, created_by) VALUES (${[id, k, OWNER[k], doneAt, doneAt ? "SEED" : null, "SEED"].map(q).join(", ")});`);
+  }
+
+  // Seed handover items (BOM, Wink, Giày mẫu) cho các đơn đã qua bước 1 hoặc các đơn đầu để test Mua hàng
+  if (doneSteps.includes(1) || i < 8) {
+    for (const item of ["bom", "wink", "giay_mau"]) {
+      lines.push(`INSERT OR IGNORE INTO scm_handover_items (order_id, item, delivered_at, delivered_by, created_by) VALUES (${[id, item, `${add(today, -doneAgo || -5)} 08:30:00`, "SEED", "SEED"].map(q).join(", ")});`);
+    }
   }
 });
 

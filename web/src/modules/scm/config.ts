@@ -91,6 +91,8 @@ export interface ScmSettings {
   plan312_weekday: number;
   inbound_plan_weekday: number;
   digital_can_view_business: number;
+  line_capacity_week: number;
+  incident_escalate_day: number;
 }
 
 export const DEFAULT_SETTINGS: ScmSettings = {
@@ -118,6 +120,8 @@ export const DEFAULT_SETTINGS: ScmSettings = {
   plan312_weekday: 1,
   inbound_plan_weekday: 2,
   digital_can_view_business: 0,
+  line_capacity_week: 9000,
+  incident_escalate_day: 10,
 };
 
 export const SETTING_LABELS: Record<keyof ScmSettings, string> = {
@@ -145,6 +149,8 @@ export const SETTING_LABELS: Record<keyof ScmSettings, string> = {
   plan312_weekday: "Thứ ban hành Kế hoạch 312 (1 = thứ Hai)",
   inbound_plan_weekday: "Thứ gửi kế hoạch nhập 4 tuần (2 = thứ Ba)",
   digital_can_view_business: "Số hóa được xem nghiệp vụ bộ phận khác (0/1, chờ Ban điều hành)",
+  line_capacity_week: "Năng lực mặc định mỗi chuyền mỗi tuần (đôi, đề xuất)",
+  incident_escalate_day: "Hiện nút leo thang sự cố NCC từ ngày thứ",
 };
 
 /** Đọc các dòng key/value từ D1, giữ mặc định cho khóa thiếu hoặc sai kiểu */

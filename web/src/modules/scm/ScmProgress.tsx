@@ -198,24 +198,24 @@ export default function ScmProgress({ me, site, onBack, notify }: { me: ScmMe; s
         })}
       </div>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-2xs space-y-3" aria-labelledby="bottleneck-title">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 id="bottleneck-title" className="text-sm font-black">Điểm nghẽn theo bộ phận</h2>
-          {filters.owner ? <button type="button" className="text-xs font-bold text-[#006838] underline" onClick={() => set({ owner: "" })}>Bỏ lọc bộ phận</button> : null}
+      <section className="space-y-3" aria-labelledby="bottlenecks-title">
+        <div className="flex items-baseline justify-between">
+          <h2 id="bottlenecks-title" className="text-sm font-black">Điểm nghẽn theo bộ phận</h2>
+          <p className="text-xs text-slate-500">Số bước trễ + số bước sau đang chờ bộ phận này</p>
         </div>
         {!overview ? (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">{[0, 1, 2].map((i) => <div key={i} className="h-16 rounded-xl bg-slate-100 animate-pulse" />)}</div>
-        ) : overview.bottlenecks.length === 0 ? (
-          <p className="text-sm text-slate-500">Không có bộ phận nào đang trễ hay làm chặn bước sau.</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+            {[0, 1, 2, 3, 4, 5].map((i) => <div key={i} className="h-16 rounded-xl bg-slate-100 animate-pulse" />)}
+          </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
             {overview.bottlenecks.map((b) => {
               const active = filters.owner === b.owner;
               return (
                 <button
                   key={b.owner}
                   type="button"
-                  aria-pressed={active}
+                  aria-pressed={Boolean(active)}
                   onClick={() => set({ owner: active ? "" : b.owner })}
                   className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-left hover:border-[#006838]/50 focus:outline-none focus-visible:ring-4 focus-visible:ring-[#006838]/20 ${active ? "border-[#006838] bg-emerald-50/60" : "border-slate-200 bg-white"}`}
                 >
@@ -319,7 +319,19 @@ export default function ScmProgress({ me, site, onBack, notify }: { me: ScmMe; s
                       <td className="px-3 py-2.5"><StepStrip steps={o.steps} /></td>
                       <td className="px-3 py-2.5 text-right font-black tabular-nums">{o.progress}%</td>
                       <td className="px-3 py-2.5"><span className={`rounded-full border px-2 py-0.5 text-[11px] font-bold whitespace-nowrap ${ORDER_STATE[o.state].pill}`}>{ORDER_STATE[o.state].label}</span></td>
-                      <td className="px-3 py-2.5 text-xs text-slate-700 max-w-[260px]">{o.state === "complete" ? "" : o.stuck?.text}</td>
+                      <td className="px-3 py-2.5 text-xs text-slate-700 max-w-[280px]">
+                        {o.state === "complete" ? "" : (
+                          <div className="space-y-1">
+                            {o.flag ? (
+                              <div className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-800 border border-amber-200">
+                                <IconAlertTriangle size={13} className="shrink-0 text-amber-600" />
+                                <span className="truncate max-w-[230px]" title={o.flag}>{o.flag}</span>
+                              </div>
+                            ) : null}
+                            {o.stuck?.text ? <span className="block text-slate-700">{o.stuck.text}</span> : null}
+                          </div>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -342,7 +354,17 @@ export default function ScmProgress({ me, site, onBack, notify }: { me: ScmMe; s
                       <span>Xuất {fmtDMY(o.shipDate)} ({o.daysToShip < 0 ? `đã qua ${-o.daysToShip} ngày` : `còn ${o.daysToShip} ngày`})</span>
                       <b className="tabular-nums">{o.progress}%</b>
                     </span>
-                    {o.state !== "complete" && o.stuck ? <span className="block text-xs text-slate-700">{o.stuck.text}</span> : null}
+                    {o.state !== "complete" && (
+                      <div className="space-y-1 pt-1 border-t border-slate-100">
+                        {o.flag ? (
+                          <div className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-800 border border-amber-200">
+                            <IconAlertTriangle size={13} className="shrink-0 text-amber-600" />
+                            <span>{o.flag}</span>
+                          </div>
+                        ) : null}
+                        {o.stuck?.text ? <span className="block text-xs text-slate-700">{o.stuck.text}</span> : null}
+                      </div>
+                    )}
                   </button>
                 </li>
               ))}
@@ -428,6 +450,16 @@ function OrderDrawer({ id, onClose, notify, onChanged }: { id: string; onClose: 
             <div className="space-y-2">{[0, 1, 2, 3].map((i) => <div key={i} className="h-16 rounded-xl bg-slate-100 animate-pulse" />)}</div>
           ) : (
             <>
+              {d.order.flag ? (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3.5 space-y-1">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900">
+                    <IconAlertTriangle size={15} className="text-amber-600 shrink-0" />
+                    <span>Điểm nghẽn từ Mua hàng</span>
+                  </div>
+                  <p className="text-xs text-amber-800 leading-relaxed font-medium">{d.order.flag}</p>
+                </div>
+              ) : null}
+
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                 <p className="text-xs font-bold text-slate-600">Hạn chót giao thông tin (KD/CN)</p>
                 <p className="text-lg font-black">{fmtDMY(d.detail.infoDeadline)}</p>
@@ -555,7 +587,7 @@ function printReport(items: OrderItem[], f: Filters, site: string, today: string
     <h1>Báo cáo tiến độ chung</h1><p>Ngày ${esc(fmtDMY(today))}. Bộ lọc: ${esc(cond)}. ${items.length} đơn.</p>
     ${ov ? `<div class="k"><span>Đang theo dõi<b>${ov.cards.tracking}</b></span><span>Đúng tiến độ<b>${ov.cards.onTrack}</b></span><span>Có bước trễ<b>${ov.cards.withLate}</b></span><span>Có bước bị chặn<b>${ov.cards.withBlocked}</b></span><span>Xuất trong 45 ngày<b>${ov.cards.shipIn45}</b></span></div>` : ""}
     <table><thead><tr><th>Mã đơn</th><th>Nhà máy, chuyền</th><th>Ngày xuất</th><th>Số lượng</th><th>10 bước</th><th>Tiến độ</th><th>Tình trạng</th><th>Đang vướng ở</th></tr></thead><tbody>
-    ${items.map((o) => `<tr><td><b>${esc(o.code)}</b></td><td>${esc(o.plant)}, ${esc(o.line)}</td><td>${esc(fmtDMY(o.shipDate))}</td><td>${o.qty.toLocaleString("vi-VN")}</td><td>${strip(o)}</td><td>${o.progress}%</td><td>${esc(ORDER_STATE[o.state].label)}</td><td>${o.state === "complete" ? "" : esc(o.stuck?.text)}</td></tr>`).join("")}
+    ${items.map((o) => `<tr><td><b>${esc(o.code)}</b></td><td>${esc(o.plant)}, ${esc(o.line)}</td><td>${esc(fmtDMY(o.shipDate))}</td><td>${o.qty.toLocaleString("vi-VN")}</td><td>${strip(o)}</td><td>${o.progress}%</td><td>${esc(ORDER_STATE[o.state].label)}</td><td>${o.state === "complete" ? "" : (o.flag ? `[${esc(o.flag)}] ` : "") + esc(o.stuck?.text ?? "")}</td></tr>`).join("")}
     </tbody></table><script>window.onload=()=>window.print()</script></body></html>`);
   w.document.close();
 }

@@ -31,6 +31,8 @@ import type { ScreenKey } from "./permissions";
 import { SCREENS } from "./permissions";
 import { ScmApiError, scmApi, type ScmMe } from "./client";
 import ScmProgress from "./ScmProgress";
+import ScmPlanning from "./ScmPlanning";
+import ScmPurchasing from "./ScmPurchasing";
 
 export type Notify = (kind: "ok" | "err", text: string) => void;
 
@@ -138,6 +140,10 @@ export default function ScmModule() {
         <Pending title={SCREENS.find((s) => s.key === screen)?.name ?? ""} onBack={() => go(null)} locked />
       ) : screen === "progress" ? (
         <ScmProgress me={me} site={site} onBack={() => go(null)} notify={notify} />
+      ) : screen === "planning" ? (
+        <ScmPlanning me={me} site={site} onBack={() => go(null)} notify={notify} onSiteChange={changeSite} />
+      ) : screen === "purchasing" ? (
+        <ScmPurchasing me={me} site={site} onBack={() => go(null)} notify={notify} />
       ) : (
         <Pending title={SCREENS.find((s) => s.key === screen)?.name ?? ""} phase={PHASE_OF[screen]} warehouse={screen === "warehouse"} onBack={() => go(null)} />
       )}

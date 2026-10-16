@@ -3,6 +3,8 @@
 import type { OwnerDept, ScmDept, StepNo } from "./config";
 import type { OrderState, StepStatus } from "./engine";
 import type { Access, ScreenKey } from "./permissions";
+import type { PlanStatus } from "./planning";
+import type { IncidentStage } from "./purchasing";
 
 export class ScmApiError extends Error {
   status: number;
@@ -56,6 +58,7 @@ export interface OrderItem {
   state: OrderState;
   progress: number;
   stuck: { step: StepNo; owner: OwnerDept; ownerName: string; text: string } | null;
+  flag?: string | null;
   steps: { no: StepNo; status: StepStatus; due: string; doneAt: string | null; reason: string }[];
 }
 
@@ -93,4 +96,190 @@ export interface OrderDetail {
       canEdit: boolean;
     }[];
   };
+}
+
+// ─── Kiểu dữ liệu Bước 2: Kế hoạch & CCƯ ─────────────────────────────────────
+
+export interface PlanRow {
+  id: string;
+  site: string;
+  week_start: string;
+  status: PlanStatus;
+  statusLabel?: string;
+  submitted_by: string | null;
+  submitted_at: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
+  issued_by: string | null;
+  issued_at: string | null;
+  tier2_sent_at: string | null;
+}
+
+export interface PlanCell {
+  plant: string;
+  line: string;
+  tier2Sent: boolean;
+}
+
+export interface PlanOrderRow {
+  id: string;
+  code: string;
+  plant: string | null;
+  line: string | null;
+  qty: number;
+  shipDate: string;
+  priority: number;
+  noSilent: {
+    required: boolean;
+    doneAt: string | null;
+    status: StepStatus;
+    reason: string;
+    canSend: boolean;
+  };
+  step3: StepStatus;
+  step4: StepStatus;
+  cells: (PlanCell | null)[];
+}
+
+export interface PlanChange {
+  id: number;
+  order_id: string | null;
+  action: string;
+  reason: string | null;
+  before_json: string | null;
+  after_json: string | null;
+  created_by: string;
+  created_at: string;
+}
+
+export interface CanIssueResult {
+  ok: boolean;
+  reasons: string[];
+}
+
+export interface WeekLoad {
+  week: string;
+  plantLoads: {
+    plant: string;
+    lines: { line: string; load: number; capacity: number; over: boolean }[];
+    totalLoad: number;
+    totalCapacity: number;
+    over: boolean;
+  }[];
+  totalLoad: number;
+  totalCapacity: number;
+  over: boolean;
+}
+
+export interface PlanViewResponse {
+  success: boolean;
+  needSite?: boolean;
+  plan?: PlanRow | null;
+  suggestWeek?: string;
+  weeks?: string[];
+  rows?: PlanOrderRow[];
+  total?: number;
+  page?: number;
+  pageSize?: number;
+  loads?: WeekLoad[];
+  errors?: { orderId: string; error: string }[];
+  canIssue?: CanIssueResult;
+  changes?: PlanChange[];
+  canEdit?: boolean;
+  canApprove?: boolean;
+}
+
+// ─── Kiểu dữ liệu Bước 2: Mua hàng ──────────────────────────────────────────
+
+export interface ConditionItem {
+  id: string;
+  code: string;
+  plant: string | null;
+  shipDate: string;
+  qty: number;
+  supplierLeadTime: number;
+  transportDays: number;
+  infoDeadline: string;
+  poNo: string | null;
+  activatedAt: string | null;
+  issuedAt: string | null;
+  step2Done: boolean;
+  bottleneck: string | null;
+  status: "ready" | "missing" | "activated" | "issued";
+  ready: boolean;
+  missing: { key: string; label: string; dept: string }[];
+  noSilent: { required: boolean; done: boolean; at: string | null; daysSince: number; overdue: boolean };
+  handover: Record<string, string | null>;
+}
+
+export interface ConditionsResponse {
+  success: boolean;
+  items: ConditionItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+  counts: { ready: number; missing: number; issued: number };
+}
+
+export interface InboundRow {
+  id: string;
+  orderId: string;
+  code: string;
+  poNo: string | null;
+  eta: string | null;
+  etaChangedFrom: string | null;
+  sentAt: string | null;
+  arrived: boolean;
+  supplyDeadline: string;
+  impact: { readyBy: string; slackDays: number; late: boolean } | null;
+  week: string | null;
+}
+
+export interface InboundResponse {
+  success: boolean;
+  weeks: string[];
+  rows: InboundRow[];
+  unsent: number;
+}
+
+export interface IncidentItem {
+  id: string;
+  order_id: string;
+  po_id: string | null;
+  material: string;
+  issue: string;
+  stage: IncidentStage;
+  plan: string | null;
+  note: string | null;
+  confirmed_by: string | null;
+  confirmed_at: string | null;
+  opened_at: string;
+  closed_at: string | null;
+  escalation: number;
+  orderCode: string;
+  day: number;
+  of: number;
+  canEscalate: boolean;
+  overdue: boolean;
+}
+
+export interface IncidentsResponse {
+  success: boolean;
+  items: IncidentItem[];
+  plans: Record<string, string>;
+}
+
+export interface UploadedFormItem {
+  id: string;
+  dept: string;
+  file_name: string;
+  size: number;
+  content_type: string | null;
+  uploaded_by: string;
+  uploaded_at: string;
+}
+
+export interface FormsResponse {
+  success: boolean;
+  items: UploadedFormItem[];
 }

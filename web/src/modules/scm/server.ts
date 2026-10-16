@@ -18,11 +18,12 @@ import {
   type OrderView,
 } from "./engine";
 import { DEFAULT_DEPT_RULES, applyOverrides, canApprovePermissions, canEditStep, mapUserToDept, resolveAccess, resolveAll, type DeptRule, type Matrix, type ScmUser } from "./permissions";
-import { SCM_DDL } from "./schema";
+import { SCM_ALTERS, SCM_DDL } from "./schema";
+import { escalateIncidents, handleScmStep2, type R2Like } from "./server-step2";
 
 // ─── Kiểu tối thiểu của D1 và helper do worker cung cấp ──────────────────────
 
-interface D1Stmt {
+export interface D1Stmt {
   bind(...values: unknown[]): D1Stmt;
   first<T = Record<string, unknown>>(): Promise<T | null>;
   all<T = Record<string, unknown>>(): Promise<{ results: T[] }>;
@@ -48,7 +49,7 @@ export interface ScmDeps {
   headers: Record<string, string>;
 }
 
-interface OrderRow {
+export interface OrderRow {
   id: string;
   code: string;
   site: string;
@@ -63,6 +64,8 @@ interface OrderRow {
   origin: string;
   eta: string | null;
   no_silent: number;
+  bottleneck_note?: string | null;
+  eta_changed_from?: string | null;
 }
 
 // ─── Tiện ích ────────────────────────────────────────────────────────────────
@@ -134,6 +137,7 @@ const g = globalThis as unknown as { __scmReady?: boolean };
 export async function ensureScm(db: D1): Promise<void> {
   if (g.__scmReady) return;
   await db.batch(SCM_DDL.map((q) => db.prepare(q)));
+  for (const q of SCM_ALTERS) await db.prepare(q).run().catch(() => null);
   await db.batch(
     Object.entries(DEFAULT_SETTINGS).map(([k, v]) => db.prepare("INSERT OR IGNORE INTO scm_settings (key, value, created_by) VALUES (?, ?, 'SYSTEM')").bind(k, String(v))),
   );
@@ -211,7 +215,7 @@ async function deptRecipients(db: D1, dept: ScmDept, headsOnly: boolean): Promis
 
 // ─── Đơn hàng ────────────────────────────────────────────────────────────────
 
-interface LoadedOrder {
+export interface LoadedOrder {
   row: OrderRow;
   done: DoneMap;
   view: OrderView;
@@ -274,13 +278,36 @@ function listItem(o: LoadedOrder, today: string) {
     state: o.view.state,
     progress: o.view.progress,
     stuck: o.view.stuck ? { ...o.view.stuck, ownerName: OWNER_DEPT_NAME[o.view.stuck.owner] } : null,
+    flag: o.view.state !== "complete" ? o.row.bottleneck_note ?? null : null,
     steps: o.view.steps.map((s) => ({ no: s.no, status: s.status, due: s.due, doneAt: s.doneAt, reason: s.reason })),
+  };
+}
+
+/** Câu lệnh xác nhận bước n của đơn; từ chối nếu đã xong hoặc còn bước phụ thuộc chưa xong */
+function stepCompletion(db: D1, o: LoadedOrder, n: StepNo, by: string, note: string, today: string, settings: ScmSettings):
+  | { ok: true; stmts: D1Stmt[]; updated: LoadedOrder }
+  | { ok: false; error: string } {
+  if (o.done[n]) return { ok: false, error: `Bước ${n} đã hoàn thành` };
+  if (n === 5 && Number(o.row.no_silent) !== 1) return { ok: false, error: "Đơn không có No Silent, bước 5 không áp dụng" };
+  const chk = canComplete(toInput(o.row), o.done, n);
+  if (!chk.ok) return { ok: false, error: `Chưa thể hoàn thành bước ${n}: còn bước ${chk.missing.join(", ")} chưa xong` };
+  const at = nowVn();
+  const done = { ...o.done, [n]: at };
+  const updated: LoadedOrder = { ...o, done, view: computeOrderView(toInput(o.row), done, today, settings) };
+  return {
+    ok: true,
+    updated,
+    stmts: [
+      db.prepare("UPDATE scm_order_steps SET done_at = ?, done_by = ?, note = ?, escalation_level = 0, updated_at = ?, updated_by = ? WHERE order_id = ? AND step_no = ?")
+        .bind(at, by, note || null, at, by, o.row.id, n),
+      ...cacheStatements(db, updated, by),
+    ],
   };
 }
 
 // ─── Bộ định tuyến /api/scm/* ────────────────────────────────────────────────
 
-export async function handleScmApi(request: Request, env: { DB: D1 }, deps: ScmDeps): Promise<Response> {
+export async function handleScmApi(request: Request, env: { DB: D1; BUCKET?: R2Like }, deps: ScmDeps): Promise<Response> {
   const url = new URL(request.url);
   const reply = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: deps.headers });
   const fail = (status: number, error: string, message: string) => reply({ success: false, error, message }, status);
@@ -297,7 +324,8 @@ export async function handleScmApi(request: Request, env: { DB: D1 }, deps: ScmD
     const parts = url.pathname.split("/").filter(Boolean); // api, scm, resource, id, sub, n, action
     const resource = parts[2] || "";
     const method = request.method;
-    const body = method === "POST" || method === "PUT" ? ((await request.json().catch(() => ({}))) as Record<string, unknown>) : {};
+    const isMultipart = (request.headers.get("content-type") || "").includes("multipart/form-data");
+    const body = (method === "POST" || method === "PUT") && !isMultipart ? ((await request.json().catch(() => ({}))) as Record<string, unknown>) : {};
 
     if (access.progress === "lock") return fail(403, "FORBIDDEN", "Bạn không có quyền xem module này");
 
@@ -494,19 +522,11 @@ export async function handleScmApi(request: Request, env: { DB: D1 }, deps: ScmD
         const at = nowVn();
 
         if (action === "complete") {
-          if (order.done[n]) return fail(400, "ALREADY_DONE", `Bước ${n} đã hoàn thành`);
-          if (n === 5 && Number(order.row.no_silent) !== 1) return fail(400, "NOT_APPLICABLE", "Đơn không có No Silent, bước 5 không áp dụng");
-          const chk = canComplete(toInput(order.row), order.done, n);
-          if (!chk.ok) return fail(400, "DEPENDENCY", `Chưa thể hoàn thành bước ${n}: còn bước ${chk.missing.join(", ")} chưa xong`);
-          const done = { ...order.done, [n]: at };
-          const updated: LoadedOrder = { ...order, done, view: computeOrderView(toInput(order.row), done, today, settings) };
-          await db.batch([
-            db.prepare("UPDATE scm_order_steps SET done_at = ?, done_by = ?, note = ?, escalation_level = 0, updated_at = ?, updated_by = ? WHERE order_id = ? AND step_no = ?")
-              .bind(at, user.empCode, str(body.note, 300) || null, at, user.empCode, order.row.id, n),
-            ...cacheStatements(db, updated, user.empCode),
-          ]);
-          await writeAudit(db, request, user, "COMPLETE_STEP", `${order.row.id}#${n}`, { step: n, done_at: null }, { step: n, done_at: at, note: str(body.note, 300) });
-          return reply({ success: true, order: listItem(updated, today) });
+          const r = stepCompletion(db, order, n, user.empCode, str(body.note, 300), today, settings);
+          if ("error" in r) return fail(400, order.done[n] ? "ALREADY_DONE" : "DEPENDENCY", r.error);
+          await db.batch(r.stmts);
+          await writeAudit(db, request, user, "COMPLETE_STEP", `${order.row.id}#${n}`, { step: n, done_at: null }, { step: n, done_at: r.updated.done[n], note: str(body.note, 300) });
+          return reply({ success: true, order: listItem(r.updated, today) });
         }
 
         if (action === "undo") {
@@ -573,6 +593,35 @@ export async function handleScmApi(request: Request, env: { DB: D1 }, deps: ScmD
       }
     }
 
+    const notifyDept = async (dept: ScmDept, headsOnly: boolean, title: string, message: string) => {
+      const to = await deptRecipients(db, dept, headsOnly);
+      for (const emp of to) {
+        await deps.notify(emp, { title, message, url: SCM_URL, type: "INFO", category: "SCM", senderEmpCode: user.empCode }).catch(() => null);
+      }
+      return to.length;
+    };
+    const step2 = await handleScmStep2({
+      db,
+      bucket: env.BUCKET,
+      request,
+      url,
+      parts,
+      method,
+      body,
+      user,
+      scmUser,
+      access,
+      settings,
+      today,
+      reply,
+      fail,
+      audit: (action, recordId, before, after) => writeAudit(db, request, user, action, recordId, before, after),
+      notifyDept,
+      loadOrders: (s, id) => loadOrders(db, s, settings, today, id),
+      completeStep: (o, n, note) => stepCompletion(db, o, n, user.empCode, note, today, settings),
+    });
+    if (step2) return step2;
+
     return fail(404, "NOT_FOUND", "API không tồn tại");
   } catch (err) {
     return fail(500, "SERVER_ERROR", err instanceof Error ? err.message : String(err));
@@ -624,6 +673,11 @@ export async function runScmHourly(db: D1, now: number = Date.now()): Promise<{ 
     }
     await db.batch(stmts);
   }
+  sent += await escalateIncidents(db, settings, today, async (dept, heads, title, message) => {
+    const to = await recipients(dept, heads);
+    for (const emp of to) await insertNotification(db, emp, title, message, dept === "BDH" ? "HIGH" : "NORMAL").catch(() => null);
+    return to.length;
+  });
   return { ran: true, sent };
 }
 

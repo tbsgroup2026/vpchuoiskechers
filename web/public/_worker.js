@@ -15453,6 +15453,161 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
       }
 
       // 7. POST /api/gemba/import-sheet (Google Sheet Historical Data Import)
+      // 7b. POST /api/gemba/sheet-sync — Apps Script Gemba.Pro của từng nhà máy đẩy phiếu lên.
+      // Một chiều: sheet là nguồn chính, mỗi lần gửi sẽ thêm mới hoặc ghi đè phiếu cùng mã.
+      // Xác thực bằng header X-Sheet-Key = secret GEMBA_SHEET_SYNC_KEY (đặt bằng `wrangler secret put`).
+      if (url.pathname === "/api/gemba/sheet-sync" && request.method === "POST") {
+        try {
+          const expectedKey = env.GEMBA_SHEET_SYNC_KEY;
+          const providedKey = request.headers.get("X-Sheet-Key") || "";
+          if (!expectedKey || !authTimingSafeEqual(providedKey, expectedKey)) {
+            return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED" }), { status: 401, headers: SECURE_JSON_HEADERS });
+          }
+
+          const body = await request.json().catch(() => ({}));
+          const source = String(body.source || "").trim().toUpperCase().replace(/[^A-Z0-9_]/g, "").slice(0, 20);
+          const sourceName = String(body.sourceName || source).trim().slice(0, 80);
+          const rows = Array.isArray(body.rows) ? body.rows : [];
+          if (!source) {
+            return new Response(JSON.stringify({ success: false, error: "MISSING_SOURCE", message: "Thiếu mã nguồn (source)" }), { status: 400, headers: SECURE_JSON_HEADERS });
+          }
+          if (rows.length > 500) {
+            return new Response(JSON.stringify({ success: false, error: "TOO_MANY_ROWS", message: "Tối đa 500 phiếu mỗi lần gửi" }), { status: 400, headers: SECURE_JSON_HEADERS });
+          }
+
+          await env.DB.prepare("ALTER TABLE gemba_records ADD COLUMN source TEXT").run().catch(() => {});
+
+          const str = (v, max = 2000) => (v == null ? "" : String(v).trim()).slice(0, max);
+          const norm = (v) => str(v, 200).normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/gi, "d").replace(/\s+/g, " ").toUpperCase();
+          const slug = (v) => norm(v).toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 40) || "khac";
+          // Ngày ISO (Apps Script gửi Date dạng ISO) hoặc dd/mm/yyyy [hh:mm] giờ Việt Nam
+          const toDbDate = (v) => {
+            const s = str(v, 40);
+            if (!s) return null;
+            const vn = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[ T](\d{1,2}):(\d{2}))?/);
+            const d = vn ? new Date(Date.UTC(+vn[3], +vn[2] - 1, +vn[1], +(vn[4] || 0) - 7, +(vn[5] || 0))) : new Date(s);
+            return isNaN(d.getTime()) ? null : d.toISOString().replace("T", " ").substring(0, 19);
+          };
+          const mapStatus = (v) => {
+            const s = norm(v);
+            if (s === "HOAN THANH") return "COMPLETED";
+            if (s === "TU CHOI") return "COMPLETED"; // trang Gemba chỉ có 4 trạng thái; lý do từ chối nằm trong mô tả
+            if (s === "DANG XU LY" || s === "QUA HAN") return "PROCESSING";
+            return "NEW"; // Mới, Chờ xử lý lại
+          };
+          const mapPriority = (v) => {
+            const s = norm(v);
+            if (s === "CRITICAL" || s === "HIGH" || s === "CAO" || s === "KHAN CAP") return "CAO";
+            if (s === "LOW" || s === "THAP") return "THAP";
+            return "TRUNG_BINH";
+          };
+          const mapCategory = (v) => {
+            const s = norm(v);
+            if (s.includes("7S")) return "cat_7s";
+            if (s.includes("TUAN THU")) return "cat_tuan_thu";
+            if (s.includes("CHAT LUONG")) return "cat_chat_luong";
+            if (s.includes("MMTB")) return "cat_mmtb";
+            if (s.includes("LANG PHI")) return "cat_lang_phi";
+            return "cat_khac";
+          };
+
+          // Cây nhà máy → xưởng → line → tổ: id cố định theo nguồn + tên, chỉ thêm nút còn thiếu
+          const ensured = new Set();
+          const ensureNode = async (table, cols, values) => {
+            if (ensured.has(table + values[0])) return;
+            ensured.add(table + values[0]);
+            const marks = cols.split(",").map(() => "?").join(", ");
+            await env.DB.prepare(`INSERT OR IGNORE INTO ${table} (${cols}) VALUES (${marks})`).bind(...values).run();
+          };
+          const srcSlug = slug(source);
+
+          let upserted = 0;
+          const errors = [];
+          const statements = [];
+          for (let i = 0; i < rows.length; i++) {
+            const r = rows[i] || {};
+            const sheetId = str(r.ID, 60);
+            if (!sheetId) {
+              errors.push({ row: i + 1, reason: "Thiếu ID phiếu" });
+              continue;
+            }
+            try {
+              const cluster = str(r.CLUSTER, 60);
+              const factoryId = `fac_${srcSlug}_${slug(cluster || "chung")}`;
+              const workshopName = str(r.FACTORY, 80) || "Chưa phân xưởng";
+              const lineName = str(r.LINE, 80) || "Chưa phân line";
+              const teamName = str(r.TEAM, 80) || "Chưa phân tổ";
+              const workshopId = `ws_${factoryId.slice(4)}_${slug(workshopName)}`;
+              const lineId = `line_${workshopId.slice(3)}_${slug(lineName)}`;
+              const teamId = `team_${lineId.slice(5)}_${slug(teamName)}`;
+              await ensureNode("gemba_factories", "id, code, name, sort_order", [factoryId, factoryId.toUpperCase(), cluster ? `${sourceName} · ${cluster}` : sourceName, 90]);
+              await ensureNode("gemba_workshops", "id, factory_id, code, name, sort_order", [workshopId, factoryId, workshopId.toUpperCase(), workshopName, 90]);
+              await ensureNode("gemba_lines", "id, workshop_id, code, name, sort_order", [lineId, workshopId, lineId.toUpperCase(), lineName, 90]);
+              await ensureNode("gemba_teams", "id, line_id, code, name, sort_order", [teamId, lineId, teamId.toUpperCase(), teamName, 90]);
+
+              const status = mapStatus(r.STATUS);
+              const extras = [
+                ["Tên vấn đề", r.ISSUE_NAME], ["Vị trí", r.LOCATION], ["Mã hàng/SP", r.PRODUCT_CODE],
+                ["Đề xuất giải pháp", r.PROPOSAL], ["Kết quả", r.RESULT], ["Lý do từ chối", r.REJECT_REASON],
+                ["Thời gian xử lý (giờ)", r.PROCESS_HOURS], ["Ảnh trước", r.IMG_BEFORE], ["Ảnh sau", r.IMG_AFTER],
+                ["Video", r.VIDEO], ["File đính kèm", r.FILES], ["Trạng thái gốc", r.STATUS],
+              ]
+                .filter(([, v]) => str(v))
+                .map(([k, v]) => `${k}: ${str(v, 600)}`);
+              const description = [str(r.DESCRIPTION, 4000), ...extras].filter(Boolean).join("\n");
+              const createdAt = toDbDate(r.CREATED_AT) || toDbDate(r.RECORDED_DATE) || new Date().toISOString().replace("T", " ").substring(0, 19);
+              const closedAt = status === "COMPLETED" ? toDbDate(r.COMPLETED_AT) : null;
+
+              statements.push(
+                env.DB.prepare(`
+                  INSERT INTO gemba_records (
+                    id, code, title, description, category_id, priority, status,
+                    factory_id, workshop_id, line_id, team_id,
+                    created_by_emp_code, created_by_name, assigned_to_emp_code, assigned_to_name,
+                    due_at, closed_at, created_at, updated_at, source
+                  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, CURRENT_TIMESTAMP, ?)
+                  ON CONFLICT(id) DO UPDATE SET
+                    title = excluded.title, description = excluded.description, category_id = excluded.category_id,
+                    priority = excluded.priority, status = excluded.status, factory_id = excluded.factory_id,
+                    workshop_id = excluded.workshop_id, line_id = excluded.line_id, team_id = excluded.team_id,
+                    created_by_emp_code = excluded.created_by_emp_code, created_by_name = excluded.created_by_name,
+                    assigned_to_emp_code = excluded.assigned_to_emp_code, assigned_to_name = excluded.assigned_to_name,
+                    closed_at = excluded.closed_at, created_at = excluded.created_at, updated_at = CURRENT_TIMESTAMP, source = excluded.source
+                `).bind(
+                  `gb_${srcSlug}_${slug(sheetId)}`, `${source}-${sheetId}`,
+                  str(r.TITLE, 300) || str(r.ISSUE_NAME, 300) || "(Không có tiêu đề)", description,
+                  mapCategory(r.TYPE_CODE), mapPriority(r.PRIORITY), status,
+                  factoryId, workshopId, lineId, teamId,
+                  str(r.CREATOR_USER, 60) || `SHEET_${source}`, str(r.CREATOR_NAME, 120) || null,
+                  str(r.ASSIGNEE_USER, 60) || null, str(r.ASSIGNEE_NAME, 120) || null,
+                  closedAt, createdAt, `SHEET:${source}`,
+                ),
+              );
+            } catch (rowErr) {
+              errors.push({ row: i + 1, id: sheetId, reason: rowErr.message });
+            }
+          }
+
+          for (let i = 0; i < statements.length; i += 50) {
+            const chunk = statements.slice(i, i + 50);
+            try {
+              await env.DB.batch(chunk);
+              upserted += chunk.length;
+            } catch (batchErr) {
+              errors.push({ batch: i / 50 + 1, reason: batchErr.message });
+            }
+          }
+
+          if (rows.length > 0) {
+            await recordAuditLog({ empCode: `SHEET_SYNC_${source}`, roleCode: "SYSTEM" }, "GEMBA", "SHEET_SYNC", source, { received: rows.length, upserted, failed: errors.length }, request);
+          }
+
+          return new Response(JSON.stringify({ success: errors.length === 0, received: rows.length, upserted, failed: errors.length, errors: errors.slice(0, 20) }), { headers: SECURE_JSON_HEADERS });
+        } catch (err) {
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
+        }
+      }
+
       if (url.pathname === "/api/gemba/import-sheet" && request.method === "POST") {
         try {
           const user = await verifyServerAuth(request, env);

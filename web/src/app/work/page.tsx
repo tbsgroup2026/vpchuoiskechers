@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useLayoutEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import NotificationCenter from "@/components/NotificationCenter";
@@ -12,6 +12,7 @@ import { getAllowedModules } from "@/lib/rbac";
 import Can from "@/components/Can";
 import { PERMISSIONS } from "@/lib/permissions";
 import OverviewDashboard from "@/components/work/OverviewDashboard";
+import { EnterpriseOverviewSection } from "@/components/dashboard";
 import WorkspaceHomeView from "@/components/work/WorkspaceHomeView";
 import HRSystemShell from "@/modules/hr/HRSystemShell";
 import HRHanhChanhHubView from "@/modules/hr/components/HRHanhChanhHubView";
@@ -27,7 +28,7 @@ import CNCIWrapper from "@/modules/ci/CNCIWrapper";
 import { StrategicManagementContent } from "@/components/home/StrategicManagementDashboard";
 import ProjectsOverviewPage from "@/modules/tasks/ProjectsOverviewPage";
 import { LOGISTICS_MODULE_DISPLAY_NAME, LOGISTICS_MODULE_DESCRIPTION } from "@/constants/modules";
-import LogisticsDemoApp from "@/modules/logistics-demo/LogisticsDemoApp";
+import ScmModule from "@/modules/scm/ScmModule";
 
 import {
   IconHome,
@@ -1402,6 +1403,7 @@ function WorkDashboardPage({ initialDept }: { initialDept?: string | null }) {
           {/* ════════════════════════════════════════════════════════════════
               THẺ 01: TỔNG QUAN HỆ THỐNG (CHỈ RENDER KHI CHỌN KHỐI TỔNG QUAN)
              ════════════════════════════════════════════════════════════════ */}
+          {selectedDept === "overview" && <EnterpriseOverviewSection />}
           {selectedDept === "overview" && (
             <OverviewDashboard
               onSelectDept={(deptId) => handleSelectDept(selectedDept === deptId ? null : deptId)}
@@ -1510,10 +1512,10 @@ function WorkDashboardPage({ initialDept }: { initialDept?: string | null }) {
           )}
 
           {/* IF R&D (PHÁT TRIỂN SẢN PHẨM) IS SELECTED */}
-          {/* KẾ HOẠCH CHUẨN BỊ & TRUNG TÂM PHÂN PHỐI – BẢN DEMO */}
+          {/* KẾ HOẠCH CHUẨN BỊ & TRUNG TÂM PHÂN PHỐI: module SCM (web/src/modules/scm) */}
           {selectedDept === "logistics" && (
             <div className="w-full">
-              <LogisticsDemoApp />
+              <ScmModule />
             </div>
           )}
 
@@ -2055,19 +2057,6 @@ function WorkDashboardPage({ initialDept }: { initialDept?: string | null }) {
   );
 }
 
-/**
- * Link chia sẻ bản demo cho Ban điều hành: /work?dept=logistics&demo=1
- * chỉ render màn hình demo toàn trang, không hiện sidebar hay module khác.
- * useLayoutEffect chạy trước khi trình duyệt vẽ nên không bị nháy giao diện /work.
- */
 export default function WorkPage(props: { initialDept?: string | null }) {
-  const [standaloneDemo, setStandaloneDemo] = useState(false);
-  useIsomorphicLayoutEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("dept") === "logistics" && params.get("demo") === "1") setStandaloneDemo(true);
-  }, []);
-  if (standaloneDemo) return <LogisticsDemoApp standalone />;
   return <WorkDashboardPage {...props} />;
 }
-
-const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;

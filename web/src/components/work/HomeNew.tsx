@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import DepartmentDashboardView from "@/modules/dashboard/DepartmentDashboardView";
-import { EnterpriseOverviewSection, KpiCard } from "@/components/dashboard";
+import { KpiCard } from "@/components/dashboard";
 import {
   IconUsers,
   IconLayoutGrid,
@@ -131,11 +131,6 @@ export default function HomeNew({
           </div>
         </div>
       </div>
-
-      {/* ════════════════════════════════════════════════════════════════
-          1.2 TỔNG QUAN TBS GROUP (ENTERPRISE STATS & DONUT CHART)
-         ════════════════════════════════════════════════════════════════ */}
-      <EnterpriseOverviewSection />
 
       {/* ════════════════════════════════════════════════════════════════
           1.5 DASHBOARD MODE SELECTOR (Dashboard Cá Nhân vs Phòng Ban)

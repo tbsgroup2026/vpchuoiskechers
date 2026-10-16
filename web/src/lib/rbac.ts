@@ -90,7 +90,8 @@ export const getAllowedModules = (activeUser: any, sysUser: any = null): string[
   }
 
   // 4. Nếu là nhân viên thường hoặc Trưởng phòng, trả về các module theo logic hiện tại
-  const allowed = new Set(["home", "overview", "my-tasks", "tasks", "projects", "hr", "ci"]);
+  // "logistics": màn Tiến độ chung của module SCM cho mọi bộ phận xem; quyền từng màn do /api/scm kiểm tra
+  const allowed = new Set(["home", "overview", "my-tasks", "tasks", "projects", "hr", "ci", "logistics"]);
   
   const isTP = roles.includes("TRUONG_PHONG") || roles.includes("MANAGER") || roles.includes("DEPARTMENT_HEAD") || mgmtLevel === 3;
   if (isTP) {

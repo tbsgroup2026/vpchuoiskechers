@@ -3,7 +3,7 @@ import { getAuthUser, isDepartmentHead, isExecutiveOrAdmin, isAdminUser, isRecep
 import { ensureKaizenSchema } from '@/lib/kaizenDbMigration';
 import { logAudit } from '@/lib/auditLogger';
 import { sendZaloNotification } from '@/lib/zaloNotificationService';
-import { isMeetingTimePassed } from '@/lib/roomTimeHelper';
+import { isMeetingTimePassed, isSlotOverlapping } from '@/lib/roomTimeHelper';
 
 function getDbBinding(): any {
   return (process.env as any).DB || (globalThis as any).DB || null;
@@ -76,18 +76,22 @@ export async function POST(request: Request) {
         console.warn('[Booking API] Schema migration warning:', migrationErr);
       }
 
-      // High #7: Race Condition / Conflict Check in D1 Database
+      // High #7: Race Condition / Conflict Check in D1 Database (Interval Overlap)
       if (targetRoomId) {
-        const existingConflict: any = await db.prepare(`
+        const existingBookingsRes: any = await db.prepare(`
           SELECT * FROM room_bookings
-          WHERE room_id = ? AND booking_date = ? AND time_slot = ? AND status != 'CANCELLED'
-        `).bind(targetRoomId, targetDate, timeSlot).first().catch(() => null);
+          WHERE room_id = ? AND booking_date = ? AND status NOT IN ('CANCELLED', 'COMPLETED')
+        `).bind(targetRoomId, targetDate).all().catch(() => ({ results: [] }));
+
+        const existingConflict = (existingBookingsRes.results || []).find((b: any) =>
+          isSlotOverlapping(timeSlot, b.time_slot)
+        );
 
         if (existingConflict) {
           return NextResponse.json(
             {
               success: false,
-              error: `XUNG ĐỘT THỜI GIAN: Phòng họp đã được đăng ký bởi ${existingConflict.user_name || 'người khác'} (${existingConflict.department || 'Phòng ban'}) trong khung giờ ${timeSlot} ngày ${targetDate}!`,
+              error: `XUNG ĐỘT THỜI GIAN: Phòng họp đã có lịch "${existingConflict.purpose || 'Đã đăng ký'}" bởi ${existingConflict.user_name || 'người khác'} (${existingConflict.department || 'Phòng ban'}) trong khung giờ ${existingConflict.time_slot} ngày ${targetDate}!`,
             },
             { status: 409 }
           );
@@ -217,16 +221,16 @@ export async function POST(request: Request) {
       });
     }
 
-    // In-memory conflict check
+    // In-memory conflict check (Interval Overlap)
     const existingMemConflict = targetRoomId ? inMemoryBookings.find(
-      (b) => b.roomId === targetRoomId && b.date === targetDate && b.timeSlot === timeSlot && b.status !== 'CANCELLED'
+      (b) => b.roomId === targetRoomId && b.date === targetDate && b.status !== 'CANCELLED' && b.status !== 'COMPLETED' && isSlotOverlapping(timeSlot, b.timeSlot)
     ) : null;
 
     if (existingMemConflict) {
       return NextResponse.json(
         {
           success: false,
-          error: `XUNG ĐỘT THỜI GIAN: Phòng họp đã được đăng ký trong khung giờ ${timeSlot} ngày ${targetDate}!`,
+          error: `XUNG ĐỘT THỜI GIAN: Phòng họp đã được đăng ký trong khung giờ ${existingMemConflict.timeSlot} ngày ${targetDate}!`,
         },
         { status: 409 }
       );
@@ -383,16 +387,23 @@ async function handleBookingUpdate(request: Request) {
 
       if (status === 'CONFIRMED' && !body.forceApprove) {
         const targetRoom = roomId || existingBooking.room_id;
-        const overlap: any = await db.prepare(`
+        const targetDay = targetDate || existingBooking.booking_date;
+        const targetSlot = timeSlot || existingBooking.time_slot;
+
+        const existingApproved: any = await db.prepare(`
           SELECT * FROM room_bookings 
-          WHERE room_id = ? AND booking_date = ? AND time_slot = ? AND status = 'CONFIRMED' AND id != ?
-        `).bind(targetRoom, targetDate || existingBooking.booking_date, timeSlot || existingBooking.time_slot, targetId).first().catch(() => null);
+          WHERE room_id = ? AND booking_date = ? AND status = 'CONFIRMED' AND id != ?
+        `).bind(targetRoom, targetDay, targetId).all().catch(() => ({ results: [] }));
+
+        const overlap = (existingApproved.results || []).find((b: any) =>
+          isSlotOverlapping(targetSlot, b.time_slot)
+        );
 
         if (overlap) {
           return NextResponse.json({
             success: false, 
             warning: 'OVERLAP',
-            error: `Phòng này đã được duyệt cho ${overlap.user_name} (${overlap.department}) trong khung giờ này. Bạn có chắc muốn duyệt thêm đơn này không?`,
+            error: `Phòng này đã được duyệt cho ${overlap.user_name} (${overlap.department}) trong khung giờ ${overlap.time_slot}. Bạn có chắc muốn duyệt thêm đơn này không?`,
           }, { status: 409 }); // We use 409, frontend will handle this to show force approve
         }
       }

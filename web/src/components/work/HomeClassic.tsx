@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import DepartmentDashboardView from "@/modules/dashboard/DepartmentDashboardView";
+import { EnterpriseOverviewSection, KpiCard, DonutChartCard, BarChartCard } from "@/components/dashboard";
 import { TaskItem, NotificationItem } from "./HomeNew";
 import {
   IconUser,
@@ -294,6 +295,11 @@ export default function HomeClassic({
       ) : (
         <>
           {/* ════════════════════════════════════════════════════════════════
+              1.2 TỔNG QUAN TBS GROUP (ENTERPRISE STATS & DONUT CHART)
+             ════════════════════════════════════════════════════════════════ */}
+          <EnterpriseOverviewSection />
+
+          {/* ════════════════════════════════════════════════════════════════
               2. THANH LỌC THỜI GIAN CÔNG VIỆC (PREVENT LINE BREAKS)
              ════════════════════════════════════════════════════════════════ */}
           <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -343,72 +349,38 @@ export default function HomeClassic({
           </div>
 
           {/* ════════════════════════════════════════════════════════════════
-              3. BỐN THẺ KPI (MỖI THẺ NỀN NHẠT RIÊNG)
+              3. BỐN THẺ KPI CÔNG VIỆC CÁ NHÂN THEO THỜI GIAN
              ════════════════════════════════════════════════════════════════ */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-            {/* KPI 1: TỔNG CÔNG VIỆC */}
-            <div className="bg-blue-50/70 p-4 rounded-xl border border-blue-200/90 shadow-2xs flex items-center justify-between gap-3">
-              <div className="space-y-1 min-w-0">
-                <div className="text-[10px] font-black uppercase text-blue-700 tracking-wider">
-                  TỔNG CÔNG VIỆC {getTimeFilterTag(timeFilter)}
-                </div>
-                <div className="text-2xl font-black text-blue-900 leading-none">
-                  {isLoadingTasks ? "..." : periodKpis.total}
-                </div>
-                <div className="text-[10px] text-slate-500 font-medium">Không thay đổi</div>
-              </div>
-              <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center shrink-0 border border-blue-200">
-                <IconFileText size={20} />
-              </div>
-            </div>
-
-            {/* KPI 2: ĐANG THỰC HIỆN */}
-            <div className="bg-amber-50/70 p-4 rounded-xl border border-amber-200/90 shadow-2xs flex items-center justify-between gap-3">
-              <div className="space-y-1 min-w-0">
-                <div className="text-[10px] font-black uppercase text-amber-800 tracking-wider">
-                  ĐANG THỰC HIỆN
-                </div>
-                <div className="text-2xl font-black text-amber-700 leading-none">
-                  {isLoadingTasks ? "..." : periodKpis.inProgress}
-                </div>
-                <div className="text-[10px] text-slate-500 font-medium">Không thay đổi</div>
-              </div>
-              <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center shrink-0 border border-amber-200">
-                <IconClock size={20} />
-              </div>
-            </div>
-
-            {/* KPI 3: HOÀN THÀNH */}
-            <div className="bg-emerald-50/70 p-4 rounded-xl border border-emerald-200/90 shadow-2xs flex items-center justify-between gap-3">
-              <div className="space-y-1 min-w-0">
-                <div className="text-[10px] font-black uppercase text-[#006838] tracking-wider">
-                  HOÀN THÀNH
-                </div>
-                <div className="text-2xl font-black text-[#006838] leading-none">
-                  {isLoadingTasks ? "..." : periodKpis.done}
-                </div>
-                <div className="text-[10px] text-slate-500 font-medium">Không thay đổi</div>
-              </div>
-              <div className="w-10 h-10 rounded-xl bg-emerald-100 text-[#006838] flex items-center justify-center shrink-0 border border-emerald-200">
-                <IconCheck size={20} />
-              </div>
-            </div>
-
-            {/* KPI 4: CẦN XỬ LÝ GẤP */}
-            <div className="bg-rose-50/70 p-4 rounded-xl border border-rose-200/90 shadow-2xs flex items-center justify-between gap-3">
-              <div className="space-y-1 min-w-0">
-                <div className="text-[10px] font-black uppercase text-rose-700 tracking-wider">
-                  CẦN XỬ LÝ GẤP
-                </div>
-                <div className="text-2xl font-black text-rose-800 leading-none">
-                  {isLoadingTasks ? "..." : periodKpis.needsAttention}
-                </div>
-                <div className="text-[10px] text-slate-500 font-medium">Không thay đổi</div>
-              </div>
-              <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 border border-rose-200">
-                <IconAlertTriangle size={20} />
-              </div>
-            </div>
+            <KpiCard
+              icon={IconFileText}
+              title={`Tổng công việc ${getTimeFilterTag(timeFilter)}`}
+              value={periodKpis.total}
+              subtitle="Toàn bộ công việc"
+              loading={isLoadingTasks}
+            />
+            <KpiCard
+              icon={IconClock}
+              title="Đang thực hiện"
+              value={periodKpis.inProgress}
+              subtitle="Đang triển khai"
+              loading={isLoadingTasks}
+            />
+            <KpiCard
+              icon={IconCheck}
+              title="Hoàn thành"
+              value={periodKpis.done}
+              subtitle="Đã nghiệm thu"
+              loading={isLoadingTasks}
+            />
+            <KpiCard
+              icon={IconAlertTriangle}
+              title="Cần xử lý gấp"
+              value={periodKpis.needsAttention}
+              subtitle="Quá hạn / Sát hạn"
+              invertTrend={true}
+              loading={isLoadingTasks}
+            />
           </div>
 
           {/* ════════════════════════════════════════════════════════════════
@@ -416,205 +388,52 @@ export default function HomeClassic({
              ════════════════════════════════════════════════════════════════ */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Chart 1: Donut Chart - Tình trạng công việc */}
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3 flex flex-col justify-between">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                  <IconChartPie size={16} className="text-[#006838]" />
-                  <span>Tình trạng công việc</span>
-                </h3>
-              </div>
-
-              <div className="flex items-center justify-around gap-2 py-2">
-                {/* SVG Donut Chart */}
-                <div className="relative w-28 h-28 shrink-0 flex items-center justify-center">
-                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                    {/* Background Ring */}
-                    <path
-                      className="text-slate-100"
-                      strokeWidth="4"
-                      stroke="currentColor"
-                      fill="none"
-                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    />
-                    {/* Segments calculation if total > 0 */}
-                    {periodKpis.total > 0 ? (
-                      <>
-                        {/* Done segment */}
-                        <path
-                          className="text-[#006838]"
-                          strokeDasharray={`${(periodKpis.done / periodKpis.total) * 100}, 100`}
-                          strokeWidth="4.5"
-                          strokeLinecap="round"
-                          stroke="currentColor"
-                          fill="none"
-                          d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                        />
-                      </>
-                    ) : null}
-                  </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                    <span className="text-xl font-black text-slate-900">{periodKpis.total}</span>
-                    <span className="text-[9px] font-bold text-slate-400">công việc</span>
-                  </div>
-                </div>
-
-                {/* Legend */}
-                <div className="space-y-1.5 text-xs font-semibold">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="flex items-center gap-1.5 text-slate-600 text-[11px]">
-                      <span className="w-2.5 h-2.5 rounded-full bg-[#006838] inline-block"></span>
-                      Hoàn thành
-                    </span>
-                    <span className="font-mono font-bold text-slate-800 text-[11px]">
-                      {periodKpis.done} ({periodKpis.total > 0 ? Math.round((periodKpis.done / periodKpis.total) * 100) : 0}%)
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="flex items-center gap-1.5 text-slate-600 text-[11px]">
-                      <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span>
-                      Đang thực hiện
-                    </span>
-                    <span className="font-mono font-bold text-slate-800 text-[11px]">
-                      {periodKpis.inProgress} ({periodKpis.total > 0 ? Math.round((periodKpis.inProgress / periodKpis.total) * 100) : 0}%)
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="flex items-center gap-1.5 text-slate-600 text-[11px]">
-                      <span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block"></span>
-                      Quá hạn
-                    </span>
-                    <span className="font-mono font-bold text-slate-800 text-[11px]">
-                      {periodKpis.needsAttention} ({periodKpis.total > 0 ? Math.round((periodKpis.needsAttention / periodKpis.total) * 100) : 0}%)
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="flex items-center gap-1.5 text-slate-600 text-[11px]">
-                      <span className="w-2.5 h-2.5 rounded-full bg-slate-300 inline-block"></span>
-                      Chưa bắt đầu
-                    </span>
-                    <span className="font-mono font-bold text-slate-800 text-[11px]">
-                      {periodKpis.unstarted} ({periodKpis.total > 0 ? Math.round((periodKpis.unstarted / periodKpis.total) * 100) : 0}%)
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <DonutChartCard
+              title="TÌNH TRẠNG CÔNG VIỆC"
+              icon={IconChartPie}
+              centerLabel="CÔNG VIỆC"
+              centerTotal={periodKpis.total}
+              centerSubtitle="Tổng số"
+              breakdown={[
+                { key: "done", label: "Hoàn thành", value: periodKpis.done, percent: periodKpis.total > 0 ? Math.round((periodKpis.done / periodKpis.total) * 100) : 0, color: "#006838" },
+                { key: "doing", label: "Đang thực hiện", value: periodKpis.inProgress, percent: periodKpis.total > 0 ? Math.round((periodKpis.inProgress / periodKpis.total) * 100) : 0, color: "#f59e0b" },
+                { key: "overdue", label: "Quá hạn", value: periodKpis.needsAttention, percent: periodKpis.total > 0 ? Math.round((periodKpis.needsAttention / periodKpis.total) * 100) : 0, color: "#ef4444" },
+                { key: "unstarted", label: "Chưa bắt đầu", value: periodKpis.unstarted, percent: periodKpis.total > 0 ? Math.round((periodKpis.unstarted / periodKpis.total) * 100) : 0, color: "#94a3b8" },
+              ]}
+            />
 
             {/* Chart 2: Weekly Bar Chart - Công việc theo tuần */}
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3 flex flex-col justify-between">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                  <IconChartBar size={16} className="text-[#006838]" />
-                  <span>Công việc theo tuần</span>
-                </h3>
-                <select
-                  value={weekChartPeriod}
-                  onChange={(e) => setWeekChartPeriod(e.target.value as any)}
-                  className="px-2 py-0.5 bg-slate-50 border border-slate-200 rounded text-[10px] font-bold text-slate-700 outline-none"
-                >
-                  <option value="this_week">Tuần này</option>
-                  <option value="last_week">Tuần trước</option>
-                </select>
-              </div>
-
-              {/* Bar chart container */}
-              <div className="pt-2 pb-1 space-y-2">
-                <div className="h-28 flex items-end justify-between gap-1 px-2 border-b border-slate-200 pb-1">
-                  {["T2", "T3", "T4", "T5", "T6", "T7", "CN"].map((day, i) => {
-                    const sampleHeights = [40, 65, 30, 85, 50, 20, 10]; // mock representation
-                    const heightPct = sampleHeights[i];
-                    return (
-                      <div key={day} className="flex-1 flex flex-col items-center gap-1 h-full justify-end group">
-                        <div className="w-full max-w-[20px] bg-slate-100 rounded-t overflow-hidden h-full flex flex-col justify-end">
-                          <div
-                            className="w-full bg-[#006838] transition-all group-hover:bg-emerald-500 rounded-t"
-                            style={{ height: `${heightPct}%` }}
-                          ></div>
-                        </div>
-                        <span className="text-[10px] font-bold text-slate-500">{day}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <div className="flex items-center justify-center gap-4 text-[10px] font-bold text-slate-500 pt-1">
-                  <span className="flex items-center gap-1">
-                    <span className="w-2 h-2 rounded bg-[#006838]"></span> Hoàn thành
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <span className="w-2 h-2 rounded bg-amber-500"></span> Đang làm
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <span className="w-2 h-2 rounded bg-rose-500"></span> Quá hạn
-                  </span>
-                </div>
-              </div>
-            </div>
+            <BarChartCard
+              title="TIẾN ĐỘ THEO TUẦN"
+              icon={IconChartBar}
+              data={[
+                { label: "T2", value: 4, secondaryValue: 5 },
+                { label: "T3", value: 6, secondaryValue: 7 },
+                { label: "T4", value: 3, secondaryValue: 4 },
+                { label: "T5", value: 8, secondaryValue: 9 },
+                { label: "T6", value: 5, secondaryValue: 6 },
+                { label: "T7", value: 2, secondaryValue: 3 },
+                { label: "CN", value: 1, secondaryValue: 1 },
+              ]}
+              valueLabel="Hoàn thành"
+              secondaryLabel="Kế hoạch"
+              subtitle={weekChartPeriod === "this_week" ? "Tuần này" : "Tuần trước"}
+            />
 
             {/* Chart 3: Donut Chart - Công việc theo phân loại */}
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3 flex flex-col justify-between">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                  <IconChartPie size={16} className="text-purple-600" />
-                  <span>Công việc theo phân loại</span>
-                </h3>
-                <span className="text-[10px] font-bold text-slate-400 uppercase">
-                  {getTimeFilterLabel(timeFilter)}
-                </span>
-              </div>
-
-              <div className="flex items-center justify-around gap-2 py-2">
-                <div className="relative w-28 h-28 shrink-0 flex items-center justify-center">
-                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                    <circle cx="18" cy="18" r="15.9155" stroke="#E2E8F0" strokeWidth="4" fill="none" />
-                    <circle cx="18" cy="18" r="15.9155" stroke="#3B82F6" strokeWidth="4.5" strokeDasharray="40 100" strokeDashoffset="0" fill="none" />
-                    <circle cx="18" cy="18" r="15.9155" stroke="#10B981" strokeWidth="4.5" strokeDasharray="30 100" strokeDashoffset="-40" fill="none" />
-                    <circle cx="18" cy="18" r="15.9155" stroke="#8B5CF6" strokeWidth="4.5" strokeDasharray="20 100" strokeDashoffset="-70" fill="none" />
-                  </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                    <span className="text-xl font-black text-slate-900">{periodKpis.total}</span>
-                    <span className="text-[9px] font-bold text-slate-400">phân loại</span>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5 text-xs font-semibold">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="flex items-center gap-1.5 text-slate-600 text-[11px]">
-                      <span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block"></span>
-                      Dự án
-                    </span>
-                    <span className="font-mono font-bold text-slate-800 text-[11px]">40%</span>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="flex items-center gap-1.5 text-slate-600 text-[11px]">
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
-                      Hành chính
-                    </span>
-                    <span className="font-mono font-bold text-slate-800 text-[11px]">30%</span>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="flex items-center gap-1.5 text-slate-600 text-[11px]">
-                      <span className="w-2.5 h-2.5 rounded-full bg-purple-500 inline-block"></span>
-                      Nhân sự
-                    </span>
-                    <span className="font-mono font-bold text-slate-800 text-[11px]">20%</span>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="flex items-center gap-1.5 text-slate-600 text-[11px]">
-                      <span className="w-2.5 h-2.5 rounded-full bg-slate-400 inline-block"></span>
-                      Khác
-                    </span>
-                    <span className="font-mono font-bold text-slate-800 text-[11px]">10%</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <DonutChartCard
+              title="PHÂN LOẠI CÔNG VIỆC"
+              icon={IconChartPie}
+              centerLabel="PHÂN HỆ"
+              centerTotal={periodKpis.total}
+              centerSubtitle="Công việc"
+              breakdown={[
+                { key: "project", label: "Dự án", value: Math.round(periodKpis.total * 0.4), percent: 40, color: "#006838" },
+                { key: "admin", label: "Hành chính", value: Math.round(periodKpis.total * 0.3), percent: 30, color: "#22c55e" },
+                { key: "hr", label: "Nhân sự", value: Math.round(periodKpis.total * 0.2), percent: 20, color: "#f59e0b" },
+                { key: "other", label: "Khác", value: Math.max(0, periodKpis.total - Math.round(periodKpis.total * 0.9)), percent: 10, color: "#94a3b8" },
+              ]}
+            />
           </div>
 
           {/* ════════════════════════════════════════════════════════════════

@@ -50,10 +50,9 @@ export function usePermission() {
 
   // Danh sách các mã tài khoản / role thuộc cấp Ban Giám Đốc hoặc Admin
   const EXECS = [
-    "TONG_GIAM_DOC", "PHO_TONG_GIAM_DOC", "GIAM_DOC", "PHO_GIAM_DOC",
-    "SUPER_ADMIN", "SYSTEM_ADMIN", "ADMIN-2026", "admin", "ceo",
-    "deputy_ceo", "director", "deputy_director", "202608001", "2026080001",
-    "202608010", "222102020", "210602002", "201711002", "LEKHAI", "DUTHITHANHTINH", "TRANTHINGOAN", "NGOAN", "CI_LEAD", "ci_lead", "ci", "IE", "ie"
+    "TONG_GIAM_DOC", "PHO_TONG_GIAM_DOC", "GIAM_DOC", "PHO_GIAM_DOC", "BAN_GIAM_DOC",
+    "SUPER_ADMIN", "SYSTEM_ADMIN", "ADMIN-2026", "ADMIN", "admin", "ceo",
+    "deputy_ceo", "director", "deputy_director", "TGD-001", "TGĐ-001", "BGD-001"
   ];
 
   const isExecutiveOrAdmin = EXECS.includes(roleCode) || EXECS.includes(empCode) || roles.some(r => EXECS.includes(r.toLowerCase()));
@@ -67,6 +66,10 @@ export function usePermission() {
     // Map role alias / role code từ DB về key định nghĩa trong ROLES
     const activeRoles = new Set<string>(roles.map(r => r.toLowerCase()));
     if (roleCode === "TRUONG_PHONG") activeRoles.add("department_head");
+    if (roleCode === "CI_LEAD" || roleCode === "CI") {
+      activeRoles.add("department_head");
+      activeRoles.add("ci");
+    }
     if (roleCode === "LE_TAN") activeRoles.add("receptionist");
     if (roleCode === "KE_TOAN") activeRoles.add("accountant");
     if (roleCode === "NHAN_SU") activeRoles.add("hr");

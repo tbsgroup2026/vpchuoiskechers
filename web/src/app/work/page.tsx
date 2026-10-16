@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useLayoutEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import NotificationCenter from "@/components/NotificationCenter";
@@ -27,6 +27,7 @@ import CNCIWrapper from "@/modules/ci/CNCIWrapper";
 import { StrategicManagementContent } from "@/components/home/StrategicManagementDashboard";
 import ProjectsOverviewPage from "@/modules/tasks/ProjectsOverviewPage";
 import { LOGISTICS_MODULE_DISPLAY_NAME, LOGISTICS_MODULE_DESCRIPTION } from "@/constants/modules";
+import LogisticsDemoApp from "@/modules/logistics-demo/LogisticsDemoApp";
 
 import {
   IconHome,
@@ -189,7 +190,7 @@ function HRModuleView() {
   );
 }
 
-export default function WorkDashboardPage({ initialDept }: { initialDept?: string | null }) {
+function WorkDashboardPage({ initialDept }: { initialDept?: string | null }) {
   const router = useRouter();
   const [selectedDept, setSelectedDept] = useState<string | null>(initialDept || null);
 
@@ -827,7 +828,7 @@ export default function WorkDashboardPage({ initialDept }: { initialDept?: strin
       name: LOGISTICS_MODULE_DISPLAY_NAME,
       sub: LOGISTICS_MODULE_DESCRIPTION,
       icon: IconTruck,
-      hasData: false,
+      hasData: true,
     },
     {
       id: "production",
@@ -1430,7 +1431,7 @@ export default function WorkDashboardPage({ initialDept }: { initialDept?: strin
           {/* ════════════════════════════════════════════════════════════════
               DEPARTMENT HERO BANNER CARD (Screenshot 1 Layout)
              ════════════════════════════════════════════════════════════════ */}
-          {activeDeptObj && activeDeptObj.id !== "home" && activeDeptObj.id !== "overview" && activeDeptObj.id !== "my-tasks" && activeDeptObj.id !== "my_tasks" && activeDeptObj.id !== "finance" && activeDeptObj.id !== "rd" && activeDeptObj.id !== "hr" && activeDeptObj.id !== "ci" && activeDeptObj.id !== "production-output" && (
+          {activeDeptObj && activeDeptObj.id !== "home" && activeDeptObj.id !== "overview" && activeDeptObj.id !== "my-tasks" && activeDeptObj.id !== "my_tasks" && activeDeptObj.id !== "finance" && activeDeptObj.id !== "rd" && activeDeptObj.id !== "hr" && activeDeptObj.id !== "ci" && activeDeptObj.id !== "production-output" && activeDeptObj.id !== "logistics" && (
             <div className="relative w-full rounded-3xl overflow-hidden border border-slate-200/90 shadow-md flex-shrink-0 bg-slate-900 group">
               {/* Background Image with Dark Emerald Overlay */}
               <img
@@ -1509,6 +1510,13 @@ export default function WorkDashboardPage({ initialDept }: { initialDept?: strin
           )}
 
           {/* IF R&D (PHÁT TRIỂN SẢN PHẨM) IS SELECTED */}
+          {/* KẾ HOẠCH CHUẨN BỊ & TRUNG TÂM PHÂN PHỐI – BẢN DEMO */}
+          {selectedDept === "logistics" && (
+            <div className="w-full">
+              <LogisticsDemoApp />
+            </div>
+          )}
+
           {selectedDept === "rd" && (
             <div className="space-y-4 w-full">
               <RDModule
@@ -2046,3 +2054,20 @@ export default function WorkDashboardPage({ initialDept }: { initialDept?: strin
     </div>
   );
 }
+
+/**
+ * Link chia sẻ bản demo cho Ban điều hành: /work?dept=logistics&demo=1
+ * chỉ render màn hình demo toàn trang, không hiện sidebar hay module khác.
+ * useLayoutEffect chạy trước khi trình duyệt vẽ nên không bị nháy giao diện /work.
+ */
+export default function WorkPage(props: { initialDept?: string | null }) {
+  const [standaloneDemo, setStandaloneDemo] = useState(false);
+  useIsomorphicLayoutEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("dept") === "logistics" && params.get("demo") === "1") setStandaloneDemo(true);
+  }, []);
+  if (standaloneDemo) return <LogisticsDemoApp standalone />;
+  return <WorkDashboardPage {...props} />;
+}
+
+const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;

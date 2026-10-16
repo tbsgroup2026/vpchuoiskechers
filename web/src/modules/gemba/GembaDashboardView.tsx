@@ -11,6 +11,7 @@ import {
   IconRefresh,
   IconArrowRight,
 } from "@tabler/icons-react";
+import { KpiCard, DonutChartCard, BarChartCard } from "@/components/dashboard";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -249,222 +250,100 @@ export default function GembaDashboardView({ onNavigateToManagement }: GembaDash
         </div>
       </div>
 
-      {/* 2.2 6 KPI CARDS GRID (EXACT MATCH TO REFERENCE SCREENSHOT) */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5 sm:gap-4 font-sans">
-        {/* Card 1: TỔNG GEMBA */}
-        <div
+      {/* 2.2 6 KPI CARDS GRID (UNIFIED TBS DASHBOARD STYLE) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5 font-sans">
+        <KpiCard
+          icon={IconClipboardList}
+          title="Tổng Gemba"
+          value={kpis.total}
+          subtitle="Tất cả phiếu"
+          loading={loading}
           onClick={onNavigateToManagement}
-          className="p-4 rounded-2xl bg-[#006838] text-white flex flex-col justify-between shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer relative overflow-hidden group"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-black uppercase tracking-wider text-emerald-100">
-              TỔNG GEMBA
-            </span>
-            <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center text-white shadow-inner">
-              <IconClipboardList size={18} />
-            </div>
-          </div>
-          <div className="my-2">
-            <span className="text-3xl sm:text-4xl font-black tracking-tight text-white tabular-nums">
-              {kpis.total}
-            </span>
-          </div>
-          <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white/20 text-white text-[10px] font-bold self-start backdrop-blur-xs">
-            <span>● Tất cả phiếu</span>
-          </div>
-        </div>
-
-        {/* Card 2: MỚI */}
-        <div
+        />
+        <KpiCard
+          icon={IconHourglassHigh}
+          title="Mới"
+          value={kpis.new}
+          subtitle="Chờ tiếp nhận"
+          loading={loading}
           onClick={onNavigateToManagement}
-          className="p-4 rounded-2xl bg-[#fa8c16] text-white flex flex-col justify-between shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer relative overflow-hidden group"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-black uppercase tracking-wider text-amber-100">
-              MỚI
-            </span>
-            <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center text-white shadow-inner">
-              <IconHourglassHigh size={18} />
-            </div>
-          </div>
-          <div className="my-2">
-            <span className="text-3xl sm:text-4xl font-black tracking-tight text-white tabular-nums">
-              {kpis.new}
-            </span>
-          </div>
-          <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white/20 text-white text-[10px] font-bold self-start backdrop-blur-xs">
-            <span>⏳ Chờ tiếp nhận</span>
-          </div>
-        </div>
-
-        {/* Card 3: ĐANG XỬ LÝ */}
-        <div
+        />
+        <KpiCard
+          icon={IconLoader}
+          title="Đang xử lý"
+          value={kpis.processing}
+          subtitle="Đang triển khai"
+          loading={loading}
           onClick={onNavigateToManagement}
-          className="p-4 rounded-2xl bg-[#1890ff] text-white flex flex-col justify-between shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer relative overflow-hidden group"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-black uppercase tracking-wider text-blue-100">
-              ĐANG XỬ LÝ
-            </span>
-            <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center text-white shadow-inner">
-              <IconLoader size={18} className="animate-spin" />
-            </div>
-          </div>
-          <div className="my-2">
-            <span className="text-3xl sm:text-4xl font-black tracking-tight text-white tabular-nums">
-              {kpis.processing}
-            </span>
-          </div>
-          <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white/20 text-white text-[10px] font-bold self-start backdrop-blur-xs">
-            <span>🔄 Đang triển khai</span>
-          </div>
-        </div>
-
-        {/* Card 4: HOÀN THÀNH */}
-        <div
+        />
+        <KpiCard
+          icon={IconCircleCheck}
+          title="Hoàn thành"
+          value={kpis.completed}
+          subtitle="Đã nghiệm thu"
+          loading={loading}
           onClick={onNavigateToManagement}
-          className="p-4 rounded-2xl bg-[#52c41a] text-white flex flex-col justify-between shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer relative overflow-hidden group"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-black uppercase tracking-wider text-emerald-100">
-              HOÀN THÀNH
-            </span>
-            <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center text-white shadow-inner">
-              <IconCircleCheck size={18} />
-            </div>
-          </div>
-          <div className="my-2">
-            <span className="text-3xl sm:text-4xl font-black tracking-tight text-white tabular-nums">
-              {kpis.completed}
-            </span>
-          </div>
-          <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white/20 text-white text-[10px] font-bold self-start backdrop-blur-xs">
-            <span>✔ Đã đóng</span>
-          </div>
-        </div>
-
-        {/* Card 5: QUÁ HẠN */}
-        <div
+        />
+        <KpiCard
+          icon={IconAlertTriangle}
+          title="Quá hạn"
+          value={kpis.overdue}
+          subtitle="Cần ưu tiên"
+          invertTrend={true}
+          loading={loading}
           onClick={onNavigateToManagement}
-          className="p-4 rounded-2xl bg-[#ff4d4f] text-white flex flex-col justify-between shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer relative overflow-hidden group"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-black uppercase tracking-wider text-rose-100">
-              QUÁ HẠN
-            </span>
-            <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center text-white shadow-inner">
-              <IconAlertTriangle size={18} />
-            </div>
-          </div>
-          <div className="my-2">
-            <span className="text-3xl sm:text-4xl font-black tracking-tight text-white tabular-nums">
-              {kpis.overdue}
-            </span>
-          </div>
-          <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white/20 text-white text-[10px] font-bold self-start backdrop-blur-xs">
-            <span>⚠ Cần ưu tiên</span>
-          </div>
-        </div>
-
-        {/* Card 6: THÁNG NÀY */}
-        <div
+        />
+        <KpiCard
+          icon={IconCalendarEvent}
+          title="Tháng này"
+          value={kpis.this_month}
+          subtitle="Phiếu phát sinh"
+          loading={loading}
           onClick={onNavigateToManagement}
-          className="p-4 rounded-2xl bg-[#722ed1] text-white flex flex-col justify-between shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer relative overflow-hidden group"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-black uppercase tracking-wider text-purple-100">
-              THÁNG NÀY
-            </span>
-            <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center text-white shadow-inner">
-              <IconCalendarEvent size={18} />
-            </div>
-          </div>
-          <div className="my-2">
-            <span className="text-3xl sm:text-4xl font-black tracking-tight text-white tabular-nums">
-              {kpis.this_month}
-            </span>
-          </div>
-          <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white/20 text-white text-[10px] font-bold self-start backdrop-blur-xs">
-            <span>📅 Phiếu phát sinh</span>
-          </div>
-        </div>
+        />
       </div>
 
       {/* 2.3 CHART GROUP 1 (3 CHARTS) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Chart 1: Gemba theo Nhà máy */}
-        <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-2xs space-y-3">
-          <h3 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-            Gemba theo Nhà máy
-          </h3>
-          <div className="h-48">
-            <Bar
-              data={chart1Data}
-              options={{
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: { y: { beginAtZero: true } },
-              }}
-            />
-          </div>
-        </div>
+        <BarChartCard
+          title="GEMBA THEO NHÀ MÁY"
+          icon={IconClipboardList}
+          data={[
+            { label: "PX May", value: 10, color: "#006838" },
+            { label: "PX Đầu vào", value: 8, color: "#22c55e" },
+            { label: "PX Gò", value: 6, color: "#3b82f6" },
+          ]}
+          valueLabel="Số lượng"
+          loading={loading}
+        />
 
         {/* Chart 2: Tỷ lệ trạng thái */}
-        <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-2xs space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-              Tỷ lệ Hoàn Thành / Quá Hạn
-            </h3>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-600">
-              Yield Index
-            </span>
-          </div>
-          <div className="h-48 relative flex items-center justify-center">
-            <Doughnut
-              data={chart2Data}
-              options={{
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { position: "bottom" } },
-                cutout: "75%",
-              }}
-            />
-            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-6">
-              <span className="text-2xl font-black text-slate-900 tabular-nums">
-                {kpis.total > 0 ? Math.round((kpis.completed / kpis.total) * 100) : 0}%
-              </span>
-              <span className="text-[9.5px] font-bold text-emerald-600 uppercase tracking-wider">
-                Nghiệm thu
-              </span>
-            </div>
-          </div>
-        </div>
+        <DonutChartCard
+          title="TỶ LỆ NGHIỆM THU"
+          icon={IconCircleCheck}
+          centerLabel="NGHIỆM THU"
+          centerTotal={kpis.total}
+          centerSubtitle="Tổng phiếu"
+          breakdown={[
+            { key: "completed", label: "Hoàn thành", value: kpis.completed, percent: kpis.total > 0 ? (kpis.completed / kpis.total) * 100 : 0, color: "#006838" },
+            { key: "overdue", label: "Quá hạn", value: kpis.overdue, percent: kpis.total > 0 ? (kpis.overdue / kpis.total) * 100 : 0, color: "#ef4444" },
+          ]}
+          loading={loading}
+        />
 
         {/* Chart 3: Lũy kế vấn đề trong tháng */}
-        <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-2xs space-y-3">
-          <h3 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-            Lũy kế vấn đề trong tháng
-          </h3>
-          <div className="h-48 relative flex items-center justify-center">
-            <Doughnut
-              data={chart3Data}
-              options={{
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { position: "bottom" } },
-                cutout: "75%",
-              }}
-            />
-            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <span className="text-2xl font-black text-slate-900">1</span>
-              <span className="text-[10px] text-slate-400 font-bold">Vấn đề</span>
-            </div>
-          </div>
-        </div>
+        <DonutChartCard
+          title="LŨY KẾ VẤN ĐỀ"
+          icon={IconAlertTriangle}
+          centerLabel="THÁNG NÀY"
+          centerTotal={kpis.this_month}
+          centerSubtitle="Vấn đề mới"
+          breakdown={[
+            { key: "dau_vao", label: "PX Đầu vào", value: kpis.this_month, percent: 100, color: "#0284c7" },
+          ]}
+          loading={loading}
+        />
       </div>
 
       {/* PILL BUTTON PHÂN TÍCH CHI TIẾT */}
@@ -480,42 +359,34 @@ export default function GembaDashboardView({ onNavigateToManagement }: GembaDash
       {/* 2.4 CHART GROUP 2 (2 CHARTS) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Chart 4: Hiện trạng xử lý vấn đề */}
-        <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-2xs space-y-3">
-          <h3 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-            Hiện trạng xử lý vấn đề
-          </h3>
-          <div className="h-52">
-            <Bar
-              data={chart4Data}
-              options={{
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { position: "top" } },
-                scales: { y: { beginAtZero: true } },
-              }}
-            />
-          </div>
-        </div>
+        <BarChartCard
+          title="HIỆN TRẠNG XỬ LÝ VẤN ĐỀ"
+          icon={IconHourglassHigh}
+          data={[
+            { label: "PX Gò", value: 0, secondaryValue: 0 },
+            { label: "PX May", value: 0, secondaryValue: 0 },
+            { label: "PX Đầu vào", value: 1, secondaryValue: 0 },
+          ]}
+          valueLabel="Đang xử lý"
+          secondaryLabel="Chờ xác nhận"
+          loading={loading}
+        />
 
         {/* Chart 5: Nhóm các vấn đề Gemba */}
-        <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-2xs space-y-3">
-          <h3 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-            Nhóm các vấn đề Gemba
-          </h3>
-          <div className="h-52">
-            <Bar
-              data={chart5Data}
-              options={{
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { position: "top" } },
-                scales: { y: { beginAtZero: true } },
-              }}
-            />
-          </div>
-        </div>
+        <BarChartCard
+          title="NHÓM CÁC VẤN ĐỀ GEMBA"
+          icon={IconAlertTriangle}
+          data={[
+            { label: "MMTB", value: 1, color: "#fa8c16" },
+            { label: "Chất lượng", value: 0, color: "#1890ff" },
+            { label: "7S", value: 0, color: "#722ed1" },
+            { label: "Tuân thủ", value: 0, color: "#13c2c2" },
+            { label: "Lãng phí", value: 0, color: "#eb2f96" },
+            { label: "Khác", value: 0, color: "#a0d911" },
+          ]}
+          valueLabel="Số sự cố"
+          loading={loading}
+        />
       </div>
 
       {/* 2.5 TABLE 1: LŨY KẾ GEMBA THÁNG - NĂM */}
@@ -677,43 +548,32 @@ export default function GembaDashboardView({ onNavigateToManagement }: GembaDash
       {/* 2.7 & 2.8 CHARTS 6 & 7 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Chart 6: Thời gian xử lý vấn đề (ngày) */}
-        <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-2xs space-y-3">
-          <h3 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-            Thời gian xử lý vấn đề (ngày)
-          </h3>
-          <div className="h-52">
-            <Bar
-              data={chart6Data}
-              options={{
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { position: "top" } },
-                scales: { y: { beginAtZero: true } },
-              }}
-            />
-          </div>
-        </div>
+        <BarChartCard
+          title="THỜI GIAN XỬ LÝ VẤN ĐỀ"
+          icon={IconCalendarEvent}
+          data={[
+            { label: "PX Gò", value: 5.2, color: "#fa8c16" },
+            { label: "PX May", value: 0.8, color: "#006838" },
+            { label: "PX Đầu vào", value: 0.4, color: "#22c55e" },
+          ]}
+          valueLabel="Ngày trung bình"
+          loading={loading}
+        />
 
         {/* Chart 7: Top 5 vấn đề xử lý lâu nhất (ngày) */}
-        <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-2xs space-y-3">
-          <h3 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-            Top 5 vấn đề xử lý lâu nhất (ngày)
-          </h3>
-          <div className="h-52">
-            <Bar
-              data={chart7Data}
-              options={{
-                indexAxis: "y",
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { position: "top" } },
-                scales: { x: { beginAtZero: true } },
-              }}
-            />
-          </div>
-        </div>
+        <BarChartCard
+          title="TOP 5 VẤN ĐỀ XỬ LÝ LÂU NHẤT"
+          icon={IconAlertTriangle}
+          data={[
+            { label: "MMTB hư hỏng", value: 5.6, color: "#ef4444" },
+            { label: "Khác", value: 2.2, color: "#8b5cf6" },
+            { label: "MMTB bảo dưỡng", value: 1.2, color: "#f59e0b" },
+            { label: "7S", value: 0.8, color: "#006838" },
+            { label: "Chất lượng SP", value: 0.7, color: "#0284c7" },
+          ]}
+          valueLabel="Số ngày TB"
+          loading={loading}
+        />
       </div>
 
       {/* 2.9 TABLE 2: GEMBA GẦN ĐÂY */}

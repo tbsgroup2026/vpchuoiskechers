@@ -2870,9 +2870,10 @@ export default {
     const __authSession = await resolveAuthSession(request, env);
     const __legacySession = toLegacySession(__authSession);
 
-    // 1. HTTP to HTTPS 301 Permanent Redirect
+    // 1. HTTP to HTTPS 301 Permanent Redirect (exempt local development)
+    const isLocal = url.hostname === "127.0.0.1" || url.hostname === "localhost";
     const proto = request.headers.get("x-forwarded-proto") || url.protocol.replace(":", "");
-    if (proto === "http") {
+    if (proto === "http" && !isLocal) {
       return Response.redirect(`https://${url.host}${url.pathname}${url.search}`, 301);
     }
 
@@ -3686,6 +3687,13 @@ export default {
 
       if (request.method === "GET") {
         try {
+          const authHeader = request.headers.get("authorization");
+          const token = authHeader ? authHeader.replace("Bearer ", "") : null;
+          const session = __legacySession;
+          if (!session) {
+            return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập để truy cập danh bạ nhân sự" }), { status: 401, headers: CORS_HEADERS });
+          }
+
           if (env && env.DB) {
             try {
               await env.DB.prepare(`
@@ -4866,278 +4874,19 @@ export default {
       // 4. DELETE /api/ci-kaizen
       if (url.pathname === "/api/ci-kaizen" && request.method === "DELETE") {
         try {
+          const session = __legacySession;
+          if (!session) {
+            return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập để xóa đề xuất Kaizen" }), { status: 401, headers: CORS_HEADERS });
+          }
+
           const id = url.searchParams.get("id");
+          if (!id) {
+            return new Response(JSON.stringify({ success: false, error: "Thiếu ID đề xuất" }), { status: 400, headers: CORS_HEADERS });
+          }
           if (db && id) {
             await db.prepare("DELETE FROM ci_kaizen_proposals WHERE id = ? OR code = ?").bind(id, id).run();
           }
           return new Response(JSON.stringify({ success: true, message: "Đã xóa đề xuất thành công!" }), { headers: CORS_HEADERS });
-        } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS_HEADERS });
-        }
-      }
-    }
-
-    // ============================================================
-    // API ROUTE: /api/task-boards
-    // ============================================================
-    if (url.pathname === "/api/task-boards" || url.pathname.startsWith("/api/task-boards")) {
-      const CORS_HEADERS = {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
-      };
-      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS_HEADERS });
-
-      const authHeader = request.headers.get("authorization");
-      const token = authHeader ? authHeader.replace("Bearer ", "") : null;
-      const session = __legacySession;
-      if (!session) return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập" }), { status: 401, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
-      const empCode = session?.empCode || session?.userId || "202608001";
-      const requestedDept = url.searchParams.get("department_id") || url.searchParams.get("dept");
-
-      if (request.method === "GET") {
-        let boards = [];
-        if (env && env.DB) {
-          try {
-            await env.DB.prepare(`
-              CREATE TABLE IF NOT EXISTS task_boards (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                type TEXT DEFAULT 'personal',
-                department_id TEXT,
-                owner_id TEXT,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-              )
-            `).run().catch(() => {});
-
-            await env.DB.prepare(`
-              CREATE TABLE IF NOT EXISTS task_lists (
-                id TEXT PRIMARY KEY,
-                board_id TEXT NOT NULL,
-                name TEXT NOT NULL,
-                sort_order INTEGER DEFAULT 0,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-              )
-            `).run().catch(() => {});
-
-            const { results } = await env.DB.prepare(`SELECT * FROM task_boards ORDER BY created_at DESC`).all();
-            if (results && results.length > 0) {
-              boards = results;
-            }
-          } catch (e) {}
-        }
-
-        if (boards.length === 0) {
-          boards = [
-            { id: "tb_dept_it", name: "Bảng Công Việc Phòng IT & CĐS", type: "department", department_id: "IT_CDS", owner_id: "202608001" },
-            { id: `tb_${empCode}_personal`, name: "Bảng Công Việc Cá Nhân", type: "personal", department_id: requestedDept || "IT_CDS", owner_id: empCode }
-          ];
-
-          if (env && env.DB) {
-            for (const b of boards) {
-              await env.DB.prepare(`
-                INSERT INTO task_boards (id, name, type, department_id, owner_id)
-                VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO NOTHING
-              `).bind(b.id, b.name, b.type, b.department_id, b.owner_id).run().catch(() => {});
-            }
-          }
-        }
-
-        return new Response(JSON.stringify({ success: true, data: boards }), { headers: CORS_HEADERS });
-      }
-
-      if (request.method === "POST") {
-        try {
-          const body = await request.json().catch(() => ({}));
-          const name = (body.name || "").trim();
-          if (!name) {
-            return new Response(JSON.stringify({ success: false, error: "Tên Bảng Công Việc là bắt buộc" }), { status: 400, headers: CORS_HEADERS });
-          }
-
-          const boardId = `tb_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-          const boardType = body.type || "personal";
-          const deptId = body.department_id || requestedDept || "IT_CDS";
-
-          if (env && env.DB) {
-            await env.DB.prepare(`
-              INSERT INTO task_boards (id, name, type, department_id, owner_id)
-              VALUES (?, ?, ?, ?, ?)
-            `).bind(boardId, name, boardType, deptId, empCode).run().catch(() => {});
-
-            const defaultLists = ["To Do", "Doing", "Review", "Done", "Need Help"];
-            for (let i = 0; i < defaultLists.length; i++) {
-              await env.DB.prepare(`
-                INSERT INTO task_lists (id, board_id, name, sort_order)
-                VALUES (?, ?, ?, ?)
-              `).bind(`tl_${boardId}_${i}`, boardId, defaultLists[i], i).run().catch(() => {});
-            }
-          }
-
-          return new Response(JSON.stringify({ success: true, message: "Đã tạo Bảng Công Việc mới thành công", id: boardId }), { headers: CORS_HEADERS });
-        } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS_HEADERS });
-        }
-      }
-    }
-
-    // ============================================================
-    // API ROUTE: /api/task-cards
-    // ============================================================
-    if (url.pathname === "/api/task-cards" || url.pathname.startsWith("/api/task-cards")) {
-      const CORS_HEADERS = {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
-      };
-      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS_HEADERS });
-
-      const authHeader = request.headers.get("authorization");
-      const token = authHeader ? authHeader.replace("Bearer ", "") : null;
-      const session = __legacySession;
-      if (!session) return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập" }), { status: 401, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
-      const empCode = session?.empCode || session?.userId || "202608001";
-      const boardId = url.searchParams.get("board_id") || "tb_dept_it";
-
-      if (request.method === "GET") {
-        let lists = [];
-        let cards = [];
-
-        if (env && env.DB) {
-          try {
-            await env.DB.prepare(`
-              CREATE TABLE IF NOT EXISTS task_cards (
-                id TEXT PRIMARY KEY,
-                list_id TEXT NOT NULL,
-                board_id TEXT NOT NULL,
-                title TEXT NOT NULL,
-                description TEXT,
-                assignee_id TEXT,
-                deadline TEXT,
-                status TEXT DEFAULT 'in_progress',
-                color_state TEXT DEFAULT 'green',
-                job_position_id TEXT,
-                created_by TEXT,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-              )
-            `).run().catch(() => {});
-
-            const { results: lRes } = await env.DB.prepare(`SELECT * FROM task_lists WHERE board_id = ? ORDER BY sort_order ASC`).bind(boardId).all();
-            if (lRes && lRes.length > 0) lists = lRes;
-
-            const { results: cRes } = await env.DB.prepare(`SELECT * FROM task_cards WHERE board_id = ? ORDER BY created_at DESC`).bind(boardId).all();
-            if (cRes && cRes.length > 0) cards = cRes;
-          } catch (e) {}
-        }
-
-        if (lists.length === 0) {
-          lists = [
-            { id: `tl_${boardId}_0`, board_id: boardId, name: "To Do", sort_order: 0 },
-            { id: `tl_${boardId}_1`, board_id: boardId, name: "Doing", sort_order: 1 },
-            { id: `tl_${boardId}_2`, board_id: boardId, name: "Review", sort_order: 2 },
-            { id: `tl_${boardId}_3`, board_id: boardId, name: "Done", sort_order: 3 },
-            { id: `tl_${boardId}_4`, board_id: boardId, name: "Cần trợ giúp", sort_order: 4 },
-          ];
-        }
-
-        if (cards.length === 0) {
-          cards = [
-            {
-              id: "tc_001",
-              list_id: `tl_${boardId}_0`,
-              board_id: boardId,
-              title: "Nâng cấp hệ thống Andon báo lỗi chuyền may 5",
-              description: "Thay thế bảng LED cũ bằng màn hình Android hiển thị real-time sự cố dừng chuyền.",
-              assignee_id: "202608001",
-              deadline: "2026-09-20",
-              status: "in_progress",
-              color_state: "green",
-              created_by: empCode
-            },
-            {
-              id: "tc_002",
-              list_id: `tl_${boardId}_4`,
-              board_id: boardId,
-              title: "Khắc phục sự cố cảm biến vị trí xe rùa dán đế chuyền 3",
-              description: "Cần Trưởng phòng hỗ trợ phê duyệt thay mới linh kiện cảm biến vị trí khẩn cấp.",
-              assignee_id: empCode,
-              deadline: "2026-09-17",
-              status: "need_help",
-              color_state: "red",
-              created_by: empCode
-            }
-          ];
-        }
-
-        return new Response(JSON.stringify({ success: true, lists, cards }), { headers: CORS_HEADERS });
-      }
-
-      if (request.method === "POST") {
-        try {
-          const body = await request.json().catch(() => ({}));
-          const { board_id, list_id, title, description = "", assignee_id = null, deadline = null } = body;
-
-          if (!title || !title.trim()) {
-            return new Response(JSON.stringify({ success: false, error: "Tiêu đề công việc là bắt buộc" }), { status: 400, headers: CORS_HEADERS });
-          }
-
-          const cardId = `tc_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-          const targetBoard = board_id || boardId;
-          const targetList = list_id || `tl_${targetBoard}_0`;
-
-          let colorState = "green";
-          if (deadline) {
-            const diffDays = (new Date(deadline).getTime() - Date.now()) / 86400000;
-            if (diffDays < 0) colorState = "red";
-            else if (diffDays <= 1) colorState = "yellow";
-          }
-
-          if (env && env.DB) {
-            await env.DB.prepare(`
-              INSERT INTO task_cards (id, list_id, board_id, title, description, assignee_id, deadline, status, color_state, created_by)
-              VALUES (?, ?, ?, ?, ?, ?, ?, 'in_progress', ?, ?)
-            `).bind(cardId, targetList, targetBoard, title.trim(), description, assignee_id || empCode, deadline, colorState, empCode).run().catch(() => {});
-          }
-
-          return new Response(JSON.stringify({ success: true, message: "Đã tạo thẻ công việc mới thành công", id: cardId }), { headers: CORS_HEADERS });
-        } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS_HEADERS });
-        }
-      }
-
-      if (request.method === "PATCH") {
-        try {
-          const body = await request.json().catch(() => ({}));
-          const { id, list_id, title, description, assignee_id, deadline, sort_order } = body;
-
-          if (!id) {
-            return new Response(JSON.stringify({ success: false, error: "Mã thẻ id là bắt buộc" }), { status: 400, headers: CORS_HEADERS });
-          }
-
-          if (env && env.DB) {
-            let colorState = "green";
-            if (deadline) {
-              const diffDays = (new Date(deadline).getTime() - Date.now()) / 86400000;
-              if (diffDays < 0) colorState = "red";
-              else if (diffDays <= 1) colorState = "yellow";
-            }
-
-            await env.DB.prepare(`
-              UPDATE task_cards
-              SET list_id = COALESCE(?, list_id),
-                  title = COALESCE(?, title),
-                  description = COALESCE(?, description),
-                  assignee_id = COALESCE(?, assignee_id),
-                  deadline = COALESCE(?, deadline),
-                  color_state = COALESCE(?, color_state),
-                  updated_at = CURRENT_TIMESTAMP
-              WHERE id = ?
-            `).bind(list_id || null, title || null, description || null, assignee_id || null, deadline || null, colorState, id).run().catch(() => {});
-          }
-
-          return new Response(JSON.stringify({ success: true, message: "Đã cập nhật thẻ công việc thành công" }), { headers: CORS_HEADERS });
         } catch (err) {
           return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS_HEADERS });
         }
@@ -5151,7 +4900,7 @@ export default {
       const CORS_HEADERS = {
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
+        "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, Authorization",
       };
 
@@ -5322,7 +5071,10 @@ export default {
       const token = authHeader ? authHeader.replace("Bearer ", "") : null;
       const session = __legacySession;
       if (!session) return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập" }), { status: 401, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
-      const empCode = session?.empCode || session?.userId || "202608001";
+      if (!session) {
+        return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập để truy cập danh sách nhiệm vụ" }), { status: 401, headers: CORS_HEADERS });
+      }
+      const empCode = session.empCode || session.userId;
       const userProfile = WORKER_SYSTEM_USER_MAP[empCode] || null;
       const userRoleLevel = session?.roleLevel ?? (userProfile?.roleLevel ?? (userProfile?.roleCode === "TRUONG_PHONG" ? 3 : userProfile?.roleCode === "SUPER_ADMIN" ? 1 : 4));
       const userDept = session?.departmentCode || userProfile?.departmentCode || "IT_CDS";
@@ -5452,6 +5204,14 @@ export default {
             const existing = await env.DB.prepare(`SELECT * FROM sys_my_tasks WHERE id = ?`).bind(taskId).first().catch(() => null);
 
             if (existing) {
+              // RBAC Permission Check for Task Mutation
+              if (userRoleLevel >= 4 && existing.assignee_emp_code !== empCode && existing.reporter_emp_code !== empCode) {
+                return new Response(JSON.stringify({ success: false, error: "FORBIDDEN", message: "Nhân viên chỉ được cập nhật công việc được giao cho chính mình!" }), { status: 403, headers: CORS_HEADERS });
+              }
+              if (userRoleLevel === 3 && existing.department_id !== userDept && existing.assignee_emp_code !== empCode && existing.reporter_emp_code !== empCode) {
+                return new Response(JSON.stringify({ success: false, error: "FORBIDDEN", message: "Trưởng phòng chỉ được quản lý công việc trong phạm vi phòng ban của mình!" }), { status: 403, headers: CORS_HEADERS });
+              }
+
               let newStatus = status !== undefined ? status : existing.status;
               let newResult = resultDescription !== undefined ? resultDescription : existing.result_description;
               let newProgress = progress !== undefined ? progress : existing.progress;
@@ -5473,9 +5233,9 @@ export default {
                 WHERE id = ?
               `).bind(newStatus, newResult, newProgress, JSON.stringify(checklistArr), taskId).run().catch(() => {});
 
-              // Record Audit log & trigger real-time Google Drive backup on task move / completion!
+              // Record Audit log with actual actor identity
               await recordAuditLog(
-                { empCode: "202608001", roleCode: "TRUONG_PHONG", id: "emp_1" },
+                { empCode: empCode, roleCode: session?.roleCode || "CBCNV", id: session?.userId || empCode },
                 "KANBAN_TASKS",
                 newStatus === "DONE" ? "COMPLETE_TASK" : "MOVE_TASK_STATUS",
                 taskId,
@@ -5484,11 +5244,46 @@ export default {
                 request
               ).catch(() => {});
 
-              await triggerEventDrivenDriveBackup(env, "KANBAN_TASKS", "202608001").catch(() => {});
+              await triggerEventDrivenDriveBackup(env, "KANBAN_TASKS", empCode).catch(() => {});
             }
           }
 
           return new Response(JSON.stringify({ success: true, message: "Đã chuyển trạng thái công việc thành công" }), { headers: CORS_HEADERS });
+        } catch (err) {
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS_HEADERS });
+        }
+      }
+
+      if (request.method === "DELETE") {
+        try {
+          const taskId = url.searchParams.get("id") || url.searchParams.get("taskId");
+          if (!taskId) {
+            return new Response(JSON.stringify({ success: false, error: "taskId là bắt buộc" }), { status: 400, headers: CORS_HEADERS });
+          }
+
+          if (env && env.DB) {
+            await ensureMyTasksTable();
+            const existing = await env.DB.prepare(`SELECT * FROM sys_my_tasks WHERE id = ?`).bind(taskId).first().catch(() => null);
+            if (!existing) {
+              return new Response(JSON.stringify({ success: false, error: "Không tìm thấy công việc" }), { status: 404, headers: CORS_HEADERS });
+            }
+
+            // RBAC Check for Task Deletion
+            if (userRoleLevel >= 4 && existing.reporter_emp_code !== empCode) {
+              return new Response(JSON.stringify({ success: false, error: "FORBIDDEN", message: "Nhân viên chỉ có thể xóa công việc do chính mình tạo ra!" }), { status: 403, headers: CORS_HEADERS });
+            }
+            if (userRoleLevel === 3 && existing.department_id !== userDept && existing.reporter_emp_code !== empCode) {
+              return new Response(JSON.stringify({ success: false, error: "FORBIDDEN", message: "Trưởng phòng chỉ có thể xóa công việc thuộc phòng ban của mình!" }), { status: 403, headers: CORS_HEADERS });
+            }
+
+            await env.DB.prepare(`DELETE FROM sys_my_tasks WHERE id = ?`).bind(taskId).run();
+            await recordAuditLog(
+              { empCode: empCode, roleCode: session?.roleCode || "CBCNV", id: session?.userId || empCode },
+              "KANBAN_TASKS", "DELETE_TASK", taskId, { deletedTask: existing.title }, {}, request
+            ).catch(() => {});
+          }
+
+          return new Response(JSON.stringify({ success: true, message: "Đã xóa công việc thành công" }), { headers: CORS_HEADERS });
         } catch (err) {
           return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS_HEADERS });
         }
@@ -5679,6 +5474,39 @@ export default {
           return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS });
         }
       }
+
+      if (request.method === "DELETE") {
+        try {
+          const boardId = url.searchParams.get("id") || url.searchParams.get("board_id");
+          if (!boardId) return new Response(JSON.stringify({ success: false, error: "board_id là bắt buộc" }), { status: 400, headers: CORS });
+
+          if (env && env.DB) {
+            await ensureWorkerTables(env.DB);
+            const existing = await env.DB.prepare("SELECT * FROM task_boards WHERE id = ?").bind(boardId).first().catch(() => null);
+            if (!existing) return new Response(JSON.stringify({ success: false, error: "Không tìm thấy Task Board" }), { status: 404, headers: CORS });
+
+            if (userRoleLevel >= 4) {
+              if (existing.type !== "personal" || existing.owner_id !== empCode) {
+                return new Response(JSON.stringify({ success: false, error: "FORBIDDEN", message: "Nhân viên chỉ có thể xóa bảng cá nhân của chính mình!" }), { status: 403, headers: CORS });
+              }
+            } else if (userRoleLevel === 3) {
+              if (existing.type === "department" && existing.department_id !== userManagedDept) {
+                return new Response(JSON.stringify({ success: false, error: "FORBIDDEN", message: "Trưởng phòng chỉ có thể xóa bảng thuộc phòng ban mình quản lý!" }), { status: 403, headers: CORS });
+              }
+              if (existing.type === "personal" && existing.owner_id !== empCode) {
+                return new Response(JSON.stringify({ success: false, error: "FORBIDDEN", message: "Bạn không có quyền xóa bảng cá nhân của người khác!" }), { status: 403, headers: CORS });
+              }
+            }
+
+            await env.DB.prepare("DELETE FROM task_cards WHERE board_id = ?").bind(boardId).run().catch(() => {});
+            await env.DB.prepare("DELETE FROM task_lists WHERE board_id = ?").bind(boardId).run().catch(() => {});
+            await env.DB.prepare("DELETE FROM task_boards WHERE id = ?").bind(boardId).run();
+          }
+          return new Response(JSON.stringify({ success: true, message: "Đã xóa Task Board thành công" }), { headers: CORS });
+        } catch (err) {
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS });
+        }
+      }
     }
 
     // ============================================================
@@ -5746,6 +5574,46 @@ export default {
           return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS });
         }
       }
+
+      if (request.method === "DELETE") {
+        try {
+          const cardId = url.searchParams.get("id") || url.searchParams.get("card_id");
+          if (!cardId) return new Response(JSON.stringify({ success: false, error: "id là bắt buộc" }), { status: 400, headers: CORS });
+
+          if (env && env.DB) {
+            await ensureWorkerTables(env.DB);
+            const existing = await env.DB.prepare("SELECT * FROM task_cards WHERE id = ?").bind(cardId).first().catch(() => null);
+            if (!existing) return new Response(JSON.stringify({ success: false, error: "Không tìm thấy thẻ công việc" }), { status: 404, headers: CORS });
+
+            const board = await env.DB.prepare("SELECT * FROM task_boards WHERE id = ?").bind(existing.board_id).first().catch(() => null);
+
+            if (userRoleLevel >= 4) {
+              const isCardCreator = existing.created_by === empCode;
+              const isBoardOwner = board && board.owner_id === empCode;
+              if (!isCardCreator && !isBoardOwner) {
+                return new Response(JSON.stringify({
+                  success: false,
+                  error: "FORBIDDEN",
+                  message: "Nhân viên chỉ có thể xóa thẻ công việc do chính mình tạo ra!"
+                }), { status: 403, headers: CORS });
+              }
+            } else if (userRoleLevel === 3) {
+              if (board && board.type === "department" && board.department_id !== userManagedDept && existing.created_by !== empCode) {
+                return new Response(JSON.stringify({
+                  success: false,
+                  error: "FORBIDDEN",
+                  message: "Trưởng phòng chỉ có thể xóa thẻ thuộc phòng ban của mình!"
+                }), { status: 403, headers: CORS });
+              }
+            }
+
+            await env.DB.prepare("DELETE FROM task_cards WHERE id = ?").bind(cardId).run();
+          }
+          return new Response(JSON.stringify({ success: true, message: "Đã xóa thẻ công việc thành công" }), { headers: CORS });
+        } catch (err) {
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS });
+        }
+      }
     }
 
     // ============================================================
@@ -5755,25 +5623,273 @@ export default {
       const CORS = {
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, Authorization",
       };
       if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
-      const proj = {
-        id: "PROJ-01",
-        code: "PROJ-DIGITAL-2026",
-        name: "Chuyển Đổi Số SKECHERS 2026",
-        description: "Dự án số hóa toàn diện quy trình sản xuất, Gemba & MMTB Văn phòng chuỗi SKECHERS - TBS Group.",
-        manager_name: "Phạm Nguyễn Anh Huy",
-        progress: 75,
-        members: [
-          { empCode: "202608001", name: "Phạm Nguyễn Anh Huy", department: "IT_CDS", role: "PROJECT_MANAGER" },
-          { empCode: "NS-001", name: "Nguyễn Thị Lan Anh", department: "NHAN_SU", role: "MEMBER" },
-          { empCode: "QC-001", name: "Bùi Thị Hằng", department: "CHAT_LUONG_QC", role: "MEMBER" },
-          { empCode: "KT-001", name: "Trần Thị Thu Hương", department: "KE_TOAN", role: "MEMBER" },
-        ],
-      };
-      return new Response(JSON.stringify({ success: true, project: proj }), { headers: CORS });
+
+      const authHeader = request.headers.get("authorization");
+      const token = authHeader ? authHeader.replace("Bearer ", "") : null;
+      const session = __legacySession;
+      if (!session) {
+        return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập để truy cập dự án liên phòng ban" }), { status: 401, headers: CORS });
+      }
+
+      const empCode = session.empCode || session.userId;
+      const userProfile = WORKER_SYSTEM_USER_MAP[empCode] || null;
+      const userRoleLevel = session?.roleLevel ?? (userProfile?.roleLevel ?? (userProfile?.roleCode === "TRUONG_PHONG" ? 3 : (userProfile?.roleCode === "SUPER_ADMIN" || userProfile?.roleCode === "TONG_GIAM_DOC") ? 1 : 4));
+      const userDept = session?.departmentCode || userProfile?.departmentCode || "IT_CDS";
+
+      // Ensure projects & project_members schema in D1
+      if (env && env.DB) {
+        try {
+          await env.DB.prepare(`
+            CREATE TABLE IF NOT EXISTS projects (
+              id TEXT PRIMARY KEY,
+              code TEXT UNIQUE NOT NULL,
+              name TEXT NOT NULL,
+              description TEXT,
+              target_outcome TEXT,
+              lead_department TEXT,
+              collaborating_departments TEXT,
+              manager_id TEXT,
+              manager_emp_code TEXT,
+              manager_name TEXT,
+              status TEXT DEFAULT 'ACTIVE',
+              progress INTEGER DEFAULT 0,
+              start_date TEXT,
+              end_date TEXT,
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+          `).run().catch(() => {});
+
+          await env.DB.prepare(`
+            CREATE TABLE IF NOT EXISTS project_members (
+              id TEXT PRIMARY KEY,
+              project_id TEXT NOT NULL,
+              emp_code TEXT NOT NULL,
+              name TEXT NOT NULL,
+              department TEXT,
+              role TEXT DEFAULT 'MEMBER',
+              joined_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+          `).run().catch(() => {});
+        } catch (schemaErr) {}
+      }
+
+      // GET /api/projects
+      if (request.method === "GET") {
+        try {
+          let projects = [];
+          if (env && env.DB) {
+            let query = "";
+            let params = [];
+
+            if (userRoleLevel <= 2) {
+              // Level 1-2: Executive (Tổng Giám Đốc, Giám Đốc, Admin) -> Toàn quyền xem TẤT CẢ dự án
+              query = `SELECT * FROM projects ORDER BY created_at DESC`;
+            } else if (userRoleLevel === 3) {
+              // Level 3: Department Head -> Xem dự án phòng ban chủ trì, phòng ban phối hợp, hoặc là manager
+              query = `SELECT * FROM projects WHERE lead_department = ? OR collaborating_departments LIKE ? OR manager_emp_code = ? ORDER BY created_at DESC`;
+              params = [userDept, `%${userDept}%`, empCode];
+            } else {
+              // Level 4: Staff -> Xem dự án mà bản thân tham gia trong project_members hoặc phòng ban chủ trì
+              query = `SELECT DISTINCT p.* FROM projects p LEFT JOIN project_members pm ON p.id = pm.project_id WHERE pm.emp_code = ? OR p.lead_department = ? ORDER BY p.created_at DESC`;
+              params = [empCode, userDept];
+            }
+
+            const { results } = await env.DB.prepare(query).bind(...params).all().catch(() => ({ results: [] }));
+            if (results && results.length > 0) {
+              projects = results;
+            } else {
+              // Seed default project if table is newly created
+              const countRes = await env.DB.prepare("SELECT COUNT(*) as cnt FROM projects").first().catch(() => null);
+              if (!countRes || Number(countRes.cnt) === 0) {
+                const defaultPrj = {
+                  id: "PRJ-01",
+                  code: "PRJ-2026-001",
+                  name: "Chuyển Đổi Số SKECHERS 2026",
+                  description: "Dự án số hóa toàn diện quy trình sản xuất, Gemba & MMTB Văn phòng chuỗi SKECHERS - TBS Group.",
+                  lead_department: "IT_CDS",
+                  collaborating_departments: JSON.stringify(["SAN_XUAT", "CHAT_LUONG_QC", "NHAN_SU", "LOGISTICS"]),
+                  manager_emp_code: "202608001",
+                  manager_name: "Phạm Nguyễn Anh Huy",
+                  status: "ACTIVE",
+                  progress: 65,
+                  start_date: "2026-01-01",
+                  end_date: "2026-12-31"
+                };
+                await env.DB.prepare(`
+                  INSERT INTO projects (id, code, name, description, lead_department, collaborating_departments, manager_emp_code, manager_name, status, progress, start_date, end_date)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                `).bind(defaultPrj.id, defaultPrj.code, defaultPrj.name, defaultPrj.description, defaultPrj.lead_department, defaultPrj.collaborating_departments, defaultPrj.manager_emp_code, defaultPrj.manager_name, defaultPrj.status, defaultPrj.progress, defaultPrj.start_date, defaultPrj.end_date).run().catch(() => {});
+
+                await env.DB.prepare(`
+                  INSERT INTO project_members (id, project_id, emp_code, name, department, role)
+                  VALUES ('pm_1', 'PRJ-01', '202608001', 'Phạm Nguyễn Anh Huy', 'IT_CDS', 'PROJECT_MANAGER')
+                `).run().catch(() => {});
+
+                projects = [defaultPrj];
+              }
+            }
+          }
+
+          const enriched = (projects || []).map(p => ({
+            ...p,
+            collaborating_departments: typeof p.collaborating_departments === "string" ? JSON.parse(p.collaborating_departments || "[]") : (p.collaborating_departments || []),
+          }));
+
+          const bottlenecks = [
+            {
+              id: "btn_1",
+              project_id: "PRJ-01",
+              title: "Tắc nghẽn kết nối API Chuyền May 5",
+              severity: "HIGH",
+              department: "IT_CDS",
+              responsible_name: "Phạm Nguyễn Anh Huy",
+              delay_days: 3
+            }
+          ];
+
+          return new Response(JSON.stringify({
+            success: true,
+            projects: enriched,
+            bottlenecks,
+            count: enriched.length
+          }), { headers: CORS });
+        } catch (err) {
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS });
+        }
+      }
+
+      // POST /api/projects
+      if (request.method === "POST") {
+        try {
+          // RBAC: Nhân viên cấp thấp (>=4) không được phép tự tạo dự án liên phòng ban
+          if (userRoleLevel >= 4) {
+            return new Response(JSON.stringify({
+              success: false,
+              error: "FORBIDDEN",
+              message: "Chỉ Cấp Quản Lý (Trưởng phòng trở lên) hoặc Ban Giám Đốc mới có thẩm quyền khởi tạo Dự Án Liên Phòng Ban!"
+            }), { status: 403, headers: CORS });
+          }
+
+          const body = await request.json().catch(() => ({}));
+          const name = (body.name || "").trim();
+          const leadDept = (body.lead_department || body.leadDept || userDept).trim();
+
+          if (!name) {
+            return new Response(JSON.stringify({ success: false, error: "Tên dự án là bắt buộc" }), { status: 400, headers: CORS });
+          }
+
+          const projectId = `prj_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+          const year = new Date().getFullYear();
+          const code = body.code || `PRJ-${year}-${Math.floor(100 + Math.random() * 900)}`;
+          const collabDepts = Array.isArray(body.collaborating_departments) ? JSON.stringify(body.collaborating_departments) : (body.collaborating_departments || "[]");
+          const mgrEmp = body.manager_emp_code || empCode;
+          const mgrName = body.manager_name || session?.name || "Cán Bộ Quản Lý";
+
+          if (env && env.DB) {
+            await env.DB.prepare(`
+              INSERT INTO projects (
+                id, code, name, description, target_outcome, lead_department, collaborating_departments,
+                manager_id, manager_emp_code, manager_name, status, progress, start_date, end_date
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
+            `).bind(
+              projectId, code, name, (body.description || "").trim(), (body.target_outcome || "").trim(),
+              leadDept, collabDepts, mgrEmp, mgrEmp, mgrName, body.status || "ACTIVE",
+              body.start_date || new Date().toISOString().substring(0, 10),
+              body.end_date || new Date(Date.now() + 90 * 86400000).toISOString().substring(0, 10)
+            ).run();
+
+            // Insert project manager into members table
+            await env.DB.prepare(`
+              INSERT INTO project_members (id, project_id, emp_code, name, department, role)
+              VALUES (?, ?, ?, ?, ?, 'PROJECT_MANAGER')
+            `).bind(`pm_${Date.now()}`, projectId, mgrEmp, mgrName, leadDept).run().catch(() => {});
+          }
+
+          return new Response(JSON.stringify({
+            success: true,
+            id: projectId,
+            code: code,
+            message: `Đã khởi tạo thành công dự án liên phòng ban [${code}] ${name}`
+          }), { headers: CORS });
+        } catch (err) {
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS });
+        }
+      }
+
+      // DELETE /api/projects
+      if (request.method === "DELETE") {
+        try {
+          const projectId = url.searchParams.get("id");
+          if (!projectId) {
+            return new Response(JSON.stringify({ success: false, error: "Thiếu ID dự án" }), { status: 400, headers: CORS });
+          }
+
+          if (env && env.DB) {
+            const existing = await env.DB.prepare("SELECT * FROM projects WHERE id = ?").bind(projectId).first().catch(() => null);
+            if (!existing) {
+              return new Response(JSON.stringify({ success: false, error: "Không tìm thấy dự án" }), { status: 404, headers: CORS });
+            }
+
+            // RBAC Check: Nhân viên không được xóa dự án; Trưởng phòng chỉ xóa nếu là manager
+            if (userRoleLevel >= 4 || (userRoleLevel === 3 && existing.manager_emp_code !== empCode)) {
+              return new Response(JSON.stringify({
+                success: false,
+                error: "FORBIDDEN",
+                message: "Bạn không có quyền xóa dự án liên phòng ban này!"
+              }), { status: 403, headers: CORS });
+            }
+
+            await env.DB.prepare("DELETE FROM projects WHERE id = ?").bind(projectId).run();
+            await env.DB.prepare("DELETE FROM project_members WHERE project_id = ?").bind(projectId).run().catch(() => {});
+          }
+
+          return new Response(JSON.stringify({ success: true, message: "Đã xóa dự án thành công" }), { headers: CORS });
+        } catch (err) {
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS });
+        }
+      }
+
+      // PATCH /api/projects
+      if (request.method === "PATCH") {
+        try {
+          const body = await request.json().catch(() => ({}));
+          const projectId = body.id || body.projectId;
+          if (!projectId) return new Response(JSON.stringify({ success: false, error: "Thiếu ID dự án" }), { status: 400, headers: CORS });
+
+          if (userRoleLevel >= 4) {
+            return new Response(JSON.stringify({ success: false, error: "FORBIDDEN", message: "Nhân viên không có quyền cập nhật thông tin dự án liên phòng ban!" }), { status: 403, headers: CORS });
+          }
+
+          if (env && env.DB) {
+            const existing = await env.DB.prepare("SELECT * FROM projects WHERE id = ? OR code = ?").bind(projectId, projectId).first().catch(() => null);
+            if (!existing) return new Response(JSON.stringify({ success: false, error: "Không tìm thấy dự án" }), { status: 404, headers: CORS });
+
+            if (userRoleLevel === 3 && existing.manager_emp_code !== empCode && (!existing.lead_department || !userDept.includes(String(existing.lead_department).toUpperCase()))) {
+              return new Response(JSON.stringify({ success: false, error: "FORBIDDEN", message: "Chỉ Chủ nhiệm dự án (PM) hoặc Trưởng phòng ban chủ trì mới có quyền chỉnh sửa dự án!" }), { status: 403, headers: CORS });
+            }
+
+            const newStatus = body.status || existing.status;
+            const newProgress = body.progress !== undefined ? body.progress : existing.progress;
+            const newDesc = body.description !== undefined ? body.description : existing.description;
+            const newOutcome = body.target_outcome !== undefined ? body.target_outcome : existing.target_outcome;
+
+            await env.DB.prepare(`
+              UPDATE projects
+              SET status = ?, progress = ?, description = ?, target_outcome = ?, updated_at = CURRENT_TIMESTAMP
+              WHERE id = ?
+            `).bind(newStatus, newProgress, newDesc, newOutcome, existing.id).run();
+          }
+
+          return new Response(JSON.stringify({ success: true, message: "Đã cập nhật thông tin dự án thành công" }), { headers: CORS });
+        } catch (err) {
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS });
+        }
+      }
     }
 
     // ============================================================
@@ -5842,19 +5958,19 @@ export default {
           let params = [];
 
           if (userRoleLevel === 3) {
-            query = `SELECT * FROM task_boards WHERE owner_id = ? OR type = 'personal' OR (department_id IS NOT NULL AND department_id = ?) ORDER BY created_at DESC`;
+            query = `SELECT * FROM task_boards WHERE (type = 'personal' AND owner_id = ?) OR (type = 'department' AND department_id = ?) ORDER BY created_at DESC`;
             params = [empCode, userManagedDept];
           } else if (userRoleLevel <= 2) {
             if (requestedDept && requestedDept !== "all") {
-              query = `SELECT * FROM task_boards WHERE owner_id = ? OR type = 'personal' OR (department_id IS NOT NULL AND department_id = ?) ORDER BY created_at DESC`;
+              query = `SELECT * FROM task_boards WHERE (type = 'personal' AND owner_id = ?) OR (department_id IS NOT NULL AND department_id = ?) ORDER BY created_at DESC`;
               params = [empCode, requestedDept];
             } else {
               query = `SELECT * FROM task_boards ORDER BY created_at DESC`;
               params = [];
             }
           } else {
-            query = `SELECT * FROM task_boards WHERE owner_id = ? OR type = 'personal' ORDER BY created_at DESC`;
-            params = [empCode];
+            query = `SELECT * FROM task_boards WHERE (type = 'personal' AND owner_id = ?) OR (type = 'department' AND department_id = ?) ORDER BY created_at DESC`;
+            params = [empCode, userManagedDept];
           }
 
           let results = [];
@@ -5887,9 +6003,21 @@ export default {
       if (request.method === "POST") {
         try {
           const body = await request.json().catch(() => ({}));
-          const { name, type = "personal", department_id = null } = body;
+          let { name, type = "personal", department_id = null } = body;
           if (!name || !name.trim()) {
             return new Response(JSON.stringify({ success: false, error: "Tên Task Board là bắt buộc" }), { status: 400, headers: CORS });
+          }
+
+          if (userRoleLevel >= 4 && type === "department") {
+            return new Response(JSON.stringify({
+              success: false,
+              error: "FORBIDDEN",
+              message: "Nhân viên chỉ có quyền tạo bảng công việc cá nhân (personal), không được phép tạo bảng công việc phòng ban!"
+            }), { status: 403, headers: CORS });
+          }
+
+          if (userRoleLevel === 3 && type === "department") {
+            department_id = userManagedDept;
           }
 
           const boardId = `tb_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
@@ -6048,6 +6176,9 @@ export default {
       const session = __legacySession;
       if (!session) return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập" }), { status: 401, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
       const empCode = session?.empCode || session?.userId || "202608001";
+      const userProfile = ROLE_ACCOUNTS[empCode] || null;
+      const userRoleLevel = session?.roleLevel ?? (userProfile?.roleCode === "TRUONG_PHONG" ? 3 : userProfile?.roleCode === "SYSTEM_ADMIN" || userProfile?.roleCode === "TONG_GIAM_DOC" ? 1 : 4);
+      const userManagedDept = session?.departmentCode || userProfile?.department || "";
 
       if (request.method === "GET") {
         try {
@@ -6058,6 +6189,18 @@ export default {
           let cards = [];
           if (env && env.DB) {
             await ensureWorkerTables(env.DB);
+            const board = await env.DB.prepare("SELECT * FROM task_boards WHERE id = ?").bind(boardId).first().catch(() => null);
+            if (!board) return new Response(JSON.stringify({ success: false, error: "Không tìm thấy bảng công việc" }), { status: 404, headers: CORS });
+
+            if (userRoleLevel > 2) {
+              if (board.type === "personal" && board.owner_id !== empCode) {
+                return new Response(JSON.stringify({ success: false, error: "FORBIDDEN", message: "Bạn không có quyền truy cập bảng cá nhân của người khác!" }), { status: 403, headers: CORS });
+              }
+              if (board.type === "department" && board.department_id && board.department_id !== userManagedDept) {
+                return new Response(JSON.stringify({ success: false, error: "FORBIDDEN", message: "Bạn không có quyền truy cập bảng của phòng ban khác!" }), { status: 403, headers: CORS });
+              }
+            }
+
             const resL = await env.DB.prepare("SELECT * FROM task_lists WHERE board_id = ? ORDER BY sort_order ASC").bind(boardId).all();
             if (resL && resL.results) lists = resL.results;
 
@@ -6076,6 +6219,21 @@ export default {
           const { board_id, list_id, title, description = "", assignee_id = null, deadline = null, job_position_id = null } = body;
           if (!board_id || !list_id || !title || !title.trim()) {
             return new Response(JSON.stringify({ success: false, error: "board_id, list_id và title là bắt buộc" }), { status: 400, headers: CORS });
+          }
+
+          if (env && env.DB) {
+            await ensureWorkerTables(env.DB);
+            const board = await env.DB.prepare("SELECT * FROM task_boards WHERE id = ?").bind(board_id).first().catch(() => null);
+            if (!board) return new Response(JSON.stringify({ success: false, error: "Không tìm thấy bảng công việc" }), { status: 404, headers: CORS });
+
+            if (userRoleLevel > 2) {
+              if (board.type === "personal" && board.owner_id !== empCode) {
+                return new Response(JSON.stringify({ success: false, error: "FORBIDDEN", message: "Bạn không có quyền thêm thẻ vào bảng cá nhân của người khác!" }), { status: 403, headers: CORS });
+              }
+              if (board.type === "department" && board.department_id && board.department_id !== userManagedDept) {
+                return new Response(JSON.stringify({ success: false, error: "FORBIDDEN", message: "Bạn không có quyền thêm thẻ vào bảng của phòng ban khác!" }), { status: 403, headers: CORS });
+              }
+            }
           }
 
           const cardId = `tc_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
@@ -6112,6 +6270,29 @@ export default {
             const existing = await env.DB.prepare("SELECT * FROM task_cards WHERE id = ?").bind(id).first().catch(() => null);
             if (!existing) {
               return new Response(JSON.stringify({ success: false, error: "Không tìm thấy thẻ công việc" }), { status: 404, headers: CORS });
+            }
+
+            const board = await env.DB.prepare("SELECT * FROM task_boards WHERE id = ?").bind(existing.board_id).first().catch(() => null);
+
+            if (userRoleLevel >= 4) {
+              const isCardAssignee = existing.assignee_id === empCode;
+              const isCardCreator = existing.created_by === empCode;
+              const isBoardOwner = board && board.owner_id === empCode;
+              if (!isCardAssignee && !isCardCreator && !isBoardOwner) {
+                return new Response(JSON.stringify({
+                  success: false,
+                  error: "FORBIDDEN",
+                  message: "Nhân viên chỉ có quyền cập nhật thẻ công việc của chính mình hoặc do mình tạo!"
+                }), { status: 403, headers: CORS });
+              }
+            } else if (userRoleLevel === 3) {
+              if (board && board.type === "department" && board.department_id !== userManagedDept && existing.assignee_id !== empCode && existing.created_by !== empCode) {
+                return new Response(JSON.stringify({
+                  success: false,
+                  error: "FORBIDDEN",
+                  message: "Trưởng phòng chỉ quản lý thẻ công việc trong phòng ban của mình!"
+                }), { status: 403, headers: CORS });
+              }
             }
 
             let colorState = existing.color_state;
@@ -6262,6 +6443,191 @@ export default {
 
       return new Response(JSON.stringify({ success: true, module: targetModule, plant_group: plantGroup, plant_code: plantCode, stats }), { headers: CORS });
     }
+
+    // ============================================================
+    // D1 API ROUTE: /api/stats/:module (UNIFIED AGGREGATE STATS)
+    // ============================================================
+    if (url.pathname.startsWith("/api/stats")) {
+      const CORS = {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, x-user-emp-code",
+        "Cache-Control": "private, max-age=30",
+      };
+      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+      if (!__legacySession) {
+        return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập" }), { status: 401, headers: CORS });
+      }
+
+      const parts = url.pathname.split("/").filter(Boolean);
+      const targetModule = (parts[2] || "overview").toLowerCase();
+      const month = url.searchParams.get("month") || new Date().toISOString().slice(0, 7);
+      const region = url.searchParams.get("region") || "";
+
+      const [yearNum, monthNum] = month.split("-").map(Number);
+      const prevDate = new Date(yearNum, monthNum - 2, 1);
+      const prevMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, "0")}`;
+
+      const calcPercentChange = (current, previous) => {
+        if (!previous || previous === 0) return current > 0 ? 100 : 0;
+        return Number((((current - previous) / previous) * 100).toFixed(1));
+      };
+
+      try {
+        let kzWhere = "WHERE (is_archived IS NULL OR is_archived = 0)";
+        const kzBindings = [];
+        if (region && region !== "ALL") {
+          kzWhere += " AND (region = ? OR factory = ? OR LOWER(region) LIKE ?)";
+          kzBindings.push(region, region, `%${region.toLowerCase()}%`);
+        }
+
+        let curKzVal = 0, prevKzVal = 0, totalKzCount = 0;
+        let kzBreakdown = [];
+
+        if (env.DB) {
+          const kzCur = await env.DB.prepare(`SELECT COUNT(*) as count FROM ci_kaizen_proposals ${kzWhere} AND strftime('%Y-%m', created_at) = ?`).bind(...kzBindings, month).first().catch(() => null);
+          const kzPrev = await env.DB.prepare(`SELECT COUNT(*) as count FROM ci_kaizen_proposals ${kzWhere} AND strftime('%Y-%m', created_at) = ?`).bind(...kzBindings, prevMonth).first().catch(() => null);
+          const totalQuery = env.DB.prepare(`SELECT COUNT(*) as count FROM ci_kaizen_proposals ${kzWhere}`);
+          const kzTotalAll = await (kzBindings.length > 0 ? totalQuery.bind(...kzBindings) : totalQuery).first().catch(() => null);
+
+          curKzVal = Number(kzCur?.count || 0);
+          prevKzVal = Number(kzPrev?.count || 0);
+          totalKzCount = Number(kzTotalAll?.count || 0);
+
+          const bdQuery = env.DB.prepare(`
+            SELECT 
+              COALESCE(department, 'Khác') as label,
+              COUNT(*) as count
+            FROM ci_kaizen_proposals
+            ${kzWhere}
+            GROUP BY COALESCE(department, 'Khác')
+            ORDER BY count DESC
+          `);
+          const { results: bdRows } = await (kzBindings.length > 0 ? bdQuery.bind(...kzBindings) : bdQuery).all().catch(() => ({ results: [] }));
+
+          if (bdRows && bdRows.length > 0) {
+            kzBreakdown = bdRows.map(r => ({
+              key: r.label,
+              label: r.label,
+              value: Number(r.count || 0),
+              percent: totalKzCount > 0 ? Number(((Number(r.count) / totalKzCount) * 100).toFixed(1)) : 0
+            }));
+          }
+        }
+
+        if (totalKzCount === 0 || kzBreakdown.length === 0) {
+          totalKzCount = 81;
+          curKzVal = 27;
+          prevKzVal = 33;
+          kzBreakdown = [
+            { key: 'may', label: 'May', value: 22, percent: 27.2 },
+            { key: 'cds1', label: 'Bộ Phận Chuyển Đổi Số & Kaizen', value: 21, percent: 25.9 },
+            { key: 'cds2', label: 'Bộ Phận Chuyển Đổi Số & Kaizen (Kỹ thuật)', value: 8, percent: 9.9 },
+            { key: 'cong_nghe', label: 'Bộ Phận Công Nghệ', value: 7, percent: 8.6 },
+            { key: 'go', label: 'Gò', value: 5, percent: 6.2 },
+            { key: 'de', label: 'Xưởng Hoàn Thiện Đế', value: 4, percent: 4.9 },
+            { key: 'dau_vao', label: 'Đầu vào', value: 3, percent: 3.7 },
+            { key: 'dieu_hanh', label: 'Văn Phòng Điều Hành', value: 3, percent: 3.7 },
+            { key: 'hr', label: 'Bộ Phận Nhân Sự & Hành Chính', value: 2, percent: 2.5 },
+            { key: 'kg3', label: 'Xưởng Sản Xuất KG3', value: 1, percent: 1.2 },
+            { key: 'kg2', label: 'Xưởng Mũi KG2', value: 1, percent: 1.2 },
+            { key: 'de_s', label: 'Xưởng Hoàn Thiện Đế – Line S', value: 1, percent: 1.2 },
+            { key: 'qc', label: 'Bộ Phận Quản Lý Chất Lượng', value: 1, percent: 1.2 },
+            { key: 'khsx', label: 'Bộ Phận Kế Hoạch Sản Xuất', value: 1, percent: 1.2 },
+            { key: 'to_cn', label: 'Bộ Phận Công Nghệ – Tổ Công Nghệ', value: 1, percent: 1.2 },
+          ];
+        }
+
+        let curPphVal = 0, prevPphVal = 0;
+        if (env.DB) {
+          const pCur = await env.DB.prepare(`SELECT SUM(actual_qty) as total FROM pph_entries WHERE strftime('%Y-%m', entry_date) = ?`).bind(month).first().catch(() => null);
+          const pPrev = await env.DB.prepare(`SELECT SUM(actual_qty) as total FROM pph_entries WHERE strftime('%Y-%m', entry_date) = ?`).bind(prevMonth).first().catch(() => null);
+          curPphVal = Number(pCur?.total || 0);
+          prevPphVal = Number(pPrev?.total || 0);
+        }
+        if (curPphVal === 0) {
+          curPphVal = 111952;
+          prevPphVal = 108420;
+        }
+
+        let curMmtbVal = 0, prevMmtbVal = 0;
+        if (env.DB) {
+          const mCur = await env.DB.prepare(`SELECT COUNT(*) as count FROM maintenance_tickets WHERE strftime('%Y-%m', created_at) = ?`).bind(month).first().catch(() => null);
+          const mPrev = await env.DB.prepare(`SELECT COUNT(*) as count FROM maintenance_tickets WHERE strftime('%Y-%m', created_at) = ?`).bind(prevMonth).first().catch(() => null);
+          curMmtbVal = Number(mCur?.count || 0);
+          prevMmtbVal = Number(mPrev?.count || 0);
+        }
+        if (curMmtbVal === 0) {
+          curMmtbVal = 1115;
+          prevMmtbVal = 1140;
+        }
+
+        let curGembaVal = 0, prevGembaVal = 0;
+        if (env.DB) {
+          const gCur = await env.DB.prepare(`SELECT COUNT(*) as count FROM gemba_records WHERE strftime('%Y-%m', created_at) = ?`).bind(month).first().catch(() => null);
+          const gPrev = await env.DB.prepare(`SELECT COUNT(*) as count FROM gemba_records WHERE strftime('%Y-%m', created_at) = ?`).bind(prevMonth).first().catch(() => null);
+          curGembaVal = Number(gCur?.count || 0);
+          prevGembaVal = Number(gPrev?.count || 0);
+        }
+        if (curGembaVal === 0) {
+          curGembaVal = 23;
+          prevGembaVal = 7;
+        }
+
+        return new Response(JSON.stringify({
+          success: true,
+          month,
+          previousMonth: prevMonth,
+          kpis: {
+            pph: {
+              title: 'Sản Lượng PPH Nhà Máy',
+              value: curPphVal,
+              previousValue: prevPphVal,
+              changePercent: calcPercentChange(curPphVal, prevPphVal),
+              subtitle: 'Sản lượng tháng này',
+              unit: 'đôi'
+            },
+            kaizen: {
+              title: 'Tổng Cải Tiến',
+              value: curKzVal,
+              previousValue: prevKzVal,
+              changePercent: calcPercentChange(curKzVal, prevKzVal),
+              subtitle: `Đề xuất Kaizen/CI tháng ${monthNum || 10}/${yearNum || 2026}`,
+              unit: 'đề xuất'
+            },
+            mmtb: {
+              title: 'Sự Cố MMTB',
+              value: curMmtbVal,
+              previousValue: prevMmtbVal,
+              changePercent: calcPercentChange(curMmtbVal, prevMmtbVal),
+              subtitle: 'Sự cố mới tháng này',
+              invertTrend: true,
+              unit: 'sự cố'
+            },
+            layout: {
+              title: 'Kiểm Soát Layout CBC',
+              value: curGembaVal,
+              previousValue: prevGembaVal,
+              changePercent: calcPercentChange(curGembaVal, prevGembaVal),
+              subtitle: 'Chuyền không đạt chuẩn...',
+              invertTrend: true,
+              unit: 'chuyền'
+            }
+          },
+          donut: {
+            title: 'TỔNG CẢI TIẾN',
+            centerBrand: 'TBS GROUP',
+            centerTotal: totalKzCount,
+            centerSubtitle: 'Tổng Cải Tiến',
+            breakdown: kzBreakdown
+          }
+        }), { headers: CORS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS });
+      }
+    }
+
 
     // ============================================================
     // D1 API ROUTE: /api/employee/:id/performance
@@ -6469,7 +6835,14 @@ export default {
 
       const authHeader = request.headers.get("authorization");
       const token = authHeader ? authHeader.replace("Bearer ", "") : null;
-      if (!token) return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED" }), { status: 401, headers: CORS });
+      const session = __legacySession;
+      if (!session) return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập" }), { status: 401, headers: CORS });
+
+      const isAdmin = (session.roleLevel && session.roleLevel <= 2) || 
+                      ['SUPER_ADMIN', 'ADMIN', 'TONG_GIAM_DOC'].includes(session.roleCode);
+      if (!isAdmin) {
+        return new Response(JSON.stringify({ success: false, error: "FORBIDDEN", message: "Yêu cầu quyền Quản trị viên để tra cứu nhật ký hệ thống" }), { status: 403, headers: CORS });
+      }
 
       try {
         const userId = url.searchParams.get("user_id");
@@ -9804,7 +10177,7 @@ export default {
         }
       }
 
-      // GET: Query business trip proposals scoped by role & department (FIX #2)
+      // GET: Query business trip proposals scoped by role & department (Strict Multi-Role RBAC)
       if (request.method === "GET") {
         try {
           if (!env.DB) {
@@ -9814,37 +10187,45 @@ export default {
             );
           }
 
-          // ✅ Allow both authenticated and unauthenticated access for GET
           const user = await verifyServerAuth(request, env);
-          const isAuthenticated = user && user.authenticated;
+          if (!user || !user.authenticated) {
+            return new Response(
+              JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập để truy cập lịch công tác" }),
+              { status: 401, headers: SECURE_JSON_HEADERS }
+            );
+          }
           
           let results = [];
-          if (isAuthenticated && user.isExecutiveOrAdmin) {
+          if (user.isExecutiveOrAdmin) {
             const { results: res } = await env.DB.prepare(
               "SELECT * FROM business_trips ORDER BY created_at DESC"
             ).all().catch(() => ({ results: [] }));
             results = res || [];
-          } else if (isAuthenticated && user.roleCode === "TRUONG_PHONG") {
+          } else if (user.roleCode === "TRUONG_PHONG" || (user.roleLevel && user.roleLevel <= 3)) {
             const userDept = user.department || "";
-            const userName = user.user ? (user.user.name || "") : "";
+            const userName = user.user ? (user.user.name || "") : (user.name || "");
             const { results: res } = await env.DB.prepare(
-              "SELECT * FROM business_trips WHERE LOWER(TRIM(department)) = LOWER(TRIM(?)) OR LOWER(TRIM(department)) LIKE '%' || LOWER(TRIM(?)) || '%' OR LOWER(TRIM(?)) LIKE '%' || LOWER(TRIM(department)) || '%' OR creator_emp_code = ? OR (creator_emp_code IS NULL AND LOWER(TRIM(creator)) = LOWER(TRIM(?))) ORDER BY created_at DESC"
-            ).bind(userDept, userDept, userDept, user.empCode, userName).all().catch(() => ({ results: [] }));
+              `SELECT * FROM business_trips 
+               WHERE LOWER(TRIM(department)) = LOWER(TRIM(?)) 
+                  OR LOWER(TRIM(department)) LIKE '%' || LOWER(TRIM(?)) || '%' 
+                  OR LOWER(TRIM(?)) LIKE '%' || LOWER(TRIM(department)) || '%' 
+                  OR creator_emp_code = ? 
+                  OR participants_json LIKE '%' || ? || '%'
+                  OR (creator_emp_code IS NULL AND LOWER(TRIM(creator)) = LOWER(TRIM(?))) 
+               ORDER BY created_at DESC`
+            ).bind(userDept, userDept, userDept, user.empCode, user.empCode, userName).all().catch(() => ({ results: [] }));
             results = res || [];
-          } else if (isAuthenticated) {
-            const userName = user.user ? (user.user.name || "") : "";
+          } else {
+            // CBCNV / Regular Staff: Only their own trips or trips where they participate
+            const userName = user.user ? (user.user.name || "") : (user.name || "");
             const { results: res } = await env.DB.prepare(
-              "SELECT * FROM business_trips WHERE creator_emp_code = ? OR (creator_emp_code IS NULL AND LOWER(TRIM(creator)) = LOWER(TRIM(?))) ORDER BY created_at DESC"
-            ).bind(user.empCode, userName).all().catch(() => ({ results: [] }));
+              `SELECT * FROM business_trips 
+               WHERE creator_emp_code = ? 
+                  OR participants_json LIKE '%' || ? || '%' 
+                  OR (creator_emp_code IS NULL AND LOWER(TRIM(creator)) = LOWER(TRIM(?))) 
+               ORDER BY created_at DESC`
+            ).bind(user.empCode, user.empCode, userName).all().catch(() => ({ results: [] }));
             results = res || [];
-          }
-
-          // If no specific filtered results found or unauthenticated, fetch all records from D1
-          if (!results || results.length === 0) {
-            const { results: allRes } = await env.DB.prepare(
-              "SELECT * FROM business_trips ORDER BY created_at DESC"
-            ).all().catch(() => ({ results: [] }));
-            results = allRes || [];
           }
 
           return new Response(
@@ -9869,15 +10250,13 @@ export default {
             );
           }
 
-          const rawUser = await verifyServerAuth(request, env);
-          const user = (rawUser && rawUser.authenticated) ? rawUser : {
-            authenticated: true,
-            empCode: "202608001",
-            roleCode: "CBCNV",
-            department: "Hành chính",
-            name: "Cán Bộ Công Nhân Viên",
-            isExecutiveOrAdmin: false
-          };
+          const user = await verifyServerAuth(request, env);
+          if (!user || !user.authenticated) {
+            return new Response(
+              JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập để tạo đề xuất công tác" }),
+              { status: 401, headers: SECURE_JSON_HEADERS }
+            );
+          }
 
           const body = await request.json();
           
@@ -9915,7 +10294,7 @@ export default {
             participants, estimatedCost, estimated_cost
           } = body;
 
-          // FIX #5: Validate start and end dates with DD/MM/YYYY support
+          // Flexible Date Range Validation
           const parseFlexibleDate = (str) => {
             if (!str) return null;
             if (typeof str !== "string") return new Date(str);
@@ -9941,7 +10320,7 @@ export default {
             }
           }
 
-          // FIX #4: Validate cost is non-negative number
+          // Validate non-negative cost
           const costVal = parseFloat(estimatedCost !== undefined ? estimatedCost : (estimated_cost || 0));
           if (isNaN(costVal) || costVal < 0) {
             return new Response(JSON.stringify({
@@ -9953,7 +10332,8 @@ export default {
 
           const finalAttachmentsJson = typeof attachmentsJson === "string" ? attachmentsJson : JSON.stringify(attachments || []);
           const finalInvoicesJson = typeof invoicesJson === "string" ? invoicesJson : JSON.stringify(invoices || []);
-          const creatorEmpCode = body.creatorEmpCode || (creator ? `EMP_${String(creator).trim().replace(/\s+/g, '_')}` : user.empCode);
+          const creatorEmpCode = body.creatorEmpCode || user.empCode;
+          const creatorName = creator || (user.user ? user.user.name : (user.name || "CBCNV"));
 
           await env.DB.prepare(`
             INSERT OR REPLACE INTO business_trips (
@@ -9968,7 +10348,7 @@ export default {
             title || "Đề xuất công tác",
             region || "VP Chuỗi",
             factory || "",
-            creator || (user.user ? user.user.name : "CBCNV"),
+            creatorName,
             creatorEmpCode,
             department || user.department || "Hành chính",
             location || "Bình Dương",
@@ -10005,15 +10385,14 @@ export default {
       // PUT: Update Status (APPROVED / REJECTED / BUDGET) or Update Invoices / Attachments
       if (request.method === "PUT") {
         try {
-          const rawUser = await verifyServerAuth(request, env);
-          const user = (rawUser && rawUser.authenticated) ? rawUser : {
-            authenticated: true,
-            empCode: "202608001",
-            roleCode: "TRUONG_PHONG",
-            department: "Hành chính",
-            name: "Trưởng Phòng Admin",
-            isExecutiveOrAdmin: true
-          };
+          const user = await verifyServerAuth(request, env);
+          if (!user || !user.authenticated) {
+            return new Response(
+              JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập để cập nhật đề xuất công tác" }),
+              { status: 401, headers: SECURE_JSON_HEADERS }
+            );
+          }
+
           if (!env.DB) {
             return new Response(
               JSON.stringify({ success: false, error: "D1 Database binding env.DB missing" }),
@@ -10033,7 +10412,7 @@ export default {
           const { results } = await env.DB.prepare("SELECT * FROM business_trips WHERE id = ?").bind(id).all();
           if (!results || results.length === 0) {
             return new Response(JSON.stringify({ success: false, error: "Không tìm thấy bản ghi đề xuất công tác" }), {
-              status: 444, headers: SECURE_JSON_HEADERS
+              status: 404, headers: SECURE_JSON_HEADERS
             });
           }
           const trip = results[0];
@@ -10049,7 +10428,7 @@ export default {
             await env.DB.prepare("UPDATE business_trips SET attachments_json = ? WHERE id = ?").bind(attStr, id).run();
           }
 
-          // FIX #4: Validate cost on UPDATE
+          // Validate cost on UPDATE
           if (estimatedCost !== undefined || estimated_cost !== undefined) {
             const newCost = parseFloat(estimatedCost !== undefined ? estimatedCost : estimated_cost);
             if (isNaN(newCost) || newCost < 0) {
@@ -10062,24 +10441,24 @@ export default {
             await env.DB.prepare("UPDATE business_trips SET estimated_cost = ? WHERE id = ?").bind(newCost, id).run();
           }
 
-          // 1. Budget Action Levels (APPROVE_BUDGET_L1, APPROVE_BUDGET_L2, REJECT_BUDGET) - FIX #6
+          // 1. Budget Action Levels (APPROVE_BUDGET_L1, APPROVE_BUDGET_L2, REJECT_BUDGET)
           if (actionLevel === "APPROVE_BUDGET_L1" || actionLevel === "APPROVE_BUDGET_L2" || actionLevel === "REJECT_BUDGET" || budgetStatus || budget_status) {
             let nextBgt = budgetStatus || budget_status;
             let bgtRejReason = budgetRejectionReason || null;
 
             if (actionLevel === "APPROVE_BUDGET_L1") {
               if (!(user.roleCode === "KE_TOAN" || user.isExecutiveOrAdmin)) {
-                return new Response(JSON.stringify({ success: false, error: "FORBIDDEN", message: "Chỉ Kế toán mới có quyền duyệt ngân sách cấp 1." }), { status: 403, headers: SECURE_JSON_HEADERS });
+                return new Response(JSON.stringify({ success: false, error: "FORBIDDEN", message: "Chỉ Kế toán mới có quyền duyệt ngân sách cấp 1 (403 Forbidden)." }), { status: 403, headers: SECURE_JSON_HEADERS });
               }
               nextBgt = "pending_exec_budget";
             } else if (actionLevel === "APPROVE_BUDGET_L2") {
               if (!user.isExecutiveOrAdmin) {
-                return new Response(JSON.stringify({ success: false, error: "FORBIDDEN", message: "Chỉ Ban Giám Đốc mới có quyền duyệt ngân sách cấp 2." }), { status: 403, headers: SECURE_JSON_HEADERS });
+                return new Response(JSON.stringify({ success: false, error: "FORBIDDEN", message: "Chỉ Ban Giám Đốc mới có quyền duyệt ngân sách cấp 2 (403 Forbidden)." }), { status: 403, headers: SECURE_JSON_HEADERS });
               }
               nextBgt = "budget_approved";
             } else if (actionLevel === "REJECT_BUDGET") {
               if (!(user.roleCode === "KE_TOAN" || user.isExecutiveOrAdmin)) {
-                return new Response(JSON.stringify({ success: false, error: "FORBIDDEN", message: "Bạn không có quyền từ chối ngân sách công tác." }), { status: 403, headers: SECURE_JSON_HEADERS });
+                return new Response(JSON.stringify({ success: false, error: "FORBIDDEN", message: "Bạn không có quyền từ chối ngân sách công tác (403 Forbidden)." }), { status: 403, headers: SECURE_JSON_HEADERS });
               }
               nextBgt = "budget_rejected";
               bgtRejReason = budgetRejectionReason || "Không đạt định mức chi tiêu";
@@ -10112,31 +10491,52 @@ export default {
 
           // 2. Trip Approval / Rejection Action Levels (APPROVE_L1, APPROVE_L2, REJECT_L1, REJECT_L2, REJECTED, APPROVED)
           if (status || actionLevel) {
-            // FIX #1: Segregation of Duties Check (Only block when creator and approver are identical user)
+            // Segregation of Duties Check
             const creatorName = (trip.creator || "").trim().toLowerCase();
             const currentUserName = (user.name || (user.user ? user.user.name : "") || "").trim().toLowerCase();
             const creatorEmpCode = (trip.creator_emp_code || "").trim().toUpperCase();
             const currentEmpCode = (user.empCode || "").trim().toUpperCase();
 
             const isSelfApproval = Boolean(
-              creatorEmpCode && currentEmpCode && creatorEmpCode === currentEmpCode &&
-              creatorName && currentUserName && creatorName === currentUserName
+              (creatorEmpCode && currentEmpCode && creatorEmpCode === currentEmpCode) ||
+              (creatorName && currentUserName && creatorName === currentUserName)
             );
 
-            if (isSelfApproval) {
+            if (isSelfApproval && (actionLevel?.startsWith("APPROVE_") || status === "APPROVED")) {
               return new Response(
                 JSON.stringify({
                   success: false,
                   error: "SEGREGATION_OF_DUTIES_VIOLATION",
-                  message: "Cảnh báo: Bạn không thể tự phê duyệt đề xuất công tác do chính mình tạo!"
+                  message: "Cảnh báo: Bạn không thể tự phê duyệt đề xuất công tác do chính mình tạo (403 Forbidden)!"
                 }),
                 { status: 403, headers: SECURE_JSON_HEADERS }
               );
             }
 
-            // FIX #3: Cross-Department Approval Check for Level 1
+            // Role Authority Check: Staff cannot approve or reject
+            const isAuthorizedManager = user.isExecutiveOrAdmin ||
+              user.roleCode === "TRUONG_PHONG" ||
+              user.roleCode === "PHO_PHONG" ||
+              user.roleCode === "GIAM_DOC" ||
+              user.roleCode === "TONG_GIAM_DOC" ||
+              (user.roleLevel && user.roleLevel <= 3);
+
+            if (actionLevel?.startsWith("APPROVE_") || actionLevel?.startsWith("REJECT_")) {
+              if (!isAuthorizedManager) {
+                return new Response(
+                  JSON.stringify({
+                    success: false,
+                    error: "FORBIDDEN",
+                    message: "Cán bộ nhân viên không có thẩm quyền phê duyệt/từ chối đơn công tác (403 Forbidden)!"
+                  }),
+                  { status: 403, headers: SECURE_JSON_HEADERS }
+                );
+              }
+            }
+
+            // Department scope check for Level 1
             if (actionLevel === "APPROVE_L1" || actionLevel === "REJECT_L1") {
-              if (!user.isExecutiveOrAdmin && user.roleCode === "TRUONG_PHONG") {
+              if (!user.isExecutiveOrAdmin && (user.roleCode === "TRUONG_PHONG" || (user.roleLevel && user.roleLevel === 3))) {
                 const userDept = (user.department || "").trim().toLowerCase();
                 const tripDept = (trip.department || "").trim().toLowerCase();
                 if (userDept && tripDept && userDept !== tripDept && !userDept.includes(tripDept) && !tripDept.includes(userDept)) {
@@ -10144,11 +10544,25 @@ export default {
                     JSON.stringify({
                       success: false,
                       error: "DEPARTMENT_MISMATCH",
-                      message: "Bạn chỉ có quyền phê duyệt đề xuất công tác thuộc phòng ban của mình!"
+                      message: "Bạn chỉ có quyền phê duyệt đề xuất công tác thuộc phòng ban của mình (403 Forbidden)!"
                     }),
                     { status: 403, headers: SECURE_JSON_HEADERS }
                   );
                 }
+              }
+            }
+
+            // Executive authority check for Level 2
+            if (actionLevel === "APPROVE_L2" || actionLevel === "REJECT_L2") {
+              if (!user.isExecutiveOrAdmin) {
+                return new Response(
+                  JSON.stringify({
+                    success: false,
+                    error: "FORBIDDEN",
+                    message: "Chỉ Ban Giám Đốc / Tổng Giám Đốc mới có quyền phê duyệt cấp 2 (403 Forbidden)!"
+                  }),
+                  { status: 403, headers: SECURE_JSON_HEADERS }
+                );
               }
             }
 
@@ -10172,7 +10586,14 @@ export default {
               approvedLvl = "L2";
             } else if (actionLevel === "APPROVE_L1") {
               approvedLvl = "L1";
-              nextStatus = "PENDING_L2"; // Requires Level 2 Executive Approval (TGĐ / BGĐ)
+              const cost = Number(trip.estimated_cost || 0);
+              // Auto-complete if under 5M VND
+              if (cost < 5000000) {
+                nextStatus = "APPROVED";
+                approvedLvl = "L2_AUTO";
+              } else {
+                nextStatus = "PENDING_L2"; // Requires Level 2 Executive Approval (TGĐ / BGĐ)
+              }
             } else if (actionLevel === "REJECT_L1" || actionLevel === "REJECT_L2" || status === "REJECTED") {
               nextStatus = "REJECTED";
               rejectedLvl = actionLevel === "REJECT_L2" ? "L2" : "L1";
@@ -10219,15 +10640,13 @@ export default {
       // DELETE: Delete a single proposal or clear all test proposals
       if (request.method === "DELETE") {
         try {
-          const rawUser = await verifyServerAuth(request, env);
-          const user = (rawUser && rawUser.authenticated) ? rawUser : {
-            authenticated: true,
-            empCode: "202608001",
-            roleCode: "SYSTEM_ADMIN",
-            department: "Hành chính",
-            name: "Quản Trị Viên",
-            isExecutiveOrAdmin: true
-          };
+          const user = await verifyServerAuth(request, env);
+          if (!user || !user.authenticated) {
+            return new Response(
+              JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập để xóa đề xuất công tác" }),
+              { status: 401, headers: SECURE_JSON_HEADERS }
+            );
+          }
 
           let body = {};
           try { body = await request.json(); } catch(e) {}
@@ -10235,16 +10654,47 @@ export default {
           const isClearAll = clearAll || url.searchParams.get("clearAll") === "true";
 
           if (isClearAll) {
+            if (!user.isExecutiveOrAdmin) {
+              return new Response(
+                JSON.stringify({ success: false, error: "FORBIDDEN", message: "Chỉ Quản trị viên cấp cao mới có quyền xóa toàn bộ đề xuất công tác (403 Forbidden)!" }),
+                { status: 403, headers: SECURE_JSON_HEADERS }
+              );
+            }
             await env.DB.prepare("DELETE FROM business_trips").run();
             return new Response(JSON.stringify({ success: true, message: "Đã xóa toàn bộ dữ liệu đơn công tác trong D1 Database thành công!" }), { headers: SECURE_JSON_HEADERS });
           }
 
-          if (id) {
-            await env.DB.prepare("DELETE FROM business_trips WHERE id = ?").bind(id).run();
-            return new Response(JSON.stringify({ success: true, message: `Đã xóa đơn công tác ${id} khỏi D1 Database!`, id }), { headers: SECURE_JSON_HEADERS });
+          const targetId = id || url.searchParams.get("id");
+          if (!targetId) {
+            return new Response(JSON.stringify({ success: false, error: "Thiếu ID hoặc mã đơn công tác cần xóa" }), { status: 400, headers: SECURE_JSON_HEADERS });
           }
 
-          return new Response(JSON.stringify({ success: false, error: "Thiếu ID hoặc mã đơn công tác cần xóa" }), { status: 400, headers: SECURE_JSON_HEADERS });
+          const existingTrip = await env.DB.prepare("SELECT * FROM business_trips WHERE id = ?").bind(targetId).first();
+          if (!existingTrip) {
+            return new Response(JSON.stringify({ success: false, error: "Không tìm thấy đơn công tác cần xóa" }), { status: 404, headers: SECURE_JSON_HEADERS });
+          }
+
+          // RBAC Ownership check: Staff can ONLY delete their own trip and only if PENDING, RECALLED, or REJECTED
+          const isOwner = (existingTrip.creator_emp_code && existingTrip.creator_emp_code === user.empCode) ||
+                          (existingTrip.creator && existingTrip.creator === (user.name || (user.user ? user.user.name : "")));
+
+          if (!user.isExecutiveOrAdmin) {
+            if (!isOwner) {
+              return new Response(
+                JSON.stringify({ success: false, error: "FORBIDDEN", message: "Bạn không có quyền xóa đơn công tác của nhân sự khác (403 Forbidden)!" }),
+                { status: 403, headers: SECURE_JSON_HEADERS }
+              );
+            }
+            if (existingTrip.status !== "PENDING" && existingTrip.status !== "RECALLED" && existingTrip.status !== "REJECTED") {
+              return new Response(
+                JSON.stringify({ success: false, error: "BAD_REQUEST", message: `Không thể xóa đơn công tác ở trạng thái "${existingTrip.status}". Chỉ xóa được đơn chờ duyệt, thu hồi hoặc bị từ chối.` }),
+                { status: 400, headers: SECURE_JSON_HEADERS }
+              );
+            }
+          }
+
+          await env.DB.prepare("DELETE FROM business_trips WHERE id = ?").bind(targetId).run();
+          return new Response(JSON.stringify({ success: true, message: `Đã xóa đơn công tác ${targetId} khỏi D1 Database!`, id: targetId }), { headers: SECURE_JSON_HEADERS });
         } catch (err) {
           return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
@@ -11838,206 +12288,8 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
       return new Response(JSON.stringify({ success: true, message: "Đã hủy đăng ký Push Notification" }), { headers: SECURE_JSON_HEADERS });
     }
 
-    // 3.7 API Route: Business Trips Management (/api/business-trips)
-    if (url.pathname === "/api/business-trips" || url.pathname.startsWith("/api/business-trips")) {
-      if (env.DB) {
-        try {
-          await env.DB.prepare(`
-            CREATE TABLE IF NOT EXISTS business_trips (
-              id TEXT PRIMARY KEY,
-              code TEXT NOT NULL UNIQUE,
-              title TEXT NOT NULL,
-              region TEXT DEFAULT 'VP Chuỗi',
-              factory TEXT,
-              creator TEXT NOT NULL,
-              department TEXT NOT NULL,
-              department_id TEXT,
-              location TEXT NOT NULL,
-              start_date TEXT NOT NULL,
-              end_date TEXT NOT NULL,
-              days_count INTEGER DEFAULT 1,
-              transport TEXT DEFAULT 'Xe công ty',
-              participants_count INTEGER DEFAULT 1,
-              purpose TEXT,
-              address TEXT,
-              proposal_text TEXT,
-              attachments_json TEXT DEFAULT '[]',
-              invoices_json TEXT DEFAULT '[]',
-              participants_json TEXT DEFAULT '[]',
-              status TEXT DEFAULT 'PENDING',
-              estimated_cost REAL DEFAULT 0,
-              version INTEGER DEFAULT 1,
-              approved_level TEXT,
-              rejected_level TEXT,
-              rejection_reason TEXT,
-              budget_status TEXT DEFAULT 'pending_dept_budget',
-              budget_amount REAL DEFAULT 0,
-              budget_rejection_reason TEXT,
-              created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            );
-          `).run().catch(() => {});
-        } catch (tblErr) {
-          console.warn("D1 create business_trips table error:", tblErr);
-        }
-      }
+    // 3.7 API Route: Business Trips Management - Handled in Section 3 above
 
-      if (request.method === "GET") {
-        try {
-          if (!env.DB) {
-            return new Response(JSON.stringify({ success: true, data: [] }), { headers: SECURE_JSON_HEADERS });
-          }
-          const { results } = await env.DB.prepare("SELECT * FROM business_trips ORDER BY created_at DESC").all();
-          return new Response(JSON.stringify({ success: true, data: results || [] }), { headers: SECURE_JSON_HEADERS });
-        } catch (err) {
-          return new Response(JSON.stringify({ success: true, data: [] }), { headers: SECURE_JSON_HEADERS });
-        }
-      }
-
-      if (request.method === "POST" && url.pathname === "/api/business-trips") {
-        try {
-          const body = await request.json().catch(() => ({}));
-          const id = body.id || `rec_${Date.now()}`;
-          const code = body.code || `CT-2026-${Math.floor(100 + Math.random() * 900)}`;
-
-          if (!env.DB) {
-            return new Response(JSON.stringify({ success: false, error: "D1 Database binding missing" }), { status: 500, headers: SECURE_JSON_HEADERS });
-          }
-
-          // Validate required fields
-          if (!body.title || !body.title.trim()) {
-            return new Response(JSON.stringify({ success: false, error: "Tên đề xuất là bắt buộc" }), { status: 400, headers: SECURE_JSON_HEADERS });
-          }
-          if (!body.location || !body.location.trim()) {
-            return new Response(JSON.stringify({ success: false, error: "Địa điểm công tác là bắt buộc" }), { status: 400, headers: SECURE_JSON_HEADERS });
-          }
-          if (!body.purpose || !body.purpose.trim()) {
-            return new Response(JSON.stringify({ success: false, error: "Mục đích công tác là bắt buộc" }), { status: 400, headers: SECURE_JSON_HEADERS });
-          }
-
-          await env.DB.prepare(`
-            INSERT INTO business_trips (
-              id, code, title, region, factory, creator, department, location, start_date, end_date, days_count, transport, participants_count, purpose, address, proposal_text, attachments_json, invoices_json, participants_json, status, estimated_cost, version, budget_status, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', ?, 1, 'pending_dept_budget', CURRENT_TIMESTAMP)
-          `).bind(
-            id,
-            code,
-            body.title || "Đề xuất công tác",
-            body.region || "VP Chuỗi (R&D)",
-            body.factory || "",
-            body.creator || "Ban Quản Lý",
-            body.department || "Hành chính",
-            body.location || "",
-            body.startDate || body.start_date || "15/08/2026",
-            body.endDate || body.end_date || "15/08/2026",
-            Number(body.daysCount || body.days_count || 1),
-            body.transport || "Xe công ty",
-            Number(body.participantsCount || body.participants_count || 1),
-            body.purpose || "",
-            body.address || "",
-            body.proposalText || body.proposal_text || "",
-            typeof body.attachments === "string" ? body.attachments : JSON.stringify(body.attachments || []),
-            typeof body.invoices === "string" ? body.invoices : JSON.stringify(body.invoices || []),
-            typeof body.participants === "string" ? body.participants : JSON.stringify(body.participants || []),
-            Number(body.estimatedCost || body.estimated_cost || 0)
-          ).run();
-
-          return new Response(JSON.stringify({ success: true, message: "Đã tạo đề xuất công tác thành công!", id, code }), { headers: SECURE_JSON_HEADERS });
-        } catch (err) {
-          console.error("POST /api/business-trips error:", err);
-          return new Response(JSON.stringify({ success: false, error: err.message || "Unknown error" }), { status: 500, headers: SECURE_JSON_HEADERS });
-        }
-      }
-
-      if (request.method === "PUT" && url.pathname === "/api/business-trips") {
-        try {
-          const body = await request.json().catch(() => ({}));
-          const { id, actionLevel, status, rejectionReason, budgetRejectionReason, invoices_json, version } = body;
-
-          if (!id) {
-            return new Response(JSON.stringify({ success: false, error: "Thiếu ID đề xuất" }), { status: 400, headers: SECURE_JSON_HEADERS });
-          }
-
-          if (invoices_json && env.DB) {
-            await env.DB.prepare("UPDATE business_trips SET invoices_json = ? WHERE id = ?").bind(invoices_json, id).run();
-            return new Response(JSON.stringify({ success: true, message: "Đã cập nhật hóa đơn!" }), { headers: SECURE_JSON_HEADERS });
-          }
-
-          if (env.DB) {
-            let nextStatus = status;
-            let approvedLevel = null;
-            let budgetStatus = null;
-
-            if (actionLevel === "APPROVE_L1") {
-              nextStatus = "PENDING_L2";
-              approvedLevel = "L1";
-            } else if (actionLevel === "APPROVE_L2") {
-              nextStatus = "APPROVED";
-              approvedLevel = "L2";
-            } else if (actionLevel === "REJECT_L1" || actionLevel === "REJECT_L2") {
-              nextStatus = "REJECTED";
-            } else if (actionLevel === "APPROVE_BUDGET_L1") {
-              budgetStatus = "pending_exec_budget";
-            } else if (actionLevel === "APPROVE_BUDGET_L2") {
-              budgetStatus = "budget_approved";
-            } else if (actionLevel === "REJECT_BUDGET") {
-              budgetStatus = "budget_rejected";
-            }
-
-            let updateSql = "UPDATE business_trips SET version = version + 1";
-            const bindings = [];
-
-            if (nextStatus) {
-              updateSql += ", status = ?";
-              bindings.push(nextStatus);
-            }
-            if (approvedLevel) {
-              updateSql += ", approved_level = ?";
-              bindings.push(approvedLevel);
-            }
-            if (rejectionReason) {
-              updateSql += ", rejection_reason = ?";
-              bindings.push(rejectionReason);
-            }
-            if (budgetStatus) {
-              updateSql += ", budget_status = ?";
-              bindings.push(budgetStatus);
-            }
-            if (budgetRejectionReason) {
-              updateSql += ", budget_rejection_reason = ?";
-              bindings.push(budgetRejectionReason);
-            }
-
-            updateSql += " WHERE id = ?";
-            bindings.push(id);
-
-            await env.DB.prepare(updateSql).bind(...bindings).run();
-          }
-
-          return new Response(JSON.stringify({ success: true, message: "Cập nhật đề xuất công tác thành công!" }), { headers: SECURE_JSON_HEADERS });
-        } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
-        }
-      }
-
-      if (request.method === "POST" && url.pathname === "/api/business-trips/invoices") {
-        try {
-          const body = await request.json().catch(() => ({}));
-          const { tripId, invoice } = body;
-          if (env.DB && tripId && invoice) {
-            const trip = await env.DB.prepare("SELECT invoices_json FROM business_trips WHERE id = ?").bind(tripId).first();
-            let currentInvoices = [];
-            if (trip && trip.invoices_json) {
-              try { currentInvoices = JSON.parse(trip.invoices_json); } catch(e) {}
-            }
-            currentInvoices.push(invoice);
-            await env.DB.prepare("UPDATE business_trips SET invoices_json = ? WHERE id = ?").bind(JSON.stringify(currentInvoices), tripId).run();
-          }
-          return new Response(JSON.stringify({ success: true, message: "Đã lưu hóa đơn vào D1" }), { headers: SECURE_JSON_HEADERS });
-        } catch (err) {
-          return new Response(JSON.stringify({ success: true, message: "OK" }), { headers: SECURE_JSON_HEADERS });
-        }
-      }
-    }
 
 // 4. API Route: Meeting Rooms & Visitor Management (/api/rooms)
     if (url.pathname.startsWith("/api/rooms")) {
@@ -12112,6 +12364,13 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
       // GET: Get all rooms, bookings, and visitors
       if (request.method === "GET") {
         try {
+          const authHeader = request.headers.get("authorization");
+          const token = authHeader ? authHeader.replace("Bearer ", "") : null;
+          const session = __legacySession;
+          if (!session) {
+            return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập để xem thông tin phòng họp" }), { status: 401, headers: { "Content-Type": "application/json" } });
+          }
+
           if (!env.DB) {
             return new Response(
               JSON.stringify({ success: false, error: "D1_CONNECTION_ERROR", message: "Mất kết nối CSDL Cloudflare D1 (env.DB missing)" }),
@@ -12200,6 +12459,9 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           try {
             let user = null;
             try { user = await verifyServerAuth(request); } catch (e) {}
+            if (!user || !user.authenticated) {
+              return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập để xóa phòng họp" }), { status: 401, headers: { "Content-Type": "application/json" } });
+            }
             if (!env.DB) return new Response(JSON.stringify({ success: false, error: "D1 Database missing" }), { status: 500 });
             
             const id = url.searchParams.get("id");
@@ -12528,6 +12790,12 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
       // PUT /api/rooms/lock: Toggle room lock/unlock
       if (url.pathname === "/api/rooms/lock" && request.method === "PUT") {
         try {
+          let user = null;
+          try { user = await verifyServerAuth(request); } catch (e) {}
+          if (!user || !user.authenticated) {
+            return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập để khóa hoặc mở khóa phòng họp" }), { status: 401, headers: { "Content-Type": "application/json" } });
+          }
+
           if (!env.DB) {
             return new Response(
               JSON.stringify({ success: false, error: "D1 Database binding env.DB missing" }),
@@ -14235,6 +14503,13 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
 
       if (request.method === "POST") {
         try {
+          const authHeader = request.headers.get("authorization");
+          const token = authHeader ? authHeader.replace("Bearer ", "") : null;
+          const session = __legacySession;
+          if (!session) {
+            return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Yêu cầu đăng nhập để gửi thông báo" }), { status: 401, headers: SECURE_JSON_HEADERS });
+          }
+
           const body = await request.json().catch(() => ({}));
           const { title, message, type, targetUser, link } = body;
           const notifId = `notif_${Date.now()}_${Math.floor(Math.random() * 1000)}`;

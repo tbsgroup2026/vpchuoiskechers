@@ -238,3 +238,356 @@ export function isMeetingTimePassed(
     nowTimeStr,
   };
 }
+
+/**
+ * Checks if two time intervals overlap (in minutes from 0..1439).
+ * Condition: newStart < existingEnd && newEnd > existingStart
+ * Consecutive intervals (e.g. 14:00-15:00 and 15:00-16:00) do NOT overlap.
+ */
+export function isTimeIntervalOverlapping(
+  startA: number,
+  endA: number,
+  startB: number,
+  endB: number
+): boolean {
+  return startA < endB && endA > startB;
+}
+
+/**
+ * Checks if two time slot strings overlap.
+ * Example: "13:45 - 14:00" and "14:00 - 17:00" -> false
+ * Example: "14:30 - 15:00" and "14:00 - 17:00" -> true
+ */
+export function isSlotOverlapping(slotA: string, slotB: string): boolean {
+  const parsedA = parseTimeSlot(slotA);
+  const parsedB = parseTimeSlot(slotB);
+  return isTimeIntervalOverlapping(
+    parsedA.startMinutes,
+    parsedA.endMinutes,
+    parsedB.startMinutes,
+    parsedB.endMinutes
+  );
+}
+
+export type MeetingRealtimeStatusType = 'UPCOMING' | 'IN_PROGRESS' | 'ENDED' | 'PENDING' | 'CANCELLED';
+
+export interface MeetingStatusResult {
+  status: MeetingRealtimeStatusType;
+  label: string; // 'Sắp họp' | 'Đang họp' | 'Đã kết thúc' | 'Chờ duyệt' | 'Đã hủy'
+  badgeBg: string;
+  badgeText: string;
+  badgeBorder: string;
+  isOccupyingRoom: boolean; // true if currently IN_PROGRESS
+}
+
+/**
+ * Determines the real-time meeting status based on Asia/Ho_Chi_Minh current time.
+ * - now < start: "Sắp họp"
+ * - start <= now < end: "Đang họp"
+ * - now >= end: "Đã kết thúc" (no longer occupying room)
+ */
+export function getMeetingRealtimeStatus(
+  meeting: {
+    bookingDate?: string;
+    date?: string;
+    timeSlot?: string;
+    status?: string;
+  },
+  referenceNow?: Date
+): MeetingStatusResult {
+  const rawStatus = (meeting.status || 'CONFIRMED').toUpperCase();
+
+  if (rawStatus === 'CANCELLED' || rawStatus === 'REJECTED') {
+    return {
+      status: 'CANCELLED',
+      label: 'Đã hủy',
+      badgeBg: 'bg-rose-50',
+      badgeText: 'text-rose-700',
+      badgeBorder: 'border-rose-200',
+      isOccupyingRoom: false,
+    };
+  }
+
+  if (rawStatus === 'PENDING' || rawStatus === 'APPROVING') {
+    return {
+      status: 'PENDING',
+      label: 'Chờ duyệt',
+      badgeBg: 'bg-amber-50',
+      badgeText: 'text-amber-800',
+      badgeBorder: 'border-amber-200',
+      isOccupyingRoom: false,
+    };
+  }
+
+  if (rawStatus === 'COMPLETED') {
+    return {
+      status: 'ENDED',
+      label: 'Đã trả phòng',
+      badgeBg: 'bg-slate-100',
+      badgeText: 'text-slate-600',
+      badgeBorder: 'border-slate-200',
+      isOccupyingRoom: false,
+    };
+  }
+
+  // Meeting is CONFIRMED: evaluate real-time vs now
+  const now = getVietnamNowParts(referenceNow);
+  const dateStr = meeting.bookingDate || meeting.date || now.isoDate;
+  const bookingDate = parseDateParts(dateStr);
+  const slot = parseTimeSlot(meeting.timeSlot || '08:00 - 09:00');
+
+  // Compare dates
+  if (bookingDate.isoDate < now.isoDate) {
+    return {
+      status: 'ENDED',
+      label: 'Đã kết thúc',
+      badgeBg: 'bg-slate-100',
+      badgeText: 'text-slate-600',
+      badgeBorder: 'border-slate-200',
+      isOccupyingRoom: false,
+    };
+  }
+
+  if (bookingDate.isoDate > now.isoDate) {
+    return {
+      status: 'UPCOMING',
+      label: 'Sắp họp',
+      badgeBg: 'bg-blue-50',
+      badgeText: 'text-blue-700',
+      badgeBorder: 'border-blue-200',
+      isOccupyingRoom: false,
+    };
+  }
+
+  // Same day: compare now.totalMinutes with slot.startMinutes and slot.endMinutes
+  if (now.totalMinutes < slot.startMinutes) {
+    return {
+      status: 'UPCOMING',
+      label: 'Sắp họp',
+      badgeBg: 'bg-blue-50',
+      badgeText: 'text-blue-700',
+      badgeBorder: 'border-blue-200',
+      isOccupyingRoom: false,
+    };
+  }
+
+  if (now.totalMinutes >= slot.startMinutes && now.totalMinutes < slot.endMinutes) {
+    return {
+      status: 'IN_PROGRESS',
+      label: 'Đang họp',
+      badgeBg: 'bg-emerald-50',
+      badgeText: 'text-[#006838]',
+      badgeBorder: 'border-emerald-200',
+      isOccupyingRoom: true,
+    };
+  }
+
+  // now >= endMinutes
+  return {
+    status: 'ENDED',
+    label: 'Đã kết thúc',
+    badgeBg: 'bg-slate-100',
+    badgeText: 'text-slate-600',
+    badgeBorder: 'border-slate-200',
+    isOccupyingRoom: false,
+  };
+}
+
+export interface RoomRealtimeStatusResult {
+  isLocked: boolean;
+  isOccupiedNow: boolean;
+  currentMeeting: any | null;
+  nextMeeting: any | null;
+  freeUntil: string | null; // e.g. "14:00"
+  badgeText: string;
+  badgeSubText: string;
+  statusKind: 'LOCKED' | 'OCCUPIED' | 'AVAILABLE';
+}
+
+/**
+ * Returns the real-time status of a room, looking at confirmed bookings for today.
+ */
+export function getRoomRealtimeStatus(
+  room: { id: string; name: string; isLocked?: boolean; status?: string },
+  bookings: any[],
+  referenceNow?: Date
+): RoomRealtimeStatusResult {
+  if (room.isLocked || room.status === 'MAINTENANCE') {
+    return {
+      isLocked: true,
+      isOccupiedNow: false,
+      currentMeeting: null,
+      nextMeeting: null,
+      freeUntil: null,
+      badgeText: '🔒 Khóa bảo trì',
+      badgeSubText: 'Tạm ngưng phục vụ',
+      statusKind: 'LOCKED',
+    };
+  }
+
+  const now = getVietnamNowParts(referenceNow);
+
+  // Filter confirmed bookings for this room today
+  const roomBookingsToday = (bookings || []).filter((b) => {
+    if (b.status !== 'CONFIRMED') return false;
+    const matchId = b.roomId === room.id;
+    const matchName =
+      b.roomName &&
+      (b.roomName.toLowerCase() === room.name.toLowerCase() ||
+        room.name.toLowerCase().includes(b.roomName.toLowerCase()) ||
+        b.roomName.toLowerCase().includes(room.name.toLowerCase()));
+    if (!matchId && !matchName) return false;
+
+    const bDate = parseDateParts(b.bookingDate || b.date);
+    return bDate.isoDate === now.isoDate;
+  });
+
+  // Find meeting currently IN_PROGRESS
+  let currentMeeting: any | null = null;
+  const upcomingMeetings: Array<{ booking: any; startMinutes: number; startTime24: string }> = [];
+
+  for (const b of roomBookingsToday) {
+    const statusRes = getMeetingRealtimeStatus(b, referenceNow);
+    if (statusRes.status === 'IN_PROGRESS') {
+      currentMeeting = b;
+    } else if (statusRes.status === 'UPCOMING') {
+      const slot = parseTimeSlot(b.timeSlot);
+      upcomingMeetings.push({
+        booking: b,
+        startMinutes: slot.startMinutes,
+        startTime24: slot.startTime24,
+      });
+    }
+  }
+
+  // Sort upcoming meetings by start time
+  upcomingMeetings.sort((a, b) => a.startMinutes - b.startMinutes);
+  const nextMeetingObj = upcomingMeetings[0] || null;
+  const nextMeeting = nextMeetingObj ? nextMeetingObj.booking : null;
+  const freeUntil = nextMeetingObj ? nextMeetingObj.startTime24 : null;
+
+  if (currentMeeting) {
+    const slot = parseTimeSlot(currentMeeting.timeSlot);
+    return {
+      isLocked: false,
+      isOccupiedNow: true,
+      currentMeeting,
+      nextMeeting,
+      freeUntil: null,
+      badgeText: '⏳ Đang họp',
+      badgeSubText: `Đến ${slot.endTime24}`,
+      statusKind: 'OCCUPIED',
+    };
+  }
+
+  return {
+    isLocked: false,
+    isOccupiedNow: false,
+    currentMeeting: null,
+    nextMeeting,
+    freeUntil,
+    badgeText: '✓ Phòng trống',
+    badgeSubText: freeUntil ? `Trống đến ${freeUntil}` : 'Trống cả ngày',
+    statusKind: 'AVAILABLE',
+  };
+}
+
+/**
+ * Checks if a room is available for a requested slot on a target date.
+ * Blocks if requested slot overlaps with an existing CONFIRMED booking for that room on that date:
+ * Overlap condition: newStart < existingEnd && newEnd > existingStart.
+ */
+export function isRoomAvailableForSlot(
+  roomId: string,
+  targetDateStr: string,
+  targetSlotStr: string,
+  bookings: any[],
+  excludeBookingId?: string
+): { isAvailable: boolean; conflictBooking?: any; reason?: string } {
+  const targetDate = parseDateParts(targetDateStr);
+  const targetSlot = parseTimeSlot(targetSlotStr);
+
+  for (const b of bookings || []) {
+    if (excludeBookingId && b.id === excludeBookingId) continue;
+    if (b.status === 'CANCELLED' || b.status === 'COMPLETED') continue;
+    if (b.status !== 'CONFIRMED') continue;
+
+    // Room match check
+    if (b.roomId && b.roomId !== roomId) continue;
+
+    const bDate = parseDateParts(b.bookingDate || b.date);
+    if (bDate.isoDate !== targetDate.isoDate) continue;
+
+    const bSlot = parseTimeSlot(b.timeSlot);
+    const overlaps = isTimeIntervalOverlapping(
+      targetSlot.startMinutes,
+      targetSlot.endMinutes,
+      bSlot.startMinutes,
+      bSlot.endMinutes
+    );
+
+    if (overlaps) {
+      return {
+        isAvailable: false,
+        conflictBooking: b,
+        reason: `Trùng với cuộc họp "${b.title || b.purpose || 'Đã có lịch'}" (${bSlot.startTime24} - ${bSlot.endTime24}) của ${b.bookerName || b.userName || 'người khác'}.`,
+      };
+    }
+  }
+
+  return { isAvailable: true };
+}
+
+/**
+ * Returns all confirmed busy slots for a given room and date.
+ */
+export function getOccupiedSlotsForRoom(
+  roomId: string,
+  targetDateStr: string,
+  bookings: any[]
+): Array<{
+  id: string;
+  timeSlot: string;
+  startTime24: string;
+  endTime24: string;
+  startMinutes: number;
+  endMinutes: number;
+  title: string;
+  bookerName: string;
+}> {
+  const targetDate = parseDateParts(targetDateStr);
+  const result: Array<{
+    id: string;
+    timeSlot: string;
+    startTime24: string;
+    endTime24: string;
+    startMinutes: number;
+    endMinutes: number;
+    title: string;
+    bookerName: string;
+  }> = [];
+
+  for (const b of bookings || []) {
+    if (b.status !== 'CONFIRMED') continue;
+    if (b.roomId && b.roomId !== roomId) continue;
+
+    const bDate = parseDateParts(b.bookingDate || b.date);
+    if (bDate.isoDate !== targetDate.isoDate) continue;
+
+    const slot = parseTimeSlot(b.timeSlot);
+    result.push({
+      id: b.id,
+      timeSlot: `${slot.startTime24} - ${slot.endTime24}`,
+      startTime24: slot.startTime24,
+      endTime24: slot.endTime24,
+      startMinutes: slot.startMinutes,
+      endMinutes: slot.endMinutes,
+      title: b.title || b.purpose || 'Cuộc họp',
+      bookerName: b.bookerName || b.userName || '',
+    });
+  }
+
+  result.sort((a, b) => a.startMinutes - b.startMinutes);
+  return result;
+}
+

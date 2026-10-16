@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { isMeetingTimePassed, isSlotOverlapping } from "@/lib/roomTimeHelper";
 
 export default function PublicBookingPage() {
   const [rooms, setRooms] = useState<any[]>([]);
@@ -51,7 +52,9 @@ export default function PublicBookingPage() {
   };
 
   const isSlotBusy = (roomId: string, date: string, slot: string) => {
-    return busySlots.some(b => b.roomId === roomId && b.date === date && b.timeSlot === slot);
+    const isPast = isMeetingTimePassed(date, slot, 5).isPassed;
+    if (isPast) return true;
+    return busySlots.some(b => b.roomId === roomId && b.date === date && isSlotOverlapping(slot, b.timeSlot));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

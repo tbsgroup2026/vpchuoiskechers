@@ -200,44 +200,74 @@ export async function GET(request: Request) {
       });
 
       if (!isExec && userEmp) {
-        if (filterScope === 'MY_ONLY') {
-          // Giai đoạn 3.1: Nhân viên chỉ thấy task mình được giao, mình tạo hoặc mình liên quan
-          allTasks = allTasks.filter((t: any) => {
-            const isAssignee = t.assignee_emp_code === userEmp;
-            const isReporter = t.reporter_emp_code === userEmp;
-            const isReviewer = t.reviewer_emp_code === userEmp;
-            const isInChecklist = Array.isArray(t.checklist) && t.checklist.some((c: any) => c.assignee_emp_code === userEmp);
-            return isAssignee || isReporter || isReviewer || isInChecklist;
-          });
-        } else if (filterScope === 'DEPT_ONLY' && isTP) {
-          // Trưởng phòng xem toàn bộ task thuộc phòng ban mình + task thuộc dự án ngoài do nhân viên phòng mình phụ trách
-          allTasks = allTasks.filter((t: any) => {
-            const isOwnDept = userDept !== '' && t.department_id && String(t.department_id).toUpperCase().includes(userDept);
-            const isHandoverOldDept = t.handover_status === 'PENDING_HANDOVER' && t.previous_department_id && String(t.previous_department_id).toUpperCase().includes(userDept);
-            const isHandoverNewDept = t.handover_status === 'PENDING_HANDOVER' && t.new_department_id && String(t.new_department_id).toUpperCase().includes(userDept);
-            const isExternalProjectTask = Boolean(t.project_id && t.assignee_department && String(t.assignee_department).toUpperCase().includes(userDept));
-            return isOwnDept || isHandoverOldDept || isHandoverNewDept || isExternalProjectTask;
-          });
+        if (roleLevel >= 4) {
+          // Giai đoạn 3.1: Nhân viên cấp thấp (roleLevel >= 4)
+          if (filterScope === 'DEPT_ONLY') {
+            // Xem trong phạm vi phòng ban của mình
+            allTasks = allTasks.filter((t: any) => {
+              return userDept !== '' && t.department_id && String(t.department_id).toUpperCase().includes(userDept);
+            });
+          } else {
+            // Mặc định hoặc MY_ONLY: Chỉ thấy task mình được giao, mình tạo, reviewer hoặc trong checklist
+            allTasks = allTasks.filter((t: any) => {
+              const isAssignee = t.assignee_emp_code === userEmp;
+              const isReporter = t.reporter_emp_code === userEmp;
+              const isReviewer = t.reviewer_emp_code === userEmp;
+              const isInChecklist = Array.isArray(t.checklist) && t.checklist.some((c: any) => c.assignee_emp_code === userEmp);
+              return isAssignee || isReporter || isReviewer || isInChecklist;
+            });
+          }
+        } else if (isTP) {
+          // Trưởng phòng
+          if (filterScope === 'MY_ONLY') {
+            allTasks = allTasks.filter((t: any) => {
+              const isAssignee = t.assignee_emp_code === userEmp;
+              const isReporter = t.reporter_emp_code === userEmp;
+              const isReviewer = t.reviewer_emp_code === userEmp;
+              const isInChecklist = Array.isArray(t.checklist) && t.checklist.some((c: any) => c.assignee_emp_code === userEmp);
+              return isAssignee || isReporter || isReviewer || isInChecklist;
+            });
+          } else {
+            // Trưởng phòng xem toàn bộ task thuộc phòng ban mình + task thuộc dự án ngoài do nhân viên phòng mình phụ trách
+            allTasks = allTasks.filter((t: any) => {
+              const isOwnDept = userDept !== '' && t.department_id && String(t.department_id).toUpperCase().includes(userDept);
+              const isHandoverOldDept = t.handover_status === 'PENDING_HANDOVER' && t.previous_department_id && String(t.previous_department_id).toUpperCase().includes(userDept);
+              const isHandoverNewDept = t.handover_status === 'PENDING_HANDOVER' && t.new_department_id && String(t.new_department_id).toUpperCase().includes(userDept);
+              const isExternalProjectTask = Boolean(t.project_id && t.assignee_department && String(t.assignee_department).toUpperCase().includes(userDept));
+              return isOwnDept || isHandoverOldDept || isHandoverNewDept || isExternalProjectTask;
+            });
 
-          // Gắn nhãn hiển thị trực quan cho task thuộc dự án ngoài
-          allTasks = allTasks.map((t: any) => {
-            const isExternal = Boolean(t.project_id && t.department_id && !String(t.department_id).toUpperCase().includes(userDept));
-            return {
-              ...t,
-              is_external_project_task: isExternal,
-              external_project_label: isExternal ? `Dự án ngoài: ${t.project_id}` : null,
-            };
-          });
+            // Gắn nhãn hiển thị trực quan cho task thuộc dự án ngoài
+            allTasks = allTasks.map((t: any) => {
+              const isExternal = Boolean(t.project_id && t.department_id && !String(t.department_id).toUpperCase().includes(userDept));
+              return {
+                ...t,
+                is_external_project_task: isExternal,
+                external_project_label: isExternal ? `Dự án ngoài: ${t.project_id}` : null,
+              };
+            });
+          }
         }
       }
     }
 
     // Explicit query parameter filters
     if (requestedAssignee && requestedAssignee !== 'ALL') {
-      allTasks = allTasks.filter((t: any) => t.assignee_emp_code === requestedAssignee || t.reporter_emp_code === requestedAssignee);
+      if (session && (session.roleLevel || 4) >= 4 && requestedAssignee !== session.empCode) {
+        // Staff cannot query another employee's tasks
+        allTasks = [];
+      } else {
+        allTasks = allTasks.filter((t: any) => t.assignee_emp_code === requestedAssignee || t.reporter_emp_code === requestedAssignee);
+      }
     }
     if (requestedDept && requestedDept !== 'ALL') {
-      allTasks = allTasks.filter((t: any) => String(t.department_id || '').toUpperCase().includes(requestedDept.toUpperCase()));
+      const userDeptCode = session ? String(session.departmentCode || session.department || '').toUpperCase() : '';
+      if (session && (session.roleLevel || 4) >= 4 && userDeptCode && !userDeptCode.includes(requestedDept.toUpperCase())) {
+        // Staff cannot query another department's tasks
+        allTasks = [];
+      } else {
+        allTasks = allTasks.filter((t: any) => String(t.department_id || '').toUpperCase().includes(requestedDept.toUpperCase()));
+      }
     }
     if (requestedProject && requestedProject !== 'ALL') {
       allTasks = allTasks.filter((t: any) => String(t.project_id || '').toUpperCase() === requestedProject.toUpperCase());
@@ -466,9 +496,25 @@ export async function PATCH(request: Request) {
     const isAdmin = roleCode === 'SUPER_ADMIN' || roleCode === 'ADMIN' || roleLevel === 1;
     const isExec = isAdmin || roleLevel <= 2;
     const isTP = !isExec && (roleCode === 'TRUONG_PHONG' || roleCode === 'TP' || roleCode === 'QUAN_DOC' || roleLevel === 3);
+    const userDept = String(session.departmentCode || session.department || '').toUpperCase();
     const isReporter = session.empCode === existing.reporter_emp_code;
+    const isAssignee = session.empCode === existing.assignee_emp_code;
     const isReviewer = session.empCode === existing.reviewer_emp_code;
     const isApprover = isAdmin || isExec || isTP || isReporter || isReviewer;
+
+    // RBAC Permission Check for Task Mutation
+    if (roleLevel >= 4 && !isAssignee && !isReporter && !isReviewer) {
+      return NextResponse.json(
+        { success: false, error: 'FORBIDDEN', message: 'Nhân viên chỉ được cập nhật công việc được giao cho chính mình hoặc do mình tạo!' },
+        { status: 403 }
+      );
+    }
+    if (roleLevel === 3 && existing.department_id && !String(existing.department_id).toUpperCase().includes(userDept) && !isAssignee && !isReporter) {
+      return NextResponse.json(
+        { success: false, error: 'FORBIDDEN', message: 'Trưởng phòng chỉ được quản lý công việc trong phạm vi phòng ban của mình!' },
+        { status: 403 }
+      );
+    }
 
     let history: any[] = [];
     try {
@@ -762,7 +808,7 @@ export async function DELETE(request: Request) {
     }
 
     const { searchParams } = new URL(request.url);
-    const taskId = searchParams.get('taskId');
+    const taskId = searchParams.get('taskId') || searchParams.get('id');
 
     if (!taskId) {
       return NextResponse.json({ success: false, error: 'taskId là bắt buộc' }, { status: 400 });
@@ -777,6 +823,33 @@ export async function DELETE(request: Request) {
     }
 
     await ensureTable(db);
+
+    const existing: any = await db.prepare(`SELECT * FROM sys_my_tasks WHERE id = ?`).bind(taskId).first().catch(() => null);
+    if (!existing) {
+      return NextResponse.json({ success: false, error: 'Không tìm thấy công việc' }, { status: 404 });
+    }
+
+    const roleLevel = session.roleLevel || 4;
+    const roleCode = (session.roleCode || '').toUpperCase();
+    const isAdmin = roleCode === 'SUPER_ADMIN' || roleCode === 'ADMIN' || roleLevel === 1;
+    const isExec = isAdmin || roleLevel <= 2;
+    const userDept = String(session.departmentCode || session.department || '').toUpperCase();
+
+    // RBAC Check for Task Deletion
+    if (!isExec) {
+      if (roleLevel >= 4 && existing.reporter_emp_code !== session.empCode) {
+        return NextResponse.json(
+          { success: false, error: 'FORBIDDEN', message: 'Nhân viên chỉ có thể xóa công việc do chính mình tạo ra!' },
+          { status: 403 }
+        );
+      }
+      if (roleLevel === 3 && existing.department_id && !String(existing.department_id).toUpperCase().includes(userDept) && existing.reporter_emp_code !== session.empCode) {
+        return NextResponse.json(
+          { success: false, error: 'FORBIDDEN', message: 'Trưởng phòng chỉ có thể xóa công việc thuộc phòng ban của mình!' },
+          { status: 403 }
+        );
+      }
+    }
 
     await db.prepare(`DELETE FROM sys_my_tasks WHERE id = ?`).bind(taskId).run();
 

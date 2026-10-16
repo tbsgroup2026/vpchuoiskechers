@@ -432,6 +432,9 @@ export default function ProjectWorkspaceView() {
     );
   }
 
+  const userRoleLevel = currentUser?.roleLevel ?? (currentUser?.managementLevel ?? 4);
+  const canCreateProject = userRoleLevel <= 3 || ["SUPER_ADMIN", "ADMIN", "TRUONG_PHONG", "TONG_GIAM_DOC", "GIAM_DOC"].includes((currentUser?.roleCode || "").toUpperCase());
+
   return (
     <div className="w-full space-y-6">
       {/* Toast Alert */}
@@ -473,14 +476,21 @@ export default function ProjectWorkspaceView() {
           >
             <IconRefresh size={16} />
           </button>
-          <button
-            type="button"
-            onClick={() => setIsCreateProjectModalOpen(true)}
-            className="px-4 py-2.5 rounded-2xl bg-[#006838] hover:bg-emerald-800 text-white text-xs font-black shadow-md transition flex items-center gap-1.5 cursor-pointer active:scale-95 shrink-0"
-          >
-            <IconPlus size={16} />
-            <span>+ Khởi Tạo Dự Án Mới</span>
-          </button>
+          {canCreateProject ? (
+            <button
+              type="button"
+              onClick={() => setIsCreateProjectModalOpen(true)}
+              className="px-4 py-2.5 rounded-2xl bg-[#006838] hover:bg-emerald-800 text-white text-xs font-black shadow-md transition flex items-center gap-1.5 cursor-pointer active:scale-95 shrink-0"
+            >
+              <IconPlus size={16} />
+              <span>+ Khởi Tạo Dự Án Mới</span>
+            </button>
+          ) : (
+            <div className="px-3.5 py-2 rounded-2xl bg-slate-100 text-slate-400 text-xs font-bold flex items-center gap-1.5 border border-slate-200 cursor-not-allowed" title="Chỉ Trưởng phòng hoặc Ban Giám Đốc mới có thẩm quyền khởi tạo dự án">
+              <IconLock size={15} />
+              <span>Chỉ Cấp Quản Lý tạo dự án</span>
+            </div>
+          )}
         </div>
       </div>
 

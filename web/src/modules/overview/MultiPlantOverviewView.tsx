@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import NavLink from "@/components/NavLink";
 import { formatFormattedNumber } from "@/lib/formatNumber";
+import { KpiCard } from "@/components/dashboard";
 import {
   IconChartBar,
   IconSparkles,
@@ -114,110 +115,105 @@ export default function MultiPlantOverviewView() {
 
       {/* 3 Main Module Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Card 1: Kaizen Library */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4 hover:shadow-md transition">
-          <div className="flex items-center justify-between">
+        {/* Module 1: Kaizen */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-[#006838] flex items-center justify-center border border-emerald-200">
                 <IconSparkles size={22} />
               </div>
               <div>
-                <h3 className="font-black text-sm text-slate-900">Thư Viện Cải Tiến Kaizen</h3>
+                <h3 className="font-bold text-sm text-slate-900">Thư Viện Cải Tiến Kaizen</h3>
                 <span className="text-[11px] text-slate-400 font-semibold">Chỉ số đăng ký & tiết kiệm</span>
               </div>
             </div>
-            <NavLink href="/work/kaizen" className="text-xs font-bold text-blue-600 hover:underline">
-              Xem chi tiết →
+            <NavLink href="/work/kaizen" className="text-xs font-bold text-[#006838] hover:underline">
+              Chi tiết →
             </NavLink>
           </div>
-
-          <div className="grid grid-cols-2 gap-2.5 pt-2">
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex flex-col justify-between">
-              <span className="text-[11px] font-bold text-slate-600">Tổng Đề Xuất:</span>
-              <span className="text-xl font-black text-slate-900 font-mono mt-1">{loading ? "..." : kaizenStats?.total_proposals || 0}</span>
-            </div>
-
-            <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100 flex flex-col justify-between">
-              <span className="text-[11px] font-bold text-emerald-800">Đã Phê Duyệt:</span>
-              <span className="text-xl font-black text-emerald-700 font-mono mt-1">{loading ? "..." : kaizenStats?.approved_proposals || 0}</span>
-            </div>
-
-            <div className="col-span-2 p-3 bg-blue-50 rounded-xl border border-blue-100 flex items-center justify-between">
-              <span className="text-xs font-bold text-blue-800">Tổng TG Tiết Kiệm:</span>
-              <span className="text-base font-black text-blue-700 font-mono">
-                ⏱️ {loading ? "..." : formatFormattedNumber(kaizenStats?.total_saved_seconds || 0)} giây
-              </span>
-            </div>
+          <div className="grid grid-cols-2 gap-3">
+            <KpiCard
+              icon={IconSparkles}
+              title="Tổng Đề Xuất"
+              value={kaizenStats?.total_proposals || 0}
+              subtitle="Tất cả đề xuất"
+              loading={loading}
+            />
+            <KpiCard
+              icon={IconSparkles}
+              title="Đã Phê Duyệt"
+              value={kaizenStats?.approved_proposals || 0}
+              subtitle="Nghiệm thu"
+              loading={loading}
+            />
           </div>
         </div>
 
-        {/* Card 2: GEMBA Audit */}
-        <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4 hover:shadow-md transition">
-          <div className="flex items-center justify-between">
+        {/* Module 2: Gemba */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-[#006838] flex items-center justify-center border border-emerald-200">
                 <IconShieldCheck size={22} />
               </div>
               <div>
-                <h3 className="font-black text-sm text-slate-900">Quản Lý GEMBA Audit</h3>
+                <h3 className="font-bold text-sm text-slate-900">Quản Lý GEMBA Audit</h3>
                 <span className="text-[11px] text-slate-400 font-semibold">Tuân thủ 5S & An toàn</span>
               </div>
             </div>
-            <NavLink href="/work/gemba" className="text-xs font-bold text-purple-600 hover:underline">
-              Xem chi tiết →
+            <NavLink href="/work/gemba" className="text-xs font-bold text-[#006838] hover:underline">
+              Chi tiết →
             </NavLink>
           </div>
-
-          <div className="grid grid-cols-2 gap-2.5 pt-2">
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex flex-col justify-between">
-              <span className="text-[11px] font-bold text-slate-600">Điểm Đánh Giá TB:</span>
-              <span className="text-xl font-black text-purple-700 font-mono mt-1">94.8 / 100</span>
-            </div>
-
-            <div className="p-3 bg-purple-50 rounded-xl border border-purple-100 flex flex-col justify-between">
-              <span className="text-[11px] font-bold text-purple-900">Đã Khắc Phục:</span>
-              <span className="text-xl font-black text-purple-800 font-mono mt-1">128 / 132</span>
-            </div>
-
-            <div className="col-span-2 p-3 bg-amber-50 rounded-xl border border-amber-100 flex items-center justify-between">
-              <span className="text-xs font-bold text-amber-900">Lỗi Đang Theo Dõi:</span>
-              <span className="text-base font-black text-amber-700 font-mono">4 điểm nóng</span>
-            </div>
+          <div className="grid grid-cols-2 gap-3">
+            <KpiCard
+              icon={IconShieldCheck}
+              title="Đánh Giá TB"
+              value={94.8}
+              subtitle="Thang điểm 100"
+              loading={loading}
+            />
+            <KpiCard
+              icon={IconShieldCheck}
+              title="Đã Khắc Phục"
+              value={128}
+              subtitle="Trên 132 lỗi"
+              loading={loading}
+            />
           </div>
         </div>
 
-        {/* Card 3: Machinery & Equipment */}
-        <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4 hover:shadow-md transition">
-          <div className="flex items-center justify-between">
+        {/* Module 3: Maintenance */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-[#006838] flex items-center justify-center border border-emerald-200">
                 <IconBuildingFactory size={22} />
               </div>
               <div>
-                <h3 className="font-black text-sm text-slate-900">Quản Lý Máy Móc Thiết Bị</h3>
+                <h3 className="font-bold text-sm text-slate-900">Quản Lý MMTB</h3>
                 <span className="text-[11px] text-slate-400 font-semibold">Tài sản & Bảo trì PM</span>
               </div>
             </div>
-            <NavLink href="/maintenance" className="text-xs font-bold text-amber-600 hover:underline">
-              Xem chi tiết →
+            <NavLink href="/maintenance" className="text-xs font-bold text-[#006838] hover:underline">
+              Chi tiết →
             </NavLink>
           </div>
-
-          <div className="grid grid-cols-2 gap-2.5 pt-2">
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex flex-col justify-between">
-              <span className="text-[11px] font-bold text-slate-600">Tổng Số Máy:</span>
-              <span className="text-xl font-black text-slate-900 font-mono mt-1">1,420 máy</span>
-            </div>
-
-            <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100 flex flex-col justify-between">
-              <span className="text-[11px] font-bold text-emerald-800">Chỉ Số OEE:</span>
-              <span className="text-xl font-black text-emerald-700 font-mono mt-1">98.2%</span>
-            </div>
-
-            <div className="col-span-2 p-3 bg-rose-50 rounded-xl border border-rose-100 flex items-center justify-between">
-              <span className="text-xs font-bold text-rose-900">Sửa Chữa Đột Xuất:</span>
-              <span className="text-base font-black text-rose-700 font-mono">2 phiếu</span>
-            </div>
+          <div className="grid grid-cols-2 gap-3">
+            <KpiCard
+              icon={IconBuildingFactory}
+              title="Tổng Số Máy"
+              value={1420}
+              subtitle="Thiết bị hoạt động"
+              loading={loading}
+            />
+            <KpiCard
+              icon={IconBuildingFactory}
+              title="Chỉ Số OEE"
+              value={98.2}
+              subtitle="Hiệu suất máy"
+              loading={loading}
+            />
           </div>
         </div>
       </div>

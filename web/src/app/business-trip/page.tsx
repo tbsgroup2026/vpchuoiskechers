@@ -2547,7 +2547,7 @@ export default function BusinessTripRegistrationPage() {
                                 {/* Level 1 Approval Actions */}
                                 {rec.status === "PENDING" && (
                                   <Can permission={PERMISSIONS.TRIP_APPROVE_LEVEL1}>
-                                    {(isExecutiveOrAdmin || !currentUser?.department || !rec.department || currentUser.department.trim().toLowerCase() === rec.department.trim().toLowerCase()) && (
+                                    {(!currentUser?.department || !rec.department || currentUser.department.trim().toLowerCase() === rec.department.trim().toLowerCase() || isExecutiveOrAdmin) && (
                                       <div className="flex items-center gap-1">
                                         <button
                                           onClick={() => handleApproveTrip(rec.id, "department_head")}
@@ -2566,8 +2566,8 @@ export default function BusinessTripRegistrationPage() {
                                   </Can>
                                 )}
 
-                                {/* Level 2 Approval Actions (TGĐ / Ban Giám Đốc) */}
-                                {(rec.status === "PENDING_L2" || (rec.status === "PENDING" && isExecutiveOrAdmin)) && (
+                                {/* Level 2 Approval Actions (TGĐ / Ban Giám Đốc - CHỈ HIỂN THỊ KHI ĐÃ QUA CẤP 1 VÀ Ở TRẠNG THÁI PENDING_L2) */}
+                                {rec.status === "PENDING_L2" && (
                                   <Can permission={PERMISSIONS.TRIP_APPROVE_LEVEL2}>
                                     <div className="flex items-center gap-1">
                                       <button

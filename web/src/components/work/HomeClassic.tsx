@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import DepartmentDashboardView from "@/modules/dashboard/DepartmentDashboardView";
-import { EnterpriseOverviewSection, KpiCard, DonutChartCard, BarChartCard } from "@/components/dashboard";
+import { KpiCard, DonutChartCard, BarChartCard } from "@/components/dashboard";
 import { TaskItem, NotificationItem } from "./HomeNew";
 import {
   IconUser,
@@ -294,11 +294,6 @@ export default function HomeClassic({
         />
       ) : (
         <>
-          {/* ════════════════════════════════════════════════════════════════
-              1.2 TỔNG QUAN TBS GROUP (ENTERPRISE STATS & DONUT CHART)
-             ════════════════════════════════════════════════════════════════ */}
-          <EnterpriseOverviewSection />
-
           {/* ════════════════════════════════════════════════════════════════
               2. THANH LỌC THỜI GIAN CÔNG VIỆC (PREVENT LINE BREAKS)
              ════════════════════════════════════════════════════════════════ */}

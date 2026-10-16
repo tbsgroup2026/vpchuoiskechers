@@ -12,6 +12,7 @@ import { getAllowedModules } from "@/lib/rbac";
 import Can from "@/components/Can";
 import { PERMISSIONS } from "@/lib/permissions";
 import OverviewDashboard from "@/components/work/OverviewDashboard";
+import { EnterpriseOverviewSection } from "@/components/dashboard";
 import WorkspaceHomeView from "@/components/work/WorkspaceHomeView";
 import HRSystemShell from "@/modules/hr/HRSystemShell";
 import HRHanhChanhHubView from "@/modules/hr/components/HRHanhChanhHubView";
@@ -1402,6 +1403,7 @@ function WorkDashboardPage({ initialDept }: { initialDept?: string | null }) {
           {/* ════════════════════════════════════════════════════════════════
               THẺ 01: TỔNG QUAN HỆ THỐNG (CHỈ RENDER KHI CHỌN KHỐI TỔNG QUAN)
              ════════════════════════════════════════════════════════════════ */}
+          {selectedDept === "overview" && <EnterpriseOverviewSection />}
           {selectedDept === "overview" && (
             <OverviewDashboard
               onSelectDept={(deptId) => handleSelectDept(selectedDept === deptId ? null : deptId)}

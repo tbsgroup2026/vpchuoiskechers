@@ -10757,16 +10757,9 @@ export default {
       // Handle Feasibility Approval (/api/ci-kaizen/approve)
       if (url.pathname.endsWith("/approve") && request.method === "POST") {
         try {
-          let user = await verifyServerAuth(request, env);
+          const user = await verifyServerAuth(request, env);
           if (!user || !user.authenticated) {
-            user = {
-              authenticated: true,
-              empCode: "202608001",
-              roleCode: "TRUONG_PHONG",
-              name: "Phạm Nguyễn Anh Huy",
-              isExecutiveOrAdmin: true,
-              department: "IT - Team Chuyển Đổi Số",
-            };
+            return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Vui lòng đăng nhập để duyệt sáng kiến" }), { status: 401, headers: SECURE_JSON_HEADERS });
           }
 
           const body = await request.json();

@@ -14709,6 +14709,27 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
     if (url.pathname.startsWith("/api/gemba/")) {
       await ensureGembaTables(env);
 
+      // Đồng bộ hai chiều với Google Sheet (Gemba.Pro): khoá chung + hàng chờ thay đổi từ web
+      const gembaSheetKeyOk = () => {
+        const expectedKey = env.GEMBA_SHEET_SYNC_KEY;
+        return Boolean(expectedKey) && authTimingSafeEqual(request.headers.get("X-Sheet-Key") || "", expectedKey);
+      };
+      const ensureGembaSheetOutbox = async () => {
+        await env.DB.prepare(`
+          CREATE TABLE IF NOT EXISTS gemba_sheet_outbox (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            source TEXT NOT NULL,
+            record_id TEXT NOT NULL,
+            sheet_id TEXT NOT NULL,
+            payload TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            acked_at DATETIME
+          )
+        `).run();
+        await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_gemba_sheet_outbox_pending ON gemba_sheet_outbox(source, acked_at)").run().catch(() => {});
+      };
+
+
       // 1. GET /api/gemba/dashboard
       if (url.pathname === "/api/gemba/dashboard" && request.method === "GET") {
         try {
@@ -15194,6 +15215,31 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
               VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             `).bind(histId, existing.id, computedActionType, currentStatus, finalStatus, note || `Cập nhật trạng thái sang ${finalStatus}`, user.empCode, user.name || user.empCode).run().catch(() => {});
 
+            // Phiếu đồng bộ từ Google Sheet: đưa thay đổi vào hàng chờ để Apps Script ghi ngược xuống sheet
+            if (String(existing.source || "").startsWith("SHEET:")) {
+              const sheetSource = String(existing.source).slice(6);
+              const sheetId = String(existing.code || "").startsWith(`${sheetSource}-`) ? String(existing.code).slice(sheetSource.length + 1) : String(existing.code || "");
+              await ensureGembaSheetOutbox();
+              await env.DB.prepare("INSERT INTO gemba_sheet_outbox (source, record_id, sheet_id, payload) VALUES (?, ?, ?, ?)").bind(
+                sheetSource, existing.id, sheetId,
+                JSON.stringify({
+                  actionType: computedActionType,
+                  fromStatus: currentStatus,
+                  status: finalStatus,
+                  note: note || "",
+                  assignedEmpCode: assigned_to_emp_code !== undefined ? newAssignedCode || "" : undefined,
+                  assignedName: assigned_to_name !== undefined ? newAssignedName || "" : undefined,
+                  priority: priority || undefined,
+                  title: title || undefined,
+                  photoUrl: photo_url || undefined,
+                  closedAt: finalStatus === "COMPLETED" ? closedAt : undefined,
+                  performedBy: user.empCode,
+                  performedByName: user.name || user.empCode,
+                  at: new Date().toISOString(),
+                }),
+              ).run();
+            }
+
             // Optional attached resolution photo URL
             if (photo_url) {
               const attachId = `att_${Date.now()}`;
@@ -15453,14 +15499,59 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
       }
 
       // 7. POST /api/gemba/import-sheet (Google Sheet Historical Data Import)
+      // 7a. GET /api/gemba/sheet-changes?source=THKG — Apps Script lấy các thay đổi làm trên web để ghi xuống sheet
+      if (url.pathname === "/api/gemba/sheet-changes" && request.method === "GET") {
+        try {
+          if (!gembaSheetKeyOk()) {
+            return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED" }), { status: 401, headers: SECURE_JSON_HEADERS });
+          }
+          const source = String(url.searchParams.get("source") || "").trim().toUpperCase().replace(/[^A-Z0-9_]/g, "").slice(0, 20);
+          if (!source) {
+            return new Response(JSON.stringify({ success: false, error: "MISSING_SOURCE" }), { status: 400, headers: SECURE_JSON_HEADERS });
+          }
+          await ensureGembaSheetOutbox();
+          const { results } = await env.DB.prepare(
+            "SELECT id, sheet_id, payload, created_at FROM gemba_sheet_outbox WHERE source = ? AND acked_at IS NULL ORDER BY id ASC LIMIT 200",
+          ).bind(source).all();
+          const changes = (results || []).map((r) => {
+            let payload = {};
+            try { payload = JSON.parse(r.payload); } catch (e) {}
+            return { ...payload, changeId: r.id, sheetId: r.sheet_id, queuedAt: r.created_at };
+          });
+          return new Response(JSON.stringify({ success: true, changes }), { headers: SECURE_JSON_HEADERS });
+        } catch (err) {
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
+        }
+      }
+
+      // 7a'. POST /api/gemba/sheet-changes/ack { source, ids: [changeId] } — đánh dấu đã ghi xuống sheet
+      if (url.pathname === "/api/gemba/sheet-changes/ack" && request.method === "POST") {
+        try {
+          if (!gembaSheetKeyOk()) {
+            return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED" }), { status: 401, headers: SECURE_JSON_HEADERS });
+          }
+          const body = await request.json().catch(() => ({}));
+          const source = String(body.source || "").trim().toUpperCase().replace(/[^A-Z0-9_]/g, "").slice(0, 20);
+          const ids = (Array.isArray(body.ids) ? body.ids : []).map(Number).filter((n) => Number.isInteger(n) && n > 0).slice(0, 500);
+          if (!source || ids.length === 0) {
+            return new Response(JSON.stringify({ success: false, error: "MISSING_SOURCE_OR_IDS" }), { status: 400, headers: SECURE_JSON_HEADERS });
+          }
+          await ensureGembaSheetOutbox();
+          await env.DB.prepare(
+            `UPDATE gemba_sheet_outbox SET acked_at = CURRENT_TIMESTAMP WHERE source = ? AND acked_at IS NULL AND id IN (${ids.map(() => "?").join(", ")})`,
+          ).bind(source, ...ids).run();
+          return new Response(JSON.stringify({ success: true, acked: ids.length }), { headers: SECURE_JSON_HEADERS });
+        } catch (err) {
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
+        }
+      }
+
       // 7b. POST /api/gemba/sheet-sync — Apps Script Gemba.Pro của từng nhà máy đẩy phiếu lên.
       // Một chiều: sheet là nguồn chính, mỗi lần gửi sẽ thêm mới hoặc ghi đè phiếu cùng mã.
       // Xác thực bằng header X-Sheet-Key = secret GEMBA_SHEET_SYNC_KEY (đặt bằng `wrangler secret put`).
       if (url.pathname === "/api/gemba/sheet-sync" && request.method === "POST") {
         try {
-          const expectedKey = env.GEMBA_SHEET_SYNC_KEY;
-          const providedKey = request.headers.get("X-Sheet-Key") || "";
-          if (!expectedKey || !authTimingSafeEqual(providedKey, expectedKey)) {
+          if (!gembaSheetKeyOk()) {
             return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED" }), { status: 401, headers: SECURE_JSON_HEADERS });
           }
 
@@ -15476,6 +15567,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           }
 
           await env.DB.prepare("ALTER TABLE gemba_records ADD COLUMN source TEXT").run().catch(() => {});
+          await ensureGembaSheetOutbox();
 
           const str = (v, max = 2000) => (v == null ? "" : String(v).trim()).slice(0, max);
           const norm = (v) => str(v, 200).normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/gi, "d").replace(/\s+/g, " ").toUpperCase();
@@ -15492,8 +15584,8 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
             const s = norm(v);
             if (s === "HOAN THANH") return "COMPLETED";
             if (s === "TU CHOI") return "COMPLETED"; // trang Gemba chỉ có 4 trạng thái; lý do từ chối nằm trong mô tả
-            if (s === "DANG XU LY" || s === "QUA HAN") return "PROCESSING";
-            return "NEW"; // Mới, Chờ xử lý lại
+            if (s === "DANG XU LY" || s === "QUA HAN" || s === "CHO XU LY LAI") return "PROCESSING";
+            return "NEW";
           };
           const mapPriority = (v) => {
             const s = norm(v);
@@ -15568,11 +15660,16 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
                   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, CURRENT_TIMESTAMP, ?)
                   ON CONFLICT(id) DO UPDATE SET
                     title = excluded.title, description = excluded.description, category_id = excluded.category_id,
-                    priority = excluded.priority, status = excluded.status, factory_id = excluded.factory_id,
+                    priority = excluded.priority,
+                    status = CASE WHEN excluded.status = 'PROCESSING' AND gemba_records.status = 'WAITING_CONFIRMATION' THEN gemba_records.status ELSE excluded.status END,
+                    factory_id = excluded.factory_id,
                     workshop_id = excluded.workshop_id, line_id = excluded.line_id, team_id = excluded.team_id,
                     created_by_emp_code = excluded.created_by_emp_code, created_by_name = excluded.created_by_name,
                     assigned_to_emp_code = excluded.assigned_to_emp_code, assigned_to_name = excluded.assigned_to_name,
                     closed_at = excluded.closed_at, created_at = excluded.created_at, updated_at = CURRENT_TIMESTAMP, source = excluded.source
+                  WHERE NOT EXISTS (
+                    SELECT 1 FROM gemba_sheet_outbox o WHERE o.record_id = gemba_records.id AND o.acked_at IS NULL
+                  )
                 `).bind(
                   `gb_${srcSlug}_${slug(sheetId)}`, `${source}-${sheetId}`,
                   str(r.TITLE, 300) || str(r.ISSUE_NAME, 300) || "(Không có tiêu đề)", description,

@@ -1514,7 +1514,17 @@ function WorkDashboardPage({ initialDept }: { initialDept?: string | null }) {
           {/* IF R&D (PHÁT TRIỂN SẢN PHẨM) IS SELECTED */}
           {/* KẾ HOẠCH CHUẨN BỊ & TRUNG TÂM PHÂN PHỐI – BẢN DEMO */}
           {selectedDept === "logistics" && (
-            <div className="w-full">
+            <div className="w-full space-y-4">
+              <a
+                href="/warehouse"
+                className="flex items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 hover:bg-emerald-100 transition"
+              >
+                <span className="min-w-0">
+                  <span className="block text-sm font-black text-emerald-900">Kho thực tế · Kiểm hàng & vị trí kệ/tầng</span>
+                  <span className="block text-xs text-emerald-800/80">Kiểm hàng về, kiểm kê tồn bằng camera/barcode, import file, tra vị trí Kho → Khu → Kệ → Tầng → Ô</span>
+                </span>
+                <span className="shrink-0 rounded-xl bg-emerald-700 px-3 py-2 text-xs font-bold text-white">Mở</span>
+              </a>
               <LogisticsDemoApp />
             </div>
           )}

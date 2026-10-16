@@ -10705,7 +10705,7 @@ export default {
     if (
       url.pathname === "/api/ci-kaizen" ||
       url.pathname === "/api/ci-kaizen/" ||
-      url.pathname.endsWith("/approve")
+      (url.pathname.endsWith("/approve") && !url.pathname.startsWith("/api/warehouse/"))
     ) {
       if (!env.DB) {
         return new Response(
@@ -14703,6 +14703,468 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
         }
       } catch (e) {
         console.warn("ensureGembaTables error:", e);
+      }
+    }
+
+    // ============================================================
+    // KHO THỰC TẾ: vị trí Kho → Khu → Kệ → Tầng → Ô, tồn theo vị trí, phiếu kiểm hàng (hàng về / kiểm kê tồn)
+    // Quyền: Admin chỉ định Quản lý kho (MANAGER); Quản lý kho cấp quyền sửa vị trí (EDITOR).
+    // Mọi người đã đăng nhập: xem, tra cứu và quét đếm trong phiếu đang mở.
+    // ============================================================
+    if (url.pathname.startsWith("/api/warehouse/")) {
+      const reply = (obj, status = 200) => new Response(JSON.stringify(obj), { status, headers: SECURE_JSON_HEADERS });
+      const forbid = (message) => reply({ success: false, error: "FORBIDDEN", message }, 403);
+      const bad = (message) => reply({ success: false, error: "BAD_REQUEST", message }, 400);
+      try {
+        const user = await verifyServerAuth(request, env);
+        if (!user || !user.authenticated) return reply({ success: false, error: "UNAUTHORIZED", message: "Vui lòng đăng nhập" }, 401);
+        const db = env.DB;
+
+        if (!globalThis.__whTablesReady) {
+          await db.batch([
+            db.prepare("CREATE TABLE IF NOT EXISTS wh_roles (emp_code TEXT PRIMARY KEY, role TEXT NOT NULL, emp_name TEXT, granted_by TEXT, granted_at DATETIME)"),
+            db.prepare("CREATE TABLE IF NOT EXISTS wh_locations (code TEXT PRIMARY KEY, warehouse TEXT NOT NULL, zone TEXT, rack TEXT, tier TEXT, bin TEXT, note TEXT, updated_by TEXT, updated_at DATETIME)"),
+            db.prepare("CREATE TABLE IF NOT EXISTS wh_items (code TEXT PRIMARY KEY, name TEXT, unit TEXT, updated_at DATETIME)"),
+            db.prepare("CREATE TABLE IF NOT EXISTS wh_stock (item_code TEXT NOT NULL, location_code TEXT NOT NULL, qty REAL NOT NULL DEFAULT 0, updated_by TEXT, updated_at DATETIME, PRIMARY KEY (item_code, location_code))"),
+            db.prepare("CREATE TABLE IF NOT EXISTS wh_count_sessions (id TEXT PRIMARY KEY, type TEXT NOT NULL, title TEXT, ref_no TEXT, scope TEXT, status TEXT NOT NULL DEFAULT 'OPEN', note TEXT, created_by TEXT, created_by_name TEXT, created_at DATETIME, submitted_by TEXT, submitted_at DATETIME, approved_by TEXT, approved_by_name TEXT, approved_at DATETIME)"),
+            db.prepare("CREATE TABLE IF NOT EXISTS wh_count_lines (session_id TEXT NOT NULL, item_code TEXT NOT NULL, location_code TEXT NOT NULL DEFAULT '', item_name TEXT, unit TEXT, expected_qty REAL NOT NULL DEFAULT 0, counted_qty REAL NOT NULL DEFAULT 0, in_list INTEGER NOT NULL DEFAULT 1, updated_by TEXT, updated_at DATETIME, PRIMARY KEY (session_id, item_code, location_code))"),
+            db.prepare("CREATE TABLE IF NOT EXISTS wh_count_scans (id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL, item_code TEXT NOT NULL, location_code TEXT, qty REAL, mode TEXT, emp_code TEXT, emp_name TEXT, at DATETIME)"),
+            db.prepare("CREATE INDEX IF NOT EXISTS idx_wh_stock_location ON wh_stock(location_code)"),
+            db.prepare("CREATE INDEX IF NOT EXISTS idx_wh_scans_session ON wh_count_scans(session_id, id)"),
+          ]);
+          globalThis.__whTablesReady = true;
+        }
+
+        const roleRow = await db.prepare("SELECT role FROM wh_roles WHERE emp_code = ?").bind(user.empCode).first();
+        const whRole = user.isExecutiveOrAdmin ? "ADMIN" : roleRow?.role || "VIEWER";
+        const isManager = whRole === "ADMIN" || whRole === "MANAGER";
+        const canEditLocations = isManager || whRole === "EDITOR";
+
+        const str = (v, max = 200) => (v == null ? "" : String(v).trim()).slice(0, max);
+        const code = (v) => str(v, 80).toUpperCase().replace(/\s+/g, "");
+        const num = (v) => {
+          const n = Number(String(v ?? "").replace(/,/g, "").trim());
+          return Number.isFinite(n) ? n : 0;
+        };
+        const nowDb = () => new Date().toISOString().replace("T", " ").substring(0, 19);
+        const part = (v) => str(v, 30).toUpperCase().replace(/\s+/g, "");
+        const locParts = (r) => {
+          let p = { warehouse: part(r.warehouse), zone: part(r.zone), rack: part(r.rack), tier: part(r.tier), bin: part(r.bin) };
+          if (!p.warehouse && r.location) {
+            const [warehouse, zone, rack, tier, bin] = code(r.location).split("-");
+            p = { warehouse: warehouse || "", zone: zone || "", rack: rack || "", tier: tier || "", bin: bin || "" };
+          }
+          return p;
+        };
+        const locCodeOf = (p) => [p.warehouse, p.zone, p.rack, p.tier, p.bin].filter(Boolean).join("-");
+        const audit = (action, recordId, changes) => recordAuditLog(user, "WAREHOUSE", action, recordId, changes, request).catch(() => {});
+        const upsertLocation = (p, note) =>
+          db.prepare(`
+            INSERT INTO wh_locations (code, warehouse, zone, rack, tier, bin, note, updated_by, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(code) DO UPDATE SET note = COALESCE(excluded.note, wh_locations.note), updated_by = excluded.updated_by, updated_at = excluded.updated_at
+          `).bind(locCodeOf(p), p.warehouse, p.zone || null, p.rack || null, p.tier || null, p.bin || null, note ?? null, user.empCode, nowDb());
+        const upsertItem = (itemCode, name, unit) =>
+          db.prepare(`
+            INSERT INTO wh_items (code, name, unit, updated_at) VALUES (?, ?, ?, ?)
+            ON CONFLICT(code) DO UPDATE SET name = COALESCE(NULLIF(excluded.name, ''), wh_items.name), unit = COALESCE(NULLIF(excluded.unit, ''), wh_items.unit), updated_at = excluded.updated_at
+          `).bind(itemCode, name || "", unit || "", nowDb());
+        const runBatches = async (stmts) => {
+          for (let i = 0; i < stmts.length; i += 80) await db.batch(stmts.slice(i, i + 80));
+        };
+        const body = request.method === "POST" || request.method === "PUT" ? await request.json().catch(() => ({})) : {};
+        const parts = url.pathname.split("/").filter(Boolean); // api, warehouse, resource, id?, action?
+        const resource = parts[2] || "";
+
+        // ── Quyền của tôi
+        if (resource === "me" && request.method === "GET") {
+          return reply({ success: true, role: whRole, isManager, canEditLocations, empCode: user.empCode, name: user.name || user.empCode });
+        }
+
+        // ── Phân quyền kho
+        if (resource === "roles") {
+          if (request.method === "GET") {
+            if (!isManager) return forbid("Chỉ Quản lý kho xem được danh sách phân quyền");
+            const { results } = await db.prepare("SELECT * FROM wh_roles ORDER BY role, emp_code").all();
+            return reply({ success: true, roles: results || [] });
+          }
+          if (request.method === "POST") {
+            const empCode = code(body.empCode);
+            const role = String(body.role || "").toUpperCase();
+            if (!empCode || !["MANAGER", "EDITOR"].includes(role)) return bad("Cần MSNV và vai trò MANAGER hoặc EDITOR");
+            if (role === "MANAGER" && whRole !== "ADMIN") return forbid("Chỉ Admin được chỉ định Quản lý kho");
+            if (role === "EDITOR" && !isManager) return forbid("Chỉ Quản lý kho được cấp quyền sửa vị trí");
+            const existing = await db.prepare("SELECT role FROM wh_roles WHERE emp_code = ?").bind(empCode).first();
+            if (existing?.role === "MANAGER" && whRole !== "ADMIN") return forbid("Không thể đổi vai của Quản lý kho");
+            let empName = WORKER_SYSTEM_USER_MAP[empCode]?.name || "";
+            for (const q of ["SELECT name FROM sys_users WHERE UPPER(emp_code) = ?", "SELECT name FROM users WHERE UPPER(emp_code) = ?", "SELECT name FROM hr_employees WHERE UPPER(id) = ?"]) {
+              if (empName) break;
+              const r = await db.prepare(q).bind(empCode).first().catch(() => null);
+              empName = r?.name || "";
+            }
+            if (!empName) return bad(`Không tìm thấy nhân viên có MSNV ${empCode}`);
+            await db.prepare(`
+              INSERT INTO wh_roles (emp_code, role, emp_name, granted_by, granted_at) VALUES (?, ?, ?, ?, ?)
+              ON CONFLICT(emp_code) DO UPDATE SET role = excluded.role, emp_name = excluded.emp_name, granted_by = excluded.granted_by, granted_at = excluded.granted_at
+            `).bind(empCode, role, empName, user.empCode, nowDb()).run();
+            await audit("GRANT_ROLE", empCode, { role, before: existing?.role || null });
+            return reply({ success: true, empCode, role, empName });
+          }
+          if (request.method === "DELETE") {
+            const empCode = code(url.searchParams.get("empCode"));
+            const existing = await db.prepare("SELECT role FROM wh_roles WHERE emp_code = ?").bind(empCode).first();
+            if (!existing) return reply({ success: false, error: "NOT_FOUND", message: "Không có phân quyền này" }, 404);
+            if (existing.role === "MANAGER" && whRole !== "ADMIN") return forbid("Chỉ Admin được bỏ vai Quản lý kho");
+            if (!isManager) return forbid("Chỉ Quản lý kho được bỏ quyền sửa vị trí");
+            await db.prepare("DELETE FROM wh_roles WHERE emp_code = ?").bind(empCode).run();
+            await audit("REVOKE_ROLE", empCode, { role: existing.role });
+            return reply({ success: true });
+          }
+        }
+
+        // ── Vị trí
+        if (resource === "locations") {
+          if (request.method === "GET") {
+            const { results } = await db.prepare(`
+              SELECT l.*, COUNT(s.item_code) AS item_count, COALESCE(SUM(s.qty), 0) AS total_qty
+              FROM wh_locations l LEFT JOIN wh_stock s ON s.location_code = l.code AND s.qty <> 0
+              GROUP BY l.code ORDER BY l.code
+            `).all();
+            return reply({ success: true, locations: results || [] });
+          }
+          if (!canEditLocations) return forbid("Chỉ Quản lý kho hoặc người được cấp quyền mới sửa được vị trí");
+          if (parts[3] === "import" && request.method === "POST") {
+            const rows = Array.isArray(body.rows) ? body.rows.slice(0, 3000) : [];
+            const stmts = [];
+            const errors = [];
+            rows.forEach((r, i) => {
+              const p = locParts(r);
+              if (!p.warehouse) return errors.push({ row: i + 2, reason: "Thiếu Kho" });
+              stmts.push(upsertLocation(p, str(r.note, 300) || null));
+            });
+            await runBatches(stmts);
+            await audit("IMPORT_LOCATIONS", "BULK", { imported: stmts.length, failed: errors.length });
+            return reply({ success: true, imported: stmts.length, failed: errors.length, errors: errors.slice(0, 50) });
+          }
+          if (request.method === "POST") {
+            const p = locParts(body);
+            if (!p.warehouse) return bad("Cần nhập Kho");
+            const newCode = locCodeOf(p);
+            const oldCode = code(body.oldCode);
+            if (oldCode && oldCode !== newCode) {
+              const clash = await db.prepare("SELECT code FROM wh_locations WHERE code = ?").bind(newCode).first();
+              if (clash) return bad(`Vị trí ${newCode} đã tồn tại`);
+              await db.batch([
+                db.prepare("INSERT INTO wh_locations (code, warehouse, zone, rack, tier, bin, note, updated_by, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+                  .bind(newCode, p.warehouse, p.zone || null, p.rack || null, p.tier || null, p.bin || null, str(body.note, 300) || null, user.empCode, nowDb()),
+                db.prepare("UPDATE wh_stock SET location_code = ? WHERE location_code = ?").bind(newCode, oldCode),
+                db.prepare("DELETE FROM wh_locations WHERE code = ?").bind(oldCode),
+              ]);
+              await audit("RENAME_LOCATION", newCode, { from: oldCode, to: newCode });
+            } else {
+              await db.prepare(`
+                INSERT INTO wh_locations (code, warehouse, zone, rack, tier, bin, note, updated_by, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(code) DO UPDATE SET note = excluded.note, updated_by = excluded.updated_by, updated_at = excluded.updated_at
+              `).bind(newCode, p.warehouse, p.zone || null, p.rack || null, p.tier || null, p.bin || null, str(body.note, 300) || null, user.empCode, nowDb()).run();
+              await audit("SAVE_LOCATION", newCode, { note: str(body.note, 300) });
+            }
+            return reply({ success: true, code: newCode });
+          }
+          if (request.method === "DELETE") {
+            const locCode = code(url.searchParams.get("code"));
+            const used = await db.prepare("SELECT COUNT(*) AS n FROM wh_stock WHERE location_code = ? AND qty <> 0").bind(locCode).first();
+            if (used?.n > 0) return bad("Vị trí còn hàng tồn, hãy chuyển hàng đi trước khi xóa");
+            await db.batch([
+              db.prepare("DELETE FROM wh_stock WHERE location_code = ?").bind(locCode),
+              db.prepare("DELETE FROM wh_locations WHERE code = ?").bind(locCode),
+            ]);
+            await audit("DELETE_LOCATION", locCode, {});
+            return reply({ success: true });
+          }
+        }
+
+        // ── Tra cứu một mã: vị trí hoặc hàng
+        if (resource === "lookup" && request.method === "GET") {
+          const c = code(url.searchParams.get("code"));
+          if (!c) return bad("Thiếu mã");
+          const loc = await db.prepare("SELECT * FROM wh_locations WHERE code = ?").bind(c).first();
+          if (loc) {
+            const { results } = await db.prepare(`
+              SELECT s.item_code, s.qty, i.name, i.unit FROM wh_stock s LEFT JOIN wh_items i ON i.code = s.item_code
+              WHERE s.location_code = ? AND s.qty <> 0 ORDER BY s.item_code
+            `).bind(c).all();
+            return reply({ success: true, kind: "location", location: loc, items: results || [] });
+          }
+          const item = await db.prepare("SELECT * FROM wh_items WHERE code = ?").bind(c).first();
+          const { results } = await db.prepare(`
+            SELECT s.location_code, s.qty, l.warehouse, l.zone, l.rack, l.tier, l.bin FROM wh_stock s
+            LEFT JOIN wh_locations l ON l.code = s.location_code WHERE s.item_code = ? AND s.qty <> 0 ORDER BY s.location_code
+          `).bind(c).all();
+          if (!item && !(results || []).length) return reply({ success: true, kind: "unknown", code: c });
+          return reply({ success: true, kind: "item", item: item || { code: c }, locations: results || [] });
+        }
+
+        // ── Tồn kho theo vị trí
+        if (resource === "stock") {
+          if (request.method === "GET") {
+            const q = str(url.searchParams.get("q"), 80);
+            const loc = code(url.searchParams.get("location"));
+            let where = "WHERE s.qty <> 0";
+            const binds = [];
+            if (loc) { where += " AND s.location_code LIKE ?"; binds.push(`${loc}%`); }
+            if (q) { where += " AND (s.item_code LIKE ? OR i.name LIKE ?)"; binds.push(`%${q.toUpperCase()}%`, `%${q}%`); }
+            const { results } = await db.prepare(`
+              SELECT s.item_code, s.location_code, s.qty, s.updated_at, i.name, i.unit
+              FROM wh_stock s LEFT JOIN wh_items i ON i.code = s.item_code ${where}
+              ORDER BY s.location_code, s.item_code LIMIT 1000
+            `).bind(...binds).all();
+            return reply({ success: true, stock: results || [] });
+          }
+          if (parts[3] === "import" && request.method === "POST") {
+            if (!isManager) return forbid("Chỉ Quản lý kho được import tồn kho");
+            const mode = body.mode === "add" ? "add" : "replace";
+            const rows = Array.isArray(body.rows) ? body.rows.slice(0, 5000) : [];
+            const stmts = [];
+            const errors = [];
+            const seenLoc = new Set();
+            rows.forEach((r, i) => {
+              const itemCode = code(r.itemCode);
+              const p = locParts(r);
+              if (!itemCode) return errors.push({ row: i + 2, reason: "Thiếu mã hàng" });
+              if (!p.warehouse) return errors.push({ row: i + 2, reason: "Thiếu vị trí (Kho/Khu/Kệ/Tầng/Ô)" });
+              const lc = locCodeOf(p);
+              if (!seenLoc.has(lc)) { seenLoc.add(lc); stmts.push(upsertLocation(p, null)); }
+              stmts.push(upsertItem(itemCode, str(r.itemName, 200), str(r.unit, 20)));
+              stmts.push(db.prepare(`
+                INSERT INTO wh_stock (item_code, location_code, qty, updated_by, updated_at) VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(item_code, location_code) DO UPDATE SET qty = ${mode === "add" ? "wh_stock.qty + excluded.qty" : "excluded.qty"}, updated_by = excluded.updated_by, updated_at = excluded.updated_at
+              `).bind(itemCode, lc, num(r.qty), user.empCode, nowDb()));
+            });
+            await runBatches(stmts);
+            await audit("IMPORT_STOCK", "BULK", { mode, rows: rows.length, failed: errors.length });
+            return reply({ success: true, imported: rows.length - errors.length, failed: errors.length, errors: errors.slice(0, 50) });
+          }
+          if (request.method === "POST") {
+            if (!canEditLocations) return forbid("Chỉ Quản lý kho hoặc người được cấp quyền mới sửa được vị trí hàng");
+            const itemCode = code(body.itemCode);
+            const toLoc = code(body.locationCode);
+            const fromLoc = code(body.fromLocation);
+            if (!itemCode || !toLoc) return bad("Cần mã hàng và vị trí");
+            const locRow = await db.prepare("SELECT code FROM wh_locations WHERE code = ?").bind(toLoc).first();
+            if (!locRow) return bad(`Vị trí ${toLoc} chưa có, hãy tạo vị trí trước`);
+            const qty = num(body.qty);
+            const stmts = [upsertItem(itemCode, str(body.itemName, 200), str(body.unit, 20))];
+            if (fromLoc && fromLoc !== toLoc) {
+              // Chuyển vị trí: cộng vào vị trí mới, xóa ở vị trí cũ
+              stmts.push(db.prepare(`
+                INSERT INTO wh_stock (item_code, location_code, qty, updated_by, updated_at) VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(item_code, location_code) DO UPDATE SET qty = wh_stock.qty + excluded.qty, updated_by = excluded.updated_by, updated_at = excluded.updated_at
+              `).bind(itemCode, toLoc, qty, user.empCode, nowDb()));
+              stmts.push(db.prepare("DELETE FROM wh_stock WHERE item_code = ? AND location_code = ?").bind(itemCode, fromLoc));
+            } else if (qty === 0) {
+              stmts.push(db.prepare("DELETE FROM wh_stock WHERE item_code = ? AND location_code = ?").bind(itemCode, toLoc));
+            } else {
+              stmts.push(db.prepare(`
+                INSERT INTO wh_stock (item_code, location_code, qty, updated_by, updated_at) VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(item_code, location_code) DO UPDATE SET qty = excluded.qty, updated_by = excluded.updated_by, updated_at = excluded.updated_at
+              `).bind(itemCode, toLoc, qty, user.empCode, nowDb()));
+            }
+            await db.batch(stmts);
+            await audit(fromLoc && fromLoc !== toLoc ? "MOVE_STOCK" : "SET_STOCK", itemCode, { from: fromLoc || null, to: toLoc, qty });
+            return reply({ success: true });
+          }
+        }
+
+        // ── Phiếu kiểm hàng
+        if (resource === "sessions") {
+          const sessionId = parts[3] ? decodeURIComponent(parts[3]) : "";
+          const action = parts[4] || "";
+
+          if (!sessionId && request.method === "GET") {
+            const status = str(url.searchParams.get("status"), 20).toUpperCase();
+            const { results } = await db.prepare(`
+              SELECT s.*,
+                (SELECT COUNT(*) FROM wh_count_lines l WHERE l.session_id = s.id) AS line_count,
+                (SELECT COUNT(*) FROM wh_count_lines l WHERE l.session_id = s.id AND l.counted_qty <> 0) AS counted_lines,
+                (SELECT COUNT(*) FROM wh_count_lines l WHERE l.session_id = s.id AND l.counted_qty <> l.expected_qty) AS diff_lines,
+                (SELECT COALESCE(SUM(expected_qty), 0) FROM wh_count_lines l WHERE l.session_id = s.id) AS expected_total,
+                (SELECT COALESCE(SUM(counted_qty), 0) FROM wh_count_lines l WHERE l.session_id = s.id) AS counted_total
+              FROM wh_count_sessions s ${status ? "WHERE s.status = ?" : ""} ORDER BY s.created_at DESC LIMIT 200
+            `).bind(...(status ? [status] : [])).all();
+            return reply({ success: true, sessions: results || [] });
+          }
+
+          if (!sessionId && request.method === "POST") {
+            if (!canEditLocations) return forbid("Chỉ Quản lý kho hoặc người được cấp quyền mới tạo được phiếu kiểm");
+            const type = body.type === "RECEIVING" ? "RECEIVING" : "STOCKTAKE";
+            const scope = code(body.scope);
+            const d = new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10).replace(/-/g, "");
+            const id = `${type === "RECEIVING" ? "NH" : "KK"}-${d}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+            const lines = new Map();
+            const errors = [];
+            const rows = Array.isArray(body.rows) ? body.rows.slice(0, 5000) : [];
+            const itemStmts = [];
+            rows.forEach((r, i) => {
+              const itemCode = code(r.itemCode);
+              if (!itemCode) return errors.push({ row: i + 2, reason: "Thiếu mã hàng" });
+              const p = locParts(r);
+              const lc = p.warehouse ? locCodeOf(p) : "";
+              if (type === "STOCKTAKE" && !lc) return errors.push({ row: i + 2, reason: "Kiểm kê tồn cần vị trí" });
+              const key = `${itemCode}|${lc}`;
+              const prev = lines.get(key);
+              lines.set(key, { itemCode, lc, name: str(r.itemName, 200) || prev?.name || "", unit: str(r.unit, 20) || prev?.unit || "", qty: (prev?.qty || 0) + num(r.qty) });
+              itemStmts.push(upsertItem(itemCode, str(r.itemName, 200), str(r.unit, 20)));
+            });
+            if (type === "STOCKTAKE" && rows.length === 0) {
+              // Không có file: lấy tồn sổ sách hiện tại trong phạm vi vị trí
+              const { results } = await db.prepare(`
+                SELECT s.item_code, s.location_code, s.qty, i.name, i.unit FROM wh_stock s LEFT JOIN wh_items i ON i.code = s.item_code
+                WHERE s.qty <> 0 ${scope ? "AND s.location_code LIKE ?" : ""}
+              `).bind(...(scope ? [`${scope}%`] : [])).all();
+              (results || []).forEach((r) => lines.set(`${r.item_code}|${r.location_code}`, { itemCode: r.item_code, lc: r.location_code, name: r.name || "", unit: r.unit || "", qty: r.qty }));
+            }
+            const stmts = [
+              db.prepare("INSERT INTO wh_count_sessions (id, type, title, ref_no, scope, status, note, created_by, created_by_name, created_at) VALUES (?, ?, ?, ?, ?, 'OPEN', ?, ?, ?, ?)")
+                .bind(id, type, str(body.title, 200) || (type === "RECEIVING" ? "Kiểm hàng về" : "Kiểm kê tồn kho"), str(body.refNo, 80) || null, scope || null, str(body.note, 500) || null, user.empCode, user.name || user.empCode, nowDb()),
+              ...itemStmts,
+            ];
+            for (const l of lines.values()) {
+              stmts.push(db.prepare("INSERT INTO wh_count_lines (session_id, item_code, location_code, item_name, unit, expected_qty, counted_qty, in_list) VALUES (?, ?, ?, ?, ?, ?, 0, 1)")
+                .bind(id, l.itemCode, l.lc, l.name, l.unit, l.qty));
+            }
+            await runBatches(stmts);
+            await audit("CREATE_COUNT_SESSION", id, { type, lines: lines.size, scope, refNo: str(body.refNo, 80) });
+            return reply({ success: true, id, lines: lines.size, failed: errors.length, errors: errors.slice(0, 50) });
+          }
+
+          const session = sessionId ? await db.prepare("SELECT * FROM wh_count_sessions WHERE id = ?").bind(sessionId).first() : null;
+          if (sessionId && !session) return reply({ success: false, error: "NOT_FOUND", message: "Không tìm thấy phiếu kiểm" }, 404);
+
+          if (session && !action && request.method === "GET") {
+            const { results: lines } = await db.prepare(`
+              SELECT l.*, COALESCE(NULLIF(l.item_name, ''), i.name) AS name, COALESCE(NULLIF(l.unit, ''), i.unit) AS unit_label
+              FROM wh_count_lines l LEFT JOIN wh_items i ON i.code = l.item_code WHERE l.session_id = ? ORDER BY l.location_code, l.item_code
+            `).bind(sessionId).all();
+            const { results: scans } = await db.prepare("SELECT * FROM wh_count_scans WHERE session_id = ? ORDER BY id DESC LIMIT 30").bind(sessionId).all();
+            return reply({ success: true, session, lines: lines || [], scans: scans || [] });
+          }
+
+          if (session && action === "scan" && request.method === "POST") {
+            if (session.status !== "OPEN") return bad("Phiếu đã chốt, không quét thêm được");
+            const itemCode = code(body.itemCode);
+            const lc = code(body.locationCode);
+            const qty = num(body.qty ?? 1);
+            const mode = body.mode === "set" ? "set" : "add";
+            if (!itemCode) return bad("Thiếu mã hàng");
+            if (session.type === "STOCKTAKE" && !lc) return bad("Kiểm kê tồn: hãy quét mã vị trí (kệ/tầng/ô) trước khi quét hàng");
+            if (lc) {
+              const locRow = await db.prepare("SELECT code FROM wh_locations WHERE code = ?").bind(lc).first();
+              if (!locRow) return bad(`Vị trí ${lc} chưa có trong danh mục`);
+            }
+            // Hàng về: cộng vào dòng của mã hàng (ưu tiên đúng vị trí), không phân biệt vị trí nếu chưa xếp
+            let line = await db.prepare("SELECT * FROM wh_count_lines WHERE session_id = ? AND item_code = ? AND location_code = ?").bind(sessionId, itemCode, lc).first();
+            if (!line && session.type === "RECEIVING") {
+              line = await db.prepare("SELECT * FROM wh_count_lines WHERE session_id = ? AND item_code = ? ORDER BY (location_code = '') DESC LIMIT 1").bind(sessionId, itemCode).first();
+            }
+            const item = await db.prepare("SELECT * FROM wh_items WHERE code = ?").bind(itemCode).first();
+            if (!line) {
+              await db.prepare("INSERT INTO wh_count_lines (session_id, item_code, location_code, item_name, unit, expected_qty, counted_qty, in_list, updated_by, updated_at) VALUES (?, ?, ?, ?, ?, 0, 0, 0, ?, ?)")
+                .bind(sessionId, itemCode, lc, item?.name || "", item?.unit || "", user.empCode, nowDb()).run();
+              line = { item_code: itemCode, location_code: lc, expected_qty: 0, counted_qty: 0, in_list: 0 };
+            }
+            const counted = mode === "set" ? qty : num(line.counted_qty) + qty;
+            await db.batch([
+              db.prepare("UPDATE wh_count_lines SET counted_qty = ?, updated_by = ?, updated_at = ? WHERE session_id = ? AND item_code = ? AND location_code = ?")
+                .bind(counted, user.empCode, nowDb(), sessionId, line.item_code, line.location_code),
+              db.prepare("INSERT INTO wh_count_scans (session_id, item_code, location_code, qty, mode, emp_code, emp_name, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+                .bind(sessionId, itemCode, lc || line.location_code, qty, mode, user.empCode, user.name || user.empCode, nowDb()),
+            ]);
+            // Gợi ý sai vị trí: hàng này theo sổ sách nằm ở vị trí khác
+            let expectedAt = [];
+            if (lc && !Number(line.in_list)) {
+              const { results } = await db.prepare("SELECT location_code, qty FROM wh_stock WHERE item_code = ? AND qty <> 0 AND location_code <> ?").bind(itemCode, lc).all();
+              expectedAt = results || [];
+            }
+            return reply({
+              success: true,
+              line: { ...line, counted_qty: counted, name: line.item_name || item?.name || "", unit_label: line.unit || item?.unit || "" },
+              outOfList: !Number(line.in_list),
+              expectedAt,
+            });
+          }
+
+          if (session && action === "submit" && request.method === "POST") {
+            if (session.status !== "OPEN") return bad("Phiếu không ở trạng thái đang đếm");
+            await db.prepare("UPDATE wh_count_sessions SET status = 'SUBMITTED', submitted_by = ?, submitted_at = ? WHERE id = ?").bind(user.empCode, nowDb(), sessionId).run();
+            await audit("SUBMIT_COUNT_SESSION", sessionId, {});
+            return reply({ success: true });
+          }
+
+          if (session && action === "reopen" && request.method === "POST") {
+            if (!isManager) return forbid("Chỉ Quản lý kho được mở lại phiếu");
+            if (session.status === "APPROVED") return bad("Phiếu đã duyệt và cập nhật tồn, không mở lại được");
+            await db.prepare("UPDATE wh_count_sessions SET status = 'OPEN' WHERE id = ?").bind(sessionId).run();
+            await audit("REOPEN_COUNT_SESSION", sessionId, {});
+            return reply({ success: true });
+          }
+
+          if (session && action === "approve" && request.method === "POST") {
+            if (!isManager) return forbid("Chỉ Quản lý kho được duyệt phiếu kiểm");
+            if (session.status === "APPROVED") return bad("Phiếu đã được duyệt");
+            const applyStock = body.applyStock !== false;
+            const defaultLoc = code(body.defaultLocation);
+            const { results: lines } = await db.prepare("SELECT * FROM wh_count_lines WHERE session_id = ?").bind(sessionId).all();
+            const stmts = [];
+            const skipped = [];
+            if (applyStock) {
+              if (defaultLoc) {
+                const ok = await db.prepare("SELECT code FROM wh_locations WHERE code = ?").bind(defaultLoc).first();
+                if (!ok) return bad(`Vị trí ${defaultLoc} chưa có trong danh mục`);
+              }
+              for (const l of lines || []) {
+                if (session.type === "RECEIVING") {
+                  if (!(num(l.counted_qty) > 0)) continue;
+                  const target = l.location_code || defaultLoc;
+                  if (!target) { skipped.push(l.item_code); continue; }
+                  stmts.push(db.prepare(`
+                    INSERT INTO wh_stock (item_code, location_code, qty, updated_by, updated_at) VALUES (?, ?, ?, ?, ?)
+                    ON CONFLICT(item_code, location_code) DO UPDATE SET qty = wh_stock.qty + excluded.qty, updated_by = excluded.updated_by, updated_at = excluded.updated_at
+                  `).bind(l.item_code, target, num(l.counted_qty), user.empCode, nowDb()));
+                } else if (num(l.counted_qty) === 0) {
+                  stmts.push(db.prepare("DELETE FROM wh_stock WHERE item_code = ? AND location_code = ?").bind(l.item_code, l.location_code));
+                } else {
+                  stmts.push(db.prepare(`
+                    INSERT INTO wh_stock (item_code, location_code, qty, updated_by, updated_at) VALUES (?, ?, ?, ?, ?)
+                    ON CONFLICT(item_code, location_code) DO UPDATE SET qty = excluded.qty, updated_by = excluded.updated_by, updated_at = excluded.updated_at
+                  `).bind(l.item_code, l.location_code, num(l.counted_qty), user.empCode, nowDb()));
+                }
+              }
+              if (session.type === "RECEIVING" && skipped.length) {
+                return bad(`Có ${skipped.length} mã hàng chưa có vị trí cất (ví dụ ${skipped.slice(0, 3).join(", ")}). Hãy chọn vị trí cất mặc định.`);
+              }
+            }
+            stmts.push(db.prepare("UPDATE wh_count_sessions SET status = 'APPROVED', approved_by = ?, approved_by_name = ?, approved_at = ? WHERE id = ?")
+              .bind(user.empCode, user.name || user.empCode, nowDb(), sessionId));
+            await runBatches(stmts);
+            await audit("APPROVE_COUNT_SESSION", sessionId, { applyStock, lines: (lines || []).length, defaultLocation: defaultLoc || null });
+            return reply({ success: true, applied: applyStock ? stmts.length - 1 : 0 });
+          }
+
+          if (session && !action && request.method === "DELETE") {
+            if (!isManager) return forbid("Chỉ Quản lý kho được xóa phiếu kiểm");
+            if (session.status === "APPROVED") return bad("Phiếu đã duyệt, không xóa được");
+            await db.batch([
+              db.prepare("DELETE FROM wh_count_scans WHERE session_id = ?").bind(sessionId),
+              db.prepare("DELETE FROM wh_count_lines WHERE session_id = ?").bind(sessionId),
+              db.prepare("DELETE FROM wh_count_sessions WHERE id = ?").bind(sessionId),
+            ]);
+            await audit("DELETE_COUNT_SESSION", sessionId, {});
+            return reply({ success: true });
+          }
+        }
+
+        return reply({ success: false, error: "NOT_FOUND", message: "API kho không tồn tại" }, 404);
+      } catch (err) {
+        return reply({ success: false, error: err.message }, 500);
       }
     }
 

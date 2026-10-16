@@ -562,6 +562,7 @@ export async function POST(request: Request) {
           path: '/',
           maxAge: 7 * 24 * 60 * 60, // 7 days pilot session
           sameSite: 'lax',
+          httpOnly: false,
           secure: process.env.NODE_ENV === 'production',
         });
         return res;

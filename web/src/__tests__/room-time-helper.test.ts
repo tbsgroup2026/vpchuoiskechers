@@ -6,6 +6,10 @@ import {
   parseDateParts,
   getVietnamNowParts,
   isMeetingTimePassed,
+  isSlotOverlapping,
+  getMeetingRealtimeStatus,
+  getRoomRealtimeStatus,
+  isRoomAvailableForSlot,
 } from "../lib/roomTimeHelper";
 
 describe("roomTimeHelper Unit Tests", () => {
@@ -114,4 +118,124 @@ describe("roomTimeHelper Unit Tests", () => {
       expect(checkFuture.isPassed).toBe(false);
     });
   });
+
+  describe("Interval Overlap Tests (newStart < existingEnd && newEnd > existingStart)", () => {
+    it("contiguous meetings (14:00-15:00 and 15:00-16:00) do NOT overlap", () => {
+      expect(isSlotOverlapping("14:00 - 15:00", "15:00 - 16:00")).toBe(false);
+      expect(isSlotOverlapping("13:45 - 14:00", "14:00 - 17:00")).toBe(false);
+    });
+
+    it("overlapping intervals are correctly detected", () => {
+      expect(isSlotOverlapping("14:30 - 15:00", "14:00 - 17:00")).toBe(true);
+      expect(isSlotOverlapping("13:30 - 14:30", "14:00 - 17:00")).toBe(true);
+      expect(isSlotOverlapping("14:00 - 17:00", "14:00 - 17:00")).toBe(true);
+      expect(isSlotOverlapping("16:30 - 17:30", "14:00 - 17:00")).toBe(true);
+      expect(isSlotOverlapping("12:00 - 18:00", "14:00 - 17:00")).toBe(true);
+    });
+  });
+
+  describe("Real-World User Scenario Tests (Cases a, b, c, d)", () => {
+    // Reference: 13:44 on 2026-10-15 (UTC 06:44)
+    const mock1344 = new Date("2026-10-15T06:44:00.000Z");
+
+    const sampleBookings = [
+      {
+        id: "b_1",
+        roomId: "room_1",
+        roomName: "Phòng họp 1",
+        bookingDate: "15/10/2026",
+        timeSlot: "08:00 - 10:00",
+        status: "CONFIRMED",
+        title: "Họp giao ban sáng",
+        bookerName: "Nguyễn Văn A",
+      },
+      {
+        id: "b_2",
+        roomId: "room_2",
+        roomName: "Phòng họp 2",
+        bookingDate: "15/10/2026",
+        timeSlot: "14:00 - 17:00",
+        status: "CONFIRMED",
+        title: "Họp chiến lược Q4",
+        bookerName: "Trần Thị B",
+      },
+      {
+        id: "b_3",
+        roomId: "room_3",
+        roomName: "Phòng họp 3",
+        bookingDate: "15/10/2026",
+        timeSlot: "13:00 - 15:00",
+        status: "CONFIRMED",
+        title: "Họp Kaizen Cải Tiến",
+        bookerName: "Lê Văn C",
+      },
+    ];
+
+    const sampleRooms = [
+      { id: "room_1", name: "Phòng họp 1", capacity: 10, isLocked: false },
+      { id: "room_2", name: "Phòng họp 2", capacity: 20, isLocked: false },
+      { id: "room_3", name: "Phòng họp 3", capacity: 8, isLocked: false },
+    ];
+
+    it("Case (a): At 13:44, Room 2 meeting is 'Sắp họp', Room 1 meeting is 'Đã kết thúc', Room 3 is 'Đang họp'", () => {
+      const status1 = getMeetingRealtimeStatus(sampleBookings[0], mock1344);
+      expect(status1.status).toBe("ENDED");
+      expect(status1.label).toBe("Đã kết thúc");
+
+      const status2 = getMeetingRealtimeStatus(sampleBookings[1], mock1344);
+      expect(status2.status).toBe("UPCOMING");
+      expect(status2.label).toBe("Sắp họp");
+      expect(status2.isOccupyingRoom).toBe(false);
+
+      const status3 = getMeetingRealtimeStatus(sampleBookings[2], mock1344);
+      expect(status3.status).toBe("IN_PROGRESS");
+      expect(status3.label).toBe("Đang họp");
+      expect(status3.isOccupyingRoom).toBe(true);
+
+      // Room 2 at 13:44 is NOT occupied, but is free until 14:00
+      const room2Status = getRoomRealtimeStatus(sampleRooms[1], sampleBookings, mock1344);
+      expect(room2Status.isOccupiedNow).toBe(false);
+      expect(room2Status.badgeText).toBe("✓ Phòng trống");
+      expect(room2Status.freeUntil).toBe("14:00");
+      expect(room2Status.badgeSubText).toBe("Trống đến 14:00");
+
+      // Room 3 at 13:44 is occupied until 15:00
+      const room3Status = getRoomRealtimeStatus(sampleRooms[2], sampleBookings, mock1344);
+      expect(room3Status.isOccupiedNow).toBe(true);
+      expect(room3Status.badgeText).toBe("⏳ Đang họp");
+      expect(room3Status.badgeSubText).toBe("Đến 15:00");
+
+      // Count of available rooms: Room 1 (free all day now), Room 2 (free until 14:00) -> 2 rooms free
+      const freeCount = sampleRooms.filter(r => !getRoomRealtimeStatus(r, sampleBookings, mock1344).isOccupiedNow).length;
+      expect(freeCount).toBe(2); // 2 of 3 rooms available! Not 0/3!
+    });
+
+    it("Case (b): Booking Room 2 for 13:45 - 14:00 is ALLOWED (contiguous with 14:00)", () => {
+      const availCheck = isRoomAvailableForSlot("room_2", "2026-10-15", "13:45 - 14:00", sampleBookings);
+      expect(availCheck.isAvailable).toBe(true);
+    });
+
+    it("Case (c): Booking Room 2 for 14:30 - 15:00 is BLOCKED due to conflict with 14:00 - 17:00", () => {
+      const availCheck = isRoomAvailableForSlot("room_2", "2026-10-15", "14:30 - 15:00", sampleBookings);
+      expect(availCheck.isAvailable).toBe(false);
+      expect(availCheck.conflictBooking?.id).toBe("b_2");
+      expect(availCheck.reason).toContain("Trùng với cuộc họp");
+    });
+
+    it("Case (d): At 17:05 (meeting ends at 17:00), Room 2 automatically becomes free", () => {
+      // Mock reference time: 17:05 on 2026-10-15 (UTC 10:05)
+      const mock1705 = new Date("2026-10-15T10:05:00.000Z");
+
+      const status2After = getMeetingRealtimeStatus(sampleBookings[1], mock1705);
+      expect(status2After.status).toBe("ENDED");
+      expect(status2After.label).toBe("Đã kết thúc");
+      expect(status2After.isOccupyingRoom).toBe(false);
+
+      const room2StatusAfter = getRoomRealtimeStatus(sampleRooms[1], sampleBookings, mock1705);
+      expect(room2StatusAfter.isOccupiedNow).toBe(false);
+      expect(room2StatusAfter.badgeText).toBe("✓ Phòng trống");
+      expect(room2StatusAfter.badgeSubText).toBe("Trống cả ngày");
+    });
+  });
 });
+

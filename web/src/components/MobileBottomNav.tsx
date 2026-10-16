@@ -11,6 +11,7 @@ import {
   IconKey,
 } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
+import { getCurrentUser } from "@/lib/userProfiles";
 
 export default function MobileBottomNav() {
   const pathname = usePathname();
@@ -18,10 +19,15 @@ export default function MobileBottomNav() {
 
   useEffect(() => {
     const checkToken = () => {
-      const hasCookie = document.cookie.includes("tbs_token=");
-      setIsLoggedIn(hasCookie);
+      const cur = getCurrentUser();
+      const hasToken =
+        Boolean(localStorage.getItem("tbs_jwt_token") || localStorage.getItem("tbs_token") || sessionStorage.getItem("tbs_jwt_token") || sessionStorage.getItem("tbs_token")) ||
+        (typeof document !== "undefined" && document.cookie.includes("tbs_token="));
+      setIsLoggedIn(Boolean((cur && cur.empCode) || hasToken));
     };
     checkToken();
+    window.addEventListener("tbs_profile_updated", checkToken);
+    return () => window.removeEventListener("tbs_profile_updated", checkToken);
   }, [pathname]);
 
   const navItems = [

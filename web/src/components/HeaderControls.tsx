@@ -102,15 +102,6 @@ export default function HeaderControls({
       return;
     }
 
-    const cookies = document.cookie ? document.cookie.split("; ") : [];
-    const tokenCookie = cookies.find((row) => row.startsWith("tbs_token="));
-    const token = tokenCookie ? tokenCookie.split("=")[1] : null;
-
-    if (!token) {
-      setUser(null);
-      return;
-    }
-
     const cur = getCurrentUser();
     if (cur && cur.name && cur.empCode) {
       setUser({
@@ -132,12 +123,8 @@ export default function HeaderControls({
   const loadNotifications = async () => {
     if (typeof window === "undefined") return;
 
-    const cookies = document.cookie ? document.cookie.split("; ") : [];
-    const tokenCookie = cookies.find((row) => row.startsWith("tbs_token="));
-    const token = tokenCookie ? tokenCookie.split("=")[1] : null;
-
     const cur = getCurrentUser();
-    if (!token || !cur) {
+    if (!cur || !cur.empCode) {
       setNotifications([]);
       return;
     }
@@ -162,10 +149,8 @@ export default function HeaderControls({
       loadNotifications();
     };
     const handleNotifUpdate = () => {
-      const cookies = document.cookie ? document.cookie.split("; ") : [];
-      const token = cookies.find((row) => row.startsWith("tbs_token="));
       const cur = getCurrentUser();
-      if (token && cur) {
+      if (cur && cur.empCode) {
         setNotifications(notificationService.getNotifications());
       } else {
         setNotifications([]);

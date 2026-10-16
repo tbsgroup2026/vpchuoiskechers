@@ -278,26 +278,18 @@ export default function Header() {
     window.addEventListener('scroll', handleScroll);
 
     const checkAuth = () => {
-      const cookies = document.cookie.split('; ');
-      const tokenCookie = cookies.find((row) => row.startsWith('tbs_token='));
-      const token = tokenCookie ? tokenCookie.split('=')[1] : null;
-
-      if (token) {
+      const currentUser = getCurrentUser();
+      if (currentUser && currentUser.name && currentUser.empCode) {
         setIsLoggedIn(true);
-        const currentUser = getCurrentUser();
-        if (currentUser && currentUser.name) {
-          setUserInfo({
-            empCode: currentUser.empCode,
-            name: currentUser.name,
-            roleCode: currentUser.roleCode || currentUser.roles?.[0] || 'CBCNV',
-            departmentCode: currentUser.department || 'Văn Phòng Chuỗi SKECHERS',
-            avatar: currentUser.avatar || '',
-            email: currentUser.email || `${currentUser.empCode}@tbsgroup.vn`,
-            title: getUserDisplayBadgeTitle(currentUser),
-          });
-        } else {
-          setUserInfo(null);
-        }
+        setUserInfo({
+          empCode: currentUser.empCode,
+          name: currentUser.name,
+          roleCode: currentUser.roleCode || currentUser.roles?.[0] || 'CBCNV',
+          departmentCode: currentUser.department || 'Văn Phòng Chuỗi SKECHERS',
+          avatar: currentUser.avatar || '',
+          email: currentUser.email || `${currentUser.empCode}@tbsgroup.vn`,
+          title: getUserDisplayBadgeTitle(currentUser),
+        });
       } else {
         setIsLoggedIn(false);
         setUserInfo(null);

@@ -3,6 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import DepartmentDashboardView from "@/modules/dashboard/DepartmentDashboardView";
+import { EnterpriseOverviewSection, KpiCard } from "@/components/dashboard";
 import {
   IconUsers,
   IconLayoutGrid,
@@ -132,6 +133,11 @@ export default function HomeNew({
       </div>
 
       {/* ════════════════════════════════════════════════════════════════
+          1.2 TỔNG QUAN TBS GROUP (ENTERPRISE STATS & DONUT CHART)
+         ════════════════════════════════════════════════════════════════ */}
+      <EnterpriseOverviewSection />
+
+      {/* ════════════════════════════════════════════════════════════════
           1.5 DASHBOARD MODE SELECTOR (Dashboard Cá Nhân vs Phòng Ban)
          ════════════════════════════════════════════════════════════════ */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 bg-white p-2.5 rounded-lg border border-slate-200 shadow-2xs">
@@ -188,57 +194,35 @@ export default function HomeNew({
               2. ENTERPRISE KPI CARDS (Real dynamic counts from backend tasks)
              ════════════════════════════════════════════════════════════════ */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-            {/* KPI 1: TỔNG CÔNG VIỆC */}
-            <div className="bg-white p-3.5 rounded-lg border border-slate-200 shadow-2xs flex items-center justify-between gap-3">
-              <div className="space-y-0.5 min-w-0">
-                <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Tổng công việc</div>
-                <div className="text-2xl font-bold text-slate-900 leading-none">
-                  {isLoadingTasks ? "..." : kpiStats.total}
-                </div>
-              </div>
-              <div className="w-9 h-9 rounded-md bg-slate-100 text-[#006838] flex items-center justify-center shrink-0 border border-slate-200">
-                <IconFileText size={18} />
-              </div>
-            </div>
-
-            {/* KPI 2: ĐANG THỰC HIỆN */}
-            <div className="bg-white p-3.5 rounded-lg border border-slate-200 shadow-2xs flex items-center justify-between gap-3">
-              <div className="space-y-0.5 min-w-0">
-                <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Đang thực hiện</div>
-                <div className="text-2xl font-bold text-slate-900 leading-none">
-                  {isLoadingTasks ? "..." : kpiStats.inProgress}
-                </div>
-              </div>
-              <div className="w-9 h-9 rounded-md bg-slate-100 text-amber-700 flex items-center justify-center shrink-0 border border-slate-200">
-                <IconClock size={18} />
-              </div>
-            </div>
-
-            {/* KPI 3: HOÀN THÀNH */}
-            <div className="bg-white p-3.5 rounded-lg border border-slate-200 shadow-2xs flex items-center justify-between gap-3">
-              <div className="space-y-0.5 min-w-0">
-                <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Hoàn thành</div>
-                <div className="text-2xl font-bold text-slate-900 leading-none">
-                  {isLoadingTasks ? "..." : kpiStats.done}
-                </div>
-              </div>
-              <div className="w-9 h-9 rounded-md bg-slate-100 text-[#006838] flex items-center justify-center shrink-0 border border-slate-200">
-                <IconCheck size={18} />
-              </div>
-            </div>
-
-            {/* KPI 4: CẦN XỬ LÝ */}
-            <div className="bg-white p-3.5 rounded-lg border border-slate-200 shadow-2xs flex items-center justify-between gap-3">
-              <div className="space-y-0.5 min-w-0">
-                <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Cần xử lý</div>
-                <div className="text-2xl font-bold text-slate-900 leading-none">
-                  {isLoadingTasks ? "..." : kpiStats.needsAttention}
-                </div>
-              </div>
-              <div className="w-9 h-9 rounded-md bg-slate-100 text-rose-600 flex items-center justify-center shrink-0 border border-slate-200">
-                <IconAlertTriangle size={18} />
-              </div>
-            </div>
+            <KpiCard
+              icon={IconFileText}
+              title="Tổng công việc"
+              value={kpiStats.total}
+              subtitle="Công việc cá nhân"
+              loading={isLoadingTasks}
+            />
+            <KpiCard
+              icon={IconClock}
+              title="Đang thực hiện"
+              value={kpiStats.inProgress}
+              subtitle="Đang triển khai"
+              loading={isLoadingTasks}
+            />
+            <KpiCard
+              icon={IconCheck}
+              title="Hoàn thành"
+              value={kpiStats.done}
+              subtitle="Đã nghiệm thu"
+              loading={isLoadingTasks}
+            />
+            <KpiCard
+              icon={IconAlertTriangle}
+              title="Cần xử lý"
+              value={kpiStats.needsAttention}
+              subtitle="Quá hạn / Sát hạn"
+              invertTrend={true}
+              loading={isLoadingTasks}
+            />
           </div>
 
           {/* ════════════════════════════════════════════════════════════════

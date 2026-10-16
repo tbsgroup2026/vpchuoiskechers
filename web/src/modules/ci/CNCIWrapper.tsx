@@ -313,9 +313,9 @@ export default function CNCIWrapper() {
                     <IconChevronRight size={18} className="text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all" />
                   </Link>
 
-                  {/* Button 2: Văn phòng Chuỗi */}
+                  {/* Button 2: Phân xưởng Mẫu */}
                   <Link
-                    href="/work/gemba?region=V%C4%83n+ph%C3%B2ng+Chu%E1%BB%97i"
+                    href="/work/gemba?region=Ph%C3%A2n+x%C6%B0%E1%BB%9Fng+M%E1%BA%ABu"
                     className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 hover:bg-blue-50/60 active:bg-blue-100/70 border border-slate-200/80 hover:border-blue-300 active:scale-[0.98] transition-all duration-200 group cursor-pointer shadow-2xs"
                   >
                     <div className="flex items-center gap-3">
@@ -323,7 +323,7 @@ export default function CNCIWrapper() {
                         <IconBuilding size={20} />
                       </div>
                       <span className="text-xs font-black text-slate-800 group-hover:text-blue-600 transition-colors">
-                        Văn phòng Chuỗi
+                        Phân xưởng Mẫu
                       </span>
                     </div>
                     <IconChevronRight size={18} className="text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all" />

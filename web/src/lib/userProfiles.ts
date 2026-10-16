@@ -21,6 +21,21 @@ export interface UserProfile {
 }
 
 export const SYSTEM_USERS: Record<string, UserProfile> = {
+  "TGD-001": {
+    userId: 101,
+    empCode: "TGD-001",
+    name: "Ban Tổng Giám Đốc",
+    title: "Tổng Giám Đốc",
+    department: "Ban Giám Đốc",
+    email: "tgd@tbsgroup.vn",
+    phone: "0901234567",
+    roleCode: "TONG_GIAM_DOC",
+    roles: ["employee", "ceo", "director", "admin"],
+    roleLevel: 1,
+    avatar: "",
+    redirectUrl: "/work",
+    managedDepartmentId: "all",
+  },
   "202112003": {
     userId: 255,
     empCode: "202112003",
@@ -363,11 +378,18 @@ export const SYSTEM_USERS: Record<string, UserProfile> = {
 };
 
 export const ROLE_ALIAS_MAP: Record<string, string> = {
-  ceo: "202608001",
-  deputy_ceo: "202608001",
-  director: "202608001",
-  deputy_director: "202608001",
-  admin: "202608001",
+  ceo: "TGD-001",
+  deputy_ceo: "TGD-001",
+  director: "TGD-001",
+  deputy_director: "TGD-001",
+  admin: "TGD-001",
+  tgd: "TGD-001",
+  "tgđ": "TGD-001",
+  "tgd-001": "TGD-001",
+  "tgđ-001": "TGD-001",
+  bgd: "TGD-001",
+  "ban-giam-doc": "TGD-001",
+  giamdoc: "TGD-001",
   receptionist: "202206011",
   letan: "202206011",
   "lt-001": "202206011",
@@ -687,12 +709,52 @@ export function getCurrentUser(): UserProfile | null {
     localStorage.removeItem("tbs_user_custom_avatar");
   }
 
-  // Ưu tiên lấy từ sessionStorage (định danh tab độc lập) và đối chiếu với cookie tbs_token
+  // Ưu tiên lấy từ sessionStorage (định danh tab độc lập) và đối chiếu với cookie tbs_token / localStorage token
   let cookieEmpCode: string | null = null;
-  if (typeof document !== "undefined") {
+  if (typeof document !== "undefined" && document.cookie) {
     const cookieMatch = document.cookie.match(/tbs_token=tbs_token_([^_]+)_/);
     if (cookieMatch && cookieMatch[1]) {
       cookieEmpCode = normalizeEmpCode(cookieMatch[1]);
+    } else {
+      const rawMatch = document.cookie.match(/(?:^|; )tbs_token=([^;]*)/);
+      if (rawMatch && rawMatch[1]) {
+        const val = decodeURIComponent(rawMatch[1]);
+        if (val.startsWith("tbs_token_")) {
+          const m = val.match(/tbs_token_([^_]+)_/);
+          if (m && m[1]) cookieEmpCode = normalizeEmpCode(m[1]);
+        } else if (val.split(".").length === 3) {
+          try {
+            const b64 = val.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+            const payload = JSON.parse(atob(b64));
+            if (payload && (payload.empCode || payload.userId)) {
+              cookieEmpCode = normalizeEmpCode(payload.empCode || payload.userId);
+            }
+          } catch {}
+        }
+      }
+    }
+  }
+
+  // Fallback token decoding from localStorage/sessionStorage if cookie is HttpOnly or not accessible
+  if (!cookieEmpCode && typeof window !== "undefined") {
+    const token =
+      localStorage.getItem("tbs_jwt_token") ||
+      localStorage.getItem("tbs_token") ||
+      sessionStorage.getItem("tbs_jwt_token") ||
+      sessionStorage.getItem("tbs_token");
+    if (token) {
+      if (token.startsWith("tbs_token_")) {
+        const m = token.match(/tbs_token_([^_]+)_/);
+        if (m && m[1]) cookieEmpCode = normalizeEmpCode(m[1]);
+      } else if (token.split(".").length === 3) {
+        try {
+          const b64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+          const payload = JSON.parse(atob(b64));
+          if (payload && (payload.empCode || payload.userId)) {
+            cookieEmpCode = normalizeEmpCode(payload.empCode || payload.userId);
+          }
+        } catch {}
+      }
     }
   }
 
@@ -712,6 +774,40 @@ export function getCurrentUser(): UserProfile | null {
     const sysProfile = { ...SYSTEM_USERS[cookieEmpCode] };
     stored = JSON.stringify(sysProfile);
     sessionStorage.setItem("tbs_current_user", stored);
+  }
+
+  if (!stored && cookieEmpCode && typeof window !== "undefined") {
+    const token =
+      localStorage.getItem("tbs_jwt_token") ||
+      localStorage.getItem("tbs_token") ||
+      sessionStorage.getItem("tbs_jwt_token") ||
+      sessionStorage.getItem("tbs_token");
+    if (token && token.split(".").length === 3) {
+      try {
+        const b64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+        const payload = JSON.parse(atob(b64));
+        if (payload && (payload.empCode || payload.userId)) {
+          const emp = normalizeEmpCode(payload.empCode || payload.userId);
+          const fallbackProfile: UserProfile = {
+            userId: payload.userId || 251,
+            empCode: emp,
+            name: payload.name || `Cán bộ (${emp})`,
+            title: payload.title || "Cán bộ công nhân viên",
+            department: payload.department || "Văn Phòng Chuỗi SKECHERS",
+            email: payload.email || `${emp}@tbsgroup.vn`,
+            phone: payload.phone || "",
+            roleCode: payload.roleCode || "CBCNV",
+            roles: payload.roles || (payload.roleCode === "LE_TAN" ? ["employee", "le_tan"] : ["employee"]),
+            roleLevel: payload.roleLevel || 4,
+            avatar: payload.avatar || "",
+            redirectUrl: payload.redirectUrl || "/work",
+          };
+          stored = JSON.stringify(fallbackProfile);
+          sessionStorage.setItem("tbs_current_user", stored);
+          localStorage.setItem("tbs_current_user", stored);
+        }
+      } catch {}
+    }
   }
 
   if (!stored) {
@@ -744,7 +840,8 @@ export function getCurrentUser(): UserProfile | null {
     if (typeof document !== "undefined") {
       const hasTokenCookie = document.cookie.split("; ").some((row) => row.startsWith("tbs_token="));
       if (!hasTokenCookie) {
-        const token = `tbs_token_${parsed.empCode}_${Date.now()}`;
+        const existingToken = localStorage.getItem("tbs_jwt_token") || localStorage.getItem("tbs_token");
+        const token = existingToken || `tbs_token_${parsed.empCode}_${Date.now()}`;
         document.cookie = `tbs_token=${token}; path=/; max-age=31536000; SameSite=Lax`;
       }
     }

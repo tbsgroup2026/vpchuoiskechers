@@ -118,6 +118,26 @@ async function ensureProjectSchema(db: any) {
 
 export async function GET(request: Request) {
   try {
+    const authHeader = request.headers.get('authorization');
+    const cookieHeader = request.headers.get('cookie') || '';
+    let token = authHeader?.replace('Bearer ', '');
+    if (!token) {
+      const match = cookieHeader.match(/tbs_token=([^;]+)/);
+      if (match && match[1]) token = match[1];
+    }
+
+    const session = token ? await verifyToken(token) : null;
+    if (!session) {
+      return NextResponse.json(
+        { success: false, error: 'Yêu cầu đăng nhập để truy cập dự án liên phòng ban' },
+        { status: 401 }
+      );
+    }
+
+    const roleLevel = session.roleLevel || 4;
+    const userDept = String(session.departmentCode || session.department || '').toUpperCase();
+    const userEmp = session.empCode;
+
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get('id') || searchParams.get('code');
     const leadDept = searchParams.get('lead_department');
@@ -137,6 +157,17 @@ export async function GET(request: Request) {
     let query = `SELECT * FROM projects`;
     const params: any[] = [];
     const conditions: string[] = [];
+
+    // Role-based visibility scoping
+    if (roleLevel === 3) {
+      // Level 3: Department Head -> Xem dự án phòng ban chủ trì, phòng ban phối hợp, hoặc là manager
+      conditions.push(`(lead_department = ? OR collaborating_departments LIKE ? OR manager_emp_code = ?)`);
+      params.push(userDept, `%${userDept}%`, userEmp);
+    } else if (roleLevel >= 4) {
+      // Level 4: Staff -> Xem dự án mình tham gia hoặc do phòng mình chủ trì
+      conditions.push(`(id IN (SELECT project_id FROM project_members WHERE emp_code = ?) OR lead_department = ?)`);
+      params.push(userEmp, userDept);
+    }
 
     if (projectId) {
       conditions.push(`(id = ? OR code = ?)`);
@@ -285,6 +316,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Yêu cầu đăng nhập để tạo dự án' }, { status: 401 });
     }
 
+    const roleLevel = session.roleLevel || 4;
+    // RBAC: Nhân viên cấp thấp (>=4) không được phép tự tạo dự án liên phòng ban
+    if (roleLevel >= 4) {
+      return NextResponse.json({
+        success: false,
+        error: 'FORBIDDEN',
+        message: 'Chỉ Cấp Quản Lý (Trưởng phòng trở lên) hoặc Ban Giám Đốc mới có thẩm quyền khởi tạo Dự Án Liên Phòng Ban!'
+      }, { status: 403 });
+    }
+
     let body: any = {};
     try {
       body = await request.json();
@@ -425,6 +466,26 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ success: false, error: 'Không tìm thấy dự án' }, { status: 404 });
     }
 
+    const roleLevel = session.roleLevel || 4;
+    const userDept = String(session.departmentCode || session.department || '').toUpperCase();
+
+    // RBAC: Check permission to update project
+    if (roleLevel >= 4) {
+      return NextResponse.json({
+        success: false,
+        error: 'FORBIDDEN',
+        message: 'Nhân viên không có quyền cập nhật thông tin dự án liên phòng ban!'
+      }, { status: 403 });
+    }
+
+    if (roleLevel === 3 && existing.manager_emp_code !== session.empCode && (!existing.lead_department || !userDept.includes(String(existing.lead_department).toUpperCase()))) {
+      return NextResponse.json({
+        success: false,
+        error: 'FORBIDDEN',
+        message: 'Chỉ Chủ nhiệm dự án (PM) hoặc Trưởng phòng ban chủ trì mới có quyền chỉnh sửa dự án!'
+      }, { status: 403 });
+    }
+
     const newStatus = body.status || existing.status;
     const newProgress = body.progress !== undefined ? body.progress : existing.progress;
     const newDesc = body.description !== undefined ? body.description : existing.description;
@@ -446,6 +507,74 @@ export async function PATCH(request: Request) {
     });
 
     return NextResponse.json({ success: true, message: 'Đã cập nhật thông tin dự án thành công' });
+  } catch (error: any) {
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const authHeader = request.headers.get('authorization');
+    const cookieHeader = request.headers.get('cookie') || '';
+    let token = authHeader?.replace('Bearer ', '');
+    if (!token) {
+      const match = cookieHeader.match(/tbs_token=([^;]+)/);
+      if (match && match[1]) token = match[1];
+    }
+
+    const session = token ? await verifyToken(token) : null;
+    if (!session) {
+      return NextResponse.json({ success: false, error: 'Yêu cầu đăng nhập' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const projectId = searchParams.get('id') || searchParams.get('projectId');
+    if (!projectId) {
+      return NextResponse.json({ success: false, error: 'Thiếu ID dự án' }, { status: 400 });
+    }
+
+    const db = getDbBinding();
+    if (!db) {
+      return NextResponse.json({ success: false, error: 'DB binding missing' }, { status: 500 });
+    }
+
+    const existing: any = await db.prepare('SELECT * FROM projects WHERE id = ? OR code = ?').bind(projectId, projectId).first().catch(() => null);
+    if (!existing) {
+      return NextResponse.json({ success: false, error: 'Không tìm thấy dự án' }, { status: 404 });
+    }
+
+    const roleLevel = session.roleLevel || 4;
+
+    // RBAC: Nhân viên không được xóa dự án; Trưởng phòng chỉ xóa nếu là manager
+    if (roleLevel >= 4) {
+      return NextResponse.json({
+        success: false,
+        error: 'FORBIDDEN',
+        message: 'Nhân viên không có quyền xóa dự án liên phòng ban!'
+      }, { status: 403 });
+    }
+
+    if (roleLevel === 3 && existing.manager_emp_code !== session.empCode) {
+      return NextResponse.json({
+        success: false,
+        error: 'FORBIDDEN',
+        message: 'Chỉ Chủ nhiệm dự án (PM) hoặc Ban Giám Đốc mới có quyền xóa dự án!'
+      }, { status: 403 });
+    }
+
+    await db.prepare('DELETE FROM projects WHERE id = ?').bind(existing.id).run();
+    await db.prepare('DELETE FROM project_members WHERE project_id = ?').bind(existing.id).run().catch(() => {});
+
+    logAudit(request, {
+      empCode: session.empCode,
+      empName: session.name,
+      module: 'PROJECTS',
+      action: 'DELETE_PROJECT',
+      targetId: existing.id,
+      changesJson: { code: existing.code, name: existing.name },
+    });
+
+    return NextResponse.json({ success: true, message: 'Đã xóa dự án thành công' });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }

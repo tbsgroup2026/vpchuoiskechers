@@ -42,16 +42,29 @@ import {
   IconMapPin,
   IconRefresh,
   IconSend,
+  IconAlertCircle,
 } from "@tabler/icons-react";
 import Can from "@/components/Can";
 import UserAvatar from "@/components/UserAvatar";
+import RoomQrCodeModal from "@/components/RoomQrCodeModal";
 import HeaderControls from "@/components/HeaderControls";
 import { PERMISSIONS } from "@/lib/permissions";
 import { getCurrentUser, getUserDisplayBadgeTitle } from "@/lib/userProfiles";
 import { broadcastNotification } from "@/lib/browserNotifications";
 import { apiFetch, registerPoller, unregisterPoller } from "@/lib/apiClient";
 import { getCloudinaryThumbnail } from "@/lib/cloudinary";
-import { isMeetingTimePassed, getVietnamNowParts, parseTimeSlot, parseTimeToMinutes } from "@/lib/roomTimeHelper";
+import {
+  isMeetingTimePassed,
+  getVietnamNowParts,
+  parseTimeSlot,
+  parseTimeToMinutes,
+  parseDateParts,
+  getMeetingRealtimeStatus,
+  getRoomRealtimeStatus,
+  isRoomAvailableForSlot,
+  getOccupiedSlotsForRoom,
+  isSlotOverlapping,
+} from "@/lib/roomTimeHelper";
 
 // Trả về thời điểm hiện tại theo giờ Việt Nam (UTC+7)
 function getVnDateObj(): Date {
@@ -212,6 +225,7 @@ const normalizeRoom = (r: any) => {
 export default function MeetingRoomsPage() {
   const { lang, t, formatDate, formatNumber } = useLanguage();
   const [mounted, setMounted] = useState(false);
+  const [currentLiveTime, setCurrentLiveTime] = useState<Date>(() => new Date());
   
   useEffect(() => {
     setMounted(true);
@@ -219,6 +233,12 @@ export default function MeetingRoomsPage() {
     setTodayVnStr(vnParts.vnDisplayDate);
     setTodayIsoStr(vnParts.isoDate);
     setSelectedCalendarDate(vnParts.vnDisplayDate);
+
+    // Auto-refresh real-time meeting & room statuses every 30s
+    const timer = setInterval(() => {
+      setCurrentLiveTime(new Date());
+    }, 30000);
+    return () => clearInterval(timer);
   }, []);
 
   const [activeTab, setActiveTab] = useState<"APPROVALS" | "BOOKING" | "ROOMS" | "VISITORS" | "CALENDAR">("CALENDAR");
@@ -229,6 +249,7 @@ export default function MeetingRoomsPage() {
   const [selectedEventModal, setSelectedEventModal] = useState<RoomBooking | null>(null);
   const [selectedRoomForDetail, setSelectedRoomForDetail] = useState<MeetingRoom | null>(null);
   const [editingRoom, setEditingRoom] = useState<MeetingRoom | null>(null);
+  const [qrRoom, setQrRoom] = useState<{ id: string; name: string } | null>(null);
   const [roomGalleryImages, setRoomGalleryImages] = useState<string[]>([]);
   const [activeImageIdx, setActiveImageIdx] = useState<number>(0);
   const [quickNoteModalOpen, setQuickNoteModalOpen] = useState(false);
@@ -311,7 +332,7 @@ export default function MeetingRoomsPage() {
   const [todayIsoStr, setTodayIsoStr] = useState<string>("");
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<string>("");
   const [calendarViewMode, setCalendarViewMode] = useState<"MONTH" | "DAY_LIST">("MONTH");
-  const [confirmedSubTab, setConfirmedSubTab] = useState<"CONFIRMED" | "COMPLETED">("CONFIRMED");
+  const [confirmedSubTab, setConfirmedSubTab] = useState<"IN_PROGRESS" | "UPCOMING" | "COMPLETED">("IN_PROGRESS");
 
   // User Profile
   const [currentUser, setCurrentUser] = useState<{ name: string; title: string; department: string; avatar: string; roles?: string[]; roleCode?: string; empCode?: string }>({
@@ -341,7 +362,7 @@ export default function MeetingRoomsPage() {
           roleUpper === "SYSTEM_ADMIN" ||
           cur.roles?.includes("receptionist") ||
           cur.roles?.includes("admin") ||
-          ["LT-001", "202206011", "202409009", "202010004", "202608001"].includes(cur.empCode || "") ||
+          ["LT-001", "202206011", "202409009", "202010004", "202608001", "102603069"].includes(cur.empCode || "") ||
           (cur.title || "").toLowerCase().includes("lễ tân");
       }
     }
@@ -363,7 +384,7 @@ export default function MeetingRoomsPage() {
     if (roleUpper === "LE_TAN" || roleUpper === "RECEPTIONIST" || roleUpper === "ADMIN" || roleUpper === "SUPER_ADMIN" || roleUpper === "SYSTEM_ADMIN") {
       return true;
     }
-    if (["LT-001", "202206011", "202409009", "202010004", "202608001"].includes(empCode)) {
+    if (["LT-001", "202206011", "202409009", "202010004", "202608001", "102603069"].includes(empCode)) {
       return true;
     }
     if (title.includes("lễ tân") || title.includes("receptionist")) {
@@ -809,18 +830,17 @@ export default function MeetingRoomsPage() {
     const targetRoom = rooms.find((r) => r.id === newAssignedRoomId);
     if (!targetRoom) return;
 
-    // Check overlap for target room
-    const isConflict = bookings.some(
-      (b) =>
-        b.roomId === targetRoom.id &&
-        b.bookingDate === reassignModalBooking.bookingDate &&
-        b.timeSlot === reassignModalBooking.timeSlot &&
-        b.status !== "CANCELLED" &&
-        b.id !== reassignModalBooking.id
+    // Check overlap for target room (interval overlap check)
+    const availCheck = isRoomAvailableForSlot(
+      targetRoom.id,
+      reassignModalBooking.bookingDate,
+      reassignModalBooking.timeSlot,
+      bookings,
+      reassignModalBooking.id
     );
 
-    if (isConflict) {
-      showToast(`❌ Phòng "${targetRoom.name}" đã có cuộc họp khác trong khung giờ ${reassignModalBooking.timeSlot}!`);
+    if (!availCheck.isAvailable) {
+      showToast(`❌ Không thể điều chuyển: ${availCheck.reason || `Phòng "${targetRoom.name}" đã có lịch họp trùng khung giờ!`}`);
       return;
     }
 
@@ -1073,16 +1093,16 @@ export default function MeetingRoomsPage() {
       return;
     }
 
-    // ✅ NEW: Check for double-booking conflicts
-    const hasConflict = bookings.some((b) =>
-      b.roomId === selectedRoom.id &&
-      b.bookingDate === dateFmt &&
-      b.timeSlot === bookingForm.timeSlot &&
-      b.status !== "CANCELLED"
+    // Check for double-booking conflicts via interval overlap (newStart < existingEnd && newEnd > existingStart)
+    const availabilityCheck = isRoomAvailableForSlot(
+      selectedRoom.id,
+      bookingForm.bookingDate,
+      bookingForm.timeSlot,
+      bookings
     );
 
-    if (hasConflict) {
-      showToast(`❌ Phòng ${selectedRoom.name} đã được đặt trong khung giờ ${bookingForm.timeSlot} ngày ${dateFmt}. Vui lòng chọn khung giờ khác.`);
+    if (!availabilityCheck.isAvailable) {
+      showToast(`❌ Phòng ${selectedRoom.name} đã có lịch trong khung giờ này: ${availabilityCheck.reason || "Bị trùng giờ họp"}. Vui lòng chọn khung giờ khác.`);
       return;
     }
 
@@ -1355,39 +1375,48 @@ export default function MeetingRoomsPage() {
     return "bg-slate-700 hover:bg-slate-800 text-white";
   };
 
-  // Dynamic Real-time Calculations for Room Availability & Schedule Stats
-  const activeConfirmedBookingsToday = (bookings || []).filter((b) => b.status === "CONFIRMED" && b.bookingDate === todayVnStr);
+  // Dynamic Real-time Calculations for Room Availability & Schedule Stats (Asia/Ho_Chi_Minh)
+  const vnNow = getVietnamNowParts(currentLiveTime);
   const totalUsableRooms = (rooms || []).filter((r) => !r.isLocked && r.status !== "MAINTENANCE");
 
-  const occupiedRoomIdsToday = new Set<string>();
-  activeConfirmedBookingsToday.forEach((b) => {
-    const matchedById = totalUsableRooms.find((r) => r.id === b.roomId);
-    if (matchedById && !occupiedRoomIdsToday.has(matchedById.id)) {
-      occupiedRoomIdsToday.add(matchedById.id);
-      return;
-    }
-    const matchedByName = totalUsableRooms.find(
-      (r) =>
-        r.name.toLowerCase() === b.roomName?.toLowerCase() ||
-        r.name.toLowerCase().includes(b.roomName?.toLowerCase() || "") ||
-        (b.roomName && r.name.toLowerCase().includes(b.roomName.toLowerCase()))
-    );
-    if (matchedByName && !occupiedRoomIdsToday.has(matchedByName.id)) {
-      occupiedRoomIdsToday.add(matchedByName.id);
-      return;
-    }
-    const nextFree = totalUsableRooms.find((r) => !occupiedRoomIdsToday.has(r.id));
-    if (nextFree) {
-      occupiedRoomIdsToday.add(nextFree.id);
+  // All bookings for today
+  const allTodayBookings = (bookings || []).filter((b) => {
+    const bDate = parseDateParts(b.bookingDate || (b as any).date);
+    return bDate.isoDate === vnNow.isoDate;
+  });
+
+  // Categorize today's bookings according to real-time status:
+  const inProgressBookingsToday = allTodayBookings.filter((b) => {
+    return getMeetingRealtimeStatus(b, currentLiveTime).status === "IN_PROGRESS";
+  });
+
+  const upcomingBookingsToday = allTodayBookings.filter((b) => {
+    return getMeetingRealtimeStatus(b, currentLiveTime).status === "UPCOMING";
+  });
+
+  const endedOrCompletedBookingsToday = allTodayBookings.filter((b) => {
+    const s = getMeetingRealtimeStatus(b, currentLiveTime).status;
+    return s === "ENDED" || b.status === "COMPLETED";
+  });
+
+  // Rooms currently occupied at this exact moment (only when meeting is IN_PROGRESS)
+  const occupiedRoomIdsNow = new Set<string>();
+  totalUsableRooms.forEach((r) => {
+    const rStatus = getRoomRealtimeStatus(r, bookings, currentLiveTime);
+    if (rStatus.isOccupiedNow) {
+      occupiedRoomIdsNow.add(r.id);
     }
   });
 
-  const occupiedRoomsCount = occupiedRoomIdsToday.size;
-  const availableRoomsCount = Math.max(0, totalUsableRooms.length - occupiedRoomsCount);
-  const pendingBookingsCount = (bookings || []).filter((b) => b.status === "PENDING").length;
+  // Compatibility alias
+  const occupiedRoomIdsToday = occupiedRoomIdsNow;
 
-  const confirmedBookingsToday = (bookings || []).filter(
-    (b) => (b.status === "CONFIRMED" || b.status === "COMPLETED") && b.bookingDate === todayVnStr
+  const occupiedRoomsCount = occupiedRoomIdsNow.size;
+  const availableRoomsCount = Math.max(0, totalUsableRooms.length - occupiedRoomsCount);
+  const pendingBookingsCount = (bookings || []).filter((b) => b.status === "PENDING" || b.status === "APPROVING").length;
+
+  const confirmedBookingsToday = allTodayBookings.filter(
+    (b) => b.status === "CONFIRMED" || b.status === "COMPLETED"
   );
   const masterCalendarConfirmedCount = confirmedBookingsToday.length;
 
@@ -1406,7 +1435,7 @@ export default function MeetingRoomsPage() {
       if (roomSortPreference === "STATUS_AVAILABLE") {
         const getStatusRank = (r: MeetingRoom) => {
           if (r.isLocked) return 3;
-          if (occupiedRoomIdsToday.has(r.id)) return 2;
+          if (occupiedRoomIdsNow.has(r.id)) return 2;
           return 1;
         };
         const rankA = getStatusRank(a);
@@ -1844,14 +1873,15 @@ export default function MeetingRoomsPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <Link
-                    href="/rooms/qr"
-                    target="_blank"
-                    className="px-3 py-1.5 rounded-full bg-white text-emerald-900 text-xs font-black shadow-sm flex items-center gap-1.5 hover:bg-emerald-50 transition-colors"
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("ROOMS")}
+                    title="Mỗi phòng có mã QR riêng — lấy ở tab Danh sách phòng họp"
+                    className="px-3 py-1.5 rounded-full bg-white text-emerald-900 text-xs font-black shadow-sm flex items-center gap-1.5 hover:bg-emerald-50 transition-colors cursor-pointer"
                   >
                     <IconQrcode size={14} />
-                    IN MÃ QR CÔNG KHAI
-                  </Link>
+                    MÃ QR TỪNG PHÒNG
+                  </button>
                   <span className="px-3 py-1 rounded-full bg-emerald-400/20 text-emerald-300 text-xs font-extrabold border border-emerald-400/30 hidden sm:inline-flex">
                     {lang === "en" ? "🟢 Active" : "🟢 Đang Hoạt Động"}
                   </span>
@@ -2113,14 +2143,25 @@ export default function MeetingRoomsPage() {
                 <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs">
                   <button
                     type="button"
-                    onClick={() => setConfirmedSubTab("CONFIRMED")}
+                    onClick={() => setConfirmedSubTab("IN_PROGRESS")}
                     className={`px-3 py-1 rounded-lg font-bold transition-all cursor-pointer ${
-                      confirmedSubTab === "CONFIRMED"
+                      confirmedSubTab === "IN_PROGRESS"
                         ? "bg-[#006838] text-white shadow-2xs"
                         : "text-slate-600 hover:text-slate-900"
                     }`}
                   >
-                    🟢 Đang họp ({(bookings || []).filter((b) => b.status === "CONFIRMED" && b.bookingDate === todayVnStr).length})
+                    🟢 Đang họp ({inProgressBookingsToday.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmedSubTab("UPCOMING")}
+                    className={`px-3 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                      confirmedSubTab === "UPCOMING"
+                        ? "bg-amber-600 text-white shadow-2xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    ⏳ Sắp họp ({upcomingBookingsToday.length})
                   </button>
                   <button
                     type="button"
@@ -2131,7 +2172,7 @@ export default function MeetingRoomsPage() {
                         : "text-slate-600 hover:text-slate-900"
                     }`}
                   >
-                    ✓ Đã trả phòng ({(bookings || []).filter((b) => b.status === "COMPLETED" && b.bookingDate === todayVnStr).length})
+                    ✓ Đã trả phòng / Kết thúc ({endedOrCompletedBookingsToday.length})
                   </button>
                 </div>
               </div>
@@ -2149,18 +2190,31 @@ export default function MeetingRoomsPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {(bookings || []).filter((b) => b.status === confirmedSubTab && b.bookingDate === todayVnStr).length === 0 ? (
-                      <tr>
-                        <td colSpan={6} className="p-6 text-center text-slate-400 font-bold">
-                          {confirmedSubTab === "CONFIRMED"
-                            ? "Không có cuộc họp nào đang diễn ra trong hôm nay."
-                            : "Chưa có cuộc họp nào được trả phòng trong danh sách hôm nay."}
-                        </td>
-                      </tr>
-                    ) : (
-                      bookings
-                        .filter((b) => b.status === confirmedSubTab && b.bookingDate === todayVnStr)
-                        .map((b) => (
+                    {(() => {
+                      const currentTabBookings =
+                        confirmedSubTab === "IN_PROGRESS"
+                          ? inProgressBookingsToday
+                          : confirmedSubTab === "UPCOMING"
+                          ? upcomingBookingsToday
+                          : endedOrCompletedBookingsToday;
+
+                      if (currentTabBookings.length === 0) {
+                        return (
+                          <tr>
+                            <td colSpan={6} className="p-6 text-center text-slate-400 font-bold">
+                              {confirmedSubTab === "IN_PROGRESS"
+                                ? "Không có cuộc họp nào đang diễn ra tại thời điểm này."
+                                : confirmedSubTab === "UPCOMING"
+                                ? "Không có cuộc họp nào sắp diễn ra trong ngày hôm nay."
+                                : "Chưa có cuộc họp nào được trả phòng hoặc đã kết thúc trong hôm nay."}
+                            </td>
+                          </tr>
+                        );
+                      }
+
+                      return currentTabBookings.map((b) => {
+                        const mStatus = getMeetingRealtimeStatus(b, currentLiveTime);
+                        return (
                           <tr key={b.id} className="hover:bg-slate-50 font-medium">
                             <td className="p-3 font-bold text-blue-900">
                               {b.bookingDate}
@@ -2173,18 +2227,18 @@ export default function MeetingRoomsPage() {
                               <div className="text-[10px] text-slate-500">{b.department}</div>
                             </td>
                             <td className="p-3">
-                              {b.status === "CONFIRMED" ? (
-                                <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-[#006838] text-[10px] font-extrabold uppercase">
-                                  ✓ Đã duyệt
-                                </span>
-                              ) : (
-                                <span className="px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-700 text-[10px] font-extrabold uppercase">
-                                  ⚪ Đã trả phòng
-                                </span>
-                              )}
+                              <span
+                                className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase border ${mStatus.badgeBg} ${mStatus.badgeText} ${mStatus.badgeBorder}`}
+                              >
+                                {mStatus.status === "IN_PROGRESS"
+                                  ? "🟢 Đang họp"
+                                  : mStatus.status === "UPCOMING"
+                                  ? "⏳ Sắp họp"
+                                  : "⚪ Đã kết thúc"}
+                              </span>
                             </td>
                             <td className="p-3 text-center space-x-1.5">
-                              {b.status === "CONFIRMED" ? (
+                              {mStatus.status === "IN_PROGRESS" ? (
                                 <>
                                   <button
                                     onClick={() => {
@@ -2202,6 +2256,28 @@ export default function MeetingRoomsPage() {
                                     🟢 Trả phòng
                                   </button>
                                 </>
+                              ) : mStatus.status === "UPCOMING" ? (
+                                <>
+                                  <button
+                                    onClick={() => {
+                                      setReassignModalBooking(b);
+                                      setNewAssignedRoomId(b.roomId);
+                                    }}
+                                    className="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-700 hover:text-white transition-colors text-xs font-bold border border-blue-200 cursor-pointer"
+                                  >
+                                    Đổi phòng
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      if (window.confirm(`Xác nhận hủy lịch họp "${b.title}" (${b.timeSlot}) tại ${b.roomName}?`)) {
+                                        handleRejectBooking(b.id);
+                                      }
+                                    }}
+                                    className="px-2.5 py-1 rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-600 hover:text-white transition-colors text-xs font-bold border border-rose-200 cursor-pointer"
+                                  >
+                                    Hủy lịch
+                                  </button>
+                                </>
                               ) : (
                                 <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-md">
                                   ✓ Hoàn tất
@@ -2209,8 +2285,9 @@ export default function MeetingRoomsPage() {
                               )}
                             </td>
                           </tr>
-                        ))
-                    )}
+                        );
+                      });
+                    })()}
                   </tbody>
                 </table>
               </div>
@@ -2730,6 +2807,29 @@ export default function MeetingRoomsPage() {
                                     </span>
                                   </div>
                                 ))}
+                                <div className="flex justify-end pt-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setBookingForm({
+                                        roomId: room.id,
+                                        title: "",
+                                        bookerName: currentUser.name,
+                                        department: "Hành chính",
+                                        bookingDate: selectedCalendarDate.split("/").reverse().join("-"),
+                                        timeSlot: "13:30 - 15:00",
+                                        attendeesCount: room.capacity,
+                                        notes: "",
+                                        needsTeaCoffee: true,
+                                        needsProjector: true,
+                                      });
+                                      setQuickNoteModalOpen(true);
+                                    }}
+                                    className="text-[10px] font-bold text-[#006838] hover:underline cursor-pointer"
+                                  >
+                                    + Đặt thêm khung giờ khác
+                                  </button>
+                                </div>
                               </div>
                             ) : (
                               <div className="flex items-center justify-between text-[11px] text-emerald-700 bg-emerald-50/60 px-2.5 py-1 rounded-xl">
@@ -2930,11 +3030,21 @@ export default function MeetingRoomsPage() {
                     className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838] bg-white cursor-pointer"
                   >
                     <option value="">-- Chưa chọn phòng --</option>
-                    {(sortedRooms || []).map((r) => (
-                      <option key={r.id} value={r.id} disabled={r.isLocked}>
-                        {r.name} ({r.capacity} người) {r.isLocked ? "- [Đang khóa bảo trì]" : ""}
-                      </option>
-                    ))}
+                    {(sortedRooms || []).map((r) => {
+                      const rStatus = getRoomRealtimeStatus(r, bookings, currentLiveTime);
+                      const statusHint = r.isLocked
+                        ? "- [Đang khóa bảo trì]"
+                        : rStatus.isOccupiedNow
+                        ? `- [Đang họp: ${rStatus.badgeSubText}]`
+                        : rStatus.freeUntil
+                        ? `- [Trống đến ${rStatus.freeUntil}]`
+                        : "- [Trống cả ngày]";
+                      return (
+                        <option key={r.id} value={r.id} disabled={r.isLocked}>
+                          {r.name} ({r.capacity} người) {statusHint}
+                        </option>
+                      );
+                    })}
                   </select>
                   {!bookingForm.roomId && (
                     <p className="text-xs text-amber-600 flex items-center gap-1">
@@ -3051,6 +3161,46 @@ export default function MeetingRoomsPage() {
                 </div>
               </div>
 
+              {/* Preview Occupied Slots for selected room & date */}
+              {bookingForm.roomId && (() => {
+                const occupiedSlots = getOccupiedSlotsForRoom(bookingForm.roomId, bookingForm.bookingDate, bookings);
+                const selectedRoomObj = rooms.find((r) => r.id === bookingForm.roomId);
+                return (
+                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <IconCalendar size={15} className="text-[#006838]" />
+                        <span>Lịch họp đã duyệt của {selectedRoomObj?.name || "phòng này"} ngày {bookingForm.bookingDate}:</span>
+                      </span>
+                      <span className="text-[11px] font-bold text-slate-500 bg-white px-2 py-0.5 rounded-md border border-slate-200">
+                        {occupiedSlots.length > 0 ? `${occupiedSlots.length} cuộc họp` : "Cả ngày chưa có lịch"}
+                      </span>
+                    </div>
+                    {occupiedSlots.length > 0 ? (
+                      <div className="flex flex-wrap gap-2 pt-0.5">
+                        {occupiedSlots.map((os) => (
+                          <div
+                            key={os.id}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 text-amber-900 border border-amber-200/90 text-xs font-bold shadow-2xs"
+                          >
+                            <span className="text-amber-700">⛔ {os.timeSlot}:</span>
+                            <span className="font-semibold text-slate-700 truncate max-w-[220px]">{os.title}</span>
+                            <span className="text-[10px] text-blue-700 bg-white px-1.5 py-0.2 rounded border border-amber-200">
+                              {os.bookerName}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-emerald-700 font-bold flex items-center gap-1">
+                        <IconCheck size={14} />
+                        <span>Tất cả các khung giờ trong ngày đều còn trống &amp; sẵn sàng đặt!</span>
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
+
               {/* Row 4: Số người + Hình thức họp */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
@@ -3166,14 +3316,14 @@ export default function MeetingRoomsPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {(sortedRooms || []).map((room) => {
-                const isOccupiedToday = occupiedRoomIdsToday.has(room.id);
+                const rStatus = getRoomRealtimeStatus(room, bookings, currentLiveTime);
                 return (
                   <div
                     key={room.id}
                     onClick={() => setSelectedRoomForDetail(room)}
                     className={`p-5 rounded-2xl bg-white border shadow-xs transition-all flex flex-col justify-between gap-4 cursor-pointer hover:shadow-md hover:border-[#006838] group ${room.isLocked
                       ? "border-rose-300 bg-rose-50/20"
-                      : isOccupiedToday
+                      : rStatus.isOccupiedNow
                         ? "border-amber-300 bg-amber-50/10"
                         : "border-slate-200/80 hover:border-[#006838]/60"
                       }`}
@@ -3187,16 +3337,23 @@ export default function MeetingRoomsPage() {
                             {room.location}
                           </span>
                         </div>
-                        <span
-                          className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase ${room.isLocked
-                            ? "bg-rose-100 text-rose-700"
-                            : isOccupiedToday
-                              ? "bg-amber-100 text-amber-800"
-                              : "bg-emerald-100 text-[#006838]"
-                            }`}
-                        >
-                          {room.isLocked ? "🔒 Khóa bảo trì" : isOccupiedToday ? "⏳ Đang họp" : "✓ Phòng trống"}
-                        </span>
+                        <div className="flex flex-col items-end gap-0.5">
+                          <span
+                            className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase ${room.isLocked
+                              ? "bg-rose-100 text-rose-700"
+                              : rStatus.isOccupiedNow
+                                ? "bg-amber-100 text-amber-800"
+                                : "bg-emerald-100 text-[#006838]"
+                              }`}
+                          >
+                            {room.isLocked ? "🔒 Khóa bảo trì" : rStatus.isOccupiedNow ? "⏳ Đang họp" : "✓ Phòng trống"}
+                          </span>
+                          {!room.isLocked && rStatus.badgeSubText && (
+                            <span className="text-[10px] font-bold text-slate-500">
+                              {rStatus.badgeSubText}
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       {/* Room Photo Preview Thumbnail */}
@@ -3275,6 +3432,19 @@ export default function MeetingRoomsPage() {
 
                       {canManageRooms && (
                         <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setQrRoom({ id: room.id, name: room.name });
+                            }}
+                            className="px-2.5 py-1.5 rounded-lg text-xs font-bold text-white bg-[#006838] hover:bg-[#00522c] transition shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                            title="Lấy mã QR đăng ký phòng (không cần đăng nhập)"
+                          >
+                            <IconQrcode size={15} />
+                            <span>Mã QR đăng ký</span>
+                          </button>
+
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -3546,9 +3716,21 @@ export default function MeetingRoomsPage() {
                     onChange={(e) => setBookingForm({ ...bookingForm, roomId: e.target.value })}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 font-bold outline-none focus:border-[#006838] bg-white cursor-pointer"
                   >
-                    {(sortedRooms || []).map((r) => (
-                      <option key={r.id} value={r.id}>{r.name}</option>
-                    ))}
+                    {(sortedRooms || []).map((r) => {
+                      const rStatus = getRoomRealtimeStatus(r, bookings, currentLiveTime);
+                      const statusHint = r.isLocked
+                        ? "- [Đang khóa bảo trì]"
+                        : rStatus.isOccupiedNow
+                        ? `- [Đang họp: ${rStatus.badgeSubText}]`
+                        : rStatus.freeUntil
+                        ? `- [Trống đến ${rStatus.freeUntil}]`
+                        : "- [Trống cả ngày]";
+                      return (
+                        <option key={r.id} value={r.id} disabled={r.isLocked}>
+                          {r.name} {statusHint}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
 
@@ -3607,6 +3789,42 @@ export default function MeetingRoomsPage() {
                   )}
                 </div>
               </div>
+
+              {/* Preview Occupied Slots for Quick Note Modal */}
+              {bookingForm.roomId && (() => {
+                const occupiedSlots = getOccupiedSlotsForRoom(bookingForm.roomId, bookingForm.bookingDate, bookings);
+                const selectedRoomObj = rooms.find((r) => r.id === bookingForm.roomId);
+                return (
+                  <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <IconCalendar size={14} className="text-[#006838]" />
+                        <span>Lịch đã duyệt của {selectedRoomObj?.name || "phòng"}:</span>
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">
+                        {occupiedSlots.length > 0 ? `${occupiedSlots.length} cuộc họp` : "Cả ngày trống"}
+                      </span>
+                    </div>
+                    {occupiedSlots.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5 pt-0.5">
+                        {occupiedSlots.map((os) => (
+                          <div
+                            key={os.id}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-900 border border-amber-200 text-[11px] font-bold"
+                          >
+                            <span>⛔ {os.timeSlot}:</span>
+                            <span className="font-semibold text-slate-700 truncate max-w-[180px]">{os.title}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-emerald-700 font-bold">
+                        ✓ Chưa có lịch họp nào trong ngày này, sẵn sàng đặt!
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
@@ -3994,7 +4212,7 @@ export default function MeetingRoomsPage() {
                 <div className="relative rounded-2xl overflow-hidden bg-slate-900 border border-slate-200 shadow-md group">
                   {roomGalleryImages.length > 0 ? (
                     <img
-                      src={(typeof roomGalleryImages[activeImageIdx] === "string" ? roomGalleryImages[activeImageIdx] : roomGalleryImages[activeImageIdx]?.url) || `/images/rooms/${selectedRoomForDetail.id}/1.jpg`}
+                      src={(typeof roomGalleryImages[activeImageIdx] === "string" ? roomGalleryImages[activeImageIdx] : (roomGalleryImages[activeImageIdx] as any)?.url) || `/images/rooms/${selectedRoomForDetail.id}/1.jpg`}
                       alt={selectedRoomForDetail.name}
                       className="w-full h-64 sm:h-72 object-cover transition-all duration-300"
                       onError={(e) => {
@@ -4048,22 +4266,34 @@ export default function MeetingRoomsPage() {
                   )}
 
                   {/* Status Badges */}
-                  <div className="absolute top-3 right-3 pointer-events-none">
-                    <span
-                      className={`px-3 py-1 rounded-full text-[11px] font-bold shadow-sm ${
-                        selectedRoomForDetail.isLocked
-                          ? "bg-rose-600 text-white"
-                          : occupiedRoomIdsToday.has(selectedRoomForDetail.id)
-                          ? "bg-amber-500 text-white"
-                          : "bg-[#006838] text-white"
-                      }`}
-                    >
-                      {selectedRoomForDetail.isLocked
-                        ? "Bảo trì"
-                        : occupiedRoomIdsToday.has(selectedRoomForDetail.id)
-                        ? "Đang có lịch họp"
-                        : "Phòng trống"}
-                    </span>
+                  <div className="absolute top-3 right-3 pointer-events-none flex flex-col items-end gap-1">
+                    {(() => {
+                      const rStatus = getRoomRealtimeStatus(selectedRoomForDetail, bookings, currentLiveTime);
+                      return (
+                        <>
+                          <span
+                            className={`px-3 py-1 rounded-full text-[11px] font-bold shadow-sm ${
+                              selectedRoomForDetail.isLocked
+                                ? "bg-rose-600 text-white"
+                                : rStatus.isOccupiedNow
+                                ? "bg-amber-500 text-white"
+                                : "bg-[#006838] text-white"
+                            }`}
+                          >
+                            {selectedRoomForDetail.isLocked
+                              ? "Bảo trì"
+                              : rStatus.isOccupiedNow
+                              ? "Đang họp"
+                              : "Phòng trống"}
+                          </span>
+                          {!selectedRoomForDetail.isLocked && rStatus.badgeSubText && (
+                            <span className="px-2 py-0.5 rounded-md bg-slate-900/80 text-white text-[10px] font-bold shadow-sm">
+                              {rStatus.badgeSubText}
+                            </span>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
 
                   <div className="absolute bottom-3 left-3 flex items-center gap-2 pointer-events-none">
@@ -4097,7 +4327,7 @@ export default function MeetingRoomsPage() {
                           }`}
                         >
                           <img
-                            src={typeof imgUrl === "string" ? imgUrl : (imgUrl?.url || "")}
+                            src={typeof imgUrl === "string" ? imgUrl : ((imgUrl as any)?.url || "")}
                             alt={`Góc ${idx + 1}`}
                             className="w-full h-full object-cover"
                           />
@@ -4195,19 +4425,32 @@ export default function MeetingRoomsPage() {
 
               <div className="flex items-center gap-2">
                 {canManageRooms && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditingRoom({
-                        ...selectedRoomForDetail,
-                        images: selectedRoomForDetail.images || [],
-                      });
-                    }}
-                    className="px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 font-semibold hover:bg-slate-50 transition cursor-pointer text-xs flex items-center gap-1.5"
-                  >
-                    <IconEdit size={15} />
-                    <span>Chỉnh sửa</span>
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setQrRoom({ id: selectedRoomForDetail.id, name: selectedRoomForDetail.name });
+                      }}
+                      className="px-4 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-[#006838] font-bold hover:bg-emerald-100 transition cursor-pointer text-xs flex items-center gap-1.5"
+                      title="Lấy mã QR đăng ký phòng (không cần đăng nhập)"
+                    >
+                      <IconQrcode size={15} />
+                      <span>Mã QR đăng ký</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingRoom({
+                          ...selectedRoomForDetail,
+                          images: selectedRoomForDetail.images || [],
+                        });
+                      }}
+                      className="px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 font-semibold hover:bg-slate-50 transition cursor-pointer text-xs flex items-center gap-1.5"
+                    >
+                      <IconEdit size={15} />
+                      <span>Chỉnh sửa</span>
+                    </button>
+                  </>
                 )}
 
                 <button
@@ -4235,6 +4478,11 @@ export default function MeetingRoomsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* MODAL: MÃ QR ĐĂNG KÝ RIÊNG CỦA TỪNG PHÒNG (Lễ Tân) */}
+      {qrRoom && canManageRooms && (
+        <RoomQrCodeModal room={qrRoom} onClose={() => setQrRoom(null)} onToast={showToast} />
       )}
 
       {/* MODAL POPUP: CHỈNH SỬA PHÒNG HỌP — hiển thị trên cùng (z-[60]) để overlay lên modal chi tiết */}

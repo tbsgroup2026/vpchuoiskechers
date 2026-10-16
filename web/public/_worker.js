@@ -3351,6 +3351,20 @@ export default {
               .bind(loginId, loginId)
               .first();
           } catch (e) {}
+          // Danh sách nhân viên còn nằm ở bảng users (quản trị người dùng) và hr_employees (nhân sự)
+          if (!userRecord) {
+            try {
+              userRecord = await env.DB.prepare("SELECT * FROM users WHERE UPPER(emp_code) = UPPER(?) OR UPPER(email) = UPPER(?) LIMIT 1")
+                .bind(loginId, loginId)
+                .first();
+            } catch (e) {}
+          }
+          if (!userRecord) {
+            try {
+              const hr = await env.DB.prepare("SELECT * FROM hr_employees WHERE UPPER(id) = UPPER(?) LIMIT 1").bind(loginId).first();
+              if (hr) userRecord = { ...hr, emp_code: hr.emp_code || hr.msnv || hr.id, id: undefined };
+            } catch (e) {}
+          }
           const roleAccount = ROLE_ACCOUNTS[loginId.toUpperCase()] || ROLE_ACCOUNTS[loginId];
           if (!userRecord && roleAccount) {
             userRecord = {

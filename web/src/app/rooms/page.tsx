@@ -3,6 +3,7 @@
 import { uploadCloudinaryFile } from "@/lib/cloudinary";
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import ZaloGroupSettings from "@/components/rooms/ZaloGroupSettings";
 import { useLanguage } from "@/components/LanguageProvider";
 import {
   IconArrowLeft,
@@ -1889,6 +1890,8 @@ export default function MeetingRoomsPage() {
            ════════════════════════════════════════════════════════════════ */}
         {canAccessReceptionDesk && activeTab === "APPROVALS" && (
           <div className="space-y-6 animate-in fade-in duration-200">
+            {/* Chọn nhóm Zalo nhận tin duyệt / từ chối lịch */}
+            <ZaloGroupSettings />
 
             {/* Lễ Tân Executive Dashboard Banner */}
             <div className="relative overflow-hidden p-5 sm:p-6 rounded-3xl bg-slate-900 text-white shadow-lg space-y-4 border border-emerald-800/30 group">

@@ -2962,6 +2962,35 @@ async function roomSha256Hex(text) {
   const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(String(text)));
   return [...new Uint8Array(d)].map((x) => x.toString(16).padStart(2, "0")).join("");
 }
+// Nhóm Zalo phòng họp (bảng zalo_config 'main'): reception = nhóm Lễ Tân (đơn mới, người đặt tự hủy);
+// confirmed = nhóm nhận lịch đã duyệt / bị Lễ Tân từ chối. Chưa cấu hình nhóm confirmed thì dùng nhóm Lễ Tân.
+async function ensureZaloConfigTable(db) {
+  await db.prepare(`CREATE TABLE IF NOT EXISTS zalo_config (id TEXT PRIMARY KEY DEFAULT 'main', quiet_hours_start TEXT DEFAULT '21:00', quiet_hours_end TEXT DEFAULT '06:30', meeting_reminder_mins INTEGER DEFAULT 30, visitor_reminder_days INTEGER DEFAULT 2, reception_group_chat_id TEXT, confirmed_group_chat_id TEXT, event_toggles_json TEXT, priority_config_json TEXT, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)`).run().catch(() => {});
+  await db.prepare("ALTER TABLE zalo_config ADD COLUMN confirmed_group_chat_id TEXT").run().catch(() => {});
+  await db.prepare(`CREATE TABLE IF NOT EXISTS zalo_captured_groups (group_chat_id TEXT PRIMARY KEY, group_name TEXT, last_message TEXT, sender_name TEXT, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)`).run().catch(() => {});
+}
+async function getRoomZaloGroups(env) {
+  let conf = null;
+  try {
+    await ensureZaloConfigTable(env.DB);
+    conf = await env.DB.prepare("SELECT reception_group_chat_id, confirmed_group_chat_id FROM zalo_config WHERE id = 'main'").first();
+  } catch (e) {}
+  const reception = (conf && conf.reception_group_chat_id) || ROOM_RECEPTION_ZALO_GROUPS[0];
+  const confirmed = (conf && conf.confirmed_group_chat_id) || null;
+  return { reception, confirmed, confirmedOrReception: confirmed || reception };
+}
+async function roomZaloSend(env, chatId, text) {
+  if (!env.ZALO_BOT_TOKEN || !chatId) return false;
+  const r = await fetch(`https://bot-api.zaloplatforms.com/bot${env.ZALO_BOT_TOKEN}/sendMessage`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chat_id: chatId, text }),
+  }).catch(() => null);
+  return Boolean(r && r.ok);
+}
+function fmtRoomDateVn(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ""));
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : String(iso || "—");
+}
+
 async function notifyReceptionBookingCancelled(env, b, byName) {
   if (!env.ZALO_BOT_TOKEN) return;
   const groups = [...ROOM_RECEPTION_ZALO_GROUPS];
@@ -12846,6 +12875,36 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
         }
       }
 
+      // GET/PUT /api/rooms/zalo-groups: Lễ Tân/Admin chọn nhóm Zalo nhận thông báo phòng họp
+      if (url.pathname === "/api/rooms/zalo-groups") {
+        const J = SECURE_JSON_HEADERS;
+        if (!isRoomReceptionist(__authSession, __legacySession)) {
+          return new Response(JSON.stringify({ success: false, error: "FORBIDDEN", message: "Chỉ Lễ Tân/Admin cấu hình nhóm Zalo" }), { status: 403, headers: J });
+        }
+        await ensureZaloConfigTable(env.DB);
+        if (request.method === "GET") {
+          const g = await getRoomZaloGroups(env);
+          const { results } = await env.DB.prepare("SELECT group_chat_id AS id, group_name AS name, updated_at AS updatedAt FROM zalo_captured_groups ORDER BY updated_at DESC LIMIT 100").all().catch(() => ({ results: [] }));
+          return new Response(JSON.stringify({ success: true, receptionGroupId: g.reception, confirmedGroupId: g.confirmed, groups: results || [], botReady: Boolean(env.ZALO_BOT_TOKEN) }), { headers: J });
+        }
+        if (request.method === "PUT") {
+          const body = await request.json().catch(() => ({}));
+          const clean = (v) => (v == null || v === "" ? null : String(v).trim());
+          const rec = clean(body.receptionGroupId), conf = clean(body.confirmedGroupId);
+          for (const v of [rec, conf]) {
+            if (v && !/^[A-Za-z0-9_.:-]{3,100}$/.test(v)) return new Response(JSON.stringify({ success: false, error: "BAD_GROUP", message: "Mã nhóm Zalo không hợp lệ" }), { status: 400, headers: J });
+          }
+          await env.DB.prepare("INSERT INTO zalo_config (id, reception_group_chat_id, confirmed_group_chat_id, updated_at) VALUES ('main', ?, ?, CURRENT_TIMESTAMP) ON CONFLICT(id) DO UPDATE SET reception_group_chat_id = excluded.reception_group_chat_id, confirmed_group_chat_id = excluded.confirmed_group_chat_id, updated_at = CURRENT_TIMESTAMP")
+            .bind(rec, conf).run();
+          await recordAuditLog(__legacySession, "ROOMS", "SET_ZALO_GROUPS", "main", null, { receptionGroupId: rec, confirmedGroupId: conf }, request).catch(() => {});
+          let tested = null;
+          if (body.sendTest && conf) {
+            tested = await roomZaloSend(env, conf, `🔔 Thử thông báo: nhóm này sẽ nhận tin *lịch họp đã được Lễ Tân duyệt / từ chối*. (Cài đặt bởi ${__legacySession.name || __legacySession.empCode})`);
+          }
+          return new Response(JSON.stringify({ success: true, message: "Đã lưu nhóm Zalo nhận thông báo", tested }), { headers: J });
+        }
+      }
+
       // GET/POST /api/rooms/public-code: Lễ Tân lấy (hoặc đổi) mã QR đăng ký riêng của từng phòng
       // GET ?roomId=  -> trả mã hiện tại, tự tạo nếu phòng chưa có
       // POST {roomId} -> tạo mã mới, mã/QR cũ hết hiệu lực
@@ -13215,11 +13274,12 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
             );
           }
           const J = { "Content-Type": "application/json" };
-          const existing = await env.DB.prepare("SELECT id, emp_code, status, booking_date, time_slot, room_name, title, booker_name FROM room_bookings WHERE id = ?").bind(id).first();
+          const existing = await env.DB.prepare("SELECT id, emp_code, status, booking_date, time_slot, room_name, title, booker_name, department, attendees_count FROM room_bookings WHERE id = ?").bind(id).first();
           if (!existing) {
             return new Response(JSON.stringify({ success: false, error: "NOT_FOUND", message: "Không tìm thấy lịch họp" }), { status: 404, headers: J });
           }
-          if (!isRoomReceptionist(__authSession, __legacySession)) {
+          const byReception = isRoomReceptionist(__authSession, __legacySession);
+          if (!byReception) {
             // Người đặt chỉ được tự HỦY lịch của mình (chưa diễn ra); đổi giờ/phòng là việc của Lễ Tân
             const me = String(__legacySession.empCode || "").toUpperCase();
             const owner = String(existing.emp_code || "").toUpperCase();
@@ -13233,8 +13293,28 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
             if (blocked) return new Response(JSON.stringify({ success: false, error: "CANNOT_CANCEL", message: blocked }), { status: 400, headers: J });
           }
           await recordAuditLog(__legacySession, "ROOMS", status === "CANCELLED" ? "CANCEL_BOOKING" : "UPDATE_BOOKING", id, { status: existing.status }, { status, roomId, roomName }, request).catch(() => {});
-          if (status === "CANCELLED" && existing.status !== "CANCELLED") {
-            ctx.waitUntil(notifyReceptionBookingCancelled(env, existing, __legacySession.name || __legacySession.empCode).catch(() => {}));
+          const actorName = __legacySession.name || __legacySession.empCode;
+          const isOwnerAction = String(existing.emp_code || "").toUpperCase() === String(__legacySession.empCode || "").toUpperCase();
+          const finalRoom = roomName || existing.room_name || "—";
+          if (status === "CONFIRMED" && existing.status !== "CONFIRMED" && byReception) {
+            // Lễ Tân duyệt → nhóm nhận lịch đã xác nhận
+            ctx.waitUntil((async () => {
+              const g = await getRoomZaloGroups(env);
+              await roomZaloSend(env, g.confirmedOrReception,
+                `✅ *LỊCH HỌP ĐÃ ĐƯỢC DUYỆT*\n\n🏢 Phòng: ${finalRoom}\n📌 ${existing.title || "Cuộc họp"}\n📆 Ngày: ${fmtRoomDateVn(existing.booking_date)}\n🕐 Khung giờ: ${existing.time_slot || "—"}\n👤 Người đặt: ${existing.booker_name || "—"}${existing.department ? " (" + existing.department + ")" : ""}\n👥 Số người: ${existing.attendees_count || "—"}\n\n✍️ Lễ Tân duyệt: ${actorName}`);
+            })().catch(() => {}));
+          } else if (status === "CANCELLED" && existing.status !== "CANCELLED") {
+            if (byReception && !isOwnerAction) {
+              // Lễ Tân từ chối/hủy lịch của người khác → nhóm nhận lịch đã xác nhận (người đặt nắm được)
+              ctx.waitUntil((async () => {
+                const g = await getRoomZaloGroups(env);
+                await roomZaloSend(env, g.confirmedOrReception,
+                  `❌ *LỄ TÂN ${existing.status === "CONFIRMED" ? "HỦY" : "TỪ CHỐI"} LỊCH HỌP*\n\n🏢 Phòng: ${finalRoom}\n📌 ${existing.title || "Cuộc họp"}\n📆 Ngày: ${fmtRoomDateVn(existing.booking_date)}\n🕐 Khung giờ: ${existing.time_slot || "—"}\n👤 Người đặt: ${existing.booker_name || "—"}\n\n✍️ Lễ Tân: ${actorName}${notes ? "\n📝 Ghi chú: " + notes : ""}`);
+              })().catch(() => {}));
+            } else {
+              // Người đặt tự hủy → báo nhóm Lễ Tân
+              ctx.waitUntil(notifyReceptionBookingCancelled(env, existing, actorName).catch(() => {}));
+            }
           }
 
           let updateFields = [];

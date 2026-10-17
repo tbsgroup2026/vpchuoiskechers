@@ -1,0 +1,38 @@
+--- a/web/src/app/api/tasks/route.ts
++++ b/web/src/app/api/tasks/route.ts
+@@ -265,6 +265,9 @@
+     }
+ 
+     const session = token ? await verifyToken(token) : null;
++    if (!session || !session.empCode) {
++      return NextResponse.json({ success: false, error: 'Unauthorized (401)' }, { status: 401 });
++    }
+     const db = getDbBinding();
+ 
+     let allTasks: any[] = [];
+@@ -308,9 +311,6 @@
+     }
+ 
+-    if (allTasks.length === 0) {
+-      allTasks = [...inMemoryTasks];
+-    }
+-
+     // Server-side task scoping & Handover Flow (Fix #11)
+     if (session) {
+@@ -361,16 +361,9 @@
+ export async function POST(request: Request) {
+   try {
+     let session = await getAuthUser(request);
+     if (!session || !session.empCode) {
+-      session = {
+-        userId: 888,
+-        empCode: '202608001',
+-        name: 'Phạm Nguyễn Anh Huy',
+-        roleId: 1,
+-        roleCode: 'SUPER_ADMIN',
+-        roleLevel: 1,
+-        departmentId: 1,
+-        departmentCode: 'IT_DIGITAL',
+-      };
++      return NextResponse.json({ success: false, error: 'Unauthorized (401)' }, { status: 401 });
+     }

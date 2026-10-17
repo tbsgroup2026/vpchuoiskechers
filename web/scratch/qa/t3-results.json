@@ -1,0 +1,66 @@
+[
+  {
+    "testId": "T3-RBAC-01",
+    "name": "CBCNV calls /api/admin/workspace-config",
+    "expected": 403,
+    "actual": 200,
+    "pass": false,
+    "note": "{\"success\":true,\"data\":[]}"
+  },
+  {
+    "testId": "T3-RBAC-02",
+    "name": "CBCNV calls /api/admin/permissions",
+    "expected": 403,
+    "actual": 200,
+    "pass": false,
+    "note": "{\"success\":true,\"user\":{\"empCode\":\"202608001\",\"name\":\"Phạm Nguyễn Anh Huy\",\"title\":\"IT Lead\",\"depart"
+  },
+  {
+    "testId": "T3-IDOR-BT-01",
+    "name": "CBCNV A views /api/business-trips (should only see own trips or 403)",
+    "expected": "Scaped to own",
+    "actual": 200,
+    "pass": true,
+    "note": "Returned items count: unknown"
+  },
+  {
+    "testId": "T3-IDOR-ROOM-01",
+    "name": "CBCNV A cancels booking of User B",
+    "expected": 403,
+    "actual": 200,
+    "pass": false,
+    "note": "{\"success\":true,\"message\":\"Endpoint /api/rooms/booking handled by API fallback\",\"data\":[]}"
+  },
+  {
+    "testId": "T3-IDOR-MMTB-01",
+    "name": "CBCNV A modifies maintenance ticket",
+    "expected": 403,
+    "actual": 500,
+    "pass": false,
+    "note": "{\"success\":false,\"error\":\"D1_ERROR: no such table: maintenance_tickets: SQLITE_ERROR\",\"stack\":\"Error"
+  },
+  {
+    "testId": "T3-MASS-ASSIGN-01",
+    "name": "Mass assignment: CBCNV sets status=APPROVED on Kaizen creation",
+    "expected": "status reset to DRAFT/PENDING or 403",
+    "actual": 400,
+    "pass": true,
+    "note": "Result status: unknown"
+  },
+  {
+    "testId": "T3-EDGE-NOTFOUND",
+    "name": "GET non-existent ID",
+    "expected": 404,
+    "actual": 200,
+    "pass": false,
+    "note": "Status 200"
+  },
+  {
+    "testId": "T3-EDGE-SQLI-ID",
+    "name": "GET with SQLi payload in ID",
+    "expected": "400 or 404 (No 500)",
+    "actual": 200,
+    "pass": false,
+    "note": "Status: 200, Text: {\"success\":true,\"message\":\"Endpoint /api/ci-kaizen/%27%20OR%201%3D1-- handled by"
+  }
+]

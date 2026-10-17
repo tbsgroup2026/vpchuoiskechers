@@ -2918,6 +2918,19 @@ export default {
     }
     // Header bảo mật chung cho mọi phản hồi (bỏ qua WebSocket); không ghi đè nếu route đã tự đặt
     if (!res || res.status === 101 || res.webSocket) return res;
+    // Lỗi 5xx của API: không trả chi tiết SQL/D1/stack cho người dùng (chỉ ghi log nội bộ)
+    try {
+      if (res.status >= 500 && new URL(request.url).pathname.startsWith("/api/") && /json|text/.test(res.headers.get("content-type") || "")) {
+        const text = await res.clone().text();
+        if (/D1_ERROR|SQLITE|no such (table|column)|has no column|\bat [\w.$<>]+ \(|cloudflare-internal/i.test(text)) {
+          console.error("[API 5xx]", new URL(request.url).pathname, text.slice(0, 500));
+          const h = new Headers(res.headers);
+          h.set("Content-Type", "application/json");
+          h.delete("Content-Length");
+          res = new Response(JSON.stringify({ success: false, error: "INTERNAL_ERROR", message: "Hệ thống đang gặp lỗi, vui lòng thử lại sau hoặc liên hệ IT." }), { status: res.status, headers: h });
+        }
+      }
+    } catch (e) {}
     try {
       const out = new Response(res.body, res);
       const setIfMissing = (k, v) => { if (!out.headers.has(k)) out.headers.set(k, v); };
@@ -10814,7 +10827,7 @@ export default {
           await env.DB.prepare("DELETE FROM business_trips WHERE id = ?").bind(targetId).run();
           return new Response(JSON.stringify({ success: true, message: `Đã xóa đơn công tác ${targetId} khỏi D1 Database!`, id: targetId }), { headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
     }
@@ -10823,7 +10836,7 @@ export default {
     if (
       url.pathname === "/api/ci-kaizen" ||
       url.pathname === "/api/ci-kaizen/" ||
-      (url.pathname.endsWith("/approve") && !url.pathname.startsWith("/api/warehouse/") && !url.pathname.startsWith("/api/scm/"))
+      url.pathname === "/api/ci-kaizen/approve"
     ) {
       if (!env.DB) {
         return new Response(
@@ -10879,6 +10892,15 @@ export default {
           if (!user || !user.authenticated) {
             return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Vui lòng đăng nhập để duyệt sáng kiến" }), { status: 401, headers: SECURE_JSON_HEADERS });
           }
+          // Chỉ Trưởng/Phó phòng trở lên, BGĐ/Admin hoặc phòng CN-CI được duyệt khả thi (giống quy tắc duyệt đơn công tác)
+          const ciDept = String((__authSession && __authSession.departmentCode) || user.department || "").toUpperCase().replace(/[^A-Z]/g, "");
+          const canApproveKaizen = user.isExecutiveOrAdmin ||
+            ["TRUONG_PHONG", "PHO_PHONG", "GIAM_DOC", "TONG_GIAM_DOC"].includes(user.roleCode) ||
+            (user.roleLevel && user.roleLevel <= 3) ||
+            ciDept === "CNCI" || ciDept.startsWith("CI");
+          if (!canApproveKaizen) {
+            return new Response(JSON.stringify({ success: false, error: "FORBIDDEN", message: "Bạn không có quyền duyệt khả thi sáng kiến" }), { status: 403, headers: SECURE_JSON_HEADERS });
+          }
 
           const body = await request.json();
           const proposalId = body.proposalId || body.proposal_id || body.id || body.code;
@@ -10888,6 +10910,14 @@ export default {
               JSON.stringify({ success: false, message: "Mã đề xuất không hợp lệ" }),
               { status: 400, headers: SECURE_JSON_HEADERS }
             );
+          }
+          // Không tự duyệt sáng kiến của chính mình
+          const owner = await env.DB.prepare("SELECT proposer_emp_code FROM ci_kaizen_proposals WHERE id = ? OR code = ? LIMIT 1").bind(proposalId, proposalId).first().catch(() => null);
+          if (!owner) {
+            return new Response(JSON.stringify({ success: false, error: "NOT_FOUND", message: "Không tìm thấy sáng kiến" }), { status: 404, headers: SECURE_JSON_HEADERS });
+          }
+          if (String(owner.proposer_emp_code || "").toUpperCase() === String(user.empCode || "").toUpperCase() && !user.isExecutiveOrAdmin) {
+            return new Response(JSON.stringify({ success: false, error: "SELF_APPROVAL", message: "Không thể tự duyệt sáng kiến của chính mình" }), { status: 403, headers: SECURE_JSON_HEADERS });
           }
 
           const {
@@ -11014,7 +11044,7 @@ export default {
           );
         } catch (err) {
           return new Response(
-            JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }),
+            JSON.stringify({ success: false, error: err.message }),
             { status: 500, headers: SECURE_JSON_HEADERS }
           );
         }
@@ -11056,7 +11086,7 @@ export default {
             return new Response(JSON.stringify({ success: false, error: "ALREADY_VOTED", message: "Bạn đã bình chọn đề xuất này rồi!" }), { status: 400, headers: SECURE_JSON_HEADERS });
           }
         } catch(err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
 
@@ -11173,7 +11203,7 @@ export default {
             averageScore: avgScore
           }), { headers: SECURE_JSON_HEADERS });
         } catch(err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
 
@@ -11754,7 +11784,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
             { headers: SECURE_JSON_HEADERS }
           );
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
 
@@ -12072,7 +12102,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
 
           return new Response(resPayload, { headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
 
@@ -12306,7 +12336,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
 
           return new Response(resPayload, { headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
 
@@ -12567,6 +12597,10 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           return fail(409, "Phòng họp đang tạm khóa/bảo trì, vui lòng liên hệ Lễ Tân.", "ROOM_LOCKED");
         }
 
+        // MSNV phải có trong danh bạ nhân sự (không đặt phòng dưới tên người không tồn tại)
+        const known = await env.DB.prepare("SELECT 1 AS ok FROM users WHERE UPPER(emp_code) = ? UNION SELECT 1 FROM sys_users WHERE UPPER(emp_code) = ? LIMIT 1")
+          .bind(empCode, empCode).first().catch(() => null);
+        if (!known) return fail(400, "MSNV không có trong danh bạ nhân sự. Vui lòng kiểm tra lại hoặc liên hệ Lễ Tân.", "UNKNOWN_EMP");
         // Chống spam: tối đa 10 đơn/ngày cho mỗi IP và 5 đơn/ngày cho mỗi MSNV qua QR
         const ip = request.headers.get("cf-connecting-ip") || "unknown";
         const sourceTag = `PUBLIC_QR:${ip}`;
@@ -13553,7 +13587,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
 
         return new Response(resStr, { headers: SECURE_JSON_HEADERS });
       } catch (err) {
-        return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
       }
     }
 
@@ -13591,7 +13625,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
 
           return new Response(resStr, { headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
 
@@ -13657,7 +13691,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
 
           return new Response(JSON.stringify({ success: true, message: "Đã cập nhật trạng thái đơn tạm ứng!", id, status: nextStatus }), { headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
     }
@@ -13698,7 +13732,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
 
           return new Response(resStr, { headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
 
@@ -13744,7 +13778,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
 
           return new Response(JSON.stringify({ success: true, message: "Đã cập nhật trạng thái đơn nghỉ phép!", id, status }), { headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
     }
@@ -13784,7 +13818,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
         await recordAuditLog(user, "hr", "ATTENDANCE_STATE_CHANGE", "2026-08", null, { status: nextStatus }, request);
         return new Response(JSON.stringify({ success: true, message: "Cập nhật trạng thái chấm công thành công!", status: nextStatus }), { headers: SECURE_JSON_HEADERS });
       } catch (err) {
-        return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
       }
     }
 
@@ -13816,7 +13850,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
         await recordAuditLog(user, "hr", "PAYROLL_STATE_CHANGE", "2026-08", null, { status: nextStatus }, request);
         return new Response(JSON.stringify({ success: true, message: "Cập nhật trạng thái bảng lương thành công!", status: nextStatus }), { headers: SECURE_JSON_HEADERS });
       } catch (err) {
-        return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
       }
     }
 
@@ -13852,7 +13886,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           }));
           return new Response(JSON.stringify({ success: true, data: mapped }), { headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
 
@@ -13883,7 +13917,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           await recordAuditLog(user, "hr", "SAVE_EMPLOYEE", empId, null, body, request);
           return new Response(JSON.stringify({ success: true, message: "Đã lưu thông tin nhân sự vào CSDL D1!", id: empId }), { headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
     }
@@ -13911,7 +13945,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           }));
           return new Response(JSON.stringify({ success: true, data: mapped }), { headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
 
@@ -13939,7 +13973,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           await recordAuditLog(user, "hr", "SAVE_CONTRACT", contractId, null, body, request);
           return new Response(JSON.stringify({ success: true, message: "Đã lưu hợp đồng lao động vào D1!", id: contractId }), { headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
     }
@@ -13968,7 +14002,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           }));
           return new Response(JSON.stringify({ success: true, data: mapped }), { headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
 
@@ -13996,7 +14030,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           await recordAuditLog(user, "hr", "SAVE_REQUISITION", reqId, null, body, request);
           return new Response(JSON.stringify({ success: true, message: "Đã lưu yêu cầu tuyển dụng vào D1!", id: reqId }), { headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
     }
@@ -14027,7 +14061,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           });
           return new Response(JSON.stringify({ success: true, data: mapped }), { headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
 
@@ -14054,7 +14088,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           await recordAuditLog(user, "hr", "SAVE_ONBOARDING", onbId, null, body, request);
           return new Response(JSON.stringify({ success: true, message: "Đã cập nhật tiến trình Onboarding vào D1!", id: onbId }), { headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
     }
@@ -14082,7 +14116,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           const { results } = await env.DB.prepare("SELECT * FROM finance_targets WHERE year = ?").bind(Number(year)).all();
           return new Response(JSON.stringify({ success: true, data: results || [] }), { headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
 
@@ -14108,7 +14142,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           await recordAuditLog(user, "finance", "SAVE_TARGET", tgtId, null, body, request);
           return new Response(JSON.stringify({ success: true, message: "Đã lưu chỉ tiêu tài chính vào D1!", id: tgtId }), { headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
     }
@@ -14150,7 +14184,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           if (result.success) await recordAuditLog(user, "maintenance", "CREATE_MACHINE", (result.data && result.data.id) || null, null, body, request);
           return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
 
@@ -14168,7 +14202,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           if (result.success) await recordAuditLog(user, "maintenance", "UPDATE_MACHINE", machineId, null, body, request);
           return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
 
@@ -14185,7 +14219,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           if (result.success) await recordAuditLog(user, "maintenance", "DELETE_MACHINE", machineId, null, null, request);
           return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
     }
@@ -14232,7 +14266,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           await recordAuditLog(user, "maintenance", "CREATE_TICKET", ticketId, null, body, request);
           return new Response(JSON.stringify({ success: true, message: "Đã tạo ticket bảo trì sự cố thành công!", id: ticketId }), { headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
 
@@ -14285,7 +14319,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           await recordAuditLog(user, "maintenance", "UPDATE_TICKET_STATUS", id, { status: ticket.status }, { status }, request);
           return new Response(JSON.stringify({ success: true, message: "Đã cập nhật trạng thái ticket bảo trì!", id, status }), { headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
     }
@@ -14403,7 +14437,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
         if (result.success) await recordAuditLog(user, "maintenance", "CREATE_EMPLOYEE", (result.data && result.data.id) || null, null, { ...body, password: undefined }, request);
         return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
       } catch (err) {
-        return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
       }
     }
 
@@ -14423,7 +14457,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
         if (result.success) await recordAuditLog(user, "maintenance", "UPDATE_EMPLOYEE", employeeId, null, { ...body, password: undefined }, request);
         return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
       } catch (err) {
-        return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
       }
     }
     if (employeeIdMatch && request.method === "DELETE") {
@@ -14440,7 +14474,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
         if (result.success) await recordAuditLog(user, "maintenance", "DELETE_EMPLOYEE", employeeId, null, null, request);
         return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
       } catch (err) {
-        return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
       }
     }
 
@@ -14472,7 +14506,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
         if (result.success) await recordAuditLog(user, "maintenance", "CREATE_FAILURE_CATEGORY", (result.data && result.data.id) || null, null, body, request);
         return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
       } catch (err) {
-        return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
       }
     }
 
@@ -14492,7 +14526,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
         if (result.success) await recordAuditLog(user, "maintenance", "UPDATE_FAILURE_CATEGORY", failureCategoryId, null, body, request);
         return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
       } catch (err) {
-        return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
       }
     }
     if (failureCategoryIdMatch && request.method === "DELETE") {
@@ -14509,7 +14543,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
         if (result.success) await recordAuditLog(user, "maintenance", "DELETE_FAILURE_CATEGORY", failureCategoryId, null, null, request);
         return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
       } catch (err) {
-        return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
       }
     }
 
@@ -14589,7 +14623,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
         if (result.success) await recordAuditLog(user, "maintenance", "CREATE_CATEGORY", (result.data && result.data.id) || null, null, body, request);
         return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
       } catch (err) {
-        return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
       }
     }
 
@@ -14609,7 +14643,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
         if (result.success) await recordAuditLog(user, "maintenance", "UPDATE_CATEGORY", categoryId, null, body, request);
         return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
       } catch (err) {
-        return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
       }
     }
     if (categoryIdMatch && request.method === "DELETE") {
@@ -14626,7 +14660,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
         if (result.success) await recordAuditLog(user, "maintenance", "DELETE_CATEGORY", categoryId, null, null, request);
         return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
       } catch (err) {
-        return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
       }
     }
 
@@ -14666,7 +14700,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           await recordAuditLog(user, "qc", "CREATE_DEFECT_REPORT", qcId, null, body, request);
           return new Response(JSON.stringify({ success: true, message: "Đã tạo báo cáo lỗi QC thành công!", id: qcId }), { headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
 
@@ -14718,7 +14752,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           await recordAuditLog(user, "qc", "UPDATE_DEFECT_STATUS", id, { status: defect.status }, { status }, request);
           return new Response(JSON.stringify({ success: true, message: "Đã cập nhật trạng thái báo cáo QC!", id, status }), { headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
     }
@@ -14750,7 +14784,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           await recordAuditLog(user, "qc", "CREATE_KAIZEN", kaizenId, null, body, request);
           return new Response(JSON.stringify({ success: true, message: "Đã nộp đề xuất Kaizen thành công!", id: kaizenId }), { headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
     }
@@ -14935,7 +14969,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
         }
         return new Response(JSON.stringify({ success: true, message: "Đã đánh dấu thông báo là đã đọc" }), { headers: SECURE_JSON_HEADERS });
       } catch (err) {
-        return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
       }
     }
 

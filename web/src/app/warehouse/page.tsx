@@ -191,6 +191,19 @@ export default function WarehousePage() {
 
 type Notify = (kind: "ok" | "err", text: string) => void;
 
+/** Tự làm mới dữ liệu định kỳ khi tab đang hiển thị; quay lại tab thì làm mới ngay */
+function usePolling(fn: () => void, ms: number, enabled = true) {
+  const fnRef = useRef(fn);
+  fnRef.current = fn;
+  useEffect(() => {
+    if (!enabled) return;
+    const tick = () => { if (document.visibilityState === "visible") fnRef.current(); };
+    const timer = setInterval(tick, ms);
+    document.addEventListener("visibilitychange", tick);
+    return () => { clearInterval(timer); document.removeEventListener("visibilitychange", tick); };
+  }, [ms, enabled]);
+}
+
 /* ───────────────────────── phiếu kiểm hàng ───────────────────────── */
 
 function SessionsTab({ me, locMap, locations, notify }: { me: Me; locMap: Map<string, Location>; locations: Location[]; notify: Notify }) {
@@ -200,19 +213,20 @@ function SessionsTab({ me, locMap, locations, notify }: { me: Me; locMap: Map<st
   const [scanNow, setScanNow] = useState(false);
   const [creating, setCreating] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const r = await api<{ sessions: Session[] }>("sessions");
       setSessions(r.sessions);
     } catch (e) {
-      notify("err", (e as Error).message);
+      if (!silent) notify("err", (e as Error).message);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [notify]);
 
   useEffect(() => { load(); }, [load]);
+  usePolling(() => load(true), 10000, !openId && !creating);
 
   if (openId) {
     return <SessionDetail id={openId} me={me} locMap={locMap} locations={locations} notify={notify} autoCamera={scanNow} onBack={() => { setOpenId(null); setScanNow(false); load(); }} />;
@@ -223,7 +237,7 @@ function SessionsTab({ me, locMap, locations, notify }: { me: Me; locMap: Map<st
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-black">Phiếu kiểm hàng</h2>
         <div className="flex gap-2">
-          <button type="button" className={btnGhost} onClick={load}><IconRefresh size={14} /> Tải lại</button>
+          <button type="button" className={btnGhost} onClick={() => load()}><IconRefresh size={14} /> Tải lại</button>
           {me.canEditLocations ? (
             <button type="button" className={btnPrimary} onClick={() => setCreating(true)}><IconPlus size={14} /> Tạo phiếu</button>
           ) : null}
@@ -532,20 +546,21 @@ function SessionDetail({ id, me, locMap, locations, notify, autoCamera, onBack }
     try { localStorage.setItem("wh_confirm_each", v ? "1" : "0"); } catch {}
   };
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (silent = false) => {
     try {
       const r = await api<{ session: Session; lines: Line[]; scans: Scan[] }>(`sessions/${encodeURIComponent(id)}`);
       setSession(r.session);
       setLines(r.lines);
       setScans(r.scans);
     } catch (e) {
-      notify("err", (e as Error).message);
+      if (!silent) notify("err", (e as Error).message);
     }
   }, [id, notify]);
 
   useEffect(() => { load(); }, [load]);
 
   const open = session?.status === "OPEN";
+  usePolling(() => load(true), open ? 3000 : 15000, !pending && !busy);
 
   // Mỗi mã quét được xử lý tuần tự để số đếm không bị lệch khi quét nhanh
   const handleCode = useCallback((raw: string) => {
@@ -590,6 +605,10 @@ function SessionDetail({ id, me, locMap, locations, notify, autoCamera, onBack }
   const onScanned = (raw: string) => {
     const c = raw.trim().toUpperCase().replace(/\s+/g, "");
     if (!c) return;
+    if (/^(HTTPS?:\/\/|WWW\.)/.test(c) || c.length > 64) {
+      setLast({ ok: false, text: "Mã vừa quét là đường link hoặc QR khác, không phải mã hàng", sub: c.slice(0, 80) });
+      return;
+    }
     if (!confirmEach || locMap.has(c)) {
       handleCode(c);
       return;
@@ -842,7 +861,7 @@ function SessionDetail({ id, me, locMap, locations, notify, autoCamera, onBack }
 
       <div className={`${card} flex flex-wrap items-center gap-2`}>
         <button type="button" className={btnGhost} onClick={exportResult}><IconDownload size={14} /> Xuất Excel kết quả</button>
-        <button type="button" className={btnGhost} onClick={load}><IconRefresh size={14} /> Tải lại</button>
+        <button type="button" className={btnGhost} onClick={() => load()}><IconRefresh size={14} /> Tải lại</button>
         {open ? <button type="button" className={btnPrimary} disabled={busy} onClick={() => act("/submit", {}, "Hoàn tất đếm và gửi Quản lý kho duyệt?")}><IconCheck size={14} /> Hoàn tất đếm</button> : null}
         {me.isManager && session.status !== "APPROVED" ? (
           <>

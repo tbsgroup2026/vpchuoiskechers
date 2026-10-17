@@ -3101,7 +3101,7 @@ export default {
                 headers.set("ETag", obj.httpEtag);
               }
 
-              const status = obj.range ? 206 : 200;
+              const status = hasRange && obj.range ? 206 : 200;
               return new Response(obj.body, { status, headers });
             }
           } catch (r2Err) {
@@ -8306,85 +8306,77 @@ export default {
     }
 
     // API Route: Cloudinary Avatar Upload Handler (/api/upload-avatar)
+    // POST /api/upload-avatar: lưu ảnh đại diện vào R2 (IMAGE_BUCKET, dự phòng BUCKET) cho CHÍNH người đăng nhập.
+    // Nhận multipart (field "file") hoặc JSON { image: "data:image/...;base64,..." }. Chỉ JPEG/PNG/WebP, tối đa 2MB.
+    // Ảnh phục vụ qua /cdn-r2/avatars/<MSNV>/<thời điểm>.<đuôi>; ảnh cũ của người đó bị xóa.
     if (url.pathname === "/api/upload-avatar" && request.method === "POST") {
+      const J = { "Content-Type": "application/json", "Cache-Control": "no-store" };
+      const fail = (status, error, message) => new Response(JSON.stringify({ success: false, error, message }), { status, headers: J });
       try {
-        const body = await request.json();
-        const { image, empCode } = body;
+        const bucket = env.IMAGE_BUCKET || env.BUCKET;
+        if (!bucket || typeof bucket.put !== "function") return fail(500, "NO_STORAGE", "Chưa cấu hình kho lưu ảnh (R2)");
+        const emp = String(__legacySession.empCode).toUpperCase();
+        const MAX = 2 * 1024 * 1024;
 
-        if (!image) {
-          return new Response(JSON.stringify({ success: false, error: "Thiếu dữ liệu ảnh" }), {
-            status: 400,
-            headers: { "Content-Type": "application/json" }
-          });
+        // Đọc dữ liệu ảnh
+        let bytes = null;
+        const ctype = request.headers.get("content-type") || "";
+        if (ctype.includes("multipart/form-data")) {
+          const form = await request.formData().catch(() => null);
+          const file = form && form.get("file");
+          if (!file || typeof file === "string") return fail(400, "NO_FILE", "Chưa chọn ảnh");
+          if (file.size > MAX) return fail(400, "TOO_LARGE", "Ảnh vượt quá 2MB");
+          bytes = new Uint8Array(await file.arrayBuffer());
+        } else {
+          const body = await request.json().catch(() => ({}));
+          const m = /^data:image\/[a-z0-9.+-]+;base64,([A-Za-z0-9+/=\s]+)$/i.exec(String(body.image || ""));
+          if (!m) return fail(400, "BAD_IMAGE", "Dữ liệu ảnh không hợp lệ");
+          const b64 = m[1].replace(/\s+/g, "");
+          if (b64.length * 0.75 > MAX + 1024) return fail(400, "TOO_LARGE", "Ảnh vượt quá 2MB");
+          const bin = atob(b64);
+          bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
         }
+        if (!bytes || !bytes.length) return fail(400, "EMPTY", "Ảnh rỗng");
+        if (bytes.length > MAX) return fail(400, "TOO_LARGE", "Ảnh vượt quá 2MB");
 
-        let cloudinaryUrl = null;
-        const presets = ["vpchuoisk", "ml_default", "unsigned"];
+        // Nhận diện định dạng theo byte đầu file (không tin tên file / content-type gửi lên); không nhận SVG
+        const sig = (arr) => arr.every((v, i) => bytes[i] === v);
+        let ext = "", mime = "";
+        if (sig([0xff, 0xd8, 0xff])) { ext = "jpg"; mime = "image/jpeg"; }
+        else if (sig([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) { ext = "png"; mime = "image/png"; }
+        else if (sig([0x52, 0x49, 0x46, 0x46]) && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) { ext = "webp"; mime = "image/webp"; }
+        if (!ext) return fail(400, "BAD_TYPE", "Chỉ nhận ảnh JPEG, PNG hoặc WebP");
 
-        for (const preset of presets) {
-          try {
-            const formData = new FormData();
-            formData.append("file", image);
-            formData.append("upload_preset", preset);
-            formData.append("folder", (env && env.CLOUDINARY_FOLDER) || "vpchuoiskechers");
+        const prefix = `avatars/${emp.replace(/[^A-Z0-9_-]/g, "_")}/`;
+        const key = `${prefix}${Date.now()}.${ext}`;
+        await bucket.put(key, bytes, { httpMetadata: { contentType: mime, cacheControl: "public, max-age=31536000, immutable" }, customMetadata: { emp } });
+        const finalUrl = `/cdn-r2/${key}`;
 
-            const cRes = await fetch("https://api.cloudinary.com/v1_1/dwl2xtbqa/image/upload", {
-              method: "POST",
-              body: formData,
-            });
+        // Xóa ảnh cũ của chính người này (giữ ảnh vừa tải)
+        try {
+          const listed = await bucket.list({ prefix, limit: 50 });
+          for (const o of (listed && listed.objects) || []) if (o.key !== key) await bucket.delete(o.key).catch(() => {});
+        } catch (e) {}
 
-            if (cRes.ok) {
-              const cData = await cRes.json();
-              if (cData.secure_url) {
-                cloudinaryUrl = cData.secure_url;
-                break;
-              }
-            }
-          } catch (cErr) {
-            console.warn("Cloudinary upload preset attempt error:", cErr);
-          }
-        }
-
-        const finalUrl = cloudinaryUrl || image;
-
+        // Cập nhật hồ sơ của chính người đăng nhập
         if (env.DB) {
-          // Ảnh đại diện chỉ gắn với chính người đăng nhập (không theo empCode gửi lên)
-          const targetEmp = String(__legacySession.empCode).toUpperCase();
-          try {
-            await env.DB.prepare(
-              `INSERT INTO user_profile (id, emp_code, avatar, updated_at)
-               VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-               ON CONFLICT(id) DO UPDATE SET
-                 avatar = excluded.avatar,
-                 emp_code = excluded.emp_code,
-                 updated_at = CURRENT_TIMESTAMP`
-            ).bind(targetEmp, targetEmp, finalUrl).run();
-
-            await env.DB.prepare(
-              `UPDATE users SET avatar_url = ?, updated_at = CURRENT_TIMESTAMP WHERE emp_code = ?`
-            ).bind(finalUrl, targetEmp).run();
-          } catch (d1Err) {
-            console.warn("D1 save avatar error:", d1Err);
-          }
+          await env.DB.prepare(
+            "CREATE TABLE IF NOT EXISTS user_profile (id TEXT PRIMARY KEY, emp_code TEXT, name TEXT, email TEXT, phone TEXT, avatar TEXT, title TEXT, department TEXT, role_code TEXT, redirect_url TEXT, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)"
+          ).run().catch(() => {});
+          await env.DB.prepare(
+            `INSERT INTO user_profile (id, emp_code, name, avatar, role_code, updated_at) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+             ON CONFLICT(id) DO UPDATE SET avatar = excluded.avatar, updated_at = CURRENT_TIMESTAMP`
+          ).bind(emp, emp, __legacySession.name || emp, finalUrl, __legacySession.roleCode || "CBCNV").run().catch(() => {});
+          await env.DB.prepare("UPDATE users SET avatar_url = ? WHERE UPPER(emp_code) = ?").bind(finalUrl, emp).run().catch(() => {});
+          await recordAuditLog({ empCode: emp, roleCode: __legacySession.roleCode || "CBCNV", id: emp }, "PROFILE", "UPLOAD_AVATAR", emp, null, { key, size: bytes.length, type: mime }, request).catch(() => {});
         }
 
-        return new Response(JSON.stringify({
-          success: true,
-          url: finalUrl,
-          isCloudinary: !!cloudinaryUrl,
-          message: cloudinaryUrl ? "Tải ảnh lên Cloudinary thành công!" : "Lưu ảnh vào hệ thống thành công!"
-        }), {
-          headers: { "Content-Type": "application/json" }
-        });
+        return new Response(JSON.stringify({ success: true, url: finalUrl, storage: "R2", message: "Đã lưu ảnh đại diện" }), { headers: J });
       } catch (err) {
-        return new Response(JSON.stringify({ success: false, error: err.message }), {
-          status: 500,
-          headers: { "Content-Type": "application/json" }
-        });
+        return fail(500, "UPLOAD_ERROR", err.message);
       }
     }
 
-    // ============================================================
     // SERVER-SIDE SECURITY & CONCURRENCY CORE HELPER FUNCTIONS
     // ============================================================
 

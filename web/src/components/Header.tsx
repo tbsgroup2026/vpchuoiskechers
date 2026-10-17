@@ -171,21 +171,31 @@ export default function Header() {
   const handleAvatarUpload = async (file: File) => {
     try {
       setIsUploadingAvatar(true);
-      setProfileMsg({ text: lang === "vi" ? '☁️ Đang tải ảnh đại diện lên Cloudinary...' : '☁️ Uploading avatar to Cloudinary...', error: false });
+      setProfileMsg({ text: lang === "vi" ? 'Đang tải ảnh đại diện...' : 'Uploading avatar...', error: false });
 
-      // Direct Cloudinary upload
-      const cloudinaryUrl = await uploadImageToCloudinary(file);
-      if (cloudinaryUrl) {
-        const empCode = editProfileForm.empCode || userInfo?.empCode || '';
-        if (empCode) {
-          setUserAvatar(empCode, cloudinaryUrl);
-        }
-        setEditProfileForm((prev) => ({ ...prev, avatar: cloudinaryUrl }));
-        setUserInfo((prev) => prev ? ({ ...prev, avatar: cloudinaryUrl }) : null);
-        setProfileMsg({ text: lang === "vi" ? '☁️ Đã lưu avatar mới thành công trên Cloudinary!' : '☁️ Avatar saved successfully on Cloudinary!', error: false });
+      // Lưu ảnh lên R2 qua máy chủ (gắn với tài khoản đang đăng nhập)
+      const formData = new FormData();
+      formData.append("file", file);
+      const token = localStorage.getItem("tbs_token") || sessionStorage.getItem("tbs_token") || "";
+      const res = await fetch("/api/upload-avatar", {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: formData,
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success || !data.url) {
+        throw new Error(data?.message || (lang === "vi" ? 'Tải ảnh thất bại' : 'Upload failed'));
       }
+      const avatarUrl: string = data.url;
+      const empCode = editProfileForm.empCode || userInfo?.empCode || '';
+      if (empCode) {
+        setUserAvatar(empCode, avatarUrl);
+      }
+      setEditProfileForm((prev) => ({ ...prev, avatar: avatarUrl }));
+      setUserInfo((prev) => prev ? ({ ...prev, avatar: avatarUrl }) : null);
+      setProfileMsg({ text: lang === "vi" ? 'Đã lưu ảnh đại diện' : 'Avatar saved', error: false });
     } catch (e: any) {
-      setProfileMsg({ text: e.message || (lang === "vi" ? 'Lỗi khi tải ảnh lên Cloudinary' : 'Error uploading image to Cloudinary'), error: true });
+      setProfileMsg({ text: e.message || (lang === "vi" ? 'Lỗi khi tải ảnh' : 'Error uploading image'), error: true });
     } finally {
       setIsUploadingAvatar(false);
     }

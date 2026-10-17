@@ -248,30 +248,26 @@ export default function HeaderControls({
 
       const formData = new FormData();
       formData.append("file", file);
-      formData.append("upload_preset", "vpchuoisk");
-      formData.append("folder", "vpchuoiskechers");
-
-      const res = await fetch("https://api.cloudinary.com/v1_1/dwl2xtbqa/image/upload", {
+      // Lưu ảnh lên R2 qua máy chủ (gắn với tài khoản đang đăng nhập)
+      const token = localStorage.getItem("tbs_token") || sessionStorage.getItem("tbs_token") || "";
+      const res = await fetch("/api/upload-avatar", {
         method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: formData,
       });
-
-      if (res.ok) {
-        const data = await res.json();
-        if (data.secure_url) {
-          if (user?.empCode) {
-            setUserAvatar(user.empCode, data.secure_url);
-          }
-          setEditProfileForm((prev) => ({ ...prev, avatar: data.secure_url }));
-          setUser((prev) => (prev ? { ...prev, avatar: data.secure_url } : null));
-          setProfileMsg({
-            text: t("common.success", undefined, "☁️ Đã lưu avatar mới thành công!"),
-            error: false,
-          });
-        }
-      } else {
-        throw new Error("Tải ảnh thất bại");
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success || !data.url) {
+        throw new Error(data?.message || "Tải ảnh thất bại");
       }
+      if (user?.empCode) {
+        setUserAvatar(user.empCode, data.url);
+      }
+      setEditProfileForm((prev) => ({ ...prev, avatar: data.url }));
+      setUser((prev) => (prev ? { ...prev, avatar: data.url } : null));
+      setProfileMsg({
+        text: t("common.success", undefined, "Đã lưu ảnh đại diện"),
+        error: false,
+      });
     } catch (e: any) {
       setProfileMsg({
         text: e.message || t("common.error", undefined, "Lỗi tải ảnh"),

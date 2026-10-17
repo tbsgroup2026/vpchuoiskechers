@@ -511,12 +511,13 @@ function WorkDashboardPage({ initialDept }: { initialDept?: string | null }) {
           setUserInfo((prev) => ({ ...prev, avatar: compressed }));
           showToast("Đã nạp ảnh thành công. Đang đồng bộ...");
 
-          // 3. Upload to Cloudinary & D1 via Worker endpoint
+          // 3. Lưu ảnh lên R2 qua máy chủ (gắn với tài khoản đang đăng nhập)
           try {
+            const avatarToken = localStorage.getItem("tbs_token") || sessionStorage.getItem("tbs_token") || "";
             const res = await fetch("/api/upload-avatar", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ image: compressed, empCode: userInfo.empCode || "202608001" }),
+              headers: { "Content-Type": "application/json", ...(avatarToken ? { Authorization: `Bearer ${avatarToken}` } : {}) },
+              body: JSON.stringify({ image: compressed }),
             });
 
             if (res.ok) {
@@ -535,7 +536,7 @@ function WorkDashboardPage({ initialDept }: { initialDept?: string | null }) {
                   }
                   return updated;
                 });
-                showToast(json.isCloudinary ? "Đã tải avatar lên Cloudinary." : "Đã cập nhật ảnh đại diện.");
+                showToast("Đã lưu ảnh đại diện.");
               }
             }
           } catch (uploadErr) {

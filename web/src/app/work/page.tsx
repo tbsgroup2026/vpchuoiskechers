@@ -26,7 +26,8 @@ import ProductionPerformanceModule from "@/modules/production/ProductionPerforma
 import RDModule from "@/modules/rd/RDModule";
 import CNCIWrapper from "@/modules/ci/CNCIWrapper";
 import { StrategicManagementContent } from "@/components/home/StrategicManagementDashboard";
-import ProjectsOverviewPage from "@/modules/tasks/ProjectsOverviewPage";
+import MyTasksKanbanView from "@/modules/tasks/MyTasksKanbanView";
+import ProjectWorkspaceView from "@/modules/projects/ProjectWorkspaceView";
 import { LOGISTICS_MODULE_DISPLAY_NAME, LOGISTICS_MODULE_DESCRIPTION } from "@/constants/modules";
 import ScmModule from "@/modules/scm/ScmModule";
 
@@ -1431,7 +1432,18 @@ function WorkDashboardPage({ initialDept }: { initialDept?: string | null }) {
              ════════════════════════════════════════════════════════════════ */}
           {(selectedDept === "my-tasks" || selectedDept === "my_tasks") && (
             <div className="w-full space-y-4 min-w-0 font-sans antialiased">
-              <ProjectsOverviewPage />
+              {/* Công việc cá nhân: bảng Kanban công việc được giao / mình giao (dữ liệu thật từ /api/tasks) */}
+              <MyTasksKanbanView />
+            </div>
+          )}
+
+          {/* Bảng công việc phòng ban (dữ liệu thật từ /api/task-boards, /api/task-cards) */}
+          {selectedDept === "tasks" && <OpenTaskBoard />}
+
+          {/* Dự án liên phòng ban (dữ liệu thật từ /api/projects) */}
+          {selectedDept === "projects" && (
+            <div className="w-full min-w-0 space-y-6 font-sans antialiased">
+              <ProjectWorkspaceView />
             </div>
           )}
 
@@ -1446,7 +1458,7 @@ function WorkDashboardPage({ initialDept }: { initialDept?: string | null }) {
           {/* ════════════════════════════════════════════════════════════════
               DEPARTMENT HERO BANNER CARD (Screenshot 1 Layout)
              ════════════════════════════════════════════════════════════════ */}
-          {activeDeptObj && activeDeptObj.id !== "home" && activeDeptObj.id !== "overview" && activeDeptObj.id !== "my-tasks" && activeDeptObj.id !== "my_tasks" && activeDeptObj.id !== "finance" && activeDeptObj.id !== "rd" && activeDeptObj.id !== "hr" && activeDeptObj.id !== "ci" && activeDeptObj.id !== "production-output" && activeDeptObj.id !== "logistics" && (
+          {activeDeptObj && activeDeptObj.id !== "home" && activeDeptObj.id !== "overview" && activeDeptObj.id !== "my-tasks" && activeDeptObj.id !== "my_tasks" && activeDeptObj.id !== "finance" && activeDeptObj.id !== "rd" && activeDeptObj.id !== "hr" && activeDeptObj.id !== "ci" && activeDeptObj.id !== "production-output" && activeDeptObj.id !== "logistics" && activeDeptObj.id !== "tasks" && activeDeptObj.id !== "projects" && (
             <div className="relative w-full rounded-3xl overflow-hidden border border-slate-200/90 shadow-md flex-shrink-0 bg-slate-900 group">
               {/* Background Image with Dark Emerald Overlay */}
               <img
@@ -2072,4 +2084,12 @@ function WorkDashboardPage({ initialDept }: { initialDept?: string | null }) {
 
 export default function WorkPage(props: { initialDept?: string | null }) {
   return <WorkDashboardPage {...props} />;
+}
+
+/** Bảng công việc phòng ban có khung trang riêng: chuyển sang /work/tasks thay vì lồng vào /work */
+function OpenTaskBoard() {
+  useEffect(() => {
+    window.location.replace("/work/tasks");
+  }, []);
+  return <p className="py-10 text-center text-sm text-slate-500">Đang mở Bảng công việc phòng ban…</p>;
 }

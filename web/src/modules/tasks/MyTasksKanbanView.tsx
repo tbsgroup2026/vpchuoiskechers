@@ -2235,7 +2235,7 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
                                 title="Bấm để xem pop-up tab tài liệu đính kèm"
                               >
                                 <IconPaperclip size={12} className="shrink-0 text-blue-600" />
-                                <span>{task.attachments.length} file ({task.attachments[0].type.toUpperCase()})</span>
+                                <span>{task.attachments.length} file ({String(task.attachments[0].type || "file").toUpperCase()})</span>
                               </div>
                             )}
 
@@ -3356,7 +3356,7 @@ export default function MyTasksKanbanView({ projectId, projectName }: MyTasksKan
                   previewAttachment.type === "xls" ? "bg-emerald-100 text-emerald-900 border border-emerald-200" :
                   previewAttachment.type === "pdf" ? "bg-rose-100 text-rose-800 border border-rose-200" : "bg-purple-100 text-purple-800 border border-purple-200"
                 }`}>
-                  [{previewAttachment.type.toUpperCase()}]
+                  [{String(previewAttachment.type || "file").toUpperCase()}]
                 </span>
                 <div className="min-w-0">
                   <h3 className="text-sm sm:text-base font-black text-slate-900 truncate" title={previewAttachment.name}>

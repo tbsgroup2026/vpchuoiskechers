@@ -733,12 +733,12 @@ export default function ProjectWorkspaceView() {
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
                   <IconUsers size={18} className="text-blue-600" />
-                  <span>Thành Viên Dự Án ({selectedProject.members.length})</span>
+                  <span>Thành Viên Dự Án ({(selectedProject.members || []).length})</span>
                 </h3>
               </div>
 
               <div className="space-y-2">
-                {selectedProject.members.map((m) => (
+                {(selectedProject.members || []).map((m) => (
                   <div
                     key={m.empCode}
                     className="p-2.5 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-2"

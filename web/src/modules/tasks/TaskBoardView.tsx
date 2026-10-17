@@ -171,68 +171,38 @@ export default function TaskBoardView() {
   const [boardType, setBoardType] = useState("personal");
 
   // Project list state
-  const [projects, setProjects] = useState([
-    {
-      id: "PRJ-AUTOMATION",
-      name: "Dự Án Tự Động Hóa Dây Chuyền & CĐS IT",
-      dept: "Phòng IT & Chuyển Đổi Số",
-      tag: "AUTOMATION & AI",
-      tagBg: "bg-purple-100 text-purple-700 border-purple-200",
-      progress: 83,
-      tasksCount: 3,
-      iconType: "automation",
-      borderLeft: "border-l-purple-500",
-      color: "hover:border-purple-400 hover:shadow-purple-50",
-    },
-    {
-      id: "PRJ-SKECHERS-RETAIL",
-      name: "Dự Án Vận Hành Chuỗi Skechers HQ & Store",
-      dept: "Phối Hợp Chuỗi Skechers",
-      tag: "SKECHERS RETAIL",
-      tagBg: "bg-emerald-100 text-[#006838] border-emerald-200",
-      progress: 75,
-      tasksCount: 2,
-      iconType: "retail",
-      borderLeft: "border-l-emerald-500",
-      color: "hover:border-emerald-400 hover:shadow-emerald-50",
-    },
-    {
-      id: "PRJ-ADMIN-EXPENSE",
-      name: "Dự Án Số Hóa Hành Chính & Đăng Ký Xe",
-      dept: "Phòng Hành Chính Nhân Sự",
-      tag: "HÀNH CHÍNH & ISO",
-      tagBg: "bg-amber-100 text-amber-800 border-amber-200",
-      progress: 60,
-      tasksCount: 2,
-      iconType: "admin",
-      borderLeft: "border-l-amber-500",
-      color: "hover:border-amber-400 hover:shadow-amber-50",
-    },
-    {
-      id: "PRJ-KAIZEN-152",
-      name: "Dự Án Sáng Kiến Cải Tiến Kaizen & 1-5-2",
-      dept: "Ban 2.2 / CI-152",
-      tag: "KAIZEN 1-5-2",
-      tagBg: "bg-blue-100 text-blue-800 border-blue-200",
-      progress: 80,
-      tasksCount: 3,
-      iconType: "kaizen",
-      borderLeft: "border-l-blue-500",
-      color: "hover:border-blue-400 hover:shadow-blue-50",
-    },
-    {
-      id: "PRJ-GEMBA-SAFETY",
-      name: "Dự Án An Toàn Lao Động & Kiểm Soát Gemba",
-      dept: "Ban An Toàn & QC",
-      tag: "GEMBA SAFETY",
-      tagBg: "bg-rose-100 text-rose-800 border-rose-200",
-      progress: 50,
-      tasksCount: 2,
-      iconType: "safety",
-      borderLeft: "border-l-rose-500",
-      color: "hover:border-rose-400 hover:shadow-rose-50",
-    },
-  ]);
+  // Dự án liên phòng ban thật (cùng nguồn với mục Dự án liên phòng ban)
+  type BoardProject = { id: string; name: string; dept: string; tag: string; tagBg: string; progress: number; tasksCount: number; iconType: string; borderLeft: string; color: string };
+  const [projects, setProjects] = useState<BoardProject[]>([]);
+  const loadProjects = async () => {
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("tbs_token") || sessionStorage.getItem("tbs_token") : "";
+      const res = await fetch("/api/projects", { headers: token ? { Authorization: `Bearer ${token}` } : {}, cache: "no-store" });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success || !Array.isArray(data.projects)) return;
+      const late = new Map<string, number>();
+      for (const b of data.bottlenecks || []) late.set(b.project_id, (late.get(b.project_id) || 0) + 1);
+      // Số công việc chưa hoàn thành của từng dự án
+      const open = new Map<string, number>();
+      const tr = await fetch("/api/tasks", { headers: token ? { Authorization: `Bearer ${token}` } : {}, cache: "no-store" }).then((r) => r.json()).catch(() => null);
+      for (const t of tr?.tasks || []) if (t.project_id && t.status !== "DONE") open.set(String(t.project_id), (open.get(String(t.project_id)) || 0) + 1);
+      setProjects(
+        data.projects.map((p: any) => ({
+          id: String(p.id),
+          name: String(p.name || p.code),
+          dept: String(p.lead_department || ""),
+          tag: String(p.code || "").toUpperCase(),
+          tagBg: late.get(p.id) ? "bg-red-100 text-red-700 border-red-200" : "bg-emerald-100 text-emerald-700 border-emerald-200",
+          progress: Number(p.progress) || 0,
+          tasksCount: (open.get(String(p.id)) || 0) + (open.get(String(p.code)) || 0),
+          iconType: "automation",
+          borderLeft: late.get(p.id) ? "border-l-red-500" : "border-l-emerald-500",
+          color: "hover:border-emerald-400 hover:shadow-emerald-50",
+        })),
+      );
+    } catch {}
+  };
+  useEffect(() => { loadProjects(); }, []);
 
   // Add Project Modal state
   const [isAddProjectModalOpen, setIsAddProjectModalOpen] = useState(false);
@@ -269,29 +239,24 @@ export default function TaskBoardView() {
     },
   };
 
-  const handleAddProject = () => {
+  const handleAddProject = async () => {
     if (!newPrjName.trim() || !newPrjTag.trim()) {
       showToast("⚠️ Vui lòng nhập đủ Tên dự án và Nhãn phân loại!");
       return;
     }
-    const colorCfg = PROJECT_COLOR_MAP[newPrjColor] || PROJECT_COLOR_MAP.green;
-    const slug = newPrjTag.trim().toUpperCase().replace(/\s+/g, "-").replace(/[^A-Z0-9-]/g, "");
-    const newId = `PRJ-${slug}-${Date.now().toString(36).toUpperCase()}`;
-    setProjects((prev) => [
-      ...prev,
-      {
-        id: newId,
-        name: newPrjName.trim(),
-        dept: newPrjDept.trim() || "Văn Phòng Chuỗi SKECHERS",
-        tag: newPrjTag.trim().toUpperCase(),
-        tagBg: colorCfg.tagBg,
-        progress: 0,
-        tasksCount: 0,
-        iconType: "automation",
-        borderLeft: colorCfg.borderLeft,
-        color: colorCfg.border,
-      },
-    ]);
+    // Lưu dự án lên máy chủ (chỉ Trưởng phòng trở lên được tạo; nhân viên nhận thông báo lỗi rõ ràng)
+    const token = typeof window !== "undefined" ? localStorage.getItem("tbs_token") || sessionStorage.getItem("tbs_token") : "";
+    const res = await fetch("/api/projects", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ name: newPrjName.trim(), description: newPrjTag.trim(), lead_department: newPrjDept.trim() || undefined }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.success) {
+      showToast(`⚠️ ${data?.message || data?.error || "Không tạo được dự án"}`);
+      return;
+    }
+    await loadProjects();
     setNewPrjName("");
     setNewPrjDept("");
     setNewPrjTag("");

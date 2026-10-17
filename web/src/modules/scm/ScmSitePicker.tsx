@@ -4,7 +4,7 @@
 // Mỗi thẻ tóm tắt số đơn đang theo dõi, đơn có bước trễ, đơn bị chặn và bộ phận đang nghẽn nhiều nhất.
 
 import React, { useCallback, useEffect, useState } from "react";
-import { IconAlertTriangle, IconArrowRight, IconBuildingFactory2, IconCircleCheck, IconHierarchy3, IconLock, IconRefresh } from "@tabler/icons-react";
+import { IconAlertTriangle, IconArrowRight, IconBuildingFactory2, IconCircleCheck, IconHierarchy3, IconLock, IconRefresh, IconUserCog } from "@tabler/icons-react";
 import { SITES } from "./config";
 import { scmApi, type ScmMe, type SiteSummary, type SitesResponse } from "./client";
 
@@ -149,7 +149,115 @@ export default function ScmSitePicker({ me, onPick }: { me: ScmMe; onPick: (site
           })}
         </div>
       </section>
+
+      {me.bypass || me.depts.includes("BDH") ? <UserSiteAdmin /> : null}
     </div>
+  );
+}
+
+interface UserSiteRow { emp_code: string; home_site: string | null; all_sites: number; updated_by?: string; updated_at?: string }
+
+/** Admin/BGĐ gán nhà máy trực thuộc và quyền xem mọi nhà máy cho từng tài khoản */
+function UserSiteAdmin() {
+  const [rows, setRows] = useState<UserSiteRow[]>([]);
+  const [form, setForm] = useState({ empCode: "", homeSite: "", allSites: false });
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [q, setQ] = useState("");
+
+  const load = useCallback(async () => {
+    try {
+      const r = await scmApi<{ items: UserSiteRow[] }>("user-sites");
+      setRows(r.items);
+    } catch (e) {
+      setMsg({ ok: false, text: (e as Error).message });
+    }
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const empCode = form.empCode.trim().toUpperCase();
+    if (!empCode) return setMsg({ ok: false, text: "Nhập MSNV" });
+    if (!form.homeSite && !form.allSites) return setMsg({ ok: false, text: "Chọn nhà máy trực thuộc hoặc tích Xem tất cả nhà máy" });
+    setBusy(true);
+    try {
+      await scmApi("user-sites", { method: "PUT", body: { empCode, homeSite: form.homeSite, allSites: form.allSites } });
+      setMsg({ ok: true, text: `Đã lưu ${empCode}: ${form.allSites ? "xem tất cả nhà máy" : siteName(form.homeSite)}` });
+      setForm({ empCode: "", homeSite: "", allSites: false });
+      load();
+    } catch (err) {
+      setMsg({ ok: false, text: (err as Error).message });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const shown = rows.filter((r) => !q.trim() || r.emp_code.includes(q.trim().toUpperCase()) || String(r.home_site || "").includes(q.trim().toUpperCase()));
+  const field = "w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-[#006838] focus:outline-none focus:ring-2 focus:ring-emerald-100";
+
+  return (
+    <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5" aria-label="Phân nhà máy cho tài khoản">
+      <div>
+        <h2 className="flex items-center gap-2 text-sm font-black uppercase tracking-wide text-slate-700">
+          <IconUserCog size={18} className="text-[#006838]" /> Phân nhà máy cho tài khoản
+        </h2>
+        <p className="text-xs text-slate-500">
+          Chỉ Admin và Ban điều hành thấy khối này. Tài khoản không được tích &quot;Xem tất cả&quot; sẽ vào thẳng nhà máy trực thuộc, không đổi được nhà máy.
+          Chưa gán thì hệ thống tự đoán theo tên phòng ban.
+        </p>
+      </div>
+
+      <form onSubmit={save} className="grid grid-cols-1 gap-2 sm:grid-cols-4 sm:items-end">
+        <label className="space-y-1">
+          <span className="text-[11px] font-bold text-slate-500">MSNV</span>
+          <input className={field} value={form.empCode} onChange={(e) => setForm({ ...form, empCode: e.target.value })} placeholder="VD: 202608123" autoComplete="off" />
+        </label>
+        <label className="space-y-1">
+          <span className="text-[11px] font-bold text-slate-500">Nhà máy trực thuộc</span>
+          <select className={field} value={form.homeSite} onChange={(e) => setForm({ ...form, homeSite: e.target.value })}>
+            <option value="">Chưa chọn</option>
+            {SITES.map((s) => <option key={s.key} value={s.key}>{s.name}</option>)}
+          </select>
+        </label>
+        <label className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700">
+          <input type="checkbox" checked={form.allSites} onChange={(e) => setForm({ ...form, allSites: e.target.checked })} />
+          Xem tất cả nhà máy
+        </label>
+        <button type="submit" disabled={busy} className="rounded-xl bg-[#006838] px-4 py-2 text-sm font-bold text-white hover:bg-[#00522c] disabled:opacity-60">
+          {busy ? "Đang lưu…" : "Lưu"}
+        </button>
+      </form>
+      {msg ? <p className={`text-xs font-semibold ${msg.ok ? "text-emerald-700" : "text-red-700"}`} aria-live="polite">{msg.text}</p> : null}
+
+      <div className="flex items-center justify-between gap-2 pt-1">
+        <p className="text-xs font-bold text-slate-600">Đã gán ({rows.length})</p>
+        <input className={`${field} max-w-[200px] py-1.5 text-xs`} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm MSNV / nhà máy" aria-label="Tìm trong danh sách đã gán" />
+      </div>
+      {shown.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-slate-200 p-4 text-center text-xs text-slate-400">Chưa có tài khoản nào được gán tay</p>
+      ) : (
+        <div className="divide-y divide-slate-100 rounded-xl border border-slate-100">
+          {shown.map((r) => (
+            <div key={r.emp_code} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-xs">
+              <span className="font-mono font-bold text-slate-900">{r.emp_code}</span>
+              <span className="flex flex-wrap items-center gap-1.5">
+                {r.home_site ? <span className="rounded-full bg-slate-100 px-2 py-0.5 font-semibold text-slate-700">{siteName(r.home_site)}</span> : null}
+                {Number(r.all_sites) === 1 ? <span className="rounded-full bg-emerald-50 px-2 py-0.5 font-bold text-[#006838]">Xem tất cả</span> : null}
+                <button
+                  type="button"
+                  className="rounded-full border border-slate-200 px-2.5 py-0.5 font-bold text-slate-600 hover:border-[#006838] hover:text-[#006838]"
+                  onClick={() => { setForm({ empCode: r.emp_code, homeSite: r.home_site || "", allSites: Number(r.all_sites) === 1 }); window.scrollBy({ top: -200, behavior: "smooth" }); }}
+                  aria-label={`Sửa phân nhà máy của ${r.emp_code}`}
+                >
+                  Sửa
+                </button>
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 

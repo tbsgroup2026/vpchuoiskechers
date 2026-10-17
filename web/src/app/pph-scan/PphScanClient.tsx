@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   IconBuildingFactory2,
@@ -59,6 +59,15 @@ type PphTreeArea = { id: string; name: string; lines: PphTreeLine[]; teams: PphT
 type PphTreeFactory = { id: string; name: string; areas: PphTreeArea[] };
 
 const REMEMBERED_NAME_KEY = 'pph_scan_reporter_name';
+// Giải pháp hay dùng khi hụt mục tiêu/giờ — bấm chọn nhanh thay vì gõ tay
+const QUICK_SOLUTIONS = [
+  'Đã gọi bảo trì sửa máy',
+  'Bổ sung / điều chuyển nhân lực',
+  'Đã báo kho cấp phôi, vật tư',
+  'Tăng ca bù sản lượng',
+  'Hướng dẫn lại thao tác',
+  'Báo QC kiểm tra lỗi',
+];
 // Nhớ mã Tổ lần quét GẦN NHẤT trên CHÍNH điện thoại/máy tính bảng này — phục vụ yêu cầu "thêm vào
 // màn hình chính, mở app lên là vào thẳng form nhập" (Tổ thường gắn cố định 1 thiết bị tại chỗ,
 // không cần quét lại QR mỗi lần nếu thiết bị đã quét đúng Tổ đó ít nhất 1 lần trước đó).
@@ -131,6 +140,9 @@ export default function PphScanClient() {
   const [causeGroupId, setCauseGroupId] = useState('');
   const [causeSubId, setCauseSubId] = useState('');
   const [causeDetail, setCauseDetail] = useState('');
+  // Số liệu đã lưu tạm trên máy khi rớt mạng (khung giờ) — tự gửi lại khi có mạng
+  const [pendingSlot, setPendingSlot] = useState<string | null>(null);
+  const [pendingNotice, setPendingNotice] = useState<string | null>(null);
   const [shortfallSolution, setShortfallSolution] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -378,6 +390,62 @@ export default function PphScanClient() {
   // Ô "mô tả cụ thể" hiện khi: nhóm chính = Khác, HOẶC đã chọn nhóm chính (không phải Khác) và nhóm phụ = Khác.
   const needCauseDetail = causeGroupIsOther || (!!causeGroupId && !causeGroupIsOther && causeSubIsOther);
 
+  const pendingKey = teamId ? `pph_pending_${teamId}` : '';
+  const pendingBodyRef = useRef<Record<string, unknown> | null>(null);
+  const flushingRef = useRef(false);
+  function savePending(body: Record<string, unknown> | null): string | null {
+    if (!body || !pendingKey) return null;
+    try {
+      window.localStorage.setItem(pendingKey, JSON.stringify({ body, savedAt: Date.now() }));
+      const slot = String(body.expectedSlot || '');
+      setPendingSlot(slot || '?');
+      return slot || '?';
+    } catch {
+      return null;
+    }
+  }
+  function clearPending() {
+    try { if (pendingKey) window.localStorage.removeItem(pendingKey); } catch {}
+    setPendingSlot(null);
+  }
+  async function flushPending() {
+    if (!pendingKey || flushingRef.current) return;
+    let saved: { body: Record<string, unknown>; savedAt: number } | null = null;
+    try { saved = JSON.parse(window.localStorage.getItem(pendingKey) || 'null'); } catch {}
+    if (!saved || !saved.body) { setPendingSlot(null); return; }
+    const slot = String(saved.body.expectedSlot || '?');
+    setPendingSlot(slot);
+    flushingRef.current = true;
+    try {
+      const res = await fetch('/api/pph/scan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(saved.body) });
+      const result = await res.json();
+      clearPending();
+      if (result.success || result.alreadySaved) {
+        setPendingNotice(`Đã gửi xong số liệu lưu tạm của khung ${slot}.`);
+        setFormError(null);
+        load({ silent: true });
+      } else {
+        setFormError(`Không gửi được số liệu lưu tạm khung ${slot}: ${result.error || 'lỗi không rõ'}`);
+      }
+    } catch {
+      // vẫn mất mạng — giữ lại, lần sau gửi tiếp
+    } finally {
+      flushingRef.current = false;
+    }
+  }
+  useEffect(() => {
+    if (!pendingKey) return;
+    flushPending();
+    const onOnline = () => flushPending();
+    window.addEventListener('online', onOnline);
+    const timer = window.setInterval(() => flushPending(), 20000);
+    return () => {
+      window.removeEventListener('online', onOnline);
+      window.clearInterval(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingKey]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const finalName = submittedBy.trim();
@@ -390,6 +458,10 @@ export default function PphScanClient() {
     try {
       const isSetup = info?.nextAction === 'setup';
       const body: Record<string, unknown> = { teamId, submittedBy: finalName };
+      // Khung giờ + ngày đang nhập: server dùng để không ghi nhầm sang khung khác khi gửi lại sau rớt mạng
+      body.expectedSlot = isSetup ? '08:00' : info?.targetSlot || undefined;
+      body.expectedDate = info?.date || undefined;
+      pendingBodyRef.current = body;
       if (isSetup) {
         const ph = Number(productionHours);
         const wc = Number(workerCount);
@@ -432,10 +504,11 @@ export default function PphScanClient() {
         body: JSON.stringify(body),
       });
       const result = await res.json();
-      if (!result.success) {
+      if (!result.success && !result.alreadySaved) {
         setFormError(result.error || 'Không lưu được, vui lòng thử lại');
         return;
       }
+      clearPending();
       try {
         window.localStorage.setItem(REMEMBERED_NAME_KEY, finalName);
       } catch {}
@@ -450,7 +523,13 @@ export default function PphScanClient() {
       setShortfallSolution('');
       setSuccess({ slot: result.slot });
     } catch {
-      setFormError('Không kết nối được tới hệ thống, vui lòng thử lại');
+      // Rớt mạng: giữ nguyên số đã nhập trên form VÀ lưu tạm trên máy, tự gửi lại khi có mạng
+      const saved = savePending(pendingBodyRef.current);
+      setFormError(
+        saved
+          ? `Mất kết nối — đã lưu tạm số liệu khung ${saved} trên máy này, hệ thống sẽ tự gửi lại khi có mạng. Không cần nhập lại.`
+          : 'Không kết nối được tới hệ thống, vui lòng thử lại'
+      );
     } finally {
       setSubmitting(false);
     }
@@ -740,6 +819,26 @@ export default function PphScanClient() {
                     className="w-full px-3.5 py-3 bg-white border border-rose-200 rounded-xl text-sm font-semibold focus:outline-none focus:border-rose-400 resize-none"
                     required
                   />
+                  {/* Chọn nhanh 1 chạm (bấm lại để bỏ) — đỡ phải gõ dấu trên điện thoại giữa nhịp chuyền */}
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {QUICK_SOLUTIONS.map((q) => {
+                      const parts = shortfallSolution.split(";").map((x) => x.trim()).filter(Boolean);
+                      const on = parts.includes(q);
+                      return (
+                        <button
+                          key={q}
+                          type="button"
+                          onClick={() => setShortfallSolution((on ? parts.filter((x) => x !== q) : [...parts, q]).join("; "))}
+                          className={`min-h-[40px] px-3 py-2 rounded-full border text-xs font-bold transition active:scale-[0.97] ${
+                            on ? "bg-rose-600 border-rose-600 text-white" : "bg-white border-rose-200 text-rose-700"
+                          }`}
+                          aria-pressed={on}
+                        >
+                          {q}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </Field>
               </div>
             )}
@@ -783,6 +882,14 @@ export default function PphScanClient() {
           </Field>
         )}
 
+        {pendingSlot && (
+          <div className="p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-semibold" role="status">
+            Đang giữ tạm số liệu khung {pendingSlot} trên máy — sẽ tự gửi khi có mạng (thử lại mỗi 20 giây).
+          </div>
+        )}
+        {pendingNotice && !pendingSlot && (
+          <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-semibold" role="status">{pendingNotice}</div>
+        )}
         {formError && (
           <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold">⚠️ {formError}</div>
         )}

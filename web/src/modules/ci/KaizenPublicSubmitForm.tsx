@@ -22,6 +22,7 @@ import {
 import { INITIAL_ORG_TREE } from "./organizationTree";
 import KaizenDuplicateCompareModal from "./KaizenDuplicateCompareModal";
 import { getValidKaizenImageUrl, getAllKaizenImageUrls } from "@/lib/kaizenImageHelper";
+import { compressImageFile } from "@/lib/imageCompressor";
 import { formatMax2Decimals, formatVND } from "@/lib/formatNumber";
 
 export const CATEGORIES = [
@@ -482,13 +483,14 @@ export default function KaizenPublicSubmitForm({
       const formData = new FormData();
       const preset = CLOUDINARY_PRESETS[fileType];
 
-      if (typeof fileOrDataUrl === "string") {
-        const response = await fetch(fileOrDataUrl);
-        const blob = await response.blob();
-        formData.append("file", blob);
-      } else {
-        formData.append("file", fileOrDataUrl);
+      let upload: Blob = typeof fileOrDataUrl === "string" ? await (await fetch(fileOrDataUrl)).blob() : fileOrDataUrl;
+      // Ảnh chụp điện thoại 6-10MB: nén còn tối đa 1600px, < 1.5MB trước khi gửi (mạng xưởng yếu)
+      if (fileType === "image" && upload.type.startsWith("image/") && upload.size > 300 * 1024) {
+        try {
+          upload = await compressImageFile(new File([upload], "anh-kaizen.jpg", { type: upload.type }));
+        } catch {}
       }
+      formData.append("file", upload);
 
       formData.append("upload_preset", preset);
 

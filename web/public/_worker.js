@@ -1919,6 +1919,20 @@ async function handlePph(request, env, pathname, searchParams, ctx) {
       const openMinutesBySlot = await pphOpenMinutesBySlot(env);
       const resolved = pphResolveStatus(setupDone, filled, openMinutesBySlot, slots);
 
+      // Gửi lại số liệu lưu tạm (rớt mạng): form gửi kèm ngày + khung giờ đang nhập. Khung đó đã có số
+      // liệu → coi như đã lưu (lần gửi trước tới được server); không khớp khung đang mở → KHÔNG ghi sang khung khác.
+      const expSlot = body.expectedSlot ? String(body.expectedSlot) : "";
+      const expDate = body.expectedDate ? String(body.expectedDate) : "";
+      if (expSlot || expDate) {
+        const sameDay = !expDate || expDate === date;
+        if (sameDay && expSlot && filled.has(expSlot)) {
+          return pphJson({ success: false, code: "ALREADY_SAVED", alreadySaved: true, slot: expSlot, error: `Khung giờ ${expSlot} đã được ghi nhận` }, 409);
+        }
+        if (!sameDay || (expSlot && resolved.targetSlot && expSlot !== resolved.targetSlot)) {
+          return pphJson({ success: false, code: "SLOT_MISMATCH", error: `Số liệu của khung ${expSlot || "?"} ${sameDay ? "" : "(ngày " + expDate + ") "}không còn khớp khung đang nhập — vui lòng tải lại trang và nhập lại` }, 409);
+        }
+      }
+
       if (resolved.nextAction === "wait") {
         return pphJson({ success: false, error: `Chưa tới giờ nhập — khung tiếp theo lúc ${resolved.nextSlot}` }, 409);
       }
@@ -2978,7 +2992,15 @@ export default {
         p === "/api/gemba/sheet-sync" || p.startsWith("/api/gemba/sheet-changes") || // Apps Script, có khóa X-Sheet-Key
         ((p === "/api/ci-kaizen") && (m === "POST" || m === "PUT")) ||  // trang nộp Kaizen công khai /work/kaizen/register
         ((p === "/api/ci-kaizen/check-duplicate" || p === "/api/ci-kaizen/merge") && m === "POST") ||
-        (p === "/api/employees/lookup" && m === "GET");
+        (p === "/api/employees/lookup" && m === "GET") ||
+        // PPH: tổ trưởng quét QR nhập/sửa sản lượng (/pph-scan) và màn hình TV xưởng (/pph-view*) không đăng nhập.
+        // Các thao tác ghi cấu hình (org, factory-config, slot-windows, shoe-models, xóa số liệu, tv-short-link…) vẫn bắt đăng nhập.
+        (p === "/api/pph/scan" && (m === "POST" || m === "PUT")) ||
+        (m === "GET" && [
+          "/api/pph/scan-info", "/api/pph/scan-tree", "/api/pph/slot-windows", "/api/pph/shortfall-causes",
+          "/api/pph/shoe-models", "/api/pph/shoe-pph-targets", "/api/pph/dashboard", "/api/pph/dashboard-lines",
+          "/api/pph/tree", "/api/pph/factory-config", "/api/pph/tv-media-slots", "/api/pph/tv-version",
+        ].includes(p));
       const isAdminOnly =
         p.startsWith("/api/admin/") ||
         p === "/api/users/sync-diff" ||

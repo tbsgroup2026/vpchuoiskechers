@@ -1,11 +1,12 @@
 "use client";
 
-// Module "Kế hoạch chuẩn bị và trung tâm phân phối": điều hướng giữa Tổng quan và các màn chi tiết,
-// trạng thái màn hình đồng bộ lên URL (?dept=logistics&scm=...), site đang chọn lưu theo người dùng.
+// Module "Kế hoạch chuẩn bị và trung tâm phân phối": bước đầu chọn nhà máy (?nm=KG1, hoặc ALL = toàn chuỗi),
+// sau đó vào trang của nhà máy và các màn chi tiết (?scm=...). Nhà máy đã chọn lưu theo người dùng.
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   IconArrowLeft,
+  IconArrowsExchange,
   IconBuildingWarehouse,
   IconChartBar,
   IconClipboardList,
@@ -24,7 +25,7 @@ import {
   IconX,
   type TablerIcon,
 } from "@tabler/icons-react";
-import { HubFeatureCard, HubQuickCard, HubSectionHeader, SitePills } from "@/components/hub/Hub";
+import { HubFeatureCard, HubQuickCard, HubSectionHeader } from "@/components/hub/Hub";
 import { PROJECT_START, PROJECT_WEEKS, SITES } from "./config";
 import { diffDays } from "./engine";
 import type { ScreenKey } from "./permissions";
@@ -33,6 +34,7 @@ import { ScmApiError, scmApi, type ScmMe } from "./client";
 import ScmProgress from "./ScmProgress";
 import ScmPlanning from "./ScmPlanning";
 import ScmPurchasing from "./ScmPurchasing";
+import ScmSitePicker, { siteName } from "./ScmSitePicker";
 
 export type Notify = (kind: "ok" | "err", text: string) => void;
 
@@ -50,10 +52,13 @@ const SCREEN_BY_SLUG = Object.fromEntries(Object.entries(SLUG).map(([k, v]) => [
 /** Màn hình triển khai ở bước nào của kế hoạch */
 const PHASE_OF: Record<ScreenKey, number> = { progress: 1, planning: 2, purchasing: 2, warehouse: 3, kdcnqc: 3, digital: 4, kpi: 4, permissions: 4 };
 
-function readUrl(): { screen: ScreenKey | null; anchor: string } {
-  if (typeof window === "undefined") return { screen: null, anchor: "" };
+const SITE_KEYS_ALL = ["ALL", ...SITES.map((s) => s.key as string)];
+
+function readUrl(): { screen: ScreenKey | null; anchor: string; site: string | null } {
+  if (typeof window === "undefined") return { screen: null, anchor: "", site: null };
   const p = new URLSearchParams(window.location.search);
-  return { screen: SCREEN_BY_SLUG[p.get("scm") || ""] ?? null, anchor: window.location.hash.slice(1) };
+  const nm = (p.get("nm") || "").toUpperCase();
+  return { screen: SCREEN_BY_SLUG[p.get("scm") || ""] ?? null, anchor: window.location.hash.slice(1), site: SITE_KEYS_ALL.includes(nm) ? nm : null };
 }
 
 function isoWeek(d: string): number {
@@ -66,7 +71,8 @@ function isoWeek(d: string): number {
 export default function ScmModule() {
   const [me, setMe] = useState<ScmMe | null>(null);
   const [error, setError] = useState<{ status: number; text: string } | null>(null);
-  const [site, setSite] = useState("ALL");
+  // null: chưa chọn nhà máy (hiện màn chọn nhà máy)
+  const [site, setSite] = useState<string | null>(null);
   const [screen, setScreen] = useState<ScreenKey | null>(null);
   const [toast, setToast] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
@@ -79,17 +85,25 @@ export default function ScmModule() {
     setError(null);
     try {
       const r = await scmApi<ScmMe>("me");
-      setMe(r);
-      setSite(r.site || "ALL");
+      // Mở bằng link có ?nm= cũng ghi nhớ nhà máy đó cho lần sau
+      const fromUrl = readUrl().site;
+      setMe(fromUrl ? { ...r, site: fromUrl } : r);
+      if (fromUrl && fromUrl !== r.site) scmApi("me/site", { method: "PUT", body: { site: fromUrl } }).catch(() => null);
     } catch (e) {
       setError({ status: e instanceof ScmApiError ? e.status : 0, text: (e as Error).message });
     }
   }, []);
 
   useEffect(() => {
-    setScreen(readUrl().screen);
+    const u = readUrl();
+    setScreen(u.site ? u.screen : null);
+    setSite(u.site);
     load();
-    const onPop = () => setScreen(readUrl().screen);
+    const onPop = () => {
+      const v = readUrl();
+      setSite(v.site);
+      setScreen(v.site ? v.screen : null);
+    };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, [load]);
@@ -111,8 +125,38 @@ export default function ScmModule() {
 
   const changeSite = useCallback((key: string) => {
     setSite(key);
-    scmApi("me/site", { method: "PUT", body: { site: key } }).catch(() => notify("err", "Không lưu được site đang chọn"));
+    const url = new URL(window.location.href);
+    url.searchParams.set("dept", "logistics");
+    url.searchParams.set("nm", key);
+    window.history.replaceState({}, "", url.toString());
+    setMe((m) => (m ? { ...m, site: key } : m));
+    scmApi("me/site", { method: "PUT", body: { site: key } }).catch(() => notify("err", "Không lưu được nhà máy đang chọn"));
   }, [notify]);
+
+  /** Chọn nhà máy ở màn đầu: vào trang của nhà máy đó */
+  const pickSite = useCallback((key: string) => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("dept", "logistics");
+    url.searchParams.set("nm", key);
+    url.searchParams.delete("scm");
+    url.hash = "";
+    window.history.pushState({}, "", url.toString());
+    setScreen(null);
+    changeSite(key);
+    window.scrollTo({ top: 0 });
+  }, [changeSite]);
+
+  /** Quay về màn chọn nhà máy */
+  const leaveSite = useCallback(() => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("nm");
+    url.searchParams.delete("scm");
+    url.hash = "";
+    window.history.pushState({}, "", url.toString());
+    setSite(null);
+    setScreen(null);
+    window.scrollTo({ top: 0 });
+  }, []);
 
   if (error) {
     return (
@@ -131,11 +175,19 @@ export default function ScmModule() {
 
   if (!me) return <OverviewSkeleton />;
 
+  if (site === null) {
+    return (
+      <div className="font-sans text-slate-900">
+        <ScmSitePicker me={me} onPick={pickSite} />
+      </div>
+    );
+  }
+
   const access = me.access[screen ?? "progress"];
   return (
     <div className="font-sans text-slate-900">
       {screen === null ? (
-        <ScmOverview me={me} site={site} onSite={changeSite} onOpen={go} />
+        <ScmOverview me={me} site={site} onChangeSite={leaveSite} onOpen={go} />
       ) : access === "lock" ? (
         <Pending title={SCREENS.find((s) => s.key === screen)?.name ?? ""} onBack={() => go(null)} locked />
       ) : screen === "progress" ? (
@@ -207,7 +259,7 @@ const QUICK: { title: string; desc: string; screen: ScreenKey; anchor: string; i
   { title: "Báo cáo KPI tuần", desc: "Phát hành báo cáo KPI phòng ban vào thứ Sáu.", screen: "kpi", anchor: "phat-hanh", icon: IconReportAnalytics },
 ];
 
-function ScmOverview({ me, site, onSite, onOpen }: { me: ScmMe; site: string; onSite: (k: string) => void; onOpen: (s: ScreenKey, anchor?: string) => void }) {
+function ScmOverview({ me, site, onChangeSite, onOpen }: { me: ScmMe; site: string; onChangeSite: () => void; onOpen: (s: ScreenKey, anchor?: string) => void }) {
   const week = isoWeek(me.today);
   const t = Math.floor(diffDays(me.today, PROJECT_START) / 7) + 1;
   const badgeOf = (screen: ScreenKey) => {
@@ -237,12 +289,19 @@ function ScmOverview({ me, site, onSite, onOpen }: { me: ScmMe; site: string; on
             </span>
           </div>
           <div className="space-y-1.5 max-w-3xl">
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-white">Số hóa vật tư & cung ứng</h1>
+            <p className="text-xs font-bold uppercase tracking-wider text-emerald-200">{site === "ALL" ? "Toàn chuỗi" : site}</p>
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-white">{siteName(site)}</h1>
             <p className="text-xs sm:text-sm text-emerald-50/90 font-medium leading-relaxed">
-              Dữ liệu nhập một lần tại nguồn. Mọi bộ phận xem chung tiến độ, chỉ sửa màn hình của mình.
+              Số hóa vật tư & cung ứng. Dữ liệu nhập một lần tại nguồn, mọi bộ phận xem chung tiến độ, chỉ sửa màn hình của mình.
             </p>
           </div>
-          <SitePills sites={SITES} value={site} onChange={onSite} />
+          <button
+            type="button"
+            onClick={onChangeSite}
+            className="inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/10 px-4 py-2 text-xs font-bold text-white transition hover:bg-white/20 focus:outline-none focus-visible:ring-4 focus-visible:ring-white/40"
+          >
+            <IconArrowsExchange size={16} /> Đổi nhà máy
+          </button>
         </div>
       </div>
 

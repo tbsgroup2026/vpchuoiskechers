@@ -45,6 +45,22 @@ export interface Overview {
   plants: string[];
 }
 
+/** Tóm tắt một nhà máy (hoặc toàn chuỗi) cho màn chọn nhà máy */
+export interface SiteSummary {
+  tracking: number;
+  onTrack: number;
+  withLate: number;
+  withBlocked: number;
+  complete: number;
+  bottleneck: { owner: OwnerDept; name: string; count: number } | null;
+}
+
+export interface SitesResponse {
+  today: string;
+  all: SiteSummary;
+  sites: (SiteSummary & { key: string; name: string })[];
+}
+
 export interface OrderItem {
   id: string;
   code: string;

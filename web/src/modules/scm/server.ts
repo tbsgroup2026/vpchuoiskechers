@@ -361,6 +361,30 @@ export async function handleScmApi(request: Request, env: { DB: D1; BUCKET?: R2L
     const site = str(url.searchParams.get("site") || "ALL", 10).toUpperCase();
 
     // GET /api/scm/overview
+    // GET /api/scm/sites: tóm tắt từng nhà máy cho màn chọn nhà máy (số đơn, trễ, bị chặn, bộ phận nghẽn nhất)
+    if (resource === "sites" && method === "GET") {
+      const orders = await loadOrders(db, "ALL", settings, today);
+      const summarize = (list: LoadedOrder[]) => {
+        const active = list.filter((o) => o.view.state !== "complete");
+        const has = (o: LoadedOrder, st: string) => o.view.steps.some((s) => s.status === st);
+        const top = computeBottlenecks(list.map((o) => o.view)).find((b) => b.late + b.blocking > 0);
+        return {
+          tracking: active.length,
+          onTrack: list.filter((o) => o.view.state === "on_track").length,
+          withLate: active.filter((o) => has(o, "late")).length,
+          withBlocked: active.filter((o) => has(o, "blocked")).length,
+          complete: list.length - active.length,
+          bottleneck: top ? { owner: top.owner, name: OWNER_DEPT_NAME[top.owner], count: top.late + top.blocking } : null,
+        };
+      };
+      return reply({
+        success: true,
+        today,
+        all: summarize(orders),
+        sites: SITES.map((s) => ({ key: s.key, name: s.name, ...summarize(orders.filter((o) => o.row.site === s.key)) })),
+      });
+    }
+
     if (resource === "overview" && method === "GET") {
       const orders = await loadOrders(db, site, settings, today);
       const active = orders.filter((o) => o.view.state !== "complete");

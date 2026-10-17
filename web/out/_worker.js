@@ -1919,6 +1919,20 @@ async function handlePph(request, env, pathname, searchParams, ctx) {
       const openMinutesBySlot = await pphOpenMinutesBySlot(env);
       const resolved = pphResolveStatus(setupDone, filled, openMinutesBySlot, slots);
 
+      // Gửi lại số liệu lưu tạm (rớt mạng): form gửi kèm ngày + khung giờ đang nhập. Khung đó đã có số
+      // liệu → coi như đã lưu (lần gửi trước tới được server); không khớp khung đang mở → KHÔNG ghi sang khung khác.
+      const expSlot = body.expectedSlot ? String(body.expectedSlot) : "";
+      const expDate = body.expectedDate ? String(body.expectedDate) : "";
+      if (expSlot || expDate) {
+        const sameDay = !expDate || expDate === date;
+        if (sameDay && expSlot && filled.has(expSlot)) {
+          return pphJson({ success: false, code: "ALREADY_SAVED", alreadySaved: true, slot: expSlot, error: `Khung giờ ${expSlot} đã được ghi nhận` }, 409);
+        }
+        if (!sameDay || (expSlot && resolved.targetSlot && expSlot !== resolved.targetSlot)) {
+          return pphJson({ success: false, code: "SLOT_MISMATCH", error: `Số liệu của khung ${expSlot || "?"} ${sameDay ? "" : "(ngày " + expDate + ") "}không còn khớp khung đang nhập — vui lòng tải lại trang và nhập lại` }, 409);
+        }
+      }
+
       if (resolved.nextAction === "wait") {
         return pphJson({ success: false, error: `Chưa tới giờ nhập — khung tiếp theo lúc ${resolved.nextSlot}` }, 409);
       }
@@ -2907,13 +2921,124 @@ function vnTodayIso() {
   return new Date(Date.now() + VN_OFFSET_MS).toISOString().slice(0, 10);
 }
 
+// ─── Phòng họp: quyền Lễ Tân, điều kiện tự hủy, mã hủy, báo Lễ Tân ───
+// Danh sách Lễ Tân giống trang /rooms (canAccessReceptionDesk)
+const ROOM_RECEPTION_EMP_CODES = ["LT-001", "202206011", "202409009", "202010004", "202608001", "102603069"];
+function isRoomReceptionist(authSession, legacy) {
+  if (authSession && authSession.isExecutiveOrAdmin) return true;
+  if (!legacy) return false;
+  const role = String(legacy.roleCode || "").toUpperCase();
+  if (["LE_TAN", "RECEPTIONIST", "ADMIN", "SUPER_ADMIN", "SYSTEM_ADMIN"].includes(role)) return true;
+  if (ROOM_RECEPTION_EMP_CODES.includes(String(legacy.empCode || ""))) return true;
+  const title = String(legacy.title || "").toLowerCase();
+  return title.includes("lễ tân") || title.includes("receptionist");
+}
+// Trả lý do không cho tự hủy (null = được hủy)
+function roomCancelBlockedReason(b) {
+  const st = String(b.status || "").toUpperCase();
+  if (st === "CANCELLED" || st === "REJECTED") return "Lịch này đã được hủy trước đó";
+  if (st === "COMPLETED") return "Cuộc họp đã kết thúc";
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(b.booking_date || ""));
+  const t = /(\d{1,2}):(\d{2})/.exec(String(b.time_slot || ""));
+  if (m && t) {
+    const startUtc = Date.UTC(+m[1], +m[2] - 1, +m[3], +t[1], +t[2]) - 7 * 3600 * 1000; // giờ Việt Nam
+    if (startUtc <= Date.now()) return "Cuộc họp đã bắt đầu, vui lòng liên hệ Lễ Tân";
+  }
+  return null;
+}
+// Cột chủ lịch + mã hủy (DB cũ có thể chưa có) — chạy 1 lần mỗi isolate
+let __roomBookingColsOnce = null;
+function ensureRoomBookingOwnerColumns(db) {
+  if (!__roomBookingColsOnce) {
+    __roomBookingColsOnce = (async () => {
+      for (const col of ["user_id TEXT", "emp_code TEXT", "user_name TEXT", "purpose TEXT", "participants_count INTEGER", "meeting_type TEXT", "cancel_token_hash TEXT"]) {
+        await db.prepare(`ALTER TABLE room_bookings ADD COLUMN ${col}`).run().catch(() => {});
+      }
+    })();
+  }
+  return __roomBookingColsOnce;
+}
+async function roomSha256Hex(text) {
+  const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(String(text)));
+  return [...new Uint8Array(d)].map((x) => x.toString(16).padStart(2, "0")).join("");
+}
+// Nhóm Zalo phòng họp (bảng zalo_config 'main'): reception = nhóm Lễ Tân (đơn mới, người đặt tự hủy);
+// confirmed = nhóm nhận lịch đã duyệt / bị Lễ Tân từ chối. Chưa cấu hình nhóm confirmed thì dùng nhóm Lễ Tân.
+async function ensureZaloConfigTable(db) {
+  await db.prepare(`CREATE TABLE IF NOT EXISTS zalo_config (id TEXT PRIMARY KEY DEFAULT 'main', quiet_hours_start TEXT DEFAULT '21:00', quiet_hours_end TEXT DEFAULT '06:30', meeting_reminder_mins INTEGER DEFAULT 30, visitor_reminder_days INTEGER DEFAULT 2, reception_group_chat_id TEXT, confirmed_group_chat_id TEXT, event_toggles_json TEXT, priority_config_json TEXT, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)`).run().catch(() => {});
+  await db.prepare("ALTER TABLE zalo_config ADD COLUMN confirmed_group_chat_id TEXT").run().catch(() => {});
+  await db.prepare(`CREATE TABLE IF NOT EXISTS zalo_captured_groups (group_chat_id TEXT PRIMARY KEY, group_name TEXT, last_message TEXT, sender_name TEXT, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)`).run().catch(() => {});
+}
+async function getRoomZaloGroups(env) {
+  let conf = null;
+  try {
+    await ensureZaloConfigTable(env.DB);
+    conf = await env.DB.prepare("SELECT reception_group_chat_id, confirmed_group_chat_id FROM zalo_config WHERE id = 'main'").first();
+  } catch (e) {}
+  const reception = (conf && conf.reception_group_chat_id) || ROOM_RECEPTION_ZALO_GROUPS[0];
+  const confirmed = (conf && conf.confirmed_group_chat_id) || null;
+  return { reception, confirmed, confirmedOrReception: confirmed || reception };
+}
+async function roomZaloSend(env, chatId, text) {
+  if (!env.ZALO_BOT_TOKEN || !chatId) return false;
+  const r = await fetch(`https://bot-api.zaloplatforms.com/bot${env.ZALO_BOT_TOKEN}/sendMessage`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chat_id: chatId, text }),
+  }).catch(() => null);
+  return Boolean(r && r.ok);
+}
+function fmtRoomDateVn(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ""));
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : String(iso || "—");
+}
+
+async function notifyReceptionBookingCancelled(env, b, byName) {
+  if (!env.ZALO_BOT_TOKEN) return;
+  const groups = [...ROOM_RECEPTION_ZALO_GROUPS];
+  try {
+    const conf = await env.DB.prepare("SELECT reception_group_chat_id FROM zalo_config WHERE id = 'main'").first();
+    if (conf && conf.reception_group_chat_id && !groups.includes(conf.reception_group_chat_id)) groups.push(conf.reception_group_chat_id);
+  } catch (e) {}
+  const text = `❌ *HỦY LỊCH PHÒNG HỌP*\n\n🏢 Phòng: ${b.room_name || "—"}\n📌 ${b.title || "Cuộc họp"}\n📆 Ngày: ${b.booking_date || "—"}\n🕐 Khung giờ: ${b.time_slot || "—"}\n👤 Người hủy: ${byName || b.booker_name || "—"}\n\nPhòng đã trống trong khung giờ này.`;
+  await Promise.all(groups.map((chat_id) =>
+    fetch(`https://bot-api.zaloplatforms.com/bot${env.ZALO_BOT_TOKEN}/sendMessage`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chat_id, text }) }).catch(() => {})
+  ));
+}
+
 export default {
   async fetch(request, env, ctx) {
+    let res;
     try {
-      return await this.handleRequest(request, env, ctx);
+      res = await this.handleRequest(request, env, ctx);
     } catch (err) {
       console.error("Worker fetch unhandled exception:", err);
-      return new Response(`System Error: ${err.message}`, { status: 500 });
+      res = new Response("System Error", { status: 500 });
+    }
+    // Header bảo mật chung cho mọi phản hồi (bỏ qua WebSocket); không ghi đè nếu route đã tự đặt
+    if (!res || res.status === 101 || res.webSocket) return res;
+    // Lỗi 5xx của API: không trả chi tiết SQL/D1/stack cho người dùng (chỉ ghi log nội bộ)
+    try {
+      if (res.status >= 500 && new URL(request.url).pathname.startsWith("/api/") && /json|text/.test(res.headers.get("content-type") || "")) {
+        const text = await res.clone().text();
+        if (/D1_ERROR|SQLITE|no such (table|column)|has no column|\bat [\w.$<>]+ \(|cloudflare-internal/i.test(text)) {
+          console.error("[API 5xx]", new URL(request.url).pathname, text.slice(0, 500));
+          const h = new Headers(res.headers);
+          h.set("Content-Type", "application/json");
+          h.delete("Content-Length");
+          res = new Response(JSON.stringify({ success: false, error: "INTERNAL_ERROR", message: "Hệ thống đang gặp lỗi, vui lòng thử lại sau hoặc liên hệ IT." }), { status: res.status, headers: h });
+        }
+      }
+    } catch (e) {}
+    try {
+      const out = new Response(res.body, res);
+      const setIfMissing = (k, v) => { if (!out.headers.has(k)) out.headers.set(k, v); };
+      setIfMissing("X-Content-Type-Options", "nosniff");
+      setIfMissing("X-Frame-Options", "SAMEORIGIN");
+      setIfMissing("Referrer-Policy", "strict-origin-when-cross-origin");
+      setIfMissing("Strict-Transport-Security", "max-age=31536000");
+      setIfMissing("Permissions-Policy", "geolocation=(self), camera=(self), microphone=()");
+      return out;
+    } catch (e) {
+      return res;
     }
   },
 
@@ -2933,6 +3058,49 @@ export default {
     // Xác thực tập trung một lần cho mỗi request (JWT có chữ ký; xem resolveAuthSession)
     const __authSession = await resolveAuthSession(request, env);
     const __legacySession = toLegacySession(__authSession);
+
+    // ════════════════════════════════════════════════════════════════════════
+    // CỔNG BẢO MẬT CHUNG CHO /api/* (17/10/2026): mặc định phải đăng nhập.
+    // Chỉ các API công khai có chủ đích được miễn; nhóm quản trị chỉ dành cho BGĐ/Admin.
+    // ════════════════════════════════════════════════════════════════════════
+    if (url.pathname.startsWith("/api/") && request.method !== "OPTIONS") {
+      const p = url.pathname.replace(/\/+$/, "") || "/";
+      const m = request.method;
+      const isPublic =
+        p.startsWith("/api/auth/") ||                                   // đăng nhập, đăng xuất, đổi mật khẩu (tự kiểm tra bên trong)
+        p.startsWith("/api/public/") ||                                 // đặt phòng họp công khai qua QR
+        (p === "/api/landing-cms" && m === "GET") ||                    // nội dung trang chủ công khai
+        p === "/api/version" || p === "/api/kaizen/version" ||
+        p === "/api/zalo/webhook" ||
+        p === "/api/gemba/sheet-sync" || p.startsWith("/api/gemba/sheet-changes") || // Apps Script, có khóa X-Sheet-Key
+        ((p === "/api/ci-kaizen") && (m === "POST" || m === "PUT")) ||  // trang nộp Kaizen công khai /work/kaizen/register
+        ((p === "/api/ci-kaizen/check-duplicate" || p === "/api/ci-kaizen/merge") && m === "POST") ||
+        (p === "/api/employees/lookup" && m === "GET") ||
+        // PPH: tổ trưởng quét QR nhập/sửa sản lượng (/pph-scan) và màn hình TV xưởng (/pph-view*) không đăng nhập.
+        // Các thao tác ghi cấu hình (org, factory-config, slot-windows, shoe-models, xóa số liệu, tv-short-link…) vẫn bắt đăng nhập.
+        (p === "/api/pph/scan" && (m === "POST" || m === "PUT")) ||
+        (m === "GET" && [
+          "/api/pph/scan-info", "/api/pph/scan-tree", "/api/pph/slot-windows", "/api/pph/shortfall-causes",
+          "/api/pph/shoe-models", "/api/pph/shoe-pph-targets", "/api/pph/dashboard", "/api/pph/dashboard-lines",
+          "/api/pph/tree", "/api/pph/factory-config", "/api/pph/tv-media-slots", "/api/pph/tv-version",
+        ].includes(p));
+      const isAdminOnly =
+        p.startsWith("/api/admin/") ||
+        p === "/api/users/sync-diff" ||
+        ((p === "/api/users" || p.startsWith("/api/users/")) && m !== "GET") || // tạo/sửa/xóa tài khoản, đổi vai trò
+        p.startsWith("/api/bi/") ||
+        p === "/api/hr/payroll" ||
+        p === "/api/ci-kaizen/judging/guests" ||
+        (p === "/api/landing-cms" && m !== "GET") ||
+        p === "/api/test-backup";
+      const gateHeaders = { "Content-Type": "application/json", "Cache-Control": "no-store" };
+      if (!isPublic && !__legacySession) {
+        return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Vui lòng đăng nhập" }), { status: 401, headers: gateHeaders });
+      }
+      if (isAdminOnly && !(__authSession && __authSession.isExecutiveOrAdmin)) {
+        return new Response(JSON.stringify({ success: false, error: "FORBIDDEN", message: "Chỉ Ban điều hành hoặc Quản trị viên được thực hiện" }), { status: 403, headers: gateHeaders });
+      }
+    }
 
     // 1. HTTP to HTTPS 301 Permanent Redirect (exempt local development)
     const isLocal = url.hostname === "127.0.0.1" || url.hostname === "localhost";
@@ -3062,11 +3230,14 @@ export default {
               if (!headers.get("Content-Type")) {
                 headers.set("Content-Type", guessMime(key));
               }
+              // File người dùng tải lên: không cho trình duyệt đoán kiểu và không cho chạy script (SVG/HTML độc hại không đọc được token)
+              headers.set("X-Content-Type-Options", "nosniff");
+              headers.set("Content-Security-Policy", "default-src 'none'; img-src 'self' data:; media-src 'self'; style-src 'unsafe-inline'; sandbox");
               if (obj.httpEtag) {
                 headers.set("ETag", obj.httpEtag);
               }
 
-              const status = obj.range ? 206 : 200;
+              const status = hasRange && obj.range ? 206 : 200;
               return new Response(obj.body, { status, headers });
             }
           } catch (r2Err) {
@@ -3432,6 +3603,8 @@ export default {
             title: s.title,
             department: s.department,
             departmentCode: s.departmentCode,
+            // Quyền quản trị do máy chủ xác định (giao diện /admin dựa vào cờ này, không dựa vào dữ liệu lưu trên trình duyệt)
+            isAdmin: Boolean(s.isExecutiveOrAdmin) || ["SUPER_ADMIN", "ADMIN", "SYSTEM_ADMIN"].includes(s.roleCode),
             isGuest: authIsGuestCode(s.empCode, s.roleCode),
             mustChangePwd: s.mustChangePwd,
           },
@@ -3450,6 +3623,23 @@ export default {
           const password = typeof body.password === "string" ? body.password : "";
           const invalid = () => json({ success: false, error: "INVALID_CREDENTIALS", message: "MSNV hoặc mật khẩu không đúng" }, 401);
           if (!loginId || !password) return json({ success: false, error: "MISSING_CREDENTIALS", message: "Vui lòng nhập MSNV và mật khẩu" }, 400);
+
+          // Giới hạn đăng nhập sai theo IP: chống dò mật khẩu mặc định trên hàng loạt MSNV
+          // Chỉ tính theo IP thật do Cloudflare cung cấp (không tin X-Forwarded-For do người dùng tự gửi)
+          const clientIp = request.headers.get("cf-connecting-ip") || "";
+          const IP_MAX_FAILS = 20, IP_WINDOW_MIN = 15;
+          await env.DB.prepare("CREATE TABLE IF NOT EXISTS auth_ip_attempts (ip TEXT PRIMARY KEY, fails INTEGER NOT NULL DEFAULT 0, window_start TEXT NOT NULL)").run().catch(() => {});
+          const ipRow = clientIp ? await env.DB.prepare("SELECT fails, window_start FROM auth_ip_attempts WHERE ip = ?").bind(clientIp).first().catch(() => null) : null;
+          const ipWindowOpen = ipRow && Date.now() - Date.parse(ipRow.window_start) < IP_WINDOW_MIN * 60000;
+          if (ipWindowOpen && Number(ipRow.fails) >= IP_MAX_FAILS) {
+            return json({ success: false, error: "TOO_MANY_ATTEMPTS", message: `Đăng nhập sai quá nhiều lần từ thiết bị này. Vui lòng thử lại sau ${IP_WINDOW_MIN} phút.` }, 429);
+          }
+          const recordIpFail = async () => {
+            if (!clientIp) return;
+            await env.DB.prepare(
+              "INSERT INTO auth_ip_attempts (ip, fails, window_start) VALUES (?, 1, ?) ON CONFLICT(ip) DO UPDATE SET fails = CASE WHEN ? THEN auth_ip_attempts.fails + 1 ELSE 1 END, window_start = CASE WHEN ? THEN auth_ip_attempts.window_start ELSE excluded.window_start END"
+            ).bind(clientIp, new Date().toISOString(), ipWindowOpen ? 1 : 0, ipWindowOpen ? 1 : 0).run().catch(() => {});
+          };
 
           if (!password) {
             return new Response(JSON.stringify({ success: false, error: "Vui lòng nhập mật khẩu xác thực" }), { status: 400, headers: CORS });
@@ -3475,7 +3665,10 @@ export default {
               if (hr) userRecord = { ...hr, emp_code: hr.emp_code || hr.msnv || hr.id, id: undefined };
             } catch (e) {}
           }
-          const roleAccount = ROLE_ACCOUNTS[loginId.toUpperCase()] || ROLE_ACCOUNTS[loginId];
+          // Không cho đăng nhập bằng tên vai (TONG_GIAM_DOC, GIAM_DOC...): chỉ nhận MSNV/email thật
+          const roleAccount = /^[0-9A-Z][0-9A-Z-]{2,29}$/.test(loginId.toUpperCase()) && ROLE_ACCOUNTS[loginId.toUpperCase()] && ROLE_ACCOUNTS[loginId.toUpperCase()].empCode === loginId.toUpperCase()
+            ? ROLE_ACCOUNTS[loginId.toUpperCase()]
+            : null;
           if (!userRecord && roleAccount) {
             userRecord = {
               emp_code: roleAccount.empCode,
@@ -3493,7 +3686,10 @@ export default {
           if (!userRecord && sysUser) {
             userRecord = { emp_code: loginId.toUpperCase(), name: sysUser.name, title: sysUser.title, role_code: sysUser.roleCode, role_level: sysUser.roleLevel };
           }
-          if (!userRecord) return invalid();
+          if (!userRecord) {
+            await recordIpFail();
+            return invalid();
+          }
           if (AUTH_DISABLED_STATUSES.includes(String(userRecord.status || "ACTIVE").toUpperCase())) {
             return json({ success: false, error: "ACCOUNT_DISABLED", message: "Tài khoản đã bị vô hiệu hóa" }, 403);
           }
@@ -3512,8 +3708,11 @@ export default {
           if (cred) {
             ok = await verifyAuthPassword(password, cred);
             mustChange = Number(cred.must_change) === 1;
-          } else if (!isGuest) {
+          } else if (!isGuest && !authIsExecutive(empCode, roleCode) && !["SUPER_ADMIN", "ADMIN", "SYSTEM_ADMIN"].includes(roleCode)) {
             ok = authTimingSafeEqual(password, defaultPassword);
+          } else if (!isGuest && authTimingSafeEqual(password, defaultPassword)) {
+            await recordIpFail();
+            return json({ success: false, error: "PASSWORD_NOT_SET", message: "Tài khoản quản trị/điều hành chưa được cấp mật khẩu riêng. Vui lòng liên hệ quản trị viên." }, 401);
           }
 
           if (!ok) {
@@ -3531,6 +3730,7 @@ export default {
                 ).bind(empCode, h.hash, h.salt, h.iterations, lockUntil ? 0 : attempts, lockUntil).run();
               }
             } catch (e) {}
+            await recordIpFail();
             await recordAuditLogDetailed({ empCode, roleCode }, "auth", "LOGIN_FAILED", empCode, null, { attempts, locked: Boolean(lockUntil) }, request);
             if (isGuest && !cred) {
               return json({ success: false, error: "PASSWORD_NOT_SET", message: "Tài khoản Ban giám khảo chưa được cấp mật khẩu. Vui lòng liên hệ quản trị viên." }, 401);
@@ -8242,84 +8442,77 @@ export default {
     }
 
     // API Route: Cloudinary Avatar Upload Handler (/api/upload-avatar)
+    // POST /api/upload-avatar: lưu ảnh đại diện vào R2 (IMAGE_BUCKET, dự phòng BUCKET) cho CHÍNH người đăng nhập.
+    // Nhận multipart (field "file") hoặc JSON { image: "data:image/...;base64,..." }. Chỉ JPEG/PNG/WebP, tối đa 2MB.
+    // Ảnh phục vụ qua /cdn-r2/avatars/<MSNV>/<thời điểm>.<đuôi>; ảnh cũ của người đó bị xóa.
     if (url.pathname === "/api/upload-avatar" && request.method === "POST") {
+      const J = { "Content-Type": "application/json", "Cache-Control": "no-store" };
+      const fail = (status, error, message) => new Response(JSON.stringify({ success: false, error, message }), { status, headers: J });
       try {
-        const body = await request.json();
-        const { image, empCode } = body;
+        const bucket = env.IMAGE_BUCKET || env.BUCKET;
+        if (!bucket || typeof bucket.put !== "function") return fail(500, "NO_STORAGE", "Chưa cấu hình kho lưu ảnh (R2)");
+        const emp = String(__legacySession.empCode).toUpperCase();
+        const MAX = 2 * 1024 * 1024;
 
-        if (!image) {
-          return new Response(JSON.stringify({ success: false, error: "Thiếu dữ liệu ảnh" }), {
-            status: 400,
-            headers: { "Content-Type": "application/json" }
-          });
+        // Đọc dữ liệu ảnh
+        let bytes = null;
+        const ctype = request.headers.get("content-type") || "";
+        if (ctype.includes("multipart/form-data")) {
+          const form = await request.formData().catch(() => null);
+          const file = form && form.get("file");
+          if (!file || typeof file === "string") return fail(400, "NO_FILE", "Chưa chọn ảnh");
+          if (file.size > MAX) return fail(400, "TOO_LARGE", "Ảnh vượt quá 2MB");
+          bytes = new Uint8Array(await file.arrayBuffer());
+        } else {
+          const body = await request.json().catch(() => ({}));
+          const m = /^data:image\/[a-z0-9.+-]+;base64,([A-Za-z0-9+/=\s]+)$/i.exec(String(body.image || ""));
+          if (!m) return fail(400, "BAD_IMAGE", "Dữ liệu ảnh không hợp lệ");
+          const b64 = m[1].replace(/\s+/g, "");
+          if (b64.length * 0.75 > MAX + 1024) return fail(400, "TOO_LARGE", "Ảnh vượt quá 2MB");
+          const bin = atob(b64);
+          bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
         }
+        if (!bytes || !bytes.length) return fail(400, "EMPTY", "Ảnh rỗng");
+        if (bytes.length > MAX) return fail(400, "TOO_LARGE", "Ảnh vượt quá 2MB");
 
-        let cloudinaryUrl = null;
-        const presets = ["vpchuoisk", "ml_default", "unsigned"];
+        // Nhận diện định dạng theo byte đầu file (không tin tên file / content-type gửi lên); không nhận SVG
+        const sig = (arr) => arr.every((v, i) => bytes[i] === v);
+        let ext = "", mime = "";
+        if (sig([0xff, 0xd8, 0xff])) { ext = "jpg"; mime = "image/jpeg"; }
+        else if (sig([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) { ext = "png"; mime = "image/png"; }
+        else if (sig([0x52, 0x49, 0x46, 0x46]) && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) { ext = "webp"; mime = "image/webp"; }
+        if (!ext) return fail(400, "BAD_TYPE", "Chỉ nhận ảnh JPEG, PNG hoặc WebP");
 
-        for (const preset of presets) {
-          try {
-            const formData = new FormData();
-            formData.append("file", image);
-            formData.append("upload_preset", preset);
-            formData.append("folder", (env && env.CLOUDINARY_FOLDER) || "vpchuoiskechers");
+        const prefix = `avatars/${emp.replace(/[^A-Z0-9_-]/g, "_")}/`;
+        const key = `${prefix}${Date.now()}.${ext}`;
+        await bucket.put(key, bytes, { httpMetadata: { contentType: mime, cacheControl: "public, max-age=31536000, immutable" }, customMetadata: { emp } });
+        const finalUrl = `/cdn-r2/${key}`;
 
-            const cRes = await fetch("https://api.cloudinary.com/v1_1/dwl2xtbqa/image/upload", {
-              method: "POST",
-              body: formData,
-            });
+        // Xóa ảnh cũ của chính người này (giữ ảnh vừa tải)
+        try {
+          const listed = await bucket.list({ prefix, limit: 50 });
+          for (const o of (listed && listed.objects) || []) if (o.key !== key) await bucket.delete(o.key).catch(() => {});
+        } catch (e) {}
 
-            if (cRes.ok) {
-              const cData = await cRes.json();
-              if (cData.secure_url) {
-                cloudinaryUrl = cData.secure_url;
-                break;
-              }
-            }
-          } catch (cErr) {
-            console.warn("Cloudinary upload preset attempt error:", cErr);
-          }
-        }
-
-        const finalUrl = cloudinaryUrl || image;
-
+        // Cập nhật hồ sơ của chính người đăng nhập
         if (env.DB) {
-          const targetEmp = empCode || "202608001";
-          try {
-            await env.DB.prepare(
-              `INSERT INTO user_profile (id, emp_code, avatar, updated_at)
-               VALUES ('current_user', ?, ?, CURRENT_TIMESTAMP)
-               ON CONFLICT(id) DO UPDATE SET
-                 avatar = excluded.avatar,
-                 emp_code = excluded.emp_code,
-                 updated_at = CURRENT_TIMESTAMP`
-            ).bind(targetEmp, finalUrl).run();
-
-            await env.DB.prepare(
-              `UPDATE users SET avatar_url = ?, updated_at = CURRENT_TIMESTAMP WHERE emp_code = ?`
-            ).bind(finalUrl, targetEmp).run();
-          } catch (d1Err) {
-            console.warn("D1 save avatar error:", d1Err);
-          }
+          await env.DB.prepare(
+            "CREATE TABLE IF NOT EXISTS user_profile (id TEXT PRIMARY KEY, emp_code TEXT, name TEXT, email TEXT, phone TEXT, avatar TEXT, title TEXT, department TEXT, role_code TEXT, redirect_url TEXT, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)"
+          ).run().catch(() => {});
+          await env.DB.prepare(
+            `INSERT INTO user_profile (id, emp_code, name, avatar, role_code, updated_at) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+             ON CONFLICT(id) DO UPDATE SET avatar = excluded.avatar, updated_at = CURRENT_TIMESTAMP`
+          ).bind(emp, emp, __legacySession.name || emp, finalUrl, __legacySession.roleCode || "CBCNV").run().catch(() => {});
+          await env.DB.prepare("UPDATE users SET avatar_url = ? WHERE UPPER(emp_code) = ?").bind(finalUrl, emp).run().catch(() => {});
+          await recordAuditLog({ empCode: emp, roleCode: __legacySession.roleCode || "CBCNV", id: emp }, "PROFILE", "UPLOAD_AVATAR", emp, null, { key, size: bytes.length, type: mime }, request).catch(() => {});
         }
 
-        return new Response(JSON.stringify({
-          success: true,
-          url: finalUrl,
-          isCloudinary: !!cloudinaryUrl,
-          message: cloudinaryUrl ? "Tải ảnh lên Cloudinary thành công!" : "Lưu ảnh vào hệ thống thành công!"
-        }), {
-          headers: { "Content-Type": "application/json" }
-        });
+        return new Response(JSON.stringify({ success: true, url: finalUrl, storage: "R2", message: "Đã lưu ảnh đại diện" }), { headers: J });
       } catch (err) {
-        return new Response(JSON.stringify({ success: false, error: err.message }), {
-          status: 500,
-          headers: { "Content-Type": "application/json" }
-        });
+        return fail(500, "UPLOAD_ERROR", err.message);
       }
     }
 
-    // ============================================================
     // SERVER-SIDE SECURITY & CONCURRENCY CORE HELPER FUNCTIONS
     // ============================================================
 
@@ -8441,20 +8634,13 @@ export default {
     // API ROUTE: GET /api/personal (IDOR Protected)
     // ============================================================
     if (url.pathname === "/api/personal") {
+      // Chỉ trả thông tin của chính người đăng nhập; chưa có nguồn bảng lương thật nên không trả số liệu lương
+      const me = __legacySession;
       const requestedEmpCode = url.searchParams.get("empCode");
-      if (requestedEmpCode && requestedEmpCode !== "202608001" && requestedEmpCode !== "ADMIN-2026") {
-        return new Response(JSON.stringify({
-          success: false,
-          error: "BẢO MẬT: Bạn không có quyền xem bảng lương và hồ sơ cá nhân của nhân viên khác!"
-        }), { status: 403, headers: SECURE_JSON_HEADERS });
+      if (requestedEmpCode && String(requestedEmpCode).toUpperCase() !== String(me.empCode).toUpperCase() && !(__authSession && __authSession.isExecutiveOrAdmin)) {
+        return new Response(JSON.stringify({ success: false, error: "FORBIDDEN", message: "Bạn không có quyền xem hồ sơ cá nhân của nhân viên khác" }), { status: 403, headers: SECURE_JSON_HEADERS });
       }
-
-      return new Response(JSON.stringify({
-        success: true,
-        empCode: "202608001",
-        name: "Phạm Nguyễn Anh Huy",
-        payroll: { month: "Tháng 8/2026", baseSalary: "22,000,000 VNĐ", netReceive: "26,850,000 VNĐ" }
-      }), { headers: SECURE_JSON_HEADERS });
+      return new Response(JSON.stringify({ success: true, empCode: me.empCode, name: me.name, title: me.title || "", payroll: null }), { headers: SECURE_JSON_HEADERS });
     }
 
     // ============================================================
@@ -10037,8 +10223,8 @@ export default {
         try {
           if (env.DB) {
             const { results } = await env.DB.prepare(
-              "SELECT * FROM user_profile WHERE id = 'current_user'"
-            ).all();
+              "SELECT * FROM user_profile WHERE id = ?"
+            ).bind(String(__legacySession.empCode).toUpperCase()).all().catch(() => ({ results: [] }));
             if (results && results.length > 0) {
               const userProf = { ...results[0] };
               if (!userProf.avatar || typeof userProf.avatar !== "string" || userProf.avatar.trim() === "") {
@@ -10051,7 +10237,7 @@ export default {
             }
           }
           return new Response(
-            JSON.stringify({ success: true, data: ROLE_ACCOUNTS["TONG_GIAM_DOC"] }),
+            JSON.stringify({ success: true, data: { emp_code: __legacySession.empCode, name: __legacySession.name, title: __legacySession.title || "", avatar: "/images/tbs-logo.png" } }),
             { headers: { "Content-Type": "application/json" } }
           );
         } catch (err) {
@@ -10066,9 +10252,10 @@ export default {
       if (request.method === "POST" || request.method === "PUT") {
         try {
           const body = await request.json();
-          const { empCode, emp_code, name, email, phone, avatar, title, department, roleCode, role_code } = body;
-          const targetEmpCode = empCode || emp_code || "202608001";
-          const targetRoleCode = roleCode || role_code || "CBCNV";
+          const { name, email, phone, avatar, title, department } = body;
+          // Chỉ sửa hồ sơ của chính mình; không cho tự đổi vai trò
+          const targetEmpCode = String(__legacySession.empCode).toUpperCase();
+          const targetRoleCode = __legacySession.roleCode || "CBCNV";
 
           let finalAvatar = avatar;
           if (env.DB) {
@@ -10089,7 +10276,7 @@ export default {
             ).run();
 
             if (!finalAvatar || typeof finalAvatar !== "string" || finalAvatar.trim() === "") {
-              const { results: existing } = await env.DB.prepare("SELECT avatar FROM user_profile WHERE id = 'current_user'").all();
+              const { results: existing } = await env.DB.prepare("SELECT avatar FROM user_profile WHERE id = ?").bind(targetEmpCode).all();
               finalAvatar = (existing && existing[0] && existing[0].avatar && existing[0].avatar.trim() !== "")
                 ? existing[0].avatar
                 : "/images/tbs-logo.png";
@@ -10097,7 +10284,7 @@ export default {
 
             await env.DB.prepare(
               `INSERT INTO user_profile (id, emp_code, name, email, phone, avatar, title, department, role_code, updated_at)
-               VALUES ('current_user', ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                ON CONFLICT(id) DO UPDATE SET
                  emp_code = excluded.emp_code,
                  name = COALESCE(excluded.name, user_profile.name),
@@ -10106,17 +10293,18 @@ export default {
                  avatar = CASE WHEN excluded.avatar IS NOT NULL AND excluded.avatar != '/images/tbs-logo.png' THEN excluded.avatar ELSE user_profile.avatar END,
                  title = COALESCE(excluded.title, user_profile.title),
                  department = COALESCE(excluded.department, user_profile.department),
-                 role_code = COALESCE(excluded.role_code, user_profile.role_code),
+                 role_code = user_profile.role_code,
                  updated_at = CURRENT_TIMESTAMP`
             )
               .bind(
                 targetEmpCode,
-                name || "Phạm Nguyễn Anh Huy",
-                email || "anhy.work.2004@gmail.com",
-                phone || "0522511245",
+                targetEmpCode,
+                name || __legacySession.name || targetEmpCode,
+                email || null,
+                phone || null,
                 finalAvatar,
-                title || "IT - Team Chuyển Đổi Số",
-                department || "IT - Team Chuyển Đổi Số",
+                title || __legacySession.title || null,
+                department || null,
                 targetRoleCode
               )
               .run();
@@ -10744,7 +10932,7 @@ export default {
           await env.DB.prepare("DELETE FROM business_trips WHERE id = ?").bind(targetId).run();
           return new Response(JSON.stringify({ success: true, message: `Đã xóa đơn công tác ${targetId} khỏi D1 Database!`, id: targetId }), { headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
     }
@@ -10753,7 +10941,7 @@ export default {
     if (
       url.pathname === "/api/ci-kaizen" ||
       url.pathname === "/api/ci-kaizen/" ||
-      (url.pathname.endsWith("/approve") && !url.pathname.startsWith("/api/warehouse/") && !url.pathname.startsWith("/api/scm/"))
+      url.pathname === "/api/ci-kaizen/approve"
     ) {
       if (!env.DB) {
         return new Response(
@@ -10809,6 +10997,15 @@ export default {
           if (!user || !user.authenticated) {
             return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Vui lòng đăng nhập để duyệt sáng kiến" }), { status: 401, headers: SECURE_JSON_HEADERS });
           }
+          // Chỉ Trưởng/Phó phòng trở lên, BGĐ/Admin hoặc phòng CN-CI được duyệt khả thi (giống quy tắc duyệt đơn công tác)
+          const ciDept = String((__authSession && __authSession.departmentCode) || user.department || "").toUpperCase().replace(/[^A-Z]/g, "");
+          const canApproveKaizen = user.isExecutiveOrAdmin ||
+            ["TRUONG_PHONG", "PHO_PHONG", "GIAM_DOC", "TONG_GIAM_DOC"].includes(user.roleCode) ||
+            (user.roleLevel && user.roleLevel <= 3) ||
+            ciDept === "CNCI" || ciDept.startsWith("CI");
+          if (!canApproveKaizen) {
+            return new Response(JSON.stringify({ success: false, error: "FORBIDDEN", message: "Bạn không có quyền duyệt khả thi sáng kiến" }), { status: 403, headers: SECURE_JSON_HEADERS });
+          }
 
           const body = await request.json();
           const proposalId = body.proposalId || body.proposal_id || body.id || body.code;
@@ -10818,6 +11015,14 @@ export default {
               JSON.stringify({ success: false, message: "Mã đề xuất không hợp lệ" }),
               { status: 400, headers: SECURE_JSON_HEADERS }
             );
+          }
+          // Không tự duyệt sáng kiến của chính mình
+          const owner = await env.DB.prepare("SELECT proposer_emp_code FROM ci_kaizen_proposals WHERE id = ? OR code = ? LIMIT 1").bind(proposalId, proposalId).first().catch(() => null);
+          if (!owner) {
+            return new Response(JSON.stringify({ success: false, error: "NOT_FOUND", message: "Không tìm thấy sáng kiến" }), { status: 404, headers: SECURE_JSON_HEADERS });
+          }
+          if (String(owner.proposer_emp_code || "").toUpperCase() === String(user.empCode || "").toUpperCase() && !user.isExecutiveOrAdmin) {
+            return new Response(JSON.stringify({ success: false, error: "SELF_APPROVAL", message: "Không thể tự duyệt sáng kiến của chính mình" }), { status: 403, headers: SECURE_JSON_HEADERS });
           }
 
           const {
@@ -10944,7 +11149,7 @@ export default {
           );
         } catch (err) {
           return new Response(
-            JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }),
+            JSON.stringify({ success: false, error: err.message }),
             { status: 500, headers: SECURE_JSON_HEADERS }
           );
         }
@@ -10986,7 +11191,7 @@ export default {
             return new Response(JSON.stringify({ success: false, error: "ALREADY_VOTED", message: "Bạn đã bình chọn đề xuất này rồi!" }), { status: 400, headers: SECURE_JSON_HEADERS });
           }
         } catch(err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
 
@@ -11103,7 +11308,7 @@ export default {
             averageScore: avgScore
           }), { headers: SECURE_JSON_HEADERS });
         } catch(err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
 
@@ -11684,7 +11889,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
             { headers: SECURE_JSON_HEADERS }
           );
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
 
@@ -12002,7 +12207,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
 
           return new Response(resPayload, { headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
 
@@ -12236,7 +12441,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
 
           return new Response(resPayload, { headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
 
@@ -12450,6 +12655,26 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
       }
     }
 
+    // POST /api/public/rooms/cancel {bookingId, cancelToken}: người đặt qua QR tự hủy lịch (mã nhận khi đặt)
+    if (url.pathname === "/api/public/rooms/cancel" && request.method === "POST") {
+      if (env.DB) await ensureRoomBookingOwnerColumns(env.DB);
+      const J = SECURE_JSON_HEADERS;
+      const body = await request.json().catch(() => ({}));
+      const id = String(body.bookingId || "").slice(0, 80);
+      const token = String(body.cancelToken || "");
+      if (!id || !/^[0-9a-f]{36}$/.test(token)) return new Response(JSON.stringify({ success: false, error: "BAD_REQUEST", message: "Thiếu mã đơn hoặc mã hủy" }), { status: 400, headers: J });
+      const b = await env.DB.prepare("SELECT id, status, booking_date, time_slot, room_name, title, booker_name, cancel_token_hash FROM room_bookings WHERE id = ?").bind(id).first().catch(() => null);
+      if (!b || !b.cancel_token_hash || b.cancel_token_hash !== (await roomSha256Hex(token))) {
+        return new Response(JSON.stringify({ success: false, error: "INVALID_TOKEN", message: "Mã hủy không đúng hoặc lịch không tồn tại" }), { status: 403, headers: J });
+      }
+      const blocked = roomCancelBlockedReason(b);
+      if (blocked) return new Response(JSON.stringify({ success: false, error: "CANNOT_CANCEL", message: blocked }), { status: 400, headers: J });
+      await env.DB.prepare("UPDATE room_bookings SET status = 'CANCELLED' WHERE id = ?").bind(id).run();
+      await recordAuditLog({ empCode: "PUBLIC_QR", roleCode: "GUEST" }, "ROOMS", "SELF_CANCEL_QR", id, { status: b.status }, { status: "CANCELLED" }, request).catch(() => {});
+      ctx.waitUntil(notifyReceptionBookingCancelled(env, b, b.booker_name).catch(() => {}));
+      return new Response(JSON.stringify({ success: true, message: "Đã hủy lịch họp, Lễ Tân đã được báo" }), { headers: J });
+    }
+
     if (url.pathname === "/api/public/rooms/booking" && request.method === "POST") {
       const fail = (status, error, code) =>
         new Response(JSON.stringify({ success: false, code, error, message: error }), { status, headers: SECURE_JSON_HEADERS });
@@ -12489,6 +12714,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
 
       try {
         await ensureRoomPublicCodeColumn(env.DB);
+        await ensureRoomBookingOwnerColumns(env.DB);
         const room = await env.DB.prepare(
           "SELECT id, name, status, is_locked, public_code FROM meeting_rooms WHERE UPPER(public_code) = ? OR UPPER(id) = ? OR UPPER(room_code) = ? LIMIT 1"
         ).bind(code, code, code).first();
@@ -12497,6 +12723,10 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           return fail(409, "Phòng họp đang tạm khóa/bảo trì, vui lòng liên hệ Lễ Tân.", "ROOM_LOCKED");
         }
 
+        // MSNV phải có trong danh bạ nhân sự (không đặt phòng dưới tên người không tồn tại)
+        const known = await env.DB.prepare("SELECT 1 AS ok FROM users WHERE UPPER(emp_code) = ? UNION SELECT 1 FROM sys_users WHERE UPPER(emp_code) = ? LIMIT 1")
+          .bind(empCode, empCode).first().catch(() => null);
+        if (!known) return fail(400, "MSNV không có trong danh bạ nhân sự. Vui lòng kiểm tra lại hoặc liên hệ Lễ Tân.", "UNKNOWN_EMP");
         // Chống spam: tối đa 10 đơn/ngày cho mỗi IP và 5 đơn/ngày cho mỗi MSNV qua QR
         const ip = request.headers.get("cf-connecting-ip") || "unknown";
         const sourceTag = `PUBLIC_QR:${ip}`;
@@ -12525,6 +12755,8 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
 
         const normalizedSlot = `${String(Math.floor(range.start / 60)).padStart(2, "0")}:${String(range.start % 60).padStart(2, "0")} - ${String(Math.floor(range.end / 60)).padStart(2, "0")}:${String(range.end % 60).padStart(2, "0")}`;
         const bookingId = `b_qr_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+        // Mã tự hủy lịch: chỉ người đặt (giữ mã trên điện thoại) mới hủy được; DB chỉ lưu bản băm
+        const cancelToken = [...crypto.getRandomValues(new Uint8Array(18))].map((x) => x.toString(16).padStart(2, "0")).join("");
         await env.DB.prepare(`
           INSERT INTO room_bookings (id, room_id, room_name, title, booker_name, department, booking_date, time_slot,
             attendees_count, notes, status, created_at, user_id, emp_code, user_name, purpose, participants_count, meeting_type)
@@ -12533,6 +12765,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           bookingId, room.id, room.name, title, bookerName, department || "Chưa rõ", bookingDate, normalizedSlot,
           attendeesCount, notes, sourceTag, empCode, bookerName, title, attendeesCount
         ).run();
+        await env.DB.prepare("UPDATE room_bookings SET cancel_token_hash = ? WHERE id = ?").bind(await roomSha256Hex(cancelToken), bookingId).run();
 
         // 🔔 Báo nhóm Zalo Lễ Tân (cùng nhóm & định dạng với đặt phòng trong /rooms)
         if (env.ZALO_BOT_TOKEN) {
@@ -12560,6 +12793,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
         return new Response(JSON.stringify({
           success: true,
           bookingId,
+          cancelToken,
           data: { roomName: room.name, bookingDate, timeSlot: normalizedSlot }
         }), { headers: SECURE_JSON_HEADERS });
       } catch (err) {
@@ -12638,6 +12872,36 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           `).run();
         } catch (e) {
           // ignore table creation check error
+        }
+      }
+
+      // GET/PUT /api/rooms/zalo-groups: Lễ Tân/Admin chọn nhóm Zalo nhận thông báo phòng họp
+      if (url.pathname === "/api/rooms/zalo-groups") {
+        const J = SECURE_JSON_HEADERS;
+        if (!isRoomReceptionist(__authSession, __legacySession)) {
+          return new Response(JSON.stringify({ success: false, error: "FORBIDDEN", message: "Chỉ Lễ Tân/Admin cấu hình nhóm Zalo" }), { status: 403, headers: J });
+        }
+        await ensureZaloConfigTable(env.DB);
+        if (request.method === "GET") {
+          const g = await getRoomZaloGroups(env);
+          const { results } = await env.DB.prepare("SELECT group_chat_id AS id, group_name AS name, updated_at AS updatedAt FROM zalo_captured_groups ORDER BY updated_at DESC LIMIT 100").all().catch(() => ({ results: [] }));
+          return new Response(JSON.stringify({ success: true, receptionGroupId: g.reception, confirmedGroupId: g.confirmed, groups: results || [], botReady: Boolean(env.ZALO_BOT_TOKEN) }), { headers: J });
+        }
+        if (request.method === "PUT") {
+          const body = await request.json().catch(() => ({}));
+          const clean = (v) => (v == null || v === "" ? null : String(v).trim());
+          const rec = clean(body.receptionGroupId), conf = clean(body.confirmedGroupId);
+          for (const v of [rec, conf]) {
+            if (v && !/^[A-Za-z0-9_.:-]{3,100}$/.test(v)) return new Response(JSON.stringify({ success: false, error: "BAD_GROUP", message: "Mã nhóm Zalo không hợp lệ" }), { status: 400, headers: J });
+          }
+          await env.DB.prepare("INSERT INTO zalo_config (id, reception_group_chat_id, confirmed_group_chat_id, updated_at) VALUES ('main', ?, ?, CURRENT_TIMESTAMP) ON CONFLICT(id) DO UPDATE SET reception_group_chat_id = excluded.reception_group_chat_id, confirmed_group_chat_id = excluded.confirmed_group_chat_id, updated_at = CURRENT_TIMESTAMP")
+            .bind(rec, conf).run();
+          await recordAuditLog(__legacySession, "ROOMS", "SET_ZALO_GROUPS", "main", null, { receptionGroupId: rec, confirmedGroupId: conf }, request).catch(() => {});
+          let tested = null;
+          if (body.sendTest && conf) {
+            tested = await roomZaloSend(env, conf, `🔔 Thử thông báo: nhóm này sẽ nhận tin *lịch họp đã được Lễ Tân duyệt / từ chối*. (Cài đặt bởi ${__legacySession.name || __legacySession.empCode})`);
+          }
+          return new Response(JSON.stringify({ success: true, message: "Đã lưu nhóm Zalo nhận thông báo", tested }), { headers: J });
         }
       }
 
@@ -12737,6 +13001,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
             roomName: b.room_name || b.roomName || "Phòng Họp",
             title: b.title || "Cuộc họp",
             bookerName: b.booker_name || b.bookerName || "Người đăng ký",
+            empCode: b.emp_code || null,
             department: b.department || "Hành chính",
             bookingDate: b.booking_date || b.bookingDate,
             timeSlot: b.time_slot || b.timeSlot,
@@ -12842,6 +13107,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
 
       // POST /api/rooms/booking: Save a new booking
       if (url.pathname === "/api/rooms/booking" && request.method === "POST") {
+      if (env.DB) await ensureRoomBookingOwnerColumns(env.DB);
         try {
           let user = null;
           try {
@@ -12928,8 +13194,8 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           const finalDepartment = department || (user && user.department) || "Hành chính";
 
           await env.DB.prepare(`
-            INSERT INTO room_bookings (id, room_id, room_name, title, booker_name, department, booking_date, time_slot, attendees_count, notes, status, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            INSERT INTO room_bookings (id, room_id, room_name, title, booker_name, department, booking_date, time_slot, attendees_count, notes, status, created_at, user_id, emp_code)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?)
           `).bind(
             bookingId,
             targetRoomId,
@@ -12941,7 +13207,9 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
             targetTimeSlot,
             attendeesCount || 5,
             notes || "",
-            bookingStatus
+            bookingStatus,
+            __legacySession ? __legacySession.empCode : null,
+            __legacySession ? __legacySession.empCode : null
           ).run();
 
           // 🔔 GỬI THÔNG BÁO ZALO vào nhóm Lễ Tân khi có đặt phòng mới
@@ -12962,7 +13230,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
             console.warn("Zalo notify error:", zErr.message);
           }
 
-          const successRes = JSON.stringify({ success: true, message: "Đã lưu lịch đặt phòng họp vào Cloudflare D1 thành công!", data: body });
+          const successRes = JSON.stringify({ success: true, message: "Đã lưu lịch đặt phòng họp vào Cloudflare D1 thành công!", id: bookingId, data: { ...body, id: bookingId } });
 
           return new Response(successRes, { headers: SECURE_JSON_HEADERS });
         } catch (err) {
@@ -12987,6 +13255,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
 
       // PUT /api/rooms/booking: Update booking status (COMPLETED, CONFIRMED, CANCELLED, etc.)
       if (url.pathname === "/api/rooms/booking" && request.method === "PUT") {
+      if (env.DB) await ensureRoomBookingOwnerColumns(env.DB);
         try {
           if (!env.DB) {
             return new Response(
@@ -13003,6 +13272,49 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
               JSON.stringify({ success: false, error: "Thiếu mã cuộc họp (id)" }),
               { status: 400, headers: { "Content-Type": "application/json" } }
             );
+          }
+          const J = { "Content-Type": "application/json" };
+          const existing = await env.DB.prepare("SELECT id, emp_code, status, booking_date, time_slot, room_name, title, booker_name, department, attendees_count FROM room_bookings WHERE id = ?").bind(id).first();
+          if (!existing) {
+            return new Response(JSON.stringify({ success: false, error: "NOT_FOUND", message: "Không tìm thấy lịch họp" }), { status: 404, headers: J });
+          }
+          const byReception = isRoomReceptionist(__authSession, __legacySession);
+          if (!byReception) {
+            // Người đặt chỉ được tự HỦY lịch của mình (chưa diễn ra); đổi giờ/phòng là việc của Lễ Tân
+            const me = String(__legacySession.empCode || "").toUpperCase();
+            const owner = String(existing.emp_code || "").toUpperCase();
+            if (!owner || owner !== me) {
+              return new Response(JSON.stringify({ success: false, error: "FORBIDDEN", message: "Chỉ Lễ Tân hoặc người đặt mới thao tác được lịch này" }), { status: 403, headers: J });
+            }
+            if (status !== "CANCELLED" || roomId || roomName || notes !== undefined) {
+              return new Response(JSON.stringify({ success: false, error: "FORBIDDEN", message: "Bạn chỉ có thể hủy lịch của mình; đổi giờ/phòng vui lòng liên hệ Lễ Tân" }), { status: 403, headers: J });
+            }
+            const blocked = roomCancelBlockedReason(existing);
+            if (blocked) return new Response(JSON.stringify({ success: false, error: "CANNOT_CANCEL", message: blocked }), { status: 400, headers: J });
+          }
+          await recordAuditLog(__legacySession, "ROOMS", status === "CANCELLED" ? "CANCEL_BOOKING" : "UPDATE_BOOKING", id, { status: existing.status }, { status, roomId, roomName }, request).catch(() => {});
+          const actorName = __legacySession.name || __legacySession.empCode;
+          const isOwnerAction = String(existing.emp_code || "").toUpperCase() === String(__legacySession.empCode || "").toUpperCase();
+          const finalRoom = roomName || existing.room_name || "—";
+          if (status === "CONFIRMED" && existing.status !== "CONFIRMED" && byReception) {
+            // Lễ Tân duyệt → nhóm nhận lịch đã xác nhận
+            ctx.waitUntil((async () => {
+              const g = await getRoomZaloGroups(env);
+              await roomZaloSend(env, g.confirmedOrReception,
+                `✅ *LỊCH HỌP ĐÃ ĐƯỢC DUYỆT*\n\n🏢 Phòng: ${finalRoom}\n📌 ${existing.title || "Cuộc họp"}\n📆 Ngày: ${fmtRoomDateVn(existing.booking_date)}\n🕐 Khung giờ: ${existing.time_slot || "—"}\n👤 Người đặt: ${existing.booker_name || "—"}${existing.department ? " (" + existing.department + ")" : ""}\n👥 Số người: ${existing.attendees_count || "—"}\n\n✍️ Lễ Tân duyệt: ${actorName}`);
+            })().catch(() => {}));
+          } else if (status === "CANCELLED" && existing.status !== "CANCELLED") {
+            if (byReception && !isOwnerAction) {
+              // Lễ Tân từ chối/hủy lịch của người khác → nhóm nhận lịch đã xác nhận (người đặt nắm được)
+              ctx.waitUntil((async () => {
+                const g = await getRoomZaloGroups(env);
+                await roomZaloSend(env, g.confirmedOrReception,
+                  `❌ *LỄ TÂN ${existing.status === "CONFIRMED" ? "HỦY" : "TỪ CHỐI"} LỊCH HỌP*\n\n🏢 Phòng: ${finalRoom}\n📌 ${existing.title || "Cuộc họp"}\n📆 Ngày: ${fmtRoomDateVn(existing.booking_date)}\n🕐 Khung giờ: ${existing.time_slot || "—"}\n👤 Người đặt: ${existing.booker_name || "—"}\n\n✍️ Lễ Tân: ${actorName}${notes ? "\n📝 Ghi chú: " + notes : ""}`);
+              })().catch(() => {}));
+            } else {
+              // Người đặt tự hủy → báo nhóm Lễ Tân
+              ctx.waitUntil(notifyReceptionBookingCancelled(env, existing, actorName).catch(() => {}));
+            }
           }
 
           let updateFields = [];
@@ -13030,25 +13342,6 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
             const sql = `UPDATE room_bookings SET ${updateFields.join(", ")} WHERE id = ?`;
             const result = await env.DB.prepare(sql).bind(...bindParams).run();
 
-            // UPSERT Fallback: If booking didn't exist in D1 yet, insert it!
-            if (result && result.meta && result.meta.changes === 0) {
-              await env.DB.prepare(`
-                INSERT INTO room_bookings (id, room_id, room_name, title, booker_name, department, booking_date, time_slot, attendees_count, notes, status, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-              `).bind(
-                id,
-                roomId || "room_1",
-                roomName || "Phòng Họp OTI / OTG",
-                body.title || "Cuộc họp",
-                body.bookerName || "Lê Thị Mai",
-                body.department || "CN-CI",
-                body.bookingDate || new Date().toISOString().split("T")[0],
-                body.timeSlot || "09:30 - 11:30",
-                body.attendeesCount || 10,
-                notes || "",
-                status || "CONFIRMED"
-              ).run();
-            }
           }
 
           return new Response(
@@ -13483,7 +13776,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
 
         return new Response(resStr, { headers: SECURE_JSON_HEADERS });
       } catch (err) {
-        return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
       }
     }
 
@@ -13521,7 +13814,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
 
           return new Response(resStr, { headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
 
@@ -13587,7 +13880,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
 
           return new Response(JSON.stringify({ success: true, message: "Đã cập nhật trạng thái đơn tạm ứng!", id, status: nextStatus }), { headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
     }
@@ -13628,7 +13921,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
 
           return new Response(resStr, { headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
 
@@ -13674,7 +13967,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
 
           return new Response(JSON.stringify({ success: true, message: "Đã cập nhật trạng thái đơn nghỉ phép!", id, status }), { headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
     }
@@ -13714,7 +14007,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
         await recordAuditLog(user, "hr", "ATTENDANCE_STATE_CHANGE", "2026-08", null, { status: nextStatus }, request);
         return new Response(JSON.stringify({ success: true, message: "Cập nhật trạng thái chấm công thành công!", status: nextStatus }), { headers: SECURE_JSON_HEADERS });
       } catch (err) {
-        return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
       }
     }
 
@@ -13746,7 +14039,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
         await recordAuditLog(user, "hr", "PAYROLL_STATE_CHANGE", "2026-08", null, { status: nextStatus }, request);
         return new Response(JSON.stringify({ success: true, message: "Cập nhật trạng thái bảng lương thành công!", status: nextStatus }), { headers: SECURE_JSON_HEADERS });
       } catch (err) {
-        return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
       }
     }
 
@@ -13782,7 +14075,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           }));
           return new Response(JSON.stringify({ success: true, data: mapped }), { headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
 
@@ -13813,7 +14106,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           await recordAuditLog(user, "hr", "SAVE_EMPLOYEE", empId, null, body, request);
           return new Response(JSON.stringify({ success: true, message: "Đã lưu thông tin nhân sự vào CSDL D1!", id: empId }), { headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
     }
@@ -13841,7 +14134,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           }));
           return new Response(JSON.stringify({ success: true, data: mapped }), { headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
 
@@ -13869,7 +14162,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           await recordAuditLog(user, "hr", "SAVE_CONTRACT", contractId, null, body, request);
           return new Response(JSON.stringify({ success: true, message: "Đã lưu hợp đồng lao động vào D1!", id: contractId }), { headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
     }
@@ -13898,7 +14191,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           }));
           return new Response(JSON.stringify({ success: true, data: mapped }), { headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
 
@@ -13926,7 +14219,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           await recordAuditLog(user, "hr", "SAVE_REQUISITION", reqId, null, body, request);
           return new Response(JSON.stringify({ success: true, message: "Đã lưu yêu cầu tuyển dụng vào D1!", id: reqId }), { headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
     }
@@ -13957,7 +14250,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           });
           return new Response(JSON.stringify({ success: true, data: mapped }), { headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
 
@@ -13984,7 +14277,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           await recordAuditLog(user, "hr", "SAVE_ONBOARDING", onbId, null, body, request);
           return new Response(JSON.stringify({ success: true, message: "Đã cập nhật tiến trình Onboarding vào D1!", id: onbId }), { headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
     }
@@ -14012,7 +14305,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           const { results } = await env.DB.prepare("SELECT * FROM finance_targets WHERE year = ?").bind(Number(year)).all();
           return new Response(JSON.stringify({ success: true, data: results || [] }), { headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
 
@@ -14038,7 +14331,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           await recordAuditLog(user, "finance", "SAVE_TARGET", tgtId, null, body, request);
           return new Response(JSON.stringify({ success: true, message: "Đã lưu chỉ tiêu tài chính vào D1!", id: tgtId }), { headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
     }
@@ -14080,7 +14373,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           if (result.success) await recordAuditLog(user, "maintenance", "CREATE_MACHINE", (result.data && result.data.id) || null, null, body, request);
           return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
 
@@ -14098,7 +14391,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           if (result.success) await recordAuditLog(user, "maintenance", "UPDATE_MACHINE", machineId, null, body, request);
           return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
 
@@ -14115,7 +14408,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           if (result.success) await recordAuditLog(user, "maintenance", "DELETE_MACHINE", machineId, null, null, request);
           return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
     }
@@ -14162,7 +14455,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           await recordAuditLog(user, "maintenance", "CREATE_TICKET", ticketId, null, body, request);
           return new Response(JSON.stringify({ success: true, message: "Đã tạo ticket bảo trì sự cố thành công!", id: ticketId }), { headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
 
@@ -14215,7 +14508,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           await recordAuditLog(user, "maintenance", "UPDATE_TICKET_STATUS", id, { status: ticket.status }, { status }, request);
           return new Response(JSON.stringify({ success: true, message: "Đã cập nhật trạng thái ticket bảo trì!", id, status }), { headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
     }
@@ -14333,7 +14626,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
         if (result.success) await recordAuditLog(user, "maintenance", "CREATE_EMPLOYEE", (result.data && result.data.id) || null, null, { ...body, password: undefined }, request);
         return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
       } catch (err) {
-        return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
       }
     }
 
@@ -14353,7 +14646,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
         if (result.success) await recordAuditLog(user, "maintenance", "UPDATE_EMPLOYEE", employeeId, null, { ...body, password: undefined }, request);
         return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
       } catch (err) {
-        return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
       }
     }
     if (employeeIdMatch && request.method === "DELETE") {
@@ -14370,7 +14663,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
         if (result.success) await recordAuditLog(user, "maintenance", "DELETE_EMPLOYEE", employeeId, null, null, request);
         return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
       } catch (err) {
-        return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
       }
     }
 
@@ -14402,7 +14695,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
         if (result.success) await recordAuditLog(user, "maintenance", "CREATE_FAILURE_CATEGORY", (result.data && result.data.id) || null, null, body, request);
         return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
       } catch (err) {
-        return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
       }
     }
 
@@ -14422,7 +14715,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
         if (result.success) await recordAuditLog(user, "maintenance", "UPDATE_FAILURE_CATEGORY", failureCategoryId, null, body, request);
         return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
       } catch (err) {
-        return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
       }
     }
     if (failureCategoryIdMatch && request.method === "DELETE") {
@@ -14439,7 +14732,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
         if (result.success) await recordAuditLog(user, "maintenance", "DELETE_FAILURE_CATEGORY", failureCategoryId, null, null, request);
         return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
       } catch (err) {
-        return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
       }
     }
 
@@ -14519,7 +14812,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
         if (result.success) await recordAuditLog(user, "maintenance", "CREATE_CATEGORY", (result.data && result.data.id) || null, null, body, request);
         return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
       } catch (err) {
-        return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
       }
     }
 
@@ -14539,7 +14832,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
         if (result.success) await recordAuditLog(user, "maintenance", "UPDATE_CATEGORY", categoryId, null, body, request);
         return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
       } catch (err) {
-        return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
       }
     }
     if (categoryIdMatch && request.method === "DELETE") {
@@ -14556,7 +14849,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
         if (result.success) await recordAuditLog(user, "maintenance", "DELETE_CATEGORY", categoryId, null, null, request);
         return new Response(JSON.stringify(result), { status: result.success ? 200 : (result.status || 502), headers: SECURE_JSON_HEADERS });
       } catch (err) {
-        return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
       }
     }
 
@@ -14596,7 +14889,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           await recordAuditLog(user, "qc", "CREATE_DEFECT_REPORT", qcId, null, body, request);
           return new Response(JSON.stringify({ success: true, message: "Đã tạo báo cáo lỗi QC thành công!", id: qcId }), { headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
 
@@ -14648,7 +14941,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           await recordAuditLog(user, "qc", "UPDATE_DEFECT_STATUS", id, { status: defect.status }, { status }, request);
           return new Response(JSON.stringify({ success: true, message: "Đã cập nhật trạng thái báo cáo QC!", id, status }), { headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
     }
@@ -14680,7 +14973,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           await recordAuditLog(user, "qc", "CREATE_KAIZEN", kaizenId, null, body, request);
           return new Response(JSON.stringify({ success: true, message: "Đã nộp đề xuất Kaizen thành công!", id: kaizenId }), { headers: SECURE_JSON_HEADERS });
         } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
     }
@@ -14865,7 +15158,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
         }
         return new Response(JSON.stringify({ success: true, message: "Đã đánh dấu thông báo là đã đọc" }), { headers: SECURE_JSON_HEADERS });
       } catch (err) {
-        return new Response(JSON.stringify({ success: false, error: err.message, stack: String(err.stack || err) }), { status: 500, headers: SECURE_JSON_HEADERS });
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
       }
     }
 
@@ -16194,7 +16487,10 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
               LIMIT 100
             `).all().catch(() => ({ results: [] }));
 
-            return new Response(JSON.stringify({ success: true, data: results || [] }), { headers: SECURE_JSON_HEADERS });
+            // mmtb_token là khóa truy cập máy: chỉ BGĐ/Admin được thấy
+            const canSeeToken = Boolean(__authSession && __authSession.isExecutiveOrAdmin);
+            const rows = (results || []).map((r) => (canSeeToken ? r : { ...r, mmtb_token: r.mmtb_token ? "••••" : null }));
+            return new Response(JSON.stringify({ success: true, data: rows }), { headers: SECURE_JSON_HEADERS });
           } catch (err) {
             return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
           }
@@ -16252,39 +16548,32 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
             return new Response(JSON.stringify({ success: false, error: "MISSING_DATA", message: "Thiếu dữ liệu ảnh đính kèm!" }), { status: 400, headers: SECURE_JSON_HEADERS });
           }
 
-          const mimeType = file_type || "image/jpeg";
-          if (!mimeType.startsWith("image/")) {
-            return new Response(JSON.stringify({ success: false, error: "INVALID_FILE_TYPE", message: "Chỉ chấp nhận định dạng file hình ảnh (.jpg, .png, .webp)!" }), { status: 400, headers: SECURE_JSON_HEADERS });
+          // Chỉ nhận ảnh JPEG/PNG/WebP dạng data URL, tối đa 10MB; định dạng xác định theo byte đầu file (không tin file_type gửi lên, chặn SVG/HTML)
+          const badType = () => new Response(JSON.stringify({ success: false, error: "INVALID_FILE_TYPE", message: "Chỉ chấp nhận định dạng file hình ảnh (.jpg, .png, .webp)!" }), { status: 400, headers: SECURE_JSON_HEADERS });
+          const dm = /^data:image\/[a-z0-9.+-]+;base64,([A-Za-z0-9+/=\s]+)$/i.exec(String(image));
+          if (!dm) return badType();
+          const b64 = dm[1].replace(/\s+/g, "");
+          if (b64.length * 0.75 > 10 * 1024 * 1024) {
+            return new Response(JSON.stringify({ success: false, error: "TOO_LARGE", message: "Ảnh vượt quá 10MB" }), { status: 400, headers: SECURE_JSON_HEADERS });
           }
+          const binaryData = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+          const isSig = (arr) => arr.every((v, i) => binaryData[i] === v);
+          let mimeType = "", ext = "";
+          if (isSig([0xff, 0xd8, 0xff])) { mimeType = "image/jpeg"; ext = "jpg"; }
+          else if (isSig([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) { mimeType = "image/png"; ext = "png"; }
+          else if (isSig([0x52, 0x49, 0x46, 0x46]) && binaryData[8] === 0x57 && binaryData[9] === 0x45 && binaryData[10] === 0x42 && binaryData[11] === 0x50) { mimeType = "image/webp"; ext = "webp"; }
+          if (!mimeType) return badType();
 
           const currentYear = new Date().getFullYear();
           const currentMonth = String(new Date().getMonth() + 1).padStart(2, "0");
           const fileUuid = `img_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
-          const r2Key = `gemba/photos/${currentYear}/${currentMonth}/${fileUuid}.jpg`;
+          const r2Key = `gemba/photos/${currentYear}/${currentMonth}/${fileUuid}.${ext}`;
 
-          let finalUrl = image;
-          if (env.BUCKET && typeof env.BUCKET.put === "function") {
-            try {
-              let binaryData;
-              if (image.startsWith("data:")) {
-                const base64Str = image.split(",")[1];
-                const binStr = typeof atob === "function" ? atob(base64Str) : Buffer.from(base64Str, "base64").toString("binary");
-                const len = binStr.length;
-                const bytes = new Uint8Array(len);
-                for (let i = 0; i < len; i++) bytes[i] = binStr.charCodeAt(i);
-                binaryData = bytes;
-              } else {
-                binaryData = image;
-              }
-
-              await env.BUCKET.put(r2Key, binaryData, {
-                httpMetadata: { contentType: mimeType }
-              });
-              finalUrl = `https://vpchuoiskechers.tbsgroup2026.workers.dev/cdn-r2/${r2Key}`;
-            } catch (r2Err) {
-              console.warn("R2 storage upload attempt warning:", r2Err);
-            }
+          if (!env.BUCKET || typeof env.BUCKET.put !== "function") {
+            return new Response(JSON.stringify({ success: false, error: "NO_STORAGE", message: "Chưa cấu hình kho lưu ảnh (R2)" }), { status: 500, headers: SECURE_JSON_HEADERS });
           }
+          await env.BUCKET.put(r2Key, binaryData, { httpMetadata: { contentType: mimeType } });
+          const finalUrl = `${url.origin}/cdn-r2/${r2Key}`;
 
           const attachId = `att_${Date.now()}`;
           if (record_id) {
@@ -18405,7 +18694,8 @@ async function ensureKaizenGuestTable(env) {
       if (request.method === "OPTIONS") {
         return new Response(null, { status: 204, headers: CORS });
       }
-      return new Response(JSON.stringify({ success: true, message: `Endpoint ${url.pathname} handled by API fallback`, data: [] }), { status: 200, headers: CORS });
+      // API không tồn tại: báo 404 rõ ràng (trước đây trả success: true khiến giao diện tưởng thao tác thành công)
+      return new Response(JSON.stringify({ success: false, error: "NOT_FOUND", message: `API ${url.pathname} không tồn tại` }), { status: 404, headers: CORS });
     }
 
     // Default Fallback: Serve Next.js Static Export Assets with HTML extension resolution

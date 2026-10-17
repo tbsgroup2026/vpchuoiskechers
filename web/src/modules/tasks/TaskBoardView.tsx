@@ -85,7 +85,9 @@ export default function TaskBoardView() {
   const [cards, setCards] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isUnauthenticated, setIsUnauthenticated] = useState(false);
-  const [staffMembers, setStaffMembers] = useState<Array<{ empCode: string; name: string; position: string; dept: string }>>([]);
+  // Toàn bộ nhân sự (sys_users) và phòng ban theo Cột J "Phòng ban NEW" - cùng cách phân loại với trang /admin
+  const [allStaff, setAllStaff] = useState<Array<{ empCode: string; name: string; position: string; dept: string }>>([]);
+  const [staffDept, setStaffDept] = useState<string>("");
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -124,31 +126,51 @@ export default function TaskBoardView() {
     const fetchStaff = async () => {
       try {
         const token = typeof window !== "undefined" ? localStorage.getItem("tbs_token") || sessionStorage.getItem("tbs_token") : "";
-        const deptFilter = isExec ? (deptParam || "") : (userDeptCode || deptParam || "");
-        const url = deptFilter ? `/api/users?department=${encodeURIComponent(deptFilter)}` : "/api/users";
-        const res = await fetch(url, {
+        const res = await fetch("/api/users", {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
+          cache: "no-store",
         });
-        if (res.ok) {
-          const json = await res.json();
-          const users = json.users || json.data || [];
-          if (Array.isArray(users) && users.length > 0) {
-            setStaffMembers(
-              users.map((u: any) => ({
-                empCode: String(u.emp_code || u.empCode || u.id),
-                name: String(u.name || ""),
-                position: String(u.title || u.vtcv_hien_tai || "Cán Bộ"),
-                dept: String(u.department || u.phong_ban_hien_tai || activeDepartment || ""),
-              }))
-            );
-          }
-        }
+        if (!res.ok) return;
+        const json = await res.json();
+        const users = json.users || json.data || [];
+        if (!Array.isArray(users)) return;
+        // Giống getDepartmentName ở /admin: Cột J (phong_ban_moi), rồi department, mặc định Văn Phòng Chuỗi SKECHERS
+        const deptOf = (u: any) => {
+          const d = String(u.phong_ban_moi || u.department || "").trim();
+          return !d || d === "-" || d === "---" ? "Văn Phòng Chuỗi SKECHERS" : d;
+        };
+        const list = users.map((u: any) => ({
+          empCode: String(u.emp_code || u.empCode || u.id),
+          name: String(u.name || ""),
+          position: String(
+            (u.vtcv_hien_tai && u.vtcv_hien_tai !== "-" ? u.vtcv_hien_tai : "") || u.title || u.vtcv_sap_xep || "Cán Bộ"
+          ),
+          dept: deptOf(u),
+        }));
+        setAllStaff(list);
+        // Phòng ban mặc định: phòng ban của chính người đăng nhập theo Cột J
+        const me = String(currentUser?.empCode || "").toUpperCase();
+        const mine = list.find((s) => s.empCode.toUpperCase() === me);
+        setStaffDept((prev) => prev || mine?.dept || (isExec && list[0] ? list[0].dept : ""));
       } catch (e) {
         console.warn("Failed to fetch staff members", e);
       }
     };
-    fetchStaff();
-  }, [deptParam, userDeptCode, isExec, activeDepartment]);
+    if (currentUser) fetchStaff();
+  }, [currentUser, isExec]);
+
+  // Danh sách phòng ban thật (Cột J) kèm số nhân sự, sắp xếp như /admin
+  const staffDepartments = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const s of allStaff) m.set(s.dept, (m.get(s.dept) || 0) + 1);
+    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0], "vi")).map(([name, count]) => ({ name, count }));
+  }, [allStaff]);
+
+  // Nhân viên phòng ban: BGĐ/Admin chọn phòng ban; người khác chỉ thấy phòng ban của mình
+  const staffMembers = useMemo(
+    () => (staffDept ? allStaff.filter((s) => s.dept === staffDept) : []),
+    [allStaff, staffDept]
+  );
 
   // Search & Filter States
   const [searchQuery, setSearchQuery] = useState("");
@@ -1140,11 +1162,30 @@ export default function TaskBoardView() {
                     >
                       <span>← Quay lại Bảng Kanban</span>
                     </button>
+                    {/* Phòng ban theo Cột J "Phòng ban NEW" (cùng danh mục với /admin) */}
+                    {isExec ? (
+                      <select
+                        value={staffDept}
+                        onChange={(e) => setStaffDept(e.target.value)}
+                        className="max-w-[60vw] px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        aria-label="Chọn phòng ban"
+                      >
+                        {staffDepartments.map((d) => (
+                          <option key={d.name} value={d.name}>
+                            {d.name} ({d.count} nhân sự)
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-800">
+                        {staffDept || "Chưa xác định phòng ban"} ({staffMembers.length} nhân sự)
+                      </span>
+                    )}
                   </div>
                   <DepartmentWorkloadReport
                     tasks={workloadTasks}
                     staffList={workloadStaff}
-                    deptName={deptParam || activeDepartment}
+                    deptName={staffDept || deptParam || activeDepartment}
                     isManager={isTP}
                     onTaskReassigned={() => {
                       if (selectedBoardId) fetchCards(selectedBoardId);

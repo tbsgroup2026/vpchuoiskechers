@@ -34,6 +34,10 @@ export interface ScmMe {
   bypass: boolean;
   access: Record<ScreenKey, Access>;
   canApprovePermissions: boolean;
+  /** Được chọn mọi nhà máy (BGĐ/BQT/Admin hoặc được cấp quyền); false: chỉ vào nhà máy trực thuộc */
+  canPickSite: boolean;
+  /** Nhà máy trực thuộc ("" nếu chưa gán) */
+  homeSite: string;
   site: string;
   today: string;
 }

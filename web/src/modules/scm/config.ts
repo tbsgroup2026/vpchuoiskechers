@@ -64,6 +64,23 @@ export const SITES = [
 ] as const;
 export type SiteKey = (typeof SITES)[number]["key"];
 
+/** Đoán nhà máy trực thuộc từ tên phòng ban / VTCV (dùng khi admin chưa gán tay); không đoán được thì trả "" */
+export function guessSiteFromText(text: string): SiteKey | "" {
+  const t = String(text || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/gi, "d")
+    .toUpperCase();
+  if (/\bKG\s*-?\s*1\b|KIEN GIANG\s*1\b/.test(t)) return "KG1";
+  if (/\bKG\s*-?\s*2\b|KIEN GIANG\s*2\b/.test(t)) return "KG2";
+  if (/\bKG\s*-?\s*3\b|KIEN GIANG\s*3\b/.test(t)) return "KG3";
+  if (/MIEN DONG|\bNMMD\b/.test(t)) return "NMMD";
+  if (/HOAN THIEN DE|\bHTD\b/.test(t)) return "HTD";
+  if (/PHAN XUONG MAU|\bPXM\b/.test(t)) return "PXM";
+  if (/VAN PHONG CHUOI|\bVPC\b/.test(t)) return "VPC";
+  return "";
+}
+
 // ─── Ngưỡng cấu hình (bảng scm_settings) ─────────────────────────────────────
 
 export interface ScmSettings {

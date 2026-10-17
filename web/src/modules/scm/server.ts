@@ -1,7 +1,7 @@
 // API /api/scm/* và tác vụ cron của module SCM, chạy trong Cloudflare Worker (web/public/_worker.js import file này).
 // Worker truyền vào các helper sẵn có (xác thực, audit_logs, thông báo) để không viết lại cách auth/log.
 
-import { DEFAULT_SETTINGS, OWNER_DEPT_NAME, OWNER_TO_SCM, SITES, STEPS, STEP_NOS, parseSettings, type OwnerDept, type ScmDept, type ScmSettings, type StepNo } from "./config";
+import { DEFAULT_SETTINGS, OWNER_DEPT_NAME, OWNER_TO_SCM, SITES, STEPS, STEP_NOS, guessSiteFromText, parseSettings, type OwnerDept, type ScmDept, type ScmSettings, type StepNo } from "./config";
 import {
   canComplete,
   computeBottlenecks,
@@ -196,6 +196,26 @@ export async function resolveScmUser(db: D1, user: AuthUser): Promise<ScmUser> {
   return { depts, isHead, bypass };
 }
 
+/** Phạm vi nhà máy: ai được chọn mọi nhà máy, ai chỉ vào nhà máy trực thuộc */
+export interface SiteScope {
+  canPickSite: boolean;
+  /** Nhà máy trực thuộc ("" nếu chưa gán và không đoán được) */
+  homeSite: string;
+  /** Nhà máy bị ép cho mọi request (null: được chọn tự do) */
+  forced: string | null;
+}
+
+async function resolveSiteScope(db: D1, empCode: string, scmUser: ScmUser): Promise<SiteScope> {
+  const row = await db.prepare("SELECT home_site, all_sites FROM scm_user_sites WHERE emp_code = ?").bind(empCode.toUpperCase()).first<{ home_site: string | null; all_sites: number }>().catch(() => null);
+  const canPickSite = scmUser.bypass || scmUser.depts.includes("BDH") || Number(row?.all_sites) === 1;
+  let homeSite = row?.home_site && SITE_KEYS.includes(row.home_site) ? row.home_site : "";
+  if (!homeSite) {
+    const p = await employeeProfile(db, empCode);
+    if (p) homeSite = guessSiteFromText(`${p.department} ${p.vtcv} ${p.title}`);
+  }
+  return { canPickSite, homeSite, forced: canPickSite ? null : homeSite || "NONE" };
+}
+
 /** Người nhận theo phòng ban: gán tay trước, sau đó người được map từ dữ liệu CB-CNV */
 async function deptRecipients(db: D1, dept: ScmDept, headsOnly: boolean): Promise<string[]> {
   const out = new Set<string>();
@@ -227,7 +247,8 @@ async function loadOrders(db: D1, site: string, settings: ScmSettings, today: st
   if (orderId) {
     where.push("o.id = ?");
     binds.push(orderId);
-  } else if (site && site !== "ALL") {
+  }
+  if (site && site !== "ALL") {
     where.push("o.site = ?");
     binds.push(site);
   }
@@ -328,6 +349,15 @@ export async function handleScmApi(request: Request, env: { DB: D1; BUCKET?: R2L
     const body = (method === "POST" || method === "PUT") && !isMultipart ? ((await request.json().catch(() => ({}))) as Record<string, unknown>) : {};
 
     if (access.progress === "lock") return fail(403, "FORBIDDEN", "Bạn không có quyền xem module này");
+    // Chỉ BGĐ/BQT/Admin và người làm trong mảng này (thuộc một phòng của module) mới vào được
+    if (!scmUser.bypass && !scmUser.depts.length) return fail(403, "NOT_MEMBER", "Module này chỉ dành cho bộ phận Kế hoạch, Mua hàng, Kho, KD·CN·QC, Số hóa và Ban điều hành");
+    const scope = await resolveSiteScope(db, user.empCode, scmUser);
+    if (scope.forced) {
+      // Tài khoản không được chọn nhà máy: mọi tham số site đều ép về nhà máy trực thuộc
+      url.searchParams.set("site", scope.forced);
+      if (method === "POST" || method === "PUT") body.site = scope.forced;
+    }
+    const lo = (s: string, id?: string) => loadOrders(db, scope.forced ?? s, settings, today, id);
 
     // GET /api/scm/me
     if (resource === "me" && parts.length === 3 && method === "GET") {
@@ -341,7 +371,9 @@ export async function handleScmApi(request: Request, env: { DB: D1; BUCKET?: R2L
         bypass: scmUser.bypass,
         access,
         canApprovePermissions: canApprovePermissions(scmUser),
-        site: pref?.site && (SITE_KEYS.includes(pref.site) || pref.site === "ALL") ? pref.site : "ALL",
+        canPickSite: scope.canPickSite,
+        homeSite: scope.homeSite,
+        site: scope.forced ? (scope.forced === "NONE" ? "" : scope.forced) : pref?.site && (SITE_KEYS.includes(pref.site) || pref.site === "ALL") ? pref.site : "ALL",
         today,
         settings: { production_days: settings.production_days, bom_days: settings.bom_days },
       });
@@ -349,6 +381,7 @@ export async function handleScmApi(request: Request, env: { DB: D1; BUCKET?: R2L
 
     // PUT /api/scm/me/site
     if (resource === "me" && parts[3] === "site" && method === "PUT") {
+      if (!scope.canPickSite) return reply({ success: true, site: scope.homeSite });
       const site = str(body.site, 10).toUpperCase();
       if (site !== "ALL" && !SITE_KEYS.includes(site)) return fail(400, "BAD_SITE", "Site không hợp lệ");
       await db
@@ -358,12 +391,37 @@ export async function handleScmApi(request: Request, env: { DB: D1; BUCKET?: R2L
       return reply({ success: true, site });
     }
 
+    if (scope.forced === "NONE") return fail(403, "NO_SITE", "Tài khoản chưa được gán nhà máy trực thuộc. Liên hệ Ban điều hành hoặc Admin để được gán.");
+
+    // GET/PUT /api/scm/user-sites: gán nhà máy trực thuộc và quyền xem mọi nhà máy (chỉ Admin/BGĐ)
+    if (resource === "user-sites") {
+      if (!scmUser.bypass && !scmUser.depts.includes("BDH")) return fail(403, "FORBIDDEN", "Chỉ Ban điều hành hoặc Admin được phân nhà máy");
+      if (method === "GET") {
+        const { results } = await db.prepare("SELECT emp_code, home_site, all_sites, updated_by, updated_at FROM scm_user_sites ORDER BY emp_code LIMIT 500").all();
+        return reply({ success: true, items: results });
+      }
+      if (method === "PUT") {
+        const emp = str(body.empCode, 30).toUpperCase();
+        const home = str(body.homeSite, 10).toUpperCase();
+        const all = body.allSites ? 1 : 0;
+        if (!/^[A-Z0-9_-]{3,30}$/.test(emp)) return fail(400, "BAD_INPUT", "MSNV không hợp lệ");
+        if (home && !SITE_KEYS.includes(home)) return fail(400, "BAD_SITE", "Nhà máy không hợp lệ");
+        const before = await db.prepare("SELECT home_site, all_sites FROM scm_user_sites WHERE emp_code = ?").bind(emp).first();
+        await db
+          .prepare("INSERT INTO scm_user_sites (emp_code, home_site, all_sites, created_by, updated_by) VALUES (?, ?, ?, ?, ?) ON CONFLICT(emp_code) DO UPDATE SET home_site = excluded.home_site, all_sites = excluded.all_sites, updated_at = CURRENT_TIMESTAMP, updated_by = excluded.updated_by")
+          .bind(emp, home || null, all, user.empCode, user.empCode)
+          .run();
+        await writeAudit(db, request, user, "SET_USER_SITE", emp, before ?? null, { home_site: home || null, all_sites: all });
+        return reply({ success: true });
+      }
+    }
+
     const site = str(url.searchParams.get("site") || "ALL", 10).toUpperCase();
 
     // GET /api/scm/overview
     // GET /api/scm/sites: tóm tắt từng nhà máy cho màn chọn nhà máy (số đơn, trễ, bị chặn, bộ phận nghẽn nhất)
     if (resource === "sites" && method === "GET") {
-      const orders = await loadOrders(db, "ALL", settings, today);
+      const orders = await lo("ALL");
       const summarize = (list: LoadedOrder[]) => {
         const active = list.filter((o) => o.view.state !== "complete");
         const has = (o: LoadedOrder, st: string) => o.view.steps.some((s) => s.status === st);
@@ -381,12 +439,12 @@ export async function handleScmApi(request: Request, env: { DB: D1; BUCKET?: R2L
         success: true,
         today,
         all: summarize(orders),
-        sites: SITES.map((s) => ({ key: s.key, name: s.name, ...summarize(orders.filter((o) => o.row.site === s.key)) })),
+        sites: SITES.filter((s) => !scope.forced || s.key === scope.forced).map((s) => ({ key: s.key, name: s.name, ...summarize(orders.filter((o) => o.row.site === s.key)) })),
       });
     }
 
     if (resource === "overview" && method === "GET") {
-      const orders = await loadOrders(db, site, settings, today);
+      const orders = await lo(site);
       const active = orders.filter((o) => o.view.state !== "complete");
       const hasStatus = (o: LoadedOrder, st: string) => o.view.steps.some((s) => s.status === st);
       const plants = Array.from(new Set(orders.map((o) => o.row.plant).filter(Boolean))).sort();
@@ -421,7 +479,7 @@ export async function handleScmApi(request: Request, env: { DB: D1; BUCKET?: R2L
         const sort = str(url.searchParams.get("sort"), 20) || "ship";
         const page = Math.max(1, int(url.searchParams.get("page"), 1));
         const pageSize = Math.min(50, Math.max(1, int(url.searchParams.get("pageSize"), 10)));
-        let list = await loadOrders(db, site, settings, today);
+        let list = await lo(site);
         if (q) list = list.filter((o) => o.row.code.toUpperCase().includes(q) || String(o.row.plant || "").toUpperCase().includes(q) || String(o.row.style || "").toUpperCase().includes(q));
         if (plant) list = list.filter((o) => o.row.plant === plant);
         if (["blocked", "late", "on_track", "complete"].includes(status)) list = list.filter((o) => o.view.state === status);
@@ -477,7 +535,7 @@ export async function handleScmApi(request: Request, env: { DB: D1; BUCKET?: R2L
         return reply({ success: true, id, infoDeadline: view.infoDeadline });
       }
 
-      const [order] = orderId ? await loadOrders(db, "ALL", settings, today, orderId) : [];
+      const [order] = orderId ? await lo("ALL", orderId) : [];
       if (orderId && !order) return fail(404, "NOT_FOUND", "Không tìm thấy đơn hàng");
 
       // GET /api/scm/orders/:id
@@ -641,7 +699,7 @@ export async function handleScmApi(request: Request, env: { DB: D1; BUCKET?: R2L
       fail,
       audit: (action, recordId, before, after) => writeAudit(db, request, user, action, recordId, before, after),
       notifyDept,
-      loadOrders: (s, id) => loadOrders(db, s, settings, today, id),
+      loadOrders: (s, id) => lo(s, id),
       completeStep: (o, n, note) => stepCompletion(db, o, n, user.empCode, note, today, settings),
     });
     if (step2) return step2;

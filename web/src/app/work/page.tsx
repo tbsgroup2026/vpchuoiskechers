@@ -872,6 +872,18 @@ function WorkDashboardPage({ initialDept }: { initialDept?: string | null }) {
     return getCurrentUser();
   }, [isMounted, userInfo]);
 
+  // Thành viên module SCM (Kế hoạch, Mua hàng, Kho, KD·CN·QC, Số hóa, BGĐ) do server xác nhận
+  // null: đang kiểm tra (chưa đẩy người dùng ra khỏi ?dept=logistics)
+  const [scmMember, setScmMember] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!isMounted) return;
+    let alive = true;
+    fetch("/api/scm/me", { cache: "no-store" })
+      .then((r) => { if (alive) setScmMember(r.ok); })
+      .catch(() => { if (alive) setScmMember(false); });
+    return () => { alive = false; };
+  }, [isMounted, currentUser]);
+
   const visibleDepartments = useMemo(() => {
     const activeUser = currentUser || (isMounted ? getCurrentUser() : null) || getSystemUser("202608001");
     const normalizedCode = normalizeEmpCode(activeUser?.empCode || "202608001");
@@ -887,11 +899,12 @@ function WorkDashboardPage({ initialDept }: { initialDept?: string | null }) {
       return departments;
     }
 
-    return departments.filter((dept) => allowedModules.includes(dept.id));
-  }, [currentUser, departments]);
+    return departments.filter((dept) => allowedModules.includes(dept.id) || (dept.id === "logistics" && scmMember === true));
+  }, [currentUser, departments, scmMember]);
 
   useEffect(() => {
     if (selectedDept && !visibleDepartments.some((d) => d.id === selectedDept)) {
+      if (selectedDept === "logistics" && scmMember === null) return; // chờ server xác nhận quyền module
       setSelectedDept(null);
     } else if (selectedDept) {
       const activeObj = departments.find((d) => d.id === selectedDept);
@@ -905,7 +918,7 @@ function WorkDashboardPage({ initialDept }: { initialDept?: string | null }) {
         });
       }
     }
-  }, [visibleDepartments, selectedDept, currentUser, departments]);
+  }, [visibleDepartments, selectedDept, currentUser, departments, scmMember]);
 
   const activeDeptObj = departments.find((d) => d.id === selectedDept);
 

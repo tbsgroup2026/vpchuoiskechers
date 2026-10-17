@@ -175,7 +175,19 @@ export default function ScmModule() {
 
   if (!me) return <OverviewSkeleton />;
 
-  if (site === null) {
+  // Tài khoản chỉ thuộc một nhà máy: không có màn chọn, không đổi được nhà máy
+  if (!me.canPickSite && !me.homeSite) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center space-y-3">
+        <IconLock size={28} className="mx-auto text-slate-400" />
+        <p className="text-sm font-bold text-slate-800">Tài khoản chưa được gán nhà máy trực thuộc</p>
+        <p className="text-xs text-slate-500">Liên hệ Ban điều hành hoặc Admin để được gán nhà máy, sau đó tải lại trang.</p>
+      </div>
+    );
+  }
+  const effectiveSite = me.canPickSite ? site : me.homeSite;
+
+  if (effectiveSite === null) {
     return (
       <div className="font-sans text-slate-900">
         <ScmSitePicker me={me} onPick={pickSite} />
@@ -184,18 +196,19 @@ export default function ScmModule() {
   }
 
   const access = me.access[screen ?? "progress"];
+  const siteKey: string = effectiveSite;
   return (
     <div className="font-sans text-slate-900">
       {screen === null ? (
-        <ScmOverview me={me} site={site} onChangeSite={leaveSite} onOpen={go} />
+        <ScmOverview me={me} site={siteKey} onChangeSite={me.canPickSite ? leaveSite : undefined} onOpen={go} />
       ) : access === "lock" ? (
         <Pending title={SCREENS.find((s) => s.key === screen)?.name ?? ""} onBack={() => go(null)} locked />
       ) : screen === "progress" ? (
-        <ScmProgress me={me} site={site} onBack={() => go(null)} notify={notify} />
+        <ScmProgress me={me} site={siteKey} onBack={() => go(null)} notify={notify} />
       ) : screen === "planning" ? (
-        <ScmPlanning me={me} site={site} onBack={() => go(null)} notify={notify} onSiteChange={changeSite} />
+        <ScmPlanning me={me} site={siteKey} onBack={() => go(null)} notify={notify} onSiteChange={changeSite} />
       ) : screen === "purchasing" ? (
-        <ScmPurchasing me={me} site={site} onBack={() => go(null)} notify={notify} />
+        <ScmPurchasing me={me} site={siteKey} onBack={() => go(null)} notify={notify} />
       ) : (
         <Pending title={SCREENS.find((s) => s.key === screen)?.name ?? ""} phase={PHASE_OF[screen]} warehouse={screen === "warehouse"} onBack={() => go(null)} />
       )}
@@ -259,7 +272,7 @@ const QUICK: { title: string; desc: string; screen: ScreenKey; anchor: string; i
   { title: "Báo cáo KPI tuần", desc: "Phát hành báo cáo KPI phòng ban vào thứ Sáu.", screen: "kpi", anchor: "phat-hanh", icon: IconReportAnalytics },
 ];
 
-function ScmOverview({ me, site, onChangeSite, onOpen }: { me: ScmMe; site: string; onChangeSite: () => void; onOpen: (s: ScreenKey, anchor?: string) => void }) {
+function ScmOverview({ me, site, onChangeSite, onOpen }: { me: ScmMe; site: string; onChangeSite?: () => void; onOpen: (s: ScreenKey, anchor?: string) => void }) {
   const week = isoWeek(me.today);
   const t = Math.floor(diffDays(me.today, PROJECT_START) / 7) + 1;
   const badgeOf = (screen: ScreenKey) => {
@@ -295,13 +308,15 @@ function ScmOverview({ me, site, onChangeSite, onOpen }: { me: ScmMe; site: stri
               Số hóa vật tư & cung ứng. Dữ liệu nhập một lần tại nguồn, mọi bộ phận xem chung tiến độ, chỉ sửa màn hình của mình.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onChangeSite}
-            className="inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/10 px-4 py-2 text-xs font-bold text-white transition hover:bg-white/20 focus:outline-none focus-visible:ring-4 focus-visible:ring-white/40"
-          >
-            <IconArrowsExchange size={16} /> Đổi nhà máy
-          </button>
+          {onChangeSite ? (
+            <button
+              type="button"
+              onClick={onChangeSite}
+              className="inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/10 px-4 py-2 text-xs font-bold text-white transition hover:bg-white/20 focus:outline-none focus-visible:ring-4 focus-visible:ring-white/40"
+            >
+              <IconArrowsExchange size={16} /> Đổi nhà máy
+            </button>
+          ) : null}
         </div>
       </div>
 

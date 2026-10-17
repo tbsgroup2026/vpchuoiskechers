@@ -22,6 +22,8 @@ export const SCM_DDL: string[] = [
   `CREATE TABLE IF NOT EXISTS scm_purchase_orders (id TEXT PRIMARY KEY, po_no TEXT UNIQUE, order_id TEXT NOT NULL UNIQUE, supplier_id TEXT, activated_at TEXT, activated_by TEXT, issued_at TEXT, issued_by TEXT, ${AUDIT_COLS})`,
   `CREATE TABLE IF NOT EXISTS scm_inbound_plan (id TEXT PRIMARY KEY, po_id TEXT NOT NULL, order_id TEXT NOT NULL, eta TEXT, eta_changed_from TEXT, week_start TEXT, sent_to_wh_at TEXT, sent_by TEXT, ${AUDIT_COLS})`,
   `CREATE TABLE IF NOT EXISTS scm_incidents (id TEXT PRIMARY KEY, order_id TEXT NOT NULL, po_id TEXT, supplier_id TEXT, material TEXT NOT NULL, issue TEXT NOT NULL, plan TEXT, stage TEXT NOT NULL DEFAULT 'CONTACT', opened_at TEXT NOT NULL, closed_at TEXT, confirmed_by TEXT, confirmed_at TEXT, escalation INTEGER NOT NULL DEFAULT 0, escalated_at TEXT, note TEXT, ${AUDIT_COLS})`,
+  // Nhà máy trực thuộc của tài khoản và quyền xem/chọn mọi nhà máy (all_sites = 1)
+  `CREATE TABLE IF NOT EXISTS scm_user_sites (emp_code TEXT PRIMARY KEY, home_site TEXT, all_sites INTEGER NOT NULL DEFAULT 0, ${AUDIT_COLS})`,
   `CREATE TABLE IF NOT EXISTS scm_uploaded_forms (id TEXT PRIMARY KEY, dept TEXT NOT NULL, file_key TEXT NOT NULL, file_name TEXT NOT NULL, size INTEGER NOT NULL DEFAULT 0, content_type TEXT, uploaded_by TEXT, uploaded_at TEXT, ${AUDIT_COLS})`,
 ];
 

@@ -124,3 +124,18 @@ describe("Map người dùng vào phòng ban từ dữ liệu CB-CNV", () => {
     expect(mapUserToDept({ department: "Ban Giám Đốc", title: "Giám đốc nhà máy" }).isHead).toBe(true);
   });
 });
+
+describe("Đoán nhà máy trực thuộc từ phòng ban", () => {
+  it("nhận diện tên có dấu, không dấu và mã viết tắt", async () => {
+    const { guessSiteFromText } = await import("../config");
+    expect(guessSiteFromText("Phòng Kế hoạch - Nhà máy Kiên Giang 1")).toBe("KG1");
+    expect(guessSiteFromText("XƯỞNG MŨI KG2")).toBe("KG2");
+    expect(guessSiteFromText("kho nguyen lieu kg-3")).toBe("KG3");
+    expect(guessSiteFromText("Nhà máy Miền Đông")).toBe("NMMD");
+    expect(guessSiteFromText("Xưởng Hoàn thiện đế")).toBe("HTD");
+    expect(guessSiteFromText("Phân xưởng Mẫu")).toBe("PXM");
+    expect(guessSiteFromText("Văn phòng chuỗi SKECHERS")).toBe("VPC");
+    expect(guessSiteFromText("Phòng Nhân sự")).toBe("");
+    expect(guessSiteFromText("KG12 không phải KG1")).toBe("KG1");
+  });
+});

@@ -1,5 +1,6 @@
 "use client";
 
+import HeaderControls from "@/components/HeaderControls";
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -940,39 +941,8 @@ export default function TaskBoardView() {
             </div>
           </div>
 
-          {/* User Profile & Actions */}
-          <div className="flex items-center gap-3">
-            <button
-              className="relative p-2 text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/70 rounded-full transition"
-              title="Thông báo"
-            >
-              <IconBell size={18} />
-              <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-rose-500 rounded-full ring-2 ring-white"></span>
-            </button>
-
-            <button
-              className="p-2 text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/70 rounded-full transition hidden sm:block"
-              title="Lưới ứng dụng"
-            >
-              <IconGridDots size={18} />
-            </button>
-
-            <div className="h-6 w-px bg-slate-200 hidden sm:block"></div>
-
-            {/* Dynamic User Profile Lockup */}
-            <div className="flex items-center gap-2.5">
-              <UserAvatar name={currentUser?.name || currentUser?.fullName || "Phạm Nguyễn Anh Huy"} size="md" />
-              <div className="hidden xl:block text-left">
-                <div className="text-xs font-black text-slate-900 leading-tight">
-                  {currentUser?.name || currentUser?.fullName || "Phạm Nguyễn Anh Huy"}
-                </div>
-                <div className="text-[10px] text-slate-500 font-medium">
-                  {currentUser?.roleName || currentUser?.position || "NV - Lập trình"}
-                </div>
-              </div>
-              <IconChevronDown size={14} className="text-slate-400 hidden xl:block" />
-            </div>
-          </div>
+          {/* Chuông thông báo, lưới ứng dụng, menu tài khoản dùng chung toàn hệ thống */}
+          <HeaderControls variant="light" className="flex-shrink-0" />
         </header>
 
         {/* Page Main Scroll Area */}

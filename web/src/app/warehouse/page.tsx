@@ -569,7 +569,17 @@ function SessionDetail({ id, me, locMap, locations, notify, autoCamera, onBack }
             <button type="submit" className={btnPrimary}><IconCheck size={14} /> Ghi</button>
             <button type="button" className={btnGhost} onClick={() => setCamera((v) => !v)}><IconCamera size={14} /> {camera ? "Tắt camera" : "Mở camera"}</button>
           </form>
-          {camera ? <BarcodeScanner onDetected={handleCode} onClose={() => setCamera(false)} /> : null}
+          {camera ? (
+            <BarcodeScanner
+              onDetected={(c) => {
+                // Điền mã vào ô nhập như súng bắn mã rồi ghi ngay (tương đương bấm Enter)
+                setCodeInput(c);
+                handleCode(c);
+                setTimeout(() => setCodeInput((v) => (v === c ? "" : v)), 1200);
+              }}
+              onClose={() => setCamera(false)}
+            />
+          ) : null}
           {last ? (
             <div className={`rounded-xl border px-3 py-2 ${last.ok ? "border-emerald-200 bg-emerald-50" : "border-red-200 bg-red-50"}`} aria-live="polite">
               <p className={`text-sm font-black ${last.ok ? "text-emerald-800" : "text-red-700"}`}>{last.text}</p>

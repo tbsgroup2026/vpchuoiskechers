@@ -1,13 +1,18 @@
 "use client";
 
-// Quét barcode/QR bằng camera sau: dùng BarcodeDetector của trình duyệt (Chrome/Edge Android),
-// không có thì nạp ZXing tự host tại /vendor (iPhone/Safari).
-// Camera mở ở độ phân giải cao + lấy nét liên tục; ZXing bật TRY_HARDER để đọc được mã vạch mảnh, nhỏ.
+// Quét barcode/QR bằng camera sau.
+// 1) BarcodeDetector có sẵn của trình duyệt (Chrome/Edge Android).
+// 2) Không có (iPhone/Safari): zxing-cpp chạy WebAssembly qua gói barcode-detector, file .wasm tự host tại /vendor.
+// 3) Không nạp được WebAssembly: ZXing JavaScript tự host tại /vendor.
+// Mỗi lượt chỉ giải mã dải giữa khung (vùng khung xanh) cho ảnh rõ, nhanh; cứ vài lượt thử thêm cả khung hình.
 import React, { useEffect, useRef, useState } from "react";
 import { IconCameraOff } from "@tabler/icons-react";
 
-const ZXING_SRC = "/vendor/zxing-library-0.21.3.min.js";
+const ZXING_JS_SRC = "/vendor/zxing-library-0.21.3.min.js";
+const ZXING_WASM_SRC = "/vendor/zxing_reader-3.1.3.wasm";
 
+type Detector = { detect: (src: CanvasImageSource) => Promise<{ rawValue: string }[]> };
+type DetectorCtor = (new (opts?: { formats: string[] }) => Detector) & { getSupportedFormats?: () => Promise<string[]> };
 type ZXingResult = { getText(): string };
 type ZXingReader = {
   decodeFromConstraints: (constraints: MediaStreamConstraints, video: HTMLVideoElement, cb: (result: ZXingResult | null) => void) => Promise<void>;
@@ -18,12 +23,9 @@ type ZXingGlobal = {
   DecodeHintType: { TRY_HARDER: unknown; POSSIBLE_FORMATS: unknown };
   BarcodeFormat: Record<string, unknown>;
 };
-type Detector = { detect: (src: HTMLVideoElement) => Promise<{ rawValue: string }[]> };
-type DetectorCtor = (new (opts?: { formats: string[] }) => Detector) & { getSupportedFormats?: () => Promise<string[]> };
 
-/** Các loại mã hay gặp trong kho: nhãn vật tư (Code128/39, ITF), mã hàng bán lẻ (EAN/UPC), QR, DataMatrix */
-const ZXING_FORMATS = ["CODE_128", "CODE_39", "CODE_93", "EAN_13", "EAN_8", "UPC_A", "UPC_E", "ITF", "CODABAR", "QR_CODE", "DATA_MATRIX"];
-const NATIVE_FORMATS = ["code_128", "code_39", "code_93", "ean_13", "ean_8", "upc_a", "upc_e", "itf", "codabar", "qr_code", "data_matrix"];
+/** Các loại mã hay gặp trong kho: nhãn vật tư (Code128/39/93, ITF, Codabar), mã hàng bán lẻ (EAN/UPC), QR, DataMatrix */
+const FORMATS = ["code_128", "code_39", "code_93", "ean_13", "ean_8", "upc_a", "upc_e", "itf", "codabar", "qr_code", "data_matrix"];
 
 const VIDEO_CONSTRAINTS: MediaTrackConstraints = {
   facingMode: { ideal: "environment" },
@@ -31,12 +33,31 @@ const VIDEO_CONSTRAINTS: MediaTrackConstraints = {
   height: { ideal: 1080 },
 };
 
-function loadZXing(): Promise<ZXingGlobal> {
+/** Dải giữa khung hình ứng với khung xanh: rộng 90%, cao 40% */
+const CROP = { x: 0.05, y: 0.3, w: 0.9, h: 0.4 };
+
+/** Detector WebAssembly (zxing-cpp); nạp một lần, file .wasm lấy từ server của mình */
+let wasmDetectorPromise: Promise<DetectorCtor> | null = null;
+function loadWasmDetector(): Promise<DetectorCtor> {
+  if (!wasmDetectorPromise) {
+    wasmDetectorPromise = import("barcode-detector/ponyfill").then(async (m) => {
+      await m.prepareZXingModule({
+        overrides: { locateFile: (path: string, prefix: string) => (path.endsWith(".wasm") ? ZXING_WASM_SRC : prefix + path) },
+        fireImmediately: true,
+      });
+      return m.BarcodeDetector as unknown as DetectorCtor;
+    });
+    wasmDetectorPromise.catch(() => { wasmDetectorPromise = null; });
+  }
+  return wasmDetectorPromise;
+}
+
+function loadZXingJs(): Promise<ZXingGlobal> {
   const w = window as unknown as { ZXing?: ZXingGlobal };
   if (w.ZXing) return Promise.resolve(w.ZXing);
   return new Promise((resolve, reject) => {
     const s = document.createElement("script");
-    s.src = ZXING_SRC;
+    s.src = ZXING_JS_SRC;
     s.async = true;
     s.onload = () => (w.ZXing ? resolve(w.ZXing) : reject(new Error("ZXing không nạp được")));
     s.onerror = () => reject(new Error("Không tải được thư viện quét"));
@@ -45,9 +66,9 @@ function loadZXing(): Promise<ZXingGlobal> {
 }
 
 /** Bật lấy nét liên tục nếu camera hỗ trợ (Android); iPhone tự lấy nét nên bỏ qua lỗi */
-function enableContinuousFocus(video: HTMLVideoElement) {
+function enableContinuousFocus(stream: MediaStream | null) {
   try {
-    const track = (video.srcObject as MediaStream | null)?.getVideoTracks()[0];
+    const track = stream?.getVideoTracks()[0];
     const caps = (track?.getCapabilities?.() || {}) as { focusMode?: string[] };
     if (track && caps.focusMode?.includes("continuous")) {
       track.applyConstraints({ advanced: [{ focusMode: "continuous" } as MediaTrackConstraintSet] }).catch(() => null);
@@ -67,7 +88,7 @@ export default function BarcodeScanner({ onDetected, onClose }: { onDetected: (c
   useEffect(() => {
     let stopped = false;
     let stream: MediaStream | null = null;
-    let timer: ReturnType<typeof setInterval> | null = null;
+    let timer: ReturnType<typeof setTimeout> | null = null;
     let reader: ZXingReader | null = null;
 
     const emit = (raw: string) => {
@@ -81,49 +102,88 @@ export default function BarcodeScanner({ onDetected, onClose }: { onDetected: (c
       cbRef.current(code);
     };
 
-    (async () => {
-      try {
-        const video = videoRef.current!;
-        const Native = (window as unknown as { BarcodeDetector?: DetectorCtor }).BarcodeDetector;
-        if (Native) {
-          stream = await navigator.mediaDevices.getUserMedia({ video: VIDEO_CONSTRAINTS, audio: false });
-          if (stopped) return;
-          video.srcObject = stream;
-          await video.play();
-          enableContinuousFocus(video);
-          const supported = (await Native.getSupportedFormats?.().catch(() => [])) || [];
-          const formats = NATIVE_FORMATS.filter((f) => supported.includes(f));
-          const detector = formats.length ? new Native({ formats }) : new Native();
-          setEngine("BarcodeDetector");
-          timer = setInterval(async () => {
-            if (video.readyState < 2) return;
-            try {
-              const found = await detector.detect(video);
-              if (found[0]) emit(found[0].rawValue);
-            } catch {}
-          }, 200);
-        } else {
-          const ZXing = await loadZXing();
-          if (stopped) return;
-          const hints = new Map<unknown, unknown>();
-          hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-          hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, ZXING_FORMATS.map((f) => ZXing.BarcodeFormat[f]).filter((f) => f !== undefined));
-          reader = new ZXing.BrowserMultiFormatReader(hints, 150);
-          setEngine("ZXing");
-          await reader.decodeFromConstraints({ video: VIDEO_CONSTRAINTS, audio: false }, video, (result) => {
-            if (result) emit(result.getText());
-          });
-          enableContinuousFocus(video);
+    /** Vòng quét: cắt dải giữa khung ra canvas rồi giải mã; cứ 3 lượt thử cả khung hình */
+    const runLoop = (video: HTMLVideoElement, detector: Detector) => {
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      let tick = 0;
+      const step = async () => {
+        if (stopped) return;
+        if (video.readyState >= 2 && video.videoWidth && ctx) {
+          const vw = video.videoWidth, vh = video.videoHeight;
+          const full = tick++ % 3 === 2;
+          const sx = full ? 0 : Math.round(vw * CROP.x), sy = full ? 0 : Math.round(vh * CROP.y);
+          const sw = full ? vw : Math.round(vw * CROP.w), sh = full ? vh : Math.round(vh * CROP.h);
+          canvas.width = sw;
+          canvas.height = sh;
+          ctx.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh);
+          try {
+            const found = await detector.detect(canvas);
+            if (found[0]) emit(found[0].rawValue);
+          } catch {}
         }
+        timer = setTimeout(step, 120);
+      };
+      step();
+    };
+
+    (async () => {
+      const video = videoRef.current!;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: VIDEO_CONSTRAINTS, audio: false });
+        if (stopped) { stream.getTracks().forEach((t) => t.stop()); return; }
+        video.srcObject = stream;
+        await video.play();
+        enableContinuousFocus(stream);
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         setError(/Permission|NotAllowed/i.test(msg) ? "Chưa cấp quyền camera. Hãy cho phép camera trong trình duyệt rồi thử lại." : `Không mở được camera: ${msg}`);
+        return;
+      }
+
+      // 1) BarcodeDetector của trình duyệt, nếu hỗ trợ mã vạch 1D
+      const Native = (window as unknown as { BarcodeDetector?: DetectorCtor }).BarcodeDetector;
+      if (Native) {
+        try {
+          const supported = (await Native.getSupportedFormats?.().catch(() => [])) || [];
+          const formats = FORMATS.filter((f) => supported.includes(f));
+          if (formats.includes("code_128")) {
+            setEngine("Trình duyệt");
+            runLoop(video, new Native({ formats }));
+            return;
+          }
+        } catch {}
+      }
+
+      // 2) zxing-cpp WebAssembly
+      try {
+        const Wasm = await loadWasmDetector();
+        if (stopped) return;
+        setEngine("ZXing-C++");
+        runLoop(video, new Wasm({ formats: FORMATS }));
+        return;
+      } catch {}
+
+      // 3) ZXing JavaScript (dự phòng cuối)
+      try {
+        const ZXing = await loadZXingJs();
+        if (stopped) return;
+        stream?.getTracks().forEach((t) => t.stop());
+        const hints = new Map<unknown, unknown>();
+        hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+        reader = new ZXing.BrowserMultiFormatReader(hints, 150);
+        setEngine("ZXing");
+        await reader.decodeFromConstraints({ video: VIDEO_CONSTRAINTS, audio: false }, video, (result) => {
+          if (result) emit(result.getText());
+        });
+      } catch (e) {
+        setError(`Không nạp được bộ quét: ${e instanceof Error ? e.message : String(e)}`);
       }
     })();
 
     return () => {
       stopped = true;
-      if (timer) clearInterval(timer);
+      if (timer) clearTimeout(timer);
       try { reader?.reset(); } catch {}
       stream?.getTracks().forEach((t) => t.stop());
     };
@@ -139,7 +199,7 @@ export default function BarcodeScanner({ onDetected, onClose }: { onDetected: (c
       ) : (
         <>
           <video ref={videoRef} className="w-full max-h-[50vh] object-cover" muted playsInline />
-          <div className="pointer-events-none absolute inset-x-8 top-1/2 -translate-y-1/2 h-24 border-2 border-emerald-400/90 rounded-xl shadow-[0_0_0_9999px_rgba(0,0,0,0.25)]" />
+          <div className="pointer-events-none absolute inset-x-[5%] top-[30%] h-[40%] border-2 border-emerald-400/90 rounded-xl shadow-[0_0_0_9999px_rgba(0,0,0,0.25)]" />
           {engine ? <span className="absolute left-2 top-2 text-[10px] font-semibold text-white/80 bg-black/40 px-2 py-0.5 rounded">{engine}</span> : null}
           <p className="absolute inset-x-2 bottom-2 rounded-lg bg-black/60 px-2 py-1 text-center text-[11px] font-semibold text-white" aria-live="polite">
             {lastCode ? `Đã đọc: ${lastCode}` : "Đưa mã vạch nằm ngang trong khung, cách 10-20 cm"}

@@ -2909,11 +2909,26 @@ function vnTodayIso() {
 
 export default {
   async fetch(request, env, ctx) {
+    let res;
     try {
-      return await this.handleRequest(request, env, ctx);
+      res = await this.handleRequest(request, env, ctx);
     } catch (err) {
       console.error("Worker fetch unhandled exception:", err);
-      return new Response(`System Error: ${err.message}`, { status: 500 });
+      res = new Response("System Error", { status: 500 });
+    }
+    // Header bảo mật chung cho mọi phản hồi (bỏ qua WebSocket); không ghi đè nếu route đã tự đặt
+    if (!res || res.status === 101 || res.webSocket) return res;
+    try {
+      const out = new Response(res.body, res);
+      const setIfMissing = (k, v) => { if (!out.headers.has(k)) out.headers.set(k, v); };
+      setIfMissing("X-Content-Type-Options", "nosniff");
+      setIfMissing("X-Frame-Options", "SAMEORIGIN");
+      setIfMissing("Referrer-Policy", "strict-origin-when-cross-origin");
+      setIfMissing("Strict-Transport-Security", "max-age=31536000");
+      setIfMissing("Permissions-Policy", "geolocation=(self), camera=(self), microphone=()");
+      return out;
+    } catch (e) {
+      return res;
     }
   },
 
@@ -3097,6 +3112,9 @@ export default {
               if (!headers.get("Content-Type")) {
                 headers.set("Content-Type", guessMime(key));
               }
+              // File người dùng tải lên: không cho trình duyệt đoán kiểu và không cho chạy script (SVG/HTML độc hại không đọc được token)
+              headers.set("X-Content-Type-Options", "nosniff");
+              headers.set("Content-Security-Policy", "default-src 'none'; img-src 'self' data:; media-src 'self'; style-src 'unsafe-inline'; sandbox");
               if (obj.httpEtag) {
                 headers.set("ETag", obj.httpEtag);
               }
@@ -16246,7 +16264,10 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
               LIMIT 100
             `).all().catch(() => ({ results: [] }));
 
-            return new Response(JSON.stringify({ success: true, data: results || [] }), { headers: SECURE_JSON_HEADERS });
+            // mmtb_token là khóa truy cập máy: chỉ BGĐ/Admin được thấy
+            const canSeeToken = Boolean(__authSession && __authSession.isExecutiveOrAdmin);
+            const rows = (results || []).map((r) => (canSeeToken ? r : { ...r, mmtb_token: r.mmtb_token ? "••••" : null }));
+            return new Response(JSON.stringify({ success: true, data: rows }), { headers: SECURE_JSON_HEADERS });
           } catch (err) {
             return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
           }
@@ -16304,39 +16325,32 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
             return new Response(JSON.stringify({ success: false, error: "MISSING_DATA", message: "Thiếu dữ liệu ảnh đính kèm!" }), { status: 400, headers: SECURE_JSON_HEADERS });
           }
 
-          const mimeType = file_type || "image/jpeg";
-          if (!mimeType.startsWith("image/")) {
-            return new Response(JSON.stringify({ success: false, error: "INVALID_FILE_TYPE", message: "Chỉ chấp nhận định dạng file hình ảnh (.jpg, .png, .webp)!" }), { status: 400, headers: SECURE_JSON_HEADERS });
+          // Chỉ nhận ảnh JPEG/PNG/WebP dạng data URL, tối đa 10MB; định dạng xác định theo byte đầu file (không tin file_type gửi lên, chặn SVG/HTML)
+          const badType = () => new Response(JSON.stringify({ success: false, error: "INVALID_FILE_TYPE", message: "Chỉ chấp nhận định dạng file hình ảnh (.jpg, .png, .webp)!" }), { status: 400, headers: SECURE_JSON_HEADERS });
+          const dm = /^data:image\/[a-z0-9.+-]+;base64,([A-Za-z0-9+/=\s]+)$/i.exec(String(image));
+          if (!dm) return badType();
+          const b64 = dm[1].replace(/\s+/g, "");
+          if (b64.length * 0.75 > 10 * 1024 * 1024) {
+            return new Response(JSON.stringify({ success: false, error: "TOO_LARGE", message: "Ảnh vượt quá 10MB" }), { status: 400, headers: SECURE_JSON_HEADERS });
           }
+          const binaryData = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+          const isSig = (arr) => arr.every((v, i) => binaryData[i] === v);
+          let mimeType = "", ext = "";
+          if (isSig([0xff, 0xd8, 0xff])) { mimeType = "image/jpeg"; ext = "jpg"; }
+          else if (isSig([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) { mimeType = "image/png"; ext = "png"; }
+          else if (isSig([0x52, 0x49, 0x46, 0x46]) && binaryData[8] === 0x57 && binaryData[9] === 0x45 && binaryData[10] === 0x42 && binaryData[11] === 0x50) { mimeType = "image/webp"; ext = "webp"; }
+          if (!mimeType) return badType();
 
           const currentYear = new Date().getFullYear();
           const currentMonth = String(new Date().getMonth() + 1).padStart(2, "0");
           const fileUuid = `img_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
-          const r2Key = `gemba/photos/${currentYear}/${currentMonth}/${fileUuid}.jpg`;
+          const r2Key = `gemba/photos/${currentYear}/${currentMonth}/${fileUuid}.${ext}`;
 
-          let finalUrl = image;
-          if (env.BUCKET && typeof env.BUCKET.put === "function") {
-            try {
-              let binaryData;
-              if (image.startsWith("data:")) {
-                const base64Str = image.split(",")[1];
-                const binStr = typeof atob === "function" ? atob(base64Str) : Buffer.from(base64Str, "base64").toString("binary");
-                const len = binStr.length;
-                const bytes = new Uint8Array(len);
-                for (let i = 0; i < len; i++) bytes[i] = binStr.charCodeAt(i);
-                binaryData = bytes;
-              } else {
-                binaryData = image;
-              }
-
-              await env.BUCKET.put(r2Key, binaryData, {
-                httpMetadata: { contentType: mimeType }
-              });
-              finalUrl = `https://vpchuoiskechers.tbsgroup2026.workers.dev/cdn-r2/${r2Key}`;
-            } catch (r2Err) {
-              console.warn("R2 storage upload attempt warning:", r2Err);
-            }
+          if (!env.BUCKET || typeof env.BUCKET.put !== "function") {
+            return new Response(JSON.stringify({ success: false, error: "NO_STORAGE", message: "Chưa cấu hình kho lưu ảnh (R2)" }), { status: 500, headers: SECURE_JSON_HEADERS });
           }
+          await env.BUCKET.put(r2Key, binaryData, { httpMetadata: { contentType: mimeType } });
+          const finalUrl = `${url.origin}/cdn-r2/${r2Key}`;
 
           const attachId = `att_${Date.now()}`;
           if (record_id) {

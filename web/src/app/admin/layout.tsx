@@ -33,46 +33,25 @@ export default function AdminLayout({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const user = getCurrentUser();
-      if (!user) {
-        router.push("/login");
-        return;
-      }
-      try {
-        const userRoles: string[] = user?.roles || [];
-        const empCode: string = user?.empCode || "";
-        const roleCode: string = user?.roleCode || "";
-
-        const hasAdminPermission =
-          userRoles.includes("admin") ||
-          userRoles.includes("ceo") ||
-          userRoles.includes("deputy_ceo") ||
-          userRoles.includes("director") ||
-          userRoles.includes("deputy_director") ||
-          roleCode === "SUPER_ADMIN" ||
-          roleCode === "SYSTEM_ADMIN" ||
-          roleCode === "TONG_GIAM_DOC" ||
-          empCode === "202608001" ||
-          empCode === "2026080001" ||
-          empCode === "ADMIN-2026" ||
-          empCode === "TGĐ-001" ||
-          empCode === "PTGĐ-002" ||
-          empCode === "GĐ-003" ||
-          empCode === "PGĐ-004" ||
-          canAny([
-            PERMISSIONS.ADMIN_MANAGE_USERS,
-            PERMISSIONS.ADMIN_MANAGE_ROLES,
-            PERMISSIONS.ADMIN_MANAGE_DEPARTMENTS,
-          ]);
-
-        // Allow all system management users to access admin dashboard
-        setIsAuthorized(true);
-      } catch (e) {
-        setIsAuthorized(true);
-      }
-    }
-  }, [canAny, roles, router]);
+    // Quyền quản trị do máy chủ xác định qua /api/auth/me (dữ liệu trên trình duyệt có thể bị sửa tay)
+    let alive = true;
+    fetch("/api/auth/me", { cache: "no-store" })
+      .then(async (r) => {
+        if (!alive) return;
+        if (r.status === 401) {
+          router.push("/login");
+          return;
+        }
+        const j = await r.json().catch(() => null);
+        const ok = Boolean(r.ok && j?.success && j.user?.isAdmin);
+        setIsAuthorized(ok);
+        if (!ok) setTimeout(() => router.push("/work"), 2500);
+      })
+      .catch(() => alive && setIsAuthorized(false));
+    return () => {
+      alive = false;
+    };
+  }, [router]);
 
   if (isAuthorized === false) {
     return (

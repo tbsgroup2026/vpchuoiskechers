@@ -2934,6 +2934,41 @@ export default {
     const __authSession = await resolveAuthSession(request, env);
     const __legacySession = toLegacySession(__authSession);
 
+    // ════════════════════════════════════════════════════════════════════════
+    // CỔNG BẢO MẬT CHUNG CHO /api/* (17/10/2026): mặc định phải đăng nhập.
+    // Chỉ các API công khai có chủ đích được miễn; nhóm quản trị chỉ dành cho BGĐ/Admin.
+    // ════════════════════════════════════════════════════════════════════════
+    if (url.pathname.startsWith("/api/") && request.method !== "OPTIONS") {
+      const p = url.pathname.replace(/\/+$/, "") || "/";
+      const m = request.method;
+      const isPublic =
+        p.startsWith("/api/auth/") ||                                   // đăng nhập, đăng xuất, đổi mật khẩu (tự kiểm tra bên trong)
+        p.startsWith("/api/public/") ||                                 // đặt phòng họp công khai qua QR
+        (p === "/api/landing-cms" && m === "GET") ||                    // nội dung trang chủ công khai
+        p === "/api/version" || p === "/api/kaizen/version" ||
+        p === "/api/zalo/webhook" ||
+        p === "/api/gemba/sheet-sync" || p.startsWith("/api/gemba/sheet-changes") || // Apps Script, có khóa X-Sheet-Key
+        ((p === "/api/ci-kaizen") && (m === "POST" || m === "PUT")) ||  // trang nộp Kaizen công khai /work/kaizen/register
+        ((p === "/api/ci-kaizen/check-duplicate" || p === "/api/ci-kaizen/merge") && m === "POST") ||
+        (p === "/api/employees/lookup" && m === "GET");
+      const isAdminOnly =
+        p.startsWith("/api/admin/") ||
+        p === "/api/users/sync-diff" ||
+        ((p === "/api/users" || p.startsWith("/api/users/")) && m !== "GET") || // tạo/sửa/xóa tài khoản, đổi vai trò
+        p.startsWith("/api/bi/") ||
+        p === "/api/hr/payroll" ||
+        p === "/api/ci-kaizen/judging/guests" ||
+        (p === "/api/landing-cms" && m !== "GET") ||
+        p === "/api/test-backup";
+      const gateHeaders = { "Content-Type": "application/json", "Cache-Control": "no-store" };
+      if (!isPublic && !__legacySession) {
+        return new Response(JSON.stringify({ success: false, error: "UNAUTHORIZED", message: "Vui lòng đăng nhập" }), { status: 401, headers: gateHeaders });
+      }
+      if (isAdminOnly && !(__authSession && __authSession.isExecutiveOrAdmin)) {
+        return new Response(JSON.stringify({ success: false, error: "FORBIDDEN", message: "Chỉ Ban điều hành hoặc Quản trị viên được thực hiện" }), { status: 403, headers: gateHeaders });
+      }
+    }
+
     // 1. HTTP to HTTPS 301 Permanent Redirect (exempt local development)
     const isLocal = url.hostname === "127.0.0.1" || url.hostname === "localhost";
     const proto = request.headers.get("x-forwarded-proto") || url.protocol.replace(":", "");
@@ -3432,6 +3467,8 @@ export default {
             title: s.title,
             department: s.department,
             departmentCode: s.departmentCode,
+            // Quyền quản trị do máy chủ xác định (giao diện /admin dựa vào cờ này, không dựa vào dữ liệu lưu trên trình duyệt)
+            isAdmin: Boolean(s.isExecutiveOrAdmin) || ["SUPER_ADMIN", "ADMIN", "SYSTEM_ADMIN"].includes(s.roleCode),
             isGuest: authIsGuestCode(s.empCode, s.roleCode),
             mustChangePwd: s.mustChangePwd,
           },
@@ -3450,6 +3487,23 @@ export default {
           const password = typeof body.password === "string" ? body.password : "";
           const invalid = () => json({ success: false, error: "INVALID_CREDENTIALS", message: "MSNV hoặc mật khẩu không đúng" }, 401);
           if (!loginId || !password) return json({ success: false, error: "MISSING_CREDENTIALS", message: "Vui lòng nhập MSNV và mật khẩu" }, 400);
+
+          // Giới hạn đăng nhập sai theo IP: chống dò mật khẩu mặc định trên hàng loạt MSNV
+          // Chỉ tính theo IP thật do Cloudflare cung cấp (không tin X-Forwarded-For do người dùng tự gửi)
+          const clientIp = request.headers.get("cf-connecting-ip") || "";
+          const IP_MAX_FAILS = 20, IP_WINDOW_MIN = 15;
+          await env.DB.prepare("CREATE TABLE IF NOT EXISTS auth_ip_attempts (ip TEXT PRIMARY KEY, fails INTEGER NOT NULL DEFAULT 0, window_start TEXT NOT NULL)").run().catch(() => {});
+          const ipRow = clientIp ? await env.DB.prepare("SELECT fails, window_start FROM auth_ip_attempts WHERE ip = ?").bind(clientIp).first().catch(() => null) : null;
+          const ipWindowOpen = ipRow && Date.now() - Date.parse(ipRow.window_start) < IP_WINDOW_MIN * 60000;
+          if (ipWindowOpen && Number(ipRow.fails) >= IP_MAX_FAILS) {
+            return json({ success: false, error: "TOO_MANY_ATTEMPTS", message: `Đăng nhập sai quá nhiều lần từ thiết bị này. Vui lòng thử lại sau ${IP_WINDOW_MIN} phút.` }, 429);
+          }
+          const recordIpFail = async () => {
+            if (!clientIp) return;
+            await env.DB.prepare(
+              "INSERT INTO auth_ip_attempts (ip, fails, window_start) VALUES (?, 1, ?) ON CONFLICT(ip) DO UPDATE SET fails = CASE WHEN ? THEN auth_ip_attempts.fails + 1 ELSE 1 END, window_start = CASE WHEN ? THEN auth_ip_attempts.window_start ELSE excluded.window_start END"
+            ).bind(clientIp, new Date().toISOString(), ipWindowOpen ? 1 : 0, ipWindowOpen ? 1 : 0).run().catch(() => {});
+          };
 
           if (!password) {
             return new Response(JSON.stringify({ success: false, error: "Vui lòng nhập mật khẩu xác thực" }), { status: 400, headers: CORS });
@@ -3475,7 +3529,10 @@ export default {
               if (hr) userRecord = { ...hr, emp_code: hr.emp_code || hr.msnv || hr.id, id: undefined };
             } catch (e) {}
           }
-          const roleAccount = ROLE_ACCOUNTS[loginId.toUpperCase()] || ROLE_ACCOUNTS[loginId];
+          // Không cho đăng nhập bằng tên vai (TONG_GIAM_DOC, GIAM_DOC...): chỉ nhận MSNV/email thật
+          const roleAccount = /^[0-9A-Z][0-9A-Z-]{2,29}$/.test(loginId.toUpperCase()) && ROLE_ACCOUNTS[loginId.toUpperCase()] && ROLE_ACCOUNTS[loginId.toUpperCase()].empCode === loginId.toUpperCase()
+            ? ROLE_ACCOUNTS[loginId.toUpperCase()]
+            : null;
           if (!userRecord && roleAccount) {
             userRecord = {
               emp_code: roleAccount.empCode,
@@ -3493,7 +3550,10 @@ export default {
           if (!userRecord && sysUser) {
             userRecord = { emp_code: loginId.toUpperCase(), name: sysUser.name, title: sysUser.title, role_code: sysUser.roleCode, role_level: sysUser.roleLevel };
           }
-          if (!userRecord) return invalid();
+          if (!userRecord) {
+            await recordIpFail();
+            return invalid();
+          }
           if (AUTH_DISABLED_STATUSES.includes(String(userRecord.status || "ACTIVE").toUpperCase())) {
             return json({ success: false, error: "ACCOUNT_DISABLED", message: "Tài khoản đã bị vô hiệu hóa" }, 403);
           }
@@ -3512,8 +3572,11 @@ export default {
           if (cred) {
             ok = await verifyAuthPassword(password, cred);
             mustChange = Number(cred.must_change) === 1;
-          } else if (!isGuest) {
+          } else if (!isGuest && !authIsExecutive(empCode, roleCode) && !["SUPER_ADMIN", "ADMIN", "SYSTEM_ADMIN"].includes(roleCode)) {
             ok = authTimingSafeEqual(password, defaultPassword);
+          } else if (!isGuest && authTimingSafeEqual(password, defaultPassword)) {
+            await recordIpFail();
+            return json({ success: false, error: "PASSWORD_NOT_SET", message: "Tài khoản quản trị/điều hành chưa được cấp mật khẩu riêng. Vui lòng liên hệ quản trị viên." }, 401);
           }
 
           if (!ok) {
@@ -3531,6 +3594,7 @@ export default {
                 ).bind(empCode, h.hash, h.salt, h.iterations, lockUntil ? 0 : attempts, lockUntil).run();
               }
             } catch (e) {}
+            await recordIpFail();
             await recordAuditLogDetailed({ empCode, roleCode }, "auth", "LOGIN_FAILED", empCode, null, { attempts, locked: Boolean(lockUntil) }, request);
             if (isGuest && !cred) {
               return json({ success: false, error: "PASSWORD_NOT_SET", message: "Tài khoản Ban giám khảo chưa được cấp mật khẩu. Vui lòng liên hệ quản trị viên." }, 401);
@@ -8284,16 +8348,17 @@ export default {
         const finalUrl = cloudinaryUrl || image;
 
         if (env.DB) {
-          const targetEmp = empCode || "202608001";
+          // Ảnh đại diện chỉ gắn với chính người đăng nhập (không theo empCode gửi lên)
+          const targetEmp = String(__legacySession.empCode).toUpperCase();
           try {
             await env.DB.prepare(
               `INSERT INTO user_profile (id, emp_code, avatar, updated_at)
-               VALUES ('current_user', ?, ?, CURRENT_TIMESTAMP)
+               VALUES (?, ?, ?, CURRENT_TIMESTAMP)
                ON CONFLICT(id) DO UPDATE SET
                  avatar = excluded.avatar,
                  emp_code = excluded.emp_code,
                  updated_at = CURRENT_TIMESTAMP`
-            ).bind(targetEmp, finalUrl).run();
+            ).bind(targetEmp, targetEmp, finalUrl).run();
 
             await env.DB.prepare(
               `UPDATE users SET avatar_url = ?, updated_at = CURRENT_TIMESTAMP WHERE emp_code = ?`
@@ -8441,20 +8506,13 @@ export default {
     // API ROUTE: GET /api/personal (IDOR Protected)
     // ============================================================
     if (url.pathname === "/api/personal") {
+      // Chỉ trả thông tin của chính người đăng nhập; chưa có nguồn bảng lương thật nên không trả số liệu lương
+      const me = __legacySession;
       const requestedEmpCode = url.searchParams.get("empCode");
-      if (requestedEmpCode && requestedEmpCode !== "202608001" && requestedEmpCode !== "ADMIN-2026") {
-        return new Response(JSON.stringify({
-          success: false,
-          error: "BẢO MẬT: Bạn không có quyền xem bảng lương và hồ sơ cá nhân của nhân viên khác!"
-        }), { status: 403, headers: SECURE_JSON_HEADERS });
+      if (requestedEmpCode && String(requestedEmpCode).toUpperCase() !== String(me.empCode).toUpperCase() && !(__authSession && __authSession.isExecutiveOrAdmin)) {
+        return new Response(JSON.stringify({ success: false, error: "FORBIDDEN", message: "Bạn không có quyền xem hồ sơ cá nhân của nhân viên khác" }), { status: 403, headers: SECURE_JSON_HEADERS });
       }
-
-      return new Response(JSON.stringify({
-        success: true,
-        empCode: "202608001",
-        name: "Phạm Nguyễn Anh Huy",
-        payroll: { month: "Tháng 8/2026", baseSalary: "22,000,000 VNĐ", netReceive: "26,850,000 VNĐ" }
-      }), { headers: SECURE_JSON_HEADERS });
+      return new Response(JSON.stringify({ success: true, empCode: me.empCode, name: me.name, title: me.title || "", payroll: null }), { headers: SECURE_JSON_HEADERS });
     }
 
     // ============================================================
@@ -10037,8 +10095,8 @@ export default {
         try {
           if (env.DB) {
             const { results } = await env.DB.prepare(
-              "SELECT * FROM user_profile WHERE id = 'current_user'"
-            ).all();
+              "SELECT * FROM user_profile WHERE id = ?"
+            ).bind(String(__legacySession.empCode).toUpperCase()).all().catch(() => ({ results: [] }));
             if (results && results.length > 0) {
               const userProf = { ...results[0] };
               if (!userProf.avatar || typeof userProf.avatar !== "string" || userProf.avatar.trim() === "") {
@@ -10051,7 +10109,7 @@ export default {
             }
           }
           return new Response(
-            JSON.stringify({ success: true, data: ROLE_ACCOUNTS["TONG_GIAM_DOC"] }),
+            JSON.stringify({ success: true, data: { emp_code: __legacySession.empCode, name: __legacySession.name, title: __legacySession.title || "", avatar: "/images/tbs-logo.png" } }),
             { headers: { "Content-Type": "application/json" } }
           );
         } catch (err) {
@@ -10066,9 +10124,10 @@ export default {
       if (request.method === "POST" || request.method === "PUT") {
         try {
           const body = await request.json();
-          const { empCode, emp_code, name, email, phone, avatar, title, department, roleCode, role_code } = body;
-          const targetEmpCode = empCode || emp_code || "202608001";
-          const targetRoleCode = roleCode || role_code || "CBCNV";
+          const { name, email, phone, avatar, title, department } = body;
+          // Chỉ sửa hồ sơ của chính mình; không cho tự đổi vai trò
+          const targetEmpCode = String(__legacySession.empCode).toUpperCase();
+          const targetRoleCode = __legacySession.roleCode || "CBCNV";
 
           let finalAvatar = avatar;
           if (env.DB) {
@@ -10089,7 +10148,7 @@ export default {
             ).run();
 
             if (!finalAvatar || typeof finalAvatar !== "string" || finalAvatar.trim() === "") {
-              const { results: existing } = await env.DB.prepare("SELECT avatar FROM user_profile WHERE id = 'current_user'").all();
+              const { results: existing } = await env.DB.prepare("SELECT avatar FROM user_profile WHERE id = ?").bind(targetEmpCode).all();
               finalAvatar = (existing && existing[0] && existing[0].avatar && existing[0].avatar.trim() !== "")
                 ? existing[0].avatar
                 : "/images/tbs-logo.png";
@@ -10097,7 +10156,7 @@ export default {
 
             await env.DB.prepare(
               `INSERT INTO user_profile (id, emp_code, name, email, phone, avatar, title, department, role_code, updated_at)
-               VALUES ('current_user', ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                ON CONFLICT(id) DO UPDATE SET
                  emp_code = excluded.emp_code,
                  name = COALESCE(excluded.name, user_profile.name),
@@ -10106,17 +10165,18 @@ export default {
                  avatar = CASE WHEN excluded.avatar IS NOT NULL AND excluded.avatar != '/images/tbs-logo.png' THEN excluded.avatar ELSE user_profile.avatar END,
                  title = COALESCE(excluded.title, user_profile.title),
                  department = COALESCE(excluded.department, user_profile.department),
-                 role_code = COALESCE(excluded.role_code, user_profile.role_code),
+                 role_code = user_profile.role_code,
                  updated_at = CURRENT_TIMESTAMP`
             )
               .bind(
                 targetEmpCode,
-                name || "Phạm Nguyễn Anh Huy",
-                email || "anhy.work.2004@gmail.com",
-                phone || "0522511245",
+                targetEmpCode,
+                name || __legacySession.name || targetEmpCode,
+                email || null,
+                phone || null,
                 finalAvatar,
-                title || "IT - Team Chuyển Đổi Số",
-                department || "IT - Team Chuyển Đổi Số",
+                title || __legacySession.title || null,
+                department || null,
                 targetRoleCode
               )
               .run();
@@ -18405,7 +18465,8 @@ async function ensureKaizenGuestTable(env) {
       if (request.method === "OPTIONS") {
         return new Response(null, { status: 204, headers: CORS });
       }
-      return new Response(JSON.stringify({ success: true, message: `Endpoint ${url.pathname} handled by API fallback`, data: [] }), { status: 200, headers: CORS });
+      // API không tồn tại: báo 404 rõ ràng (trước đây trả success: true khiến giao diện tưởng thao tác thành công)
+      return new Response(JSON.stringify({ success: false, error: "NOT_FOUND", message: `API ${url.pathname} không tồn tại` }), { status: 404, headers: CORS });
     }
 
     // Default Fallback: Serve Next.js Static Export Assets with HTML extension resolution

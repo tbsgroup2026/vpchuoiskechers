@@ -15489,6 +15489,16 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
             }
             // Hàng về: cộng vào dòng của mã hàng (ưu tiên đúng vị trí), không phân biệt vị trí nếu chưa xếp
             let line = await db.prepare("SELECT * FROM wh_count_lines WHERE session_id = ? AND item_code = ? AND location_code = ?").bind(sessionId, itemCode, lc).first();
+            // Hàng về: màn xác nhận đổi Kệ/Ô thì chuyển dòng sang vị trí mới (giữ SL đặt và trạng thái trong danh sách)
+            const fromLoc = typeof body.fromLocation === "string" ? code(body.fromLocation) : null;
+            if (!line && session.type === "RECEIVING" && fromLoc !== null && fromLoc !== lc) {
+              const src = await db.prepare("SELECT * FROM wh_count_lines WHERE session_id = ? AND item_code = ? AND location_code = ?").bind(sessionId, itemCode, fromLoc).first();
+              if (src) {
+                await db.prepare("UPDATE wh_count_lines SET location_code = ?, updated_by = ?, updated_at = ? WHERE session_id = ? AND item_code = ? AND location_code = ?")
+                  .bind(lc, user.empCode, nowDb(), sessionId, itemCode, fromLoc).run();
+                line = { ...src, location_code: lc };
+              }
+            }
             if (!line && session.type === "RECEIVING") {
               line = await db.prepare("SELECT * FROM wh_count_lines WHERE session_id = ? AND item_code = ? ORDER BY (location_code = '') DESC LIMIT 1").bind(sessionId, itemCode).first();
             }

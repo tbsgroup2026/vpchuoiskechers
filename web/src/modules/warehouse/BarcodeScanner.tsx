@@ -76,14 +76,17 @@ function enableContinuousFocus(stream: MediaStream | null) {
   } catch {}
 }
 
-export default function BarcodeScanner({ onDetected, onClose }: { onDetected: (code: string) => void; onClose: () => void }) {
+/** paused: tạm ngừng giải mã (camera vẫn mở), ví dụ khi đang hiện màn xác nhận sau khi quét */
+export default function BarcodeScanner({ onDetected, onClose, paused = false }: { onDetected: (code: string) => void; onClose: () => void; paused?: boolean }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const lastRef = useRef<{ code: string; at: number }>({ code: "", at: 0 });
   const cbRef = useRef(onDetected);
+  const pausedRef = useRef(paused);
   const [error, setError] = useState("");
   const [engine, setEngine] = useState("");
   const [lastCode, setLastCode] = useState("");
   cbRef.current = onDetected;
+  pausedRef.current = paused;
 
   useEffect(() => {
     let stopped = false;
@@ -93,7 +96,7 @@ export default function BarcodeScanner({ onDetected, onClose }: { onDetected: (c
 
     const emit = (raw: string) => {
       const code = String(raw || "").trim();
-      if (!code) return;
+      if (!code || pausedRef.current) return;
       const now = Date.now();
       if (code === lastRef.current.code && now - lastRef.current.at < 1500) return; // bỏ qua mã trùng liên tiếp
       lastRef.current = { code, at: now };
@@ -109,7 +112,7 @@ export default function BarcodeScanner({ onDetected, onClose }: { onDetected: (c
       let tick = 0;
       const step = async () => {
         if (stopped) return;
-        if (video.readyState >= 2 && video.videoWidth && ctx) {
+        if (!pausedRef.current && video.readyState >= 2 && video.videoWidth && ctx) {
           const vw = video.videoWidth, vh = video.videoHeight;
           const full = tick++ % 3 === 2;
           const sx = full ? 0 : Math.round(vw * CROP.x), sy = full ? 0 : Math.round(vh * CROP.y);
@@ -202,7 +205,7 @@ export default function BarcodeScanner({ onDetected, onClose }: { onDetected: (c
           <div className="pointer-events-none absolute inset-x-[5%] top-[30%] h-[40%] border-2 border-emerald-400/90 rounded-xl shadow-[0_0_0_9999px_rgba(0,0,0,0.25)]" />
           {engine ? <span className="absolute left-2 top-2 text-[10px] font-semibold text-white/80 bg-black/40 px-2 py-0.5 rounded">{engine}</span> : null}
           <p className="absolute inset-x-2 bottom-2 rounded-lg bg-black/60 px-2 py-1 text-center text-[11px] font-semibold text-white" aria-live="polite">
-            {lastCode ? `Đã đọc: ${lastCode}` : "Đưa mã vạch nằm ngang trong khung, cách 10-20 cm"}
+            {paused ? "Tạm dừng quét, hãy lưu hoặc bỏ qua mã vừa đọc" : lastCode ? `Đã đọc: ${lastCode}` : "Đưa mã vạch nằm ngang trong khung, cách 10-20 cm"}
           </p>
         </>
       )}

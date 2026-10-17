@@ -391,6 +391,115 @@ function CreateSessionForm({ notify, onDone }: { notify: Notify; onDone: (id?: s
 
 type LineFilter = "all" | "pending" | "diff" | "ok" | "extra";
 
+/** Mã vừa quét đang chờ xác nhận */
+interface PendingScan {
+  code: string;
+  name: string;
+  unit: string;
+  expected: number;
+  counted: number;
+  inList: boolean;
+  /** Vị trí hiện tại của dòng trong phiếu (null: mã chưa có trong phiếu) */
+  fromLocation: string | null;
+  received: string;
+  location: string;
+}
+
+/** Kệ = Kho-Khu-Kệ; Ô = Tầng-Ô trong kệ đó */
+const rackKeyOf = (l: Location) => [l.warehouse, l.zone, l.rack].filter(Boolean).join("-");
+const binLabelOf = (l: Location) => [l.tier && `Tầng ${l.tier}`, l.bin && `Ô ${l.bin}`].filter(Boolean).join(" · ") || l.code;
+
+function ScanConfirm({ value, type, locations, busy, onChange, onSave, onCancel }: {
+  value: PendingScan;
+  type: Session["type"];
+  locations: Location[];
+  busy: boolean;
+  onChange: (v: PendingScan) => void;
+  onSave: () => void;
+  onCancel: () => void;
+}) {
+  const racks = useMemo(() => Array.from(new Set(locations.map(rackKeyOf))).filter(Boolean).sort(), [locations]);
+  const cur = locations.find((l) => l.code === value.location);
+  const [rack, setRack] = useState(cur ? rackKeyOf(cur) : "");
+  const bins = locations.filter((l) => rackKeyOf(l) === rack);
+  const qtyRef = useRef<HTMLInputElement>(null);
+  useEffect(() => { qtyRef.current?.focus(); qtyRef.current?.select(); }, []);
+  const receiving = type === "RECEIVING";
+  const received = Number(value.received);
+  const over = receiving && value.expected > 0 && received > value.expected;
+
+  return (
+    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/40 sm:items-center" role="dialog" aria-modal="true" aria-label="Xác nhận mã vừa quét">
+      <form
+        className="w-full max-w-md space-y-3 rounded-t-3xl bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-xl sm:rounded-3xl"
+        onSubmit={(e) => { e.preventDefault(); onSave(); }}
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Mã hàng</p>
+            <p className="break-all font-mono text-lg font-black text-slate-900">{value.code}</p>
+            <p className="text-xs text-slate-500">{value.name || (value.inList ? "" : "Mã ngoài danh sách phiếu")}{value.unit ? ` · ${value.unit}` : ""}</p>
+          </div>
+          <button type="button" onClick={onCancel} className="rounded-full border border-slate-200 px-3 py-1 text-xs font-bold text-slate-600" aria-label="Bỏ qua mã này">Bỏ qua</button>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <div className="rounded-2xl bg-slate-50 px-3 py-2">
+            <p className="text-[11px] font-bold text-slate-500">{receiving ? "SL đặt" : "Tồn sổ sách"}</p>
+            <p className="text-xl font-black tabular-nums text-slate-900">{fmtNum(value.expected)}</p>
+            {value.counted > 0 ? <p className="text-[11px] text-slate-500">Đã ghi trước: {fmtNum(value.counted)}</p> : null}
+          </div>
+          <label className="rounded-2xl border-2 border-emerald-300 px-3 py-2">
+            <span className="text-[11px] font-bold text-emerald-800">{receiving ? "SL nhận" : "SL thực đếm"}</span>
+            <input
+              ref={qtyRef}
+              className="w-full bg-transparent text-xl font-black tabular-nums text-slate-900 outline-none"
+              value={value.received}
+              onChange={(e) => onChange({ ...value, received: e.target.value })}
+              inputMode="decimal"
+              aria-label={receiving ? "Số lượng nhận" : "Số lượng thực đếm"}
+            />
+          </label>
+        </div>
+        {over ? <p className="text-xs font-bold text-amber-700">Nhận nhiều hơn số đặt {fmtNum(received - value.expected)}</p> : null}
+
+        <div className="grid grid-cols-2 gap-2">
+          <label className="space-y-1">
+            <span className="text-[11px] font-bold text-slate-500">Kệ</span>
+            <select
+              className={input}
+              value={rack}
+              onChange={(e) => { setRack(e.target.value); onChange({ ...value, location: "" }); }}
+              aria-label="Kệ"
+            >
+              <option value="">{receiving ? "Chưa xếp" : "Chọn kệ"}</option>
+              {racks.map((r) => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </label>
+          <label className="space-y-1">
+            <span className="text-[11px] font-bold text-slate-500">Ô</span>
+            <select
+              className={input}
+              value={value.location}
+              onChange={(e) => onChange({ ...value, location: e.target.value })}
+              disabled={!rack}
+              aria-label="Ô"
+            >
+              <option value="">{rack ? "Chọn ô" : "Chọn kệ trước"}</option>
+              {bins.map((l) => <option key={l.code} value={l.code}>{binLabelOf(l)}</option>)}
+            </select>
+          </label>
+        </div>
+        {rack && !value.location ? <p className="text-xs text-amber-700">Chọn ô trong kệ {rack}, hoặc để trống kệ nếu chưa xếp.</p> : null}
+
+        <button type="submit" className={`${btnPrimary} w-full justify-center py-3 text-base`} disabled={busy || (Boolean(rack) && !value.location)}>
+          <IconCheck size={18} /> {busy ? "Đang lưu…" : "Lưu / scan tiếp"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
 function SessionDetail({ id, me, locMap, locations, notify, autoCamera, onBack }: { id: string; me: Me; locMap: Map<string, Location>; locations: Location[]; notify: Notify; autoCamera?: boolean; onBack: () => void }) {
   const [session, setSession] = useState<Session | null>(null);
   const [lines, setLines] = useState<Line[]>([]);
@@ -405,8 +514,23 @@ function SessionDetail({ id, me, locMap, locations, notify, autoCamera, onBack }
   const [search, setSearch] = useState("");
   const [defaultLoc, setDefaultLoc] = useState("");
   const [busy, setBusy] = useState(false);
+  const [pending, setPending] = useState<PendingScan | null>(null);
+  const [confirmEach, setConfirmEach] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
   const queue = useRef(Promise.resolve());
+  const linesRef = useRef<Line[]>([]);
+  // Mã vừa lưu/bỏ qua: camera bỏ qua mã này vài giây để không mở lại ngay khi còn chĩa vào món hàng
+  const doneRef = useRef<{ code: string; at: number }>({ code: "", at: 0 });
+  linesRef.current = lines;
+
+  // Nhớ lựa chọn "xác nhận sau mỗi lần quét" theo từng máy
+  useEffect(() => {
+    try { if (localStorage.getItem("wh_confirm_each") === "0") setConfirmEach(false); } catch {}
+  }, []);
+  const toggleConfirmEach = (v: boolean) => {
+    setConfirmEach(v);
+    try { localStorage.setItem("wh_confirm_each", v ? "1" : "0"); } catch {}
+  };
 
   const load = useCallback(async () => {
     try {
@@ -462,11 +586,75 @@ function SessionDetail({ id, me, locMap, locations, notify, autoCamera, onBack }
     });
   }, [currentLoc, id, locMap, mode, qty]);
 
+  /** Mã vừa quét: mã vị trí thì đổi vị trí đang đếm; mã hàng thì mở màn xác nhận (hoặc ghi ngay nếu tắt xác nhận) */
+  const onScanned = (raw: string) => {
+    const c = raw.trim().toUpperCase().replace(/\s+/g, "");
+    if (!c) return;
+    if (!confirmEach || locMap.has(c)) {
+      handleCode(c);
+      return;
+    }
+    const all = linesRef.current.filter((l) => l.item_code === c);
+    const line = all.find((l) => l.location_code === currentLoc) || all.find((l) => Number(l.counted_qty) < Number(l.expected_qty)) || all[0] || null;
+    const counted = Number(line?.counted_qty || 0);
+    const expected = Number(line?.expected_qty || 0);
+    setPending({
+      code: c,
+      name: line?.name || "",
+      unit: line?.unit_label || "",
+      expected,
+      counted,
+      inList: Boolean(line && Number(line.in_list)),
+      fromLocation: line ? line.location_code : null,
+      received: String(counted > 0 ? counted + (Number(qty) || 1) : expected > 0 ? expected : Number(qty) || 1),
+      location: line?.location_code || currentLoc,
+    });
+  };
+
   const submitInput = (e: React.FormEvent) => {
     e.preventDefault();
-    handleCode(codeInput);
+    onScanned(codeInput);
     setCodeInput("");
     inputRef.current?.focus();
+  };
+
+  const savePending = async () => {
+    if (!pending) return;
+    const received = Number(pending.received);
+    if (!Number.isFinite(received) || received < 0) {
+      notify("err", "Số lượng nhận phải là số ≥ 0");
+      return;
+    }
+    setBusy(true);
+    try {
+      const r = await api<{ line: Line; outOfList: boolean }>(`sessions/${encodeURIComponent(id)}/scan`, {
+        method: "POST",
+        body: {
+          itemCode: pending.code,
+          locationCode: pending.location,
+          qty: received,
+          mode: "set",
+          ...(session?.type === "RECEIVING" && pending.fromLocation !== null ? { fromLocation: pending.fromLocation } : {}),
+        },
+      });
+      const l = r.line;
+      const diff = Number(l.counted_qty) - Number(l.expected_qty);
+      const status = r.outOfList ? "Mã ngoài danh sách phiếu" : diff === 0 ? "Đủ số lượng" : diff > 0 ? `Thừa ${fmtNum(diff)}` : `Còn thiếu ${fmtNum(-diff)}`;
+      setLast({
+        ok: !r.outOfList,
+        text: `Đã lưu ${l.item_code}${l.name ? ` · ${l.name}` : ""}`,
+        sub: `${fmtNum(l.counted_qty)} / ${fmtNum(l.expected_qty)} ${l.unit_label || ""} · ${l.location_code ? `tại ${l.location_code}` : "chưa gắn vị trí"} · ${status}`,
+      });
+      if (pending.location) setCurrentLoc(pending.location);
+      doneRef.current = { code: pending.code, at: Date.now() };
+      setPending(null);
+      await load();
+      inputRef.current?.focus();
+    } catch (e) {
+      notify("err", (e as Error).message);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const act = async (path: string, body?: unknown, confirmText?: string) => {
@@ -571,15 +759,21 @@ function SessionDetail({ id, me, locMap, locations, notify, autoCamera, onBack }
           </form>
           {camera ? (
             <BarcodeScanner
+              paused={Boolean(pending)}
               onDetected={(c) => {
-                // Điền mã vào ô nhập như súng bắn mã rồi ghi ngay (tương đương bấm Enter)
+                if (c.trim().toUpperCase() === doneRef.current.code && Date.now() - doneRef.current.at < 3000) return;
+                // Điền mã vào ô nhập như súng bắn mã rồi xử lý (tương đương bấm Enter)
                 setCodeInput(c);
-                handleCode(c);
+                onScanned(c);
                 setTimeout(() => setCodeInput((v) => (v === c ? "" : v)), 1200);
               }}
               onClose={() => setCamera(false)}
             />
           ) : null}
+          <label className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+            <input type="checkbox" checked={confirmEach} onChange={(e) => toggleConfirmEach(e.target.checked)} />
+            Hiện màn xác nhận sau mỗi lần quét (sửa số lượng, kệ, ô)
+          </label>
           {last ? (
             <div className={`rounded-xl border px-3 py-2 ${last.ok ? "border-emerald-200 bg-emerald-50" : "border-red-200 bg-red-50"}`} aria-live="polite">
               <p className={`text-sm font-black ${last.ok ? "text-emerald-800" : "text-red-700"}`}>{last.text}</p>
@@ -587,6 +781,18 @@ function SessionDetail({ id, me, locMap, locations, notify, autoCamera, onBack }
             </div>
           ) : null}
         </div>
+      ) : null}
+
+      {pending && session ? (
+        <ScanConfirm
+          value={pending}
+          type={session.type}
+          locations={locations.filter((l) => !session.scope || l.code.startsWith(session.scope))}
+          busy={busy}
+          onChange={setPending}
+          onSave={savePending}
+          onCancel={() => { doneRef.current = { code: pending.code, at: Date.now() }; setPending(null); inputRef.current?.focus(); }}
+        />
       ) : null}
 
       <div className="flex flex-wrap items-center gap-2">

@@ -53,6 +53,26 @@ function vnNow(): { date: string; minutes: number } {
   return { date: d.toISOString().slice(0, 10), minutes: d.getUTCHours() * 60 + d.getUTCMinutes() };
 }
 
+// Lịch đã đặt qua QR trên CHÍNH máy này (kèm mã hủy) — để người đặt tự hủy, không phải gọi Lễ Tân
+type MyQrBooking = { bookingId: string; cancelToken: string; roomName: string; bookingDate: string; timeSlot: string; cancelled?: boolean };
+const MY_QR_KEY = "tbs_my_qr_bookings";
+function loadMyQrBookings(): MyQrBooking[] {
+  try {
+    const list = JSON.parse(window.localStorage.getItem(MY_QR_KEY) || "[]");
+    if (!Array.isArray(list)) return [];
+    const today = vnNow().date;
+    // Chỉ giữ lịch từ hôm nay trở đi, tối đa 20 lịch
+    return list.filter((b) => b && b.bookingId && b.cancelToken && String(b.bookingDate) >= today).slice(-20);
+  } catch {
+    return [];
+  }
+}
+function saveMyQrBookings(list: MyQrBooking[]) {
+  try {
+    window.localStorage.setItem(MY_QR_KEY, JSON.stringify(list));
+  } catch {}
+}
+
 function formatDateVn(iso: string): string {
   const [y, m, d] = iso.split("-");
   return y && m && d ? `${d}/${m}/${y}` : iso;
@@ -93,6 +113,37 @@ export default function BookRoomClient({ initialCode }: { initialCode?: string }
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [result, setResult] = useState<{ bookingId: string; roomName: string; bookingDate: string; timeSlot: string } | null>(null);
+  const [myBookings, setMyBookings] = useState<MyQrBooking[]>([]);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [cancelMsg, setCancelMsg] = useState<{ text: string; error: boolean } | null>(null);
+  useEffect(() => {
+    setMyBookings(loadMyQrBookings());
+  }, []);
+  const cancelMyBooking = async (b: MyQrBooking) => {
+    if (!window.confirm(`Hủy lịch ${b.roomName} ngày ${formatDateVn(b.bookingDate)}, ${b.timeSlot}?`)) return;
+    setCancellingId(b.bookingId);
+    setCancelMsg(null);
+    try {
+      const res = await fetch("/api/public/rooms/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId: b.bookingId, cancelToken: b.cancelToken }),
+      });
+      const data = await res.json().catch(() => null);
+      // Đã hủy (kể cả hủy từ trước) thì đánh dấu đã hủy trên máy
+      if (data?.success || data?.error === "CANNOT_CANCEL") {
+        const next = loadMyQrBookings().map((x) => (x.bookingId === b.bookingId ? { ...x, cancelled: Boolean(data?.success) || x.cancelled } : x));
+        saveMyQrBookings(next);
+        setMyBookings(next);
+      }
+      setCancelMsg({ text: data?.message || (data?.success ? "Đã hủy lịch" : "Không hủy được lịch"), error: !data?.success });
+      if (data?.success) setReloadKey((k) => k + 1);
+    } catch {
+      setCancelMsg({ text: "Lỗi mạng, vui lòng thử lại.", error: true });
+    } finally {
+      setCancellingId(null);
+    }
+  };
 
   // 1. Phân tích mã phòng từ pathname hoặc search query
   useEffect(() => {
@@ -249,6 +300,14 @@ export default function BookRoomClient({ initialCode }: { initialCode?: string }
       const data = await res.json();
       if (data.success) {
         setResult({ bookingId: data.bookingId, ...data.data });
+        if (data.cancelToken) {
+          const next = [
+            ...loadMyQrBookings().filter((x) => x.bookingId !== data.bookingId),
+            { bookingId: data.bookingId, cancelToken: data.cancelToken, roomName: data.data?.roomName || room?.name || "", bookingDate: data.data?.bookingDate || "", timeSlot: data.data?.timeSlot || timeSlot },
+          ];
+          saveMyQrBookings(next);
+          setMyBookings(next);
+        }
       } else {
         setErrorMsg(data.error || "Có lỗi xảy ra khi gửi đơn.");
         if (data.code === "DOUBLE_BOOKING_CONFLICT") setReloadKey((k) => k + 1);
@@ -380,6 +439,7 @@ export default function BookRoomClient({ initialCode }: { initialCode?: string }
           <p className="bg-emerald-50 text-emerald-900 p-4 rounded-xl text-sm font-medium leading-relaxed border border-emerald-100 text-left">
             🔔 <b>Lễ Tân đã nhận thông báo qua Zalo Bot</b> và sẽ xác nhận lịch họp của bạn trên hệ thống. Lịch đang ở trạng thái <b>chờ duyệt (PENDING)</b>.
           </p>
+          <MyQrBookingList list={myBookings} cancellingId={cancellingId} onCancel={cancelMyBooking} msg={cancelMsg} />
           <div className="space-y-2 pt-2">
             <button
               type="button"
@@ -407,6 +467,7 @@ export default function BookRoomClient({ initialCode }: { initialCode?: string }
   return (
     <Shell room={room}>
       <form onSubmit={handleSubmit} className="bg-white rounded-3xl shadow-xl p-5 sm:p-6 space-y-7">
+        <MyQrBookingList list={myBookings} cancellingId={cancellingId} onCancel={cancelMyBooking} msg={cancelMsg} />
         {/* Banner xác nhận phòng đã được chọn sẵn từ Link / QR */}
         <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3.5 flex items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2 text-emerald-900 font-bold">
@@ -685,6 +746,53 @@ function Shell({ room, children }: { room?: RoomInfo | null; children: React.Rea
       </header>
       <div className="max-w-xl mx-auto px-4 -mt-9">{children}</div>
     </main>
+  );
+}
+
+function MyQrBookingList({
+  list,
+  cancellingId,
+  onCancel,
+  msg,
+}: {
+  list: MyQrBooking[];
+  cancellingId: string | null;
+  onCancel: (b: MyQrBooking) => void;
+  msg: { text: string; error: boolean } | null;
+}) {
+  if (list.length === 0 && !msg) return null;
+  return (
+    <div className="text-left bg-white border border-slate-200 rounded-2xl p-4 space-y-3">
+      <div className="text-sm font-black text-slate-900">Lịch bạn đã đặt trên máy này</div>
+      {msg && (
+        <p className={`text-xs font-semibold p-2.5 rounded-xl border ${msg.error ? "bg-rose-50 border-rose-200 text-rose-700" : "bg-emerald-50 border-emerald-200 text-emerald-800"}`}>{msg.text}</p>
+      )}
+      {list
+        .slice()
+        .sort((a, b) => (a.bookingDate + a.timeSlot).localeCompare(b.bookingDate + b.timeSlot))
+        .map((b) => (
+          <div key={b.bookingId} className="flex items-center justify-between gap-3 border-t border-slate-100 pt-3 first:border-0 first:pt-0">
+            <div className="min-w-0 text-sm">
+              <div className={`font-bold ${b.cancelled ? "text-slate-500 line-through" : "text-slate-900"}`}>{b.roomName}</div>
+              <div className="text-xs text-slate-600">
+                {formatDateVn(b.bookingDate)} · {b.timeSlot}
+              </div>
+            </div>
+            {b.cancelled ? (
+              <span className="text-xs font-bold text-slate-500 shrink-0">Đã hủy</span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => onCancel(b)}
+                disabled={cancellingId === b.bookingId}
+                className="shrink-0 min-h-[40px] px-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-black disabled:opacity-50"
+              >
+                {cancellingId === b.bookingId ? "Đang hủy..." : "Hủy lịch"}
+              </button>
+            )}
+          </div>
+        ))}
+    </div>
   );
 }
 

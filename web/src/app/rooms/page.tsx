@@ -102,6 +102,7 @@ interface RoomBooking {
   roomName: string;
   title: string;
   bookerName: string;
+  empCode?: string | null; // MSNV người đặt (server trả) — để biết lịch nào của mình
   department: string;
   bookingDate: string; // DD/MM/YYYY
   timeSlot: string;
@@ -588,6 +589,47 @@ export default function MeetingRoomsPage() {
     expectedTime: "14:00",
     notes: "",
   });
+
+  // Lịch họp của tôi (chưa diễn ra, chưa hủy) — người đặt tự hủy được, đổi giờ/phòng vẫn qua Lễ Tân
+  const toIsoDate = (d: string) => {
+    const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(d || "");
+    return m ? `${m[3]}-${m[2]}-${m[1]}` : String(d || "").slice(0, 10);
+  };
+  const todayIsoVn = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
+  const myUpcomingBookings = bookings
+    .filter(
+      (b) =>
+        b.empCode &&
+        currentUser.empCode &&
+        String(b.empCode).toUpperCase() === String(currentUser.empCode).toUpperCase() &&
+        !["CANCELLED", "COMPLETED"].includes(b.status) &&
+        toIsoDate(b.bookingDate) >= todayIsoVn
+    )
+    .sort((a, b) => (toIsoDate(a.bookingDate) + a.timeSlot).localeCompare(toIsoDate(b.bookingDate) + b.timeSlot));
+  const [cancellingMyId, setCancellingMyId] = useState<string | null>(null);
+  const handleCancelMyBooking = async (b: RoomBooking) => {
+    if (!window.confirm(`Hủy lịch "${b.title}" (${b.roomName}, ${b.timeSlot})?`)) return;
+    setCancellingMyId(b.id);
+    try {
+      const token = localStorage.getItem("tbs_token") || sessionStorage.getItem("tbs_token") || "";
+      const res = await fetch("/api/rooms/booking", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ id: b.id, status: "CANCELLED" }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) {
+        showToast(`⚠️ ${data?.message || data?.error || "Không hủy được lịch"}`);
+        return;
+      }
+      setBookings((prev) => prev.map((x) => (x.id === b.id ? { ...x, status: "CANCELLED" } : x)));
+      showToast("Đã hủy lịch họp, Lễ Tân đã được báo.");
+    } catch {
+      showToast("⚠️ Lỗi mạng, vui lòng thử lại.");
+    } finally {
+      setCancellingMyId(null);
+    }
+  };
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -3005,6 +3047,29 @@ export default function MeetingRoomsPage() {
         {/* ════════════════════════════════════════════════════════════════
             TAB 1: FORM ĐẶT PHÒNG HỌP & TIME SLOTS
            ════════════════════════════════════════════════════════════════ */}
+        {activeTab === "BOOKING" && myUpcomingBookings.length > 0 && (
+          <section className="mb-6 p-5 rounded-2xl bg-white border border-slate-200/90 shadow-xs space-y-3">
+            <h3 className="text-sm font-black text-slate-900">Lịch họp của tôi</h3>
+            {myUpcomingBookings.map((b) => (
+              <div key={b.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-slate-100 pt-3 first:border-0 first:pt-0">
+                <div className="min-w-0 text-sm">
+                  <div className="font-bold text-slate-900">{b.title}</div>
+                  <div className="text-xs text-slate-600">
+                    {b.roomName} · {b.bookingDate} · {b.timeSlot} · {b.status === "CONFIRMED" ? "Đã xác nhận" : "Chờ Lễ Tân duyệt"}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleCancelMyBooking(b)}
+                  disabled={cancellingMyId === b.id}
+                  className="self-start sm:self-auto min-h-[40px] px-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-black disabled:opacity-50"
+                >
+                  {cancellingMyId === b.id ? "Đang hủy..." : "Hủy lịch"}
+                </button>
+              </div>
+            ))}
+          </section>
+        )}
         {activeTab === "BOOKING" && (
           <form onSubmit={handleBookRoomSubmit} className="space-y-6 animate-in fade-in duration-200">
             <div className="p-5 sm:p-6 rounded-2xl bg-white border border-slate-200/90 shadow-xs space-y-5">

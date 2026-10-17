@@ -2921,6 +2921,60 @@ function vnTodayIso() {
   return new Date(Date.now() + VN_OFFSET_MS).toISOString().slice(0, 10);
 }
 
+// ─── Phòng họp: quyền Lễ Tân, điều kiện tự hủy, mã hủy, báo Lễ Tân ───
+// Danh sách Lễ Tân giống trang /rooms (canAccessReceptionDesk)
+const ROOM_RECEPTION_EMP_CODES = ["LT-001", "202206011", "202409009", "202010004", "202608001", "102603069"];
+function isRoomReceptionist(authSession, legacy) {
+  if (authSession && authSession.isExecutiveOrAdmin) return true;
+  if (!legacy) return false;
+  const role = String(legacy.roleCode || "").toUpperCase();
+  if (["LE_TAN", "RECEPTIONIST", "ADMIN", "SUPER_ADMIN", "SYSTEM_ADMIN"].includes(role)) return true;
+  if (ROOM_RECEPTION_EMP_CODES.includes(String(legacy.empCode || ""))) return true;
+  const title = String(legacy.title || "").toLowerCase();
+  return title.includes("lễ tân") || title.includes("receptionist");
+}
+// Trả lý do không cho tự hủy (null = được hủy)
+function roomCancelBlockedReason(b) {
+  const st = String(b.status || "").toUpperCase();
+  if (st === "CANCELLED" || st === "REJECTED") return "Lịch này đã được hủy trước đó";
+  if (st === "COMPLETED") return "Cuộc họp đã kết thúc";
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(b.booking_date || ""));
+  const t = /(\d{1,2}):(\d{2})/.exec(String(b.time_slot || ""));
+  if (m && t) {
+    const startUtc = Date.UTC(+m[1], +m[2] - 1, +m[3], +t[1], +t[2]) - 7 * 3600 * 1000; // giờ Việt Nam
+    if (startUtc <= Date.now()) return "Cuộc họp đã bắt đầu, vui lòng liên hệ Lễ Tân";
+  }
+  return null;
+}
+// Cột chủ lịch + mã hủy (DB cũ có thể chưa có) — chạy 1 lần mỗi isolate
+let __roomBookingColsOnce = null;
+function ensureRoomBookingOwnerColumns(db) {
+  if (!__roomBookingColsOnce) {
+    __roomBookingColsOnce = (async () => {
+      for (const col of ["user_id TEXT", "emp_code TEXT", "user_name TEXT", "purpose TEXT", "participants_count INTEGER", "meeting_type TEXT", "cancel_token_hash TEXT"]) {
+        await db.prepare(`ALTER TABLE room_bookings ADD COLUMN ${col}`).run().catch(() => {});
+      }
+    })();
+  }
+  return __roomBookingColsOnce;
+}
+async function roomSha256Hex(text) {
+  const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(String(text)));
+  return [...new Uint8Array(d)].map((x) => x.toString(16).padStart(2, "0")).join("");
+}
+async function notifyReceptionBookingCancelled(env, b, byName) {
+  if (!env.ZALO_BOT_TOKEN) return;
+  const groups = [...ROOM_RECEPTION_ZALO_GROUPS];
+  try {
+    const conf = await env.DB.prepare("SELECT reception_group_chat_id FROM zalo_config WHERE id = 'main'").first();
+    if (conf && conf.reception_group_chat_id && !groups.includes(conf.reception_group_chat_id)) groups.push(conf.reception_group_chat_id);
+  } catch (e) {}
+  const text = `❌ *HỦY LỊCH PHÒNG HỌP*\n\n🏢 Phòng: ${b.room_name || "—"}\n📌 ${b.title || "Cuộc họp"}\n📆 Ngày: ${b.booking_date || "—"}\n🕐 Khung giờ: ${b.time_slot || "—"}\n👤 Người hủy: ${byName || b.booker_name || "—"}\n\nPhòng đã trống trong khung giờ này.`;
+  await Promise.all(groups.map((chat_id) =>
+    fetch(`https://bot-api.zaloplatforms.com/bot${env.ZALO_BOT_TOKEN}/sendMessage`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chat_id, text }) }).catch(() => {})
+  ));
+}
+
 export default {
   async fetch(request, env, ctx) {
     let res;
@@ -12572,6 +12626,26 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
       }
     }
 
+    // POST /api/public/rooms/cancel {bookingId, cancelToken}: người đặt qua QR tự hủy lịch (mã nhận khi đặt)
+    if (url.pathname === "/api/public/rooms/cancel" && request.method === "POST") {
+      if (env.DB) await ensureRoomBookingOwnerColumns(env.DB);
+      const J = SECURE_JSON_HEADERS;
+      const body = await request.json().catch(() => ({}));
+      const id = String(body.bookingId || "").slice(0, 80);
+      const token = String(body.cancelToken || "");
+      if (!id || !/^[0-9a-f]{36}$/.test(token)) return new Response(JSON.stringify({ success: false, error: "BAD_REQUEST", message: "Thiếu mã đơn hoặc mã hủy" }), { status: 400, headers: J });
+      const b = await env.DB.prepare("SELECT id, status, booking_date, time_slot, room_name, title, booker_name, cancel_token_hash FROM room_bookings WHERE id = ?").bind(id).first().catch(() => null);
+      if (!b || !b.cancel_token_hash || b.cancel_token_hash !== (await roomSha256Hex(token))) {
+        return new Response(JSON.stringify({ success: false, error: "INVALID_TOKEN", message: "Mã hủy không đúng hoặc lịch không tồn tại" }), { status: 403, headers: J });
+      }
+      const blocked = roomCancelBlockedReason(b);
+      if (blocked) return new Response(JSON.stringify({ success: false, error: "CANNOT_CANCEL", message: blocked }), { status: 400, headers: J });
+      await env.DB.prepare("UPDATE room_bookings SET status = 'CANCELLED' WHERE id = ?").bind(id).run();
+      await recordAuditLog({ empCode: "PUBLIC_QR", roleCode: "GUEST" }, "ROOMS", "SELF_CANCEL_QR", id, { status: b.status }, { status: "CANCELLED" }, request).catch(() => {});
+      ctx.waitUntil(notifyReceptionBookingCancelled(env, b, b.booker_name).catch(() => {}));
+      return new Response(JSON.stringify({ success: true, message: "Đã hủy lịch họp, Lễ Tân đã được báo" }), { headers: J });
+    }
+
     if (url.pathname === "/api/public/rooms/booking" && request.method === "POST") {
       const fail = (status, error, code) =>
         new Response(JSON.stringify({ success: false, code, error, message: error }), { status, headers: SECURE_JSON_HEADERS });
@@ -12611,6 +12685,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
 
       try {
         await ensureRoomPublicCodeColumn(env.DB);
+        await ensureRoomBookingOwnerColumns(env.DB);
         const room = await env.DB.prepare(
           "SELECT id, name, status, is_locked, public_code FROM meeting_rooms WHERE UPPER(public_code) = ? OR UPPER(id) = ? OR UPPER(room_code) = ? LIMIT 1"
         ).bind(code, code, code).first();
@@ -12651,6 +12726,8 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
 
         const normalizedSlot = `${String(Math.floor(range.start / 60)).padStart(2, "0")}:${String(range.start % 60).padStart(2, "0")} - ${String(Math.floor(range.end / 60)).padStart(2, "0")}:${String(range.end % 60).padStart(2, "0")}`;
         const bookingId = `b_qr_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+        // Mã tự hủy lịch: chỉ người đặt (giữ mã trên điện thoại) mới hủy được; DB chỉ lưu bản băm
+        const cancelToken = [...crypto.getRandomValues(new Uint8Array(18))].map((x) => x.toString(16).padStart(2, "0")).join("");
         await env.DB.prepare(`
           INSERT INTO room_bookings (id, room_id, room_name, title, booker_name, department, booking_date, time_slot,
             attendees_count, notes, status, created_at, user_id, emp_code, user_name, purpose, participants_count, meeting_type)
@@ -12659,6 +12736,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           bookingId, room.id, room.name, title, bookerName, department || "Chưa rõ", bookingDate, normalizedSlot,
           attendeesCount, notes, sourceTag, empCode, bookerName, title, attendeesCount
         ).run();
+        await env.DB.prepare("UPDATE room_bookings SET cancel_token_hash = ? WHERE id = ?").bind(await roomSha256Hex(cancelToken), bookingId).run();
 
         // 🔔 Báo nhóm Zalo Lễ Tân (cùng nhóm & định dạng với đặt phòng trong /rooms)
         if (env.ZALO_BOT_TOKEN) {
@@ -12686,6 +12764,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
         return new Response(JSON.stringify({
           success: true,
           bookingId,
+          cancelToken,
           data: { roomName: room.name, bookingDate, timeSlot: normalizedSlot }
         }), { headers: SECURE_JSON_HEADERS });
       } catch (err) {
@@ -12863,6 +12942,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
             roomName: b.room_name || b.roomName || "Phòng Họp",
             title: b.title || "Cuộc họp",
             bookerName: b.booker_name || b.bookerName || "Người đăng ký",
+            empCode: b.emp_code || null,
             department: b.department || "Hành chính",
             bookingDate: b.booking_date || b.bookingDate,
             timeSlot: b.time_slot || b.timeSlot,
@@ -12968,6 +13048,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
 
       // POST /api/rooms/booking: Save a new booking
       if (url.pathname === "/api/rooms/booking" && request.method === "POST") {
+      if (env.DB) await ensureRoomBookingOwnerColumns(env.DB);
         try {
           let user = null;
           try {
@@ -13054,8 +13135,8 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           const finalDepartment = department || (user && user.department) || "Hành chính";
 
           await env.DB.prepare(`
-            INSERT INTO room_bookings (id, room_id, room_name, title, booker_name, department, booking_date, time_slot, attendees_count, notes, status, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            INSERT INTO room_bookings (id, room_id, room_name, title, booker_name, department, booking_date, time_slot, attendees_count, notes, status, created_at, user_id, emp_code)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?)
           `).bind(
             bookingId,
             targetRoomId,
@@ -13067,7 +13148,9 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
             targetTimeSlot,
             attendeesCount || 5,
             notes || "",
-            bookingStatus
+            bookingStatus,
+            __legacySession ? __legacySession.empCode : null,
+            __legacySession ? __legacySession.empCode : null
           ).run();
 
           // 🔔 GỬI THÔNG BÁO ZALO vào nhóm Lễ Tân khi có đặt phòng mới
@@ -13088,7 +13171,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
             console.warn("Zalo notify error:", zErr.message);
           }
 
-          const successRes = JSON.stringify({ success: true, message: "Đã lưu lịch đặt phòng họp vào Cloudflare D1 thành công!", data: body });
+          const successRes = JSON.stringify({ success: true, message: "Đã lưu lịch đặt phòng họp vào Cloudflare D1 thành công!", id: bookingId, data: { ...body, id: bookingId } });
 
           return new Response(successRes, { headers: SECURE_JSON_HEADERS });
         } catch (err) {
@@ -13113,6 +13196,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
 
       // PUT /api/rooms/booking: Update booking status (COMPLETED, CONFIRMED, CANCELLED, etc.)
       if (url.pathname === "/api/rooms/booking" && request.method === "PUT") {
+      if (env.DB) await ensureRoomBookingOwnerColumns(env.DB);
         try {
           if (!env.DB) {
             return new Response(
@@ -13129,6 +13213,28 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
               JSON.stringify({ success: false, error: "Thiếu mã cuộc họp (id)" }),
               { status: 400, headers: { "Content-Type": "application/json" } }
             );
+          }
+          const J = { "Content-Type": "application/json" };
+          const existing = await env.DB.prepare("SELECT id, emp_code, status, booking_date, time_slot, room_name, title, booker_name FROM room_bookings WHERE id = ?").bind(id).first();
+          if (!existing) {
+            return new Response(JSON.stringify({ success: false, error: "NOT_FOUND", message: "Không tìm thấy lịch họp" }), { status: 404, headers: J });
+          }
+          if (!isRoomReceptionist(__authSession, __legacySession)) {
+            // Người đặt chỉ được tự HỦY lịch của mình (chưa diễn ra); đổi giờ/phòng là việc của Lễ Tân
+            const me = String(__legacySession.empCode || "").toUpperCase();
+            const owner = String(existing.emp_code || "").toUpperCase();
+            if (!owner || owner !== me) {
+              return new Response(JSON.stringify({ success: false, error: "FORBIDDEN", message: "Chỉ Lễ Tân hoặc người đặt mới thao tác được lịch này" }), { status: 403, headers: J });
+            }
+            if (status !== "CANCELLED" || roomId || roomName || notes !== undefined) {
+              return new Response(JSON.stringify({ success: false, error: "FORBIDDEN", message: "Bạn chỉ có thể hủy lịch của mình; đổi giờ/phòng vui lòng liên hệ Lễ Tân" }), { status: 403, headers: J });
+            }
+            const blocked = roomCancelBlockedReason(existing);
+            if (blocked) return new Response(JSON.stringify({ success: false, error: "CANNOT_CANCEL", message: blocked }), { status: 400, headers: J });
+          }
+          await recordAuditLog(__legacySession, "ROOMS", status === "CANCELLED" ? "CANCEL_BOOKING" : "UPDATE_BOOKING", id, { status: existing.status }, { status, roomId, roomName }, request).catch(() => {});
+          if (status === "CANCELLED" && existing.status !== "CANCELLED") {
+            ctx.waitUntil(notifyReceptionBookingCancelled(env, existing, __legacySession.name || __legacySession.empCode).catch(() => {}));
           }
 
           let updateFields = [];
@@ -13156,25 +13262,6 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
             const sql = `UPDATE room_bookings SET ${updateFields.join(", ")} WHERE id = ?`;
             const result = await env.DB.prepare(sql).bind(...bindParams).run();
 
-            // UPSERT Fallback: If booking didn't exist in D1 yet, insert it!
-            if (result && result.meta && result.meta.changes === 0) {
-              await env.DB.prepare(`
-                INSERT INTO room_bookings (id, room_id, room_name, title, booker_name, department, booking_date, time_slot, attendees_count, notes, status, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-              `).bind(
-                id,
-                roomId || "room_1",
-                roomName || "Phòng Họp OTI / OTG",
-                body.title || "Cuộc họp",
-                body.bookerName || "Lê Thị Mai",
-                body.department || "CN-CI",
-                body.bookingDate || new Date().toISOString().split("T")[0],
-                body.timeSlot || "09:30 - 11:30",
-                body.attendeesCount || 10,
-                notes || "",
-                status || "CONFIRMED"
-              ).run();
-            }
           }
 
           return new Response(

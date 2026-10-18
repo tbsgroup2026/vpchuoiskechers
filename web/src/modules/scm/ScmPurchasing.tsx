@@ -1,7 +1,7 @@
 "use client";
 
 // Màn hình "Mua hàng" (spec mục 4.3)
-// Quản lý điều kiện đặt hàng, phát hành PO, kế hoạch nhập 4 tuần, upload form và xử lý sự cố NCC.
+// Quản lý điều kiện đặt hàng, phát hành PO, kế hoạch nhập 8 tuần (cập nhật hằng ngày), upload form và xử lý sự cố NCC.
 
 import React, { useCallback, useEffect, useState } from "react";
 import {
@@ -224,7 +224,7 @@ export default function ScmPurchasing({ me, site, onBack, notify }: Props) {
         method: "POST",
         body: { site },
       });
-      notify("ok", `Đã gửi kế hoạch nhập 4 tuần cho Kho (xác nhận bước 7 cho ${res.completedSteps} đơn)`);
+      notify("ok", `Đã gửi kế hoạch nhập 8 tuần hôm nay cho Kho (xác nhận bước 7 cho ${res.completedSteps} đơn)`);
       loadInbound();
     } catch (e) {
       notify("err", (e as Error).message);
@@ -380,7 +380,7 @@ export default function ScmPurchasing({ me, site, onBack, notify }: Props) {
           </button>
           <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight">Mua Hàng</h1>
           <p className="text-xs text-slate-500 font-medium">
-            Điều kiện đặt hàng, phát hành PO, kế hoạch nhập hàng 4 tuần và xử lý sự cố NCC.
+            Điều kiện đặt hàng, phát hành PO, kế hoạch nhập hàng 8 tuần (cập nhật hằng ngày) và xử lý sự cố NCC.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -487,7 +487,7 @@ export default function ScmPurchasing({ me, site, onBack, notify }: Props) {
           onClick={() => setActiveTab("inbound")}
           className={`pb-2.5 transition border-b-2 flex items-center gap-1.5 ${activeTab === "inbound" ? "border-[#006838] text-[#006838]" : "border-transparent text-slate-500 hover:text-slate-900"}`}
         >
-          Kế hoạch nhập 4 tuần
+          Kế hoạch nhập 8 tuần
           {inbData?.unsent ? (
             <span className="rounded-full bg-amber-500 text-white text-[10px] px-1.5 py-0.2 font-black">
               {inbData.unsent}
@@ -756,7 +756,7 @@ export default function ScmPurchasing({ me, site, onBack, notify }: Props) {
         <div className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="space-y-0.5">
-              <h2 className="text-sm font-black text-slate-900">Kế hoạch nhập hàng tự tổng hợp từ PO (4 tuần tới)</h2>
+              <h2 className="text-sm font-black text-slate-900">Kế hoạch nhập hàng tự tổng hợp từ PO (8 tuần tới, gửi Kho hằng ngày)</h2>
               <p className="text-xs text-slate-500">Được lập tự động từ ngày phát hành PO, lead time NCC và thời gian vận chuyển.</p>
             </div>
             <div className="flex gap-2">
@@ -768,7 +768,7 @@ export default function ScmPurchasing({ me, site, onBack, notify }: Props) {
                   onClick={handleSendInboundToWh}
                   disabled={busy || !inbData?.rows.length}
                 >
-                  <IconSend size={15} /> Gửi kế hoạch cho Kho (thứ Ba)
+                  <IconSend size={15} /> Gửi bản cập nhật hôm nay cho Kho
                 </button>
               )}
             </div>
@@ -792,7 +792,7 @@ export default function ScmPurchasing({ me, site, onBack, notify }: Props) {
                 {!inbData || inbData.rows.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="p-8 text-center text-slate-400">
-                      Chưa có đơn hàng nào có PO dự kiến về trong 4 tuần tới
+                      Chưa có đơn hàng nào có PO dự kiến về trong 8 tuần tới
                     </td>
                   </tr>
                 ) : (

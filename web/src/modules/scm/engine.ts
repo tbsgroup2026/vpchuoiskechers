@@ -103,7 +103,8 @@ export function computeDueDates(o: OrderInput, m: DoneMap, s: ScmSettings): Reco
   due[5] = addDays(base(3), s.no_silent_days);
   const base5 = o.no_silent ? base(5) : base(3);
   due[6] = addDays(maxDate(base(2), base5)!, s.order_days);
-  due[7] = onOrAfterWeekday(addDays(base(4), 1), s.inbound_plan_weekday);
+  // 0 = cập nhật hằng ngày: hạn là ngày kế tiếp sau khi ban hành KH 312; khác 0 = thứ gửi trong tuần
+  due[7] = s.inbound_plan_weekday ? onOrAfterWeekday(addDays(base(4), 1), s.inbound_plan_weekday) : addDays(base(4), 1);
   const arrival = o.eta ?? addDays(base(6), o.supplier_lead_time + o.transport_days);
   due[8] = addDays(maxDate(arrival, base(6))!, inspect);
   due[9] = addDays(base(8), Math.max(Math.ceil(s.lab_hours / 24), s.color_days));

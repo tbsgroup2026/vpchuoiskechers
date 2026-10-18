@@ -1,7 +1,7 @@
 // API Bước 2 của module SCM: Kế hoạch & CCƯ (/api/scm/plans*), Mua hàng (/api/scm/purchasing*), form (/api/scm/forms*).
 // Được gọi từ handleScmApi (server.ts) với context đã xác thực và đã tính quyền.
 
-import { SITES, type ScmDept, type ScmSettings, type StepNo } from "./config";
+import { SITES, SYNC_WEEKS, type ScmDept, type ScmSettings, type StepNo } from "./config";
 import { addDays, fmtDMY } from "./engine";
 import type { Access, ScreenKey, ScmUser } from "./permissions";
 import { PLAN_STATUS, PLAN_TRANSITIONS, canIssue, capacityByWeek, mondayOf, planWeeks, rankPriority, rollForward, validatePlan, type AllocLine, type PlanStatus } from "./planning";
@@ -523,10 +523,10 @@ async function purchasing(c: Step2Ctx): Promise<Response> {
     return c.fail(404, "NOT_FOUND", "Thao tác không tồn tại");
   }
 
-  // GET /api/scm/purchasing/inbound?site  (kế hoạch nhập 4 tuần, tự tổng hợp từ PO)
+  // GET /api/scm/purchasing/inbound?site  (kế hoạch nhập 8 tuần liên tục, tự tổng hợp từ PO, cập nhật hằng ngày)
   if (sub === "inbound" && !parts[4] && method === "GET") {
     const start = mondayOf(c.today);
-    const end = addDays(start, 28);
+    const end = addDays(start, SYNC_WEEKS * 7);
     const orders = await c.loadOrders(site);
     const byId = new Map(orders.map((o) => [o.row.id, o]));
     const { results } = await db.prepare("SELECT i.*, p.po_no FROM scm_inbound_plan i LEFT JOIN scm_purchase_orders p ON p.id = i.po_id ORDER BY i.eta").all<{ id: string; order_id: string; eta: string | null; eta_changed_from: string | null; sent_to_wh_at: string | null; po_no: string }>();
@@ -539,7 +539,9 @@ async function purchasing(c: Step2Ctx): Promise<Response> {
         return { id: r.id, orderId: o.row.id, code: o.row.code, poNo: r.po_no, eta: r.eta, etaChangedFrom: r.eta_changed_from, sentAt: r.sent_to_wh_at, arrived: Boolean(o.done[8]), supplyDeadline: o.view.steps[9].due, impact, week: r.eta ? mondayOf(r.eta) : null };
       })
       .filter((r) => !r.arrived && r.eta && r.eta < end);
-    return c.reply({ success: true, weeks: planWeeks(start), rows, unsent: rows.filter((r) => !r.sentAt).length });
+    // "Chưa gửi" = chưa gửi bản cập nhật của hôm nay (kế hoạch nhập gửi Kho hằng ngày)
+    const weeks = Array.from({ length: SYNC_WEEKS }, (_, i) => addDays(start, i * 7));
+    return c.reply({ success: true, weeks, rows, unsent: rows.filter((r) => !r.sentAt || String(r.sentAt).slice(0, 10) < c.today).length });
   }
 
   // POST /api/scm/purchasing/inbound/send { site }  (thứ Ba: gửi kế hoạch nhập cho Kho, xác nhận bước 7)
@@ -555,7 +557,7 @@ async function purchasing(c: Step2Ctx): Promise<Response> {
     const skipped: string[] = [];
     for (const o of orders) {
       if (o.done[7] || o.view.state === "complete") continue;
-      const r = c.completeStep(o, 7, "Gửi kế hoạch nhập 4 tuần cho Kho");
+      const r = c.completeStep(o, 7, "Gửi kế hoạch nhập 8 tuần cho Kho");
       if ("error" in r) {
         if (skipped.length < 20) skipped.push(`${o.row.code}: ${r.error}`);
       } else {
@@ -565,10 +567,10 @@ async function purchasing(c: Step2Ctx): Promise<Response> {
     }
     for (let i = 0; i < ids.length; i += 90) {
       const chunk = ids.slice(i, i + 90);
-      stmts.push(db.prepare(`UPDATE scm_inbound_plan SET sent_to_wh_at = ?, sent_by = ? WHERE sent_to_wh_at IS NULL AND order_id IN (${chunk.map(() => "?").join(", ")})`).bind(at, c.user.empCode, ...chunk));
+      stmts.push(db.prepare(`UPDATE scm_inbound_plan SET sent_to_wh_at = ?, sent_by = ? WHERE order_id IN (${chunk.map(() => "?").join(", ")})`).bind(at, c.user.empCode, ...chunk));
     }
     for (let i = 0; i < stmts.length; i += 80) await db.batch(stmts.slice(i, i + 80));
-    const sent = await c.notifyDept("KHO", false, "Kế hoạch dự kiến nhập hàng 4 tuần", `Mua hàng đã gửi kế hoạch nhập 4 tuần (site ${site}). Vui lòng chuẩn bị tiếp nhận.`);
+    const sent = await c.notifyDept("KHO", false, `Kế hoạch dự kiến nhập hàng 8 tuần ngày ${fmtDMY(c.today)}`, `Mua hàng đã gửi kế hoạch nhập 8 tuần liên tục (site ${site}). Vui lòng chuẩn bị tiếp nhận.`);
     await c.audit("SEND_INBOUND_PLAN", site, null, { completedSteps: completed, skipped, notified: sent });
     return c.reply({ success: true, completedSteps: completed, skipped, notified: sent });
   }

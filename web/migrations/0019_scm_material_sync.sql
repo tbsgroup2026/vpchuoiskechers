@@ -1,0 +1,2 @@
+-- Bước 3 SCM: Kế hoạch & kết quả đồng bộ vật tư 8 tuần (mốc may / gò, luồng CĐ / CƯ)
+CREATE TABLE IF NOT EXISTS scm_material_sync (order_id TEXT NOT NULL, stage TEXT NOT NULL, stream TEXT NOT NULL, plan_date TEXT, result_date TEXT, result TEXT, shortage TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP, created_by TEXT, updated_by TEXT, PRIMARY KEY (order_id, stage, stream));

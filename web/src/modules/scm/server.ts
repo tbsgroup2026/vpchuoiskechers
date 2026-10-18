@@ -20,7 +20,7 @@ import {
 import { DEFAULT_DEPT_RULES, applyOverrides, canApprovePermissions, canEditStep, mapUserToDept, resolveAccess, resolveAll, type DeptRule, type Matrix, type ScmUser } from "./permissions";
 import { SCM_ALTERS, SCM_DDL } from "./schema";
 import { escalateIncidents, handleScmStep2, type R2Like } from "./server-step2";
-import { handleScmStep3 } from "./server-step3";
+import { handleScmStep3, syncDailySummary } from "./server-step3";
 
 // ─── Kiểu tối thiểu của D1 và helper do worker cung cấp ──────────────────────
 
@@ -728,7 +728,23 @@ export async function runScmHourly(db: D1, now: number = Date.now()): Promise<{ 
   await ensureScm(db);
   const settings = await loadSettings(db);
   const vnHour = new Date(now + 7 * 3600000).getUTCHours();
-  if (vnHour !== Number(settings.escalation_run_time.slice(0, 2))) return { ran: false, sent: 0 };
+  // 11:00 hằng ngày: báo cáo kế hoạch & kết quả đồng bộ vật tư 8 tuần cho Kho, Kế hoạch, Mua hàng
+  let syncSent = 0;
+  if (vnHour === 11) {
+    const summary = await syncDailySummary(db, vnToday(now)).catch(() => null);
+    if (summary) {
+      const seen = new Set<string>();
+      for (const dept of ["KHO", "KH", "MH"] as ScmDept[]) {
+        for (const emp of await deptRecipients(db, dept, false)) {
+          if (seen.has(emp)) continue;
+          seen.add(emp);
+          await insertNotification(db, emp, summary.title, summary.message, "NORMAL").catch(() => null);
+          syncSent++;
+        }
+      }
+    }
+  }
+  if (vnHour !== Number(settings.escalation_run_time.slice(0, 2))) return { ran: syncSent > 0, sent: syncSent };
   const today = vnToday(now);
   const orders = await loadOrders(db, "ALL", settings, today);
   const { results: prev } = await db.prepare("SELECT order_id, step_no, escalation_level, escalated_at FROM scm_order_steps").all<{ order_id: string; step_no: number; escalation_level: number; escalated_at: string | null }>();
@@ -764,7 +780,7 @@ export async function runScmHourly(db: D1, now: number = Date.now()): Promise<{ 
     for (const emp of to) await insertNotification(db, emp, title, message, dept === "BDH" ? "HIGH" : "NORMAL").catch(() => null);
     return to.length;
   });
-  return { ran: true, sent };
+  return { ran: true, sent: sent + syncSent };
 }
 
 /** Quyền của một màn hình cho người dùng (dùng ở worker khi cần kiểm tra nhanh) */

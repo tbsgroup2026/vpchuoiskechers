@@ -26,6 +26,8 @@ export const SCM_DDL: string[] = [
   `CREATE TABLE IF NOT EXISTS scm_user_sites (emp_code TEXT PRIMARY KEY, home_site TEXT, all_sites INTEGER NOT NULL DEFAULT 0, ${AUDIT_COLS})`,
   // Bước 3: Kế hoạch sản xuất theo ngày (ngày lên chuyền may / gò) — căn cứ tính mốc đồng bộ vật tư
   `CREATE TABLE IF NOT EXISTS scm_production_schedule (order_id TEXT PRIMARY KEY, sew_start TEXT, last_start TEXT, note TEXT, ${AUDIT_COLS})`,
+  // Bước 3: Kế hoạch & kết quả đồng bộ vật tư (mốc may / gò, 2 luồng CĐ, CƯ)
+  `CREATE TABLE IF NOT EXISTS scm_material_sync (order_id TEXT NOT NULL, stage TEXT NOT NULL, stream TEXT NOT NULL, plan_date TEXT, result_date TEXT, result TEXT, shortage TEXT, ${AUDIT_COLS}, PRIMARY KEY (order_id, stage, stream))`,
   `CREATE TABLE IF NOT EXISTS scm_uploaded_forms (id TEXT PRIMARY KEY, dept TEXT NOT NULL, file_key TEXT NOT NULL, file_name TEXT NOT NULL, size INTEGER NOT NULL DEFAULT 0, content_type TEXT, uploaded_by TEXT, uploaded_at TEXT, ${AUDIT_COLS})`,
 ];
 

@@ -56,6 +56,17 @@ export const OWNER_TO_SCM: Record<OwnerDept, ScmDept> = { KD: "KDCNQC", CN: "KDC
 // Mốc đồng bộ vật tư (trung tâm phân phối): cấp đủ trước ngày lên chuyền may 2 tuần, trước gò 1 tuần
 export const SYNC_SEW_DAYS = 14;
 export const SYNC_LAST_DAYS = 7;
+/** Hai luồng đồng bộ vật tư của trung tâm phân phối (đổi tên hiển thị tại đây) */
+export const SYNC_STREAMS = [
+  { key: "CD", name: "CĐ", desc: "Cân đối vật tư" },
+  { key: "CU", name: "CƯ", desc: "Cung ứng (Điều độ)" },
+] as const;
+export const SYNC_STAGES = [
+  { key: "MAY", name: "May", leadDays: 14 },
+  { key: "GO", name: "Gò", leadDays: 7 },
+] as const;
+/** Số tuần theo dõi liên tục */
+export const SYNC_WEEKS = 8;
 
 export const SITES = [
   { key: "VPC", name: "Văn phòng chuỗi" },

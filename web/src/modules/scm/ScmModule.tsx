@@ -34,6 +34,7 @@ import { ScmApiError, scmApi, type ScmMe } from "./client";
 import ScmProgress from "./ScmProgress";
 import ScmPlanning from "./ScmPlanning";
 import ScmPurchasing from "./ScmPurchasing";
+import ScmSync from "./ScmSync";
 import ScmSitePicker, { siteName } from "./ScmSitePicker";
 
 export type Notify = (kind: "ok" | "err", text: string) => void;
@@ -209,8 +210,10 @@ export default function ScmModule() {
         <ScmPlanning me={me} site={siteKey} onBack={() => go(null)} notify={notify} onSiteChange={changeSite} />
       ) : screen === "purchasing" ? (
         <ScmPurchasing me={me} site={siteKey} onBack={() => go(null)} notify={notify} />
+      ) : screen === "warehouse" ? (
+        <ScmSync me={me} site={siteKey} onBack={() => go(null)} notify={notify} />
       ) : (
-        <Pending title={SCREENS.find((s) => s.key === screen)?.name ?? ""} phase={PHASE_OF[screen]} warehouse={screen === "warehouse"} onBack={() => go(null)} />
+        <Pending title={SCREENS.find((s) => s.key === screen)?.name ?? ""} phase={PHASE_OF[screen]} onBack={() => go(null)} />
       )}
       {toast ? (
         <div role="status" aria-live="polite" className={`fixed bottom-20 sm:bottom-4 left-1/2 z-[80] -translate-x-1/2 max-w-[92vw] rounded-xl px-4 py-3 text-sm font-semibold shadow-lg flex items-start gap-3 ${toast.kind === "ok" ? "bg-[#006838] text-white" : "bg-red-600 text-white"}`}>
@@ -334,9 +337,7 @@ function ScmOverview({ me, site, onChangeSite, onOpen }: { me: ScmMe; site: stri
                 desc={c.desc}
                 items={c.items}
                 onOpen={() => {
-                  // Màn Kho của module làm ở Bước 3; trong lúc chờ, thẻ Kho mở thẳng màn Kiểm hàng & vị trí đang dùng
-                  if (c.screen === "warehouse") window.location.href = "/warehouse";
-                  else onOpen(c.screen);
+                  onOpen(c.screen);
                 }}
               />
             ))}

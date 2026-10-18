@@ -53,6 +53,10 @@ export const SCM_DEPT_NAME: Record<ScmDept, string> = {
 /** Bộ phận giữ việc thuộc phòng phân quyền nào */
 export const OWNER_TO_SCM: Record<OwnerDept, ScmDept> = { KD: "KDCNQC", CN: "KDCNQC", QC: "KDCNQC", KH: "KH", MH: "MH", KHO: "KHO" };
 
+// Mốc đồng bộ vật tư (trung tâm phân phối): cấp đủ trước ngày lên chuyền may 2 tuần, trước gò 1 tuần
+export const SYNC_SEW_DAYS = 14;
+export const SYNC_LAST_DAYS = 7;
+
 export const SITES = [
   { key: "VPC", name: "Văn phòng chuỗi" },
   { key: "PXM", name: "Phân xưởng mẫu" },

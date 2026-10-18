@@ -20,6 +20,7 @@ import {
 import { DEFAULT_DEPT_RULES, applyOverrides, canApprovePermissions, canEditStep, mapUserToDept, resolveAccess, resolveAll, type DeptRule, type Matrix, type ScmUser } from "./permissions";
 import { SCM_ALTERS, SCM_DDL } from "./schema";
 import { escalateIncidents, handleScmStep2, type R2Like } from "./server-step2";
+import { handleScmStep3 } from "./server-step3";
 
 // ─── Kiểu tối thiểu của D1 và helper do worker cung cấp ──────────────────────
 
@@ -682,7 +683,7 @@ export async function handleScmApi(request: Request, env: { DB: D1; BUCKET?: R2L
       }
       return to.length;
     };
-    const step2 = await handleScmStep2({
+    const stepCtx = {
       db,
       bucket: env.BUCKET,
       request,
@@ -700,9 +701,12 @@ export async function handleScmApi(request: Request, env: { DB: D1; BUCKET?: R2L
       audit: (action, recordId, before, after) => writeAudit(db, request, user, action, recordId, before, after),
       notifyDept,
       loadOrders: (s, id) => lo(s, id),
-      completeStep: (o, n, note) => stepCompletion(db, o, n, user.empCode, note, today, settings),
-    });
+      completeStep: (o: LoadedOrder, n: StepNo, note: string) => stepCompletion(db, o, n, user.empCode, note, today, settings),
+    };
+    const step2 = await handleScmStep2(stepCtx);
     if (step2) return step2;
+    const step3 = await handleScmStep3(stepCtx);
+    if (step3) return step3;
 
     return fail(404, "NOT_FOUND", "API không tồn tại");
   } catch (err) {

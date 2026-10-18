@@ -24,6 +24,8 @@ export const SCM_DDL: string[] = [
   `CREATE TABLE IF NOT EXISTS scm_incidents (id TEXT PRIMARY KEY, order_id TEXT NOT NULL, po_id TEXT, supplier_id TEXT, material TEXT NOT NULL, issue TEXT NOT NULL, plan TEXT, stage TEXT NOT NULL DEFAULT 'CONTACT', opened_at TEXT NOT NULL, closed_at TEXT, confirmed_by TEXT, confirmed_at TEXT, escalation INTEGER NOT NULL DEFAULT 0, escalated_at TEXT, note TEXT, ${AUDIT_COLS})`,
   // Nhà máy trực thuộc của tài khoản và quyền xem/chọn mọi nhà máy (all_sites = 1)
   `CREATE TABLE IF NOT EXISTS scm_user_sites (emp_code TEXT PRIMARY KEY, home_site TEXT, all_sites INTEGER NOT NULL DEFAULT 0, ${AUDIT_COLS})`,
+  // Bước 3: Kế hoạch sản xuất theo ngày (ngày lên chuyền may / gò) — căn cứ tính mốc đồng bộ vật tư
+  `CREATE TABLE IF NOT EXISTS scm_production_schedule (order_id TEXT PRIMARY KEY, sew_start TEXT, last_start TEXT, note TEXT, ${AUDIT_COLS})`,
   `CREATE TABLE IF NOT EXISTS scm_uploaded_forms (id TEXT PRIMARY KEY, dept TEXT NOT NULL, file_key TEXT NOT NULL, file_name TEXT NOT NULL, size INTEGER NOT NULL DEFAULT 0, content_type TEXT, uploaded_by TEXT, uploaded_at TEXT, ${AUDIT_COLS})`,
 ];
 

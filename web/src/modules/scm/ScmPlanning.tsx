@@ -36,6 +36,7 @@ import {
   type WeekLoad,
 } from "./client";
 import type { Notify } from "./ScmModule";
+import ScmKhsx from "./ScmKhsx";
 
 const btn = "inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold transition disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-4";
 const btnPrimary = `${btn} bg-[#006838] text-white hover:bg-[#00522c] focus-visible:ring-[#006838]/30`;
@@ -954,6 +955,8 @@ export default function ScmPlanning({ me, site, onBack, notify, onSiteChange }: 
           </form>
         </div>
       )}
+      {/* Bước 3: KHSX theo ngày — đầu vào tính mốc đồng bộ vật tư */}
+      {site && <ScmKhsx site={site} notify={notify} />}
     </div>
   );
 }

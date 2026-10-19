@@ -2307,6 +2307,10 @@ video {
   min-width: 1rem;
 }
 
+.min-w-\[1000px\] {
+  min-width: 1000px;
+}
+
 .min-w-\[1020px\] {
   min-width: 1020px;
 }
@@ -2998,6 +3002,10 @@ video {
 
 .grid-cols-7 {
   grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.grid-cols-8 {
+  grid-template-columns: repeat(8, minmax(0, 1fr));
 }
 
 .grid-cols-\[1fr_7rem\] {
@@ -11700,6 +11708,10 @@ body {
 .active\:bg-purple-700:active {
   --tw-bg-opacity: 1;
   background-color: rgb(126 34 206 / var(--tw-bg-opacity, 1));
+}
+
+.disabled\:cursor-default:disabled {
+  cursor: default;
 }
 
 .disabled\:cursor-not-allowed:disabled {

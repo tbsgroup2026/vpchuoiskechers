@@ -112,24 +112,26 @@ export default function JudgeWorkspace({ magicToken: propMagicToken }: JudgeWork
 
       // 1. Authenticate via URL Params if present
       if (magicToken || (bgkUserParam && bgkPassParam)) {
-        let authUrl = "/api/ci-kaizen/judging/guests?";
-        if (magicToken) authUrl += `token=${encodeURIComponent(magicToken)}`;
-        else authUrl += `bgkUser=${encodeURIComponent(bgkUserParam)}&pass=${encodeURIComponent(bgkPassParam)}`;
-
-        const guestRes = await fetch(authUrl);
-        const guestJson = await guestRes.json();
-        if (guestJson.success && guestJson.authToken) {
-          localStorage.setItem("tbs_jwt_token", guestJson.authToken);
+        // Link đăng nhập BGK → đăng nhập chính (token có chữ ký)
+        const guestRes = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(magicToken ? { guestToken: magicToken } : { empCode: bgkUserParam, password: bgkPassParam }),
+        });
+        const guestJson = await guestRes.json().catch(() => ({}));
+        if (guestJson.success && guestJson.token) {
+          localStorage.setItem("tbs_jwt_token", guestJson.token);
+          localStorage.setItem("tbs_token", guestJson.token);
           setIsGuest(true);
-          setGuestUserObj(guestJson.guestUser);
+          setGuestUserObj({ ...guestJson.user, isGuest: true });
           setDeclarationSubmitted(Boolean(guestJson.declarationSubmitted));
         } else if (!guestJson.success) {
-          setErrorMsg(`❌ ${guestJson.error || "Tài khoản BGK khách mời không hợp lệ hoặc đã bị thu hồi"}`);
+          setErrorMsg(`❌ ${guestJson.message || guestJson.error || "Tài khoản BGK khách mời không hợp lệ hoặc đã bị thu hồi"}`);
           setShowLoginModal(true);
         }
       }
 
-      let token = typeof window !== "undefined" ? (localStorage.getItem("tbs_jwt_token") || "") : "";
+      let token = typeof window !== "undefined" ? (localStorage.getItem("tbs_jwt_token") || localStorage.getItem("tbs_token") || sessionStorage.getItem("tbs_token") || "") : "";
 
       if (!token) {
         setShowLoginModal(true);
@@ -178,27 +180,25 @@ export default function JudgeWorkspace({ magicToken: propMagicToken }: JudgeWork
       setLoggingIn(true);
       setErrorMsg(null);
 
-      const res = await fetch("/api/ci-kaizen/judging/guests", {
+      // Đăng nhập chính: nhận cả tài khoản BGK khách mời, cấp token có chữ ký
+      const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "LOGIN",
-          username: loginUser.trim(),
-          passcode: loginPass.trim(),
-        }),
+        body: JSON.stringify({ empCode: loginUser.trim(), password: loginPass.trim() }),
       });
 
-      const json = await res.json();
-      if (json.success && json.authToken) {
-        localStorage.setItem("tbs_jwt_token", json.authToken);
-        setIsGuest(true);
-        setGuestUserObj(json.guestUser);
+      const json = await res.json().catch(() => ({}));
+      if (json.success && json.token) {
+        localStorage.setItem("tbs_jwt_token", json.token);
+        localStorage.setItem("tbs_token", json.token);
+        setIsGuest(Boolean(json.user?.isGuest));
+        setGuestUserObj({ ...json.user, isGuest: Boolean(json.user?.isGuest) });
         setDeclarationSubmitted(Boolean(json.declarationSubmitted));
         setShowLoginModal(false);
         setSubmitSuccessMsg("✅ Đăng nhập BGK thành công!");
         loadData();
       } else {
-        setErrorMsg(`❌ ${json.error || "Tên đăng nhập hoặc mật khẩu 1 lần không hợp lệ!"}`);
+        setErrorMsg(`❌ ${json.message || json.error || "Tên đăng nhập hoặc mật khẩu 1 lần không hợp lệ!"}`);
       }
     } catch (err) {
       setErrorMsg("❌ Lỗi kết nối máy chủ đăng nhập");
@@ -224,7 +224,7 @@ export default function JudgeWorkspace({ magicToken: propMagicToken }: JudgeWork
     try {
       setSubmittingDecl(true);
       setErrorMsg(null);
-      let token = typeof window !== "undefined" ? (localStorage.getItem("tbs_jwt_token") || "") : "";
+      let token = typeof window !== "undefined" ? (localStorage.getItem("tbs_jwt_token") || localStorage.getItem("tbs_token") || sessionStorage.getItem("tbs_token") || "") : "";
 
       const res = await fetch("/api/ci-kaizen/expert-evaluations", {
         method: "POST",
@@ -273,7 +273,7 @@ export default function JudgeWorkspace({ magicToken: propMagicToken }: JudgeWork
 
     // Fetch existing score if already scored
     try {
-      let token = typeof window !== "undefined" ? (localStorage.getItem("tbs_jwt_token") || "") : "";
+      let token = typeof window !== "undefined" ? (localStorage.getItem("tbs_jwt_token") || localStorage.getItem("tbs_token") || sessionStorage.getItem("tbs_token") || "") : "";
       const res = await fetch(`/api/ci-kaizen/judging/score?submissionId=${asgn.submission_id}&roundId=${asgn.round_id}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
@@ -343,7 +343,7 @@ export default function JudgeWorkspace({ magicToken: propMagicToken }: JudgeWork
     }
     try {
       setSubmittingConflict(true);
-      let token = typeof window !== "undefined" ? (localStorage.getItem("tbs_jwt_token") || "") : "";
+      let token = typeof window !== "undefined" ? (localStorage.getItem("tbs_jwt_token") || localStorage.getItem("tbs_token") || sessionStorage.getItem("tbs_token") || "") : "";
       const res = await fetch("/api/ci-kaizen/judging/assignments", {
         method: "POST",
         headers: {
@@ -384,7 +384,7 @@ export default function JudgeWorkspace({ magicToken: propMagicToken }: JudgeWork
       setSubmittingScore(true);
       setErrorMsg(null);
       setSubmitSuccessMsg(null);
-      let token = typeof window !== "undefined" ? (localStorage.getItem("tbs_jwt_token") || "") : "";
+      let token = typeof window !== "undefined" ? (localStorage.getItem("tbs_jwt_token") || localStorage.getItem("tbs_token") || sessionStorage.getItem("tbs_token") || "") : "";
 
       if (typeof window !== "undefined" && realScorerName.trim()) {
         localStorage.setItem("tbs_real_scorer_name", realScorerName.trim());

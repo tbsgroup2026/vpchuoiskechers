@@ -3660,7 +3660,9 @@ export default {
           const loginId = String(body.empCode || body.emp_code || body.role || "").trim();
           const password = typeof body.password === "string" ? body.password : "";
           const invalid = () => json({ success: false, error: "INVALID_CREDENTIALS", message: "MSNV hoặc mật khẩu không đúng" }, 401);
-          if (!loginId || !password) return json({ success: false, error: "MISSING_CREDENTIALS", message: "Vui lòng nhập MSNV và mật khẩu" }, 400);
+          // guestToken: link đăng nhập dành cho Ban giám khảo khách mời (token do quản trị tạo)
+          const guestToken = typeof body.guestToken === "string" ? body.guestToken.trim().slice(0, 200) : "";
+          if ((!loginId || !password) && !guestToken) return json({ success: false, error: "MISSING_CREDENTIALS", message: "Vui lòng nhập MSNV và mật khẩu" }, 400);
 
           // Giới hạn đăng nhập sai theo IP: chống dò mật khẩu mặc định trên hàng loạt MSNV
           // Chỉ tính theo IP thật do Cloudflare cung cấp (không tin X-Forwarded-For do người dùng tự gửi)
@@ -3680,16 +3682,53 @@ export default {
             ).bind(clientIp, new Date().toISOString(), ipWindowOpen ? 1 : 0, ipWindowOpen ? 1 : 0).run().catch(() => {});
           };
 
-          if (!password) {
+          if (!password && !guestToken) {
             return new Response(JSON.stringify({ success: false, error: "Vui lòng nhập mật khẩu xác thực" }), { status: 400, headers: CORS });
           }
 
-          let userRecord = null;
+          // Ban giám khảo khách mời: tài khoản & mật khẩu do quản trị cấp ở /work/kaizen/admin/judging (bảng ci_kaizen_judge_guest_accounts)
+          let guestPassOk = false;
+          let guestRow = null;
           try {
-            userRecord = await env.DB.prepare("SELECT * FROM sys_users WHERE UPPER(emp_code) = UPPER(?) OR UPPER(email) = UPPER(?) LIMIT 1")
-              .bind(loginId, loginId)
+            guestRow = await env.DB.prepare("SELECT * FROM ci_kaizen_judge_guest_accounts WHERE UPPER(username) = UPPER(?) AND COALESCE(is_revoked, 0) = 0 LIMIT 1")
+              .bind(loginId)
               .first();
           } catch (e) {}
+          if (guestToken) {
+            guestRow = await env.DB.prepare("SELECT * FROM ci_kaizen_judge_guest_accounts WHERE token_hash = ? AND COALESCE(is_revoked, 0) = 0 LIMIT 1")
+              .bind(guestToken).first().catch(() => null);
+            if (!guestRow) {
+              await recordIpFail();
+              return json({ success: false, error: "INVALID_GUEST_LINK", message: "Link đăng nhập Ban giám khảo không hợp lệ hoặc đã bị thu hồi" }, 401);
+            }
+          }
+          if (guestRow && (guestToken || (guestRow.one_time_passcode && authTimingSafeEqual(password, String(guestRow.one_time_passcode))))) {
+            const exp = guestRow.expires_at ? Date.parse(String(guestRow.expires_at).replace(" ", "T")) : NaN;
+            if (!Number.isNaN(exp) && exp < Date.now()) {
+              return json({ success: false, error: "GUEST_EXPIRED", message: "Tài khoản Ban giám khảo khách mời đã hết hạn. Vui lòng liên hệ quản trị để cấp lại." }, 401);
+            }
+            guestPassOk = true;
+            await env.DB.prepare("UPDATE ci_kaizen_judge_guest_accounts SET used_at = CURRENT_TIMESTAMP WHERE id = ?").bind(guestRow.id).run().catch(() => {});
+          }
+
+          let userRecord = guestPassOk
+            ? {
+                emp_code: String(guestRow.username).trim().toUpperCase(),
+                name: guestRow.full_name || guestRow.username,
+                title: "Ban giám khảo khách mời",
+                department: "Ban giám khảo Kaizen",
+                role_code: "JUDGE_GUEST",
+                role_level: 3,
+                redirect_url: "/work/kaizen/van-phong-chuoi",
+              }
+            : null;
+          if (!userRecord) {
+            try {
+              userRecord = await env.DB.prepare("SELECT * FROM sys_users WHERE UPPER(emp_code) = UPPER(?) OR UPPER(email) = UPPER(?) LIMIT 1")
+                .bind(loginId, loginId)
+                .first();
+            } catch (e) {}
+          }
           // Danh sách nhân viên còn nằm ở bảng users (quản trị người dùng) và hr_employees (nhân sự)
           if (!userRecord) {
             try {
@@ -3744,7 +3783,11 @@ export default {
           // Chưa có mật khẩu riêng: dùng mật khẩu mặc định và bắt đổi ngay. Tài khoản BGK bắt buộc có mật khẩu do quản trị cấp.
           let ok = false;
           let mustChange = true;
-          if (cred) {
+          if (guestPassOk) {
+            // Mật khẩu đã khớp với tài khoản BGK khách mời do quản trị cấp; không bắt đổi
+            ok = true;
+            mustChange = false;
+          } else if (cred) {
             ok = await verifyAuthPassword(password, cred);
             mustChange = Number(cred.must_change) === 1;
           } else if (!isGuest) {
@@ -3817,6 +3860,7 @@ export default {
               token,
               mustChangePwd: mustChange,
               user: userProfile,
+              ...(guestPassOk ? { declarationSubmitted: Boolean(guestRow.declaration_submitted) } : {}),
             },
             200,
             { "Set-Cookie": authCookie(token, AUTH_TOKEN_TTL_SECONDS) },

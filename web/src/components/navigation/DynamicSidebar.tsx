@@ -1,5 +1,6 @@
 "use client";
 
+import { logoutUserProfile } from "@/lib/userProfiles";
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -274,11 +275,7 @@ export default function DynamicSidebar() {
           className="text-slate-400 hover:text-white p-1 transition-colors hover:bg-slate-800 rounded-md cursor-pointer shrink-0 ml-1"
           onClick={() => {
             if (window.confirm("Bạn có chắc chắn muốn đăng xuất?")) {
-              document.cookie = "tbs_token=; path=/; max-age=0";
-              localStorage.removeItem("tbs_current_user");
-              localStorage.removeItem("tbs_jwt_token");
-              sessionStorage.removeItem("tbs_current_user");
-              sessionStorage.removeItem("tbs_jwt_token");
+              logoutUserProfile();
               window.location.href = "/login";
             }
           }}

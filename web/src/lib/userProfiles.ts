@@ -1052,6 +1052,20 @@ export async function loginWithD1Database(
 export function logoutUserProfile(): void {
   if (typeof window === "undefined") return;
 
+  // 0. Báo máy chủ: vô hiệu token và xóa cookie đăng nhập (cookie HttpOnly, JavaScript không tự xóa được).
+  //    keepalive để yêu cầu vẫn gửi xong khi trang chuyển ngay sang /login.
+  try {
+    const token =
+      localStorage.getItem("tbs_token") || sessionStorage.getItem("tbs_token") ||
+      localStorage.getItem("tbs_jwt_token") || sessionStorage.getItem("tbs_jwt_token") || "";
+    fetch("/api/auth/logout", {
+      method: "POST",
+      credentials: "include",
+      keepalive: true,
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    }).catch(() => {});
+  } catch (e) {}
+
   try {
     // 1. Expire cookies across all paths
     document.cookie = "tbs_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";

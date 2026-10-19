@@ -19,7 +19,7 @@ const KaizenDuplicateCompareModal = dynamic(() => import("./KaizenDuplicateCompa
 const KaizenLeaderboard = dynamic(() => import("./KaizenLeaderboard"), { ssr: false });
 
 import UserAvatar from "@/components/UserAvatar";
-import { getCurrentUser } from "@/lib/userProfiles";
+import { getCurrentUser, logoutUserProfile } from "@/lib/userProfiles";
 import { getValidKaizenImageUrl, getAllKaizenImageUrls } from "@/lib/kaizenImageHelper";
 import { formatMax2Decimals } from "@/lib/formatNumber";
 import { getKaizenDisplayTitle, getKaizenBeforeDescription, getKaizenAfterSolution } from "@/lib/kaizenTitleHelper";
@@ -2585,11 +2585,7 @@ export default function CIModule({ initialUnitSlug }: CIModuleProps = {}) {
               className="text-slate-400 hover:text-white p-1 transition-colors hover:bg-slate-800 rounded-md cursor-pointer"
               onClick={() => {
                 if (window.confirm("Bạn có chắc chắn muốn đăng xuất?")) {
-                  document.cookie = "tbs_token=; path=/; max-age=0";
-                  localStorage.removeItem("tbs_current_user");
-                  localStorage.removeItem("tbs_jwt_token");
-                  sessionStorage.removeItem("tbs_current_user");
-                  sessionStorage.removeItem("tbs_jwt_token");
+                  logoutUserProfile();
                   window.location.href = "/login";
                 }
               }}

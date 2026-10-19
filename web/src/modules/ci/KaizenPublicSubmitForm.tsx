@@ -234,6 +234,16 @@ export default function KaizenPublicSubmitForm({
     return Array.isArray(node) ? node : ["Phân Xưởng Mẫu"];
   }, [selectedFormFactory]);
 
+  // Phân xưởng đang chọn không thuộc nhà máy mới (VD: Phân Xưởng Mẫu khi chọn Nhà Máy Miền Đông) → chọn lại
+  useEffect(() => {
+    if (selectedFormWorkshop && !availableFormWorkshops.includes(selectedFormWorkshop)) {
+      setSelectedFormWorkshop("");
+      setSelectedFormLine("");
+      setSelectedFormChuyen("");
+      setSelectedFormTo("");
+    }
+  }, [availableFormWorkshops, selectedFormWorkshop]);
+
   const availableFormLines = useMemo(() => {
     if (!selectedFormFactory || !selectedFormWorkshop) return ["Đầu vào", "May", "Gò"];
     const fNode = INITIAL_ORG_TREE[selectedFormFactory] || INITIAL_ORG_TREE[normalizeFactoryName(selectedFormFactory)];

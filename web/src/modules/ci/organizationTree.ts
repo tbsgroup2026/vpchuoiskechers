@@ -63,6 +63,9 @@ const STANDARD_WORKSHOPS = {
   },
 };
 
+// Nhà Máy Miền Đông không có Phân Xưởng Mẫu
+const { "Phân Xưởng Mẫu": _sampleWorkshop, ...MIEN_DONG_WORKSHOPS } = STANDARD_WORKSHOPS;
+
 const VP_WORKSHOPS = {
   "Phân Xưởng Mẫu": {
     "Đầu vào": ["Tổ 1", "Tổ 2"],
@@ -76,8 +79,8 @@ const VP_WORKSHOPS = {
 };
 
 export const INITIAL_ORG_TREE: OrgNodeMap = {
-  "Nhà Máy Miền Đông": STANDARD_WORKSHOPS,
-  "NMMĐ": STANDARD_WORKSHOPS,
+  "Nhà Máy Miền Đông": MIEN_DONG_WORKSHOPS,
+  "NMMĐ": MIEN_DONG_WORKSHOPS,
   "Kiên Giang 1": STANDARD_WORKSHOPS,
   "Nhà máy Kiên Giang 1": STANDARD_WORKSHOPS,
   "Kiên Giang 2": STANDARD_WORKSHOPS,

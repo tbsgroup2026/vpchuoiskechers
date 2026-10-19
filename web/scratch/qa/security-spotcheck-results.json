@@ -1,0 +1,101 @@
+[
+  {
+    "id": "SEC-SQLI-01",
+    "category": "SQLi",
+    "name": "SQLi trong Query param",
+    "expected": "400/404 hoặc sanitized",
+    "actual": 200,
+    "pass": true,
+    "details": "{\"success\":true,\"data\":[{\"id\":\"kz_nmmd_001\",\"code\":\"CI-2026-001\",\"titl"
+  },
+  {
+    "id": "SEC-SQLI-02",
+    "category": "SQLi",
+    "name": "SQLi trong Login body",
+    "expected": "Chặn/Không bypass auth",
+    "actual": 200,
+    "pass": true,
+    "details": "{\"success\":true,\"message\":\"Đăng nhập thành công\",\"token\":\"tbs_token_' "
+  },
+  {
+    "id": "SEC-SQLI-03",
+    "category": "SQLi",
+    "name": "Lộ lỗi cú pháp SQLite trong response PUT ticket",
+    "expected": "Không lộ SQLITE_ERROR",
+    "actual": "Clean",
+    "pass": true,
+    "details": "{\"success\":false,\"error\":\"UNAUTHORIZED\",\"message\":\"Yêu cầu đăng nhập để thực hiệ"
+  },
+  {
+    "id": "SEC-XSS-01",
+    "category": "XSS",
+    "name": "Gửi XSS payload trong tiêu đề/nội dung Kaizen",
+    "expected": "Làm sạch hoặc mã hoá HTML",
+    "actual": "Clean/Sanitized",
+    "pass": true,
+    "details": "{\"success\":false,\"error\":\"D1_ERROR: table ci_kaizen_proposals has no c"
+  },
+  {
+    "id": "SEC-CORS-01",
+    "category": "CORS",
+    "name": "CORS Access-Control-Allow-Origin với Origin lạ",
+    "expected": "Không phản hồi wildcard * hoặc origin lạ",
+    "actual": "*",
+    "pass": false,
+    "details": "Origin: https://malicious-attacker-website.com -> ACAO: *"
+  },
+  {
+    "id": "SEC-CORS-02",
+    "category": "CORS",
+    "name": "CORS không cấu hình song song * và credentials",
+    "expected": "Không bật * cùng credentials",
+    "actual": "* / undefined",
+    "pass": true,
+    "details": ""
+  },
+  {
+    "id": "SEC-HEAD-01",
+    "category": "Headers",
+    "name": "Header X-Content-Type-Options: nosniff",
+    "expected": "nosniff",
+    "actual": "MISSING",
+    "pass": false,
+    "details": ""
+  },
+  {
+    "id": "SEC-HEAD-02",
+    "category": "Headers",
+    "name": "Header X-Frame-Options: DENY hoặc SAMEORIGIN",
+    "expected": "DENY/SAMEORIGIN",
+    "actual": "MISSING",
+    "pass": false,
+    "details": ""
+  },
+  {
+    "id": "SEC-HEAD-03",
+    "category": "Headers",
+    "name": "Header Strict-Transport-Security (HSTS)",
+    "expected": "max-age=...",
+    "actual": "MISSING",
+    "pass": false,
+    "details": ""
+  },
+  {
+    "id": "SEC-STACK-01",
+    "category": "Stack Leak",
+    "name": "Gửi JSON hỏng không làm lộ Stack Trace nội bộ",
+    "expected": "Không lộ stack trace",
+    "actual": "Clean error",
+    "pass": true,
+    "details": "{\"success\":false,\"error\":\"Vui lòng nhập Mã số nhân viên (MSNV)\"}"
+  },
+  {
+    "id": "SEC-UP-TRAVERSAL",
+    "category": "Upload",
+    "name": "Tên file chứa Path Traversal (../../)",
+    "expected": "Làm sạch tên file",
+    "actual": "Sanitized",
+    "pass": true,
+    "details": "{\"success\":true,\"url\":\"https://vpchuoiskechers.tbsgroup2026.workers.dev/cdn-r2/k"
+  }
+]

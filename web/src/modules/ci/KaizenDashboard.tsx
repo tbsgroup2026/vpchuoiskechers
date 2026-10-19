@@ -24,6 +24,7 @@ import {
 import { KaizenProposal } from "./CIModule";
 import KaizenLeaderboard from "./KaizenLeaderboard";
 import { formatFormattedNumber } from "@/lib/formatNumber";
+import { KpiCard } from "@/components/dashboard";
 
 interface KaizenDashboardProps {
   proposals: KaizenProposal[];
@@ -700,113 +701,48 @@ export default function KaizenDashboard({ proposals, targetRegion, onBackToLibra
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
-        <div
+        <KpiCard
+          icon={IconStack}
+          title="Tổng cải tiến"
+          value={totalCount}
+          subtitle="Toàn bộ sáng kiến"
           onClick={() => setStatusScope('ALL')}
-          className="relative overflow-hidden bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all"
-        >
-          <div className="absolute top-0 left-0 bottom-0 w-1.5 bg-[#0b1739]"></div>
-          <div className="flex items-center gap-3 pl-1">
-            <div className="w-11 h-11 rounded-xl bg-[#0b1739] text-white flex items-center justify-center shrink-0 shadow-sm">
-              <IconStack size={22} />
-            </div>
-            <div>
-              <span className="text-2xl font-black text-slate-900 leading-tight block">
-                {totalCount}
-              </span>
-              <span className="text-[11px] font-bold text-slate-500">Tổng cải tiến</span>
-            </div>
-          </div>
-        </div>
-
-        <div
+        />
+        <KpiCard
+          icon={IconTrophy}
+          title="Thi đua"
+          value={countThiDua}
+          subtitle="Sáng kiến thi đua"
           onClick={() => setStatusScope('APPROVED')}
-          className="relative overflow-hidden bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all"
-        >
-          <div className="absolute top-0 left-0 bottom-0 w-1.5 bg-[#d97706]"></div>
-          <div className="flex items-center gap-3 pl-1">
-            <div className="w-11 h-11 rounded-xl bg-[#d97706] text-white flex items-center justify-center shrink-0 shadow-sm">
-              <IconTrophy size={22} />
-            </div>
-            <div>
-              <span className="text-2xl font-black text-slate-900 leading-tight block">
-                {countThiDua}
-              </span>
-              <span className="text-[11px] font-bold text-slate-500">Thi đua</span>
-            </div>
-          </div>
-        </div>
-
-        <div
+        />
+        <KpiCard
+          icon={IconBox}
+          title="Lưu trữ"
+          value={countLuuTru}
+          subtitle="Hồ sơ lưu trữ"
           onClick={() => setStatusScope('EVALUATED')}
-          className="relative overflow-hidden bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all"
-        >
-          <div className="absolute top-0 left-0 bottom-0 w-1.5 bg-[#b45309]"></div>
-          <div className="flex items-center gap-3 pl-1">
-            <div className="w-11 h-11 rounded-xl bg-[#b45309] text-white flex items-center justify-center shrink-0 shadow-sm">
-              <IconBox size={22} />
-            </div>
-            <div>
-              <span className="text-2xl font-black text-slate-900 leading-tight block">
-                {countLuuTru}
-              </span>
-              <span className="text-[11px] font-bold text-slate-500">Lưu trữ</span>
-            </div>
-          </div>
-        </div>
-
-        <div
+        />
+        <KpiCard
+          icon={IconCalendar}
+          title={activeMonthLabel}
+          value={activeMonthCount}
+          subtitle="Tháng khảo sát"
           onClick={() => setSelectedMonth('ALL')}
-          className="relative overflow-hidden bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all"
-        >
-          <div className="absolute top-0 left-0 bottom-0 w-1.5 bg-[#10b981]"></div>
-          <div className="flex items-center gap-3 pl-1">
-            <div className="w-11 h-11 rounded-xl bg-[#10b981] text-white flex items-center justify-center shrink-0 shadow-sm">
-              <IconCalendar size={22} />
-            </div>
-            <div>
-              <span className="text-2xl font-black text-slate-900 leading-tight block">
-                {activeMonthCount}
-              </span>
-              <span className="text-[11px] font-bold text-slate-500">{activeMonthLabel}</span>
-            </div>
-          </div>
-        </div>
-
-        <div
+        />
+        <KpiCard
+          icon={IconMessages}
+          title="Đánh giá"
+          value={countEvaluated}
+          subtitle="Đã chấm điểm"
           onClick={() => setStatusScope('EVALUATED')}
-          className="relative overflow-hidden bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all"
-        >
-          <div className="absolute top-0 left-0 bottom-0 w-1.5 bg-[#0284c7]"></div>
-          <div className="flex items-center gap-3 pl-1">
-            <div className="w-11 h-11 rounded-xl bg-[#0284c7] text-white flex items-center justify-center shrink-0 shadow-sm">
-              <IconMessages size={22} />
-            </div>
-            <div>
-              <span className="text-2xl font-black text-slate-900 leading-tight block">
-                {countEvaluated}
-              </span>
-              <span className="text-[11px] font-bold text-slate-500">Đánh giá</span>
-            </div>
-          </div>
-        </div>
-
-        <div
+        />
+        <KpiCard
+          icon={IconCoins}
+          title="Trị giá"
+          value={formatMillion(totalValueTr)}
+          subtitle="Tổng giá trị"
           onClick={() => setStatusScope('APPROVED')}
-          className="relative overflow-hidden bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all"
-        >
-          <div className="absolute top-0 left-0 bottom-0 w-1.5 bg-[#b98d4b]"></div>
-          <div className="flex items-center gap-3 pl-1">
-            <div className="w-11 h-11 rounded-xl bg-[#b98d4b] text-white flex items-center justify-center shrink-0 shadow-sm">
-              <IconCoins size={22} />
-            </div>
-            <div>
-              <span className="text-xl font-black text-slate-900 leading-tight block truncate">
-                {formatMillion(totalValueTr)}
-              </span>
-              <span className="text-[11px] font-bold text-slate-500">Trị giá</span>
-            </div>
-          </div>
-        </div>
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">

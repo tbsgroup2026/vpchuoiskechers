@@ -1,0 +1,26 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "gray-on-color",
+        "value": "*",
+        "files": [
+          "src/modules/logistics-demo/screens/WarehouseQuality.tsx"
+        ],
+        "createdAt": "2026-10-15T09:34:15.708Z",
+        "reason": "Claude: L277 is a conditional class – slate-600 pairs with bg-white, emerald-50 pairs with emerald-800; no gray text on colored bg"
+      },
+      {
+        "rule": "gray-on-color",
+        "value": "*",
+        "files": [
+          "src/modules/logistics-demo/screens/AdminScreens.tsx"
+        ],
+        "createdAt": "2026-10-15T09:36:39.919Z",
+        "reason": "Claude: L363/L404 are slate text on neutral slate-50/slate-200 badges (gray on gray), not on a colored background"
+      }
+    ]
+  }
+}

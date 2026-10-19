@@ -1,5 +1,6 @@
 "use client";
 
+import HeaderControls from "@/components/HeaderControls";
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -84,7 +85,9 @@ export default function TaskBoardView() {
   const [cards, setCards] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isUnauthenticated, setIsUnauthenticated] = useState(false);
-  const [staffMembers, setStaffMembers] = useState<Array<{ empCode: string; name: string; position: string; dept: string }>>([]);
+  // Toàn bộ nhân sự (sys_users) và phòng ban theo Cột J "Phòng ban NEW" - cùng cách phân loại với trang /admin
+  const [allStaff, setAllStaff] = useState<Array<{ empCode: string; name: string; position: string; dept: string }>>([]);
+  const [staffDept, setStaffDept] = useState<string>("");
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -123,31 +126,51 @@ export default function TaskBoardView() {
     const fetchStaff = async () => {
       try {
         const token = typeof window !== "undefined" ? localStorage.getItem("tbs_token") || sessionStorage.getItem("tbs_token") : "";
-        const deptFilter = isExec ? (deptParam || "") : (userDeptCode || deptParam || "");
-        const url = deptFilter ? `/api/users?department=${encodeURIComponent(deptFilter)}` : "/api/users";
-        const res = await fetch(url, {
+        const res = await fetch("/api/users", {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
+          cache: "no-store",
         });
-        if (res.ok) {
-          const json = await res.json();
-          const users = json.users || json.data || [];
-          if (Array.isArray(users) && users.length > 0) {
-            setStaffMembers(
-              users.map((u: any) => ({
-                empCode: String(u.emp_code || u.empCode || u.id),
-                name: String(u.name || ""),
-                position: String(u.title || u.vtcv_hien_tai || "Cán Bộ"),
-                dept: String(u.department || u.phong_ban_hien_tai || activeDepartment || ""),
-              }))
-            );
-          }
-        }
+        if (!res.ok) return;
+        const json = await res.json();
+        const users = json.users || json.data || [];
+        if (!Array.isArray(users)) return;
+        // Giống getDepartmentName ở /admin: Cột J (phong_ban_moi), rồi department, mặc định Văn Phòng Chuỗi SKECHERS
+        const deptOf = (u: any) => {
+          const d = String(u.phong_ban_moi || u.department || "").trim();
+          return !d || d === "-" || d === "---" ? "Văn Phòng Chuỗi SKECHERS" : d;
+        };
+        const list = users.map((u: any) => ({
+          empCode: String(u.emp_code || u.empCode || u.id),
+          name: String(u.name || ""),
+          position: String(
+            (u.vtcv_hien_tai && u.vtcv_hien_tai !== "-" ? u.vtcv_hien_tai : "") || u.title || u.vtcv_sap_xep || "Cán Bộ"
+          ),
+          dept: deptOf(u),
+        }));
+        setAllStaff(list);
+        // Phòng ban mặc định: phòng ban của chính người đăng nhập theo Cột J
+        const me = String(currentUser?.empCode || "").toUpperCase();
+        const mine = list.find((s) => s.empCode.toUpperCase() === me);
+        setStaffDept((prev) => prev || mine?.dept || (isExec && list[0] ? list[0].dept : ""));
       } catch (e) {
         console.warn("Failed to fetch staff members", e);
       }
     };
-    fetchStaff();
-  }, [deptParam, userDeptCode, isExec, activeDepartment]);
+    if (currentUser) fetchStaff();
+  }, [currentUser, isExec]);
+
+  // Danh sách phòng ban thật (Cột J) kèm số nhân sự, sắp xếp như /admin
+  const staffDepartments = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const s of allStaff) m.set(s.dept, (m.get(s.dept) || 0) + 1);
+    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0], "vi")).map(([name, count]) => ({ name, count }));
+  }, [allStaff]);
+
+  // Nhân viên phòng ban: BGĐ/Admin chọn phòng ban; người khác chỉ thấy phòng ban của mình
+  const staffMembers = useMemo(
+    () => (staffDept ? allStaff.filter((s) => s.dept === staffDept) : []),
+    [allStaff, staffDept]
+  );
 
   // Search & Filter States
   const [searchQuery, setSearchQuery] = useState("");
@@ -171,68 +194,38 @@ export default function TaskBoardView() {
   const [boardType, setBoardType] = useState("personal");
 
   // Project list state
-  const [projects, setProjects] = useState([
-    {
-      id: "PRJ-AUTOMATION",
-      name: "Dự Án Tự Động Hóa Dây Chuyền & CĐS IT",
-      dept: "Phòng IT & Chuyển Đổi Số",
-      tag: "AUTOMATION & AI",
-      tagBg: "bg-purple-100 text-purple-700 border-purple-200",
-      progress: 83,
-      tasksCount: 3,
-      iconType: "automation",
-      borderLeft: "border-l-purple-500",
-      color: "hover:border-purple-400 hover:shadow-purple-50",
-    },
-    {
-      id: "PRJ-SKECHERS-RETAIL",
-      name: "Dự Án Vận Hành Chuỗi Skechers HQ & Store",
-      dept: "Phối Hợp Chuỗi Skechers",
-      tag: "SKECHERS RETAIL",
-      tagBg: "bg-emerald-100 text-[#006838] border-emerald-200",
-      progress: 75,
-      tasksCount: 2,
-      iconType: "retail",
-      borderLeft: "border-l-emerald-500",
-      color: "hover:border-emerald-400 hover:shadow-emerald-50",
-    },
-    {
-      id: "PRJ-ADMIN-EXPENSE",
-      name: "Dự Án Số Hóa Hành Chính & Đăng Ký Xe",
-      dept: "Phòng Hành Chính Nhân Sự",
-      tag: "HÀNH CHÍNH & ISO",
-      tagBg: "bg-amber-100 text-amber-800 border-amber-200",
-      progress: 60,
-      tasksCount: 2,
-      iconType: "admin",
-      borderLeft: "border-l-amber-500",
-      color: "hover:border-amber-400 hover:shadow-amber-50",
-    },
-    {
-      id: "PRJ-KAIZEN-152",
-      name: "Dự Án Sáng Kiến Cải Tiến Kaizen & 1-5-2",
-      dept: "Ban 2.2 / CI-152",
-      tag: "KAIZEN 1-5-2",
-      tagBg: "bg-blue-100 text-blue-800 border-blue-200",
-      progress: 80,
-      tasksCount: 3,
-      iconType: "kaizen",
-      borderLeft: "border-l-blue-500",
-      color: "hover:border-blue-400 hover:shadow-blue-50",
-    },
-    {
-      id: "PRJ-GEMBA-SAFETY",
-      name: "Dự Án An Toàn Lao Động & Kiểm Soát Gemba",
-      dept: "Ban An Toàn & QC",
-      tag: "GEMBA SAFETY",
-      tagBg: "bg-rose-100 text-rose-800 border-rose-200",
-      progress: 50,
-      tasksCount: 2,
-      iconType: "safety",
-      borderLeft: "border-l-rose-500",
-      color: "hover:border-rose-400 hover:shadow-rose-50",
-    },
-  ]);
+  // Dự án liên phòng ban thật (cùng nguồn với mục Dự án liên phòng ban)
+  type BoardProject = { id: string; name: string; dept: string; tag: string; tagBg: string; progress: number; tasksCount: number; iconType: string; borderLeft: string; color: string };
+  const [projects, setProjects] = useState<BoardProject[]>([]);
+  const loadProjects = async () => {
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("tbs_token") || sessionStorage.getItem("tbs_token") : "";
+      const res = await fetch("/api/projects", { headers: token ? { Authorization: `Bearer ${token}` } : {}, cache: "no-store" });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success || !Array.isArray(data.projects)) return;
+      const late = new Map<string, number>();
+      for (const b of data.bottlenecks || []) late.set(b.project_id, (late.get(b.project_id) || 0) + 1);
+      // Số công việc chưa hoàn thành của từng dự án
+      const open = new Map<string, number>();
+      const tr = await fetch("/api/tasks", { headers: token ? { Authorization: `Bearer ${token}` } : {}, cache: "no-store" }).then((r) => r.json()).catch(() => null);
+      for (const t of tr?.tasks || []) if (t.project_id && t.status !== "DONE") open.set(String(t.project_id), (open.get(String(t.project_id)) || 0) + 1);
+      setProjects(
+        data.projects.map((p: any) => ({
+          id: String(p.id),
+          name: String(p.name || p.code),
+          dept: String(p.lead_department || ""),
+          tag: String(p.code || "").toUpperCase(),
+          tagBg: late.get(p.id) ? "bg-red-100 text-red-700 border-red-200" : "bg-emerald-100 text-emerald-700 border-emerald-200",
+          progress: Number(p.progress) || 0,
+          tasksCount: (open.get(String(p.id)) || 0) + (open.get(String(p.code)) || 0),
+          iconType: "automation",
+          borderLeft: late.get(p.id) ? "border-l-red-500" : "border-l-emerald-500",
+          color: "hover:border-emerald-400 hover:shadow-emerald-50",
+        })),
+      );
+    } catch {}
+  };
+  useEffect(() => { loadProjects(); }, []);
 
   // Add Project Modal state
   const [isAddProjectModalOpen, setIsAddProjectModalOpen] = useState(false);
@@ -269,29 +262,24 @@ export default function TaskBoardView() {
     },
   };
 
-  const handleAddProject = () => {
+  const handleAddProject = async () => {
     if (!newPrjName.trim() || !newPrjTag.trim()) {
       showToast("⚠️ Vui lòng nhập đủ Tên dự án và Nhãn phân loại!");
       return;
     }
-    const colorCfg = PROJECT_COLOR_MAP[newPrjColor] || PROJECT_COLOR_MAP.green;
-    const slug = newPrjTag.trim().toUpperCase().replace(/\s+/g, "-").replace(/[^A-Z0-9-]/g, "");
-    const newId = `PRJ-${slug}-${Date.now().toString(36).toUpperCase()}`;
-    setProjects((prev) => [
-      ...prev,
-      {
-        id: newId,
-        name: newPrjName.trim(),
-        dept: newPrjDept.trim() || "Văn Phòng Chuỗi SKECHERS",
-        tag: newPrjTag.trim().toUpperCase(),
-        tagBg: colorCfg.tagBg,
-        progress: 0,
-        tasksCount: 0,
-        iconType: "automation",
-        borderLeft: colorCfg.borderLeft,
-        color: colorCfg.border,
-      },
-    ]);
+    // Lưu dự án lên máy chủ (chỉ Trưởng phòng trở lên được tạo; nhân viên nhận thông báo lỗi rõ ràng)
+    const token = typeof window !== "undefined" ? localStorage.getItem("tbs_token") || sessionStorage.getItem("tbs_token") : "";
+    const res = await fetch("/api/projects", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ name: newPrjName.trim(), description: newPrjTag.trim(), lead_department: newPrjDept.trim() || undefined }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.success) {
+      showToast(`⚠️ ${data?.message || data?.error || "Không tạo được dự án"}`);
+      return;
+    }
+    await loadProjects();
     setNewPrjName("");
     setNewPrjDept("");
     setNewPrjTag("");
@@ -975,39 +963,8 @@ export default function TaskBoardView() {
             </div>
           </div>
 
-          {/* User Profile & Actions */}
-          <div className="flex items-center gap-3">
-            <button
-              className="relative p-2 text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/70 rounded-full transition"
-              title="Thông báo"
-            >
-              <IconBell size={18} />
-              <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-rose-500 rounded-full ring-2 ring-white"></span>
-            </button>
-
-            <button
-              className="p-2 text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/70 rounded-full transition hidden sm:block"
-              title="Lưới ứng dụng"
-            >
-              <IconGridDots size={18} />
-            </button>
-
-            <div className="h-6 w-px bg-slate-200 hidden sm:block"></div>
-
-            {/* Dynamic User Profile Lockup */}
-            <div className="flex items-center gap-2.5">
-              <UserAvatar name={currentUser?.name || currentUser?.fullName || "Phạm Nguyễn Anh Huy"} size="md" />
-              <div className="hidden xl:block text-left">
-                <div className="text-xs font-black text-slate-900 leading-tight">
-                  {currentUser?.name || currentUser?.fullName || "Phạm Nguyễn Anh Huy"}
-                </div>
-                <div className="text-[10px] text-slate-500 font-medium">
-                  {currentUser?.roleName || currentUser?.position || "NV - Lập trình"}
-                </div>
-              </div>
-              <IconChevronDown size={14} className="text-slate-400 hidden xl:block" />
-            </div>
-          </div>
+          {/* Chuông thông báo, lưới ứng dụng, menu tài khoản dùng chung toàn hệ thống */}
+          <HeaderControls variant="light" className="flex-shrink-0" />
         </header>
 
         {/* Page Main Scroll Area */}
@@ -1205,11 +1162,30 @@ export default function TaskBoardView() {
                     >
                       <span>← Quay lại Bảng Kanban</span>
                     </button>
+                    {/* Phòng ban theo Cột J "Phòng ban NEW" (cùng danh mục với /admin) */}
+                    {isExec ? (
+                      <select
+                        value={staffDept}
+                        onChange={(e) => setStaffDept(e.target.value)}
+                        className="max-w-[60vw] px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        aria-label="Chọn phòng ban"
+                      >
+                        {staffDepartments.map((d) => (
+                          <option key={d.name} value={d.name}>
+                            {d.name} ({d.count} nhân sự)
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-800">
+                        {staffDept || "Chưa xác định phòng ban"} ({staffMembers.length} nhân sự)
+                      </span>
+                    )}
                   </div>
                   <DepartmentWorkloadReport
                     tasks={workloadTasks}
                     staffList={workloadStaff}
-                    deptName={deptParam || activeDepartment}
+                    deptName={staffDept || deptParam || activeDepartment}
                     isManager={isTP}
                     onTaskReassigned={() => {
                       if (selectedBoardId) fetchCards(selectedBoardId);

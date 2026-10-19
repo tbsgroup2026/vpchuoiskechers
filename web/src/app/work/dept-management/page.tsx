@@ -18,6 +18,13 @@ export default function DepartmentManagementPage() {
     const fetchMe = async () => {
       try {
         setLoading(true);
+        const stored = typeof window !== "undefined" ? (sessionStorage.getItem("tbs_current_user") || localStorage.getItem("tbs_current_user")) : null;
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          setUserPayload(parsed);
+          setLoading(false);
+          return;
+        }
         const res = await fetch("/api/auth/me");
         const data = await res.json();
         if (data.success) {
@@ -40,7 +47,7 @@ export default function DepartmentManagementPage() {
     );
   }
 
-  const isDeptHead = userPayload?.roleCode === "TRUONG_PHONG" || userPayload?.roles?.includes("department_head") || userPayload?.roles?.includes("admin");
+  const isDeptHead = userPayload?.roleCode === "TRUONG_PHONG" || userPayload?.roleCode === "SUPER_ADMIN" || userPayload?.roles?.includes("department_head") || userPayload?.roles?.includes("admin") || userPayload?.roles?.includes("super_admin");
 
   if (!isDeptHead) {
     return (

@@ -90,6 +90,8 @@ export const getAllowedModules = (activeUser: any, sysUser: any = null): string[
   }
 
   // 4. Nếu là nhân viên thường hoặc Trưởng phòng, trả về các module theo logic hiện tại
+  // "logistics" (module SCM) không mở mặc định: chỉ BGĐ/BQT/Admin và người thuộc bộ phận của module
+  // (server xác nhận qua /api/scm/me, xem work/page.tsx) mới thấy
   const allowed = new Set(["home", "overview", "my-tasks", "tasks", "projects", "hr", "ci"]);
   
   const isTP = roles.includes("TRUONG_PHONG") || roles.includes("MANAGER") || roles.includes("DEPARTMENT_HEAD") || mgmtLevel === 3;

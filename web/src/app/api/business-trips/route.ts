@@ -248,7 +248,8 @@ export async function POST(request: Request) {
         JSON.stringify(body.destinations || []),
         customDestName,
         customDestAddr,
-        customDestType
+        customDestType,
+        body.paymentStatus || 'NOT_STARTED'
       ).run();
 
       // High #5: Send notification to Department Head (Level 1 Approver)
@@ -479,7 +480,7 @@ export async function PUT(request: Request) {
               VALUES (?, ?, ?, ?, 'SUCCESS', ?, CURRENT_TIMESTAMP)
             `).bind(
               notifIdAuto,
-              existing.creator, // Wait, existing.creator is Name. Needs creator_emp_code if possible, but sys_notifications table usually searches by emp_code. Wait, the old code used existing.creator which might be a bug, let me fix it.
+              existing.creator_emp_code || existing.creator,
               `✅ Đơn công tác ${existing.code} đã được duyệt hoàn tất!`,
               `Đơn công tác "${existing.title}" có dự toán < 5 triệu, đã được duyệt Cấp 1 và tự động qua Cấp 2. Đang chờ Lễ tân xếp xe.`,
               `/business-trip?tripId=${existing.id}`
@@ -788,6 +789,72 @@ export async function PUT(request: Request) {
     }
 
     return NextResponse.json({ success: true, message: 'Đã cập nhật đơn công tác thành công' });
+  } catch (error: any) {
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const session = await getSessionUser(request);
+    if (!session) {
+      return NextResponse.json({ success: false, error: 'Unauthorized: Vui lòng đăng nhập' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    const clearAll = searchParams.get('clearAll') === 'true';
+    const db = getD1Database();
+
+    if (clearAll) {
+      if (!isExecutiveOrAdmin(session)) {
+        return NextResponse.json({ success: false, error: 'Chỉ Quản trị viên cấp cao mới có quyền xóa toàn bộ dữ liệu công tác (403 Forbidden)!' }, { status: 403 });
+      }
+      if (db) {
+        await db.prepare(`DELETE FROM business_trips`).run();
+      } else {
+        MEMORY_TRIPS.clear();
+      }
+      return NextResponse.json({ success: true, message: 'Đã xóa toàn bộ đơn công tác' });
+    }
+
+    if (!id) {
+      return NextResponse.json({ success: false, error: 'Thiếu mã đơn công tác (id)' }, { status: 400 });
+    }
+
+    let existing: any = null;
+    if (db) {
+      existing = await db.prepare('SELECT * FROM business_trips WHERE id = ?').bind(id).first();
+    } else {
+      existing = MEMORY_TRIPS.get(id);
+    }
+
+    if (!existing) {
+      return NextResponse.json({ success: false, error: 'Không tìm thấy đơn công tác' }, { status: 404 });
+    }
+
+    // Multi-role checks:
+    // Admin / Executive: can delete any trip.
+    // Regular Staff or Dept Head: can only delete their OWN trip AND only if status is PENDING, RECALLED, or REJECTED.
+    const isOwner = (existing.creator_emp_code && existing.creator_emp_code === session.empCode) ||
+                    (existing.creator && existing.creator === session.name);
+
+    if (!isExecutiveOrAdmin(session)) {
+      if (!isOwner) {
+        return NextResponse.json({ success: false, error: 'Bạn không có quyền xóa đơn công tác của nhân sự khác (403 Forbidden)!' }, { status: 403 });
+      }
+      if (existing.status !== 'PENDING' && existing.status !== 'RECALLED' && existing.status !== 'REJECTED') {
+        return NextResponse.json({ success: false, error: `Không thể xóa đơn công tác đang ở trạng thái "${existing.status}". Chỉ có thể xóa đơn ở trạng thái Chờ duyệt, Thu hồi hoặc Bị từ chối.` }, { status: 400 });
+      }
+    }
+
+    if (db) {
+      await db.prepare('DELETE FROM business_trips WHERE id = ?').bind(id).run();
+    } else {
+      MEMORY_TRIPS.delete(id);
+    }
+
+    return NextResponse.json({ success: true, message: 'Đã xóa đơn công tác thành công' });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }

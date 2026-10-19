@@ -23,6 +23,7 @@ import {
 } from "@tabler/icons-react";
 import { GembaRecord, GembaHistory } from "./types";
 import { UserProfile } from "@/lib/userProfiles";
+import { compressImageFile } from "@/lib/imageCompressor";
 
 interface GembaManagementViewProps {
   selectedScope: { workshopId?: string; lineId?: string; teamId?: string } | null;
@@ -211,6 +212,11 @@ export default function GembaManagementView({ selectedScope, currentUser }: Gemb
     }
 
     setUploadingPhoto(true);
+    // Nén ảnh trước khi gửi: ảnh gốc điện thoại 6-10MB → JPEG ≤1600px (HEIC trên iPhone cũng được chuyển sang JPEG)
+    let sendFile: File = file;
+    try {
+      sendFile = await compressImageFile(file);
+    } catch {}
     const reader = new FileReader();
     reader.onload = async () => {
       const base64 = reader.result as string;
@@ -221,7 +227,7 @@ export default function GembaManagementView({ selectedScope, currentUser }: Gemb
           body: JSON.stringify({
             record_id: selectedRecord ? selectedRecord.id : null,
             image: base64,
-            file_type: file.type,
+            file_type: sendFile.type,
             file_name: file.name,
           }),
         });
@@ -239,7 +245,7 @@ export default function GembaManagementView({ selectedScope, currentUser }: Gemb
         setUploadingPhoto(false);
       }
     };
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(sendFile);
   };
 
   return (

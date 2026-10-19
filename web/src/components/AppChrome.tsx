@@ -8,9 +8,9 @@ import MobileBottomNav from './MobileBottomNav';
 // hướng bình thường, không có lối "quay về trang chủ" nào. Vì vậy ẩn hẳn thanh điều hướng dưới (vốn
 // hiện ở MỌI trang khác trên điện thoại, xem MobileBottomNav) để tránh gây hiểu lầm bấm được sang
 // trang khác, đồng thời bỏ luôn khoảng đệm pb-16 dành chỗ cho thanh đó (không thì để lại khoảng
-// trắng thừa dưới cùng màn hình).
+// trắng thừa dưới cùng màn hình). Trang đặt phòng họp qua QR dán tại phòng (/book-room) cũng vậy.
 function isStandaloneRoute(pathname: string | null): boolean {
-  return !!pathname && pathname.startsWith('/pph-scan');
+  return !!pathname && (pathname.startsWith('/pph-scan') || pathname.startsWith('/book-room'));
 }
 
 export default function AppChrome({ children }: { children: React.ReactNode }) {

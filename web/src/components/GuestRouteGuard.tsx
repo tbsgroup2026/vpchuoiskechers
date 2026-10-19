@@ -14,17 +14,20 @@ export default function GuestRouteGuard() {
     const GUEST_ALLOWED_TARGET = "/work/kaizen/van-phong-chuoi";
 
     try {
-      const token = localStorage.getItem("tbs_jwt_token");
+      const token = localStorage.getItem("tbs_jwt_token") || localStorage.getItem("tbs_token") || sessionStorage.getItem("tbs_jwt_token");
       if (token) {
         fetch("/api/auth/me", {
           headers: { Authorization: `Bearer ${token}` },
         })
           .then((res) => {
             if (res.status === 401) {
-              document.cookie = "tbs_token=; path=/; max-age=0";
-              sessionStorage.removeItem("tbs_current_user");
-              localStorage.removeItem("tbs_current_user");
-              window.location.href = "/login?expired=1";
+              const stored = typeof window !== "undefined" ? (sessionStorage.getItem("tbs_current_user") || localStorage.getItem("tbs_current_user")) : null;
+              if (!stored) {
+                document.cookie = "tbs_token=; path=/; max-age=0";
+                sessionStorage.removeItem("tbs_current_user");
+                localStorage.removeItem("tbs_current_user");
+                window.location.href = "/login?expired=1";
+              }
               return null;
             }
             return res.json();

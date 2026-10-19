@@ -1,6 +1,8 @@
 import { EquipmentScope } from './equipmentScope';
 
 export interface UserProfile {
+  /** Server yêu cầu đổi mật khẩu trước khi dùng hệ thống (mật khẩu mặc định / do quản trị cấp) */
+  mustChangePwd?: boolean;
   userId: number;
   empCode: string;
   name: string;
@@ -21,6 +23,21 @@ export interface UserProfile {
 }
 
 export const SYSTEM_USERS: Record<string, UserProfile> = {
+  "TGD-001": {
+    userId: 101,
+    empCode: "TGD-001",
+    name: "Ban Tổng Giám Đốc",
+    title: "Tổng Giám Đốc",
+    department: "Ban Giám Đốc",
+    email: "tgd@tbsgroup.vn",
+    phone: "0901234567",
+    roleCode: "TONG_GIAM_DOC",
+    roles: ["employee", "ceo", "director", "admin"],
+    roleLevel: 1,
+    avatar: "",
+    redirectUrl: "/work",
+    managedDepartmentId: "all",
+  },
   "202112003": {
     userId: 255,
     empCode: "202112003",
@@ -363,11 +380,18 @@ export const SYSTEM_USERS: Record<string, UserProfile> = {
 };
 
 export const ROLE_ALIAS_MAP: Record<string, string> = {
-  ceo: "202608001",
-  deputy_ceo: "202608001",
-  director: "202608001",
-  deputy_director: "202608001",
-  admin: "202608001",
+  ceo: "TGD-001",
+  deputy_ceo: "TGD-001",
+  director: "TGD-001",
+  deputy_director: "TGD-001",
+  admin: "TGD-001",
+  tgd: "TGD-001",
+  "tgđ": "TGD-001",
+  "tgd-001": "TGD-001",
+  "tgđ-001": "TGD-001",
+  bgd: "TGD-001",
+  "ban-giam-doc": "TGD-001",
+  giamdoc: "TGD-001",
   receptionist: "202206011",
   letan: "202206011",
   "lt-001": "202206011",
@@ -687,12 +711,52 @@ export function getCurrentUser(): UserProfile | null {
     localStorage.removeItem("tbs_user_custom_avatar");
   }
 
-  // Ưu tiên lấy từ sessionStorage (định danh tab độc lập) và đối chiếu với cookie tbs_token
+  // Ưu tiên lấy từ sessionStorage (định danh tab độc lập) và đối chiếu với cookie tbs_token / localStorage token
   let cookieEmpCode: string | null = null;
-  if (typeof document !== "undefined") {
+  if (typeof document !== "undefined" && document.cookie) {
     const cookieMatch = document.cookie.match(/tbs_token=tbs_token_([^_]+)_/);
     if (cookieMatch && cookieMatch[1]) {
       cookieEmpCode = normalizeEmpCode(cookieMatch[1]);
+    } else {
+      const rawMatch = document.cookie.match(/(?:^|; )tbs_token=([^;]*)/);
+      if (rawMatch && rawMatch[1]) {
+        const val = decodeURIComponent(rawMatch[1]);
+        if (val.startsWith("tbs_token_")) {
+          const m = val.match(/tbs_token_([^_]+)_/);
+          if (m && m[1]) cookieEmpCode = normalizeEmpCode(m[1]);
+        } else if (val.split(".").length === 3) {
+          try {
+            const b64 = val.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+            const payload = JSON.parse(atob(b64));
+            if (payload && (payload.empCode || payload.userId)) {
+              cookieEmpCode = normalizeEmpCode(payload.empCode || payload.userId);
+            }
+          } catch {}
+        }
+      }
+    }
+  }
+
+  // Fallback token decoding from localStorage/sessionStorage if cookie is HttpOnly or not accessible
+  if (!cookieEmpCode && typeof window !== "undefined") {
+    const token =
+      localStorage.getItem("tbs_jwt_token") ||
+      localStorage.getItem("tbs_token") ||
+      sessionStorage.getItem("tbs_jwt_token") ||
+      sessionStorage.getItem("tbs_token");
+    if (token) {
+      if (token.startsWith("tbs_token_")) {
+        const m = token.match(/tbs_token_([^_]+)_/);
+        if (m && m[1]) cookieEmpCode = normalizeEmpCode(m[1]);
+      } else if (token.split(".").length === 3) {
+        try {
+          const b64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+          const payload = JSON.parse(atob(b64));
+          if (payload && (payload.empCode || payload.userId)) {
+            cookieEmpCode = normalizeEmpCode(payload.empCode || payload.userId);
+          }
+        } catch {}
+      }
     }
   }
 
@@ -712,6 +776,40 @@ export function getCurrentUser(): UserProfile | null {
     const sysProfile = { ...SYSTEM_USERS[cookieEmpCode] };
     stored = JSON.stringify(sysProfile);
     sessionStorage.setItem("tbs_current_user", stored);
+  }
+
+  if (!stored && cookieEmpCode && typeof window !== "undefined") {
+    const token =
+      localStorage.getItem("tbs_jwt_token") ||
+      localStorage.getItem("tbs_token") ||
+      sessionStorage.getItem("tbs_jwt_token") ||
+      sessionStorage.getItem("tbs_token");
+    if (token && token.split(".").length === 3) {
+      try {
+        const b64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+        const payload = JSON.parse(atob(b64));
+        if (payload && (payload.empCode || payload.userId)) {
+          const emp = normalizeEmpCode(payload.empCode || payload.userId);
+          const fallbackProfile: UserProfile = {
+            userId: payload.userId || 251,
+            empCode: emp,
+            name: payload.name || `Cán bộ (${emp})`,
+            title: payload.title || "Cán bộ công nhân viên",
+            department: payload.department || "Văn Phòng Chuỗi SKECHERS",
+            email: payload.email || `${emp}@tbsgroup.vn`,
+            phone: payload.phone || "",
+            roleCode: payload.roleCode || "CBCNV",
+            roles: payload.roles || (payload.roleCode === "LE_TAN" ? ["employee", "le_tan"] : ["employee"]),
+            roleLevel: payload.roleLevel || 4,
+            avatar: payload.avatar || "",
+            redirectUrl: payload.redirectUrl || "/work",
+          };
+          stored = JSON.stringify(fallbackProfile);
+          sessionStorage.setItem("tbs_current_user", stored);
+          localStorage.setItem("tbs_current_user", stored);
+        }
+      } catch {}
+    }
   }
 
   if (!stored) {
@@ -744,7 +842,8 @@ export function getCurrentUser(): UserProfile | null {
     if (typeof document !== "undefined") {
       const hasTokenCookie = document.cookie.split("; ").some((row) => row.startsWith("tbs_token="));
       if (!hasTokenCookie) {
-        const token = `tbs_token_${parsed.empCode}_${Date.now()}`;
+        const existingToken = localStorage.getItem("tbs_jwt_token") || localStorage.getItem("tbs_token");
+        const token = existingToken || `tbs_token_${parsed.empCode}_${Date.now()}`;
         document.cookie = `tbs_token=${token}; path=/; max-age=31536000; SameSite=Lax`;
       }
     }
@@ -867,6 +966,7 @@ export async function loginWithD1Database(
   let d1Profile: UserProfile | null = null;
 
   let serverJwtToken: string | null = null;
+  let mustChangePwd = false;
   try {
     const res = await fetch("/api/auth/login", {
       method: "POST",
@@ -874,7 +974,7 @@ export async function loginWithD1Database(
       body: JSON.stringify({
         empCode: cleanInput,
         role: role || cleanInput,
-        password: password || "123456",
+        password: password || "",
       }),
     });
 
@@ -884,6 +984,7 @@ export async function loginWithD1Database(
         if (json.token) {
           serverJwtToken = json.token;
         }
+        mustChangePwd = Boolean(json.mustChangePwd);
         const u = json.user;
         const isGuestUser = Boolean(u.isGuest || u.roleCode === "JUDGE_GUEST" || (typeof u.username === "string" && u.username.toUpperCase().startsWith("BGK")));
         const mappedCode = isGuestUser ? (u.empCode || u.username || normalized) : normalizeEmpCode(u.empCode || u.emp_code || normalized);
@@ -912,7 +1013,7 @@ export async function loginWithD1Database(
       }
     } else {
       const errJson = await res.json().catch(() => ({}));
-      throw new Error(errJson.error || "Tên đăng nhập hoặc Mật khẩu không chính xác!");
+      throw new Error(errJson.message || errJson.error || "Tên đăng nhập hoặc Mật khẩu không chính xác!");
     }
   } catch (err) {
     if (err instanceof Error) {
@@ -921,7 +1022,11 @@ export async function loginWithD1Database(
     throw new Error("Lỗi kết nối máy chủ khi đăng nhập!");
   }
 
-  const finalProfile = d1Profile || loginUserProfile(normalized, password);
+  // Chỉ chấp nhận phiên do server cấp (JWT có chữ ký); không còn đăng nhập cục bộ hay token tự tạo
+  if (!d1Profile || !serverJwtToken) {
+    throw new Error("Đăng nhập không thành công, vui lòng thử lại");
+  }
+  const finalProfile = { ...d1Profile, mustChangePwd } as UserProfile;
 
   if (typeof window !== "undefined") {
     if (finalProfile.avatar && finalProfile.avatar !== "/images/tbs-logo.png" && !finalProfile.avatar.includes("unsplash.com")) {
@@ -929,7 +1034,7 @@ export async function loginWithD1Database(
     }
     sessionStorage.setItem("tbs_current_user", JSON.stringify(finalProfile));
     localStorage.setItem("tbs_current_user", JSON.stringify(finalProfile));
-    const token = serverJwtToken || `tbs_token_${finalProfile.empCode}_${Date.now()}`;
+    const token = serverJwtToken;
     localStorage.setItem("tbs_jwt_token", token);
     localStorage.setItem("tbs_token", token);
     sessionStorage.setItem("tbs_jwt_token", token);
@@ -1081,4 +1186,31 @@ export function buildEmpCodeNameMap(empCodes: (string | null | undefined)[]): Re
   return map;
 }
 
-
+/**
+ * Đổi mật khẩu của người đang đăng nhập. Server thu hồi token cũ và cấp token mới.
+ */
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("tbs_jwt_token") : null;
+  const res = await fetch("/api/auth/change-password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    throw new Error(json.message || json.error || "Không đổi được mật khẩu");
+  }
+  if (typeof window !== "undefined") {
+    if (json.token) {
+      localStorage.setItem("tbs_jwt_token", json.token);
+      localStorage.setItem("tbs_token", json.token);
+    }
+    for (const store of [sessionStorage, localStorage]) {
+      const raw = store.getItem("tbs_current_user");
+      if (!raw) continue;
+      try {
+        store.setItem("tbs_current_user", JSON.stringify({ ...JSON.parse(raw), mustChangePwd: false }));
+      } catch {}
+    }
+  }
+}

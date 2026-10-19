@@ -610,7 +610,7 @@ function WorkDashboardContent() {
         try {
           const stored = sessionStorage.getItem("tbs_current_user") || localStorage.getItem("tbs_current_user");
           if (stored) ownEmpCode = JSON.parse(stored)?.empCode || "";
-        } catch {}
+        } catch { }
         const res = await fetch(ownEmpCode ? `/api/profile?empCode=${encodeURIComponent(ownEmpCode)}` : "/api/profile");
         if (res.ok) {
           const json = await res.json();
@@ -625,7 +625,7 @@ function WorkDashboardContent() {
               try {
                 const parsed = JSON.parse(storedUserStr);
                 localEmpCode = (parsed.empCode || "").trim();
-              } catch {}
+              } catch { }
             }
 
             // DO NOT overwrite session if server returned profile for a DIFFERENT user than currently logged in
@@ -870,9 +870,8 @@ function WorkDashboardContent() {
           LEFT SIDEBAR (Hidden on Mobile, Fixed Height on Desktop)
          ════════════════════════════════════════════════════════════════ */}
       <aside
-        className={`hidden lg:flex bg-white h-screen flex-col border-r border-slate-200/80 flex-shrink-0 shadow-sm transition-all duration-300 ease-in-out z-30 ${
-          isSidebarCollapsed ? "w-20 px-2.5 py-4" : "w-64 lg:w-72 xl:w-80 p-3.5 sm:p-4 lg:p-5"
-        }`}
+        className={`hidden lg:flex bg-white h-screen flex-col border-r border-slate-200/80 flex-shrink-0 shadow-sm transition-all duration-300 ease-in-out z-30 ${isSidebarCollapsed ? "w-20 px-2.5 py-4" : "w-64 lg:w-72 xl:w-80 p-3.5 sm:p-4 lg:p-5"
+          }`}
       >
         {/* Executive Brand Lockup & Header Toggle Button (Fixed Top) */}
         {!isSidebarCollapsed ? (
@@ -1267,11 +1266,10 @@ function WorkDashboardContent() {
               <button
                 key={dept.id}
                 onClick={() => setSelectedDept(dept.id)}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all duration-200 cursor-pointer flex-shrink-0 ${
-                  isSelected
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all duration-200 cursor-pointer flex-shrink-0 ${isSelected
                     ? "bg-gradient-to-r from-[#006838] to-[#004d29] text-white shadow-md shadow-emerald-900/20 scale-[1.02]"
                     : "bg-slate-50 text-slate-700 hover:bg-emerald-50/60 border border-slate-200/80"
-                }`}
+                  }`}
               >
                 <IconComp size={16} className={isSelected ? "text-emerald-300" : "text-[#006838]"} />
                 <span>{dept.name}</span>
@@ -2439,12 +2437,12 @@ function WorkDashboardContent() {
                     {selectedFinItem.typeCode === "thu"
                       ? "PHIẾU THU TIỀN"
                       : selectedFinItem.typeCode === "chi"
-                      ? "PHIẾU CHI TIỀN"
-                      : selectedFinItem.typeCode === "tam_ung"
-                      ? "GIẤY ĐỀ NGHỊ TẠM ỨNG"
-                      : selectedFinItem.typeCode === "hoa_don"
-                      ? "BẢNG KÊ HÓA ĐƠN CHỨNG TỪ"
-                      : "BIÊN BẢN ĐỐI CHIẾU CÔNG NỢ"}
+                        ? "PHIẾU CHI TIỀN"
+                        : selectedFinItem.typeCode === "tam_ung"
+                          ? "GIẤY ĐỀ NGHỊ TẠM ỨNG"
+                          : selectedFinItem.typeCode === "hoa_don"
+                            ? "BẢNG KÊ HÓA ĐƠN CHỨNG TỪ"
+                            : "BIÊN BẢN ĐỐI CHIẾU CÔNG NỢ"}
                   </h2>
                   <p className="text-[11px] italic text-slate-600 font-sans mt-0.5">
                     Ngày {selectedFinItem.date.split("-")[2]} tháng {selectedFinItem.date.split("-")[1]} năm {selectedFinItem.date.split("-")[0]}
@@ -2601,12 +2599,12 @@ function WorkDashboardContent() {
           selectedDept === "ci"
             ? "ci-kaizen"
             : selectedDept === "qc"
-            ? "qc-quality"
-            : selectedDept === "hr"
-            ? "hr-hanhchanh"
-            : selectedDept === null
-            ? "overview"
-            : "overview"
+              ? "qc-quality"
+              : selectedDept === "hr"
+                ? "hr-hanhchanh"
+                : selectedDept === null
+                  ? "overview"
+                  : "overview"
         }
         onSelectTab={(tabId) => {
           if (tabId === "overview") changeDepartment(null);

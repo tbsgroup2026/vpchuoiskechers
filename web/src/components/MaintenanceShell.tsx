@@ -27,6 +27,8 @@ import {
   IconQrcode,
   IconFlask,
   IconGauge,
+  IconClipboardCheck,
+  IconArrowsExchange,
   IconChartBar,
 } from '@tabler/icons-react';
 import { MMTB_NAV, MmtbNavEntry } from '@/lib/mmtbNav';
@@ -61,6 +63,8 @@ const ICONS: Record<string, any> = {
   IconQrcode,
   IconFlask,
   IconGauge,
+  IconClipboardCheck,
+  IconArrowsExchange,
   IconChartBar,
 };
 

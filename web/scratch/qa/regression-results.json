@@ -1,0 +1,252 @@
+[
+  {
+    "module": "1-5-2",
+    "testId": "M1-HP-01",
+    "name": "Xem dashboard 1-5-2 với role Giám đốc/Admin",
+    "type": "Happy Path",
+    "expected": "200 OK",
+    "actual": 200,
+    "pass": true,
+    "note": "{\"success\":true,\"message\":\"Endpoint /api/1-5-2/verify-gate h"
+  },
+  {
+    "module": "1-5-2",
+    "testId": "M1-NEG-01",
+    "name": "Xác thực mã PIN 1-5-2 sai",
+    "type": "Negative",
+    "expected": "400/403",
+    "actual": 400,
+    "pass": true,
+    "note": "{\"success\":false,\"error\":\"INVALID_PIN\",\"message\":\"Mã PIN khô"
+  },
+  {
+    "module": "MMTB",
+    "testId": "M2-HP-01",
+    "name": "Lấy danh sách máy móc nhà máy",
+    "type": "Happy Path",
+    "expected": "200 OK",
+    "actual": 200,
+    "pass": true,
+    "note": "Machines count: 4497"
+  },
+  {
+    "module": "MMTB",
+    "testId": "M2-HP-02",
+    "name": "Lấy lịch bảo dưỡng máy móc",
+    "type": "Happy Path",
+    "expected": "200 OK",
+    "actual": 200,
+    "pass": true,
+    "note": ""
+  },
+  {
+    "module": "MMTB",
+    "testId": "M2-NEG-01",
+    "name": "Truy vấn danh mục MMTB không hợp lệ",
+    "type": "Negative",
+    "expected": "400 Bad Request",
+    "actual": 400,
+    "pass": true,
+    "note": "{\"success\":false,\"error\":\"Loại danh mục không hợp lệ\",\"statu"
+  },
+  {
+    "module": "MMTB",
+    "testId": "M2-CALC-01",
+    "name": "Công thức tính downtime = completedAt - createdAt",
+    "type": "Calculation",
+    "expected": "2.5 giờ",
+    "actual": "2.5 giờ",
+    "pass": true,
+    "note": ""
+  },
+  {
+    "module": "Kaizen",
+    "testId": "M3-HP-01",
+    "name": "Lấy số liệu Kaizen stats & leaderboard",
+    "type": "Happy Path",
+    "expected": "200 OK",
+    "actual": 200,
+    "pass": true,
+    "note": ""
+  },
+  {
+    "module": "Kaizen",
+    "testId": "M3-HP-02",
+    "name": "Kiểm tra trùng lặp sáng kiến Kaizen",
+    "type": "Happy Path",
+    "expected": "200 OK",
+    "actual": 200,
+    "pass": true,
+    "note": "{\"success\":true,\"data\":[],\"proposals\":[]}"
+  },
+  {
+    "module": "Kaizen",
+    "testId": "M3-NEG-01",
+    "name": "Gửi đơn Kaizen rỗng",
+    "type": "Negative",
+    "expected": "400 Bad Request",
+    "actual": 400,
+    "pass": true,
+    "note": "{\"success\":false,\"error\":\"MISSING_FIELDS\",\"message\":\"Vui lòn"
+  },
+  {
+    "module": "Gemba",
+    "testId": "M4-HP-01",
+    "name": "Lấy Dashboard Gemba Walk",
+    "type": "Happy Path",
+    "expected": "200 OK",
+    "actual": 200,
+    "pass": true,
+    "note": ""
+  },
+  {
+    "module": "Gemba",
+    "testId": "M4-HP-02",
+    "name": "Lấy cây vị trí phân xưởng xưởng Gemba",
+    "type": "Happy Path",
+    "expected": "200 OK",
+    "actual": 200,
+    "pass": true,
+    "note": ""
+  },
+  {
+    "module": "Gemba",
+    "testId": "M4-NEG-01",
+    "name": "Tạo nhật ký Gemba thiếu dữ liệu bắt buộc",
+    "type": "Negative",
+    "expected": "400/500/handled",
+    "actual": 400,
+    "pass": true,
+    "note": "{\"success\":false,\"error\":\"VALIDATION_ERROR\",\"message\":\"Vui l"
+  },
+  {
+    "module": "Công Tác",
+    "testId": "M5-BIEN-01",
+    "name": "Ngưỡng biên 4,999,999 VNĐ -> Trưởng phòng",
+    "type": "Boundary",
+    "expected": "TRUONG_PHONG",
+    "actual": "TRUONG_PHONG",
+    "pass": true,
+    "note": ""
+  },
+  {
+    "module": "Công Tác",
+    "testId": "M5-BIEN-02",
+    "name": "Ngưỡng biên 5,000,000 VNĐ -> Giám đốc",
+    "type": "Boundary",
+    "expected": "GIAM_DOC",
+    "actual": "GIAM_DOC",
+    "pass": true,
+    "note": ""
+  },
+  {
+    "module": "Công Tác",
+    "testId": "M5-HP-01",
+    "name": "Lấy danh sách công tác",
+    "type": "Happy Path",
+    "expected": "200 OK",
+    "actual": 200,
+    "pass": true,
+    "note": ""
+  },
+  {
+    "module": "Đặt Phòng",
+    "testId": "M6-HP-01",
+    "name": "Lấy danh sách phòng và lịch đặt",
+    "type": "Happy Path",
+    "expected": "200 OK",
+    "actual": 200,
+    "pass": true,
+    "note": ""
+  },
+  {
+    "module": "Đặt Phòng",
+    "testId": "M6-BIEN-01",
+    "name": "Khung giờ tiếp nối 09:00-10:00 và 10:00-11:00 KHÔNG bị coi là trùng",
+    "type": "Boundary",
+    "expected": "false (không trùng)",
+    "actual": "false",
+    "pass": true,
+    "note": ""
+  },
+  {
+    "module": "Đặt Phòng",
+    "testId": "M6-BIEN-02",
+    "name": "Khung giờ giao nhau 09:00-10:30 và 10:00-11:00 BỊ coi là trùng",
+    "type": "Boundary",
+    "expected": "true (trùng)",
+    "actual": "true",
+    "pass": true,
+    "note": ""
+  },
+  {
+    "module": "Finance",
+    "testId": "M7-HP-01",
+    "name": "Lấy ngân sách mục tiêu tài chính",
+    "type": "Happy Path",
+    "expected": "200 OK",
+    "actual": 200,
+    "pass": true,
+    "note": ""
+  },
+  {
+    "module": "Finance",
+    "testId": "M7-HP-02",
+    "name": "Lấy danh sách tạm ứng tài chính",
+    "type": "Happy Path",
+    "expected": "200 OK",
+    "actual": 200,
+    "pass": true,
+    "note": ""
+  },
+  {
+    "module": "HR",
+    "testId": "M8-HP-01",
+    "name": "Lấy danh sách onboarding nhân viên mới",
+    "type": "Happy Path",
+    "expected": "200 OK",
+    "actual": 200,
+    "pass": true,
+    "note": ""
+  },
+  {
+    "module": "HR",
+    "testId": "M8-HP-02",
+    "name": "Lấy danh sách nghỉ phép nhân viên",
+    "type": "Happy Path",
+    "expected": "200 OK",
+    "actual": 200,
+    "pass": true,
+    "note": ""
+  },
+  {
+    "module": "Admin",
+    "testId": "M9-HP-01",
+    "name": "Lấy cấu hình menu workspace theo role",
+    "type": "Happy Path",
+    "expected": "200 OK",
+    "actual": 200,
+    "pass": true,
+    "note": ""
+  },
+  {
+    "module": "Admin",
+    "testId": "M9-HP-02",
+    "name": "Tìm kiếm nhật ký kiểm toán (Audit search)",
+    "type": "Happy Path",
+    "expected": "200 OK",
+    "actual": 200,
+    "pass": true,
+    "note": ""
+  },
+  {
+    "module": "Cross-cutting",
+    "testId": "XC-UNICODE-01",
+    "name": "Hỗ trợ chuỗi tiếng Việt có dấu và ký tự đặc biệt",
+    "type": "Internationalization",
+    "expected": "200 OK",
+    "actual": 200,
+    "pass": true,
+    "note": ""
+  }
+]

@@ -312,7 +312,9 @@ export default function NotificationCenter() {
   const formatTime = (ts: string) => {
     if (!ts) return "";
     try {
-      const d = new Date(ts);
+      // D1 lưu giờ UTC dạng "YYYY-MM-DD HH:MM:SS" (không có múi giờ): thêm Z để không lệch 7 giờ
+      const iso = /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(ts) ? `${ts.replace(" ", "T")}Z` : ts;
+      const d = new Date(iso);
       const now = new Date();
       const diffMs = now.getTime() - d.getTime();
       const diffMin = Math.floor(diffMs / 60000);

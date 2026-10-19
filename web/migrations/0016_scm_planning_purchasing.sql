@@ -1,0 +1,16 @@
+-- Migration 0016: module SCM, Bước 2 (Kế hoạch & CCƯ, Mua hàng)
+-- Bảng mới, rỗng; thêm cột cho scm_orders. Worker cũng tự tạo khi cần (web/src/modules/scm/schema.ts).
+
+CREATE TABLE IF NOT EXISTS scm_allocation_plans (id TEXT PRIMARY KEY, site TEXT NOT NULL, week_start TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'DRAFT', submitted_by TEXT, submitted_at TEXT, approved_by TEXT, approved_at TEXT, issued_by TEXT, issued_at TEXT, tier2_sent_by TEXT, tier2_sent_at TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP, created_by TEXT, updated_by TEXT, UNIQUE (site, week_start));
+CREATE TABLE IF NOT EXISTS scm_allocation_lines (plan_id TEXT NOT NULL, order_id TEXT NOT NULL, week_start TEXT NOT NULL, plant TEXT NOT NULL, line TEXT NOT NULL, priority_312 INTEGER, tier2_sent INTEGER NOT NULL DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP, created_by TEXT, updated_by TEXT, PRIMARY KEY (plan_id, order_id, week_start));
+CREATE TABLE IF NOT EXISTS scm_plant_capacity (plant TEXT NOT NULL, line TEXT NOT NULL, week_start TEXT NOT NULL, capacity INTEGER NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP, created_by TEXT, updated_by TEXT, PRIMARY KEY (plant, line, week_start));
+CREATE TABLE IF NOT EXISTS scm_plan_changes (id INTEGER PRIMARY KEY AUTOINCREMENT, plan_id TEXT, order_id TEXT, action TEXT NOT NULL, reason TEXT, before_json TEXT, after_json TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP, created_by TEXT, updated_by TEXT);
+CREATE TABLE IF NOT EXISTS scm_purchase_orders (id TEXT PRIMARY KEY, po_no TEXT UNIQUE, order_id TEXT NOT NULL UNIQUE, supplier_id TEXT, activated_at TEXT, activated_by TEXT, issued_at TEXT, issued_by TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP, created_by TEXT, updated_by TEXT);
+CREATE TABLE IF NOT EXISTS scm_inbound_plan (id TEXT PRIMARY KEY, po_id TEXT NOT NULL, order_id TEXT NOT NULL, eta TEXT, eta_changed_from TEXT, week_start TEXT, sent_to_wh_at TEXT, sent_by TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP, created_by TEXT, updated_by TEXT);
+CREATE TABLE IF NOT EXISTS scm_incidents (id TEXT PRIMARY KEY, order_id TEXT NOT NULL, po_id TEXT, supplier_id TEXT, material TEXT NOT NULL, issue TEXT NOT NULL, plan TEXT, stage TEXT NOT NULL DEFAULT 'CONTACT', opened_at TEXT NOT NULL, closed_at TEXT, confirmed_by TEXT, confirmed_at TEXT, escalation INTEGER NOT NULL DEFAULT 0, escalated_at TEXT, note TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP, created_by TEXT, updated_by TEXT);
+CREATE TABLE IF NOT EXISTS scm_uploaded_forms (id TEXT PRIMARY KEY, dept TEXT NOT NULL, file_key TEXT NOT NULL, file_name TEXT NOT NULL, size INTEGER NOT NULL DEFAULT 0, content_type TEXT, uploaded_by TEXT, uploaded_at TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP, created_by TEXT, updated_by TEXT);
+
+ALTER TABLE scm_orders ADD COLUMN bottleneck_note TEXT;
+ALTER TABLE scm_orders ADD COLUMN bottleneck_by TEXT;
+ALTER TABLE scm_orders ADD COLUMN bottleneck_at TEXT;
+ALTER TABLE scm_orders ADD COLUMN eta_changed_from TEXT;

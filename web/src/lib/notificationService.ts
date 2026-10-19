@@ -12,48 +12,6 @@ export interface AppNotificationItem {
 
 const STORAGE_KEY = "tbs_notifications_list";
 
-const INITIAL_MOCK_NOTIFICATIONS: AppNotificationItem[] = [
-  {
-    id: "notif_1",
-    title: "🛎️ Đăng ký phòng họp mới",
-    message: "Cán bộ Phạm Nguyễn Anh Huy vừa đăng ký Phòng Họp WORK (08:00 - 09:30). Chờ Lễ Tân duyệt.",
-    type: "ROOMS",
-    created_at: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
-    is_read: false,
-    link: "/rooms",
-    targetUser: "Lễ Tân",
-  },
-  {
-    id: "notif_2",
-    title: "⚠️ Sự cố Gemba Walk Xưởng 1",
-    message: "Sự cố dừng máy dán đế Line 2 — Xưởng 1 vừa tạo yêu cầu xử lý gấp.",
-    type: "WARNING",
-    created_at: new Date(Date.now() - 25 * 60 * 1000).toISOString(),
-    is_read: false,
-    link: "/work",
-    targetUser: "Lễ Tân",
-  },
-  {
-    id: "notif_3",
-    title: "💡 Kaizen CI mới vừa nộp",
-    message: "Sáng kiến 'Tối ưu khuôn ép keo E5' đã được đăng ký và chờ đánh giá sơ bộ.",
-    type: "KAIZEN",
-    created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    is_read: true,
-    link: "/work",
-    targetUser: "Lễ Tân",
-  },
-  {
-    id: "notif_4",
-    title: "✅ Trả phòng họp thành công",
-    message: "Phòng Họp OTI/OTG đã được hoàn tất cuộc họp và sẵn sàng đón lượt họp mới.",
-    type: "SUCCESS",
-    created_at: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
-    is_read: true,
-    link: "/rooms",
-    targetUser: "Lễ Tân",
-  }
-];
 
 export function formatRelativeTime(dateStr: string): string {
   if (!dateStr) return "Vừa xong";
@@ -75,9 +33,17 @@ export function formatRelativeTime(dateStr: string): string {
   }
 }
 
+/** D1 lưu giờ UTC dạng "YYYY-MM-DD HH:MM:SS" (không có múi giờ): đổi sang ISO UTC để không lệch 7 giờ */
+function toUtcIso(v: unknown): string {
+  const t = String(v || "").trim();
+  if (!t) return new Date().toISOString();
+  if (/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(t)) return `${t.replace(" ", "T")}Z`;
+  return t;
+}
+
 export const notificationService = {
   getNotifications(): AppNotificationItem[] {
-    if (typeof window === "undefined") return INITIAL_MOCK_NOTIFICATIONS;
+    if (typeof window === "undefined") return [];
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
@@ -88,7 +54,7 @@ export const notificationService = {
             title: item.title || "Thông báo",
             message: item.message || item.content || "",
             type: item.type || "INFO",
-            created_at: item.created_at || item.time || new Date().toISOString(),
+            created_at: toUtcIso(item.created_at || item.time),
             is_read: Boolean(item.is_read || item.isRead),
             link: item.link || item.url || "/rooms",
             targetUser: item.targetUser || item.target_user || "Tất cả",
@@ -98,26 +64,26 @@ export const notificationService = {
     } catch (e) {
       console.warn("Failed to parse notifications from localStorage", e);
     }
-    // Save initial mock if empty
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_MOCK_NOTIFICATIONS));
-    } catch {}
-    return INITIAL_MOCK_NOTIFICATIONS;
+    // Không có dữ liệu thì trả danh sách rỗng (không tạo thông báo mẫu)
+    return [];
   },
 
   async fetchNotificationsFromApiOrStore(): Promise<AppNotificationItem[]> {
-    if (typeof window === "undefined") return INITIAL_MOCK_NOTIFICATIONS;
+    if (typeof window === "undefined") return [];
     try {
       const res = await fetch("/api/notifications?limit=20", { cache: "no-store" });
+      // Chưa đăng nhập: không hiện thông báo cũ trên máy
+      if (res.status === 401) return [];
       if (res.ok) {
         const json = await res.json();
-        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+        // Luôn dùng dữ liệu từ máy chủ, kể cả khi người dùng chưa có thông báo nào
+        if (json.success && Array.isArray(json.data)) {
           const apiNotifs: AppNotificationItem[] = json.data.map((item: any) => ({
             id: String(item.id),
             title: item.title,
             message: item.message,
             type: item.type || "INFO",
-            created_at: item.created_at || new Date().toISOString(),
+            created_at: toUtcIso(item.created_at),
             is_read: Boolean(item.is_read),
             link: item.url || item.link || "/rooms",
             targetUser: item.targetUser || "Tất cả",

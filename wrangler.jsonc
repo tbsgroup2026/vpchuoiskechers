@@ -18,7 +18,7 @@
     "SITE_ID": "vpchuoiskechers",
     "CLOUDINARY_FOLDER": "vpchuoiskechers",
     "NEXT_PUBLIC_APP_URL": "https://vpchuoiskechers.tbsgroup2026.workers.dev",
-    "JWT_SECRET": "tbs_ii_secure_jwt_secret_key_2026",
+    // JWT_SECRET: đặt bằng `npx wrangler secret put JWT_SECRET` (không ghi vào file này)
     "ZALO_BOT_TOKEN": "2083301284890293167:jgjialyvCtjfRJJnTjgOEzqFeBlkXtNlAYwhlayRbprqgNDRBjRejfFgpobQyGWS",
     "TBSMAYMOC_API_URL": "https://tbs-may-moc-admin.tbs-quanlymaymoc.workers.dev",
     "MMTB_AUTO_LOGIN_EMP_CODE": "AMDKG",
@@ -58,7 +58,8 @@
   ],
   "triggers": {
     "crons": [
-      "0 19 * * *"
+      "0 19 * * *",
+      "0 * * * *"
     ]
   }
 }

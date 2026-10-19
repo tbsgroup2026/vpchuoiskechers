@@ -339,12 +339,70 @@ export default function MaintenanceTicketsPage() {
             bên dưới (qua scrollLeft) — bảng có tới ~90 dòng nên thanh cuộn thật nằm tít dưới cùng,
             phải cuộn hết trang mới thấy; thanh cuộn giả này cho kéo ngang được ngay mà không cần
             cuộn xuống. */}
-        <div ref={topScrollRef} onScroll={handleTopScroll} className="overflow-x-auto overflow-y-hidden" style={{ height: 14 }}>
+        <div ref={topScrollRef} onScroll={handleTopScroll} className="hidden md:block overflow-x-auto overflow-y-hidden" style={{ height: 14 }}>
           <div style={{ width: tableWidth, height: 1 }} />
         </div>
 
+        {/* Điện thoại: thẻ chữ to, bấm cả thẻ để xem chi tiết (thợ bảo trì thao tác 1 tay) */}
+        <div className="md:hidden space-y-3">
+          {loading && <p className="p-4 text-center text-sm text-slate-500">Đang tải danh sách ticket...</p>}
+          {!loading && filtered.length === 0 && !error && (
+            <p className="p-4 text-center text-sm text-slate-500">
+              {tickets.length === 0 ? 'Chưa có sự cố nào trong hệ thống' : 'Không tìm thấy sự cố phù hợp'}
+            </p>
+          )}
+          {pageItems.map((t) => {
+            const openMinutes =
+              t.status !== 'DONE' && t.reportedAt ? Math.max(0, Math.round((Date.now() - new Date(t.reportedAt).getTime()) / 60000)) : null;
+            const pr = priorityInfo(t.priority);
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setDetailTicket(t)}
+                className="w-full text-left bg-white rounded-2xl border border-slate-200 shadow-2xs p-4 active:scale-[0.99] transition"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono text-sm font-bold text-[#006838]">{t.ticketCode}</span>
+                  {renderTicketStatusBadge(t.status, t.statusLabel)}
+                </div>
+                <div className="mt-2 text-base font-extrabold text-slate-900 leading-snug">{t.machineName}</div>
+                <div className="text-xs font-mono text-slate-500">{t.machineCode}</div>
+                <div className="mt-2 text-sm text-slate-700">
+                  {[t.factoryName, t.zone, t.productionLine, t.team].filter(Boolean).join(' › ') || '—'}
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-bold text-rose-700">{t.errorType}</span>
+                  {pr && <span className={`px-2 py-0.5 text-xs font-bold rounded ${pr.badge}`}>{pr.label}</span>}
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-600">
+                  <div>
+                    <span className="block text-slate-500">Người báo</span>
+                    <span className="font-semibold text-slate-800">{t.reporter || '—'}</span>
+                  </div>
+                  <div>
+                    <span className="block text-slate-500">Bảo trì phụ trách</span>
+                    <span className="font-semibold text-slate-800">{t.mechanic ?? 'Chưa nhận'}</span>
+                  </div>
+                  <div>
+                    <span className="block text-slate-500">Báo lúc</span>
+                    <span className="font-mono text-slate-800">{formatDateTime(t.reportedAt)}</span>
+                  </div>
+                  <div>
+                    <span className="block text-slate-500">{openMinutes != null ? 'Đã dừng' : 'Hoàn thành sau'}</span>
+                    <span className={`font-bold ${openMinutes != null && openMinutes > 30 ? 'text-rose-700' : 'text-slate-800'}`}>
+                      {openMinutes != null ? `${openMinutes} phút` : t.durationMinutes != null ? `${t.durationMinutes} phút` : '—'}
+                    </span>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+          <Pagination page={page} totalItems={filtered.length} pageSize={PAGE_SIZE} onPageChange={setPage} />
+        </div>
+
         {/* Tickets Table */}
-        <div ref={tableScrollRef} onScroll={handleTableScroll} className="bg-white rounded-xl border border-slate-200/80 shadow-2xs overflow-x-auto">
+        <div ref={tableScrollRef} onScroll={handleTableScroll} className="hidden md:block bg-white rounded-xl border border-slate-200/80 shadow-2xs overflow-x-auto">
           <table ref={tableRef} className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-100/90 text-[11px] font-bold text-slate-600 uppercase border-b border-slate-200 whitespace-nowrap">

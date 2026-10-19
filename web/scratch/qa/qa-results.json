@@ -1,0 +1,772 @@
+[
+  {
+    "id": "AUTH-SA001",
+    "desc": "Đăng nhập SA001 (SUPER_ADMIN)",
+    "expected": "200+hrToken",
+    "actual": "200+token",
+    "pass": true
+  },
+  {
+    "id": "AUTH-HRM001",
+    "desc": "Đăng nhập HRM001 (HR_MANAGER)",
+    "expected": "200+hrToken",
+    "actual": "200+token",
+    "pass": true
+  },
+  {
+    "id": "AUTH-HRS001",
+    "desc": "Đăng nhập HRS001 (HR_STAFF)",
+    "expected": "200+hrToken",
+    "actual": "200+token",
+    "pass": true
+  },
+  {
+    "id": "AUTH-PAY001",
+    "desc": "Đăng nhập PAY001 (PAYROLL)",
+    "expected": "200+hrToken",
+    "actual": "200+token",
+    "pass": true
+  },
+  {
+    "id": "AUTH-MGRA01",
+    "desc": "Đăng nhập MGRA01 (MANAGER)",
+    "expected": "200+hrToken",
+    "actual": "200+token",
+    "pass": true
+  },
+  {
+    "id": "AUTH-MGRB01",
+    "desc": "Đăng nhập MGRB01 (MANAGER)",
+    "expected": "200+hrToken",
+    "actual": "200+token",
+    "pass": true
+  },
+  {
+    "id": "AUTH-EMPA01",
+    "desc": "Đăng nhập EMPA01 (EMPLOYEE)",
+    "expected": "200+hrToken",
+    "actual": "200+token",
+    "pass": true
+  },
+  {
+    "id": "AUTH-EMPA02",
+    "desc": "Đăng nhập EMPA02 (EMPLOYEE)",
+    "expected": "200+hrToken",
+    "actual": "200+token",
+    "pass": true
+  },
+  {
+    "id": "AUTH-EMPB01",
+    "desc": "Đăng nhập EMPB01 (EMPLOYEE)",
+    "expected": "200+hrToken",
+    "actual": "200+token",
+    "pass": true
+  },
+  {
+    "id": "RBAC-employees:list-SA001",
+    "desc": "GET /employees bởi SA001",
+    "expected": 200,
+    "actual": 200,
+    "pass": true
+  },
+  {
+    "id": "RBAC-employees:list-HRM001",
+    "desc": "GET /employees bởi HRM001",
+    "expected": 200,
+    "actual": 200,
+    "pass": true
+  },
+  {
+    "id": "RBAC-employees:list-HRS001",
+    "desc": "GET /employees bởi HRS001",
+    "expected": 200,
+    "actual": 200,
+    "pass": true
+  },
+  {
+    "id": "RBAC-employees:list-PAY001",
+    "desc": "GET /employees bởi PAY001",
+    "expected": 403,
+    "actual": 403,
+    "pass": true
+  },
+  {
+    "id": "RBAC-employees:list-MGRA01",
+    "desc": "GET /employees bởi MGRA01",
+    "expected": 200,
+    "actual": 200,
+    "pass": true
+  },
+  {
+    "id": "RBAC-employees:list-EMPA01",
+    "desc": "GET /employees bởi EMPA01",
+    "expected": 403,
+    "actual": 403,
+    "pass": true
+  },
+  {
+    "id": "RBAC-profile:other-SA001",
+    "desc": "GET /employees/EMPB01 bởi SA001",
+    "expected": 200,
+    "actual": 200,
+    "pass": true
+  },
+  {
+    "id": "RBAC-profile:other-HRM001",
+    "desc": "GET /employees/EMPB01 bởi HRM001",
+    "expected": 200,
+    "actual": 200,
+    "pass": true
+  },
+  {
+    "id": "RBAC-profile:other-HRS001",
+    "desc": "GET /employees/EMPB01 bởi HRS001",
+    "expected": 200,
+    "actual": 200,
+    "pass": true
+  },
+  {
+    "id": "RBAC-profile:other-PAY001",
+    "desc": "GET /employees/EMPB01 bởi PAY001",
+    "expected": 403,
+    "actual": 403,
+    "pass": true
+  },
+  {
+    "id": "RBAC-profile:other-MGRA01",
+    "desc": "GET /employees/EMPB01 bởi MGRA01",
+    "expected": 403,
+    "actual": 403,
+    "pass": true
+  },
+  {
+    "id": "RBAC-profile:other-EMPA01",
+    "desc": "GET /employees/EMPB01 bởi EMPA01",
+    "expected": 403,
+    "actual": 403,
+    "pass": true
+  },
+  {
+    "id": "RBAC-profile:team-MGRA01",
+    "desc": "GET /employees/EMPA01 bởi MGRA01",
+    "expected": 200,
+    "actual": 200,
+    "pass": true
+  },
+  {
+    "id": "RBAC-profile:team-MGRB01",
+    "desc": "GET /employees/EMPA01 bởi MGRB01",
+    "expected": 403,
+    "actual": 403,
+    "pass": true
+  },
+  {
+    "id": "RBAC-profile:team-EMPA02",
+    "desc": "GET /employees/EMPA01 bởi EMPA02",
+    "expected": 403,
+    "actual": 403,
+    "pass": true
+  },
+  {
+    "id": "RBAC-profile:team-EMPA01",
+    "desc": "GET /employees/EMPA01 bởi EMPA01",
+    "expected": 200,
+    "actual": 200,
+    "pass": true
+  },
+  {
+    "id": "RBAC-payslip:other-SA001",
+    "desc": "GET /payslip/EMPA01 bởi SA001",
+    "expected": 200,
+    "actual": 200,
+    "pass": true
+  },
+  {
+    "id": "RBAC-payslip:other-HRM001",
+    "desc": "GET /payslip/EMPA01 bởi HRM001",
+    "expected": 200,
+    "actual": 200,
+    "pass": true
+  },
+  {
+    "id": "RBAC-payslip:other-HRS001",
+    "desc": "GET /payslip/EMPA01 bởi HRS001",
+    "expected": 403,
+    "actual": 403,
+    "pass": true
+  },
+  {
+    "id": "RBAC-payslip:other-PAY001",
+    "desc": "GET /payslip/EMPA01 bởi PAY001",
+    "expected": 200,
+    "actual": 200,
+    "pass": true
+  },
+  {
+    "id": "RBAC-payslip:other-MGRA01",
+    "desc": "GET /payslip/EMPA01 bởi MGRA01",
+    "expected": 403,
+    "actual": 403,
+    "pass": true
+  },
+  {
+    "id": "RBAC-payslip:other-EMPA02",
+    "desc": "GET /payslip/EMPA01 bởi EMPA02",
+    "expected": 403,
+    "actual": 403,
+    "pass": true
+  },
+  {
+    "id": "RBAC-payslip:other-EMPA01",
+    "desc": "GET /payslip/EMPA01 bởi EMPA01",
+    "expected": 200,
+    "actual": 200,
+    "pass": true
+  },
+  {
+    "id": "RBAC-payslip:me-HRS001",
+    "desc": "GET /payslip/me bởi HRS001",
+    "expected": 200,
+    "actual": 200,
+    "pass": true
+  },
+  {
+    "id": "RBAC-payslip:me-EMPA01",
+    "desc": "GET /payslip/me bởi EMPA01",
+    "expected": 200,
+    "actual": 200,
+    "pass": true
+  },
+  {
+    "id": "RBAC-report:payroll-SA001",
+    "desc": "GET /reports/export?type=payroll bởi SA001",
+    "expected": 200,
+    "actual": 200,
+    "pass": true
+  },
+  {
+    "id": "RBAC-report:payroll-HRM001",
+    "desc": "GET /reports/export?type=payroll bởi HRM001",
+    "expected": 200,
+    "actual": 200,
+    "pass": true
+  },
+  {
+    "id": "RBAC-report:payroll-HRS001",
+    "desc": "GET /reports/export?type=payroll bởi HRS001",
+    "expected": 403,
+    "actual": 403,
+    "pass": true
+  },
+  {
+    "id": "RBAC-report:payroll-PAY001",
+    "desc": "GET /reports/export?type=payroll bởi PAY001",
+    "expected": 200,
+    "actual": 200,
+    "pass": true
+  },
+  {
+    "id": "RBAC-report:payroll-MGRA01",
+    "desc": "GET /reports/export?type=payroll bởi MGRA01",
+    "expected": 403,
+    "actual": 403,
+    "pass": true
+  },
+  {
+    "id": "RBAC-report:payroll-EMPA01",
+    "desc": "GET /reports/export?type=payroll bởi EMPA01",
+    "expected": 403,
+    "actual": 403,
+    "pass": true
+  },
+  {
+    "id": "RBAC-report:leave-HRS001",
+    "desc": "GET /reports/export?type=leave bởi HRS001",
+    "expected": 403,
+    "actual": 403,
+    "pass": true
+  },
+  {
+    "id": "RBAC-report:leave-EMPA01",
+    "desc": "GET /reports/export?type=leave bởi EMPA01",
+    "expected": 403,
+    "actual": 403,
+    "pass": true
+  },
+  {
+    "id": "RBAC-report:leave-PAY001",
+    "desc": "GET /reports/export?type=leave bởi PAY001",
+    "expected": 200,
+    "actual": 200,
+    "pass": true
+  },
+  {
+    "id": "RBAC-leave:list-SA001",
+    "desc": "GET /leave bởi SA001",
+    "expected": 200,
+    "actual": 200,
+    "pass": true
+  },
+  {
+    "id": "RBAC-leave:list-EMPA01",
+    "desc": "GET /leave bởi EMPA01",
+    "expected": 200,
+    "actual": 200,
+    "pass": true
+  },
+  {
+    "id": "RBAC-timesheet:list-PAY001",
+    "desc": "GET /timesheet bởi PAY001",
+    "expected": 200,
+    "actual": 200,
+    "pass": true
+  },
+  {
+    "id": "RBAC-timesheet:list-EMPA01",
+    "desc": "GET /timesheet bởi EMPA01",
+    "expected": 200,
+    "actual": 200,
+    "pass": true
+  },
+  {
+    "id": "ANON-/me",
+    "desc": "Không token GET /me",
+    "expected": 401,
+    "actual": 401,
+    "pass": true
+  },
+  {
+    "id": "ANON-/employees",
+    "desc": "Không token GET /employees",
+    "expected": 401,
+    "actual": 401,
+    "pass": true
+  },
+  {
+    "id": "ANON-/employees/EMPA01",
+    "desc": "Không token GET /employees/EMPA01",
+    "expected": 401,
+    "actual": 401,
+    "pass": true
+  },
+  {
+    "id": "ANON-/payslip/EMPA01",
+    "desc": "Không token GET /payslip/EMPA01",
+    "expected": 401,
+    "actual": 401,
+    "pass": true
+  },
+  {
+    "id": "ANON-/leave",
+    "desc": "Không token GET /leave",
+    "expected": 401,
+    "actual": 401,
+    "pass": true
+  },
+  {
+    "id": "ANON-/timesheet",
+    "desc": "Không token GET /timesheet",
+    "expected": 401,
+    "actual": 401,
+    "pass": true
+  },
+  {
+    "id": "ANON-/reports/export",
+    "desc": "Không token GET /reports/export",
+    "expected": 401,
+    "actual": 401,
+    "pass": true
+  },
+  {
+    "id": "ANON-/files/x",
+    "desc": "Không token GET /files/x",
+    "expected": 401,
+    "actual": 401,
+    "pass": true
+  },
+  {
+    "id": "TOK-alg-none",
+    "desc": "Token alg:none",
+    "expected": 401,
+    "actual": 401,
+    "pass": true
+  },
+  {
+    "id": "TOK-tampered",
+    "desc": "Sửa payload sub=SA001 giữ chữ ký",
+    "expected": 401,
+    "actual": 401,
+    "pass": true
+  },
+  {
+    "id": "TOK-legacy",
+    "desc": "Bearer MSNV thô",
+    "expected": 401,
+    "actual": 401,
+    "pass": true
+  },
+  {
+    "id": "LEAK-hrs-list",
+    "desc": "HR Staff list không chứa baseSalary",
+    "expected": "no baseSalary",
+    "actual": "ok",
+    "pass": true
+  },
+  {
+    "id": "LEAK-hrs-profile",
+    "desc": "HR Staff xem hồ sơ không chứa baseSalary",
+    "expected": "no baseSalary",
+    "actual": "ok",
+    "pass": true
+  },
+  {
+    "id": "LEAK-mgr-list",
+    "desc": "Manager list không chứa baseSalary",
+    "expected": "no baseSalary",
+    "actual": "ok",
+    "pass": true
+  },
+  {
+    "id": "LEAK-pay-profile",
+    "desc": "Payroll xem hồ sơ NV khác",
+    "expected": 403,
+    "actual": 403,
+    "pass": true
+  },
+  {
+    "id": "LEAVE-create",
+    "desc": "Tạo đơn 2 ngày với reason chứa <script>",
+    "expected": 201,
+    "actual": 409,
+    "pass": false
+  },
+  {
+    "id": "LEAVE-overlap",
+    "desc": "Đơn trùng ngày với đơn PENDING",
+    "expected": "4xx",
+    "actual": 409,
+    "pass": true
+  },
+  {
+    "id": "LEAVE-end-before-start",
+    "desc": "Ngày kết thúc < bắt đầu",
+    "expected": "4xx",
+    "actual": 422,
+    "pass": true
+  },
+  {
+    "id": "LEAVE-over-balance",
+    "desc": "Đơn vượt số dư",
+    "expected": 422,
+    "actual": 422,
+    "pass": true
+  },
+  {
+    "id": "LEAVE-weekend",
+    "desc": "Đơn rơi vào T7-CN: không trừ phép",
+    "expected": "days=0 hoặc 4xx",
+    "actual": "422 {\"success\":false,\"code\":\"LEAVE_REJECTED\",\"error\":\"Không có ngày làm việc nào trong khoảng thời gian ",
+    "pass": true
+  },
+  {
+    "id": "LEAVE-half-nosession",
+    "desc": "HALF thiếu halfSession",
+    "expected": 400,
+    "actual": 400,
+    "pass": true
+  },
+  {
+    "id": "LEAVE-bad-date",
+    "desc": "Ngày rác",
+    "expected": 400,
+    "actual": 400,
+    "pass": true
+  },
+  {
+    "id": "LEAVE-bad-json",
+    "desc": "JSON hỏng",
+    "expected": 400,
+    "actual": 400,
+    "pass": true
+  },
+  {
+    "id": "LEAVE-reject-no-reason",
+    "desc": "Từ chối KHÔNG cần lý do (đặc tả: bắt buộc lý do)",
+    "expected": "400 thiếu lý do",
+    "actual": 400,
+    "pass": true
+  },
+  {
+    "id": "LEAVE-reject-with-reason",
+    "desc": "Từ chối có lý do tiếng Việt",
+    "expected": 200,
+    "actual": 200,
+    "pass": true
+  },
+  {
+    "id": "TS-create",
+    "desc": "Chấm công bình thường",
+    "expected": 201,
+    "actual": 409,
+    "pass": false
+  },
+  {
+    "id": "TS-dup",
+    "desc": "Chấm công trùng",
+    "expected": 409,
+    "actual": 409,
+    "pass": true
+  },
+  {
+    "id": "TS-out-before-in",
+    "desc": "Giờ ra < giờ vào",
+    "expected": 422,
+    "actual": 422,
+    "pass": true
+  },
+  {
+    "id": "TS-night",
+    "desc": "Ca đêm qua 0h",
+    "expected": 201,
+    "actual": 409,
+    "pass": false
+  },
+  {
+    "id": "TS-too-long",
+    "desc": "Ca 20 giờ",
+    "expected": 422,
+    "actual": 422,
+    "pass": true
+  },
+  {
+    "id": "TS-future",
+    "desc": "Chấm công ngày tương lai",
+    "expected": "4xx",
+    "actual": 422,
+    "pass": true
+  },
+  {
+    "id": "TS-mass-assign",
+    "desc": "Body gửi empCode khác: không được ghi cho người khác",
+    "expected": "own only",
+    "actual": 409,
+    "pass": true
+  },
+  {
+    "id": "TS-mass-assign-check",
+    "desc": "EMPB01 không có dòng do EMPA01 tạo",
+    "expected": 0,
+    "actual": 0,
+    "pass": true
+  },
+  {
+    "id": "UP-pdf",
+    "desc": "Upload PDF hợp lệ",
+    "expected": 201,
+    "actual": 201,
+    "pass": true
+  },
+  {
+    "id": "UP-exe-as-pdf",
+    "desc": "EXE đổi đuôi .pdf",
+    "expected": 415,
+    "actual": 415,
+    "pass": true
+  },
+  {
+    "id": "UP-exe",
+    "desc": "Đuôi .exe",
+    "expected": 415,
+    "actual": 415,
+    "pass": true
+  },
+  {
+    "id": "UP-11MB",
+    "desc": "File > 10MB",
+    "expected": 413,
+    "actual": 413,
+    "pass": true
+  },
+  {
+    "id": "UP-traversal",
+    "desc": "Tên ../../etc/passwd.pdf",
+    "expected": "201 + tên đã làm sạch",
+    "actual": "201 {\"success\":true,\"data\":{\"id\":\"5d6a81ce-9f59-412e-ad2a-031cab7a9d27\",\"name\":\"passwd.pdf\",\"size\":109,\"sha256\":\"3410a27f10f",
+    "pass": true
+  },
+  {
+    "id": "UP-xss-name",
+    "desc": "Tên file chứa HTML",
+    "expected": "sanitized",
+    "actual": "201 {\"success\":true,\"data\":{\"id\":\"9e6c35b1-44c7-4f01-a9a5-852350763022\",\"name\":\"_img src=x onerror=alert(1)_.pdf\",\"size\":109,\"sha256\":\"3410a27f1",
+    "pass": true
+  },
+  {
+    "id": "UP-dup-name",
+    "desc": "Trùng tên → không ghi đè",
+    "expected": 201,
+    "actual": 201,
+    "pass": true
+  },
+  {
+    "id": "UP-empty",
+    "desc": "File rỗng",
+    "expected": 400,
+    "actual": 400,
+    "pass": true
+  },
+  {
+    "id": "UP-vi-name",
+    "desc": "Tên tiếng Việt có dấu",
+    "expected": 201,
+    "actual": 201,
+    "pass": true
+  },
+  {
+    "id": "UP-anon",
+    "desc": "Upload không token",
+    "expected": 401,
+    "actual": 401,
+    "pass": true
+  },
+  {
+    "id": "DL-anon",
+    "desc": "Tải file không token",
+    "expected": 401,
+    "actual": 401,
+    "pass": true
+  },
+  {
+    "id": "DL-EMPB01",
+    "desc": "Tải file của EMPA01 bởi EMPB01",
+    "expected": 403,
+    "actual": 403,
+    "pass": true
+  },
+  {
+    "id": "DL-EMPA02",
+    "desc": "Tải file của EMPA01 bởi EMPA02",
+    "expected": 403,
+    "actual": 403,
+    "pass": true
+  },
+  {
+    "id": "DL-PAY001",
+    "desc": "Tải file của EMPA01 bởi PAY001",
+    "expected": 403,
+    "actual": 403,
+    "pass": true
+  },
+  {
+    "id": "DL-HRS001",
+    "desc": "Tải file của EMPA01 bởi HRS001",
+    "expected": 200,
+    "actual": 200,
+    "pass": true
+  },
+  {
+    "id": "DL-EMPA01",
+    "desc": "Tải file của EMPA01 bởi EMPA01",
+    "expected": 200,
+    "actual": 200,
+    "pass": true
+  },
+  {
+    "id": "DL-MGRA01",
+    "desc": "Tải file của EMPA01 bởi MGRA01",
+    "expected": 403,
+    "actual": 403,
+    "pass": true
+  },
+  {
+    "id": "DL-headers",
+    "desc": "Header bảo mật tải file",
+    "expected": "nosniff + attachment",
+    "actual": "nosniff | attachment; filename*=UTF-8''NV001_CCCD.pdf",
+    "pass": true
+  },
+  {
+    "id": "SPEC-/audit-logs",
+    "desc": "Endpoint theo đặc tả /audit-logs tồn tại",
+    "expected": "200",
+    "actual": 200,
+    "pass": true
+  },
+  {
+    "id": "SPEC-/audit",
+    "desc": "Endpoint theo đặc tả /audit tồn tại",
+    "expected": "200",
+    "actual": 200,
+    "pass": true
+  },
+  {
+    "id": "SPEC-/notifications",
+    "desc": "Endpoint theo đặc tả /notifications tồn tại",
+    "expected": "200",
+    "actual": 200,
+    "pass": true
+  },
+  {
+    "id": "SPEC-/contracts",
+    "desc": "Endpoint theo đặc tả /contracts tồn tại",
+    "expected": "200",
+    "actual": 200,
+    "pass": true
+  },
+  {
+    "id": "SPEC-/departments",
+    "desc": "Endpoint theo đặc tả /departments tồn tại",
+    "expected": "200",
+    "actual": 200,
+    "pass": true
+  },
+  {
+    "id": "SPEC-/documents",
+    "desc": "Endpoint theo đặc tả /documents tồn tại",
+    "expected": "200",
+    "actual": 200,
+    "pass": true
+  },
+  {
+    "id": "SPEC-/payroll",
+    "desc": "Endpoint theo đặc tả /payroll tồn tại",
+    "expected": "200",
+    "actual": 200,
+    "pass": true
+  },
+  {
+    "id": "BRUTE-login",
+    "desc": "15 lần sai mật khẩu liên tiếp → có khoá/429",
+    "expected": "có 429/423",
+    "actual": "401,401,401,401,401,429,429,429,429,429,429,429,429,429,429",
+    "pass": true
+  },
+  {
+    "id": "BRUTE-after",
+    "desc": "Đăng nhập đúng sau brute force",
+    "expected": "bị khoá (429/423)",
+    "actual": 429,
+    "pass": true
+  },
+  {
+    "id": "SQLI-param",
+    "desc": "SQLi trong :code",
+    "expected": "404",
+    "actual": 404,
+    "pass": true
+  },
+  {
+    "id": "CORS-origin",
+    "desc": "CORS: Access-Control-Allow-Origin với Origin lạ",
+    "expected": "không phải *",
+    "actual": "(none)",
+    "pass": true
+  },
+  {
+    "id": "PERF-employees",
+    "desc": "/employees p max < 1000ms (local)",
+    "expected": "<1000",
+    "actual": "17ms",
+    "pass": true
+  }
+]

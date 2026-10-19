@@ -12,6 +12,7 @@ import { getAllowedModules } from "@/lib/rbac";
 import Can from "@/components/Can";
 import { PERMISSIONS } from "@/lib/permissions";
 import OverviewDashboard from "@/components/work/OverviewDashboard";
+import { EnterpriseOverviewSection } from "@/components/dashboard";
 import WorkspaceHomeView from "@/components/work/WorkspaceHomeView";
 import HRSystemShell from "@/modules/hr/HRSystemShell";
 import HRHanhChanhHubView from "@/modules/hr/components/HRHanhChanhHubView";
@@ -25,8 +26,10 @@ import ProductionPerformanceModule from "@/modules/production/ProductionPerforma
 import RDModule from "@/modules/rd/RDModule";
 import CNCIWrapper from "@/modules/ci/CNCIWrapper";
 import { StrategicManagementContent } from "@/components/home/StrategicManagementDashboard";
-import ProjectsOverviewPage from "@/modules/tasks/ProjectsOverviewPage";
+import MyTasksKanbanView from "@/modules/tasks/MyTasksKanbanView";
+import ProjectWorkspaceView from "@/modules/projects/ProjectWorkspaceView";
 import { LOGISTICS_MODULE_DISPLAY_NAME, LOGISTICS_MODULE_DESCRIPTION } from "@/constants/modules";
+import ScmModule from "@/modules/scm/ScmModule";
 
 import {
   IconHome,
@@ -189,7 +192,7 @@ function HRModuleView() {
   );
 }
 
-export default function WorkDashboardPage({ initialDept }: { initialDept?: string | null }) {
+function WorkDashboardPage({ initialDept }: { initialDept?: string | null }) {
   const router = useRouter();
   const [selectedDept, setSelectedDept] = useState<string | null>(initialDept || null);
 
@@ -508,12 +511,13 @@ export default function WorkDashboardPage({ initialDept }: { initialDept?: strin
           setUserInfo((prev) => ({ ...prev, avatar: compressed }));
           showToast("Đã nạp ảnh thành công. Đang đồng bộ...");
 
-          // 3. Upload to Cloudinary & D1 via Worker endpoint
+          // 3. Lưu ảnh lên R2 qua máy chủ (gắn với tài khoản đang đăng nhập)
           try {
+            const avatarToken = localStorage.getItem("tbs_token") || sessionStorage.getItem("tbs_token") || "";
             const res = await fetch("/api/upload-avatar", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ image: compressed, empCode: userInfo.empCode || "202608001" }),
+              headers: { "Content-Type": "application/json", ...(avatarToken ? { Authorization: `Bearer ${avatarToken}` } : {}) },
+              body: JSON.stringify({ image: compressed }),
             });
 
             if (res.ok) {
@@ -532,7 +536,7 @@ export default function WorkDashboardPage({ initialDept }: { initialDept?: strin
                   }
                   return updated;
                 });
-                showToast(json.isCloudinary ? "Đã tải avatar lên Cloudinary." : "Đã cập nhật ảnh đại diện.");
+                showToast("Đã lưu ảnh đại diện.");
               }
             }
           } catch (uploadErr) {
@@ -827,7 +831,7 @@ export default function WorkDashboardPage({ initialDept }: { initialDept?: strin
       name: LOGISTICS_MODULE_DISPLAY_NAME,
       sub: LOGISTICS_MODULE_DESCRIPTION,
       icon: IconTruck,
-      hasData: false,
+      hasData: true,
     },
     {
       id: "production",
@@ -870,6 +874,18 @@ export default function WorkDashboardPage({ initialDept }: { initialDept?: strin
     return getCurrentUser();
   }, [isMounted, userInfo]);
 
+  // Thành viên module SCM (Kế hoạch, Mua hàng, Kho, KD·CN·QC, Số hóa, BGĐ) do server xác nhận
+  // null: đang kiểm tra (chưa đẩy người dùng ra khỏi ?dept=logistics)
+  const [scmMember, setScmMember] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!isMounted) return;
+    let alive = true;
+    fetch("/api/scm/me", { cache: "no-store" })
+      .then((r) => { if (alive) setScmMember(r.ok); })
+      .catch(() => { if (alive) setScmMember(false); });
+    return () => { alive = false; };
+  }, [isMounted, currentUser]);
+
   const visibleDepartments = useMemo(() => {
     const activeUser = currentUser || (isMounted ? getCurrentUser() : null) || getSystemUser("202608001");
     const normalizedCode = normalizeEmpCode(activeUser?.empCode || "202608001");
@@ -885,11 +901,12 @@ export default function WorkDashboardPage({ initialDept }: { initialDept?: strin
       return departments;
     }
 
-    return departments.filter((dept) => allowedModules.includes(dept.id));
-  }, [currentUser, departments]);
+    return departments.filter((dept) => allowedModules.includes(dept.id) || (dept.id === "logistics" && scmMember === true));
+  }, [currentUser, departments, scmMember]);
 
   useEffect(() => {
     if (selectedDept && !visibleDepartments.some((d) => d.id === selectedDept)) {
+      if (selectedDept === "logistics" && scmMember === null) return; // chờ server xác nhận quyền module
       setSelectedDept(null);
     } else if (selectedDept) {
       const activeObj = departments.find((d) => d.id === selectedDept);
@@ -903,7 +920,7 @@ export default function WorkDashboardPage({ initialDept }: { initialDept?: strin
         });
       }
     }
-  }, [visibleDepartments, selectedDept, currentUser, departments]);
+  }, [visibleDepartments, selectedDept, currentUser, departments, scmMember]);
 
   const activeDeptObj = departments.find((d) => d.id === selectedDept);
 
@@ -1401,6 +1418,7 @@ export default function WorkDashboardPage({ initialDept }: { initialDept?: strin
           {/* ════════════════════════════════════════════════════════════════
               THẺ 01: TỔNG QUAN HỆ THỐNG (CHỈ RENDER KHI CHỌN KHỐI TỔNG QUAN)
              ════════════════════════════════════════════════════════════════ */}
+          {selectedDept === "overview" && <EnterpriseOverviewSection />}
           {selectedDept === "overview" && (
             <OverviewDashboard
               onSelectDept={(deptId) => handleSelectDept(selectedDept === deptId ? null : deptId)}
@@ -1415,7 +1433,18 @@ export default function WorkDashboardPage({ initialDept }: { initialDept?: strin
              ════════════════════════════════════════════════════════════════ */}
           {(selectedDept === "my-tasks" || selectedDept === "my_tasks") && (
             <div className="w-full space-y-4 min-w-0 font-sans antialiased">
-              <ProjectsOverviewPage />
+              {/* Công việc cá nhân: bảng Kanban công việc được giao / mình giao (dữ liệu thật từ /api/tasks) */}
+              <MyTasksKanbanView />
+            </div>
+          )}
+
+          {/* Bảng công việc phòng ban (dữ liệu thật từ /api/task-boards, /api/task-cards) */}
+          {selectedDept === "tasks" && <OpenTaskBoard />}
+
+          {/* Dự án liên phòng ban (dữ liệu thật từ /api/projects) */}
+          {selectedDept === "projects" && (
+            <div className="w-full min-w-0 space-y-6 font-sans antialiased">
+              <ProjectWorkspaceView />
             </div>
           )}
 
@@ -1430,7 +1459,7 @@ export default function WorkDashboardPage({ initialDept }: { initialDept?: strin
           {/* ════════════════════════════════════════════════════════════════
               DEPARTMENT HERO BANNER CARD (Screenshot 1 Layout)
              ════════════════════════════════════════════════════════════════ */}
-          {activeDeptObj && activeDeptObj.id !== "home" && activeDeptObj.id !== "overview" && activeDeptObj.id !== "my-tasks" && activeDeptObj.id !== "my_tasks" && activeDeptObj.id !== "finance" && activeDeptObj.id !== "rd" && activeDeptObj.id !== "hr" && activeDeptObj.id !== "ci" && activeDeptObj.id !== "production-output" && (
+          {activeDeptObj && activeDeptObj.id !== "home" && activeDeptObj.id !== "overview" && activeDeptObj.id !== "my-tasks" && activeDeptObj.id !== "my_tasks" && activeDeptObj.id !== "finance" && activeDeptObj.id !== "rd" && activeDeptObj.id !== "hr" && activeDeptObj.id !== "ci" && activeDeptObj.id !== "production-output" && activeDeptObj.id !== "logistics" && activeDeptObj.id !== "tasks" && activeDeptObj.id !== "projects" && (
             <div className="relative w-full rounded-3xl overflow-hidden border border-slate-200/90 shadow-md flex-shrink-0 bg-slate-900 group">
               {/* Background Image with Dark Emerald Overlay */}
               <img
@@ -1509,6 +1538,13 @@ export default function WorkDashboardPage({ initialDept }: { initialDept?: strin
           )}
 
           {/* IF R&D (PHÁT TRIỂN SẢN PHẨM) IS SELECTED */}
+          {/* KẾ HOẠCH CHUẨN BỊ & TRUNG TÂM PHÂN PHỐI: module SCM (web/src/modules/scm) */}
+          {selectedDept === "logistics" && (
+            <div className="w-full">
+              <ScmModule />
+            </div>
+          )}
+
           {selectedDept === "rd" && (
             <div className="space-y-4 w-full">
               <RDModule
@@ -2045,4 +2081,16 @@ export default function WorkDashboardPage({ initialDept }: { initialDept?: strin
       )}
     </div>
   );
+}
+
+export default function WorkPage(props: { initialDept?: string | null }) {
+  return <WorkDashboardPage {...props} />;
+}
+
+/** Bảng công việc phòng ban có khung trang riêng: chuyển sang /work/tasks thay vì lồng vào /work */
+function OpenTaskBoard() {
+  useEffect(() => {
+    window.location.replace("/work/tasks");
+  }, []);
+  return <p className="py-10 text-center text-sm text-slate-500">Đang mở Bảng công việc phòng ban…</p>;
 }

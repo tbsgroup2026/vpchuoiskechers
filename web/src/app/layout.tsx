@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import DevToolsShield from "@/components/DevToolsShield";
 import AppChrome from "@/components/AppChrome";
+import { LanguageProvider } from "@/components/LanguageProvider";
 import NotificationInitializer from "@/components/NotificationInitializer";
 
 export const viewport: Viewport = {
@@ -113,14 +114,17 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col font-sans bg-canvas text-ink">
         <PerformanceProvider>
-          <GuestRouteGuard />
-          <DevToolsShield />
-          <NotificationInitializer />
-          <AppChrome>
-            {children}
-            <VersionChecker />
-          </AppChrome>
-          <PerfDebugOverlay />
+          {/* Ngôn ngữ VI/EN dùng chung toàn ứng dụng (thiếu provider thì nút chọn ngôn ngữ không có tác dụng) */}
+          <LanguageProvider>
+            <GuestRouteGuard />
+            <DevToolsShield />
+            <NotificationInitializer />
+            <AppChrome>
+              {children}
+              <VersionChecker />
+            </AppChrome>
+            <PerfDebugOverlay />
+          </LanguageProvider>
         </PerformanceProvider>
       </body>
     </html>

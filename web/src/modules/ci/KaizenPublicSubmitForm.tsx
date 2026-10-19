@@ -990,28 +990,35 @@ export default function KaizenPublicSubmitForm({
                 </div>
               </div>
 
-              {/* Hàng 2: Line | Phân xưởng | Nhà máy */}
+              {/* Hàng 2: Nhà máy | Phân xưởng | Line */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-200/80">
-                {/* 1. Line */}
+                {/* 1. Nhà Máy */}
                 <div className="space-y-1">
-                  <label className="font-black text-slate-900 text-[11px]">Line / Chuyền</label>
+                  <label className="font-black text-slate-900 text-[11px]">
+                    Nhà Máy <span className="text-rose-600 font-bold ml-0.5">*</span>
+                  </label>
                   <select
-                    value={selectedFormLine}
+                    required
+                    value={selectedFormFactory}
                     onChange={(e) => {
-                      setSelectedFormLine(e.target.value);
-                      setSelectedFormChuyen("");
-                      setSelectedFormTo("");
+                      const newFac = e.target.value;
+                      setSelectedFormFactory(newFac);
+                      setForm((prev) => ({
+                        ...prev,
+                        factory: newFac,
+                        region: newFac,
+                      }));
                     }}
                     className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838] bg-white"
                   >
-                    <option value="">-- Chọn Line / Chuyền --</option>
-                    {availableFormLines.map((ln) => (
-                      <option key={ln} value={ln}>
-                        {ln}
+                    <option value="">-- Chọn Nhà Máy --</option>
+                    {REAL_FACTORIES.map((fac) => (
+                      <option key={fac} value={fac}>
+                        {fac}
                       </option>
                     ))}
-                    {selectedFormLine && !availableFormLines.includes(selectedFormLine) && (
-                      <option value={selectedFormLine}>{selectedFormLine}</option>
+                    {selectedFormFactory && !REAL_FACTORIES.includes(selectedFormFactory) && (
+                      <option value={selectedFormFactory}>{selectedFormFactory}</option>
                     )}
                   </select>
                 </div>
@@ -1044,33 +1051,26 @@ export default function KaizenPublicSubmitForm({
                   </select>
                 </div>
 
-                {/* 3. Nhà Máy */}
+                {/* 3. Line */}
                 <div className="space-y-1">
-                  <label className="font-black text-slate-900 text-[11px]">
-                    Nhà Máy <span className="text-rose-600 font-bold ml-0.5">*</span>
-                  </label>
+                  <label className="font-black text-slate-900 text-[11px]">Line / Chuyền</label>
                   <select
-                    required
-                    value={selectedFormFactory}
+                    value={selectedFormLine}
                     onChange={(e) => {
-                      const newFac = e.target.value;
-                      setSelectedFormFactory(newFac);
-                      setForm((prev) => ({
-                        ...prev,
-                        factory: newFac,
-                        region: newFac,
-                      }));
+                      setSelectedFormLine(e.target.value);
+                      setSelectedFormChuyen("");
+                      setSelectedFormTo("");
                     }}
                     className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838] bg-white"
                   >
-                    <option value="">-- Chọn Nhà Máy --</option>
-                    {REAL_FACTORIES.map((fac) => (
-                      <option key={fac} value={fac}>
-                        {fac}
+                    <option value="">-- Chọn Line / Chuyền --</option>
+                    {availableFormLines.map((ln) => (
+                      <option key={ln} value={ln}>
+                        {ln}
                       </option>
                     ))}
-                    {selectedFormFactory && !REAL_FACTORIES.includes(selectedFormFactory) && (
-                      <option value={selectedFormFactory}>{selectedFormFactory}</option>
+                    {selectedFormLine && !availableFormLines.includes(selectedFormLine) && (
+                      <option value={selectedFormLine}>{selectedFormLine}</option>
                     )}
                   </select>
                 </div>

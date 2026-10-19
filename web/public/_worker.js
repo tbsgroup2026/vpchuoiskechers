@@ -3004,6 +3004,44 @@ async function notifyReceptionBookingCancelled(env, b, byName) {
   ));
 }
 
+// ─── Tên nhân viên theo MSNV: danh bạ nhân sự (sys_users, nguồn của trang /admin) rồi tới tài khoản (users) ───
+// Tên dạng "Nhân viên (MSNV)" là tên giả sinh ra khi không tra được — không bao giờ coi là tên thật.
+const isPlaceholderEmpName = (name) => !name || /^Nhân viên \(.*\)$/.test(String(name).trim());
+async function lookupEmployeeName(db, empCode) {
+  const code = String(empCode || "").trim().toUpperCase();
+  if (!db || !code) return null;
+  for (const sql of [
+    // SELECT * để chạy được cả với DB cũ thiếu cột phong_ban_moi / vtcv_hien_tai
+    "SELECT * FROM sys_users WHERE UPPER(emp_code) = ? LIMIT 1",
+    "SELECT * FROM users WHERE UPPER(emp_code) = ? LIMIT 1",
+  ]) {
+    const r = await db.prepare(sql).bind(code).first().catch(() => null);
+    if (r && r.name && !isPlaceholderEmpName(r.name)) {
+      return { empCode: r.emp_code || code, name: String(r.name).trim(), department: r.phong_ban_moi || r.department || "", title: r.vtcv_hien_tai || r.title || "" };
+    }
+  }
+  return null;
+}
+// Sửa các sáng kiến đã lưu với tên giả: thay bằng họ tên thật trong danh bạ (chạy tối đa mỗi 10 phút / isolate)
+let __kaizenNameHealAt = 0;
+async function healKaizenProposerNames(db) {
+  if (!db || Date.now() - __kaizenNameHealAt < 10 * 60 * 1000) return 0;
+  __kaizenNameHealAt = Date.now();
+  let fixed = 0;
+  for (const src of ["sys_users", "users"]) {
+    const r = await db.prepare(`
+      UPDATE ci_kaizen_proposals
+      SET proposer_name = (SELECT s.name FROM ${src} s WHERE UPPER(s.emp_code) = UPPER(ci_kaizen_proposals.proposer_emp_code) AND s.name IS NOT NULL AND s.name != '' AND s.name NOT LIKE 'Nhân viên (%' LIMIT 1)
+      WHERE (proposer_name IS NULL OR proposer_name = '' OR proposer_name LIKE 'Nhân viên (%')
+        AND proposer_emp_code IS NOT NULL AND proposer_emp_code != ''
+        AND EXISTS (SELECT 1 FROM ${src} s WHERE UPPER(s.emp_code) = UPPER(ci_kaizen_proposals.proposer_emp_code) AND s.name IS NOT NULL AND s.name != '' AND s.name NOT LIKE 'Nhân viên (%')
+    `).run().catch(() => null);
+    fixed += Number(r && r.meta && r.meta.changes) || 0;
+  }
+  if (fixed) console.log(`[KAIZEN] Đã sửa ${fixed} tên người nộp từ danh bạ nhân sự`);
+  return fixed;
+}
+
 export default {
   async fetch(request, env, ctx) {
     let res;
@@ -8396,6 +8434,26 @@ export default {
         }
       }
 
+      // 1b. Danh bạ nhân sự (sys_users — cùng nguồn trang /admin)
+      if (env.DB) {
+        const emp = await lookupEmployeeName(env.DB, msnv);
+        if (emp) {
+          return new Response(JSON.stringify({
+            success: true,
+            data: {
+              emp_code: emp.empCode,
+              name: emp.name,
+              factory_id: "",
+              workshop_id: "",
+              line_id: "",
+              department: emp.department,
+              vtcv: emp.title || "Nhân viên",
+              position: emp.title || "Nhân viên",
+            }
+          }), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
+        }
+      }
+
       // 2. Check ROLE_ACCOUNTS & SYSTEM_USERS dataset
       const cleanMsnv = msnv.replace(/[-_]/g, "");
       const foundRoleKey = Object.keys(ROLE_ACCOUNTS).find((k) => {
@@ -10950,6 +11008,8 @@ export default {
           { status: 500, headers: SECURE_JSON_HEADERS }
         );
       }
+      // Tên người nộp hiện "Nhân viên (MSNV)" → lấy họ tên thật từ danh bạ nhân sự
+      await healKaizenProposerNames(env.DB).catch(() => 0);
 
       // Auto-ensure idempotency_keys & table column migrations exist
       const ensureIdempotencyTable = async () => {
@@ -11999,6 +12059,10 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
 
           let foundEmp = null;
           if (env.DB) {
+            const emp = await lookupEmployeeName(env.DB, effectiveEmpCode);
+            if (emp) foundEmp = { empCode: emp.empCode, name: emp.name, fromDirectory: true };
+          }
+          if (!foundEmp && env.DB) {
             try {
               const u = await env.DB.prepare(
                 "SELECT emp_code, name FROM users WHERE UPPER(emp_code) = ? OR UPPER(email) = ? LIMIT 1"
@@ -12040,7 +12104,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
             if (WORKER_EMPLOYEES_DB[upperCode] || WORKER_EMPLOYEES_DB[effectiveEmpCode]) {
               const emp = WORKER_EMPLOYEES_DB[upperCode] || WORKER_EMPLOYEES_DB[effectiveEmpCode];
               foundEmp = { empCode: emp.emp_code || effectiveEmpCode, name: emp.name };
-            } else if (proposerName && proposerName.trim()) {
+            } else if (proposerName && proposerName.trim() && !isPlaceholderEmpName(proposerName)) {
               foundEmp = { empCode: effectiveEmpCode, name: proposerName.trim() };
             } else if (/^[A-Z0-9_-]{4,15}$/i.test(effectiveEmpCode)) {
               foundEmp = { empCode: effectiveEmpCode, name: (proposerName && proposerName.trim()) ? proposerName.trim() : `Nhân viên (${effectiveEmpCode})` };
@@ -12056,7 +12120,10 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           }
 
           const finalProposerEmpCode = (proposerEmpCode && proposerEmpCode.trim()) ? proposerEmpCode.trim() : (foundEmp.empCode || effectiveEmpCode);
-          const finalProposerName = (proposerName && proposerName.trim()) ? proposerName.trim() : foundEmp.name;
+          // Ưu tiên họ tên trong danh bạ nhân sự; tên gửi lên chỉ dùng khi danh bạ không có và không phải tên giả "Nhân viên (MSNV)"
+          const finalProposerName = foundEmp.fromDirectory
+            ? foundEmp.name
+            : (proposerName && proposerName.trim() && !isPlaceholderEmpName(proposerName)) ? proposerName.trim() : foundEmp.name;
           const finalDept = safeVal(department || (isPublicScan ? "Xưởng Sản Xuất" : user?.department), "Xưởng Sản Xuất");
 
           const targetRegType = safeVal(registrationType, "THI_DUA");

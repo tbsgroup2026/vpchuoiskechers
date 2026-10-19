@@ -6,7 +6,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
   IconAlertCircle,
-  IconAlertTriangle,
   IconArrowLeft,
   IconArrowRight,
   IconCalendar,
@@ -363,25 +362,18 @@ export default function ScmPlanning({ me, site, onBack, notify, onSiteChange }: 
               )}
 
               {/* Nút Ban hành Kế hoạch 312: bắt buộc có id="ke-hoach-312" */}
-              {plan.status !== "ISSUED" && (
-              <div className="relative group">
+              {/* Chỉ hiện khi đã đủ điều kiện ban hành (đã được trưởng bộ phận duyệt) */}
+              {plan.status !== "ISSUED" && canIssue.ok && canEdit && (
                 <button
                   type="button"
                   id="ke-hoach-312"
-                  className={`${btnPrimary} ${!canIssue.ok ? "opacity-50 cursor-not-allowed bg-slate-400 hover:bg-slate-400" : ""}`}
-                  disabled={!canIssue.ok || actionBusy || !canEdit}
+                  className={btnPrimary}
+                  disabled={actionBusy}
                   onClick={() => handlePlanAction("issue")}
-                  title={!canIssue.ok ? canIssue.reason || "Chưa thể ban hành" : "Ban hành kế hoạch 312"}
+                  title="Ban hành kế hoạch 312"
                 >
                   <IconSend size={15} /> Ban hành Kế hoạch 312
                 </button>
-                {!canIssue.ok && (
-                  <div className="absolute top-full mt-1.5 right-0 z-20 hidden group-hover:block w-72 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-800 shadow-lg leading-relaxed">
-                    <p className="font-bold mb-1 flex items-center gap-1"><IconAlertTriangle size={14} /> Chưa thể ban hành:</p>
-                    <p>{canIssue.reason || "Chưa đủ điều kiện ban hành"}</p>
-                  </div>
-                )}
-              </div>
               )}
 
               {plan.status === "ISSUED" && !plan.tier2_sent_at && canEdit && (

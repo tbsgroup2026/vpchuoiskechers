@@ -208,6 +208,22 @@ export default function KaizenPublicSubmitForm({
   const [selectedFormChuyen, setSelectedFormChuyen] = useState<string>("");
   const [selectedFormTo, setSelectedFormTo] = useState<string>("");
 
+  // Phân xưởng mẫu không có line/chuyền sản xuất
+  const isSampleWorkshop = useMemo(() => {
+    if (!selectedFormWorkshop) return false;
+    const ws = selectedFormWorkshop.trim().toLowerCase();
+    return ws.includes("mẫu") || ws.includes("mau");
+  }, [selectedFormWorkshop]);
+
+  // Tự động dọn dẹp line/chuyền khi chuyển sang Phân xưởng Mẫu
+  useEffect(() => {
+    if (isSampleWorkshop && selectedFormLine) {
+      setSelectedFormLine("");
+      setSelectedFormChuyen("");
+      setSelectedFormTo("");
+    }
+  }, [isSampleWorkshop, selectedFormLine]);
+
   // Available sub-level items
   const availableFormWorkshops = useMemo(() => {
     if (!selectedFormFactory) return ["Phân Xưởng Mẫu"];
@@ -587,7 +603,7 @@ export default function KaizenPublicSubmitForm({
     e.preventDefault();
 
     const targetDept = selectedFormWorkshop
-      ? `${selectedFormWorkshop}${selectedFormLine ? ` - ${selectedFormLine}` : ""}`
+      ? `${selectedFormWorkshop}${!isSampleWorkshop && selectedFormLine ? ` - ${selectedFormLine}` : ""}`
       : form.department || "Xưởng Sản Xuất";
 
     const targetFactory = form.factory || selectedFormFactory || "Nhà Máy Miền Đông";
@@ -665,7 +681,7 @@ export default function KaizenPublicSubmitForm({
           factory: targetFactory,
           region: targetFactory,
           department: targetDept,
-          line: selectedFormLine,
+          line: isSampleWorkshop ? "" : selectedFormLine,
           proposerMonth: currentMonth,
           proposerYear: currentYear,
           proposer_position: form.proposerPosition,
@@ -714,7 +730,7 @@ export default function KaizenPublicSubmitForm({
             body: JSON.stringify({
               factory: targetFactory,
               region: targetFactory,
-              line: selectedFormLine,
+              line: isSampleWorkshop ? "" : selectedFormLine,
               category: form.category,
               beforeDescription: form.beforeDescription,
               afterSolution: form.afterSolution,
@@ -990,8 +1006,12 @@ export default function KaizenPublicSubmitForm({
                 </div>
               </div>
 
-              {/* Hàng 2: Nhà máy | Phân xưởng | Line */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-200/80">
+              {/* Hàng 2: Nhà máy | Phân xưởng | Line (Ẩn Line nếu chọn Phân Xưởng Mẫu) */}
+              <div
+                className={`grid grid-cols-1 ${
+                  isSampleWorkshop ? "sm:grid-cols-2" : "sm:grid-cols-3"
+                } gap-3 pt-2 border-t border-slate-200/80 transition-all duration-200`}
+              >
                 {/* 1. Nhà Máy */}
                 <div className="space-y-1">
                   <label className="font-black text-slate-900 text-[11px]">
@@ -1032,7 +1052,8 @@ export default function KaizenPublicSubmitForm({
                     required
                     value={selectedFormWorkshop}
                     onChange={(e) => {
-                      setSelectedFormWorkshop(e.target.value);
+                      const newWs = e.target.value;
+                      setSelectedFormWorkshop(newWs);
                       setSelectedFormLine("");
                       setSelectedFormChuyen("");
                       setSelectedFormTo("");
@@ -1051,29 +1072,31 @@ export default function KaizenPublicSubmitForm({
                   </select>
                 </div>
 
-                {/* 3. Line */}
-                <div className="space-y-1">
-                  <label className="font-black text-slate-900 text-[11px]">Line / Chuyền</label>
-                  <select
-                    value={selectedFormLine}
-                    onChange={(e) => {
-                      setSelectedFormLine(e.target.value);
-                      setSelectedFormChuyen("");
-                      setSelectedFormTo("");
-                    }}
-                    className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838] bg-white"
-                  >
-                    <option value="">-- Chọn Line / Chuyền --</option>
-                    {availableFormLines.map((ln) => (
-                      <option key={ln} value={ln}>
-                        {ln}
-                      </option>
-                    ))}
-                    {selectedFormLine && !availableFormLines.includes(selectedFormLine) && (
-                      <option value={selectedFormLine}>{selectedFormLine}</option>
-                    )}
-                  </select>
-                </div>
+                {/* 3. Line (Ẩn hoàn toàn nếu là Phân Xưởng Mẫu) */}
+                {!isSampleWorkshop && (
+                  <div className="space-y-1 animate-in fade-in duration-200">
+                    <label className="font-black text-slate-900 text-[11px]">Line / Chuyền</label>
+                    <select
+                      value={selectedFormLine}
+                      onChange={(e) => {
+                        setSelectedFormLine(e.target.value);
+                        setSelectedFormChuyen("");
+                        setSelectedFormTo("");
+                      }}
+                      className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-[#006838] bg-white"
+                    >
+                      <option value="">-- Chọn Line / Chuyền --</option>
+                      {availableFormLines.map((ln) => (
+                        <option key={ln} value={ln}>
+                          {ln}
+                        </option>
+                      ))}
+                      {selectedFormLine && !availableFormLines.includes(selectedFormLine) && (
+                        <option value={selectedFormLine}>{selectedFormLine}</option>
+                      )}
+                    </select>
+                  </div>
+                )}
               </div>
             </div>
           </div>

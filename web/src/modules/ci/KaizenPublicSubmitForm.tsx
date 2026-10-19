@@ -208,11 +208,11 @@ export default function KaizenPublicSubmitForm({
   const [selectedFormChuyen, setSelectedFormChuyen] = useState<string>("");
   const [selectedFormTo, setSelectedFormTo] = useState<string>("");
 
-  // Phân xưởng mẫu không có line/chuyền sản xuất
+  // Phân xưởng Mẫu và Văn phòng không có line/chuyền sản xuất
   const isSampleWorkshop = useMemo(() => {
     if (!selectedFormWorkshop) return false;
     const ws = selectedFormWorkshop.trim().toLowerCase();
-    return ws.includes("mẫu") || ws.includes("mau");
+    return ws.includes("mẫu") || ws.includes("mau") || ws.includes("văn phòng") || ws.includes("van phong");
   }, [selectedFormWorkshop]);
 
   // Tự động dọn dẹp line/chuyền khi chuyển sang Phân xưởng Mẫu
@@ -1072,7 +1072,7 @@ export default function KaizenPublicSubmitForm({
                   </select>
                 </div>
 
-                {/* 3. Line (Ẩn hoàn toàn nếu là Phân Xưởng Mẫu) */}
+                {/* 3. Line (Ẩn hoàn toàn nếu là Phân Xưởng Mẫu hoặc Văn phòng) */}
                 {!isSampleWorkshop && (
                   <div className="space-y-1 animate-in fade-in duration-200">
                     <label className="font-black text-slate-900 text-[11px]">Line / Chuyền</label>

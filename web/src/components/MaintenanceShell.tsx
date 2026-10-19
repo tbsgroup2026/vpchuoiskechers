@@ -206,10 +206,9 @@ function MaintenanceShellInner({
       >
         <div className="p-4 flex items-center justify-between border-b border-white/10 min-h-[64px]">
           {!collapsed ? (
-            <Link href="/work" className="flex items-center gap-2.5 min-w-0 group">
+            <Link href="/work" className="flex items-center gap-2 min-w-0 group">
               <img src="/images/tbs-logo.png" alt="TBS Group Logo" className="h-7 w-auto object-contain flex-shrink-0 group-hover:scale-105 transition-transform" />
-              <div className="h-4 w-[1px] bg-white/20 mx-0.5" />
-              <span className="text-xs font-bold text-white truncate tracking-tight uppercase">MMTB Operations</span>
+              <span className="text-xs font-bold text-white truncate tracking-tight">Quản Lý MMTB</span>
             </Link>
           ) : (
             <Link href="/work" className="mx-auto">
@@ -258,12 +257,12 @@ function MaintenanceShellInner({
                 <div key={entry.id} className="space-y-1">
                   <button
                     onClick={() => toggleGroup(entry.id)}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-150 ${
-                      hasActiveChild ? 'text-emerald-300 font-bold' : 'text-slate-400 hover:bg-white/[0.06] hover:text-white'
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-semibold transition-all duration-150 ${
+                      hasActiveChild ? 'text-emerald-300 font-bold' : 'text-slate-300 hover:bg-white/[0.08] hover:text-white'
                     }`}
                   >
                     <div className="flex items-center gap-2.5 truncate">
-                      <Icon size={17} className={hasActiveChild ? 'text-emerald-400' : 'text-slate-400'} />
+                      <Icon size={18} className={hasActiveChild ? 'text-emerald-400' : 'text-slate-300'} />
                       {!collapsed && <span className="truncate">{entry.label}</span>}
                     </div>
                     {!collapsed && (
@@ -284,13 +283,13 @@ function MaintenanceShellInner({
                           <Link
                             key={child.id}
                             href={getScopedHref(child.href)}
-                            className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[11px] font-medium transition-all duration-150 border-l-2 ${
+                            className={`flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium transition-all duration-150 border-l-2 ${
                               isChildActive
                                 ? 'bg-[#006838]/30 text-emerald-300 font-bold border-emerald-400'
-                                : 'border-transparent text-slate-400 hover:bg-white/[0.06] hover:text-white'
+                                : 'border-transparent text-slate-300 hover:bg-white/[0.08] hover:text-white'
                             }`}
                           >
-                            <ChildIcon size={14} className={isChildActive ? 'text-emerald-400' : 'text-slate-500'} />
+                            <ChildIcon size={15} className={isChildActive ? 'text-emerald-400' : 'text-slate-400'} />
                             <span className="truncate">{child.label}</span>
                           </Link>
                         );
@@ -306,13 +305,13 @@ function MaintenanceShellInner({
               <Link
                 key={entry.id}
                 href={getScopedHref(entry.href)}
-                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-150 border-l-2 ${
+                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all duration-150 border-l-2 ${
                   isActive
                     ? 'bg-[#006838]/30 text-emerald-300 font-bold border-emerald-400'
-                    : 'border-transparent text-slate-400 hover:bg-white/[0.06] hover:text-white'
+                    : 'border-transparent text-slate-300 hover:bg-white/[0.08] hover:text-white'
                 }`}
               >
-                <Icon size={17} className={isActive ? 'text-emerald-400' : 'text-slate-400'} />
+                <Icon size={18} className={isActive ? 'text-emerald-400' : 'text-slate-300'} />
                 {!collapsed && <span className="truncate">{entry.label}</span>}
               </Link>
             );

@@ -6,7 +6,7 @@ import MaintenanceShell from '@/components/MaintenanceShell';
 import FilterSelect from '@/components/FilterSelect';
 import RefreshButton from '@/components/RefreshButton';
 import { readMaintenanceCache, writeMaintenanceCache } from '@/lib/maintenanceCache';
-import { getCurrentMmtbScope } from '@/lib/equipmentScope';
+import { getCurrentMmtbScope, EQUIPMENT_SCOPES } from '@/lib/equipmentScope';
 
 type Category = {
   id: string;
@@ -57,6 +57,9 @@ export default function CategoriesManager({
   // khu vực có dữ liệu MMTB riêng, xem machines/page.tsx) — tránh trang này hiện nhầm cache của
   // trang/khu vực khác.
   const scope = getCurrentMmtbScope();
+  // Hiện đúng tên khu vực đang xem (trước đây hardcode "Tổ hợp Kiên Giang" dù đang ở Nhà Máy Miền
+  // Đông) — nối động theo scope hiện tại thay vì để từng trang route tự ghi chết tên khu vực.
+  const scopedSubtitle = `${pageSubtitle} — ${EQUIPMENT_SCOPES[scope].label}`;
   const cacheKey = `categories_${tabKeys.join('_')}_${scope}`;
   const [data, setData] = useState<Record<CategoryTabKey, Category[]>>(() => readMaintenanceCache<Record<CategoryTabKey, Category[]>>(cacheKey) || EMPTY);
   const [loading, setLoading] = useState(() => readMaintenanceCache<Record<CategoryTabKey, Category[]>>(cacheKey) === null);
@@ -184,7 +187,7 @@ export default function CategoriesManager({
     setSubmitting(true);
     setFormError(null);
     try {
-      const url = editingId ? `/api/mmtb-kg/categories/${editingId}` : '/api/mmtb-kg/categories';
+      const url = editingId ? `/api/mmtb-kg/categories/${editingId}?scope=${scope}` : `/api/mmtb-kg/categories?scope=${scope}`;
       const extra = {
         ...(tabConfig.hasDays ? { days: Number(formDays) } : {}),
         ...(tabConfig.hasColor ? { colorHex: formColor } : {}),
@@ -216,7 +219,7 @@ export default function CategoriesManager({
     if (!confirm(`Xoá "${c.name}"? Hành động này không thể hoàn tác.`)) return;
     setDeletingId(c.id);
     try {
-      const res = await fetch(`/api/mmtb-kg/categories/${c.id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/mmtb-kg/categories/${c.id}?scope=${scope}`, { method: 'DELETE' });
       const result = await res.json();
       if (!result.success) {
         alert(result.error || 'Không xoá được');
@@ -230,17 +233,19 @@ export default function CategoriesManager({
     }
   }
 
-  // Toàn bộ danh mục MMTB giờ CHỈ ĐỌC (dữ liệu thật từ Tổ hợp Kiên Giang, xem mmtbKg* ở _worker.js)
-  // — luôn true bất kể loại tab, không còn cho tạo/sửa/xoá từ vpchuoiskechers.
-  const readOnlyTab = true;
+  // Chỉ Nhà máy (parentLevel NONE) còn CHỈ ĐỌC — đây là cơ cấu tổ chức cố định, tbsMayMoc cũng tự
+  // chặn Admin phạm vi tạo/sửa/xoá loại FACTORY (403). Các loại còn lại (Khu vực/Chuyền/Tổ/Phân
+  // loại máy/Phụ tùng/Chu kỳ bảo trì/Trạng thái máy) ghi THẬT sang tbsMayMoc qua mmtbKg*/mmtbMd*
+  // Create/Update/DeleteCategory ở _worker.js.
+  const readOnlyTab = tabConfig.parentLevel === 'NONE';
 
   return (
-    <MaintenanceShell title={pageTitle} subtitle={pageSubtitle}>
+    <MaintenanceShell title={pageTitle} subtitle={scopedSubtitle}>
       <div className="space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-lg font-bold text-slate-900 tracking-tight">{pageTitle}</h1>
-            <p className="text-xs text-slate-500 font-medium mt-0.5">{pageSubtitle}</p>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">{scopedSubtitle}</p>
           </div>
           <RefreshButton onClick={() => load(true)} loading={refreshing} />
         </div>
@@ -322,7 +327,7 @@ export default function CategoriesManager({
             {loading && <div className="p-5 text-xs text-slate-400 text-center">Đang tải danh mục...</div>}
             {!loading && items.length === 0 && (
               <div className="p-5 text-xs text-slate-400 text-center">
-                {readOnlyTab || tabConfig.parentLevel === 'SCOPE_KG' ? 'Chưa có mục nào' : canCreate ? 'Chưa có mục nào — bấm Thêm để tạo mới' : 'Vui lòng chọn đủ phạm vi áp dụng ở trên'}
+                {readOnlyTab ? 'Chưa có mục nào' : canCreate ? 'Chưa có mục nào — bấm Thêm để tạo mới' : 'Vui lòng chọn đủ phạm vi áp dụng ở trên'}
               </div>
             )}
             {items.map((c) => {

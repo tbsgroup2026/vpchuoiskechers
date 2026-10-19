@@ -7,7 +7,7 @@ export default function MaintenancePeriodsPage() {
     <CategoriesManager
       tabKeys={['MAINTENANCE_PERIOD']}
       pageTitle="Chu Kỳ Bảo Trì"
-      pageSubtitle="Danh mục chu kỳ bảo trì định kỳ — Tổ hợp Kiên Giang"
+      pageSubtitle="Danh mục chu kỳ bảo trì định kỳ"
     />
   );
 }

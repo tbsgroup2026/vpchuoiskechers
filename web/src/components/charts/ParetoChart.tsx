@@ -31,6 +31,7 @@ export default function ParetoChart({
   avgBenchmark = null,
   avgLabel = 'TB kỳ trước',
   onBarClick,
+  totalOverride,
 }: {
   data: ParetoItem[];
   valueLabel?: string;
@@ -46,12 +47,16 @@ export default function ParetoChart({
   // Click vào 1 cột -> trang cha tự quyết định làm gì (vd mở modal chi tiết) — truyền nhãn cột (label)
   // đã click. Không truyền thì cột không có hiệu ứng/con trỏ click.
   onBarClick?: (label: string) => void;
+  // Tổng dùng để tính % mỗi cột — mặc định tự cộng dồn CHÍNH các cột đang vẽ. Truyền riêng khi 1 phần
+  // dữ liệu bị ẩn khỏi biểu đồ nhưng vẫn cần tính vào mẫu số % (vd ẩn cột "Khác" nhưng vẫn muốn % các
+  // cột còn lại phản ánh đúng tỉ trọng thực so với TOÀN BỘ, không bị thổi phồng vì mẫu số hụt đi).
+  totalOverride?: number;
 }) {
   const [showValues, setShowValues] = useState(false);
 
   const chartData = useMemo(() => {
     const sorted = [...data].sort((a, b) => b.value - a.value).slice(0, maxItems);
-    const total = sorted.reduce((s, d) => s + d.value, 0);
+    const total = totalOverride ?? sorted.reduce((s, d) => s + d.value, 0);
     // Mục có giá trị > 0 nhưng quá nhỏ so với mục lớn nhất thì gần như không thấy cột đâu — cho
     // "nhú lên" tối thiểu ~2% chiều cao mục lớn nhất (chỉ áp dụng cho displayValue vẽ cột, KHÔNG đổi
     // giá trị thật dùng cho nhãn/tooltip).
@@ -64,12 +69,12 @@ export default function ParetoChart({
       // nên đường sẽ đi theo hình dạng gần giống cột, dễ đọc hơn.
       sharePct: total ? Math.round((d.value / total) * 1000) / 10 : 0,
     }));
-  }, [data, maxItems]);
+  }, [data, maxItems, totalOverride]);
 
   // "Tập trung N mục đạt 80% tác động" — vẫn tính cộng dồn nội bộ để ra con số này, nhưng KHÔNG còn
   // vẽ thành đường trên biểu đồ (người dùng phản hồi đường tích luỹ khó đọc, khó hiểu).
   const focusCount = useMemo(() => {
-    const total = chartData.reduce((s, d) => s + d.value, 0);
+    const total = totalOverride ?? chartData.reduce((s, d) => s + d.value, 0);
     if (!total) return chartData.length;
     let running = 0;
     for (let i = 0; i < chartData.length; i++) {
@@ -77,7 +82,7 @@ export default function ParetoChart({
       if (running / total >= 0.8) return i + 1;
     }
     return chartData.length;
-  }, [chartData]);
+  }, [chartData, totalOverride]);
 
   if (data.length === 0) {
     return <div className="flex items-center justify-center text-xs text-gray-400" style={{ height }}>Chưa có dữ liệu</div>;

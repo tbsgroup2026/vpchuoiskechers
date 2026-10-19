@@ -14412,6 +14412,7 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
         }
       }
+
     }
 
     // ════════════════════════════════════════════════════════════════

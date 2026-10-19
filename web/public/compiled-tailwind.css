@@ -10993,6 +10993,10 @@ body {
   background-color: rgb(255 255 255 / 0.06);
 }
 
+.hover\:bg-white\/\[0\.08\]:hover {
+  background-color: rgb(255 255 255 / 0.08);
+}
+
 .hover\:from-amber-300:hover {
   --tw-gradient-from: #fcd34d var(--tw-gradient-from-position);
   --tw-gradient-to: rgb(252 211 77 / 0) var(--tw-gradient-to-position);

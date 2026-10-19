@@ -3709,11 +3709,9 @@ export default {
           if (cred) {
             ok = await verifyAuthPassword(password, cred);
             mustChange = Number(cred.must_change) === 1;
-          } else if (!isGuest && !authIsExecutive(empCode, roleCode) && !["SUPER_ADMIN", "ADMIN", "SYSTEM_ADMIN"].includes(roleCode)) {
+          } else if (!isGuest) {
+            // Chưa có mật khẩu riêng (kể cả quản trị/điều hành): dùng mật khẩu mặc định, bắt buộc đổi ngay sau lần đăng nhập đầu
             ok = authTimingSafeEqual(password, defaultPassword);
-          } else if (!isGuest && authTimingSafeEqual(password, defaultPassword)) {
-            await recordIpFail();
-            return json({ success: false, error: "PASSWORD_NOT_SET", message: "Tài khoản quản trị/điều hành chưa được cấp mật khẩu riêng. Vui lòng liên hệ quản trị viên." }, 401);
           }
 
           if (!ok) {

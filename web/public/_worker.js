@@ -3627,7 +3627,8 @@ export default {
           // Giới hạn đăng nhập sai theo IP: chống dò mật khẩu mặc định trên hàng loạt MSNV
           // Chỉ tính theo IP thật do Cloudflare cung cấp (không tin X-Forwarded-For do người dùng tự gửi)
           const clientIp = request.headers.get("cf-connecting-ip") || "";
-          const IP_MAX_FAILS = 20, IP_WINDOW_MIN = 15;
+          // Văn phòng/nhà máy dùng chung một IP (NAT) nên ngưỡng theo IP phải cao; khóa từng tài khoản vẫn ở mức 5 lần
+          const IP_MAX_FAILS = 100, IP_WINDOW_MIN = 15;
           await env.DB.prepare("CREATE TABLE IF NOT EXISTS auth_ip_attempts (ip TEXT PRIMARY KEY, fails INTEGER NOT NULL DEFAULT 0, window_start TEXT NOT NULL)").run().catch(() => {});
           const ipRow = clientIp ? await env.DB.prepare("SELECT fails, window_start FROM auth_ip_attempts WHERE ip = ?").bind(clientIp).first().catch(() => null) : null;
           const ipWindowOpen = ipRow && Date.now() - Date.parse(ipRow.window_start) < IP_WINDOW_MIN * 60000;
@@ -3740,6 +3741,8 @@ export default {
           if (cred && (Number(cred.failed_attempts) || cred.locked_until)) {
             await env.DB.prepare("UPDATE auth_credentials SET failed_attempts = 0, locked_until = NULL WHERE emp_code = ?").bind(empCode).run().catch(() => {});
           }
+          // Đăng nhập đúng: xóa đếm sai của IP để người khác cùng mạng không bị chặn oan
+          if (clientIp) await env.DB.prepare("DELETE FROM auth_ip_attempts WHERE ip = ?").bind(clientIp).run().catch(() => {});
 
           const roleLevel =
             userRecord.role_level ??

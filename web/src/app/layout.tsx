@@ -49,6 +49,10 @@ import GuestRouteGuard from "@/components/GuestRouteGuard";
 
 import VersionChecker from "@/components/VersionChecker";
 
+// compiled-tailwind.css được phục vụ với cache "immutable" 1 năm nhưng tên file cố định
+// → gắn phiên bản theo thời điểm build để trình duyệt tải lại CSS mới sau mỗi lần deploy.
+const CSS_BUILD_VERSION = Date.now().toString(36);
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -61,7 +65,7 @@ export default function RootLayout({
     >
       <head>
         <meta name="mobile-web-app-capable" content="yes" />
-        <link rel="stylesheet" href="/compiled-tailwind.css" />
+        <link rel="stylesheet" href={`/compiled-tailwind.css?v=${CSS_BUILD_VERSION}`} />
         <link rel="icon" href="/icon.png" type="image/png" />
         <link rel="shortcut icon" href="/icon.png" type="image/png" />
         <link rel="apple-touch-icon" href="/icon.png" />

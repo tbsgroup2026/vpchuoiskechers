@@ -19,6 +19,7 @@ import {
   IconShieldCheck,
   IconEdit,
   IconEye,
+  IconEyeOff,
   IconSearch,
   IconDatabase,
   IconLock,
@@ -82,6 +83,7 @@ interface EmployeeAccount {
   boPhoanMoi?: string;
   phongBanMoi?: string;
   ghiChu?: string;
+  mustChangePwd?: boolean;
 }
 
 interface NewsArticle {
@@ -753,6 +755,8 @@ export default function AdminPage() {
   const [expandedDepts, setExpandedDepts] = useState<Record<string, boolean>>({});
   const [userPage, setUserPage] = useState(1);
   const USERS_PER_PAGE = 15;
+  const [showPasswordRows, setShowPasswordRows] = useState<Set<string>>(new Set());
+  const [resettingPasswords, setResettingPasswords] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     setUserPage(1);
@@ -1460,6 +1464,7 @@ export default function AdminPage() {
             phongBanSapXep: u.pb_sap_xep || u.pbSapXep || "-",
             boPhoanMoi: u.bo_phan_moi || u.bo_phan_new || u.boPhoanMoi || u.department || "-",
             phongBanMoi: u.phong_ban_moi || u.department || "-",
+            mustChangePwd: Boolean(u.must_change_pwd || u.mustChangePwd),
           };
         });
         setEmployees(d1List);
@@ -1557,6 +1562,28 @@ export default function AdminPage() {
       showToast(`🗑️ Đã xóa vĩnh viễn tài khoản "${name}" (${empCode}) khỏi CSDL!`);
     } catch (e) {
       showToast(`🗑️ Đã xóa tài khoản "${name}"!`);
+    }
+  };
+
+  const handleResetPasswordToDefault = async (empCode: string, name: string) => {
+    setResettingPasswords((prev) => new Set(prev).add(empCode));
+    try {
+      const res = await apiFetch("/api/users/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetEmpCode: empCode, useDefault: true }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (json.success) {
+        setEmployees((prev) => prev.map((e) => e.empCode === empCode ? { ...e, mustChangePwd: false } : e));
+        showToast(`🔑 Đã reset mật khẩu "${name}" về "123456" thành công!`);
+      } else {
+        showToast(`⚠️ Không thể reset mật khẩu: ${json.error || "Lỗi không xác định"}`);
+      }
+    } catch {
+      showToast(`⚠️ Lỗi kết nối khi reset mật khẩu cho "${name}"`);
+    } finally {
+      setResettingPasswords((prev) => { const s = new Set(prev); s.delete(empCode); return s; });
     }
   };
 
@@ -2427,13 +2454,14 @@ export default function AdminPage() {
                         <th className="py-3 px-4">Trưởng Phòng Phụ Trách</th>
                         <th className="py-3 px-4">Vai Trò Hệ Thống</th>
                         <th className="py-3 px-4">Trạng Thái</th>
+                        <th className="py-3 px-4">Mật Khẩu</th>
                         <th className="py-3 px-4 text-right">Thao Tác</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-xs font-medium">
                       {paginatedEmployees.length === 0 ? (
                         <tr>
-                          <td colSpan={9} className="py-12 text-center text-slate-400 font-bold">
+                          <td colSpan={10} className="py-12 text-center text-slate-400 font-bold">
                             Không tìm thấy nhân sự nào phù hợp với từ khóa!
                           </td>
                         </tr>
@@ -2504,8 +2532,35 @@ export default function AdminPage() {
                                   {emp.status === "ACTIVE" ? "Hoạt động" : "Bị khóa"}
                                 </span>
                               </td>
+                              <td className="py-3 px-4">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-mono text-[12px] font-bold text-slate-700 tracking-widest">
+                                    {showPasswordRows.has(emp.empCode) ? "123456" : "••••••"}
+                                  </span>
+                                  <button
+                                    onClick={() => setShowPasswordRows((prev) => {
+                                      const s = new Set(prev);
+                                      s.has(emp.empCode) ? s.delete(emp.empCode) : s.add(emp.empCode);
+                                      return s;
+                                    })}
+                                    className="p-1 rounded text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
+                                    title={showPasswordRows.has(emp.empCode) ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                                  >
+                                    {showPasswordRows.has(emp.empCode) ? <IconEyeOff size={13} /> : <IconEye size={13} />}
+                                  </button>
+                                </div>
+                              </td>
                               <td className="py-3 px-4 text-right">
                                 <div className="flex items-center justify-end gap-1.5">
+                                  <button
+                                    onClick={() => handleResetPasswordToDefault(emp.empCode, emp.name)}
+                                    disabled={resettingPasswords.has(emp.empCode)}
+                                    className="p-1.5 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors cursor-pointer disabled:opacity-50"
+                                    title="Reset mật khẩu về 123456"
+                                  >
+                                    <IconKey size={14} className={resettingPasswords.has(emp.empCode) ? "animate-spin" : ""} />
+                                  </button>
+
                                   <button
                                     onClick={() => toggleEmployeeLock(emp.id)}
                                     className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${

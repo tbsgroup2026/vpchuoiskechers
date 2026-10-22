@@ -60,11 +60,16 @@ export async function ensureKaizenSchema(db: any, force = false) {
       'ALTER TABLE ci_kaizen_proposals ADD COLUMN total_savings_words TEXT',
       'ALTER TABLE ci_kaizen_proposals ADD COLUMN is_edited INTEGER DEFAULT 0',
       'ALTER TABLE ci_kaizen_proposals ADD COLUMN approval_status TEXT DEFAULT "PHE_DUYET"',
+      'ALTER TABLE ci_kaizen_proposals ADD COLUMN phone TEXT',
     ];
 
     for (const sql of columns) {
       await db.prepare(sql).run().catch(() => {});
     }
+
+    // Tra cứu công khai theo SĐT / MSNV
+    await db.prepare(`CREATE INDEX IF NOT EXISTS idx_ci_kaizen_phone ON ci_kaizen_proposals(phone)`).run().catch(() => {});
+    await db.prepare(`CREATE INDEX IF NOT EXISTS idx_ci_kaizen_emp_code ON ci_kaizen_proposals(proposer_emp_code)`).run().catch(() => {});
 
     // Sync performance indexes
     await db.prepare(`

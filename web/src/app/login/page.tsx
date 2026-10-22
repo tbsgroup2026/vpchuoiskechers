@@ -143,7 +143,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-[#08221a] font-sans antialiased text-white selection:bg-[#2fd39a] selection:text-[#08221a]">
       {/* CỘT TRÁI — FORM ĐĂNG NHẬP */}
-      <div className="w-full md:w-[48%] lg:w-[45%] bg-white text-gray-900 flex flex-col justify-between p-6 sm:p-8 lg:p-10 shadow-2xl relative z-10 overflow-y-auto max-h-screen">
+      <div className="w-full md:w-[48%] lg:w-[45%] min-h-screen md:min-h-0 bg-white text-gray-900 flex flex-col justify-between p-6 sm:p-8 lg:p-10 shadow-2xl relative z-10 overflow-y-auto md:max-h-screen">
         <div>
           {/* Header nhỏ trên cùng */}
           <div className="flex items-center justify-between pb-4 border-b border-gray-100 mb-6">

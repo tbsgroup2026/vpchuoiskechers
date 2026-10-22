@@ -1,14 +1,28 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { getCurrentUser, logoutUserProfile, UserProfile } from "@/lib/userProfiles";
 import GembaSidebar from "@/modules/gemba/GembaSidebar";
 import GembaHeader from "@/modules/gemba/GembaHeader";
 import GembaDashboardView from "@/modules/gemba/GembaDashboardView";
 import GembaManagementView from "@/modules/gemba/GembaManagementView";
 import GembaUserManagementView from "@/modules/gemba/GembaUserManagementView";
+import GembaAnalyticsView from "@/modules/gemba/GembaAnalyticsView";
 
-export default function GembaMainPage() {
+export default function GembaPage() {
+  return (
+    <Suspense fallback={<div className="flex h-screen items-center justify-center bg-[#f4f6f8]"><div className="w-8 h-8 border-2 border-[#006838] border-t-transparent rounded-full animate-spin" /></div>}>
+      <GembaMainPage />
+    </Suspense>
+  );
+}
+
+function GembaMainPage() {
+  const searchParams = useSearchParams();
+  const urlView = searchParams?.get("view") ?? "";
+  const urlRegion = searchParams?.get("region") ?? "Nhà Máy Miền Đông";
+
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [activeTab, setActiveTab] = useState<string>("dashboard");
   const [selectedScope, setSelectedScope] = useState<{ workshopId?: string; lineId?: string; teamId?: string } | null>(null);
@@ -52,6 +66,10 @@ export default function GembaMainPage() {
     if (activeTab === "settings") return "Cài đặt hệ thống";
     return "Gemba.Pro";
   };
+
+  if (urlView === "analytics") {
+    return <GembaAnalyticsView region={urlRegion} />;
+  }
 
   return (
     <div className="flex h-screen w-full bg-[#f4f6f8] overflow-hidden font-sans text-slate-900 antialiased selection:bg-emerald-500 selection:text-white">

@@ -109,28 +109,28 @@ export default function HeroSection() {
               </div>
 
               {/* Stats Row — 3 Clusters */}
-              <div className="pt-6 border-t border-white/15 grid grid-cols-3 gap-3 sm:gap-6">
+              <div className="pt-6 border-t border-white/15 grid grid-cols-3 gap-2 sm:gap-6">
                 <div className="space-y-0.5">
                   <div className="text-2xl sm:text-3xl font-black font-mono text-white tracking-tight">
                     {cmsHero.stat1Value || "30+"}
                   </div>
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-gray-300">
+                  <div className="text-[9px] sm:text-[10px] font-bold uppercase tracking-normal leading-tight text-gray-300">
                     {cmsHero.stat1Label || t("hero.years_experience", undefined, "Năm Kinh Nghiệm")}
                   </div>
                 </div>
-                <div className="space-y-0.5 border-l border-white/20 pl-3 sm:pl-6">
+                <div className="space-y-0.5 border-l border-white/20 pl-2 sm:pl-6">
                   <div className="text-2xl sm:text-3xl font-black font-mono text-[#2fd39a] tracking-tight">
                     {cmsHero.stat2Value || "10M+"}
                   </div>
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-gray-300">
+                  <div className="text-[9px] sm:text-[10px] font-bold uppercase tracking-normal leading-tight text-gray-300">
                     {cmsHero.stat2Label || t("hero.products_year", undefined, "Sản Phẩm / Năm")}
                   </div>
                 </div>
-                <div className="space-y-0.5 border-l border-white/20 pl-3 sm:pl-6">
+                <div className="space-y-0.5 border-l border-white/20 pl-2 sm:pl-6">
                   <div className="text-2xl sm:text-3xl font-black font-mono text-[#f2dc9a] tracking-tight">
                     {cmsHero.stat3Value || "5,000+"}
                   </div>
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-gray-300">
+                  <div className="text-[9px] sm:text-[10px] font-bold uppercase tracking-normal leading-tight text-gray-300">
                     {cmsHero.stat3Label || t("hero.operational_staff", undefined, "Nhân Sự Vận Hành")}
                   </div>
                 </div>

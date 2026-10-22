@@ -27,6 +27,8 @@ import {
   IconChevronRight,
   IconBuilding,
   IconExternalLink,
+  IconChartPie,
+  IconX,
 } from "@tabler/icons-react";
 import CIModule from "./CIModule";
 import { EquipmentScope, EQUIPMENT_SCOPES, SCOPE_KEYS, STORAGE_KEY_SCOPE } from "@/lib/equipmentScope";
@@ -37,6 +39,7 @@ export default function CNCIWrapper() {
   const { canAccessScope } = usePermission();
   const [subView, setSubView] = useState<"kaizen" | "ci" | "gemba" | null>(null);
   const [mmtbScope, setMmtbScope] = useState<EquipmentScope>("ALL");
+  const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -362,6 +365,23 @@ export default function CNCIWrapper() {
                     </div>
                     <IconChevronRight size={18} className="text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all" />
                   </a>
+
+                  {/* Button 5: Gemba - Analytics */}
+                  <button
+                    type="button"
+                    onClick={() => setShowAnalyticsModal(true)}
+                    className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-violet-50/80 hover:bg-violet-100/70 active:bg-violet-100 border border-violet-200/80 hover:border-violet-400 active:scale-[0.98] transition-all duration-200 group cursor-pointer shadow-2xs"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-violet-100 text-violet-600 flex items-center justify-center shrink-0 border border-violet-200/60 group-hover:scale-105 transition-transform">
+                        <IconChartPie size={20} />
+                      </div>
+                      <span className="text-xs font-black text-violet-700 group-hover:text-violet-800 transition-colors">
+                        Gemba — Analytics
+                      </span>
+                    </div>
+                    <IconChevronRight size={18} className="text-violet-400 group-hover:text-violet-600 group-hover:translate-x-0.5 transition-all" />
+                  </button>
                 </div>
               </div>
             </div>
@@ -526,6 +546,57 @@ export default function CNCIWrapper() {
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-100 text-amber-900 text-xs font-black uppercase tracking-wider">
             <IconClock size={16} />
             <span>Tính năng đang phát triển — Coming Soon</span>
+          </div>
+        </div>
+      )}
+
+      {/* ════════ GEMBA ANALYTICS MODAL ════════ */}
+      {showAnalyticsModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          onClick={() => setShowAnalyticsModal(false)}
+        >
+          <div
+            className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-6 space-y-4 animate-in zoom-in-95 duration-200"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-violet-100 text-violet-600 flex items-center justify-center border border-violet-200">
+                  <IconChartPie size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 leading-tight">Gemba — Analytics</h3>
+                  <p className="text-[10.5px] text-slate-500 font-medium">Chọn khu vực để xem báo cáo</p>
+                </div>
+              </div>
+              <button onClick={() => setShowAnalyticsModal(false)} className="p-1.5 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors">
+                <IconX size={16} />
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              {[
+                { label: "Phân Xưởng Mẫu", href: "/work/gemba?region=Ph%C3%A2n+x%C6%B0%E1%BB%9Fng+M%E1%BA%ABu&view=analytics" },
+                { label: "Nhà Máy Miền Đông", href: "/work/gemba?region=Nh%C3%A0+M%C3%A1y+Mi%E1%BB%81n+%C4%90%C3%B4ng&view=analytics" },
+                { label: "Tổ Hợp Kiên Giang", href: "/work/gemba?region=T%E1%BB%95+H%E1%BB%A3p+Ki%C3%AAn+Giang&view=analytics" },
+              ].map(item => (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  target={item.external ? "_blank" : undefined}
+                  rel={item.external ? "noopener noreferrer" : undefined}
+                  onClick={() => setShowAnalyticsModal(false)}
+                  className="flex items-center justify-between w-full p-3.5 rounded-2xl bg-slate-50 hover:bg-violet-50 border border-slate-200 hover:border-violet-300 active:scale-[0.98] transition-all group"
+                >
+                  <span className="text-xs font-black text-slate-800 group-hover:text-violet-700 transition-colors">{item.label}</span>
+                  {item.external
+                    ? <IconExternalLink size={15} className="text-slate-400 group-hover:text-violet-500 transition-colors" />
+                    : <IconChevronRight size={15} className="text-slate-400 group-hover:text-violet-500 group-hover:translate-x-0.5 transition-all" />
+                  }
+                </Link>
+              ))}
+            </div>
           </div>
         </div>
       )}

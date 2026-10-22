@@ -1,11 +1,15 @@
-import React from "react";
-import KaizenPublicSubmitForm from "@/modules/ci/KaizenPublicSubmitForm";
+import React, { Suspense } from "react";
+import KaizenPublicPortal from "@/modules/ci/KaizenPublicPortal";
 
 export const metadata = {
-  title: "Đăng Ký Đề Xuất Cải Tiến Kaizen | Công Nhân Quét Mã QR",
-  description: "Trang nộp đề xuất cải tiến Kaizen dành riêng cho công nhân quét mã QR điện thoại (Không cần đăng nhập)",
+  title: "Sáng Kiến Kaizen – Tra Cứu & Đăng Ký | TBS Skechers",
+  description: "Tra cứu tình trạng và đăng ký sáng kiến cải tiến Kaizen dành cho công nhân (Không cần đăng nhập)",
 };
 
 export default function KaizenPublicRegisterPage() {
-  return <KaizenPublicSubmitForm />;
+  return (
+    <Suspense fallback={null}>
+      <KaizenPublicPortal />
+    </Suspense>
+  );
 }

@@ -168,11 +168,15 @@ export default function KaizenImageLightboxModal({
   };
 
   // Touch handlers for mobile
+  const swipeStartX = useRef<number | null>(null);
   const handleTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length === 1 && zoom > 1) {
       const touch = e.touches[0];
       setIsDragging(true);
       setDragStart({ x: touch.clientX - position.x, y: touch.clientY - position.y });
+    } else if (e.touches.length === 1) {
+      // Chưa phóng to: ghi nhận điểm bắt đầu để vuốt chuyển ảnh
+      swipeStartX.current = e.touches[0].clientX;
     }
   };
 
@@ -185,8 +189,14 @@ export default function KaizenImageLightboxModal({
     });
   };
 
-  const handleTouchEnd = () => {
+  const handleTouchEnd = (e: React.TouchEvent) => {
     setIsDragging(false);
+    if (swipeStartX.current !== null && zoom <= 1) {
+      const dx = (e.changedTouches[0]?.clientX ?? swipeStartX.current) - swipeStartX.current;
+      if (dx > 50) handlePrev();
+      else if (dx < -50) handleNext();
+    }
+    swipeStartX.current = null;
   };
 
   // Double click toggles between 1x and 2x

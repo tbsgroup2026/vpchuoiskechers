@@ -6,6 +6,7 @@ import { triggerRealtimeSyncToWebTong } from '@/lib/kaizenSyncHelper';
 import { getDbKgBinding, upsertProposals } from './sync/route';
 import { SYSTEM_USERS } from '@/lib/userProfiles';
 import { getValidKaizenImageUrl } from '@/lib/kaizenImageHelper';
+import { normalizeVnPhone } from '@/lib/kaizenPublicHelper';
 import { getKaizenDisplayTitle, isGenericTitle } from '@/lib/kaizenTitleHelper';
 
 import {
@@ -753,6 +754,12 @@ export async function POST(request: Request) {
             'SUBMITTED'
           )
           .run();
+      }
+
+      // Số điện thoại (không bắt buộc) — dùng cho tra cứu công khai
+      const normalizedPhone = normalizeVnPhone((body as any).phone);
+      if (normalizedPhone) {
+        await db.prepare('UPDATE ci_kaizen_proposals SET phone = ? WHERE id = ?').bind(normalizedPhone, id).run().catch(() => {});
       }
 
       // Trigger real-time background sync to web tong

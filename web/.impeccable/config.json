@@ -38,6 +38,15 @@
         ],
         "createdAt": "2026-10-19T04:28:05.132Z",
         "reason": "Claude triage: slate-800 text on near-white amber-50 select background is high contrast"
+      },
+      {
+        "rule": "gray-on-color",
+        "value": "*",
+        "files": [
+          "src/modules/ci/KaizenPublicSubmitForm.tsx"
+        ],
+        "createdAt": "2026-10-22T07:08:49.507Z",
+        "reason": "Claude triage: L891 is near-black slate-950 on amber-500 toast (high contrast); L1221 is slate-800 on bg-white select with amber border only — both false positives"
       }
     ]
   }

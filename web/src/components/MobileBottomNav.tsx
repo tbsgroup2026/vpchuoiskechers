@@ -8,7 +8,7 @@ import {
   IconBuildingWarehouse,
   IconBriefcase,
   IconUser,
-  IconKey,
+  IconLogin,
 } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { getCurrentUser } from "@/lib/userProfiles";
@@ -38,7 +38,7 @@ export default function MobileBottomNav() {
     {
       label: isLoggedIn ? "Tài Khoản" : "Đăng Nhập",
       href: isLoggedIn ? "/admin" : "/login",
-      icon: isLoggedIn ? IconUser : IconKey,
+      icon: isLoggedIn ? IconUser : IconLogin,
       active: pathname === "/login" || pathname.startsWith("/admin"),
     },
   ];

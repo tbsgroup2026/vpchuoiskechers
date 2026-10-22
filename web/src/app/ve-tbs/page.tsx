@@ -109,9 +109,9 @@ export default function VeTBSPage() {
 
           <div className="max-w-[1280px] mx-auto px-5 sm:px-8 relative z-10">
             <div className="max-w-4xl mx-auto text-center space-y-6">
-              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#2fd39a]/15 border border-[#2fd39a]/40 text-[#2fd39a] text-xs font-black uppercase tracking-widest shadow-2xs backdrop-blur-xs">
-                <IconSparkles size={14} className="text-[#2fd39a]" />
-                <span>Tập Đoàn Đa Ngành Hàng Đầu Việt Nam</span>
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#2fd39a]/15 border border-[#2fd39a]/40 text-[#2fd39a] text-[11px] font-black uppercase tracking-wide shadow-2xs backdrop-blur-xs whitespace-nowrap">
+                <IconSparkles size={14} className="text-[#2fd39a] shrink-0" />
+                <span>Tập Đoàn Đa Ngành Hàng Đầu VN</span>
               </div>
 
               <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight text-white uppercase leading-[1.08] font-display">

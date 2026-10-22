@@ -59,7 +59,9 @@
   "triggers": {
     "crons": [
       "0 19 * * *",
-      "0 * * * *"
+      "0 * * * *",
+      // Quét đổi trạng thái sáng kiến công khai → gửi Web Push (/work/kaizen/register)
+      "*/10 * * * *"
     ]
   }
 }

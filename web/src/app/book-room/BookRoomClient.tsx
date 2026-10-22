@@ -371,7 +371,7 @@ export default function BookRoomClient({ initialCode }: { initialCode?: string }
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-mono text-xs px-2.5 py-0.5 rounded-md bg-[#006838] text-white font-bold">{r.code || r.id}</span>
-                      <h3 className="font-black text-slate-900 text-sm sm:text-base group-hover:text-[#006838] transition-colors">{r.name}</h3>
+                      <h3 className="font-black text-slate-900 text-sm sm:text-base group-hover:text-[#006838] transition-colors line-clamp-2">{r.name}</h3>
                     </div>
                     <p className="text-xs text-slate-500">
                       {r.location || "Văn phòng chuỗi Skechers"} · Sức chứa: <b>{r.capacity}</b> người
@@ -715,14 +715,20 @@ export default function BookRoomClient({ initialCode }: { initialCode?: string }
   );
 }
 
+// Shell: standalone book-room header with back-link
 function Shell({ room, children }: { room?: RoomInfo | null; children: React.ReactNode }) {
   return (
     <main className="min-h-screen bg-slate-100 pb-10">
-      <header className="bg-[#006838] text-white px-4 pt-6 pb-14 rounded-b-[2rem] shadow-md">
+      <header className="bg-[#006838] text-white px-4 pt-4 pb-14 rounded-b-[2rem] shadow-md">
         <div className="max-w-xl mx-auto">
-          <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-200">
-            Văn Phòng Chuỗi SKECHERS · Đặt phòng họp
-          </p>
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-200 truncate min-w-0">
+              VP Chuỗi SKECHERS · Đặt phòng họp
+            </p>
+            <a href="/" className="text-[11px] font-bold text-emerald-200 hover:text-white transition-colors whitespace-nowrap shrink-0">
+              ← Trang chủ
+            </a>
+          </div>
           {room ? (
             <>
               <h1 className="text-2xl font-black mt-1 leading-tight">{room.name}</h1>

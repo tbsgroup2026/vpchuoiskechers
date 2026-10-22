@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
+import { normalizeVnPhone } from "@/lib/kaizenPublicHelper";
+import { enableKaizenNotify, requestKaizenNotifyPermission } from "./KaizenNotifyButton";
 import {
   IconSend,
   IconCheck,
@@ -135,6 +137,12 @@ export interface KaizenPublicSubmitFormProps {
   initialData?: any;
   onClose?: () => void;
   onSuccess?: () => void;
+  /** Trang công khai: bấm "Xem tình trạng sáng kiến" sau khi gửi thành công */
+  onViewStatus?: (empCode: string) => void;
+  /** Trang công khai: nội dung thêm ở màn gửi thành công (vd. nút bật thông báo) */
+  successExtra?: (empCode: string, notifyToken: string | null, phone: string) => React.ReactNode;
+  /** Nhúng trong trang công khai (đã có header riêng) → ẩn header form, bỏ khung thẻ trên mobile */
+  embedded?: boolean;
 }
 
 export default function KaizenPublicSubmitForm({
@@ -144,8 +152,16 @@ export default function KaizenPublicSubmitForm({
   initialData,
   onClose,
   onSuccess,
+  onViewStatus,
+  successExtra,
+  embedded = false,
 }: KaizenPublicSubmitFormProps) {
   const [submittedCode, setSubmittedCode] = useState<string | null>(null);
+  // Mã bí mật máy chủ trả về sau khi gửi — để chính thiết bị này bật thông báo
+  const [notifyToken, setNotifyToken] = useState<string | null>(null);
+  // Số điện thoại (không bắt buộc) — dùng để tra cứu sáng kiến
+  const [phone, setPhone] = useState("");
+  const phoneInvalid = phone.trim() !== "" && !normalizeVnPhone(phone);
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -623,6 +639,16 @@ export default function KaizenPublicSubmitForm({
       return;
     }
 
+    if (phoneInvalid) {
+      showToast("⚠️ Số điện thoại không hợp lệ (10 số, bắt đầu bằng 0) — hoặc để trống!");
+      return;
+    }
+
+    // Trang công khai: xin quyền thông báo ngay trong thao tác bấm "Gửi" (iOS/Safari chặn nếu xin sau await)
+    if (successExtra && !isEdit) {
+      requestKaizenNotifyPermission().catch(() => {});
+    }
+
     if (
       !form.proposerEmpCode.trim() ||
       !form.proposerName.trim() ||
@@ -729,6 +755,7 @@ export default function KaizenPublicSubmitForm({
           sub_status: "CHO_DUYET",
           trang_thai: "CHO_DUYET",
           isPublicScan: true,
+          phone: normalizeVnPhone(phone) || undefined,
         };
 
       if (!isEdit) {
@@ -784,6 +811,7 @@ export default function KaizenPublicSubmitForm({
           if (onSuccess) onSuccess();
           if (onClose) onClose();
         } else {
+          setNotifyToken(json.notifyToken || null);
           setSubmittedCode(json.code || "CI-2026-OK");
           if (onSuccess) onSuccess();
         }
@@ -797,8 +825,20 @@ export default function KaizenPublicSubmitForm({
     }
   };
 
+  // Gửi thành công trên trang công khai → tự đăng ký thông báo cho thiết bị này theo MSNV vừa nhập
+  useEffect(() => {
+    if (!submittedCode || isEdit || !successExtra || !notifyToken) return;
+    if (typeof window === "undefined" || !("Notification" in window) || Notification.permission !== "granted") return;
+    enableKaizenNotify({ token: notifyToken })
+      .then(() => showToast("🔔 Đã bật thông báo — bạn sẽ được báo khi sáng kiến đổi trạng thái."))
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [submittedCode]);
+
   const handleResetForm = () => {
     setSubmittedCode(null);
+    setNotifyToken(null);
+    setPhone("");
     setForm({
       region: selectedFormFactory || "Nhà Máy Miền Đông",
       proposerEmpCode: "",
@@ -840,13 +880,20 @@ export default function KaizenPublicSubmitForm({
   };
 
   const content = (
-    <div className={`bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col w-full ${isModal ? "max-h-[90vh]" : "max-w-4xl mx-auto"}`}>
+    <div
+      className={`bg-white overflow-hidden flex flex-col w-full ${
+        embedded
+          ? "sm:rounded-3xl sm:shadow-xl sm:border sm:border-slate-200"
+          : "rounded-3xl shadow-2xl border border-slate-200"
+      } ${isModal ? "max-h-[90vh]" : "max-w-4xl mx-auto"}`}
+    >
       {toastMsg && (
         <div className="fixed top-4 right-4 z-50 px-4 py-2.5 rounded-2xl bg-amber-500 text-slate-950 font-black text-xs shadow-2xl animate-in slide-in-from-top-3 flex items-center gap-2 border border-amber-300">
           <span>{toastMsg}</span>
         </div>
       )}
 
+      {!embedded && (
       <div className="bg-gradient-to-r from-[#006838] via-[#0b1739] to-[#0b1739] p-5 sm:p-6 text-white relative">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -879,6 +926,7 @@ export default function KaizenPublicSubmitForm({
           </p>
         </div>
       </div>
+      )}
 
       {submittedCode ? (
         <div className="p-6 text-center space-y-5 animate-in zoom-in-95 duration-300 overflow-y-auto max-h-[75vh]">
@@ -896,7 +944,21 @@ export default function KaizenPublicSubmitForm({
             </p>
           </div>
 
+          {successExtra && form.proposerEmpCode.trim() && (
+            <div className="mx-auto max-w-md text-left">{successExtra(form.proposerEmpCode.trim(), notifyToken, phone)}</div>
+          )}
+
           <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row gap-3 justify-center">
+            {onViewStatus && form.proposerEmpCode.trim() && (
+              <button
+                type="button"
+                onClick={() => onViewStatus(form.proposerEmpCode.trim())}
+                className="px-5 py-3 rounded-2xl bg-[#006838] text-white font-black text-xs hover:bg-[#004d29] shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <IconCheck size={16} />
+                <span>XEM TÌNH TRẠNG SÁNG KIẾN</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={handleResetForm}
@@ -979,6 +1041,25 @@ export default function KaizenPublicSubmitForm({
                       <IconAlertCircle size={13} className="shrink-0 text-amber-600" />
                       <span>{notFoundMsg}</span>
                     </p>
+                  )}
+                  {!isEdit && (
+                    <div className="space-y-1 pt-1">
+                      <label className="font-black text-slate-900 text-[11px]">Số điện thoại</label>
+                      <input
+                        type="tel"
+                        inputMode="tel"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        placeholder="Không bắt buộc – dùng để tra cứu sáng kiến"
+                        autoComplete="tel"
+                        className={`w-full px-3.5 py-2 rounded-xl border text-xs font-bold outline-none transition-all ${
+                          phoneInvalid ? "border-rose-400 bg-rose-50/30" : "border-slate-300 focus:border-[#006838] focus:ring-1 focus:ring-[#006838]"
+                        }`}
+                      />
+                      {phoneInvalid && (
+                        <p className="text-[10px] font-bold text-rose-700">SĐT gồm 10 số, bắt đầu bằng 0 (chấp nhận +84).</p>
+                      )}
+                    </div>
                   )}
                 </div>
 
@@ -1617,6 +1698,7 @@ export default function KaizenPublicSubmitForm({
               const json = await res.json();
               if (json.success) {
                 setShowDuplicateModal(false);
+                setNotifyToken(json.notifyToken || null);
                 setSubmittedCode(json.code || "CI-2026-OK");
                 if (onSuccess) onSuccess();
               } else {

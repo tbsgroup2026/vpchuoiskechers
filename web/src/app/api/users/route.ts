@@ -72,6 +72,8 @@ export async function GET(request: Request) {
       roleLevel: u.role_level || (u.role_code === 'TRUONG_PHONG' ? 3 : u.role_code === 'SUPER_ADMIN' ? 1 : 4),
       role_level: u.role_level || (u.role_code === 'TRUONG_PHONG' ? 3 : u.role_code === 'SUPER_ADMIN' ? 1 : 4),
       status: u.status,
+      mustChangePwd: Boolean(u.must_change_pwd),
+      must_change_pwd: u.must_change_pwd,
       isTestAccount: Boolean(u.is_test_account),
       avatar: u.avatar || '',
     }));

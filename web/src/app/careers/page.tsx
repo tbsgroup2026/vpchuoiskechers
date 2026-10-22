@@ -10,6 +10,7 @@ import AIChatBubble from "@/components/recruitment/AIChatBubble";
 import { fetchJobs, type Job } from "@/lib/api";
 import { IconSearch, IconLoader2, IconBriefcase } from "@tabler/icons-react";
 
+// prettier-ignore
 const CATEGORIES = [
   { value: "", label: "Tất cả ngành nghề" },
   { value: "it", label: "Công nghệ" },
@@ -43,14 +44,19 @@ export default function CareersPage() {
   const loadJobs = useCallback(async () => {
     setLoading(true);
     setError("");
+    const minLoadTime = new Promise((r) => setTimeout(r, 800));
     try {
-      const data = await fetchJobs({
-        search: search || undefined,
-        category: category || undefined,
-        province: province || undefined,
-      });
-      setJobs(data);
+      const [data] = await Promise.all([
+        fetchJobs({
+          search: search || undefined,
+          category: category || undefined,
+          province: province || undefined,
+        }),
+        minLoadTime,
+      ]);
+      setJobs(data as Job[]);
     } catch {
+      await minLoadTime;
       setError("Không thể tải danh sách việc làm. Vui lòng thử lại sau.");
     } finally {
       setLoading(false);
@@ -92,15 +98,15 @@ export default function CareersPage() {
             </p>
 
             {/* Stats */}
-            <div className="grid grid-cols-3 gap-6 max-w-xl mx-auto mt-10 border-t border-white/10 pt-6">
+            <div className="grid grid-cols-3 gap-2 sm:gap-6 max-w-xl mx-auto mt-10 border-t border-white/10 pt-6">
               {[
                 { value: "50.000+", label: "Nhân Sự" },
                 { value: "6", label: "Ngành Trụ Cột" },
-                { value: "30+", label: "Năm Phát Triển" },
+                { value: "30+", label: "Năm PT" },
               ].map((s, i) => (
-                <div key={i} className="text-center p-2">
+                <div key={i} className="text-center p-1 sm:p-2">
                   <div className="text-2xl sm:text-3xl font-black text-gold-light font-mono tabular-nums">{s.value}</div>
-                  <div className="text-xs text-gray-300 font-medium mt-1">{s.label}</div>
+                  <div className="text-[11px] text-gray-300 font-medium mt-1 leading-tight">{s.label}</div>
                 </div>
               ))}
             </div>

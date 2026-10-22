@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { targetEmpCode, empCode } = body;
+    const { targetEmpCode, empCode, useDefault } = body;
     const targetCode = normalizeEmpCode(targetEmpCode || empCode || '');
 
     if (!targetCode) {
@@ -49,11 +49,20 @@ export async function POST(request: Request) {
     const sysUser = SYSTEM_USERS[targetCode];
     const targetName = sysUser?.name || `Nhân viên (${targetCode})`;
 
-    const tempPassword = generateTempPassword();
+    const tempPassword = useDefault ? '123456' : generateTempPassword();
     const db = getDbBinding();
+
+    const hashRaw = async (pwd: string): Promise<string> => {
+      const enc = new TextEncoder();
+      const buf = await crypto.subtle.digest('SHA-256', enc.encode(pwd + 'TBS_SALT_2026'));
+      return 'sha256:' + Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+    };
+    const pwdHash = await hashRaw(tempPassword);
 
     if (db) {
       await ensureKaizenSchema(db);
+      const mustChange = useDefault ? 0 : 1;
+
       await db.prepare(`
         CREATE TABLE IF NOT EXISTS user_credentials (
           emp_code TEXT PRIMARY KEY,
@@ -63,15 +72,20 @@ export async function POST(request: Request) {
         )
       `).run().catch(() => {});
 
-      // In real prod, this is hashed one-way with salt/bcrypt
       await db.prepare(`
         INSERT INTO user_credentials (emp_code, temp_password_hash, must_change_password, updated_at)
-        VALUES (?, ?, 1, CURRENT_TIMESTAMP)
+        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
         ON CONFLICT(emp_code) DO UPDATE SET
           temp_password_hash = excluded.temp_password_hash,
-          must_change_password = 1,
+          must_change_password = excluded.must_change_password,
           updated_at = CURRENT_TIMESTAMP
-      `).bind(targetCode, `HASH_${Date.now()}_SALT`).run().catch(() => {});
+      `).bind(targetCode, pwdHash, mustChange).run().catch(() => {});
+
+      // Also update sys_users password_hash and must_change_pwd
+      await db.prepare(`
+        UPDATE sys_users SET password_hash = ?, must_change_pwd = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE UPPER(emp_code) = UPPER(?)
+      `).bind(pwdHash, mustChange, targetCode).run().catch(() => {});
     }
 
     // 🔒 Log Audit Event (Without exposing temp password in audit log or Drive backup)
@@ -97,12 +111,14 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: `Đã cấp lại mật khẩu tạm thời cho nhân viên ${targetName} (${targetCode}) thành công!`,
+      message: useDefault
+        ? `Đã reset mật khẩu về mặc định "123456" cho nhân viên ${targetName} (${targetCode})!`
+        : `Đã cấp lại mật khẩu tạm thời cho nhân viên ${targetName} (${targetCode}) thành công!`,
       data: {
         targetEmpCode: targetCode,
         targetName,
-        tempPassword, // Delivered directly to Admin for end-user instruction
-        mustChangePasswordOnNextLogin: true,
+        tempPassword,
+        mustChangePasswordOnNextLogin: !useDefault,
       },
     });
   } catch (error: any) {

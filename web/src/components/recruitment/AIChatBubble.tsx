@@ -111,7 +111,7 @@ export default function AIChatBubble() {
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 z-[90] w-14 h-14 rounded-2xl bg-accent text-white shadow-lg shadow-accent/20 flex items-center justify-center hover:scale-105 hover:bg-accent-light active:scale-95 transition-all duration-200 animate-float"
+          className="fixed bottom-[76px] md:bottom-6 right-4 md:right-6 z-[90] w-14 h-14 rounded-2xl bg-accent text-white shadow-lg shadow-accent/20 flex items-center justify-center hover:scale-105 hover:bg-accent-light active:scale-95 transition-all duration-200 animate-float"
           aria-label="Mở trợ lý AI tuyển dụng"
         >
           <IconRobot size={26} strokeWidth={1.5} />
@@ -120,7 +120,7 @@ export default function AIChatBubble() {
 
       {/* Chat Panel */}
       {isOpen && (
-        <div className="fixed bottom-6 right-6 z-[90] w-[380px] h-[540px] bg-white rounded-2xl shadow-2xl border border-gray-100 flex flex-col overflow-hidden">
+        <div className="fixed bottom-[76px] md:bottom-6 right-2 md:right-6 z-[90] w-[calc(100vw-1rem)] max-w-[380px] h-[540px] bg-white rounded-2xl shadow-2xl border border-gray-100 flex flex-col overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 bg-accent-deep text-white shrink-0">
             <div className="flex items-center gap-2.5">

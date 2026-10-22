@@ -3111,6 +3111,7 @@ export default {
         p === "/api/version" || p === "/api/kaizen/version" ||
         p === "/api/zalo/webhook" ||
         p === "/api/gemba/sheet-sync" || p.startsWith("/api/gemba/sheet-changes") || // Apps Script, có khóa X-Sheet-Key
+        (p === "/api/gemba/analytics-data" && m === "GET") ||           // dashboard analytics công khai (không cần đăng nhập)
         ((p === "/api/ci-kaizen") && (m === "POST" || m === "PUT")) ||  // trang nộp Kaizen công khai /work/kaizen/register
         ((p === "/api/ci-kaizen/check-duplicate" || p === "/api/ci-kaizen/merge") && m === "POST") ||
         (p === "/api/employees/lookup" && m === "GET") ||
@@ -12306,10 +12307,26 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
           const id = generatedId;
           const code = generatedCode;
 
+          // Số điện thoại (không bắt buộc) — dùng cho tra cứu công khai /work/kaizen/register
+          const kzPhone = normalizeKaizenPhone(body.phone);
+          if (kzPhone) {
+            await env.DB.prepare("ALTER TABLE ci_kaizen_proposals ADD COLUMN phone TEXT").run().catch(() => {});
+            await env.DB.prepare("UPDATE ci_kaizen_proposals SET phone = ? WHERE id = ?").bind(kzPhone, id).run().catch(() => {});
+          }
+          // Mã bí mật để CHÍNH thiết bị vừa gửi tự bật thông báo (không cần đăng nhập, không lộ cho người khác)
+          let notifyToken = null;
+          try {
+            await env.DB.prepare("ALTER TABLE ci_kaizen_proposals ADD COLUMN notify_token TEXT").run().catch(() => {});
+            notifyToken = crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "");
+            await env.DB.prepare("UPDATE ci_kaizen_proposals SET notify_token = ? WHERE id = ?").bind(notifyToken, id).run();
+          } catch (e) {
+            notifyToken = null;
+          }
+
           await recordAuditLog(user, "ci_kaizen", "CREATE_PROPOSAL", id, null, { code, title, status: "SUBMITTED" }, request);
           await createNotification("Trưởng Phòng CI", "ci_kaizen", "INFO", id, "🚀 Đề Xuất Cải Tiến Mới", `${user.name || 'Cán bộ'} vừa nộp đề xuất cải tiến Kaizen: "${title}" (${code}).`);
 
-          const resPayload = JSON.stringify({ success: true, message: "Đã gửi đề xuất cải tiến Kaizen thành công!", id, code });
+          const resPayload = JSON.stringify({ success: true, message: "Đã gửi đề xuất cải tiến Kaizen thành công!", id, code, notifyToken });
 
           if (idempotencyKey) {
             try {
@@ -12647,6 +12664,150 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
     }
 
     // 3.7 API Route: Business Trips Management - Handled in Section 3 above
+
+    // 3.7b API Route: Tra cứu sáng kiến Kaizen công khai (/work/kaizen/register) theo MSNV hoặc SĐT.
+    // Không yêu cầu đăng nhập. CHỈ trả các trường hiển thị — không lộ id nội bộ, người duyệt, email, điểm chấm.
+    if (url.pathname === "/api/public/kaizen/lookup" && request.method === "GET") {
+      const clientIp = request.headers.get("cf-connecting-ip") || "local";
+      if (!checkKaizenLookupRate(clientIp)) {
+        return new Response(JSON.stringify({ success: false, error: "RATE_LIMIT", message: "Bạn tra cứu quá nhanh, vui lòng thử lại sau 1 phút." }), { status: 429, headers: SECURE_JSON_HEADERS });
+      }
+      const rawQ = (url.searchParams.get("q") || "").trim();
+      const typeParam = url.searchParams.get("type");
+      const compact = rawQ.replace(/[\s.\-()]/g, "");
+      const isPhone = typeParam === "phone" || (typeParam !== "msnv" && /^(\+84|0)\d{9}$/.test(compact));
+      const phone = isPhone ? normalizeKaizenPhone(rawQ) : null;
+      const msnv = isPhone ? "" : rawQ.toUpperCase();
+      if ((isPhone && !phone) || (!isPhone && !/^[A-Z0-9_-]{3,20}$/.test(msnv))) {
+        return new Response(JSON.stringify({ success: false, error: "INVALID_QUERY", message: isPhone ? "Số điện thoại không hợp lệ (10 số, bắt đầu bằng 0)." : "MSNV không hợp lệ." }), { status: 400, headers: SECURE_JSON_HEADERS });
+      }
+      if (!env.DB) {
+        return new Response(JSON.stringify({ success: true, type: isPhone ? "phone" : "msnv", items: [] }), { headers: SECURE_JSON_HEADERS });
+      }
+      try {
+        const items = await queryPublicKaizenItems(env, isPhone, phone, msnv);
+        return new Response(JSON.stringify({ success: true, type: isPhone ? "phone" : "msnv", items }), { headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        console.error("GET /api/public/kaizen/lookup error:", err);
+        return new Response(JSON.stringify({ success: false, error: "SERVER_ERROR", message: "Không tra cứu được, vui lòng thử lại." }), { status: 500, headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    // 3.7c Thông báo đổi trạng thái sáng kiến (Web Push, không cần đăng nhập — gắn theo MSNV/SĐT đã tra cứu)
+    if (url.pathname === "/api/public/kaizen/notify/subscribe" && request.method === "POST") {
+      const clientIp = request.headers.get("cf-connecting-ip") || "local";
+      if (!checkKaizenLookupRate(clientIp)) {
+        return new Response(JSON.stringify({ success: false, error: "RATE_LIMIT", message: "Thao tác quá nhanh, vui lòng thử lại sau 1 phút." }), { status: 429, headers: SECURE_JSON_HEADERS });
+      }
+      try {
+        const body = await request.json().catch(() => ({}));
+        const sub = body.subscription || {};
+        const endpoint = String(sub.endpoint || "");
+        if (!/^https:\/\//.test(endpoint) || !sub.keys || !sub.keys.p256dh || !sub.keys.auth) {
+          return new Response(JSON.stringify({ success: false, error: "INVALID_INPUT", message: "Thiếu thông tin đăng ký thông báo." }), { status: 400, headers: SECURE_JSON_HEADERS });
+        }
+        if (!env.DB) return new Response(JSON.stringify({ success: false, error: "NO_DB" }), { status: 503, headers: SECURE_JSON_HEADERS });
+        // Xác minh quyền nhận thông báo — luôn quy về MSNV của chủ sáng kiến
+        let ownerMsnv = "";
+        const token = String(body.token || "").trim();
+        if (token) {
+          if (/^[a-f0-9]{32,80}$/i.test(token)) {
+            const row = await env.DB.prepare("SELECT proposer_emp_code FROM ci_kaizen_proposals WHERE notify_token = ? LIMIT 1").bind(token).first().catch(() => null);
+            ownerMsnv = String(row?.proposer_emp_code || "").trim().toUpperCase();
+          }
+        } else {
+          const msnvIn = String(body.msnv || "").trim().toUpperCase();
+          const phoneIn = normalizeKaizenPhone(body.phone);
+          if (/^[A-Z0-9_-]{3,20}$/.test(msnvIn) && phoneIn) {
+            const row = await env.DB.prepare(
+              "SELECT 1 AS ok FROM ci_kaizen_proposals WHERE UPPER(TRIM(proposer_emp_code)) = ? AND phone = ? AND COALESCE(is_archived, 0) = 0 LIMIT 1"
+            ).bind(msnvIn, phoneIn).first().catch(() => null);
+            if (row) ownerMsnv = msnvIn;
+          }
+        }
+        if (!ownerMsnv) {
+          return new Response(JSON.stringify({ success: false, error: "NOT_VERIFIED", message: "MSNV và số điện thoại không khớp với sáng kiến nào. Hãy nhập đúng SĐT đã khai báo khi đăng ký." }), { status: 403, headers: SECURE_JSON_HEADERS });
+        }
+        const key = parseKaizenLookupKey(ownerMsnv, "msnv");
+        await ensureKaizenNotifyTables(env);
+        const watchId = `kzw_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        await env.DB.prepare(
+          `INSERT INTO ci_kaizen_public_watchers (id, lookup_type, lookup_value, endpoint, p256dh, auth_key)
+           VALUES (?, ?, ?, ?, ?, ?)
+           ON CONFLICT(lookup_type, lookup_value, endpoint) DO UPDATE SET p256dh = excluded.p256dh, auth_key = excluded.auth_key`
+        ).bind(watchId, key.type, key.value, endpoint, String(sub.keys.p256dh), String(sub.keys.auth)).run();
+        // Chụp giai đoạn hiện tại làm mốc — chỉ báo các thay đổi xảy ra SAU khi bật
+        const items = await queryPublicKaizenItems(env, key.isPhone, key.phone, key.msnv);
+        await snapshotKaizenStages(env, `${key.type}:${key.value}`, items);
+        return new Response(JSON.stringify({ success: true, msnv: ownerMsnv, message: "Đã bật thông báo khi sáng kiến đổi trạng thái." }), { headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        console.error("POST /api/public/kaizen/notify/subscribe error:", err);
+        return new Response(JSON.stringify({ success: false, error: "SERVER_ERROR", message: "Không bật được thông báo, vui lòng thử lại." }), { status: 500, headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    if (url.pathname === "/api/public/kaizen/notify/unsubscribe" && request.method === "POST") {
+      try {
+        const body = await request.json().catch(() => ({}));
+        const key = parseKaizenLookupKey(body.msnv, "msnv");
+        const endpoint = String(body.endpoint || "");
+        if (env.DB && key.valid && endpoint) {
+          await ensureKaizenNotifyTables(env);
+          await env.DB.prepare("DELETE FROM ci_kaizen_public_watchers WHERE lookup_type = ? AND lookup_value = ? AND endpoint = ?").bind(key.type, key.value, endpoint).run();
+        }
+        return new Response(JSON.stringify({ success: true }), { headers: SECURE_JSON_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: "SERVER_ERROR" }), { status: 500, headers: SECURE_JSON_HEADERS });
+      }
+    }
+
+    // Quét đổi trạng thái & gửi push — chỉ cron nội bộ gọi (khoá x-sync-secret)
+    if (url.pathname === "/api/public/kaizen/notify/sweep" && request.method === "POST") {
+      const secret = env.INTERNAL_SYNC_SECRET || "tbs_ii_secure_jwt_secret_key_2026";
+      if (request.headers.get("x-sync-secret") !== secret) {
+        return new Response(JSON.stringify({ success: false, error: "FORBIDDEN" }), { status: 403, headers: SECURE_JSON_HEADERS });
+      }
+      if (!env.DB) return new Response(JSON.stringify({ success: true, sent: 0 }), { headers: SECURE_JSON_HEADERS });
+      let sent = 0, changedTotal = 0;
+      try {
+        await ensureKaizenNotifyTables(env);
+        const { results: keys } = await env.DB.prepare("SELECT DISTINCT lookup_type, lookup_value FROM ci_kaizen_public_watchers LIMIT 500").all();
+        for (const k of keys || []) {
+          const key = parseKaizenLookupKey(k.lookup_value, k.lookup_type);
+          if (!key.valid) continue;
+          const items = await queryPublicKaizenItems(env, key.isPhone, key.phone, key.msnv);
+          const changed = await snapshotKaizenStages(env, `${key.type}:${key.value}`, items);
+          if (changed.length === 0) continue;
+          changedTotal += changed.length;
+          const { results: watchers } = await env.DB.prepare(
+            "SELECT id, endpoint, p256dh, auth_key FROM ci_kaizen_public_watchers WHERE lookup_type = ? AND lookup_value = ?"
+          ).bind(key.type, key.value).all();
+          for (const c of changed) {
+            const detailUrl = `/work/kaizen/register?view=detail&q=${encodeURIComponent(key.value)}&type=${key.type}&code=${encodeURIComponent(c.item.code)}`;
+            const payload = {
+              id: `kzn_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+              title: `💡 Sáng kiến ${c.item.code}: ${KAIZEN_STAGE_LABELS[c.to] || c.to}`,
+              message: `${String(c.item.title || "Sáng kiến cải tiến").slice(0, 80)} — ${KAIZEN_STAGE_LABELS[c.from] || c.from} → ${KAIZEN_STAGE_LABELS[c.to] || c.to}`,
+              url: detailUrl,
+              type: c.to === "REJECTED" ? "WARNING" : "SUCCESS",
+              category: "KAIZEN",
+              priority: "HIGH",
+            };
+            for (const w of watchers || []) {
+              const r = await sendWebPushToDevice(w, payload);
+              if (r && r.success) sent++;
+              if (r && (r.status === 404 || r.status === 410)) {
+                await env.DB.prepare("DELETE FROM ci_kaizen_public_watchers WHERE id = ?").bind(w.id).run().catch(() => {});
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error("[kaizen notify sweep]", err);
+        return new Response(JSON.stringify({ success: false, error: err.message, sent, changed: changedTotal }), { status: 500, headers: SECURE_JSON_HEADERS });
+      }
+      return new Response(JSON.stringify({ success: true, sent, changed: changedTotal }), { headers: SECURE_JSON_HEADERS });
+    }
 
     // 3.8 API Route: Đặt phòng họp công khai bằng mã QR (/api/public/rooms/*, /api/public/employee)
     // Không yêu cầu đăng nhập. Chỉ trả thông tin tối thiểu (không lộ tên người đã đặt).
@@ -16122,6 +16283,42 @@ function getValidWorkerImageUrl(rawUrl, attachmentsJson) {
         }
       }
 
+      // 1.5. GET /api/gemba/analytics-data — raw records for client-side analytics (no auth required)
+      if (url.pathname === "/api/gemba/analytics-data" && request.method === "GET") {
+        try {
+          const factoryId = url.searchParams.get("factory_id") || "ALL";
+          let whereClause = "WHERE 1=1";
+          const bindings = [];
+          if (factoryId !== "ALL") {
+            whereClause += " AND r.factory_id = ?";
+            bindings.push(factoryId);
+          }
+          const { results: rawRecords } = await env.DB.prepare(`
+            SELECT r.id, r.code, r.title, r.description, r.priority, r.status,
+                   r.created_by_emp_code, r.created_by_name,
+                   r.assigned_to_emp_code, r.assigned_to_name,
+                   r.due_at, r.closed_at, r.created_at, r.updated_at,
+                   f.name as factory_name, f.code as factory_code,
+                   w.name as workshop_name,
+                   l.name as line_name,
+                   t.name as team_name,
+                   c.name as category_name, c.code as category_code,
+                   CASE WHEN (r.status != 'COMPLETED' AND r.due_at IS NOT NULL AND r.due_at < CURRENT_TIMESTAMP) THEN 1 ELSE 0 END as is_overdue
+            FROM gemba_records r
+            LEFT JOIN gemba_factories f ON r.factory_id = f.id
+            LEFT JOIN gemba_workshops w ON r.workshop_id = w.id
+            LEFT JOIN gemba_lines l ON r.line_id = l.id
+            LEFT JOIN gemba_teams t ON r.team_id = t.id
+            LEFT JOIN gemba_categories c ON r.category_id = c.id
+            ${whereClause}
+            ORDER BY r.created_at DESC
+          `).bind(...bindings).all().catch(() => ({ results: [] }));
+          return new Response(JSON.stringify({ success: true, records: rawRecords || [] }), { headers: SECURE_JSON_HEADERS });
+        } catch (err) {
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: SECURE_JSON_HEADERS });
+        }
+      }
+
       // 2. GET /api/gemba/records & POST /api/gemba/records
       if (url.pathname === "/api/gemba/records") {
         if (request.method === "GET") {
@@ -18879,6 +19076,13 @@ async function ensureKaizenGuestTable(env) {
 
   // ⏰ Cloudflare Worker Cron Trigger Handler (Daily System Backup & Kaizen Sync)
   async scheduled(event, env, ctx) {
+    // Mỗi 10 phút: báo cho người đăng ký khi sáng kiến công khai đổi trạng thái
+    if (event.cron === "*/10 * * * *") {
+      const secret = env.INTERNAL_SYNC_SECRET || "tbs_ii_secure_jwt_secret_key_2026";
+      const req = new Request("https://vpchuoiskechers.internal/api/public/kaizen/notify/sweep", { method: "POST", headers: { "x-sync-secret": secret } });
+      ctx.waitUntil(this.fetch(req, env, ctx).then((r) => r.text()).then((t) => console.log("[KAIZEN NOTIFY CRON]", t)).catch((e) => console.error("[KAIZEN NOTIFY CRON]", e)));
+      return;
+    }
     // Nhịp mỗi giờ: chỉ chạy tác vụ SCM (leo thang theo giờ cấu hình trong scm_settings).
     // Các tác vụ cũ (đồng bộ Kaizen, backup) giữ nguyên ở lịch 0 19 * * *.
     if (event.cron === "0 * * * *") {
@@ -19261,3 +19465,288 @@ async function ensureKaizenGuestTable(env) {
   },
 };
 
+// ── Kaizen công khai: chuẩn hoá SĐT, rate limit tra cứu, lọc trường trả về ──
+function normalizeKaizenPhone(raw) {
+  if (raw === undefined || raw === null) return null;
+  let s = String(raw).replace(/[\s.\-()]/g, "");
+  if (!s) return null;
+  if (s.startsWith("+84")) s = "0" + s.slice(3);
+  else if (s.startsWith("84") && s.length === 11) s = "0" + s.slice(2);
+  return /^0\d{9}$/.test(s) ? s : null;
+}
+
+// Giới hạn theo IP trong từng isolate (30 lượt/phút) — đủ chặn dò hàng loạt cơ bản.
+const KAIZEN_LOOKUP_HITS = new Map();
+function checkKaizenLookupRate(ip) {
+  const now = Date.now();
+  const hits = (KAIZEN_LOOKUP_HITS.get(ip) || []).filter((t) => now - t < 60000);
+  if (hits.length >= 30) { KAIZEN_LOOKUP_HITS.set(ip, hits); return false; }
+  hits.push(now);
+  KAIZEN_LOOKUP_HITS.set(ip, hits);
+  if (KAIZEN_LOOKUP_HITS.size > 5000) KAIZEN_LOOKUP_HITS.clear();
+  return true;
+}
+
+function publicKaizenImageUrl(u) {
+  if (!u || typeof u !== "string") return "";
+  const clean = u.trim().replace(/^["']|["']$/g, "");
+  if (!clean) return "";
+  // Bỏ ảnh base64 quá lớn để payload tra cứu không phình to
+  if (clean.startsWith("data:")) return clean.length < 400000 ? clean : "";
+  if (clean.includes("drive.google.com")) {
+    const m = clean.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || clean.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    if (m && m[1]) return `https://lh3.googleusercontent.com/d/${m[1]}`;
+  }
+  if (clean.includes("r2.dev/")) return `/cdn-r2/${clean.split("r2.dev/")[1]}`;
+  if (clean.startsWith("/cdn-r2/")) return clean;
+  return /^(https?:)?\//.test(clean) ? clean : "";
+}
+
+function publicKaizenImages(rawUrl, attachmentsJson, tag) {
+  const out = [];
+  const add = (u) => { const f = publicKaizenImageUrl(u); if (f && !out.includes(f)) out.push(f); };
+  if (rawUrl && typeof rawUrl === "string") {
+    const t = rawUrl.trim();
+    if (t.startsWith("[")) {
+      try { JSON.parse(t).forEach((x) => add(typeof x === "string" ? x : x && x.url)); } catch (e) {}
+    } else if (t.startsWith("data:")) add(t);
+    else t.split(",").forEach(add);
+  }
+  if (attachmentsJson) {
+    try {
+      const arr = typeof attachmentsJson === "string" ? JSON.parse(attachmentsJson) : attachmentsJson;
+      if (Array.isArray(arr)) {
+        arr.forEach((a) => {
+          if (!a || typeof a !== "object") return;
+          const aTag = String(a.tag || "").toUpperCase();
+          const isVideo = String(a.type || "").toLowerCase() === "video";
+          if (!isVideo && aTag === tag) add(a.url);
+        });
+      }
+    } catch (e) {}
+  }
+  return out;
+}
+
+function computeKaizenPublicStage(r, aggScore) {
+  const U = (v) => String(v || "").trim().toUpperCase();
+  const app = U(r.approval_status);
+  let sub = U(r.sub_status || r.review_status);
+  const st = U(r.status);
+  const tt = U(r.trang_thai);
+  const score = aggScore > 0 ? aggScore : Number(r.judge_final_score || r.score_points || r.diem_hieu_qua || r.diem_tong_hop || 0);
+  // GET /api/ci-kaizen: có điểm chấm thì coi như đã đánh giá
+  if (aggScore > 0 && (!sub || sub === "CHO_DUYET" || sub === "CHO_DANH_GIA")) sub = "DA_DANH_GIA";
+
+  if (app === "TU_CHOI" || sub === "TU_CHOI_TRIEN_KHAI" || sub === "TU_CHOI_DUYET" || st === "REJECTED" || tt === "KHONG_DAT_DIEU_KIEN") return "REJECTED";
+  if (sub === "CAN_CHINH_SUA" || tt === "CAN_CHINH_SUA") return "NEEDS_EDIT";
+  if (sub === "LUU_TRU" || U(r.registration_type) === "LUU_TRU" || st === "ARCHIVED") return "ARCHIVED";
+
+  const pending =
+    ["CHO_REVIEW", "SO_BO", "SO_DUYET", "CHO_DUYET"].includes(sub) ||
+    app === "PENDING" ||
+    ["SUBMITTED", "CHO_DUYET", "DRAFT"].includes(st);
+  const approved = !pending && (
+    app === "PHE_DUYET" ||
+    ["CHO_DANH_GIA", "DA_DANH_GIA", "DA_DUYET"].includes(sub) ||
+    st === "APPROVED" || st === "COMPLETED" ||
+    Number(r.avg_rating || r.average_score || 0) > 0
+  );
+  if (!approved) return "PENDING";
+  return score > 0 || sub === "DA_DANH_GIA" ? "EVALUATED" : "APPROVED";
+}
+
+function toPublicKaizenItem(r, aggScore = 0) {
+  const isKgSource = r._source === "thkiengiangshoes";
+  const KG_BASE = "https://thkiengiangshoes.tbsgroup2026.workers.dev";
+  const fixKg = (u) => {
+    if (!isKgSource || !u || typeof u !== "string") return u;
+    return u.split(",").map((x) => {
+      const t = x.trim();
+      if (!t || /^(https?:|data:)/.test(t)) return t;
+      return KG_BASE + (t.startsWith("/") ? "" : "/") + t;
+    }).join(",");
+  };
+  let attJson = r.attachments_json;
+  if (isKgSource && attJson) {
+    try {
+      const arr = JSON.parse(attJson);
+      if (Array.isArray(arr)) attJson = JSON.stringify(arr.map((a) => (a && a.url ? { ...a, url: fixKg(a.url) } : a)));
+    } catch (e) {}
+  }
+  r = { ...r, before_image_url: fixKg(r.before_image_url), after_image_url: fixKg(r.after_image_url), attachments_json: attJson };
+  return {
+    stage: computeKaizenPublicStage(r, aggScore),
+    code: r.code || "",
+    title: r.title || "",
+    trang_thai: r.trang_thai || null,
+    review_status: r.review_status || null,
+    proposer_name: r.proposer_name || "",
+    department: r.department || "",
+    factory: r.factory || r.region || "",
+    category_label: r.category_label || "",
+    registration_type: r.registration_type || "",
+    award_title: r.award_title || "",
+    before_description: r.before_description || "",
+    after_solution: r.after_solution || "",
+    before_images: publicKaizenImages(r.before_image_url, r.attachments_json, "BEFORE"),
+    after_images: publicKaizenImages(r.after_image_url, r.attachments_json, "AFTER"),
+    total_savings_vnd: Number(r.total_savings_vnd || 0),
+    efficiency_value_vnd: Number(r.efficiency_value_vnd || 0),
+    saved_seconds: Number(r.saved_seconds || r.so_giay_tiet_kiem || 0),
+    nhan_xet_kiem_chung: r.nhan_xet_kiem_chung || "",
+    rejection_reason: r.rejection_reason || "",
+    created_at: r.created_at || null,
+    ie_confirmed_at: r.ie_confirmed_at || null,
+    updated_at: r.updated_at || null,
+  };
+}
+
+// Truy vấn sáng kiến công khai theo MSNV / SĐT — dùng chung cho tra cứu và quét gửi thông báo
+async function queryPublicKaizenItems(env, isPhone, phone, msnv) {
+  await env.DB.prepare("ALTER TABLE ci_kaizen_proposals ADD COLUMN phone TEXT").run().catch(() => {});
+  await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_ci_kaizen_phone ON ci_kaizen_proposals(phone)").run().catch(() => {});
+  await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_ci_kaizen_emp_code ON ci_kaizen_proposals(proposer_emp_code)").run().catch(() => {});
+  const where = isPhone ? "phone = ?" : "UPPER(TRIM(proposer_emp_code)) = ?";
+  const { results } = await env.DB.prepare(`
+    SELECT * FROM ci_kaizen_proposals
+    WHERE ${where}
+      AND COALESCE(is_archived, 0) = 0
+      AND UPPER(COALESCE(trang_thai, '')) != 'DA_GOP'
+    ORDER BY datetime(created_at) DESC
+    LIMIT 50
+  `).bind(isPhone ? phone : msnv).all();
+  const localRows = results || [];
+
+  // Giống /work/kaizen: bản ghi Kiên Giang lấy trực tiếp từ DB nguồn (mới hơn bản sync tkg_)
+  const kgRows = [];
+  if (env.DB_KG) {
+    const empCodes = isPhone
+      ? Array.from(new Set(localRows.map((r) => String(r.proposer_emp_code || "").trim().toUpperCase()).filter(Boolean)))
+      : [msnv];
+    if (empCodes.length > 0) {
+      try {
+        const ph = empCodes.map(() => "?").join(",");
+        const kgRes = await env.DB_KG.prepare(
+          `SELECT * FROM ci_kaizen_proposals WHERE UPPER(TRIM(proposer_emp_code)) IN (${ph}) ORDER BY rowid DESC LIMIT 50`
+        ).bind(...empCodes).all();
+        for (const r of kgRes?.results || []) {
+          if (Number(r.is_archived || 0) === 1 || String(r.trang_thai || "").toUpperCase() === "DA_GOP") continue;
+          kgRows.push({ ...r, sub_status: r.sub_status || "CHO_DANH_GIA", status: r.status || "SUBMITTED", _source: "thkiengiangshoes" });
+        }
+      } catch (e) {
+        console.warn("[kaizen lookup] DB_KG read failed:", e && e.message);
+      }
+    }
+  }
+  const dedupeKey = (r) => {
+    const c = String(r.code || r.legacy_code || "").trim().toUpperCase();
+    if (c.startsWith("KZ-2026-")) return c;
+    return String(r.id || "").trim().toUpperCase().replace(/^TKG_/, "");
+  };
+  const merged = new Map();
+  const localKeys = new Set(localRows.map(dedupeKey));
+  for (const r of kgRows) {
+    // Tra theo SĐT: chỉ nhận bản ghi nguồn tương ứng với bản ghi đã khớp SĐT
+    if (isPhone && !localKeys.has(dedupeKey(r))) continue;
+    merged.set(dedupeKey(r), r);
+  }
+  for (const r of localRows) {
+    const k = dedupeKey(r);
+    if (!merged.has(k)) merged.set(k, r);
+  }
+  const rows = Array.from(merged.values()).sort((a, b) => new Date(String(b.created_at || 0).replace(" ", "T")) - new Date(String(a.created_at || 0).replace(" ", "T"))).slice(0, 50);
+
+  // Điểm chấm trung bình từ ci_kaizen_scores (submission_id có thể là id / code / id tkg_)
+  const scoreMap = {};
+  const scoreKeys = new Set();
+  for (const r of rows) {
+    [r.id, r.code, r.external_id].forEach((v) => {
+      const k = String(v || "").trim().toUpperCase();
+      if (!k) return;
+      scoreKeys.add(k);
+      scoreKeys.add(k.replace(/^TKG_/, ""));
+      scoreKeys.add("TKG_" + k.replace(/^TKG_/, ""));
+    });
+  }
+  const keyList = Array.from(scoreKeys);
+  for (let i = 0; i < keyList.length; i += 80) {
+    const chunk = keyList.slice(i, i + 80);
+    try {
+      const agg = await env.DB.prepare(
+        `SELECT UPPER(TRIM(submission_id)) AS sid, AVG(total_score) AS avg_score FROM ci_kaizen_scores WHERE UPPER(TRIM(submission_id)) IN (${chunk.map(() => "?").join(",")}) GROUP BY UPPER(TRIM(submission_id))`
+      ).bind(...chunk).all();
+      for (const a of agg?.results || []) scoreMap[a.sid] = Math.round(Number(a.avg_score || 0) * 10) / 10;
+    } catch (e) {}
+  }
+  const scoreOf = (r) => {
+    for (const v of [r.id, r.code, r.external_id]) {
+      const k = String(v || "").trim().toUpperCase();
+      if (!k) continue;
+      const hit = scoreMap[k] || scoreMap[k.replace(/^TKG_/, "")] || scoreMap["TKG_" + k.replace(/^TKG_/, "")];
+      if (hit) return hit;
+    }
+    return 0;
+  };
+
+  return rows.map((r) => toPublicKaizenItem(r, scoreOf(r)));
+}
+
+function parseKaizenLookupKey(rawQ, typeParam) {
+  const q = String(rawQ || "").trim();
+  const compact = q.replace(/[\s.\-()]/g, "");
+  const isPhone = typeParam === "phone" || (typeParam !== "msnv" && /^(\+84|0)\d{9}$/.test(compact));
+  const phone = isPhone ? normalizeKaizenPhone(q) : null;
+  const msnv = isPhone ? "" : q.toUpperCase();
+  const valid = isPhone ? Boolean(phone) : /^[A-Z0-9_-]{3,20}$/.test(msnv);
+  return { isPhone, phone, msnv, valid, type: isPhone ? "phone" : "msnv", value: isPhone ? phone : msnv };
+}
+
+const KAIZEN_STAGE_LABELS = {
+  PENDING: "Chờ duyệt",
+  NEEDS_EDIT: "Cần chỉnh sửa",
+  REJECTED: "Từ chối",
+  ARCHIVED: "Lưu trữ",
+  APPROVED: "Đã duyệt - chờ đánh giá",
+  EVALUATED: "Đã đánh giá",
+};
+
+async function ensureKaizenNotifyTables(env) {
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS ci_kaizen_public_watchers (
+    id TEXT PRIMARY KEY,
+    lookup_type TEXT NOT NULL,
+    lookup_value TEXT NOT NULL,
+    endpoint TEXT NOT NULL,
+    p256dh TEXT,
+    auth_key TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(lookup_type, lookup_value, endpoint)
+  )`).run();
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS ci_kaizen_public_stage (
+    lookup_key TEXT NOT NULL,
+    code TEXT NOT NULL,
+    stage TEXT NOT NULL,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (lookup_key, code)
+  )`).run();
+}
+
+// Ghi lại giai đoạn hiện tại; trả về danh sách sáng kiến đã đổi giai đoạn so với lần ghi trước
+async function snapshotKaizenStages(env, lookupKey, items) {
+  const { results } = await env.DB.prepare("SELECT code, stage FROM ci_kaizen_public_stage WHERE lookup_key = ?").bind(lookupKey).all();
+  const prev = {};
+  for (const r of results || []) prev[r.code] = r.stage;
+  const changed = [];
+  const stmts = [];
+  for (const it of items) {
+    if (!it.code || !it.stage) continue;
+    const old = prev[it.code];
+    if (old === it.stage) continue;
+    if (old) changed.push({ item: it, from: old, to: it.stage });
+    stmts.push(env.DB.prepare(
+      "INSERT INTO ci_kaizen_public_stage (lookup_key, code, stage, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP) ON CONFLICT(lookup_key, code) DO UPDATE SET stage = excluded.stage, updated_at = CURRENT_TIMESTAMP"
+    ).bind(lookupKey, it.code, it.stage));
+  }
+  if (stmts.length) await env.DB.batch(stmts);
+  return changed;
+}
